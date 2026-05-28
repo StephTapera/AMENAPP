@@ -435,11 +435,11 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
 
-      // Streaks: owner-read always, owner-write only for grace recovery reset.
-      // Streak increments go through the recordSpiritualActivity callable (admin).
+      // Streaks: owner-read only. All writes go through Cloud Functions
+      // (recordSpiritualActivity, recoverStreak) to prevent score spoofing.
       match /streaks/{streakType} {
         allow read: if isOwner(uid);
-        allow write: if isOwner(uid);
+        allow write: if false; // Writes must go through Cloud Functions (recordSpiritualActivity, recoverStreak)
       }
 
       match /calmControl/{docId} {
@@ -520,6 +520,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Continue-in-AMEN row — owned by user, written only by markEngaged callable.
+    match /users/{uid}/continue/{entryId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
     function contentVisibleToCaller() {
       return resource.data.ownerId == request.auth.uid ||
         (resource.data.collaborators is list && resource.data.collaborators.hasAny([request.auth.uid])) ||
@@ -564,6 +570,17 @@ service cloud.firestore {
           );
         allow write: if false;
       }
+    }
+
+    // ── Featured carousel — admin-curated, moderation-gated ──────────────────
+    // Clients may read cards that are active and have passed GUARDIAN review.
+    // All writes go through setFeatured / clearFeaturedModeration callables.
+
+    match /featured/{cardId} {
+      allow read: if isSignedIn()
+                  && resource.data.active == true
+                  && resource.data.moderationCleared == true;
+      allow write: if false;
     }
 
     // ── Posts / feed ─────────────────────────────────────────────────────────
@@ -1531,18 +1548,20 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow get: if isSignedIn();
-        allow list: if isSignedIn();
+        allow get: if isSignedIn() && isConversationParticipant(conversationId);
+        allow list: if isSignedIn() && isConversationParticipant(conversationId);
         allow create: if isSignedIn()
+          && isConversationParticipant(conversationId)
           && request.resource.data.senderId == request.auth.uid;
         allow update: if isSignedIn()
+          && isConversationParticipant(conversationId)
           && resource.data.senderId == request.auth.uid;
         allow delete: if false;
       }
 
       match /typingIndicators/{typingUid} {
-        allow read: if isSignedIn();
-        allow write: if isSignedIn() && typingUid == request.auth.uid;
+        allow read: if isSignedIn() && isConversationParticipant(conversationId);
+        allow write: if isSignedIn() && isConversationParticipant(conversationId) && typingUid == request.auth.uid;
       }
     }
 
@@ -1570,7 +1589,7 @@ service cloud.firestore {
 
     match /bereanMemory/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
     }
 
@@ -1586,11 +1605,11 @@ service cloud.firestore {
 
     match /bereanThreads/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
 
       match /messages/{messageId} {
-        allow read: if isSignedIn();
+        allow read: if isSignedIn() && get(/databases/$(database)/documents/bereanThreads/$(docId)).data.userId == request.auth.uid;
         allow write: if false;
       }
     }
@@ -2119,7 +2138,7 @@ service cloud.firestore {
     }
 
     match /presence/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
     }
 

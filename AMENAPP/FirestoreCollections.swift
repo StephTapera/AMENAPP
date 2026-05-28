@@ -32,6 +32,25 @@ enum FirestoreCollections {
     static let followRequests = "followRequests"
     static let churchNotes = "churchNotes"
 
+    // MARK: - Calm Control OS Paths
+    // Subcollections under users/{uid}/
+    static let privacySettings = "privacySettings"
+    static let feedControls = "feedControls"
+    static let notificationSettings = "notificationSettings"
+    static let spiritualRhythm = "spiritualRhythm"
+    static let streaks = "streaks"
+    static let presence = "presence"
+    static let audienceLayers = "audienceLayers"
+    static let activity = "activity"
+    static let rateLimits = "rateLimits"
+    // Document IDs
+    static let mainDocument = "main"
+    // Streak types
+    static let streakScripture = "scripture"
+    static let streakPrayer = "prayer"
+    static let streakCommunity = "community"
+    static let streakReading = "reading"
+
     enum UserSubcollections {
         static let usage = "usage"
         static let safety = "safety"

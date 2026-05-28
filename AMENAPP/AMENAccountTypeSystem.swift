@@ -437,7 +437,7 @@ struct AccountTypeBadgeView: View {
         .amenLiquidGlass(cornerRadius: 20)
         .scaleEffect(isPressed ? 0.97 : 1.0)
         .animation(.spring(response: 0.35, dampingFraction: 0.82), value: isPressed)
-        .onTapGesture { }
+        .onTapGesture { } // Intentional: absorbs tap to prevent propagation to underlying interactive views
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }

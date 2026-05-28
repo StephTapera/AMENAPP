@@ -94,6 +94,7 @@ export const bereanChatProxy = onCall(
         secrets: [anthropicApiKey],
         timeoutSeconds: 60,
         memory: "256MiB",
+        minInstances: 1,
         // Reject calls from clients that cannot produce a valid App Check token.
         // Prevents scripted abuse of the Anthropic API proxy with a stolen
         // Firebase Auth token alone (no attested iOS binary required).
@@ -645,6 +646,20 @@ const MEDICAL_KEYWORDS = [
     "doctor said",
     "medical advice",
     "diagnosis",
+    "sick",
+    "illness",
+    "symptoms",
+    "pain",
+    "medication",
+    "medicine",
+    "doctor",
+    "hospital",
+    "therapy",
+    "therapist",
+    "mental health",
+    "anxiety medication",
+    "antidepressant",
+    "treatment",
 ];
 
 const LEGAL_KEYWORDS = [

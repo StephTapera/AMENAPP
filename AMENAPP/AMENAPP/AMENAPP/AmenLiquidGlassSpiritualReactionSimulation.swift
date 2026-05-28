@@ -1,3 +1,4 @@
+#if DEBUG
 import SwiftUI
 
 // MARK: - Amen Liquid Glass Spiritual Reaction Simulation
@@ -417,13 +418,13 @@ private struct SpiritualPostCard: View {
                 }
 
                 if let scripture = triggers.first(where: { $0.type == .scriptureReference }) {
-                    AmenScriptureContextCapsule(trigger: scripture)
+                    SimScriptureContextCapsule(trigger: scripture)
                 } else if let prayer = triggers.first(where: { $0.type == .prayerRequest }) {
-                    AmenPrayerRequestCapsule(trigger: prayer)
+                    SimPrayerRequestCapsule(trigger: prayer)
                 } else if let testimony = triggers.first(where: { $0.type == .testimony }) {
-                    AmenTestimonyMomentCapsule(trigger: testimony)
+                    SimTestimonyMomentCapsule(trigger: testimony)
                 } else if let wisdom = triggers.first(where: { $0.type == .wisdomPrompt }) {
-                    AmenWisdomPromptCapsule(trigger: wisdom)
+                    SimWisdomPromptCapsule(trigger: wisdom)
                 }
             }
         }
@@ -747,7 +748,7 @@ private struct SpiritualTriggerChip: View {
     }
 }
 
-private struct AmenScriptureContextCapsule: View {
+private struct SimScriptureContextCapsule: View {
     let trigger: SpiritualTriggerResult
 
     var body: some View {
@@ -759,7 +760,7 @@ private struct AmenScriptureContextCapsule: View {
     }
 }
 
-private struct AmenPrayerRequestCapsule: View {
+private struct SimPrayerRequestCapsule: View {
     let trigger: SpiritualTriggerResult
 
     var body: some View {
@@ -771,7 +772,7 @@ private struct AmenPrayerRequestCapsule: View {
     }
 }
 
-private struct AmenTestimonyMomentCapsule: View {
+private struct SimTestimonyMomentCapsule: View {
     let trigger: SpiritualTriggerResult
 
     var body: some View {
@@ -783,14 +784,14 @@ private struct AmenTestimonyMomentCapsule: View {
     }
 }
 
-private struct AmenWisdomPromptCapsule: View {
+private struct SimWisdomPromptCapsule: View {
     let trigger: SpiritualTriggerResult
 
     var body: some View {
         capsule(
             title: "Discernment moment",
             subtitle: "Pause · Pray · Respond",
-            effect: nil
+            effect: Optional<EmptyView>.none
         )
     }
 }
@@ -824,28 +825,6 @@ private func capsule<Effect: View>(title: String, subtitle: String, effect: Effe
     .overlay(Capsule(style: .continuous).stroke(Color.black.opacity(0.05), lineWidth: 0.8))
 }
 
-private struct AmenMicrocopyToast: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Color.black.opacity(0.8))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(Capsule(style: .continuous).fill(Color.white.opacity(0.9)))
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(Color.black.opacity(0.05), lineWidth: 0.8)
-            )
-            .shadow(color: Color.black.opacity(0.05), radius: 8, y: 2)
-    }
-}
-
 // MARK: - Discernment Sheet
 
 private struct SpiritualDiscernmentSheet: View {
@@ -876,14 +855,14 @@ private struct SpiritualDiscernmentSheet: View {
                         Text("Original")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Color.black.opacity(0.5))
-                        Text("“\(context.originalText)”")
+                        Text("\"\(context.originalText)\"")
                             .font(.subheadline)
                             .foregroundStyle(Color.black.opacity(0.84))
 
                         Text("Suggested")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Color.black.opacity(0.5))
-                        Text("“\(suggestedRewrite)”")
+                        Text("\"\(suggestedRewrite)\"")
                             .font(.subheadline)
                             .foregroundStyle(Color.black.opacity(0.84))
                     }
@@ -1223,22 +1202,13 @@ struct SpiritualPost: Identifiable, Equatable {
     ]
 }
 
-enum AmenSafetyLane {
-    case green
-    case blue
-    case amber
-    case red
-
+extension AmenSafetyLane {
     var tint: Color {
         switch self {
-        case .green:
-            return Color.black.opacity(0.55)
-        case .blue:
-            return Color.black.opacity(0.42)
-        case .amber:
-            return Color.black.opacity(0.3)
-        case .red:
-            return Color.black.opacity(0.22)
+        case .green:  return Color.black.opacity(0.55)
+        case .blue:   return Color.black.opacity(0.42)
+        case .amber:  return Color.black.opacity(0.3)
+        case .red:    return Color.black.opacity(0.22)
         }
     }
 }
@@ -1462,3 +1432,4 @@ private struct PrimaryComposerButtonStyle: ButtonStyle {
  -> moderation/safety logs are written server-side
  -> spiritual reaction effects remain client-side UI only
  */
+#endif

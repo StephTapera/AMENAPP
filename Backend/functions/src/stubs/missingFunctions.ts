@@ -32,8 +32,8 @@ export const bereanGenericProxy = onCall(
     // TODO: Implement bereanGenericProxy — route to Anthropic Claude with
     //       feature-specific system prompts based on request.data.feature.
     throw new HttpsError(
-      "unimplemented",
-      "bereanGenericProxy is not yet available."
+      "failed-precondition",
+      "This feature is coming soon."
     );
   }
 );
@@ -52,8 +52,8 @@ export const createMediaReflection = onCall(
     // TODO: Implement createMediaReflection — accept mediaId + context,
     //       call Claude to produce a spiritual reflection, persist to Firestore.
     throw new HttpsError(
-      "unimplemented",
-      "createMediaReflection is not yet available."
+      "failed-precondition",
+      "This feature is coming soon."
     );
   }
 );
@@ -73,8 +73,8 @@ export const sermonSnapProxy = onCall(
     //       call Claude to produce a structured sermon summary (key points, scripture
     //       references, application steps), persist to Firestore.
     throw new HttpsError(
-      "unimplemented",
-      "sermonSnapProxy is not yet available."
+      "failed-precondition",
+      "This feature is coming soon."
     );
   }
 );
@@ -94,8 +94,8 @@ export const acceptSafeConnection = onCall(
     //       verify caller is the invited party, update connection document to
     //       "accepted", fan-out notifications to both parties.
     throw new HttpsError(
-      "unimplemented",
-      "acceptSafeConnection is not yet available."
+      "failed-precondition",
+      "This feature is coming soon."
     );
   }
 );
@@ -115,8 +115,8 @@ export const askAmenCompanion = onCall(
     //       call Claude with the Amen Companion system prompt, return reply.
     //       Apply rate limiting and AI usage tracking.
     throw new HttpsError(
-      "unimplemented",
-      "askAmenCompanion is not yet available."
+      "failed-precondition",
+      "This feature is coming soon."
     );
   }
 );
@@ -136,8 +136,8 @@ export const bereanShieldAnalyze = onCall(
     //       run through the Berean Shield pipeline (Perspective API + Claude
     //       harm classification), return SafetyDecision with harm categories.
     throw new HttpsError(
-      "unimplemented",
-      "bereanShieldAnalyze is not yet available."
+      "failed-precondition",
+      "This feature is coming soon."
     );
   }
 );
@@ -157,8 +157,8 @@ export const classifyEnvironment = onCall(
     //       request.data, return EnvironmentContext (church, home, commute, etc.)
     //       to drive Spatial Social OS adaptive UI and content recommendations.
     throw new HttpsError(
-      "unimplemented",
-      "classifyEnvironment is not yet available."
+      "failed-precondition",
+      "This feature is coming soon."
     );
   }
 );
@@ -179,8 +179,8 @@ export const approveMediaMetadata = onCall(
     //       approved metadata to mediaMeta/{mediaId} via Admin SDK (never trust
     //       client writes to this collection).
     throw new HttpsError(
-      "unimplemented",
-      "approveMediaMetadata is not yet available."
+      "failed-precondition",
+      "This feature is coming soon."
     );
   }
 );

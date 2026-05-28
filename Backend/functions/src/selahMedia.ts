@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { logger } from "firebase-functions";
 import Anthropic from "@anthropic-ai/sdk";
 
 const db = admin.firestore();
@@ -191,7 +192,7 @@ export const saveSelahMemory = onCall(async (request) => {
     });
 
   // Kick off async AI enrichment
-  enrichMemoryWithAI(uid, ref.id, title, bodyText ?? "").catch(() => {});
+  enrichMemoryWithAI(uid, ref.id, title, bodyText ?? "").catch((err: unknown) => { logger.warn("AI enrichment failed (non-fatal)", { error: err instanceof Error ? err.message : String(err) }); });
 
   return { ok: true, memoryId: ref.id };
 });

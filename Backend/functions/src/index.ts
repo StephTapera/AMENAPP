@@ -177,6 +177,9 @@ export * from "./churchDiscovery";
 export * from "./smartCommunitySearch";
 export * from "./smartChurchSearch";
 
+// Church seed data (admin-only callable — run once per environment)
+export { seedChurchData } from "./seedChurches";
+
 // Server-authoritative feature flags (CRITICAL-3)
 // Safety flags are read from Firestore by Cloud Functions — never trusted from the client.
 // Must be exported before antiHarassmentEnforcement (which imports from it).
@@ -631,6 +634,22 @@ export { registerMediaProvenance } from "./media/registerMediaProvenance";
 export * from "./giving/processGivingCharge";
 
 export * from "./giving/analyzePostTrustLogoMatch";
+
+// Calm Control OS — privacy settings, feed controls, notification eligibility, inactivity management
+// Callables: updatePrivacySettings, updateFeedControls, updateNotificationSettings,
+//            evaluateNotificationEligibility, restoreUserAfterInactivity
+// Scheduled: pauseInactiveUserNotifications (every 24 hours)
+export * from "./calmControl";
+
+// Unimplemented stubs — iOS-callable functions not yet fully built.
+// All return HttpsError("failed-precondition") so callers receive a structured error.
+// Replace each stub with a real implementation when the feature ships.
+export * from "./stubs/missingFunctions";
+
+// Spiritual Rhythm OS — streak tracking, verse candidates, spiritual digests
+// Callables: recordSpiritualActivity, recoverStreak,
+//            generateDailyVerseCandidate, generateSpiritualDigest
+export * from "./spiritualRhythm";
 
 // Amen Access Passes (System 37) — QR / NFC / universal link / share-link access
 // Callables: createAccessPass, resolveAccessPass, acceptAccessPass, revokeAccessPass,

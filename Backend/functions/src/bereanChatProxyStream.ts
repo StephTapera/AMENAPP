@@ -30,6 +30,7 @@
 
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
+import {logger} from "firebase-functions";
 import * as admin from "firebase-admin";
 import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
@@ -217,6 +218,7 @@ export const bereanChatProxyStream = onRequest(
         secrets: [anthropicApiKey],
         timeoutSeconds: 60,
         memory: "256MiB",
+        minInstances: 1,
         // invoker: "public" so Firebase Auth token verification is manual (below).
         invoker: "public",
     },
@@ -356,8 +358,8 @@ export const bereanChatProxyStream = onRequest(
             });
 
             if (!anthropicRes.ok) {
-                const errText = await anthropicRes.text().catch(() => "unknown");
-                console.error(`❌ [bereanChatProxyStream] Anthropic error ${anthropicRes.status}:`, errText);
+                const errText = await anthropicRes.text().catch((err: unknown) => { logger.error("bereanChatProxyStream error", { error: err instanceof Error ? err.message : String(err) }); return "unknown"; });
+                logger.error("bereanChatProxyStream upstream error", { status: anthropicRes.status, errText });
                 res.write(`data: ${JSON.stringify({error: "upstream_error"})}\n\n`);
                 res.end();
                 return;

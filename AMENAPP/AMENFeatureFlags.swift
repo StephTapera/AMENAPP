@@ -14,6 +14,15 @@ import Foundation
 import Combine
 import FirebaseRemoteConfig
 
+enum ChurchStudyHighlightSharingPolicy {
+    @MainActor
+    static var canPostPublicHighlight: Bool {
+        AMENFeatureFlags.shared.churchStudyGroupBridgeEnabled
+    }
+
+    static let publicHighlightLabel = "Share this highlight publicly"
+}
+
 @MainActor
 final class AMENFeatureFlags: ObservableObject {
 
@@ -202,7 +211,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var selahAddToChurchNotesEnabled: Bool = true
     @Published private(set) var findChurchStudyActionsEnabled: Bool = true
     @Published private(set) var afterServiceReflectionEnabled: Bool = true
-    @Published private(set) var churchStudyGroupBridgeEnabled: Bool = true
+    @Published private(set) var churchStudyGroupBridgeEnabled: Bool = false
 
     // MARK: - System 18: Selah Media OS
     @Published private(set) var selahMediaOSEnabled: Bool = true
@@ -374,6 +383,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var threadDecisionExtractionEnabled: Bool = true
     @Published private(set) var threadActionExtractionEnabled: Bool = true
     @Published private(set) var threadQuestionDetectionEnabled: Bool = true
+    @Published private(set) var threadPrayerDetectionEnabled: Bool = false
     @Published private(set) var smartPresenceEnabled: Bool = true
     @Published private(set) var smartReactionsEnabled: Bool = true
     @Published private(set) var mediaIntelligenceEnabled: Bool = true
@@ -1002,6 +1012,32 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var carPlayNavigationHandoffEnabled: Bool = false
     /// Kill switch: set true in Remote Config to immediately disable all CarPlay features.
     @Published private(set) var carPlayKillSwitch: Bool = false
+
+    // MARK: - Calm Control + Spiritual Rhythm OS (Phase 1 MVP)
+    // All default OFF in production — Remote Config activates per rollout stage.
+
+    /// Master kill switch for all Calm Control features.
+    @Published private(set) var calmControlEnabled: Bool = false
+    /// Privacy/visibility controls (hidden counts, quiet profile, presence).
+    @Published private(set) var calmPrivacyControlsEnabled: Bool = false
+    /// Feed control features (text-only mode, hide viral, debate filter).
+    @Published private(set) var calmFeedControlsEnabled: Bool = false
+    /// Spiritual rhythm streaks (scripture, prayer, community, reading).
+    @Published private(set) var spiritualRhythmEnabled: Bool = false
+    /// Sabbath Mode feature.
+    @Published private(set) var sabbathModeEnabled: Bool = false
+    /// Daily verse push notification feature.
+    @Published private(set) var dailyVersePushEnabled: Bool = false
+    /// 7-day inactivity pause notification policy.
+    @Published private(set) var inactivityPausePolicyEnabled: Bool = false
+    /// Grace-based streak recovery.
+    @Published private(set) var streakGraceRecoveryEnabled: Bool = false
+    /// Audience layers feature (Phase 2).
+    @Published private(set) var audienceLayersEnabled: Bool = false
+    /// Anonymous reflection posting (Phase 2).
+    @Published private(set) var anonymousReflectionsEnabled: Bool = false
+    /// Berean AI verse recommendations (Phase 3).
+    @Published private(set) var bereanVerseRecommendationsEnabled: Bool = false
 
     private init() {
         applyUITestOverrides()
@@ -1687,6 +1723,19 @@ final class AMENFeatureFlags: ObservableObject {
             "carplay_audio_enabled": false as NSObject,
             "carplay_messaging_enabled": false as NSObject,
             "carplay_navigation_handoff_enabled": false as NSObject,
+
+            // Calm Control + Spiritual Rhythm OS (Phase 1 MVP) — all OFF by default
+            "calm_control_enabled": false as NSObject,
+            "calm_privacy_controls_enabled": false as NSObject,
+            "calm_feed_controls_enabled": false as NSObject,
+            "spiritual_rhythm_enabled": false as NSObject,
+            "sabbath_mode_enabled": false as NSObject,
+            "daily_verse_push_enabled": false as NSObject,
+            "inactivity_pause_policy_enabled": false as NSObject,
+            "streak_grace_recovery_enabled": false as NSObject,
+            "audience_layers_enabled": false as NSObject,
+            "anonymous_reflections_enabled": false as NSObject,
+            "berean_verse_recommendations_enabled": false as NSObject,
         ]
     }
 
@@ -2433,6 +2482,25 @@ final class AMENFeatureFlags: ObservableObject {
         carPlayAudioEnabled             = !carPlayKill && config["carplay_audio_enabled"].boolValue
         carPlayMessagingEnabled         = !carPlayKill && config["carplay_messaging_enabled"].boolValue
         carPlayNavigationHandoffEnabled = !carPlayKill && config["carplay_navigation_handoff_enabled"].boolValue
+
+        // Calm Control + Spiritual Rhythm OS (Phase 1 MVP)
+        // Sub-features gate behind their parent master switch so a single Remote Config flip
+        // disables the entire surface. Backend is authoritative; these are fast-path client guards.
+        let calmMaster = config["calm_control_enabled"].boolValue
+        calmControlEnabled              = calmMaster
+        calmPrivacyControlsEnabled      = calmMaster && config["calm_privacy_controls_enabled"].boolValue
+        calmFeedControlsEnabled         = calmMaster && config["calm_feed_controls_enabled"].boolValue
+        anonymousReflectionsEnabled     = calmMaster && config["anonymous_reflections_enabled"].boolValue
+
+        let rhythmMaster = config["spiritual_rhythm_enabled"].boolValue
+        spiritualRhythmEnabled          = rhythmMaster
+        sabbathModeEnabled              = rhythmMaster && config["sabbath_mode_enabled"].boolValue
+        streakGraceRecoveryEnabled      = rhythmMaster && config["streak_grace_recovery_enabled"].boolValue
+
+        dailyVersePushEnabled           = config["daily_verse_push_enabled"].boolValue
+        inactivityPausePolicyEnabled    = config["inactivity_pause_policy_enabled"].boolValue
+        audienceLayersEnabled           = config["audience_layers_enabled"].boolValue
+        bereanVerseRecommendationsEnabled = config["berean_verse_recommendations_enabled"].boolValue
     }
 
     private func applyUITestOverrides() {

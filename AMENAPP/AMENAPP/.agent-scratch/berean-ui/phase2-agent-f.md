@@ -1,0 +1,11 @@
+# Agent F — Phase 2 Fix Summary
+2026-05-28
+
+## Files Changed
+- `AMENAPP/BereanMemoryChip.swift`
+- `AMENAPP/BereanThinkingStrip.swift`
+- `AMENAPP/BereanChatView.swift` (call-site update only)
+
+## Changes Made
+
+Agent F applied three audit-driven fixes across both components. In **BereanMemoryChip**, `stopAnimations()` was updated to wrap both `shimmerPhase = 0.0` and `borderPulse = false` inside `withAnimation(.none)` blocks (P-10 fix); this forcibly removes the in-flight `repeatForever` CAAnimations rather than merely resetting SwiftUI state while the render-tree animation continues running. In the same file, `startBorderPulse()` replaced its unapproved `.easeInOut(duration: 1.1)` with the approved `capsuleSpring` preset (`.spring(response: 0.42, dampingFraction: 0.82)`) per the design-system rule that all interactive/transition animations must use spring physics; the shimmer sweep in `startShimmer()` retains `.linear` as approved for left-to-right gradient scans. Audit finding A-24 was also addressed: `.accessibilityHidden(true)` was added to the brain icon in `BereanMemoryDetailSheet.headerSection` so VoiceOver does not read a redundant "brain image" before the adjacent heading text. In **BereanThinkingStrip**, `stopAnimations()` received the same `withAnimation(.none)` treatment for both `pulseScale` and `shimmerPhase` (P-11 fix). The `startPulse()` method replaced its `.easeInOut(duration: 0.72)` with `fastSpring` (`.spring(response: 0.28, dampingFraction: 0.88)`), and the inline `.animation` modifier on `pulseDot` was updated to match. The shimmer overlay `GeometryReader` received `.accessibilityHidden(true)` (A-22 fix). The `let action: BereanThinkingAction` property was promoted to `@Binding var action: BereanThinkingAction` so parent screens can drive all 9 `BereanThinkingAction` states (retrieving, verifying, grounding, drafting, studyMode, prayerMode, alignmentCheck, memoryRead, memoryWrite) directly from SSE pipeline events rather than only `.drafting`/`.idle`; previews were updated to use `.constant(action)` and `$action` accordingly; the live call site in `BereanChatView.swift` was updated from `action: currentThinkingAction` to `action: $currentThinkingAction`. No new imports were added; all colors continue to use `BereanColor.*`, `Color.amenGold`, and the existing local `Color._berean*` tokens.

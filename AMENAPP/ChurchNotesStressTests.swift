@@ -5,6 +5,7 @@
 //  Comprehensive stress testing for Church Notes production readiness
 //
 
+#if DEBUG
 import Foundation
 import Combine
 import FirebaseAuth
@@ -468,3 +469,4 @@ enum TestError: LocalizedError {
         }
     }
 }
+#endif

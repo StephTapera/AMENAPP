@@ -14,150 +14,6 @@
 
 import Foundation
 
-// MARK: - Supporting Domain Types
-// These types live here so the engine is fully self-contained within SpiritualRhythmOS.
-// They are consumed by the broader module wherever notification scheduling is needed.
-
-/// The seven notification categories the policy engine understands.
-enum SpiritualNotificationCategory: String, CaseIterable, Hashable, Sendable {
-    case dailyVerse
-    case readingReminder
-    case prayerReminder
-    case communityDigest
-    case streakReminder
-    case quietReturn
-    case milestoneReflection
-}
-
-/// How many notifications per day the user wants.
-enum NotificationIntensityMode: String, CaseIterable, Sendable {
-    case minimal           // 1/day
-    case balanced          // 3/day
-    case encouraging       // 5/day
-    case activeCommunity   // 8/day
-
-    /// Hard daily cap for this intensity level.
-    var dailyLimit: Int {
-        switch self {
-        case .minimal:          return 1
-        case .balanced:         return 3
-        case .encouraging:      return 5
-        case .activeCommunity:  return 8
-        }
-    }
-}
-
-/// User notification preferences: which categories are on and at what intensity.
-struct NotificationPreferences: Equatable, Sendable {
-    var intensity: NotificationIntensityMode
-    var enabledCategories: Set<SpiritualNotificationCategory>
-
-    init(
-        intensity: NotificationIntensityMode = .balanced,
-        enabledCategories: Set<SpiritualNotificationCategory> = Set(SpiritualNotificationCategory.allCases)
-    ) {
-        self.intensity = intensity
-        self.enabledCategories = enabledCategories
-    }
-
-    static let `default` = NotificationPreferences()
-}
-
-/// Sabbath mode configuration. isCurrentlyActive is evaluated at call time.
-struct SabbathModeSettings: Equatable, Sendable {
-    /// Whether the user has enabled sabbath mode at all.
-    var isEnabled: Bool
-    /// Day of week on which sabbath begins (1 = Sunday … 7 = Saturday; matches Calendar.weekday).
-    var dayOfWeek: Int
-    /// Hour (0-23) sabbath begins on that day.
-    var startHour: Int
-    /// Duration in hours (e.g. 24 = full day).
-    var durationHours: Int
-
-    init(
-        isEnabled: Bool = false,
-        dayOfWeek: Int = 1,
-        startHour: Int = 18,
-        durationHours: Int = 24
-    ) {
-        self.isEnabled = isEnabled
-        self.dayOfWeek = dayOfWeek
-        self.startHour = startHour
-        self.durationHours = durationHours
-    }
-
-    /// True if right now falls inside the configured sabbath window.
-    var isCurrentlyActive: Bool {
-        guard isEnabled else { return false }
-        let calendar = Calendar.current
-        let now = Date()
-        let components = calendar.dateComponents([.weekday, .hour], from: now)
-        guard let currentWeekday = components.weekday,
-              let currentHour = components.hour else { return false }
-
-        // Build the sabbath start as a concrete hour-of-week (0 … 167).
-        let sabbathStartHourOfWeek = (dayOfWeek - 1) * 24 + startHour
-        let sabbathEndHourOfWeek   = sabbathStartHourOfWeek + durationHours
-
-        let currentHourOfWeek = (currentWeekday - 1) * 24 + currentHour
-
-        // Handle wrap-around at end of week (168 hours/week).
-        if sabbathEndHourOfWeek <= 168 {
-            return currentHourOfWeek >= sabbathStartHourOfWeek &&
-                   currentHourOfWeek < sabbathEndHourOfWeek
-        } else {
-            // Wraps into next week.
-            let wrappedEnd = sabbathEndHourOfWeek - 168
-            return currentHourOfWeek >= sabbathStartHourOfWeek ||
-                   currentHourOfWeek < wrappedEnd
-        }
-    }
-}
-
-/// A single spiritual streak (scripture, prayer, reflection, etc.).
-struct SpiritualStreak: Equatable, Sendable {
-    var category: SpiritualNotificationCategory
-    var currentCount: Int
-
-    init(category: SpiritualNotificationCategory, currentCount: Int = 0) {
-        self.category = category
-        self.currentCount = currentCount
-    }
-}
-
-/// The top-level settings object consumed by the policy engine.
-struct SpiritualRhythmSettings: Equatable, Sendable {
-    var sabbathMode: SabbathModeSettings
-    var notificationPreferences: NotificationPreferences
-    /// When non-nil, the inactivity pause is considered active.
-    var inactivityPauseActivatedAt: Date?
-    /// Preferred verse delivery time in "HH:mm" format (e.g. "07:00").
-    var preferredVerseTime: String
-    /// Preferred general reminder time in "HH:mm" format (e.g. "08:00").
-    var preferredReminderTime: String
-
-    init(
-        sabbathMode: SabbathModeSettings = SabbathModeSettings(),
-        notificationPreferences: NotificationPreferences = .default,
-        inactivityPauseActivatedAt: Date? = nil,
-        preferredVerseTime: String = "07:00",
-        preferredReminderTime: String = "08:00"
-    ) {
-        self.sabbathMode = sabbathMode
-        self.notificationPreferences = notificationPreferences
-        self.inactivityPauseActivatedAt = inactivityPauseActivatedAt
-        self.preferredVerseTime = preferredVerseTime
-        self.preferredReminderTime = preferredReminderTime
-    }
-
-    /// True when the user has been flagged as inactive (pause window is open).
-    var isInactivityPauseActive: Bool {
-        inactivityPauseActivatedAt != nil
-    }
-
-    static let `default` = SpiritualRhythmSettings()
-}
-
 // MARK: - Policy Result Types
 
 /// Why a notification was suppressed. Never surfaced to the user directly.
@@ -294,8 +150,8 @@ final class SpiritualNotificationPolicyEngine: ObservableObject {
 
         case .streakReminder:
             // Look up the best active streak for the most encouraging (but honest) message.
-            let best = streaks.max(by: { $0.currentCount < $1.currentCount })
-            let streakCount = best?.currentCount ?? 0
+            let best = streaks.max(by: { $0.currentStreak < $1.currentStreak })
+            let streakCount = best?.currentStreak ?? 0
             if streakCount > 0 {
                 variants = [
                     "You've been consistent. Keep going.",
@@ -357,8 +213,8 @@ final class SpiritualNotificationPolicyEngine: ObservableObject {
         let enabled = settings.notificationPreferences.enabledCategories
         var configs: [ScheduledNotificationConfig] = []
 
-        let (verseHour, verseMinute) = parseTime(settings.preferredVerseTime, fallbackHour: 7)
-        let (reminderHour, reminderMinute) = parseTime(settings.preferredReminderTime, fallbackHour: 8)
+        let (verseHour, verseMinute) = parseTime(settings.notificationPreferences.preferredVerseTime, fallbackHour: 7)
+        let (reminderHour, reminderMinute) = parseTime(settings.notificationPreferences.preferredReminderTime, fallbackHour: 8)
 
         // Prayer reminder: +1 hour after reminder time, floored at 20:00.
         let rawPrayerHour = reminderHour + 1

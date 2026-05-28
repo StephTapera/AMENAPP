@@ -1,174 +1,204 @@
-# AMEN Liquid Glass — Remediation Plan
+# Liquid Glass Remediation Plan
 
-**Date:** May 27, 2026  
-**Input docs:** liquid-glass-standard.md, button-audit.md, error-surface-audit.md, error-coverage-gaps.md  
-**Scope:** Ordered fix list to achieve full Liquid Glass conformance across buttons, alerts, and error coverage  
-
----
-
-## Pre-Fix Decision: Canonical Components
-
-### Buttons — ADOPT existing, do NOT create new
-Three button systems already exist and conform to standard. Problem is adoption, not absence:
-
-| System | File | Role |
-|--------|------|------|
-| **PRIMARY** | `AMENAPP/AmenGlassButtonSystem.swift` | Role-aware `.amenGlass()` style modifier (primary/neutral/dismiss), handles all shapes |
-| **SECONDARY** | `AMENAPP/AmenLiquidGlassButtons.swift` | `AmenLiquidGlassCapsuleButton`, icon buttons, control groups |
-| **ATOMIC** | `AMENAPP/LiquidGlass/LiquidGlassButtons.swift` | `GlassActionPill`, low-level shapes |
-
-**Rule:** All new/migrated buttons must use `.amenGlass()` or `AmenLiquidGlassCapsuleButton`. Nothing else.
-
-### Alerts — CREATE `LiquidGlassAlert.swift`
-**No glass alert component exists.** This is Fix 0 and is a blocker for all subsequent fixes.  
-**Location:** `AMENAPP/AMENAPP/LiquidGlass/LiquidGlassAlert.swift`  
-**Spec:**
-- Presentation: `ZStack` overlay with black 0.35 dim, centered card
-- Card: `.ultraThinMaterial` background, `RoundedRectangle(cornerRadius: 28, style: .continuous)`
-- Shadow: radius 24, y 10, black 0.15
-- Spring in: `.spring(response: 0.34, dampingFraction: 0.84)` with scale 0.88→1.0
-- Title: `.title3`, semibold
-- Body: `.body`, regular, secondary
-- Buttons: Two capsule buttons — primary uses `amenGold`/`amenPurple` fill, secondary uses `.ultraThinMaterial`
-- Accessibility: Reduce motion → easeOut(0.16s); Reduce transparency → opaque fills
-- Usage: via `View.amenAlert(isPresented:config:)` modifier
+**Synthesized:** 2026-05-28  
+**Inputs:** liquid-glass-standard.md · button-audit.md · error-surface-audit.md · error-coverage-gaps.md  
+**Status:** AWAITING USER APPROVAL before Phase 3 begins
 
 ---
 
-## Fix Order (by severity + user-trust impact)
+## Executive Summary
 
-### Fix 0 — Create `LiquidGlassAlert` component *(blocker)*
-**File to create:** `AMENAPP/AMENAPP/LiquidGlass/LiquidGlassAlert.swift`  
-**Why first:** All 265 native `.alert()` conversions depend on this.  
-**Build after:** Yes.
+All four audit docs agree on one critical fact: **every reusable Liquid Glass component already exists.**
+The problem is adoption, not creation.
 
----
+| Audit | Finding |
+|-------|---------|
+| Standard | `AmenLiquidGlassPillButton`, `AmenLiquidGlassButton`, `.amenAlert()` — all production-ready |
+| Buttons | 1,311+ buttons; only 3.4% conform; 68.6% use system styles or solid Color fills |
+| Error surfaces | 87 surfaces; 61 missing glass; 58 native `.alert()` calls → must become `.amenAlert()` |
+| Coverage gaps | 55 silent failures; 8 CRITICAL (money, data loss, auth); 14 HIGH (streaming, persistence) |
 
-### Fix 1 — Auth & Verification flows *(CRITICAL — 0% conformance)*
-**Affected files:**
-- `AmenVerificationFlowCoordinator.swift` — Verify/Success buttons (`Color.blue`/`Color.green` fills → `.amenGlass(.primary)`)
-- `DeleteAccountView.swift` — Confirm deletion button (`Color.black` fill → `.amenGlass(.destructive)`); convert `.alert("Delete Account")` → `LiquidGlassAlert`
-- `SignInView.swift` — Convert `.alert("Error")` → `LiquidGlassAlert`
-- `TwoFactorAuthView.swift` — Convert `.alert("Invalid Code")` → `LiquidGlassAlert`
-- `PhoneVerificationService.swift:113,117` — Add `@Published var errorMessage` + surface via `LiquidGlassAlert` in call-site views
+**Phase 3 is entirely integration work. No new components will be created.**
 
-**Tokens to use:** corner radius 14pt for small buttons, capsule for primary CTAs, `amenGold` for primary confirm.  
-**Build after:** Yes.
+⚠️ A prior agent wrote a remediation plan that incorrectly said `LiquidGlassAlert.swift` needed to be created. It already exists at `AMENAPP/AMENAPP/LiquidGlass/LiquidGlassAlert.swift` with full `.amenAlert()` modifier. This plan supersedes that version.
 
 ---
 
-### Fix 2 — Account Deletion error coverage *(CRITICAL — data loss risk)*
-**Affected files:**
-- `AccountDeletionService.swift:45,104,111` — Wrap all three steps (`cancelStripeSubscriptions`, Firestore delete, Auth delete) in proper try/catch; publish distinct `DeletionStep` error states
-- `DeleteAccountView.swift` — Observe deletion step errors and show `LiquidGlassAlert` with context-specific messages:
-  - "Subscription cancellation may still be pending. Check your account settings."
-  - "Account deletion partially complete — please try again or contact support."
-  - "Your account couldn't be fully deleted. Please sign in and try again."
+## Canonical Component Reference (use these — invent nothing)
 
-**Build after:** Yes.
+| Need | Component | File |
+|------|-----------|------|
+| Any glass button | `AmenLiquidGlassPillButton` (capsule) or `AmenLiquidGlassButton(shape:intensity:)` (any shape) | `AIIntelligence/LiquidGlass/AmenLiquidGlassComponents.swift` |
+| Press animation only | `SelahGlassPressButtonStyle` | `SelahScripture/SelahGlassPressButtonStyle.swift` |
+| Any modal / alert / confirmation | `.amenAlert(isPresented:config:)` with `LiquidGlassAlertConfig` | `AMENAPP/AMENAPP/LiquidGlass/LiquidGlassAlert.swift` |
+| Toast / banner | `ToastNotificationView` / `ErrorBannerView` (already glass-aligned) | existing |
+| Filter pill row | `AmenLiquidGlassPillButton` segmented — no new component needed | same |
 
----
-
-### Fix 3 — Payment & Access Passes *(CRITICAL — silent payment failure)*
-**Affected files:**
-- `AmenCovenantCheckoutService.swift:68-81` — `.failed(error)` state already exists but no view observes it; wire `checkoutState` to `LiquidGlassAlert` in the checkout view
-- `AmenAccessPassService.swift:59,127,131,155` — Add `@Published var error: Error?` to the service; wrap all four callables in do/catch; surface via `LiquidGlassAlert` in `AmenAccessPassAdminConsoleView` and `AmenAccessPassCreateSheet`
-
-**Build after:** Yes.
+Design token values → `LiquidGlassTokens.swift` and § 6 of `liquid-glass-standard.md`.
 
 ---
 
-### Fix 4 — Covenant & Moderation *(CRITICAL — trust & safety audit trail)*
-**Affected files:**
-- `AmenCovenantModerationQueueView.swift:65-69` — Replace plain `Button()` with `.role(.destructive)` → `AmenLiquidGlassCapsuleButton(.destructive)`
-- `AmenReportContentSheet.swift:90` — Replace `Color.red` solid button → `.amenGlass(.destructive)`
-- `CovenantService.swift:215-222` — Add `@Published var moderationError: Error?`; catch `updateData` failure; surface "Your moderation action couldn't be saved. Try again." via `LiquidGlassAlert`
-- `AmenCovenantModerationQueueView.swift` `.alert("Error")` → `LiquidGlassAlert`
+## Fix Areas — Ordered Execution
 
-**Build after:** Yes.
+Build must pass with 0 errors after each area before the next begins.
 
 ---
 
-### Fix 5 — In-App Browser *(P0 visible — 0% conformance)*
-**Affected files:**
-- `InAppBrowserView.swift:72-80` — Close button: wrap in 36pt circle with `.ultraThinMaterial` + `Glass.regular.interactive()` overlay (iOS 26), scale-press style
-- `InAppBrowserView.swift:84-93` — Back/Forward: `AmenLiquidGlassIconButton`
-- `InAppBrowserView.swift:159-165` — Overflow: `AmenLiquidGlassIconButton`
-- `InAppBrowserView.swift:189-208` — Error overlay Retry/Open buttons: replace `RoundedRectangle(10).fill(Color.black)` → `AmenLiquidGlassCapsuleButton(.primary)` and `AmenLiquidGlassCapsuleButton(.neutral)`
+### Area 1 — Critical Safety Net
 
-**Build after:** Yes.
+**Why first:** Silent failures where the app either loses user data, charges money,
+or leaves auth state inconsistent. Visual polish is irrelevant if these are broken.
 
----
-
-### Fix 6 — Content Creation errors *(HIGH — high frequency)*
-**Affected files (CreatePostView.swift):**
-- `:1506` Publish error `.alert` → `LiquidGlassAlert` with retry button
-- `:1420` Safety check `.alert` → `LiquidGlassAlert` (amenPurple tone, educational)
-- `:1527` AI-detected content `.alert` → `LiquidGlassAlert`
-- `:1633` Draft recovery `.alert` → `LiquidGlassAlert` (two capsule buttons: Recover / Discard)
-- `:7464` Paywall `.alert` → `LiquidGlassAlert` with upgrade CTA (amenGold)
-- `QuoteComposerView.swift:69` `.alert` → `LiquidGlassAlert`
-- `EditPostSheet.swift` `.alert` → `LiquidGlassAlert`
-
-**Build after:** Yes.
+| File | Line | Operation | Fix |
+|------|------|-----------|-----|
+| `AmenCovenantCheckoutService.swift` | 79, 92 | Stripe session creation + ASWebAuth callback not shown on-screen | Add `@Published var checkoutError`; wrap callables in `do/catch`; bind to `.amenAlert()` with "Retry / Contact Support" |
+| `AMENAPPApp.swift` | 434 | `try? Auth.auth().signOut()` silently swallows auth errors | Replace `try?` with proper `do/catch`; show `.amenAlert()` "Sign Out Failed" |
+| `DeleteAccountView.swift` | 170–180 | Deletion error stored in `@State` but not shown | Bind `deletionError` to `.amenAlert()` with `.destructive` tone + Retry |
+| `PhoneVerificationService.swift` | 69–70 | SMS send fails silently; user waits forever for code that never arrives | Add `@Published var showVerificationError`; on `.failed`, show `.amenAlert()` |
+| `CloudStorageService.swift` | 58–94 | Upload failure may not reach callback observers; post publishes with broken links | Add explicit `.observe(.failure)` handler → `.amenAlert()` with Retry |
+| `CreatePostView.swift` | 5832–5863 | `try await putDataAsync` with no catch updating UI; post publishes with missing media | Wrap all media uploads in `do/catch`; show `.amenAlert()` before allowing publish |
 
 ---
 
-### Fix 7 — Messaging & Chat errors *(HIGH)*
-**Affected files:**
-- `GroupChatCreationView.swift:134` → `LiquidGlassAlert`
-- `MessagesViewFix.swift:77` `.confirmationDialog` → `LiquidGlassAlert` (two capsule: Delete / Cancel, amenPurple or destructive red)
-- `ChatIdentityCard.swift:425` `.confirmationDialog` → `LiquidGlassAlert`
-- `BereanRealtimeWebSocketTransport.swift:40,84-94` + `BereanRealtimeSessionManager.swift:34,86` — Add `@Published var connectionError` states; surface inline banner (not modal) using existing `ErrorBannerView` upgraded to glass card
+### Area 2 — P0 Alert Migrations + Berean Streaming
 
-**Build after:** Yes.
+**Why second:** The app's most-trafficked error paths still use native system `.alert()`.
+Migrating them changes what the majority of users see during errors.
 
----
+**Sub-area 2a — native `.alert()` → `.amenAlert()` (P0 list):**
 
-### Fix 8 — Prayer & Devotional *(MEDIUM)*
-**Affected files:**
-- `PrayerView.swift` delete `.alert` → `LiquidGlassAlert` (destructive, amenPurple)
-- `GuidedSelahSessionView.swift` session error `.alert` → `LiquidGlassAlert` (soft tone, no harsh red)
-- `PrayerSuggestedRailView.swift:44` why-shown info `.alert` → educational `LiquidGlassAlert` (single dismiss button)
+| File | Lines | Key button config |
+|------|-------|-------------------|
+| `CreatePostView.swift` | 1421, 1507, 1528, 1634, 7465 | Safety check → "Edit & Continue" + "Cancel"; upload error → "Retry"; draft recovery → `.destructive` "Discard"; paywall → `.primary` amenGold "Upgrade" |
+| `SignInView.swift` | AlertsModifier | Primary "Try Again", dismiss "Cancel" |
+| `CommunityCovenantView.swift` | 233 | Primary "Try Again" |
+| `AMENAPPApp.swift` | 196 (version kill switch) | Primary "Update Now" — no cancel (force update) |
 
-**Build after:** Yes.
+**Sub-area 2b — Berean streaming HIGH gaps:**
 
----
-
-### Fix 9 — Discovery & Social *(MEDIUM)*
-**Affected files:**
-- `SearchExpandBar.swift:151` — Close button: add `.ultraThinMaterial` circle background
-- `DiscoverSearchComponents.swift` filter pills → `GlassActionPill` from `LiquidGlassButtons.swift`
-- `AmenDiscoverPillsRow.swift` discovery pills → same
-- `SuggestedAccountPeekSheet.swift:50` unfollow `.confirmationDialog` → `LiquidGlassAlert`
-- `FollowingListView.swift` block `.confirmationDialog` → `LiquidGlassAlert`
-- `FollowButton` — audit state-toggle to ensure glass on both follow and unfollow states (no solid black fill in following state)
-
-**Build after:** Yes.
+| File | Line | Fix |
+|------|------|-----|
+| `BereanPulseViewModel.swift` | 216–223 | Replace `try?` with `do/catch`; set `feedState = .error(...)` |
+| `BereanIntegrationService.swift` | 69–82 | Wrap `for await chunk` Task in outer `do/catch` → `@Published var streamError` |
+| `BereanLiveTranscriptService.swift` | 24–40 | Pass listener `error` param to `@Published var listenerError` → `.amenAlert()` |
+| `BereanRealtimeSessionManager.swift` | 97–106 | On listener error, also set `sessionState = .failed(error)` and show glass modal |
 
 ---
 
-### Fix 10 — Berean AI error surfaces *(HIGH — silent AI failures)*
-**Affected files:**
-- `BereanAnswerEngine.swift:181,196` — Add `@Published var answerError: String?`; surface via inline `LiquidGlassAlert` card within the chat view (not modal overlay — inline inline "Couldn't generate answer" card with retry)
-- `AmenMediaReflectionSheet.swift:95` — Surface save error via `LiquidGlassAlert` with "Your reflection is still in the text box" reassurance message
-- `TestimonyViralSheet.swift:63-67` — Upgrade from generic `errorMessage` Text to `LiquidGlassAlert`
+### Area 3 — High-Traffic Button Fixes
 
-**Build after:** Yes.
+**Why third:** These appear on every screen. Highest visual impact per line changed.
+
+| File | What | Current | Fix |
+|------|------|---------|-----|
+| `NotificationBellButton.swift` | 47, 78 — badge pill | `Color.red` Capsule fill | `.ultraThinMaterial` base; red badge overlay only (not pill background) |
+| `SavedPostsQuickAccessButton.swift` | 46 — badge | `Color.red` + `Color.blue` icon | `Capsule().fill(.ultraThinMaterial)` + white border per token spec |
+| `PrayerView.swift` | 100–103 — filter pills | `Capsule().fill(Color.black)` | `AmenLiquidGlassPillButton` segmented |
+| `TestimoniesView.swift` | 100–103 — category filters | Same `Color.black` pattern | Extract shared `LiquidGlassFilterPills` with PrayerView — one component, two callers |
+| `SettingsView.swift` | 19–28, 86–100 — nav row panels | Custom `Color(red: 0.12...)` fills | Replace with `LiquidGlassTokens.blurRegular` + overlay |
 
 ---
 
-## Summary Stats
+### Area 4 — Core Feature Buttons (High-Volume Views)
 
-| Metric | Count |
-|--------|-------|
-| Buttons to migrate | ~165 (95 Deviating + 70 Missing-glass) |
-| Alerts to convert | 265 native `.alert()` + 68 `.confirmationDialog()` |
-| Critical coverage gaps to close | 5 |
-| High coverage gaps to close | 12 |
-| New component to create | 1 (`LiquidGlassAlert.swift`) |
-| Files touched across all fixes | ~85 |
+**Why fourth:** Three files account for 200+ buttons. Moving them shifts the conformance metric.
 
-## Conformance Target
+| File | Count | Current | Fix |
+|------|-------|---------|-----|
+| `CreatePostView.swift` | 92+ | `.plain` with no glass | Attachment/action buttons → `AmenLiquidGlassButton(shape: .capsule)` |
+| `BereanChatView.swift` | 38+ | `.plain` + Color fills | Apply `SelahGlassPressButtonStyle` + `.ultraThinMaterial` to action tiles; migrate mode selector |
+| `ProfileView.swift` | 88+ | Mixed `.bordered` + plain | Follow/message/share → `AmenLiquidGlassPillButton`; edit → `AmenLiquidGlassButton` |
 
-After all 10 fix groups: **95%+ glass conformance** on buttons, **100% glass conformance** on user-facing alerts, all 5 CRITICAL coverage gaps closed.
+---
+
+### Area 5 — P1 Alert Migrations + HIGH Coverage Gaps
+
+**Sub-area 5a — P1 native alert migrations:**
+
+| File | Lines | Fix |
+|------|-------|-----|
+| `BereanChatView.swift` | 1146, 1151, 1188 | 3 native alerts → `.amenAlert()`; success uses `.spiritual` tone |
+| `ReportContentView.swift` | 132, 139 | Success + error → `.amenAlert()` |
+| `GroupChatCreationView.swift` | 134 | "Couldn't Create Group" → `.amenAlert()` with Retry |
+| `QuoteComposerView.swift` | 69 | "Unable to Post" → `.amenAlert()` with Retry |
+| `AccountLinkingView.swift` | 332, 345 | Unlink → `.destructive`; error → `.amenAlert()` |
+| `AmenSpaceBannerRail.swift` | 842 | "Could not save banner size" → `.amenAlert()` |
+
+**Sub-area 5b — HIGH coverage gaps:**
+
+| File | Line | Fix |
+|------|------|-----|
+| `ModernPrayerWallView.swift` | 645, 670, 675 | Wrap Firestore writes in `do/catch`; show `.amenAlert()` on failure |
+| `BereanMemoryService.swift` | 49–51, 69, 81, 88 | Listener error → `@Published var observationError` + banner; insight CRUD → `@Published var saveError` + `.amenAlert()` with Retry |
+| `AmenSpaceBannerRail.swift` | 525, 533 | Replace `try?` on pref save → `.amenAlert()` on failure |
+| `MentorshipService.swift` | 50, 82, 98 | Wrap sync Firestore throws in `do/catch` or convert to `async throws` |
+
+---
+
+### Area 6 — Premium / Payments + P2
+
+**Buttons on premium surfaces:**
+
+| File | Fix |
+|------|-----|
+| `GivingGoalView.swift` | CTA buttons → `AmenLiquidGlassPillButton` with amenGold accent |
+| `GivingInAppSheet.swift` | System `.bordered` → glass capsule |
+| `JobDetailView.swift` | 23 `.bordered` buttons → `AmenLiquidGlassButton` |
+| `BereanShareSheet.swift` | 3× `.borderedProminent` → `AmenLiquidGlassPillButton` |
+
+**P2 alert migrations (batch pass):**
+
+`PrivacyDashboardView.swift:133`, `JobSearchView.swift:82`, `ChurchChemistryService.swift:183`,
+`BereanToolbarExtras.swift:90`, `PrayerSuggestedRailView.swift:44`,
+`ResourcesView.swift:1987`, `ResourcesView.swift:2089`, `SavedPostsView.swift:130`
+
+**P2 coverage gaps:**
+
+| File | Fix |
+|------|-----|
+| `BereanRealtimeServices.swift` | 64, 75 — translation pref load/save: catch → show toast on save fail |
+| `CreatorVideoProcessingService.swift` | 63, 66 — replace `try?` on video processing callables; add `@Published var processingError` |
+| `BereanChatView.swift` | 781, 784 — chat message delete failure → `.amenAlert()` with Retry |
+| `PremiumManager.swift` | 83, 182, 211 — product-load + transaction listener errors → bound to `.amenAlert()` |
+
+---
+
+### Area 7 — Systematic Batch (Auth / Onboarding / Wellness / Safety)
+
+Remaining `.bordered`/`.plain` instances. Pattern for all: replace with
+`AmenLiquidGlassButton(shape: .capsule, intensity: .light)` for secondary actions,
+`AmenLiquidGlassPillButton` for primary CTAs.
+
+Files: `FindChurchView.swift` (79 buttons), `AMENAuthLandingView.swift`,
+`AMENAccountTypeOnboardingView.swift`, `EmailVerificationGateView.swift`,
+`PhoneVerificationView.swift`, `BreathingExerciseView.swift`,
+`WellnessDetailView.swift`, `GraceBasedSafetyUI.swift`,
+`SelahScriptureReaderView.swift`, `SelahReflectionListView.swift`
+
+---
+
+## Deferred (design spec required first)
+
+| Item | Reason |
+|------|--------|
+| `.confirmationDialog()` → glass action sheet (11 calls) | No glass action sheet component exists; needs design spec before any code |
+| Empty state standardization (20+ locations) | `CreatorEmptyStateView` pattern exists but needs product decision on canonical pattern |
+| LOW coverage gaps (analytics, deep links, suggestions) | Non-user-facing; log-only fixes; low risk; backlog |
+
+---
+
+## Scope at a Glance
+
+| Area | Files | Complexity |
+|------|-------|------------|
+| 1 — Critical safety net | 6 | Medium — logic + alert wiring |
+| 2 — P0 alerts + Berean streaming | 8 | Low-Medium — `.amenAlert()` swap + do/catch |
+| 3 — High-traffic buttons | 5 | Low — swap fills + add material |
+| 4 — Core feature buttons | 3 (~200 buttons) | Medium — mechanical but systematic |
+| 5 — P1 alerts + HIGH gaps | 14 | Low-Medium |
+| 6 — Premium + P2 | 12 | Low-Medium |
+| 7 — Batch auth/onboarding | 10+ | Low — mechanical replacement |
+
+---
+
+*Awaiting your go-ahead to begin Phase 3 — Area 1.*

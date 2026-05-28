@@ -1,4 +1,12 @@
+import { defineSecret } from "firebase-functions/params";
 import { clamp01 } from "./livingEntryScoring";
+import { logger } from "firebase-functions";
+
+// Secrets — declared at module scope so Firebase Functions v2 binds them at
+// deploy time. Values must be accessed via .value() inside function bodies,
+// never at module scope.
+const openaiApiKey = defineSecret("OPENAI_API_KEY");
+const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
 export interface ClassificationInput {
   title?: string;
@@ -43,15 +51,15 @@ export async function classifyWithFallback(
   primary: Provider,
   fallback: Provider
 ): Promise<ClassificationResult> {
-  const primaryResult = await primary(input).catch(() => null);
+  const primaryResult = await primary(input).catch((err: unknown) => { logger.warn("livingEntry AI step failed", { step: "primary-classification", error: err instanceof Error ? err.message : String(err) }); return null; });
   if (primaryResult) return sanitizeClassification(primaryResult);
-  const fallbackResult = await fallback(input).catch(() => null);
+  const fallbackResult = await fallback(input).catch((err: unknown) => { logger.warn("livingEntry AI step failed", { step: "fallback-classification", error: err instanceof Error ? err.message : String(err) }); return null; });
   if (fallbackResult) return sanitizeClassification(fallbackResult);
   return heuristicClassification(input);
 }
 
 export async function openAIClassification(input: ClassificationInput): Promise<ClassificationResult | null> {
-  if (!process.env.OPENAI_API_KEY) return null;
+  if (!openaiApiKey.value()) return null;
 
   const response = await postOpenAIJSON(
     systemPrompt("Classify a Living Entry for a spiritually-aware productivity app."),
@@ -71,7 +79,7 @@ export async function openAIClassification(input: ClassificationInput): Promise<
 }
 
 export async function claudeClassification(input: ClassificationInput): Promise<ClassificationResult | null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!anthropicApiKey.value()) return null;
 
   const response = await postClaudeJSON(
     systemPrompt("Classify a Living Entry for a spiritually-aware productivity app."),
@@ -98,10 +106,10 @@ export async function generateReflectionLearning(input: {
 }): Promise<ReflectionLearningResult> {
   const fallback = heuristicReflectionLearning(input);
 
-  const claude = await generateClaudeReflectionLearning(input).catch(() => null);
+  const claude = await generateClaudeReflectionLearning(input).catch((err: unknown) => { logger.warn("livingEntry AI step failed", { step: "claude-reflection-learning", error: err instanceof Error ? err.message : String(err) }); return null; });
   if (claude) return claude;
 
-  const openAI = await generateOpenAIReflectionLearning(input).catch(() => null);
+  const openAI = await generateOpenAIReflectionLearning(input).catch((err: unknown) => { logger.warn("livingEntry AI step failed", { step: "openai-reflection-learning", error: err instanceof Error ? err.message : String(err) }); return null; });
   if (openAI) return openAI;
 
   return fallback;
@@ -116,10 +124,10 @@ export async function generateEvolutionSuggestion(input: {
 }): Promise<EvolutionResult> {
   const fallback = heuristicEvolutionSuggestion(input);
 
-  const claude = await generateClaudeEvolutionSuggestion(input).catch(() => null);
+  const claude = await generateClaudeEvolutionSuggestion(input).catch((err: unknown) => { logger.warn("livingEntry AI step failed", { step: "claude-evolution-suggestion", error: err instanceof Error ? err.message : String(err) }); return null; });
   if (claude) return claude;
 
-  const openAI = await generateOpenAIEvolutionSuggestion(input).catch(() => null);
+  const openAI = await generateOpenAIEvolutionSuggestion(input).catch((err: unknown) => { logger.warn("livingEntry AI step failed", { step: "openai-evolution-suggestion", error: err instanceof Error ? err.message : String(err) }); return null; });
   if (openAI) return openAI;
 
   return fallback;
@@ -201,7 +209,7 @@ async function generateClaudeReflectionLearning(input: {
   answer?: string;
   helpfulness?: string;
 }): Promise<ReflectionLearningResult | null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!anthropicApiKey.value()) return null;
 
   const response = await postClaudeJSON(
     systemPrompt("Write gentle, pastoral reflection follow-up copy for a productivity app."),
@@ -233,7 +241,7 @@ async function generateOpenAIReflectionLearning(input: {
   answer?: string;
   helpfulness?: string;
 }): Promise<ReflectionLearningResult | null> {
-  if (!process.env.OPENAI_API_KEY) return null;
+  if (!openaiApiKey.value()) return null;
 
   const response = await postOpenAIJSON(
     systemPrompt("Write gentle reflection follow-up copy for a spiritually-aware productivity app."),
@@ -294,7 +302,7 @@ async function generateClaudeEvolutionSuggestion(input: {
   churchName?: string;
   state?: string;
 }): Promise<EvolutionResult | null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!anthropicApiKey.value()) return null;
 
   const response = await postClaudeJSON(
     systemPrompt("Generate gentle next-step suggestions for a spiritually-aware productivity app."),
@@ -322,7 +330,7 @@ async function generateOpenAIEvolutionSuggestion(input: {
   churchName?: string;
   state?: string;
 }): Promise<EvolutionResult | null> {
-  if (!process.env.OPENAI_API_KEY) return null;
+  if (!openaiApiKey.value()) return null;
 
   const response = await postOpenAIJSON(
     systemPrompt("Generate gentle next-step suggestions for a spiritually-aware productivity app."),
@@ -497,7 +505,7 @@ async function postOpenAIJSON(system: string, instructions: string, payload: unk
   const response = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Authorization": `Bearer ${openaiApiKey.value()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -520,7 +528,7 @@ async function postClaudeJSON(system: string, payload: unknown): Promise<unknown
   const response = await fetch(CLAUDE_URL, {
     method: "POST",
     headers: {
-      "x-api-key": String(process.env.ANTHROPIC_API_KEY),
+      "x-api-key": anthropicApiKey.value(),
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },

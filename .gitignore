@@ -79,6 +79,14 @@ replacements.txt
 Config.xcconfig
 *.xcconfig
 
+# Firebase credentials
+serviceAccountKey.json
+*-serviceAccountKey.json
+google-services.json
+GoogleService-Info.plist
+*GoogleService-Info*.plist
+*.plist.bak
+
 # Xcode
 xcuserdata/
 *.xcworkspace

@@ -58,7 +58,7 @@ struct CommentsView: View {
     
     @State private var commentText = ""
     @State private var replyingTo: Comment?
-    @StateObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared
+    @ObservedObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared // PERF: singleton → @ObservedObject
     @State private var commentAttachmentState: AmenAttachmentComposerState = .empty
     @State private var commentSmartAttachment: AmenSmartAttachment?
     @State private var commentMentionedLinks: [URL] = []
@@ -4110,7 +4110,7 @@ struct CommentReactionPicker: View {
             .background(.ultraThinMaterial, in: Capsule())
             .overlay(Capsule().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 4)
-            .onTapGesture { }
+            .onTapGesture { } // Intentional: absorbs tap on the capsule background so it does not dismiss the reaction tray overlay
         }
         .onAppear {
             withAnimation { appeared = true }

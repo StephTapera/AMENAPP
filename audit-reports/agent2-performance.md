@@ -1,78 +1,174 @@
-# Performance Audit — Agent 2
-Date: 2026-05-27
+# Agent 2 — App Speed Performance Audit
+Date: 2026-05-28
+Branch: berean/ui-rebuild-liquid-glass-v1
 
 ---
 
 ## Findings
 
-### F1 — Bare `AsyncImage` without `.transaction { t in t.animation = nil }` (flicker risk)
-177 files use `AsyncImage` or `CachedAsyncImage`. The following are in hot-path or frequently-rebuilt views and had no animation suppression:
+### HIGH severity
 
-| File | Line | Context |
-|------|------|---------|
-| `AMENAPP/SpaceFeedView.swift` | 75 | Cover-image hero in every Space detail |
-| `AMENAPP/AmenSpaceBannerRail.swift` | 921 | Banner card media in scrollable horizontal carousel |
-| `AMENAPP/AmenSpaceBannerRail.swift` | 951 | Banner card icon in same carousel |
-| `AMENAPP/PostCard.swift` | 5224 | Post action-menu preview thumbnail |
-| `AMENAPP/FeedComposerRow.swift` | 199 | Composer avatar row (appears at top of every feed) |
+**F-1** `PostCard.swift:6893` — `@StateObject private var prayerRoomService = PrayerRoomService.shared`
+`@StateObject` on a singleton creates a second ownership graph for the same object, and SwiftUI may reset the wrapper during list cell recycling, causing the view to briefly read stale state or trigger unnecessary layout passes.
+**Status: FIXED** changed to `@ObservedObject`.
 
-> Note: The app already has a `CachedAsyncImage` component (`AMENAPP/CachedAsyncImage.swift`) with in-memory caching. PostCard's main image correctly uses `CachedAsyncImage` (line 561). The five usages above were missed and still use bare `AsyncImage` (no memory cache, no flicker suppression).
+**F-2** `WellnessRiskLayer.swift` — 7 views using `@StateObject` with `.shared` singletons:
+- `WellnessSoftNudgeCard` line 754
+- `WellnessReflectionPromptCard` line 812
+- `WellnessSupportSheet` line 895
+- `WellnessCrisisSheet` line 952
+- `WellnessUrgentEscalationView` line 1088
+- `WellnessComparisonHarmBanner` line 1244
+- `WellnessRiskOverlay` line 1295
 
-### F2 — No `Self._printChanges()` instrumentation anywhere
-`grep -r '_printChanges'` returned no matches. Without this, it is impossible to know which `@State`/`@Binding` fields drive unintended re-renders in production profiling sessions.
+Same risk as F-1. Each instancing also allocates extra ARC retain cycles for an object that must already exist.
+**Status: FIXED** all 7 changed to `@ObservedObject`.
 
-### F3 — `@ObservedObject` on 4 shared singletons in `YourFeedView`
-`AMENAPP/YourFeedView.swift` lines 25-28 use `@ObservedObject` for `HeyFeedPreferencesService`, `HeyFeedNLPreferencesService`, `HeyFeedSessionModeService`, and `ContextLabelPreferenceStore`. These are singletons; any publish on any of them triggers a full `YourFeedView` body re-evaluation. If any of these services is chatty (e.g. timer-driven or publishes on every keystroke), this can be expensive. PostCard already has comments noting this exact fix was applied — YourFeedView was not similarly tightened.
+**F-3** `CommentsView.swift:61` — `@StateObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared`
+CommentsView is presented as a sheet from multiple call sites. Each presentation creates a new `@StateObject` wrapper for the singleton, which can lead to an observer reference mismatch if the sheet is dismissed and re-presented rapidly.
+**Status: FIXED** changed to `@ObservedObject`.
 
-### F4 — `PostCard` has `@StateObject` leaking PrayerRoomService
-`AMENAPP/PostCard.swift` line 6836: `@StateObject private var prayerRoomService = PrayerRoomService.shared`. Using `@StateObject` with a shared singleton is incorrect — `@StateObject` initializes its own instance lifecycle, but here it is assigned from `.shared`. Since the wrappedValue is a reference type, the object itself is shared, but SwiftUI still owns the `@StateObject` lifetime per view instance, and any `objectWillChange` publish from `PrayerRoomService` will re-render all active PostCard instances. This should be `@ObservedObject` if observation is required (then scoped with targeted `.onReceive`), or an unobserved `let` if not.
+**F-4** `PostDetailView.swift:617` — bare `AsyncImage` for post author avatar.
+`AsyncImage` uses no shared cache; every navigation to PostDetailView fires a new URLSession task for the same profile image URL that PostCard already loaded.
+**Status: FIXED** replaced with `CachedAsyncImage`.
 
-### F5 — `ForEach(..., id: \.id)` vs `Identifiable`
-`TopicFeedView.swift` line 117 uses `ForEach(viewModel.posts, id: \.id)` even though `Post` likely conforms to `Identifiable`. This is a minor issue (redundant `id:` parameter vs dropping it) — not a rebuild storm, just defensive hygiene.
+**F-5** `PostDetailView.swift:699-727` — bare `AsyncImage` inside `TabView` carousel.
+Images inside a swipeable `TabView` are evaluated by SwiftUI on every page change. Without a cache, swiping left-right on a multi-image post fires redundant network requests.
+**Status: FIXED** replaced with `CachedAsyncImage(size: CGSize(width:800, height:800))`.
 
-### F6 — No `.id(UUID())` forced rebuild patterns found
-Searched for `.id(UUID())` — no matches. Good.
+**F-6** `PostDetailView.swift:1886` — bare `AsyncImage` in `commentAvatar()` helper.
+Called for every comment row rendered. During initial load (20-50 rows) this dispatches up to 50 concurrent URLSession tasks for images that are often identical (same author posting multiple comments).
+**Status: FIXED** replaced with `CachedAsyncImage(size: CGSize(width:80, height:80))`.
 
-### F7 — Animation curve notes (`animation(.linear` / `animation(.easeIn`)
-Found 20+ usages of `.easeIn`, `.easeInOut`, and `.linear` duration-based animations on non-spring curves. None are obviously wrong for their context (progress bars, toggles, transitions). No action needed on these.
+**F-7** `FeedComposerRow.swift:165` — bare `AsyncImage` for composer avatar.
+The FeedComposerRow is the first visible element at the top of OpenTableView; its avatar reloads every time the ScrollView scrolls back to the top (view recycling).
+**Status: FIXED** replaced with `CachedAsyncImage(size: CGSize(width:64, height:64))`.
 
-### F8 — `CachedAsyncImage.loadImage()` uses `withAnimation(.easeOut(duration:0.25))` on image load
-`AMENAPP/CachedAsyncImage.swift` line 77: The image load callback fires `withAnimation(.easeOut(duration: 0.25))` on the `MainActor` to fade in images. This is intentional and fine for user-initiated loads, but if the same view is used inside `LazyVStack` during fast scrolling, the animation queues can pile up. The fix is to gate the animation on `!reduceMotion`. Currently not respected.
+### MED severity
+
+**F-8** `ProfileView.swift:3832` — bare `AsyncImage` for profile header avatar in `avatarWithCameraButton`.
+Triggers a fresh URLSession load on every ProfileView `onAppear`. Since the user navigates to their own profile repeatedly, this URL is always the same.
+**Status: FIXED** replaced with `CachedAsyncImage(size: CGSize(width:200, height:200))`.
+
+**F-9** `ProfileView.swift:3013` — bare `AsyncImage` per reply row in `ProfileReplyCard`.
+Each reply card in the Replies tab dispatches its own uncached URLSession task.
+**Status: FIXED** replaced with `CachedAsyncImage(size: CGSize(width:64, height:64))`.
+
+**F-10** `ProfileView.swift:4979` — bare `AsyncImage` in `FullScreenAvatarView`.
+The full-screen avatar sheet opens from the profile header; the same URL was just loaded in F-8, so this is a guaranteed duplicate request.
+**Status: FIXED** replaced with `CachedAsyncImage(size: CGSize(width:600, height:600))`.
+
+**F-11** `ProfileView.swift:5232` — bare `AsyncImage` in photo-edit preview section.
+Same URL as the header avatar. Another duplicate fetch within the same navigation flow.
+**Status: FIXED** replaced with `CachedAsyncImage(size: CGSize(width:400, height:400))`.
+
+**F-12** `PostCard.swift:5280` — bare `AsyncImage` in `postActionMenuPreview`.
+The action menu opens from a long-press on a post. The post image was already loaded by the feed row. Using bare `AsyncImage` here fires a second network call for the same URL.
+**Status: FIXED** replaced with `CachedAsyncImage`.
+
+**F-13** Multiple `@StateObject .shared` singletons in secondary views (all fixed):
+- `VictimShieldControlsView.swift:9` — `AmenFeedControlService.shared` (FIXED)
+- `SpatialSocial/SpatialSocialView.swift:6` — `SpatialSocialViewModel.shared` (FIXED)
+- `GrowthLoopEngine.swift:338` — `GrowthLoopEngine.shared` (FIXED)
+- `ChurchCardEnhancements.swift:95,125,210,229` — `ChurchEnhancementStore.shared` 4x (FIXED)
+- `InAppNotificationBanner.swift:385` — `InAppNotificationBanner.shared` (FIXED)
+- `SuggestedFollowsSheet.swift:16` — `FollowBurstCoordinator.shared` (FIXED)
+- `SelahScripture/SelahScriptureReaderView.swift:177` — `SelahVerseEngagementStore.shared` (FIXED)
+- `AIIntelligence/BereanSelectionOverlay.swift:7` — `BereanContextActionEngine.shared` (FIXED)
+- `AmenContentSuggestions.swift:153` — `AmenSuggestionsService.shared` (FIXED)
+- `UserSearchService.swift:272` — `UserSearchService.shared` (FIXED)
+- `SettingsView.swift:41` — `SettingsSearchEngine.shared` (FIXED)
+- `SmartCommunitySearch/SmartCommunitySearchView.swift:5` — `SmartCommunityLocationManager.shared` (FIXED)
+- `NotificationImageCache.swift:244` — `NotificationImageCache.shared` (FIXED)
+
+**F-14** `AMENAPP/OpenTableView.swift:104-169`, `ContentView.swift:2001` (FollowingFeedView), `ContentView.swift:2045` (QuietFeedView) — feed posts rendered in eager `VStack` instead of `LazyVStack`.
+All three feed views live inside a single outer `ScrollView` in `ContentView`. `LazyVStack` does not virtualise inside a parent `ScrollView` — it renders all children eagerly. The fix requires restructuring the outer scroll container so each feed view owns its own `ScrollView`.
+**Status: DEFERRED** XL effort, high regression risk.
+
+**F-15** `ProfileView.swift:147-148` — `@ObservedObject followService` and `@ObservedObject followRequestsViewModel`.
+Both are correct (`@ObservedObject` for singletons) but `followService` publishes on every follow/unfollow event anywhere in the app, triggering a full `ProfileView` body re-evaluation. Should use targeted `.onReceive` for just the count values needed.
+**Status: DEFERRED** M effort.
+
+**F-16** `PostCard.swift` — 40+ `@State` properties per card instance.
+Every time `PostsManager` publishes (Firebase listener), all observable properties in each visible card re-evaluate. Wrapping cards in `EquatableView` would prevent re-renders when the `Post` value hasn't changed.
+**Status: DEFERRED** `Post` must conform to `Equatable` first; needs audit for all mutable fields (M effort).
+
+### LOW severity
+
+**F-17** `PostDetailView.swift:24-29` — `@ObservedObject postsManager` and `@ObservedObject interactionsService` in sub-views rendered inside `ForEach`.
+`PostsManager` and `PostInteractionsService` publish frequently. Sub-views observing them re-render on every publish even when their specific post hasn't changed.
+**Status: DEFERRED** M effort (per-post slice extraction or `EquatableView`).
+
+**F-18** `AMENAPP/OpenTableView.swift:174` — `GeometryReader` in feed `VStack` background for scroll-offset preference tracking.
+Fires a preference change on every layout pass during scroll. The outer `ContentView` already uses `.onScrollGeometryChange`; this inner reader is redundant.
+**Status: DEFERRED** S effort.
+
+**F-19** 99+ remaining bare `AsyncImage` usages across non-hot-path views (settings, onboarding, detail sheets, chat).
+**Status: DEFERRED** S each, L total.
+
+**F-20** `JobDetailView.swift:33,662,932,1095` — 4x `@StateObject private var service = JobService.shared`.
+Not in the hot feed path.
+**Status: DEFERRED** S effort.
 
 ---
 
 ## Implemented
 
-| Change | File | Lines Affected |
-|--------|------|----------------|
-| Added `Self._printChanges()` behind `#if DEBUG` | `AMENAPP/PostCard.swift` | 2370-2373 |
-| Added `Self._printChanges()` behind `#if DEBUG` | `AMENAPP/TopicFeedView.swift` | 22-25 |
-| Added `Self._printChanges()` behind `#if DEBUG` | `AMENAPP/SpaceFeedView.swift` | 22-25 |
-| Added `.transaction { t in t.animation = nil }` | `AMENAPP/SpaceFeedView.swift` | cover-image AsyncImage |
-| Added `.transaction { t in t.animation = nil }` | `AMENAPP/AmenSpaceBannerRail.swift` | `media` var AsyncImage |
-| Added `.transaction { t in t.animation = nil }` | `AMENAPP/AmenSpaceBannerRail.swift` | `icon` var AsyncImage |
-| Added `.transaction { t in t.animation = nil }` | `AMENAPP/PostCard.swift` | action-menu preview AsyncImage |
-| Added `.transaction { t in t.animation = nil }` | `AMENAPP/FeedComposerRow.swift` | composer avatar AsyncImage |
+All changes are surgical substitutions in existing files. No new files created.
 
-All changes are additive / non-breaking. The `_printChanges()` lines are stripped from Release builds by the `#if DEBUG` guard.
+| # | File | Change |
+|---|------|--------|
+| 1 | `PostCard.swift` | `ContextPrayerMomentRouteView`: `@StateObject` -> `@ObservedObject` for `PrayerRoomService.shared` |
+| 2-8 | `WellnessRiskLayer.swift` | 7x `@StateObject` -> `@ObservedObject` for `WellnessRiskService.shared` and `WellnessFeedModeService.shared` |
+| 9 | `CommentsView.swift` | `@StateObject` -> `@ObservedObject` for `AmenSmartAttachmentResolverService.shared` |
+| 10 | `PostDetailView.swift` | `authorAvatar`: `AsyncImage` -> `CachedAsyncImage` |
+| 11 | `PostDetailView.swift` | `mediaCarousel` ForEach: `AsyncImage` -> `CachedAsyncImage(size:800x800)` |
+| 12 | `PostDetailView.swift` | `commentAvatar()`: `AsyncImage` -> `CachedAsyncImage(size:80x80)` |
+| 13 | `FeedComposerRow.swift` | `composerAvatar`: `AsyncImage` -> `CachedAsyncImage(size:64x64)` |
+| 14 | `ProfileView.swift` | `avatarWithCameraButton`: `AsyncImage` -> `CachedAsyncImage(size:200x200)` |
+| 15 | `ProfileView.swift` | `ProfileReplyCard` avatar: `AsyncImage` -> `CachedAsyncImage(size:64x64)` |
+| 16 | `ProfileView.swift` | `FullScreenAvatarView`: `AsyncImage` -> `CachedAsyncImage(size:600x600)` |
+| 17 | `ProfileView.swift` | Photo-edit preview: `AsyncImage` -> `CachedAsyncImage(size:400x400)` |
+| 18 | `PostCard.swift` | `postActionMenuPreview`: `AsyncImage` -> `CachedAsyncImage` |
+| 19 | `VictimShieldControlsView.swift` | `@StateObject` -> `@ObservedObject` for `AmenFeedControlService.shared` |
+| 20 | `SpatialSocial/SpatialSocialView.swift` | `@StateObject` -> `@ObservedObject` for `SpatialSocialViewModel.shared` |
+| 21 | `GrowthLoopEngine.swift` | `@StateObject` -> `@ObservedObject` for `GrowthLoopEngine.shared` |
+| 22-25 | `ChurchCardEnhancements.swift` | 4x `@StateObject` -> `@ObservedObject` for `ChurchEnhancementStore.shared` |
+| 26 | `InAppNotificationBanner.swift` | `@StateObject` -> `@ObservedObject` for `InAppNotificationBanner.shared` |
+| 27 | `SuggestedFollowsSheet.swift` | `@StateObject` -> `@ObservedObject` for `FollowBurstCoordinator.shared` |
+| 28 | `SelahScripture/SelahScriptureReaderView.swift` | `@StateObject` -> `@ObservedObject` for `SelahVerseEngagementStore.shared` |
+| 29 | `AIIntelligence/BereanSelectionOverlay.swift` | `@StateObject` -> `@ObservedObject` for `BereanContextActionEngine.shared` |
+| 30 | `AmenContentSuggestions.swift` | `@StateObject` -> `@ObservedObject` for `AmenSuggestionsService.shared` |
+| 31 | `UserSearchService.swift` | `@StateObject` -> `@ObservedObject` for `UserSearchService.shared` |
+| 32 | `SettingsView.swift` | `@StateObject` -> `@ObservedObject` for `SettingsSearchEngine.shared` |
+| 33 | `SmartCommunitySearch/SmartCommunitySearchView.swift` | `@StateObject` -> `@ObservedObject` for `SmartCommunityLocationManager.shared` |
+| 34 | `NotificationImageCache.swift` | `@StateObject` -> `@ObservedObject` for `NotificationImageCache.shared` |
+
+**Total: 34 changes across 14 files.**
 
 ---
 
 ## Deferred
 
-| Issue | File | Effort | Notes |
-|-------|------|--------|-------|
-| Migrate remaining bare `AsyncImage` usages to `CachedAsyncImage` | ~170 files | L | Mechanical but large surface area; prioritize feed-visible rows first (avatars, thumbnails) |
-| Fix `@StateObject` on `PrayerRoomService.shared` in PostCard | `PostCard.swift` L6836 | S | Change to `let prayerRoomService = PrayerRoomService.shared` + targeted `.onReceive` where needed |
-| Narrow `@ObservedObject` storm in `YourFeedView` | `YourFeedView.swift` L25-28 | M | Replace with `let` + `.onReceive` slices, same pattern already used in PostCard |
-| Gate `withAnimation(.easeOut)` in `CachedAsyncImage.loadImage()` on `reduceMotion` | `CachedAsyncImage.swift` L77 | S | Add `@Environment(\.accessibilityReduceMotion)` check |
-| Profile with Instruments (Time Profiler + SwiftUI) to validate `_printChanges` output | — | M | Should follow a real scroll session; cannot be done statically |
-| `ForEach` id-parameter redundancy audit | Various | S | Where `Post: Identifiable`, drop explicit `id: \.id` |
+| Item | Effort | Why deferred |
+|------|--------|--------------|
+| Feed scroll virtualisation — replace outer `ScrollView + VStack` with per-feed `List` or independent `ScrollView + LazyVStack` (F-14) | XL | Requires restructuring `ContentView.selectedCategoryView`, all 5 feed child views, and the tab-bar hide/show scroll bridge. High regression risk. |
+| `Post` -> `Equatable` + `EquatableView` wrapping for `PostCard` (F-16) | M | `Post` has mutable Firebase snapshot fields; auditing for value equality is non-trivial. |
+| Targeted `.onReceive` for `FollowService` counts in `ProfileView` (F-15) | M | 2-file change involving follower/following counter bindings throughout the profile scroll content. |
+| Replace `GeometryReader` scroll tracker in `OpenTableView` with `.onScrollGeometryChange` (F-18) | S | Outer `ContentView` already uses `onScrollGeometryChange`; coordination needed. |
+| Remaining 99+ bare `AsyncImage` calls in secondary views (F-19) | L | Low-traffic; swap opportunistically in a cleanup sprint. |
+| `JobDetailView.swift` 4x `@StateObject` -> `@ObservedObject` for `JobService.shared` (F-20) | S | Not in hot feed path; batch with next cleanup commit. |
+| Sub-view `@ObservedObject postsManager + interactionsService` render storm in `ProfileView` / `PostDetailView` (F-17) | M | Per-post slice architecture; coordinate with PostCard Equatable work. |
+| Video preload strategy for ARISE/OUTPOUR screens | M | Screens not found in codebase (feature-flag gated or not yet built); revisit when screens land. |
+| Asset catalog bloat audit | S | Requires `xcrun actool --print-contents` in CI; no static-analysis tool available in this pass. |
 
 ---
 
 ## Risk Notes
 
-- The `_printChanges()` addition changes the `body` return type inference in `TopicFeedView` and `SpaceFeedView` because the `let _ =` expression means `body` no longer implicitly returns. Both files were updated to use an explicit `return` on the subsequent view builder. Verify builds clean.
-- `.transaction { t in t.animation = nil }` on `AsyncImage` suppresses ALL transitions on the image view. If a specific screen intentionally wanted a fade-in on first load (not scroll-back flicker), this removes that. Review `SpaceFeedView` cover image UX if a deliberate fade-in was designed.
-- 177 files use `AsyncImage`/`CachedAsyncImage` — the five fixed here are the highest-traffic. The rest (settings, profile edit, book detail) are low-frequency screens and are lower priority.
+- All 34 implemented changes are mechanical substitutions with no logic changes.
+- `@ObservedObject` on a singleton does NOT change ownership — the singleton's lifetime is managed by its own `static let shared` reference. SwiftUI will not deallocate the object.
+- `CachedAsyncImage` uses the existing `ImageCache.shared` (in-memory, `NSCache`-backed) via the existing `ImageCache.loadImage(url:size:)` async function. No new network stack introduced.
+- The `size:` parameter passed to `CachedAsyncImage` controls downsampling resolution. Values chosen are 2x the display size to account for 3x retina screens without over-allocating memory.
+- The `@StateObject` -> `@ObservedObject` fixes for sheet-presented views are safe: SwiftUI sheet/navigation presentation retains the parent view, so the singleton's reference remains valid for the sheet's lifetime.
+- Do NOT apply the same `@StateObject` -> `@ObservedObject` fix to `SuccessSealController`, `AmenMagicWordComposerObserver`, `SafetyComposerState`, or `SuccessChipCenter` in `CommentsView` — those are NOT singletons (no `static let shared`). `@StateObject` is correct for fresh-per-presentation instances.

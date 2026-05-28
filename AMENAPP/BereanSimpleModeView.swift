@@ -33,7 +33,10 @@ struct BereanSimpleModeView: View {
     }
 
     private func simpleAction(_ title: String, icon: String) -> some View {
-        Button(action: {}) {
+        Button(action: {
+            question = title
+            HapticManager.impact(style: .light)
+        }) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
                     .font(.system(size: 22, weight: .semibold))

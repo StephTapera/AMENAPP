@@ -44,6 +44,52 @@ struct MentorshipPlan: Identifiable, Codable, Hashable {
     var isFree: Bool { priceMonthly == 0 }
     var priceLabel: String { isFree ? "Free" : "$\(String(format: "%.0f", priceMonthly))/mo" }
 
+    init(id: String, name: String, priceMonthly: Double, stripePriceId: String,
+         sessionsPerMonth: Int, includesChat: Bool, includesCheckIns: Bool,
+         includesCustomPlan: Bool, description: String, badge: String? = nil) {
+        self.id = id
+        self.name = name
+        self.priceMonthly = priceMonthly
+        self.stripePriceId = stripePriceId
+        self.sessionsPerMonth = sessionsPerMonth
+        self.includesChat = includesChat
+        self.includesCheckIns = includesCheckIns
+        self.includesCustomPlan = includesCustomPlan
+        self.description = description
+        self.badge = badge
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        let price = try container.decode(Double.self, forKey: .priceMonthly)
+        guard price >= 0 else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: [CodingKeys.priceMonthly],
+                debugDescription: "priceMonthly must be non-negative"
+            ))
+        }
+        self.priceMonthly = price
+
+        let priceId = try container.decode(String.self, forKey: .stripePriceId)
+        if price > 0 && priceId.trimmingCharacters(in: .whitespaces).isEmpty {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: [CodingKeys.stripePriceId],
+                debugDescription: "stripePriceId is required for paid plans"
+            ))
+        }
+        self.stripePriceId = priceId
+
+        self.id = try container.decode(String.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.sessionsPerMonth = try container.decode(Int.self, forKey: .sessionsPerMonth)
+        self.includesChat = try container.decode(Bool.self, forKey: .includesChat)
+        self.includesCheckIns = try container.decode(Bool.self, forKey: .includesCheckIns)
+        self.includesCustomPlan = try container.decode(Bool.self, forKey: .includesCustomPlan)
+        self.description = try container.decode(String.self, forKey: .description)
+        self.badge = try container.decodeIfPresent(String.self, forKey: .badge)
+    }
+
     static func defaultPlans() -> [MentorshipPlan] {
         [
             MentorshipPlan(id: "community", name: "Community", priceMonthly: 0, stripePriceId: "",

@@ -94,6 +94,119 @@ service cloud.firestore {
       allow write: if false; // trust-graph module owns writes
     }
 
+
+    // =========================================================
+    // BEREAN CONVERSATIONS — owner-read-only; server-write only
+    // Prevents enumeration: uid A cannot list or read uid B's
+    // bereanConversations or their messages subcollection.
+    // =========================================================
+
+    match /users/{uid}/bereanConversations/{conversationId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // Cloud Functions (Admin SDK) own all writes
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
+    // =========================================================
+    // CALM CONTROL + SPIRITUAL RHYTHM OS
+    // All subcollections live under users/{userId}.
+    // =========================================================
+
+    // ---------------------------------------------------------
+    // PRIVACY SETTINGS
+    // Owner read/write only. No other user may read this document.
+    // ---------------------------------------------------------
+    match /users/{userId}/privacySettings/main {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ---------------------------------------------------------
+    // FEED CONTROLS
+    // Owner read/write only.
+    // ---------------------------------------------------------
+    match /users/{userId}/feedControls/main {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ---------------------------------------------------------
+    // NOTIFICATION SETTINGS
+    // Owner read only. Client write is allowed here so users can toggle
+    // categories directly; the authoritative write path goes through
+    // the updateNotificationSettings Cloud Function (Admin SDK).
+    // ---------------------------------------------------------
+    match /users/{userId}/notificationSettings/main {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ---------------------------------------------------------
+    // SPIRITUAL RHYTHM
+    // Owner read/write only.
+    // ---------------------------------------------------------
+    match /users/{userId}/spiritualRhythm/main {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ---------------------------------------------------------
+    // STREAKS
+    // Owner read only. Writes come exclusively from Cloud Functions
+    // (recordSpiritualActivity, calculateStreakState). Client may not
+    // write streak documents directly to prevent score spoofing.
+    // ---------------------------------------------------------
+    match /users/{userId}/streaks/{streakType} {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // Cloud Functions (Admin SDK) own all writes
+    }
+
+    // ---------------------------------------------------------
+    // PRESENCE
+    // Owner write. Other authenticated users may read this document.
+    //
+    // NOTE: Full presence visibility (quietProfileMode gate) is enforced
+    // at the API/service layer, not here. Cross-collection reads in rules
+    // are expensive and avoided for hot-path documents.
+    // ---------------------------------------------------------
+    match /users/{userId}/presence/main {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ---------------------------------------------------------
+    // AUDIENCE LAYERS
+    // Owner read/write only. Maximum of 10 layers is enforced in
+    // Cloud Functions (createAudienceLayer callable), not in rules.
+    // ---------------------------------------------------------
+    match /users/{userId}/audienceLayers/{layerId} {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ---------------------------------------------------------
+    // ACTIVITY LOG
+    // Owner read only. Writes are via Cloud Functions only.
+    // Client write is blocked to prevent activity spoofing.
+    // ---------------------------------------------------------
+    match /users/{userId}/activity/main {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // Cloud Functions (Admin SDK) own all writes
+    }
+
+    // ---------------------------------------------------------
+    // RATE LIMITS
+    // No direct client read or write. Admin SDK only.
+    // ---------------------------------------------------------
+    match /users/{userId}/rateLimits/{limitType} {
+      allow read:  if false;
+      allow write: if false;
+    }
+
     // =========================================================
     // HELPER FUNCTIONS
     // =========================================================

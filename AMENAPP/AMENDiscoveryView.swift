@@ -466,7 +466,7 @@ struct AMENDiscoveryView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 28) {
                 Color.clear.frame(height: 0).id("amenDiscoverTop")
-                    .amenTabBarScrollTracking(in: "amenDiscoverScroll")
+                    .amenTabBarScrollTracking()
                 // ── Active disaster alert (pinned at top when present) ──
                 if let topDisaster = disasterVM.disasters.first {
                     DisasterAlertCard(disaster: topDisaster)
@@ -766,7 +766,7 @@ struct AMENDiscoveryView: View {
                 // Show top 5 ideas in horizontal scroll
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(Array(trendingService.topIdeas.prefix(5))) { idea in
+                        ForEach(trendingService.topIdeas.prefix(5)) { idea in
                             TopIdeaCard(idea: idea)
                         }
                     }
@@ -1547,6 +1547,7 @@ struct TypeaheadRow: View {
                                 .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityLabel("Profile photo")
                     } else {
                         Image(systemName: suggestion.icon)
                             .font(.systemScaled(13))
@@ -1635,6 +1636,7 @@ struct DiscoveryTrendCard: View {
                     }
                     .frame(width: 56, height: 56)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .accessibilityLabel("Content thumbnail")
                 }
             }
             .padding(14)
@@ -1718,6 +1720,7 @@ struct DiscoveryFollowCard: View {
                             .font(AMENFont.bold(20))
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("\(suggestion.person.displayName) profile photo")
                 } else {
                     Text(String(suggestion.person.displayName.prefix(1)).uppercased())
                         .font(AMENFont.bold(20))
@@ -2028,6 +2031,7 @@ struct DiscoveryLandingVideoCard: View {
                         } placeholder: {
                             LinearGradient(colors: [Color.indigo.opacity(0.4), Color.purple.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
                         }
+                        .accessibilityLabel(video.title.isEmpty ? "Video thumbnail" : "\(video.title) thumbnail")
                     } else {
                         LinearGradient(colors: [Color.indigo.opacity(0.4), Color.purple.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
                     }

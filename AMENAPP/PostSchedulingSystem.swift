@@ -1171,6 +1171,7 @@ struct ScheduledPostsHub: View {
                                 ForEach(upcomingEntries) { entry in
                                     ScheduledPostRow(
                                         entry: entry,
+                                        onEdit: {},
                                         onReschedule: {},
                                         onDuplicate: {},
                                         onCancel: { removeEntry(id: entry.id) }
@@ -1184,6 +1185,7 @@ struct ScheduledPostsHub: View {
                                 ForEach(processingEntries) { entry in
                                     ScheduledPostRow(
                                         entry: entry,
+                                        onEdit: {},
                                         onReschedule: {},
                                         onDuplicate: {},
                                         onCancel: { removeEntry(id: entry.id) }
@@ -1197,6 +1199,7 @@ struct ScheduledPostsHub: View {
                                 ForEach(failedEntries) { entry in
                                     ScheduledPostRow(
                                         entry: entry,
+                                        onEdit: {},
                                         onReschedule: {},
                                         onDuplicate: {},
                                         onCancel: { removeEntry(id: entry.id) }
@@ -1210,6 +1213,7 @@ struct ScheduledPostsHub: View {
                                 ForEach(publishedEntries) { entry in
                                     ScheduledPostRow(
                                         entry: entry,
+                                        onEdit: {},
                                         onReschedule: {},
                                         onDuplicate: {},
                                         onCancel: { removeEntry(id: entry.id) }
@@ -1293,6 +1297,7 @@ struct ScheduledPostsHub: View {
 
 struct ScheduledPostRow: View {
     var entry: ScheduledPostEntry
+    var onEdit: () -> Void
     var onReschedule: () -> Void
     var onDuplicate: () -> Void
     var onCancel: () -> Void
@@ -1407,7 +1412,7 @@ struct ScheduledPostRow: View {
             // Overflow menu
             if showOverflow {
                 HStack(spacing: 8) {
-                    overflowButton(icon: "pencil", label: "Edit", action: {})
+                    overflowButton(icon: "pencil", label: "Edit", action: onEdit)
                     overflowButton(icon: "calendar.badge.clock", label: "Reschedule", action: onReschedule)
                     overflowButton(icon: "doc.on.doc", label: "Duplicate", action: onDuplicate)
                     overflowButton(icon: "xmark.circle", label: "Cancel", action: onCancel)
