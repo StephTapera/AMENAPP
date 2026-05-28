@@ -76,6 +76,9 @@ struct PostCard: View {
     @State private var saveShakeError = false         // H) Shake on save backend failure
     @State private var repostShakeError = false       // H) Shake on repost backend failure
     @State private var reactionErrorToast: String?    // P1-6: Brief toast shown when reaction write fails
+    @State private var captionTranslatedText: String?  // Media/Translate: result from TranslateButton Firebase CF
+    @State private var isReactionTrayPresented: Bool = false   // Media/Reactions: ReactionTray open state
+    @State private var selectedMediaReaction: MediaReactionType?               // Media/Reactions: active emoji
     @State private var showProvenancePanel = false    // Provenance Trust Panel trigger
     @State private var lastSaveActionTimestamp: Date?  // ✅ NEW: Track last save action for debouncing
     @State private var saveActionCounter = 0  // ✅ NEW: Count save actions for debugging
@@ -554,6 +557,7 @@ struct PostCard: View {
                 AccessibilitySignalCollector.shared.recordSignal(.contextCardOpened)
                 AccessibilitySuggestionEngine.shared.evaluate()
             }
+            .amenSheet()
         }
     }
     
@@ -3110,10 +3114,27 @@ struct PostCard: View {
             }
 
             if !isTextSelecting && displayContent.count > 80 {
-                Text("Select a thought to quote")
-                    .font(AMENFont.regular(12))
+                HStack(alignment: .center, spacing: 8) {
+                    Text("Select a thought to quote")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    TranslateButton(
+                        originalText: displayContent,
+                        translatedText: $captionTranslatedText
+                    )
+                }
+                .padding(.top, 6)
+            }
+
+            // Shows Firebase-translated caption when TranslateButton resolves (separate from Apple Translation)
+            if let translated = captionTranslatedText, !showTranslatedContent {
+                Text(translated)
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
-                    .padding(.top, 6)
+                    .padding(.top, 4)
+                    .padding(.horizontal, 2)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             if !isPostExpanded && displayContent.count > 300 {
@@ -4474,6 +4495,38 @@ struct PostCard: View {
                 .buttonStyle(MinimalReactionButtonStyle(isActive: hasSaidAmen))
                 .opacity(isUserPost ? 0.4 : 1.0)
                 .disabled(isUserPost)
+            }
+
+            // 1b. Emoji reaction button — opens ReactionTray on tap
+            if !isUserPost {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        isReactionTrayPresented.toggle()
+                    }
+                } label: {
+                    Group {
+                        if let r = selectedMediaReaction {
+                            Text(r == .heart ? "❤️" : r == .prayer ? "🙏" : r == .fire ? "🔥" : r == .laugh ? "😂" : r == .cross ? "✝️" : "😊")
+                                .font(.system(size: 20))
+                        } else {
+                            Image(systemName: "face.smiling")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(AmenTheme.Colors.textSecondary)
+                        }
+                    }
+                    .frame(width: 36, height: 36)
+                    .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(selectedMediaReaction != nil ? "Change emoji reaction" : "Add emoji reaction")
+                .overlay(alignment: .top) {
+                    ReactionTray(
+                        isPresented: $isReactionTrayPresented,
+                        selectedReaction: $selectedMediaReaction,
+                        onReactionSelected: { _ in }
+                    )
+                    .offset(y: -60)
+                }
             }
 
             // 2. Comment — illuminates when current user has commented

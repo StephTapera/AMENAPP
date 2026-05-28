@@ -329,25 +329,17 @@ struct FullCommentsView: View {
                 .opacity(0.5)
             
             VStack(spacing: 12) {
-                // Reply indicator
+                // Reply indicator — shows quoted content with author name
                 if let replyingTo = replyingTo {
-                    HStack {
-                        Text("Replying to \(replyingTo.authorName)")
-                            .font(AMENFont.semiBold(12))
-                            .foregroundStyle(.secondary)
-                        
-                        Spacer()
-                        
-                        Button {
+                    QuoteReplyBubble(
+                        quotedAuthorName: replyingTo.authorName,
+                        quotedContent: replyingTo.content,
+                        onDismiss: {
                             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 self.replyingTo = nil
                             }
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.systemScaled(14))
-                                .foregroundStyle(.secondary)
                         }
-                    }
+                    )
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
