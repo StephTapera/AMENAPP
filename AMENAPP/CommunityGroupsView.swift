@@ -144,16 +144,37 @@ struct CommunityGroupsView: View {
                         .padding(.horizontal, 16)
 
                     if filteredGroups.isEmpty && !isLoading {
-                        VStack(spacing: 12) {
-                            Image(systemName: "person.3.fill")
-                                .font(.systemScaled(36))
-                                .foregroundStyle(.secondary.opacity(0.5))
-                            Text("No groups found")
-                                .font(.systemScaled(15))
-                                .foregroundStyle(.secondary)
+                        VStack(spacing: 16) {
+                            Image(systemName: searchText.isEmpty ? "person.3.fill" : "magnifyingglass")
+                                .font(.systemScaled(40))
+                                .foregroundStyle(.secondary.opacity(0.45))
+                            VStack(spacing: 6) {
+                                Text(searchText.isEmpty ? "No groups yet" : "No groups match "\(searchText)"")
+                                    .font(.systemScaled(16, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text(searchText.isEmpty
+                                     ? "Be the first — create a group for your community."
+                                     : "Try a different keyword or browse all groups.")
+                                    .font(.systemScaled(14))
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            if searchText.isEmpty {
+                                Button {
+                                    showCreateSheet = true
+                                } label: {
+                                    Text("Create a Group")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 20)
+                                        .padding(.vertical, 10)
+                                        .background(Capsule().fill(Color.accentColor))
+                                }
+                            }
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(40)
+                        .padding(.vertical, 48)
+                        .padding(.horizontal, 24)
                     }
 
                     ForEach(filteredGroups) { group in

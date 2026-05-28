@@ -21,6 +21,8 @@ struct CrisisResourcesDetailView: View {
     @State private var breathScale: CGFloat = 1.0
     @State private var appeared = false   // materialization gate
 
+    private let locale = CrisisResourceResolver.resolve()
+
     enum CrisisSection: String, CaseIterable {
         case immediate = "Immediate Help"
         case safetyPlan = "Safety Plan"
@@ -207,15 +209,15 @@ struct CrisisResourcesDetailView: View {
 
     private var emergencyCTA: some View {
         VStack(spacing: 10) {
-            // Immediate danger
-            Button { dial("911") } label: {
+            // Immediate danger — locale-aware emergency number
+            Button { dial(locale.emergencyNumber) } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.circle.fill")
                         .font(.systemScaled(18))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Immediate danger — call 911")
+                        Text("Immediate danger — call \(locale.emergencyNumber)")
                             .font(.custom("OpenSans-Bold", size: 15))
-                        Text("Emergency services in the US")
+                        Text("Emergency services")
                             .font(.custom("OpenSans-Regular", size: 12))
                             .opacity(0.8)
                     }
@@ -234,27 +236,31 @@ struct CrisisResourcesDetailView: View {
             }
             .buttonStyle(SquishButtonStyle())
 
-            // 988 quick access
+            // Locale-aware crisis hotline quick-access
             HStack(spacing: 10) {
                 QuickContactPill(
-                    label: "Call 988",
+                    label: "Call \(locale.crisisHotlineNumber)",
                     icon: "phone.fill",
                     accent: Color(red: 0.72, green: 0.12, blue: 0.12)
-                ) { dial("988") }
+                ) { dial(locale.crisisHotlineNumber) }
 
                 QuickContactPill(
-                    label: "Text 988",
-                    icon: "message.fill",
-                    accent: Color(red: 0.48, green: 0.22, blue: 0.72)
-                ) { sms("988") }
-
-                QuickContactPill(
-                    label: "Text HOME",
+                    label: locale.crisisTextLabel,
                     icon: "bubble.left.fill",
                     accent: Color(red: 0.18, green: 0.48, blue: 0.72)
                 ) {
-                    // Crisis Text Line — text HOME to 741741
-                    if let url = URL(string: "sms:741741&body=HOME") {
+                    // Route to the locale-specific crisis text line
+                    if let url = URL(string: "sms:\(locale.crisisHotlineNumber)") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+
+                if let webURL = locale.webResourceURL, let url = URL(string: webURL) {
+                    QuickContactPill(
+                        label: "Online Help",
+                        icon: "safari.fill",
+                        accent: Color(red: 0.48, green: 0.22, blue: 0.72)
+                    ) {
                         UIApplication.shared.open(url)
                     }
                 }
