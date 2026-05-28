@@ -14,6 +14,7 @@
 'use strict';
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 
 const db = admin.firestore();
@@ -403,12 +404,46 @@ exports.attachVerse = onCall(async (request) => {
  */
 exports.expireViewOnceMedia = onCall(async (request) => {
   requireAuth(request.auth);
-  requireFields(request.data, ['messageId']);
-  // Verify caller is the recipient (check /messages/{messageId}.recipientId == auth.uid)
-  // Delete /messages/{messageId} and associated Storage file
-  // Write { expired: true, expiredAt: serverTimestamp } to /messages/{messageId}
-  // TODO: fully implement
-  throw new HttpsError('unimplemented', 'expireViewOnceMedia stub');
+  const { data, auth } = request;
+  requireFields(data, ['messageId']);
+
+  const uid = auth.uid;
+  const { messageId } = data;
+
+  const messageRef = db.collection('messages').doc(messageId);
+  const messageSnap = await messageRef.get();
+
+  if (!messageSnap.exists) {
+    throw new HttpsError('not-found', 'Message not found.');
+  }
+
+  const messageData = messageSnap.data();
+
+  if (messageData.recipientId !== uid) {
+    throw new HttpsError('permission-denied', 'Only the recipient can expire this media.');
+  }
+
+  if (messageData.expired) {
+    return { expired: true };
+  }
+
+  // Delete the associated Storage file if present.
+  if (messageData.storageRef) {
+    try {
+      await admin.storage().bucket().file(messageData.storageRef).delete();
+    } catch (err) {
+      // Non-fatal: file may already be deleted or never uploaded.
+      console.warn('expireViewOnceMedia: Storage delete failed:', err.message);
+    }
+  }
+
+  await messageRef.update({
+    expired: true,
+    expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+    storageRef: admin.firestore.FieldValue.delete(),
+  });
+
+  return { expired: true };
 });
 
 /**
@@ -421,8 +456,75 @@ exports.expireViewOnceMedia = onCall(async (request) => {
  */
 exports.cleanupExpiredMutes = onCall(async (request) => {
   requireAuth(request.auth);
-  // Query /mutes/{auth.uid}/entries where expiresAt < now
-  // Delete expired entries
-  // TODO: fully implement
-  throw new HttpsError('unimplemented', 'cleanupExpiredMutes stub');
+  const uid = request.auth.uid;
+
+  const now = new Date();
+  const expiredSnap = await db
+    .collection('mutes')
+    .doc(uid)
+    .collection('entries')
+    .where('expiresAt', '<', now)
+    .get();
+
+  if (expiredSnap.empty) {
+    return { deletedCount: 0 };
+  }
+
+  // Batch delete in chunks of 500 (Firestore batch limit).
+  const CHUNK = 500;
+  const docs = expiredSnap.docs;
+  let deletedCount = 0;
+
+  for (let i = 0; i < docs.length; i += CHUNK) {
+    const batch = db.batch();
+    docs.slice(i, i + CHUNK).forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    deletedCount += Math.min(CHUNK, docs.length - i);
+  }
+
+  return { deletedCount };
+});
+
+// ---------------------------------------------------------------------------
+// Scheduled — Deliver queued messages
+// ---------------------------------------------------------------------------
+
+/**
+ * sendScheduledMessages — runs every minute; delivers messages whose scheduledFor <= now.
+ *
+ * Firestore path: /scheduledMessages where scheduledFor <= now && sent == false
+ * On delivery: writes to /messages/{messageId} and marks /scheduledMessages/{id}.sent = true.
+ */
+exports.sendScheduledMessages = onSchedule('every 1 minutes', async () => {
+  const now = new Date();
+
+  const pendingSnap = await db
+    .collection('scheduledMessages')
+    .where('scheduledFor', '<=', now)
+    .where('sent', '==', false)
+    .limit(100)
+    .get();
+
+  if (pendingSnap.empty) return;
+
+  const batch = db.batch();
+
+  pendingSnap.docs.forEach((doc) => {
+    const msg = doc.data();
+
+    // Write to /messages using the same ID for idempotency.
+    const msgRef = db.collection('messages').doc(doc.id);
+    batch.set(msgRef, {
+      ...msg,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    // Mark the scheduled record as sent.
+    batch.update(doc.ref, {
+      sent: true,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
 });
