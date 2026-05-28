@@ -35,6 +35,7 @@ struct YourFeedView: View {
     @State private var sessionExpanded      = false
     @State private var advancedExpanded     = false
     @State private var contextLabelsExpanded = false
+    @State private var showResetLabelsConfirmation = false
 
     // NL inline input
     @State private var nlInputText          = ""
@@ -57,6 +58,7 @@ struct YourFeedView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         headerHero
                             .padding(.bottom, 24)
+
 
                         // Seasonal strip (if seasonally relevant)
                         if seasonalContext.isSeasonallyActive {
@@ -135,6 +137,7 @@ struct YourFeedView: View {
                         Spacer(minLength: 48)
                     }
                 }
+                .scrollDismissesKeyboard(.immediately)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -148,6 +151,14 @@ struct YourFeedView: View {
         .presentationDetents([.large])
         .presentationCornerRadius(24)
         .presentationBackground(.regularMaterial)
+        .alert("Reset hidden labels?", isPresented: $showResetLabelsConfirmation) {
+            Button("Reset", role: .destructive) {
+                Task { await contextPrefs.resetHiddenLabels() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will restore all previously hidden topic labels to your feed. Your other feed preferences won't be affected.")
+        }
         .onAppear {
             nlSvc.startListening()
             sessionExpanded = sessionSvc.isActive
@@ -323,7 +334,7 @@ struct YourFeedView: View {
             }
 
             Button("Reset hidden labels") {
-                Task { await contextPrefs.resetHiddenLabels() }
+                showResetLabelsConfirmation = true
             }
             .font(AMENFont.semiBold(13))
             .foregroundStyle(.primary)

@@ -144,6 +144,34 @@ _(Code work is [AUTO]; these are the human steps.)_
 
 ---
 
+## 🤖 AI System Gaps (from AI audit + 2026-05-27 v4 audit)
+
+- [ ] **Rotate previously exposed API keys** — YOUVERSION_API_KEY, CLAUDE_API_KEY, OPENAI_API_KEY, and XAI_KEY were previously hardcoded in Config.xcconfig and committed to git history. Even though the file is now .gitignored, the old values exist in git history and must be rotated in each respective dashboard (YouVersion, Anthropic, OpenAI, xAI).
+  - **WHY**: Credentials in git history can be extracted by anyone with repo access.
+  - **WHERE**: Run `git log --all -p | grep -E "sk_|Bearer|api_key"` locally to confirm exposure. Then rotate in: Anthropic console, OpenAI platform, YouVersion developer portal, xAI dashboard.
+
+- [ ] **Verify Google Cloud Console API key restrictions** — The Firebase API key `AIzaSyBR...` (in GoogleService-Info.plist) is distributed with the app bundle (by design). Verify it is restricted in Google Cloud Console to iOS bundle ID `tapera.AMENAPP` and only to required Firebase services.
+  - **WHY**: An unrestricted Firebase API key can be abused by anyone who extracts it from the IPA.
+  - **WHERE**: Google Cloud Console (project `amen-5e359`) → APIs & Services → Credentials → check the API key restrictions.
+
+- [ ] **Verify crisis Cloud Function writes audit trail** — The client-side crisis detection code correctly defers to a Cloud Function. Confirm that the Cloud Function processing `crisisDetectionRequests` actually writes an audit record (user_id, timestamp, crisis_type, response_shown) to a server-only Firestore collection.
+  - **WHY**: Legal liability if a user reports a crisis and there's no record that the app responded with resources.
+  - **WHERE**: Firebase Functions source → the function that reads from `crisisDetectionRequests`. Add a write to a server-only `crisisAuditLog` collection if missing.
+
+- [ ] **evaluateTone function decision** — The `evaluateTone` Cloud Function is currently a stub that uses a local heuristic (no real Claude/OpenAI call). Decide: (A) implement real AI tone evaluation, or (B) keep as local heuristic. If (A), add `getBereanEntitlement()` tier gate + rate limiting.
+  - **WHY**: Stub currently has no rate limit or tier gate. If a real AI call is added later without these guards, it becomes a $-leakage risk.
+  - **WHERE**: `Backend/functions/src/aiUsageLabels.ts` — `evaluateTone` function, lines 188–213.
+
+- [ ] **generateDailyVerse tier gating decision** — Decide whether Daily Verse generation should be free or paid-only. (HYBRID: agent added per-day rate limit `AI_PER_DAY`; human decides whether to add a `getBereanEntitlement()` tier block and redeploy.)
+  - **WHY**: Without a tier gate, free users can generate unlimited daily verses (the per-day rate limit only applies within the shared `AI_PER_DAY` budget).
+  - **WHERE**: `Backend/functions/src/generateDailyVerse.ts` — deploy after deciding on tier gate. Then re-deploy Cloud Function.
+
+- [ ] **App Privacy label (App Store Connect) — audio + health** — Agent updated PrivacyInfo.xcprivacy to add AudioData and Health collected data types. You must also update the matching entries in App Store Connect → App Privacy to keep them in sync.
+  - **WHY**: Inaccurate App Privacy label is a rejection reason.
+  - **WHERE**: App Store Connect → Your App → App Privacy → add AudioData and Health.
+
+---
+
 ## ⚠️ UX Gaps Found During Code Audit (2026-05-27)
 
 - [ ] **"Reset hidden labels" needs confirmation** — `YourFeedView.swift` line 323 has a button that resets all hidden topic labels with no confirmation dialog. One accidental tap destroys the user's curated feed preferences. Add an `.alert` or confirmation sheet before executing the reset.

@@ -685,7 +685,7 @@ struct AmenSpaceBannerRail: View {
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                     .frame(width: 36, height: 36)
                     .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.7))
+                    .overlay(Circle().strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.7))
             }
             .accessibilityLabel("Banner size")
         }
@@ -926,6 +926,7 @@ private struct AmenSpaceBannerCard: View {
                     placeholder
                 }
             }
+            .transaction { t in t.animation = nil } // prevent flicker in horizontal carousel
         } else {
             placeholder
         }
@@ -954,6 +955,7 @@ private struct AmenSpaceBannerCard: View {
                     default: Image(systemName: item.type.systemImage).foregroundStyle(.white)
                     }
                 }
+                .transaction { t in t.animation = nil } // prevent flicker in horizontal carousel
             } else {
                 Image(systemName: item.type.systemImage)
                     .foregroundStyle(.white)
@@ -974,7 +976,7 @@ private struct AmenSpaceBannerLoadingCard: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .fill(Color.black.opacity(0.06))
+            .fill(Color(.systemFill))
             .frame(height: size.cardHeight)
             .overlay(ProgressView().tint(Color.blue))
             .accessibilityLabel("Loading featured banners")

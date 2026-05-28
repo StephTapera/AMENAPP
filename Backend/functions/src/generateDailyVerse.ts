@@ -42,16 +42,14 @@ export const generateDailyVerse = onCall(
         secrets: [openaiApiKey],
         timeoutSeconds: 30,
         memory: "256MiB",
-        // NOTE: enforceAppCheck is intentionally omitted here so the function
-        // works on the simulator before a debug App Check token is registered
-        // in the Firebase console. Add enforceAppCheck: false after registering.
+        enforceAppCheck: true,
     },
     async (request) => {
         if (!request.auth) {
             throw new HttpsError("unauthenticated", "Must be signed in");
         }
 
-        await enforceRateLimit(request.auth.uid, [RATE_LIMITS.AI_PER_MINUTE]);
+        await enforceRateLimit(request.auth.uid, [RATE_LIMITS.AI_PER_MINUTE, RATE_LIMITS.AI_PER_DAY]);
 
         const data = request.data as DailyVerseRequest;
         const {

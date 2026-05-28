@@ -81,6 +81,7 @@ private struct UnifiedChatPhotoAttachmentModifier: ViewModifier {
 struct UnifiedChatView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var messagingService = FirebaseMessagingService.shared
     @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
     @ObservedObject private var toastManager = ToastManager.shared
@@ -95,8 +96,14 @@ struct UnifiedChatView: View {
     @ObservedObject private var chatCalendarBridge = ChatCalendarBridge.shared
     @State private var showMemorySheet = false
 
+    // System 36: Messaging Filters & Smart Inbox — thread-level search/filter sheet
+    @State private var showThreadSearch = false
+    @State private var threadSearchJumpTargetId: String? = nil
+    @ObservedObject private var amenFeatureFlags = AMENFeatureFlags.shared
+
     let conversation: ChatConversation
-    
+    var recipientAccentColor: Color? = nil
+
     @State private var messageText = ""
     @State private var messages: [AppMessage] = []
     @State private var pendingMessages: [String: AppMessage] = [:]
@@ -189,6 +196,10 @@ struct UnifiedChatView: View {
     // hashValue is session-unstable and collision-prone for short strings.
     @State private var isSendingMessage = false
     @State private var inFlightMessageIDs: Set<String> = []
+
+    // @Berean DM one-time AI disclosure (privacy/COPPA compliance)
+    @State private var showBereanDMDisclosure = false
+    @State private var pendingBereanText: String? = nil
     @StateObject private var messageSeal = SuccessSealController()
 
     // MARK: — Messaging Intelligence (Phases 4-12)
@@ -202,6 +213,7 @@ struct UnifiedChatView: View {
     @State private var showMessageActionCluster: Bool = false
     @State private var actionClusterMessage: AppMessage? = nil
     @State private var showConversationMemorySearch: Bool = false
+    @State private var showThreadSummaryPanel: Bool = false
     @State private var showMediaIntelligenceDock: Bool = false
     @State private var mediaDockMessage: AppMessage? = nil
     @State private var showPresencePicker: Bool = false
@@ -898,6 +910,19 @@ struct UnifiedChatView: View {
                 handleVideoSelected(videoURL)
             }
         }
+        // System 36: Thread-level search/filter sheet
+        .sheet(isPresented: $showThreadSearch) {
+            if #available(iOS 17.0, *) {
+                MessagingThreadSearchView(
+                    messages: messages,
+                    currentUserId: Auth.auth().currentUser?.uid ?? "",
+                    onJumpToMessage: { messageId in
+                        threadSearchJumpTargetId = messageId
+                    }
+                )
+                .presentationDragIndicator(.visible)
+            }
+        }
         // Document picker sheet
         .sheet(isPresented: $showDocumentPicker) {
             documentPickerSheetView
@@ -941,6 +966,22 @@ struct UnifiedChatView: View {
                 conversationId: conversation.id,
                 onSelectResult: { _ in showConversationMemorySearch = false },
                 onDismiss: { showConversationMemorySearch = false }
+            )
+        }
+        // System 32: Thread Summary panel
+        .sheet(isPresented: $showThreadSummaryPanel) {
+            ThreadSummaryPanel(
+                threadId: conversation.id,
+                onOpenSourceMessage: { messageId in
+                    showThreadSummaryPanel = false
+                    scrollToMessage(messageId)
+                },
+                onCreateTask: { action in
+                    showThreadSummaryPanel = false
+                    toastManager.showSuccess("Suggested follow-up ready")
+                    dlog("[ThreadSummary] Create task requested: \(action.title)")
+                },
+                onDismiss: { showThreadSummaryPanel = false }
             )
         }
         // System 32: Message Action Cluster overlay
@@ -1016,6 +1057,20 @@ struct UnifiedChatView: View {
             Button("Cancel", role: .cancel) { userIdToBlock = nil }
         } message: {
             Text("You will no longer receive messages from this person.")
+        }
+        .alert("Berean AI in this conversation", isPresented: $showBereanDMDisclosure) {
+            Button("Allow") {
+                UserDefaults.standard.set(true, forKey: "berean_dm_ai_disclosed_\(conversation.id)")
+                if let text = pendingBereanText {
+                    sendBereanMessage(userText: text)
+                    pendingBereanText = nil
+                }
+            }
+            Button("No thanks", role: .cancel) {
+                pendingBereanText = nil
+            }
+        } message: {
+            Text("Typing @Berean routes this message to an AI model for a spiritual response. The conversation stays in this chat and is not used for training.")
         }
         .task {
             // P0 FIX: Move all setup to async task for instant view appearance
@@ -1289,7 +1344,31 @@ struct UnifiedChatView: View {
             }
             
             Spacer()
-            
+
+            // System 36: Thread-level search/filter — flag-gated, no-op when off
+            if #available(iOS 17.0, *), amenFeatureFlags.messagingThreadSearchFiltersEnabled {
+                Button {
+                    AMENAnalyticsService.shared.track(.messageThreadFilterOpened)
+                    showThreadSearch = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.systemScaled(16, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white, lineWidth: 1)
+                                        .opacity(0.25)
+                                )
+                        )
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .accessibilityLabel("Search this conversation")
+            }
+
             // Info button - blends with background
             Button {
                 if conversation.isGroup {
@@ -1576,6 +1655,17 @@ struct UnifiedChatView: View {
                 .onChange(of: firstUnreadMessageId) { _, newValue in
                     // Show/hide jump to unread button
                     showJumpToUnread = newValue != nil
+                }
+                // System 36: Jump-to-message from thread search.
+                // The search sheet writes the target ID; we scroll and clear it.
+                .onChange(of: threadSearchJumpTargetId) { _, target in
+                    guard let target, !target.isEmpty else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            proxy.scrollTo(target, anchor: .center)
+                        }
+                        threadSearchJumpTargetId = nil
+                    }
                 }
                 .overlay(alignment: .bottomTrailing) {
                     if LiquidGlassEffectsFlags.jumpToLatestPill, showJumpToLatest {
@@ -2148,7 +2238,7 @@ struct UnifiedChatView: View {
                                 .scaleEffect(isRecording ? 2.1 : 1.0)
                                 .opacity(0)
                                 .animation(
-                                    .easeOut(duration: 1.0).repeatForever(autoreverses: false),
+                                    reduceMotion ? nil : .easeOut(duration: 1.0).repeatForever(autoreverses: false),
                                     value: isRecording
                                 )
                         }
@@ -2162,7 +2252,7 @@ struct UnifiedChatView: View {
                                         colors: [Color(red: 0.25, green: 0.25, blue: 0.25),
                                                  Color(red: 0.25, green: 0.25, blue: 0.25)],
                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    : AnyShapeStyle(Color.blue)
+                                    : AnyShapeStyle(recipientAccentColor ?? Color.amenGold)
                             )
                             .frame(width: 32, height: 32)
                             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isMessageEmpty)
@@ -2224,8 +2314,10 @@ struct UnifiedChatView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: messageText)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isInputBarFocused)
         .onAppear {
-            withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) {
-                inputShimmerX = 220
+            if !reduceMotion {
+                withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) {
+                    inputShimmerX = 220
+                }
             }
         }
     }
@@ -3179,11 +3271,18 @@ struct UnifiedChatView: View {
         }
     }
 
+    private func scrollToMessage(_ messageId: String) {
+        guard messages.contains(where: { $0.id == messageId }) else { return }
+        withAnimation(.easeOut(duration: 0.25)) {
+            chatScrollProxy?.scrollTo(messageId, anchor: .center)
+        }
+    }
+
     // System 32: Route smart context bar chip taps.
     private func handleSmartContextChip(_ chip: SmartContextChip) {
         switch chip {
         case .summary:
-            intelligenceCoordinator.requestCatchUp(conversationId: conversation.id, messages: messages)
+            showThreadSummaryPanel = true
         case .decisions:
             intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
         case .questions:
@@ -3225,7 +3324,7 @@ struct UnifiedChatView: View {
                 presentedActions: [.saveToSelah, .addToChurchNotes, .saveToNotes, .remindMe]
             )
         case .summarize:
-            intelligenceCoordinator.requestCatchUp(conversationId: conversation.id, messages: messages)
+            showThreadSummaryPanel = true
         case .createTask:
             intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
         case .markDecision:
@@ -3238,14 +3337,12 @@ struct UnifiedChatView: View {
             )
         case .forward:
             Task {
-                if let shareText = URL(string: ""),
-                   !message.text.isEmpty {
-                    await MainActor.run {
-                        let activity = UIActivityViewController(activityItems: [message.text], applicationActivities: nil)
-                        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                           let root = scene.windows.first?.rootViewController {
-                            root.present(activity, animated: true)
-                        }
+                guard !message.text.isEmpty else { return }
+                await MainActor.run {
+                    let activity = UIActivityViewController(activityItems: [message.text], applicationActivities: nil)
+                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let root = scene.windows.first?.rootViewController {
+                        root.present(activity, animated: true)
                     }
                 }
             }
@@ -3311,6 +3408,16 @@ struct UnifiedChatView: View {
         // The message is still written to Firestore (both sides) after streaming.
         if messageText.range(of: "@berean", options: [.caseInsensitive]) != nil {
             let userText = messageText
+            // Show a one-time AI processing disclosure for privacy compliance.
+            // Key is per-conversation so repeat users in the same chat are not re-prompted.
+            let disclosureKey = "berean_dm_ai_disclosed_\(conversation.id)"
+            if !UserDefaults.standard.bool(forKey: disclosureKey) {
+                messageText = ""
+                isInputFocused = false
+                pendingBereanText = userText
+                showBereanDMDisclosure = true
+                return
+            }
             messageText = ""
             isInputFocused = false
             sendBereanMessage(userText: userText)
@@ -5243,14 +5350,17 @@ struct LiquidGlassMessageBubble: View {
                             case .text, .image:
                                 // Default text / photo bubble (existing behavior untouched)
                                 VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 2) {
-                                    Text(message.text)
-                                        .font(.systemScaled(16))
-                                        .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 9)
-                                        .background(bubbleBackground)
-                                        .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)
+                                    SmartMessageText(
+                                        text: message.text,
+                                        context: .local(messageId: message.id, surface: "unified_chat"),
+                                        foregroundColor: isFromCurrentUser ? .white : Color(.label)
+                                    )
+                                    .font(.systemScaled(16))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 9)
+                                    .background(bubbleBackground)
+                                    .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)
                                     // "Edited" indicator — subtle, below bubble
                                     if message.editedAt != nil {
                                         Text("Edited")
@@ -5802,6 +5912,7 @@ struct QuickReplyChipsView: View {
 
 /// Three pulsing dots with the gold BEREAN AI header — shown before the first token arrives.
 struct BereanTypingIndicatorBubble: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animate = false
 
     var body: some View {
@@ -5826,7 +5937,7 @@ struct BereanTypingIndicatorBubble: View {
                             .frame(width: 7, height: 7)
                             .scaleEffect(animate ? 1.0 : 0.5)
                             .animation(
-                                .easeInOut(duration: 0.55)
+                                reduceMotion ? nil : .easeInOut(duration: 0.55)
                                     .repeatForever(autoreverses: true)
                                     .delay(Double(index) * 0.15),
                                 value: animate
@@ -5887,7 +5998,7 @@ struct BereanStreamingBubble: View {
                         lineWidth: 1
                     )
             )
-            .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .leading)
+            .frame(maxWidth: 320, alignment: .leading)
 
             Spacer()
         }
@@ -5927,15 +6038,15 @@ enum BereanStreamingService {
     ) async -> String {
         do {
             let functions = Functions.functions()
-            let callable = functions.httpsCallable("bereanChatProxy")
-            let result = try await callable.call([
-                "systemPrompt": systemPrompt,
-                "userMessage": prompt,
-                "maxTokens": 600,
-            ] as [String: Any])
+            let streamingRequest = BereanChatProxyRequest(
+                message: prompt,
+                systemPromptSuffix: systemPrompt,
+                maxTokens: 600
+            )
+            let result = try await functions.httpsCallable("bereanChatProxy").call(streamingRequest)
 
             guard let data = result.data as? [String: Any],
-                  let text = data["text"] as? String else {
+                  let text = (data["response"] as? String) ?? (data["text"] as? String) else {
                 dlog("❌ BereanStreamingService: unexpected proxy response")
                 return "__error__: invalid proxy response"
             }
@@ -6424,8 +6535,8 @@ struct ScheduleReplyPickerSheet: View {
         let now = Date()
         let cal = Calendar.current
         return [
-            ("In 1 hour",    cal.date(byAdding: .hour, value: 1, to: now)!),
-            ("In 3 hours",   cal.date(byAdding: .hour, value: 3, to: now)!),
+            ("In 1 hour",    cal.date(byAdding: .hour, value: 1, to: now) ?? now.addingTimeInterval(3600)),
+            ("In 3 hours",   cal.date(byAdding: .hour, value: 3, to: now) ?? now.addingTimeInterval(10800)),
             ("Tomorrow 9 AM", {
                 var c = cal.dateComponents([.year, .month, .day], from: now)
                 c.day = (c.day ?? 1) + 1
@@ -6532,10 +6643,10 @@ struct ScheduleReplyPickerSheet: View {
                                 Text("Schedule for \(selectedDate.formatted(date: .abbreviated, time: .shortened))")
                                     .font(.systemScaled(15, weight: .semibold))
                             }
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AmenTheme.Colors.textInverse)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 15)
-                            .background(Color.black)
+                            .background(AmenTheme.Colors.textPrimary)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
                         .padding(.horizontal, 20)

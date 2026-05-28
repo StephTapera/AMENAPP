@@ -1717,14 +1717,14 @@ struct PostCard: View {
                 toggleLightbulb()
             } else {
                 HapticManager.notification(type: .warning)
-                dlog("⚠️ Users cannot light their own posts")
+                ToastManager.shared.info("You can't illuminate your own post")
             }
         } label: {
             lightbulbButtonLabel
         }
         .buttonStyle(.instantFeedback)  // P0 FIX: INSTANT touch-down feedback
         .symbolEffect(.bounce, value: hasLitLightbulb)
-        .disabled(isUserPost || isLightbulbToggleInFlight)
+        .disabled(isLightbulbToggleInFlight)
         .opacity((isUserPost || isLightbulbToggleInFlight) ? 0.5 : 1.0)
         .shakeOnError(lightbulbShakeError)
         // P2-B FIX: VoiceOver label so the button is not announced as "lightbulb" image
@@ -2368,7 +2368,10 @@ struct PostCard: View {
     }
 
     var body: some View {
-        cardWithAlerts
+        #if DEBUG
+        let _ = Self._printChanges()
+        #endif
+        return cardWithAlerts
             .opacity(isDeletingPost ? 0 : 1)
             .scaleEffect(isDeletingPost ? 0.96 : 1)
             .zIndex(isActionMenuPresented ? 1000 : 0)
@@ -5229,6 +5232,7 @@ struct PostCard: View {
                     postActionMenuGradient
                 }
             }
+            .transaction { t in t.animation = nil } // suppress fade-in flicker in action menu preview
         } else {
             postActionMenuGradient
         }

@@ -19,6 +19,7 @@ struct JobSearchView: View {
     @State private var showSeekerProfile = false
     @State private var showSavedAndApplied = false
     @State private var hasLoadedInitial = false
+    @State private var showClearFiltersConfirmation = false
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
@@ -77,6 +78,14 @@ struct JobSearchView: View {
                 if let jobId = selectedJob {
                     JobDetailView(jobId: jobId)
                 }
+            }
+            .alert("Clear all filters?", isPresented: $showClearFiltersConfirmation) {
+                Button("Clear all", role: .destructive) {
+                    filters = JobSearchFilters()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will remove all active job filters.")
             }
         }
         .task {
@@ -209,7 +218,7 @@ struct JobSearchView: View {
                     }
                 }
                 Button("Clear all") {
-                    filters = JobSearchFilters()
+                    showClearFiltersConfirmation = true
                 }
                 .font(AMENFont.semiBold(12))
                 .foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
