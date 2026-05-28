@@ -235,42 +235,81 @@ export const markRelationshipSeen = onCall(
 // ---------------------------------------------------------------------------
 // MARK: - reconcileRelationshipStates (Scheduled — daily)
 // Removes relationship_activity_state docs for relationships that no longer exist.
+//
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
 // ---------------------------------------------------------------------------
 
 export const reconcileRelationshipStates = onSchedule(
   { schedule: "every 24 hours" },
   async () => {
-    const statesSnap = await db
-      .collection("relationship_activity_state")
-      .where(
-        "lastActivityAt",
-        "<",
-        admin.firestore.Timestamp.fromDate(new Date(Date.now() - 30 * 86_400_000))
-      )
-      .limit(500)
-      .get();
+    const today = new Date().toISOString().slice(0, 10);
+    const lockRef = db.doc(`system/scheduledJobLocks/reconcileRelationshipStates_${today}`);
 
-    if (statesSnap.empty) return;
-
-    const batch = db.batch();
-    for (const doc of statesSnap.docs) {
-      const { viewerId, targetId } = doc.data() as { viewerId: string; targetId: string };
-
-      // Verify the follow relationship still exists
-      const followSnap = await db
-        .collection("follows")
-        .where("followerId", "==", viewerId)
-        .where("followingId", "==", targetId)
-        .limit(1)
-        .get();
-
-      if (followSnap.empty) {
-        batch.delete(doc.ref);
+    const lockAcquired = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && snap.data()?.status === "completed") {
+        return false;
       }
+      tx.set(lockRef, {
+        status: "running",
+        startedAt: admin.firestore.FieldValue.serverTimestamp(),
+        date: today,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+      return true;
+    });
+
+    if (!lockAcquired) {
+      console.log(`[socialGraph] reconcileRelationshipStates already completed today, skipping`, { date: today });
+      return;
     }
 
-    await batch.commit();
-    console.log(`[socialGraph] reconciled up to ${statesSnap.size} stale relationship states`);
+    try {
+      const statesSnap = await db
+        .collection("relationship_activity_state")
+        .where(
+          "lastActivityAt",
+          "<",
+          admin.firestore.Timestamp.fromDate(new Date(Date.now() - 30 * 86_400_000))
+        )
+        .limit(500)
+        .get();
+
+      if (!statesSnap.empty) {
+        const batch = db.batch();
+        for (const doc of statesSnap.docs) {
+          const { viewerId, targetId } = doc.data() as { viewerId: string; targetId: string };
+
+          // Verify the follow relationship still exists
+          const followSnap = await db
+            .collection("follows")
+            .where("followerId", "==", viewerId)
+            .where("followingId", "==", targetId)
+            .limit(1)
+            .get();
+
+          if (followSnap.empty) {
+            batch.delete(doc.ref);
+          }
+        }
+
+        await batch.commit();
+        console.log(`[socialGraph] reconciled up to ${statesSnap.size} stale relationship states`);
+      }
+
+      await lockRef.update({
+        status: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      await lockRef.update({
+        status: "failed",
+        error: String(err),
+        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      throw err;
+    }
   }
 );
 

@@ -69,99 +69,141 @@ export const detectCrisis = onDocumentCreated(
     }
 );
 
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
+
 export const deliverBatchedNotifications = onSchedule(
     {
         schedule: "every 5 minutes",
         region: "us-central1",
     },
     async () => {
-        const now = admin.firestore.Timestamp.now();
-        const snapshot = await db.collection("scheduledBatches")
-            .where("status", "==", "scheduled")
-            .where("deliveryTime", "<=", now)
-            .limit(100)
-            .get();
+        // Idempotency: lock by 5-minute window (UTC ISO rounded to nearest 5 min)
+        const nowMs = Date.now();
+        const windowMs = 5 * 60 * 1000;
+        const windowKey = new Date(Math.floor(nowMs / windowMs) * windowMs).toISOString().replace(/[:.]/g, "-");
+        const lockRef = db.doc(`system/scheduledJobLocks/deliverBatchedNotifications_${windowKey}`);
 
-        for (const doc of snapshot.docs) {
-            const scheduleData = doc.data() as {
-                batchId?: string;
-                recipientId?: string;
-            };
-
-            if (!scheduleData.batchId || !scheduleData.recipientId) {
-                await doc.ref.update({
-                    status: "failed",
-                    error: "Missing batch metadata",
-                });
-                continue;
+        const lockAcquired = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(lockRef);
+            if (snap.exists && snap.data()?.status === "completed") {
+                return false;
             }
+            tx.set(lockRef, {
+                status: "running",
+                startedAt: admin.firestore.FieldValue.serverTimestamp(),
+                windowKey,
+                expiresAt: new Date(nowMs + 7 * 24 * 60 * 60 * 1000),
+            });
+            return true;
+        });
 
-            try {
-                const batchDoc = await db.collection("notificationBatches")
-                    .doc(scheduleData.batchId)
-                    .get();
+        if (!lockAcquired) {
+            console.info("[deliverBatchedNotifications] Already completed this window, skipping", { windowKey });
+            return;
+        }
 
-                if (!batchDoc.exists) {
+        try {
+            const now = admin.firestore.Timestamp.now();
+            const snapshot = await db.collection("scheduledBatches")
+                .where("status", "==", "scheduled")
+                .where("deliveryTime", "<=", now)
+                .limit(100)
+                .get();
+
+            for (const doc of snapshot.docs) {
+                const scheduleData = doc.data() as {
+                    batchId?: string;
+                    recipientId?: string;
+                };
+
+                if (!scheduleData.batchId || !scheduleData.recipientId) {
                     await doc.ref.update({
                         status: "failed",
-                        error: "Missing notification batch",
+                        error: "Missing batch metadata",
                     });
                     continue;
                 }
 
-                const batch = batchDoc.data() as {
-                    type?: string;
-                    count?: number;
-                } | undefined;
+                try {
+                    const batchDoc = await db.collection("notificationBatches")
+                        .doc(scheduleData.batchId)
+                        .get();
 
-                if (!batch?.type || batch.count == null) {
-                    await doc.ref.update({
-                        status: "failed",
-                        error: "Incomplete notification batch",
-                    });
-                    continue;
-                }
+                    if (!batchDoc.exists) {
+                        await doc.ref.update({
+                            status: "failed",
+                            error: "Missing notification batch",
+                        });
+                        continue;
+                    }
 
-                const notification = generateBatchNotification(batch.type, batch.count);
-                const userDoc = await db.collection("users").doc(scheduleData.recipientId).get();
-                const fcmToken = userDoc.data()?.fcmToken as string | undefined;
+                    const batch = batchDoc.data() as {
+                        type?: string;
+                        count?: number;
+                    } | undefined;
 
-                if (fcmToken) {
-                    await admin.messaging().send({
-                        token: fcmToken,
-                        notification: {
-                            title: notification.title,
-                            body: notification.body,
-                        },
-                        data: {
-                            type: batch.type,
-                            count: String(batch.count),
-                        },
-                        apns: {
-                            payload: {
-                                aps: {
-                                    badge: 1,
-                                    sound: "default",
+                    if (!batch?.type || batch.count == null) {
+                        await doc.ref.update({
+                            status: "failed",
+                            error: "Incomplete notification batch",
+                        });
+                        continue;
+                    }
+
+                    const notification = generateBatchNotification(batch.type, batch.count);
+                    const userDoc = await db.collection("users").doc(scheduleData.recipientId).get();
+                    const fcmToken = userDoc.data()?.fcmToken as string | undefined;
+
+                    if (fcmToken) {
+                        await admin.messaging().send({
+                            token: fcmToken,
+                            notification: {
+                                title: notification.title,
+                                body: notification.body,
+                            },
+                            data: {
+                                type: batch.type,
+                                count: String(batch.count),
+                            },
+                            apns: {
+                                payload: {
+                                    aps: {
+                                        badge: 1,
+                                        sound: "default",
+                                    },
                                 },
                             },
-                        },
+                        });
+                    }
+
+                    await Promise.all([
+                        batchDoc.ref.update({ delivered: true }),
+                        doc.ref.update({ status: "delivered" }),
+                    ]);
+                } catch (error) {
+                    console.error("[deliverBatchedNotifications] Failed to deliver batch", {
+                        scheduleId: doc.id,
+                        error,
+                    });
+                    await doc.ref.update({
+                        status: "failed",
+                        error: error instanceof Error ? error.message : "Unknown error",
                     });
                 }
-
-                await Promise.all([
-                    batchDoc.ref.update({ delivered: true }),
-                    doc.ref.update({ status: "delivered" }),
-                ]);
-            } catch (error) {
-                console.error("[deliverBatchedNotifications] Failed to deliver batch", {
-                    scheduleId: doc.id,
-                    error,
-                });
-                await doc.ref.update({
-                    status: "failed",
-                    error: error instanceof Error ? error.message : "Unknown error",
-                });
             }
+
+            await lockRef.update({
+                status: "completed",
+                completedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        } catch (err) {
+            await lockRef.update({
+                status: "failed",
+                error: String(err),
+                failedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            throw err;
         }
     }
 );

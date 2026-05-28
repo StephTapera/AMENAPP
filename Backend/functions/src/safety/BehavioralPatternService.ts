@@ -447,96 +447,137 @@ export async function recordDMSent(
  * Queries dmMetrics for pairs whose weeklyVelocity shows >5× week-over-week
  * growth, verifies the recipient is a minor, and enqueues for human review.
  */
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
+
 export const scanGroomingVelocity = onSchedule(
   { schedule: "every 6 hours", timeoutSeconds: 120 },
   async () => {
-    logger.info("BehavioralPatternService: scanGroomingVelocity start");
+    // Idempotency: lock by 6-hour window
+    const nowMs = Date.now();
+    const windowMs = 6 * 60 * 60 * 1000;
+    const windowKey = new Date(Math.floor(nowMs / windowMs) * windowMs).toISOString().replace(/[:.]/g, "-");
+    const lockRef = db.doc(`system/scheduledJobLocks/scanGroomingVelocity_${windowKey}`);
 
-    // Fetch recent dmMetrics docs — filter in-process (Firestore can't query array fields this way)
-    const snapshot = await db
-      .collection("dmMetrics")
-      .orderBy("updatedAt", "desc")
-      .limit(SCAN_GROOMING_LIMIT)
-      .get();
+    const lockAcquired = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && snap.data()?.status === "completed") {
+        return false;
+      }
+      tx.set(lockRef, {
+        status: "running",
+        startedAt: admin.firestore.FieldValue.serverTimestamp(),
+        windowKey,
+        expiresAt: new Date(nowMs + 7 * 24 * 60 * 60 * 1000),
+      });
+      return true;
+    });
 
-    if (snapshot.empty) {
-      logger.info("BehavioralPatternService: scanGroomingVelocity — no docs");
+    if (!lockAcquired) {
+      logger.info("BehavioralPatternService: scanGroomingVelocity already completed this window, skipping", { windowKey });
       return;
     }
 
-    const tasks: Promise<void>[] = [];
+    try {
+      logger.info("BehavioralPatternService: scanGroomingVelocity start");
 
-    for (const doc of snapshot.docs) {
-      const data = doc.data() as DMMetrics;
-      const velocity = data.weeklyVelocity;
+      // Fetch recent dmMetrics docs — filter in-process (Firestore can't query array fields this way)
+      const snapshot = await db
+        .collection("dmMetrics")
+        .orderBy("updatedAt", "desc")
+        .limit(SCAN_GROOMING_LIMIT)
+        .get();
 
-      if (!Array.isArray(velocity) || velocity.length < 2) continue;
+      if (snapshot.empty) {
+        logger.info("BehavioralPatternService: scanGroomingVelocity — no docs");
+      } else {
+        const tasks: Promise<void>[] = [];
 
-      // Check if any consecutive week pair shows >5× growth
-      const hasGroomingVelocity = velocity.some((count, idx) => {
-        if (idx === velocity.length - 1) return false;
-        const prior = velocity[idx + 1];
-        return prior > 0 && count / prior > GROOMING_VELOCITY_MULTIPLIER;
+        for (const doc of snapshot.docs) {
+          const data = doc.data() as DMMetrics;
+          const velocity = data.weeklyVelocity;
+
+          if (!Array.isArray(velocity) || velocity.length < 2) continue;
+
+          // Check if any consecutive week pair shows >5× growth
+          const hasGroomingVelocity = velocity.some((count, idx) => {
+            if (idx === velocity.length - 1) return false;
+            const prior = velocity[idx + 1];
+            return prior > 0 && count / prior > GROOMING_VELOCITY_MULTIPLIER;
+          });
+
+          if (!hasGroomingVelocity) continue;
+
+          // Parse senderUid and recipientUid from doc ID: "{senderUid}_{recipientUid}"
+          const underscoreIdx = doc.id.indexOf("_");
+          if (underscoreIdx === -1) continue;
+          const senderUid = doc.id.slice(0, underscoreIdx);
+          const recipientUid = doc.id.slice(underscoreIdx + 1);
+
+          tasks.push(
+            (async () => {
+              const recipientSnap = await db.collection("users").doc(recipientUid).get();
+              const recipientData = (recipientSnap.data() ?? {}) as UserDoc;
+
+              if (!isMinor(recipientData.ageTier)) return;
+
+              const alertRef = db.collection("humanReviewQueue").doc();
+              await alertRef.set({
+                senderUid,
+                recipientUid,
+                signalType: "grooming_velocity" as SignalType,
+                harmCategoryId: "grooming",
+                severity: "critical",
+                weeklyVelocity: velocity,
+                policyVersion: AMEN_SAFETY_POLICY_VERSION,
+                status: "pending",
+                source: "BehavioralPatternService",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+
+              await writeBehavioralAlert(senderUid, recipientUid, "grooming_velocity", {
+                weeklyVelocity: JSON.stringify(velocity),
+                maxGrowthMultiplier: Math.max(
+                  ...velocity
+                    .map((count, idx) =>
+                      idx < velocity.length - 1 && velocity[idx + 1] > 0
+                        ? count / velocity[idx + 1]
+                        : 0
+                    )
+                    .filter((v) => v > 0)
+                ),
+              });
+
+              await deliverSafetyAlertToGuardians(recipientUid, "grooming_velocity", senderUid);
+
+              logger.info("BehavioralPatternService: grooming_velocity flagged", {
+                senderUid,
+                recipientUid,
+              });
+            })()
+          );
+        }
+
+        const results = await Promise.allSettled(tasks);
+        const failed = results.filter((r) => r.status === "rejected").length;
+        logger.info("BehavioralPatternService: scanGroomingVelocity complete", {
+          processed: snapshot.size,
+          failed,
+        });
+      }
+
+      await lockRef.update({
+        status: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-
-      if (!hasGroomingVelocity) continue;
-
-      // Parse senderUid and recipientUid from doc ID: "{senderUid}_{recipientUid}"
-      const underscoreIdx = doc.id.indexOf("_");
-      if (underscoreIdx === -1) continue;
-      const senderUid = doc.id.slice(0, underscoreIdx);
-      const recipientUid = doc.id.slice(underscoreIdx + 1);
-
-      tasks.push(
-        (async () => {
-          const recipientSnap = await db.collection("users").doc(recipientUid).get();
-          const recipientData = (recipientSnap.data() ?? {}) as UserDoc;
-
-          if (!isMinor(recipientData.ageTier)) return;
-
-          const alertRef = db.collection("humanReviewQueue").doc();
-          await alertRef.set({
-            senderUid,
-            recipientUid,
-            signalType: "grooming_velocity" as SignalType,
-            harmCategoryId: "grooming",
-            severity: "critical",
-            weeklyVelocity: velocity,
-            policyVersion: AMEN_SAFETY_POLICY_VERSION,
-            status: "pending",
-            source: "BehavioralPatternService",
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-
-          await writeBehavioralAlert(senderUid, recipientUid, "grooming_velocity", {
-            weeklyVelocity: JSON.stringify(velocity),
-            maxGrowthMultiplier: Math.max(
-              ...velocity
-                .map((count, idx) =>
-                  idx < velocity.length - 1 && velocity[idx + 1] > 0
-                    ? count / velocity[idx + 1]
-                    : 0
-                )
-                .filter((v) => v > 0)
-            ),
-          });
-
-          await deliverSafetyAlertToGuardians(recipientUid, "grooming_velocity", senderUid);
-
-          logger.info("BehavioralPatternService: grooming_velocity flagged", {
-            senderUid,
-            recipientUid,
-          });
-        })()
-      );
+    } catch (err) {
+      await lockRef.update({
+        status: "failed",
+        error: String(err),
+        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      throw err;
     }
-
-    const results = await Promise.allSettled(tasks);
-    const failed = results.filter((r) => r.status === "rejected").length;
-    logger.info("BehavioralPatternService: scanGroomingVelocity complete", {
-      processed: snapshot.size,
-      failed,
-    });
   }
 );
 
@@ -548,106 +589,147 @@ export const scanGroomingVelocity = onSchedule(
  * Finds recipients contacted by 3+ distinct senders who had no prior history
  * (messageCount7d === 1, meaning this is their first message to this recipient).
  * Writes moderatorAlerts for each affected recipient.
+ *
+ * NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+ * with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
  */
 export const scanCoordinatedHarassment = onSchedule(
   { schedule: "every 30 minutes", timeoutSeconds: 120 },
   async () => {
-    logger.info("BehavioralPatternService: scanCoordinatedHarassment start");
+    // Idempotency: lock by 30-minute window
+    const nowMs = Date.now();
+    const windowMs = 30 * 60 * 1000;
+    const windowKey = new Date(Math.floor(nowMs / windowMs) * windowMs).toISOString().replace(/[:.]/g, "-");
+    const lockRef = db.doc(`system/scheduledJobLocks/scanCoordinatedHarassment_${windowKey}`);
 
-    const ONE_HOUR_AGO = admin.firestore.Timestamp.fromMillis(
-      Date.now() - 60 * 60 * 1000
-    );
+    const lockAcquired = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && snap.data()?.status === "completed") {
+        return false;
+      }
+      tx.set(lockRef, {
+        status: "running",
+        startedAt: admin.firestore.FieldValue.serverTimestamp(),
+        windowKey,
+        expiresAt: new Date(nowMs + 7 * 24 * 60 * 60 * 1000),
+      });
+      return true;
+    });
 
-    const snapshot = await db
-      .collection("dmMetrics")
-      .where("lastMessageAt", ">=", ONE_HOUR_AGO)
-      .orderBy("lastMessageAt", "desc")
-      .limit(500) // fetch broadly, group in-memory
-      .get();
-
-    if (snapshot.empty) {
-      logger.info("BehavioralPatternService: scanCoordinatedHarassment — no recent docs");
+    if (!lockAcquired) {
+      logger.info("BehavioralPatternService: scanCoordinatedHarassment already completed this window, skipping", { windowKey });
       return;
     }
 
-    // Group by recipientUid: only new senders (messageCount7d <= 1 => no prior history)
-    const recipientToNewSenders = new Map<string, Set<string>>();
+    try {
+      logger.info("BehavioralPatternService: scanCoordinatedHarassment start");
 
-    for (const doc of snapshot.docs) {
-      const data = doc.data() as DMMetrics;
+      const ONE_HOUR_AGO = admin.firestore.Timestamp.fromMillis(
+        Date.now() - 60 * 60 * 1000
+      );
 
-      // "New" sender = no prior history (this is their first or only message this week)
-      if ((data.messageCount7d ?? 0) > 1) continue;
+      const snapshot = await db
+        .collection("dmMetrics")
+        .where("lastMessageAt", ">=", ONE_HOUR_AGO)
+        .orderBy("lastMessageAt", "desc")
+        .limit(500) // fetch broadly, group in-memory
+        .get();
 
-      const underscoreIdx = doc.id.indexOf("_");
-      if (underscoreIdx === -1) continue;
-      const senderUid = doc.id.slice(0, underscoreIdx);
-      const recipientUid = doc.id.slice(underscoreIdx + 1);
+      if (!snapshot.empty) {
+        // Group by recipientUid: only new senders (messageCount7d <= 1 => no prior history)
+        const recipientToNewSenders = new Map<string, Set<string>>();
 
-      if (!recipientToNewSenders.has(recipientUid)) {
-        recipientToNewSenders.set(recipientUid, new Set());
-      }
-      recipientToNewSenders.get(recipientUid)!.add(senderUid);
-    }
+        for (const doc of snapshot.docs) {
+          const data = doc.data() as DMMetrics;
 
-    // Filter: recipients with 3+ distinct new senders
-    const harassed = [...recipientToNewSenders.entries()]
-      .filter(([, senders]) => senders.size >= HARASSMENT_SENDER_THRESHOLD)
-      .slice(0, SCAN_HARASSMENT_LIMIT);
+          // "New" sender = no prior history (this is their first or only message this week)
+          if ((data.messageCount7d ?? 0) > 1) continue;
 
-    const tasks: Promise<void>[] = harassed.map(([recipientUid, senders]) =>
-      (async () => {
-        const senderList = [...senders];
+          const underscoreIdx = doc.id.indexOf("_");
+          if (underscoreIdx === -1) continue;
+          const senderUid = doc.id.slice(0, underscoreIdx);
+          const recipientUid = doc.id.slice(underscoreIdx + 1);
 
-        // Write moderatorAlert
-        await db.collection("moderatorAlerts").doc().set({
-          type: "coordinated_harassment_risk",
-          recipientUid,
-          senderUids: senderList,
-          distinctSenderCount: senderList.length,
-          signalType: "coordinated_harassment" as SignalType,
-          severity: SIGNAL_SEVERITY["coordinated_harassment"],
-          harmCategoryId: SIGNAL_HARM_CATEGORY["coordinated_harassment"],
-          policyVersion: AMEN_SAFETY_POLICY_VERSION,
-          status: "pending",
-          source: "BehavioralPatternService",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        // Write behavioral alert (uses first sender as representative actor)
-        await writeBehavioralAlert(
-          senderList[0],
-          recipientUid,
-          "coordinated_harassment",
-          {
-            distinctSenderCount: senderList.length,
-            senderUids: senderList.join(","),
+          if (!recipientToNewSenders.has(recipientUid)) {
+            recipientToNewSenders.set(recipientUid, new Set());
           }
+          recipientToNewSenders.get(recipientUid)!.add(senderUid);
+        }
+
+        // Filter: recipients with 3+ distinct new senders
+        const harassed = [...recipientToNewSenders.entries()]
+          .filter(([, senders]) => senders.size >= HARASSMENT_SENDER_THRESHOLD)
+          .slice(0, SCAN_HARASSMENT_LIMIT);
+
+        const tasks: Promise<void>[] = harassed.map(([recipientUid, senders]) =>
+          (async () => {
+            const senderList = [...senders];
+
+            // Write moderatorAlert
+            await db.collection("moderatorAlerts").doc().set({
+              type: "coordinated_harassment_risk",
+              recipientUid,
+              senderUids: senderList,
+              distinctSenderCount: senderList.length,
+              signalType: "coordinated_harassment" as SignalType,
+              severity: SIGNAL_SEVERITY["coordinated_harassment"],
+              harmCategoryId: SIGNAL_HARM_CATEGORY["coordinated_harassment"],
+              policyVersion: AMEN_SAFETY_POLICY_VERSION,
+              status: "pending",
+              source: "BehavioralPatternService",
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            // Write behavioral alert (uses first sender as representative actor)
+            await writeBehavioralAlert(
+              senderList[0],
+              recipientUid,
+              "coordinated_harassment",
+              {
+                distinctSenderCount: senderList.length,
+                senderUids: senderList.join(","),
+              }
+            );
+
+            // Notify target: write a notification doc for the app to surface
+            await db.collection("users").doc(recipientUid).collection("safetyNotifications").doc().set({
+              type: "coordinated_harassment_risk",
+              message: "Our safety system has detected unusual messaging activity directed at your account. We are reviewing this.",
+              senderCount: senderList.length,
+              policyVersion: AMEN_SAFETY_POLICY_VERSION,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              read: false,
+            });
+
+            logger.info("BehavioralPatternService: coordinated_harassment flagged", {
+              recipientUid,
+              distinctSenders: senderList.length,
+            });
+          })()
         );
 
-        // Notify target: write a notification doc for the app to surface
-        await db.collection("users").doc(recipientUid).collection("safetyNotifications").doc().set({
-          type: "coordinated_harassment_risk",
-          message: "Our safety system has detected unusual messaging activity directed at your account. We are reviewing this.",
-          senderCount: senderList.length,
-          policyVersion: AMEN_SAFETY_POLICY_VERSION,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          read: false,
+        const results = await Promise.allSettled(tasks);
+        const failed = results.filter((r) => r.status === "rejected").length;
+        logger.info("BehavioralPatternService: scanCoordinatedHarassment complete", {
+          recipientsEvaluated: recipientToNewSenders.size,
+          recipientsFlagged: harassed.length,
+          failed,
         });
+      } else {
+        logger.info("BehavioralPatternService: scanCoordinatedHarassment — no recent docs");
+      }
 
-        logger.info("BehavioralPatternService: coordinated_harassment flagged", {
-          recipientUid,
-          distinctSenders: senderList.length,
-        });
-      })()
-    );
-
-    const results = await Promise.allSettled(tasks);
-    const failed = results.filter((r) => r.status === "rejected").length;
-    logger.info("BehavioralPatternService: scanCoordinatedHarassment complete", {
-      recipientsEvaluated: recipientToNewSenders.size,
-      recipientsFlagged: harassed.length,
-      failed,
-    });
+      await lockRef.update({
+        status: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      await lockRef.update({
+        status: "failed",
+        error: String(err),
+        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      throw err;
+    }
   }
 );

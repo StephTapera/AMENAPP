@@ -58,7 +58,7 @@ interface CreateJourneyRequest {
 // ============================================================================
 
 export const createChurchJourney = onCall(
-    { region: "us-central1" },
+    { region: "us-central1", enforceAppCheck: true },
     async (request) => {
         requireAppCheck(request);
 
@@ -148,7 +148,7 @@ export const createChurchJourney = onCall(
 // ============================================================================
 
 export const updateChurchJourneyTiming = onCall(
-    { region: "us-central1" },
+    { region: "us-central1", enforceAppCheck: true },
     async (request) => {
         requireAppCheck(request);
 
@@ -207,36 +207,77 @@ export const updateChurchJourneyTiming = onCall(
 // ============================================================================
 // 8.3 promoteJourneyToPrepActive — scheduled trigger (every 15 min)
 // Promotes 'planned' journeys whose prepStartAt window has arrived.
+//
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
 // ============================================================================
 
 export const promoteJourneyToPrepActive = onSchedule(
     { schedule: "every 15 minutes", region: "us-central1" },
     async () => {
-        const now = admin.firestore.Timestamp.now();
-        const window = admin.firestore.Timestamp.fromMillis(now.toMillis() + 15 * 60 * 1000);
+        // Idempotency: lock by 15-minute window
+        const nowMs = Date.now();
+        const windowMs = 15 * 60 * 1000;
+        const windowKey = new Date(Math.floor(nowMs / windowMs) * windowMs).toISOString().replace(/[:.]/g, "-");
+        const lockRef = db.doc(`system/scheduledJobLocks/promoteJourneyToPrepActive_${windowKey}`);
 
-        const snapshot = await db
-            .collection("churchJourneys")
-            .where("status", "==", "planned")
-            .where("timing.prepStartAt", "<=", window)
-            .get();
-
-        const batch = db.batch();
-        snapshot.docs.forEach((doc) => {
-            const journey = doc.data();
-            // Only promote if prep is enabled and prepStartAt has passed
-            if (
-                journey.options?.worshipPrepEnabled ||
-                journey.options?.scripturePrepEnabled
-            ) {
-                batch.update(doc.ref, {
-                    status: "prep_active",
-                    updatedAt: FieldValue.serverTimestamp(),
-                });
+        const lockAcquired = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(lockRef);
+            if (snap.exists && snap.data()?.status === "completed") {
+                return false;
             }
+            tx.set(lockRef, {
+                status: "running",
+                startedAt: FieldValue.serverTimestamp(),
+                windowKey,
+                expiresAt: new Date(nowMs + 7 * 24 * 60 * 60 * 1000),
+            });
+            return true;
         });
 
-        await batch.commit();
+        if (!lockAcquired) {
+            return;
+        }
+
+        try {
+            const now = admin.firestore.Timestamp.now();
+            const window = admin.firestore.Timestamp.fromMillis(now.toMillis() + 15 * 60 * 1000);
+
+            const snapshot = await db
+                .collection("churchJourneys")
+                .where("status", "==", "planned")
+                .where("timing.prepStartAt", "<=", window)
+                .get();
+
+            const batch = db.batch();
+            snapshot.docs.forEach((doc) => {
+                const journey = doc.data();
+                // Only promote if prep is enabled and prepStartAt has passed
+                if (
+                    journey.options?.worshipPrepEnabled ||
+                    journey.options?.scripturePrepEnabled
+                ) {
+                    batch.update(doc.ref, {
+                        status: "prep_active",
+                        updatedAt: FieldValue.serverTimestamp(),
+                    });
+                }
+            });
+
+            await batch.commit();
+
+            await lockRef.update({
+                status: "completed",
+                completedAt: FieldValue.serverTimestamp(),
+            });
+        } catch (err) {
+            await lockRef.update({
+                status: "failed",
+                error: String(err),
+                failedAt: FieldValue.serverTimestamp(),
+            });
+            throw err;
+        }
     }
 );
 
@@ -245,7 +286,7 @@ export const promoteJourneyToPrepActive = onSchedule(
 // ============================================================================
 
 export const promoteJourneyToArrived = onCall(
-    { region: "us-central1" },
+    { region: "us-central1", enforceAppCheck: true },
     async (request) => {
         requireAppCheck(request);
 
@@ -328,7 +369,7 @@ export const promoteJourneyToArrived = onCall(
 // ============================================================================
 
 export const generateReflectionSeedFromNotes = onCall(
-    { region: "us-central1" },
+    { region: "us-central1", enforceAppCheck: true },
     async (request) => {
         requireAppCheck(request);
 
@@ -407,7 +448,7 @@ export const generateReflectionSeedFromNotes = onCall(
 // ============================================================================
 
 export const scheduleMidweekReflectionReminder = onCall(
-    { region: "us-central1" },
+    { region: "us-central1", enforceAppCheck: true },
     async (request) => {
         requireAppCheck(request);
 
@@ -562,41 +603,79 @@ export const learnChurchRoutine = onDocumentWritten(
 
 // ============================================================================
 // 8.8 cleanupStaleChurchJourneys — scheduled daily
+//
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
 // ============================================================================
 
 export const cleanupStaleChurchJourneys = onSchedule(
     { schedule: "every 24 hours", region: "us-central1" },
     async () => {
-        const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const today = new Date().toISOString().slice(0, 10);
+        const lockRef = db.doc(`system/scheduledJobLocks/cleanupStaleChurchJourneys_${today}`);
 
-        // Mark old planned/prep_active journeys as cancelled
-        const staleJourneys = await db
-            .collection("churchJourneys")
-            .where("status", "in", ["planned", "prep_active"])
-            .where("serviceStartAt", "<", cutoff)
-            .get();
-
-        const batch = db.batch();
-        staleJourneys.docs.forEach((doc) => {
-            batch.update(doc.ref, {
-                status: "cancelled",
-                updatedAt: FieldValue.serverTimestamp(),
+        const lockAcquired = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(lockRef);
+            if (snap.exists && snap.data()?.status === "completed") {
+                return false;
+            }
+            tx.set(lockRef, {
+                status: "running",
+                startedAt: FieldValue.serverTimestamp(),
+                date: today,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             });
+            return true;
         });
 
-        // Remove delivered scheduled notifications older than 7 days
-        const notifCutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const staleNotifs = await db
-            .collection("scheduledNotifications")
-            .where("delivered", "==", true)
-            .where("scheduledAt", "<", notifCutoff)
-            .get();
+        if (!lockAcquired) {
+            return;
+        }
 
-        staleNotifs.docs.forEach((doc) => {
-            batch.delete(doc.ref);
-        });
+        try {
+            const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-        await batch.commit();
+            // Mark old planned/prep_active journeys as cancelled
+            const staleJourneys = await db
+                .collection("churchJourneys")
+                .where("status", "in", ["planned", "prep_active"])
+                .where("serviceStartAt", "<", cutoff)
+                .get();
+
+            const batch = db.batch();
+            staleJourneys.docs.forEach((doc) => {
+                batch.update(doc.ref, {
+                    status: "cancelled",
+                    updatedAt: FieldValue.serverTimestamp(),
+                });
+            });
+
+            // Remove delivered scheduled notifications older than 7 days
+            const notifCutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const staleNotifs = await db
+                .collection("scheduledNotifications")
+                .where("delivered", "==", true)
+                .where("scheduledAt", "<", notifCutoff)
+                .get();
+
+            staleNotifs.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+
+            await batch.commit();
+
+            await lockRef.update({
+                status: "completed",
+                completedAt: FieldValue.serverTimestamp(),
+            });
+        } catch (err) {
+            await lockRef.update({
+                status: "failed",
+                error: String(err),
+                failedAt: FieldValue.serverTimestamp(),
+            });
+            throw err;
+        }
     }
 );
 
@@ -605,7 +684,7 @@ export const cleanupStaleChurchJourneys = onSchedule(
 // ============================================================================
 
 export const generatePrepSuggestions = onCall(
-    { region: "us-central1" },
+    { region: "us-central1", enforceAppCheck: true },
     async (request) => {
         requireAppCheck(request);
 

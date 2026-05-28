@@ -2,7 +2,7 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {onDocumentWritten} from "firebase-functions/v2/firestore";
 
 function unavailableCallable(name: string) {
-    return onCall(async () => {
+    return onCall({ enforceAppCheck: true }, async () => {
         throw new HttpsError("unavailable", `${name} is not available in this build.`);
     });
 }

@@ -33,6 +33,7 @@ import {defineSecret} from "firebase-functions/params";
 import {logger} from "firebase-functions";
 import * as admin from "firebase-admin";
 import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
+import {checkAndIncrementDailyRateLimit, BEREAN_DAILY_LIMITS} from "./rateLimitHelper";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
 import type {SensitivityFlag, TopicClass} from "./berean/models/berean";
 
@@ -257,6 +258,16 @@ export const bereanChatProxyStream = onRequest(
             await enforceRateLimit(uid, [RATE_LIMITS.AI_PER_MINUTE, RATE_LIMITS.AI_PER_DAY]);
         } catch {
             res.status(429).json({error: "Rate limit exceeded"});
+            return;
+        }
+
+        // SERVER-SIDE Berean-specific daily rate limit (UTC calendar-day window).
+        // Stored under users/{uid}/rateLimits/ — authoritative backend guard.
+        // Free tier: 20 Berean streaming requests per UTC day.
+        try {
+            await checkAndIncrementDailyRateLimit(uid, BEREAN_DAILY_LIMITS.bereanChat);
+        } catch {
+            res.status(429).json({error: "Daily Berean limit reached. Resets at midnight UTC."});
             return;
         }
 

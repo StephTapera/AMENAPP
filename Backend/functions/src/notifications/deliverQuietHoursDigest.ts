@@ -40,72 +40,114 @@ const db = admin.firestore();
 // the quiet window. Conservative buffer to avoid delivering before the window ends.
 const STALENESS_THRESHOLD_MINUTES = 30;
 
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
+
 export const deliverQuietHoursDigest = functions.pubsub
     .schedule("every 30 minutes")
     .timeZone("UTC")
     .onRun(async () => {
-        const cutoff = admin.firestore.Timestamp.fromMillis(
-            Date.now() - STALENESS_THRESHOLD_MINUTES * 60 * 1000
-        );
+        // Idempotency: lock by 30-minute window (UTC ISO rounded to nearest 30 min)
+        const nowMs = Date.now();
+        const windowMs = 30 * 60 * 1000;
+        const windowKey = new Date(Math.floor(nowMs / windowMs) * windowMs).toISOString().replace(/[:.]/g, "-");
+        const lockRef = db.doc(`system/scheduledJobLocks/quietHoursDigest_${windowKey}`);
 
-        // Query all pending digest entries that have been waiting long enough.
-        const pendingSnap = await db
-            .collection("quietHoursDigestQueue")
-            .where("status", "==", "pending")
-            .where("enqueuedAt", "<=", cutoff)
-            .limit(500) // Process at most 500 per run; remainder handled next cycle.
-            .get();
+        const lockAcquired = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(lockRef);
+            if (snap.exists && snap.data()?.status === "completed") {
+                return false;
+            }
+            tx.set(lockRef, {
+                status: "running",
+                startedAt: admin.firestore.FieldValue.serverTimestamp(),
+                windowKey,
+                expiresAt: new Date(nowMs + 7 * 24 * 60 * 60 * 1000),
+            });
+            return true;
+        });
 
-        if (pendingSnap.empty) return;
-
-        // Group entries by userId for batch digest sends.
-        const byUser = new Map<string, string[]>(); // userId → [docId]
-        for (const doc of pendingSnap.docs) {
-            const userId: string = doc.data().userId;
-            if (!userId) continue;
-            const existing = byUser.get(userId) ?? [];
-            existing.push(doc.id);
-            byUser.set(userId, existing);
+        if (!lockAcquired) {
+            functions.logger.info("[deliverQuietHoursDigest] Already completed this window, skipping", { windowKey });
+            return;
         }
 
-        functions.logger.info(
-            `[deliverQuietHoursDigest] Processing ${pendingSnap.size} queue entries for ${byUser.size} users`
-        );
+        try {
+            const cutoff = admin.firestore.Timestamp.fromMillis(
+                Date.now() - STALENESS_THRESHOLD_MINUTES * 60 * 1000
+            );
 
-        const deleteBatch = db.batch();
-        let digestsSent = 0;
-        let digestsFailed = 0;
+            // Query all pending digest entries that have been waiting long enough.
+            const pendingSnap = await db
+                .collection("quietHoursDigestQueue")
+                .where("status", "==", "pending")
+                .where("enqueuedAt", "<=", cutoff)
+                .limit(500) // Process at most 500 per run; remainder handled next cycle.
+                .get();
 
-        await Promise.all(
-            Array.from(byUser.entries()).map(async ([userId, docIds]) => {
-                try {
-                    await sendDigestPush(userId, docIds.length);
-                    // Mark entries as delivered.
-                    for (const docId of docIds) {
-                        deleteBatch.delete(db.collection("quietHoursDigestQueue").doc(docId));
-                    }
-                    digestsSent++;
-                } catch (e) {
-                    functions.logger.error(
-                        `[deliverQuietHoursDigest] Failed for user ${userId}`, e
-                    );
-                    // Mark entries as failed so they are not retried endlessly.
-                    for (const docId of docIds) {
-                        deleteBatch.update(
-                            db.collection("quietHoursDigestQueue").doc(docId),
-                            { status: "failed", failedAt: admin.firestore.FieldValue.serverTimestamp() }
-                        );
-                    }
-                    digestsFailed++;
+            if (!pendingSnap.empty) {
+                // Group entries by userId for batch digest sends.
+                const byUser = new Map<string, string[]>(); // userId → [docId]
+                for (const doc of pendingSnap.docs) {
+                    const userId: string = doc.data().userId;
+                    if (!userId) continue;
+                    const existing = byUser.get(userId) ?? [];
+                    existing.push(doc.id);
+                    byUser.set(userId, existing);
                 }
-            })
-        );
 
-        await deleteBatch.commit();
+                functions.logger.info(
+                    `[deliverQuietHoursDigest] Processing ${pendingSnap.size} queue entries for ${byUser.size} users`
+                );
 
-        functions.logger.info(
-            `[deliverQuietHoursDigest] Done — sent: ${digestsSent}, failed: ${digestsFailed}`
-        );
+                const deleteBatch = db.batch();
+                let digestsSent = 0;
+                let digestsFailed = 0;
+
+                await Promise.all(
+                    Array.from(byUser.entries()).map(async ([userId, docIds]) => {
+                        try {
+                            await sendDigestPush(userId, docIds.length);
+                            // Mark entries as delivered.
+                            for (const docId of docIds) {
+                                deleteBatch.delete(db.collection("quietHoursDigestQueue").doc(docId));
+                            }
+                            digestsSent++;
+                        } catch (e) {
+                            functions.logger.error(
+                                `[deliverQuietHoursDigest] Failed for user ${userId}`, e
+                            );
+                            // Mark entries as failed so they are not retried endlessly.
+                            for (const docId of docIds) {
+                                deleteBatch.update(
+                                    db.collection("quietHoursDigestQueue").doc(docId),
+                                    { status: "failed", failedAt: admin.firestore.FieldValue.serverTimestamp() }
+                                );
+                            }
+                            digestsFailed++;
+                        }
+                    })
+                );
+
+                await deleteBatch.commit();
+
+                functions.logger.info(
+                    `[deliverQuietHoursDigest] Done — sent: ${digestsSent}, failed: ${digestsFailed}`
+                );
+            }
+
+            await lockRef.update({
+                status: "completed",
+                completedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        } catch (err) {
+            await lockRef.update({
+                status: "failed",
+                error: String(err),
+                failedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            throw err;
+        }
     });
 
 /**

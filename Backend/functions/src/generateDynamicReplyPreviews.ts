@@ -166,22 +166,64 @@ export const refreshDynamicReplyPreviews = onCall(async (request) => {
     return { success: true };
 });
 
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
+
 export const scheduledReplyPreviewRefresh = onSchedule("every 30 minutes", async () => {
-    const cutoff = admin.firestore.Timestamp.fromDate(
-        new Date(Date.now() - ACTIVE_POST_AGE_HOURS * 60 * 60 * 1000)
-    );
+    // Idempotency: lock by 30-minute window
+    const nowMs = Date.now();
+    const windowMs = 30 * 60 * 1000;
+    const windowKey = new Date(Math.floor(nowMs / windowMs) * windowMs).toISOString().replace(/[:.]/g, "-");
+    const lockRef = db.doc(`system/scheduledJobLocks/replyPreviewRefresh_${windowKey}`);
 
-    const snapshot = await db
-        .collection("posts")
-        .where("updatedAt", ">=", cutoff)
-        .orderBy("updatedAt", "desc")
-        .limit(100)
-        .get();
+    const lockAcquired = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(lockRef);
+        if (snap.exists && snap.data()?.status === "completed") {
+            return false;
+        }
+        tx.set(lockRef, {
+            status: "running",
+            startedAt: admin.firestore.FieldValue.serverTimestamp(),
+            windowKey,
+            expiresAt: new Date(nowMs + 7 * 24 * 60 * 60 * 1000),
+        });
+        return true;
+    });
 
-    await Promise.allSettled(
-        snapshot.docs.map((doc) => maybeRefreshPreviews(doc.id, "scheduled_refresh"))
-    );
-    logger.info("scheduledReplyPreviewRefresh complete", { postCount: snapshot.size });
+    if (!lockAcquired) {
+        logger.info("scheduledReplyPreviewRefresh already completed this window, skipping", { windowKey });
+        return;
+    }
+
+    try {
+        const cutoff = admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() - ACTIVE_POST_AGE_HOURS * 60 * 60 * 1000)
+        );
+
+        const snapshot = await db
+            .collection("posts")
+            .where("updatedAt", ">=", cutoff)
+            .orderBy("updatedAt", "desc")
+            .limit(100)
+            .get();
+
+        await Promise.allSettled(
+            snapshot.docs.map((doc) => maybeRefreshPreviews(doc.id, "scheduled_refresh"))
+        );
+        logger.info("scheduledReplyPreviewRefresh complete", { postCount: snapshot.size });
+
+        await lockRef.update({
+            status: "completed",
+            completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    } catch (err) {
+        await lockRef.update({
+            status: "failed",
+            error: String(err),
+            failedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        throw err;
+    }
 });
 
 async function maybeRefreshPreviews(postId: string, reason: string, viewerId?: string): Promise<void> {

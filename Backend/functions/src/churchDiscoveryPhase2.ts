@@ -184,7 +184,7 @@ function resolvePrimaryAction(input: {
     };
 }
 
-export const refreshChurchLiveState = onCall({ region: REGION }, async (request) => {
+export const refreshChurchLiveState = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
     logger.info("refreshChurchLiveState: called", { churchId });
@@ -229,7 +229,7 @@ export const refreshChurchLiveState = onCall({ region: REGION }, async (request)
     };
 });
 
-export const generateChurchExperienceSummary = onCall({ region: REGION }, async (request) => {
+export const generateChurchExperienceSummary = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
     logger.info("generateChurchExperienceSummary: called", { churchId });
@@ -254,7 +254,7 @@ export const generateChurchExperienceSummary = onCall({ region: REGION }, async 
     return { churchId, ...summary, updatedAt: null };
 });
 
-export const calculateChurchFitScore = onCall({ region: REGION }, async (request) => {
+export const calculateChurchFitScore = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const uid = requireAuth(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -282,7 +282,7 @@ export const calculateChurchFitScore = onCall({ region: REGION }, async (request
     return { churchId, ...fitScore, updatedAt: null };
 });
 
-export const resolveChurchSmartAction = onCall({ region: REGION }, async (request) => {
+export const resolveChurchSmartAction = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const uid = requireAuth(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -336,7 +336,7 @@ export const resolveChurchSmartAction = onCall({ region: REGION }, async (reques
     };
 });
 
-export const generateBereanChurchSuggestions = onCall({ region: REGION }, async (request) => {
+export const generateBereanChurchSuggestions = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const uid = (request as CallableRequest).auth?.uid ?? null;
     logger.info("generateBereanChurchSuggestions: called", { uid: uid ?? "anonymous" });

@@ -292,41 +292,83 @@ export const getReviewQueue = onCall(
 /**
  * Every 15 minutes, check for queue items that have breached their SLA.
  * Alert moderators by writing to a moderatorAlerts collection.
+ *
+ * NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+ * with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
  */
 export const checkQueueSLABreaches = onSchedule(
   { schedule: "every 15 minutes", timeoutSeconds: 60 },
   async () => {
-    const now = admin.firestore.Timestamp.now();
+    // Idempotency: lock by 15-minute window (UTC ISO rounded to nearest 15 min)
+    const nowMs = Date.now();
+    const windowMs = 15 * 60 * 1000;
+    const windowKey = new Date(Math.floor(nowMs / windowMs) * windowMs).toISOString().replace(/[:.]/g, "-");
+    const lockRef = db.doc(`system/scheduledJobLocks/checkQueueSLABreaches_${windowKey}`);
 
-    const breached = await db.collection("humanReviewQueue")
-      .where("status", "in", ["open", "claimed"])
-      .where("dueAt", "<", now)
-      .where("slaAlertSent", "!=", true)
-      .limit(50)
-      .get();
-
-    if (breached.empty) return;
-
-    const batch = db.batch();
-    for (const doc of breached.docs) {
-      const data = doc.data() as QueueItem;
-
-      // Write alert to moderatorAlerts
-      const alertRef = db.collection("moderatorAlerts").doc();
-      batch.set(alertRef, {
-        type: "sla_breach",
-        itemId: doc.id,
-        queue: data.queue,
-        priority: data.priority,
-        harmCategoryId: data.harmCategoryId ?? null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    const lockAcquired = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && snap.data()?.status === "completed") {
+        return false;
+      }
+      tx.set(lockRef, {
+        status: "running",
+        startedAt: admin.firestore.FieldValue.serverTimestamp(),
+        windowKey,
+        expiresAt: new Date(nowMs + 7 * 24 * 60 * 60 * 1000),
       });
+      return true;
+    });
 
-      // Mark alert sent to prevent repeat alerts
-      batch.update(doc.ref, { slaAlertSent: true });
+    if (!lockAcquired) {
+      logger.info("[HumanReviewQueueService] checkQueueSLABreaches already completed this window, skipping", { windowKey });
+      return;
     }
 
-    await batch.commit();
-    logger.warn(`[HumanReviewQueueService] SLA breach: ${breached.size} items overdue.`);
+    try {
+      const now = admin.firestore.Timestamp.now();
+
+      const breached = await db.collection("humanReviewQueue")
+        .where("status", "in", ["open", "claimed"])
+        .where("dueAt", "<", now)
+        .where("slaAlertSent", "!=", true)
+        .limit(50)
+        .get();
+
+      if (!breached.empty) {
+        const batch = db.batch();
+        for (const doc of breached.docs) {
+          const data = doc.data() as QueueItem;
+
+          // Write alert to moderatorAlerts
+          const alertRef = db.collection("moderatorAlerts").doc();
+          batch.set(alertRef, {
+            type: "sla_breach",
+            itemId: doc.id,
+            queue: data.queue,
+            priority: data.priority,
+            harmCategoryId: data.harmCategoryId ?? null,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          // Mark alert sent to prevent repeat alerts
+          batch.update(doc.ref, { slaAlertSent: true });
+        }
+
+        await batch.commit();
+        logger.warn(`[HumanReviewQueueService] SLA breach: ${breached.size} items overdue.`);
+      }
+
+      await lockRef.update({
+        status: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      await lockRef.update({
+        status: "failed",
+        error: String(err),
+        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      throw err;
+    }
   }
 );

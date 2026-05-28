@@ -478,6 +478,9 @@ export const restoreUserAfterInactivity = onCall(
 );
 
 // ─── Scheduled: pauseInactiveUserNotifications (every 24 hours) ──────────────
+//
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
 
 export const pauseInactiveUserNotifications = onSchedule(
   {
@@ -488,99 +491,139 @@ export const pauseInactiveUserNotifications = onSchedule(
   async (): Promise<void> => {
     logger.info("[calmControl] pauseInactiveUserNotifications — starting run");
 
-    const cutoff = daysAgo(INACTIVE_THRESHOLD_DAYS);
-    const cutoffTs = admin.firestore.Timestamp.fromDate(cutoff);
+    const today = new Date().toISOString().slice(0, 10);
+    const lockRef = db.doc(`system/scheduledJobLocks/pauseInactiveUsers_${today}`);
 
-    // Query up to INACTIVITY_BATCH_SIZE users whose lastActiveAt is before the cutoff
-    // The activity sub-collection is denormalized into a top-level collection for queryability.
-    // If this pattern is not yet seeded, the query returns empty and the run is a no-op.
-    const activitySnap = await db
-      .collectionGroup("activity")
-      .where("lastActiveAt", "<", cutoffTs)
-      .orderBy("lastActiveAt", "asc")
-      .limit(INACTIVITY_BATCH_SIZE)
-      .get();
+    const lockAcquired = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && snap.data()?.status === "completed") {
+        return false;
+      }
+      tx.set(lockRef, {
+        status: "running",
+        startedAt: FieldValue.serverTimestamp(),
+        date: today,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+      return true;
+    });
 
-    if (activitySnap.empty) {
-      logger.info("[calmControl] pauseInactiveUserNotifications — no inactive users found");
+    if (!lockAcquired) {
+      logger.info("Scheduled job already completed today, skipping", { job: "pauseInactiveUsers", date: today });
       return;
     }
 
-    const messaging = admin.messaging();
-    let paused = 0;
-    let skipped = 0;
+    try {
+      const cutoff = daysAgo(INACTIVE_THRESHOLD_DAYS);
+      const cutoffTs = admin.firestore.Timestamp.fromDate(cutoff);
 
-    for (const activityDoc of activitySnap.docs) {
-      // The activity doc lives at users/{uid}/activity/main
-      const uid = activityDoc.ref.parent.parent?.id;
-      if (!uid) continue;
+      // Query up to INACTIVITY_BATCH_SIZE users whose lastActiveAt is before the cutoff
+      // The activity sub-collection is denormalized into a top-level collection for queryability.
+      // If this pattern is not yet seeded, the query returns empty and the run is a no-op.
+      const activitySnap = await db
+        .collectionGroup("activity")
+        .where("lastActiveAt", "<", cutoffTs)
+        .orderBy("lastActiveAt", "asc")
+        .limit(INACTIVITY_BATCH_SIZE)
+        .get();
 
-      const notifRef = db
-        .collection("users")
-        .doc(uid)
-        .collection("notificationSettings")
-        .doc("main");
-
-      const notifSnap = await notifRef.get();
-      const notifData = notifSnap.exists
-        ? (notifSnap.data() as Record<string, unknown>)
-        : {};
-
-      // Idempotent: skip if pause notice was already sent
-      if (notifData["pauseNoticeSentAt"]) {
-        skipped++;
-        continue;
+      if (activitySnap.empty) {
+        logger.info("[calmControl] pauseInactiveUserNotifications — no inactive users found");
+        await lockRef.update({
+          status: "completed",
+          completedAt: FieldValue.serverTimestamp(),
+        });
+        return;
       }
 
-      // Mark paused and record the timestamp in one atomic write
-      await notifRef.set(
-        {
-          inactivityPaused: true,
-          pauseNoticeSentAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const messaging = admin.messaging();
+      let paused = 0;
+      let skipped = 0;
 
-      // Send a single quiet-return FCM message if the user has a registered token
-      const userSnap = await db.collection("users").doc(uid).get();
-      const fcmToken =
-        userSnap.exists && typeof userSnap.data()?.["fcmToken"] === "string"
-          ? (userSnap.data()!["fcmToken"] as string)
-          : null;
+      for (const activityDoc of activitySnap.docs) {
+        // The activity doc lives at users/{uid}/activity/main
+        const uid = activityDoc.ref.parent.parent?.id;
+        if (!uid) continue;
 
-      if (fcmToken) {
-        try {
-          await messaging.send({
-            token: fcmToken,
-            notification: {
-              title: "We've been thinking of you",
-              body:
-                "We've noticed you've been away. We'll pause most notifications until you return. " +
-                "No pressure — we'll be here when you're ready.",
-            },
-            data: {
-              notificationCategory: "quietReturn",
-            },
-            apns: {
-              payload: {
-                aps: {
-                  "interruption-level": "passive",
+        const notifRef = db
+          .collection("users")
+          .doc(uid)
+          .collection("notificationSettings")
+          .doc("main");
+
+        const notifSnap = await notifRef.get();
+        const notifData = notifSnap.exists
+          ? (notifSnap.data() as Record<string, unknown>)
+          : {};
+
+        // Idempotent: skip if pause notice was already sent
+        if (notifData["pauseNoticeSentAt"]) {
+          skipped++;
+          continue;
+        }
+
+        // Mark paused and record the timestamp in one atomic write
+        await notifRef.set(
+          {
+            inactivityPaused: true,
+            pauseNoticeSentAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        // Send a single quiet-return FCM message if the user has a registered token
+        const userSnap = await db.collection("users").doc(uid).get();
+        const fcmToken =
+          userSnap.exists && typeof userSnap.data()?.["fcmToken"] === "string"
+            ? (userSnap.data()!["fcmToken"] as string)
+            : null;
+
+        if (fcmToken) {
+          try {
+            await messaging.send({
+              token: fcmToken,
+              notification: {
+                title: "We've been thinking of you",
+                body:
+                  "We've noticed you've been away. We'll pause most notifications until you return. " +
+                  "No pressure — we'll be here when you're ready.",
+              },
+              data: {
+                notificationCategory: "quietReturn",
+              },
+              apns: {
+                payload: {
+                  aps: {
+                    "interruption-level": "passive",
+                  },
                 },
               },
-            },
-          });
-        } catch (fcmErr) {
-          // Non-fatal: token may be stale. Pause is still recorded.
-          logger.warn(`[calmControl] FCM send failed for uid=${uid}`, { error: String(fcmErr) });
+            });
+          } catch (fcmErr) {
+            // Non-fatal: token may be stale. Pause is still recorded.
+            logger.warn(`[calmControl] FCM send failed for uid=${uid}`, { error: String(fcmErr) });
+          }
         }
+
+        paused++;
       }
 
-      paused++;
-    }
+      logger.info(
+        `[calmControl] pauseInactiveUserNotifications — paused=${paused} skipped=${skipped}`
+      );
 
-    logger.info(
-      `[calmControl] pauseInactiveUserNotifications — paused=${paused} skipped=${skipped}`
-    );
+      await lockRef.update({
+        status: "completed",
+        completedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      await lockRef.update({
+        status: "failed",
+        error: String(err),
+        failedAt: FieldValue.serverTimestamp(),
+      });
+      throw err;
+    }
   }
 );

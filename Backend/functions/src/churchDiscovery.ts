@@ -405,7 +405,7 @@ async function rankOneChurch(
     };
 }
 
-export const computeServiceStatus = onCall(async (request) => {
+export const computeServiceStatus = onCall({ enforceAppCheck: true }, async (request) => {
     requireAuth(request);
     const churchId = normalizeText(request.data?.churchId);
     const explicitTimes = Array.isArray(request.data?.serviceTimes) ? request.data?.serviceTimes as unknown[] : [];
@@ -432,7 +432,7 @@ export const computeServiceStatus = onCall(async (request) => {
     return computeServiceStatusFromChurch(church, doc);
 });
 
-export const rankChurchesForUser = onCall(async (request) => {
+export const rankChurchesForUser = onCall({ enforceAppCheck: true }, async (request) => {
     const uid = requireAuth(request);
     const intent = normalizeText(request.data?.intent);
     const query = normalizeText(request.data?.query);
@@ -458,7 +458,7 @@ export const rankChurchesForUser = onCall(async (request) => {
     return { results };
 });
 
-export const generateChurchMatchesFromAnswers = onCall(async (request) => {
+export const generateChurchMatchesFromAnswers = onCall({ enforceAppCheck: true }, async (request) => {
     const uid = requireAuth(request);
     const answers = request.data?.answers as Record<string, string | string[] | undefined> | undefined;
     if (!answers) {
@@ -482,7 +482,7 @@ export const generateChurchMatchesFromAnswers = onCall(async (request) => {
     return { results: ranked.slice(0, 12) };
 });
 
-export const trackChurchInteraction = onCall(async (request) => {
+export const trackChurchInteraction = onCall({ enforceAppCheck: true }, async (request) => {
     const uid = requireAuth(request);
     const churchId = normalizeText(request.data?.churchId);
     const action = normalizeText(request.data?.action);

@@ -450,16 +450,55 @@ export const refreshBereanPulseForCurrentUser = onCall(
   }
 );
 
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
+
 export const generateBereanPulseDaily = onSchedule(
   { schedule: "every day 05:15", region: "us-central1", timeZone: "America/New_York" },
   async () => {
-    const users = await db.collection("users").limit(100).get();
-    for (const user of users.docs) {
-      try {
-        await generatePulseForUser(user.id, dateKeyFor());
-      } catch (error) {
-        logger.error("Berean Pulse generation failed", { userId: user.id, error });
+    const today = new Date().toISOString().slice(0, 10);
+    const lockRef = db.doc(`system/scheduledJobLocks/generateBereanPulseDaily_${today}`);
+
+    const lockAcquired = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && snap.data()?.status === "completed") {
+        return false;
       }
+      tx.set(lockRef, {
+        status: "running",
+        startedAt: admin.firestore.FieldValue.serverTimestamp(),
+        date: today,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+      return true;
+    });
+
+    if (!lockAcquired) {
+      logger.info("generateBereanPulseDaily already completed today, skipping", { date: today });
+      return;
+    }
+
+    try {
+      const users = await db.collection("users").limit(100).get();
+      for (const user of users.docs) {
+        try {
+          await generatePulseForUser(user.id, dateKeyFor());
+        } catch (error) {
+          logger.error("Berean Pulse generation failed", { userId: user.id, error });
+        }
+      }
+
+      await lockRef.update({
+        status: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      await lockRef.update({
+        status: "failed",
+        error: String(err),
+        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      throw err;
     }
   }
 );

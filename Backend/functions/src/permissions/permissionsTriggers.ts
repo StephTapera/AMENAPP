@@ -117,66 +117,105 @@ export const onUserWrite = onDocumentWritten(
  *
  * Processes in batches of 500 to stay within function timeout.
  */
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
+
 export const dailyAgeTierPromotion = onSchedule(
   { schedule: "0 2 * * *", timeoutSeconds: 540 },
   async () => {
-    const now = new Date();
-    const thirteenYearsAgo = new Date(now);
-    thirteenYearsAgo.setFullYear(now.getFullYear() - 13);
-    const eighteenYearsAgo = new Date(now);
-    eighteenYearsAgo.setFullYear(now.getFullYear() - 18);
+    const today = new Date().toISOString().slice(0, 10);
+    const lockRef = db.doc(`system/scheduledJobLocks/dailyAgeTierPromotion_${today}`);
 
-    // Promoted to teen: accounts with ageTier "under13" whose DOB is now ≥ 13 years ago.
-    // Promoted to adult: accounts with ageTier "teen" whose DOB is now ≥ 18 years ago.
-    // DOB is stored in users/{uid}/private/safety.dateOfBirth (Timestamp).
-
-    let promoted = 0;
-
-    // Query users with outdated tier: under13 candidates
-    const under13Snap = await db
-      .collection("users")
-      .where("ageTier", "in", ["minor", "under13", "under_minimum"])
-      .limit(500)
-      .get();
-
-    for (const doc of under13Snap.docs) {
-      try {
-        const dob = await getDateOfBirth(doc.id);
-        if (!dob) continue;
-        const age = ageInYears(dob, now);
-        if (age >= 18) {
-          await promoteAgeTier(doc.id, "adult");
-          promoted++;
-        } else if (age >= 13) {
-          await promoteAgeTier(doc.id, "teen");
-          promoted++;
-        }
-      } catch (err) {
-        logger.warn(`[PermissionsEngine] dailyPromotion failed for uid=${doc.id}`, err);
+    const lockAcquired = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && snap.data()?.status === "completed") {
+        return false;
       }
+      tx.set(lockRef, {
+        status: "running",
+        startedAt: admin.firestore.FieldValue.serverTimestamp(),
+        date: today,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+      return true;
+    });
+
+    if (!lockAcquired) {
+      logger.info("[PermissionsEngine] dailyAgeTierPromotion already completed today, skipping", { date: today });
+      return;
     }
 
-    // Query teens who may have turned 18
-    const teenSnap = await db
-      .collection("users")
-      .where("ageTier", "==", "teen")
-      .limit(500)
-      .get();
+    try {
+      const now = new Date();
+      const thirteenYearsAgo = new Date(now);
+      thirteenYearsAgo.setFullYear(now.getFullYear() - 13);
+      const eighteenYearsAgo = new Date(now);
+      eighteenYearsAgo.setFullYear(now.getFullYear() - 18);
 
-    for (const doc of teenSnap.docs) {
-      try {
-        const dob = await getDateOfBirth(doc.id);
-        if (!dob) continue;
-        if (ageInYears(dob, now) >= 18) {
-          await promoteAgeTier(doc.id, "adult");
-          promoted++;
+      // Promoted to teen: accounts with ageTier "under13" whose DOB is now ≥ 13 years ago.
+      // Promoted to adult: accounts with ageTier "teen" whose DOB is now ≥ 18 years ago.
+      // DOB is stored in users/{uid}/private/safety.dateOfBirth (Timestamp).
+
+      let promoted = 0;
+
+      // Query users with outdated tier: under13 candidates
+      const under13Snap = await db
+        .collection("users")
+        .where("ageTier", "in", ["minor", "under13", "under_minimum"])
+        .limit(500)
+        .get();
+
+      for (const doc of under13Snap.docs) {
+        try {
+          const dob = await getDateOfBirth(doc.id);
+          if (!dob) continue;
+          const age = ageInYears(dob, now);
+          if (age >= 18) {
+            await promoteAgeTier(doc.id, "adult");
+            promoted++;
+          } else if (age >= 13) {
+            await promoteAgeTier(doc.id, "teen");
+            promoted++;
+          }
+        } catch (err) {
+          logger.warn(`[PermissionsEngine] dailyPromotion failed for uid=${doc.id}`, err);
         }
-      } catch (err) {
-        logger.warn(`[PermissionsEngine] dailyPromotion failed for uid=${doc.id}`, err);
       }
-    }
 
-    logger.info(`[PermissionsEngine] dailyAgeTierPromotion promoted=${promoted}`);
+      // Query teens who may have turned 18
+      const teenSnap = await db
+        .collection("users")
+        .where("ageTier", "==", "teen")
+        .limit(500)
+        .get();
+
+      for (const doc of teenSnap.docs) {
+        try {
+          const dob = await getDateOfBirth(doc.id);
+          if (!dob) continue;
+          if (ageInYears(dob, now) >= 18) {
+            await promoteAgeTier(doc.id, "adult");
+            promoted++;
+          }
+        } catch (err) {
+          logger.warn(`[PermissionsEngine] dailyPromotion failed for uid=${doc.id}`, err);
+        }
+      }
+
+      logger.info(`[PermissionsEngine] dailyAgeTierPromotion promoted=${promoted}`);
+
+      await lockRef.update({
+        status: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      await lockRef.update({
+        status: "failed",
+        error: String(err),
+        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      throw err;
+    }
   }
 );
 

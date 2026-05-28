@@ -850,6 +850,9 @@ async function validateCalendarYear(year: number): Promise<{ found: string[]; mi
 
 // ─── Exported Cloud Functions ─────────────────────────────────────────────────
 
+// NOTE: Add a Firestore TTL policy on `system/scheduledJobLocks` collection
+// with field `expiresAt` set to 7 days. This automatically cleans up old lock documents.
+
 /** Scheduled: runs November 1st each year to pre-generate the next year's calendar. */
 export const generateNextYearHolidayCalendar = onSchedule(
   {
@@ -858,9 +861,46 @@ export const generateNextYearHolidayCalendar = onSchedule(
   },
   async () => {
     const nextYear = new Date().getUTCFullYear() + 1;
-    logger.info(`[holidayCalendar] Generating calendar for ${nextYear}`);
-    const count = await generateHolidayCalendarForYear(nextYear);
-    logger.info(`[holidayCalendar] Wrote ${count} observances for ${nextYear}`);
+    // Lock key includes the year so re-runs on the same Nov 1 are safe
+    const lockKey = `generateNextYearHolidayCalendar_${nextYear}`;
+    const lockRef = db.doc(`system/scheduledJobLocks/${lockKey}`);
+
+    const lockAcquired = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && snap.data()?.status === "completed") {
+        return false;
+      }
+      tx.set(lockRef, {
+        status: "running",
+        startedAt: admin.firestore.FieldValue.serverTimestamp(),
+        year: nextYear,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+      return true;
+    });
+
+    if (!lockAcquired) {
+      logger.info(`[holidayCalendar] Already generated calendar for ${nextYear}, skipping`);
+      return;
+    }
+
+    try {
+      logger.info(`[holidayCalendar] Generating calendar for ${nextYear}`);
+      const count = await generateHolidayCalendarForYear(nextYear);
+      logger.info(`[holidayCalendar] Wrote ${count} observances for ${nextYear}`);
+
+      await lockRef.update({
+        status: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      await lockRef.update({
+        status: "failed",
+        error: String(err),
+        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      throw err;
+    }
   }
 );
 

@@ -18,6 +18,7 @@ import {defineSecret} from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import {FieldValue} from "firebase-admin/firestore";
 import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
+import {checkAndIncrementDailyRateLimit, BEREAN_DAILY_LIMITS} from "./rateLimitHelper";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
 import type {SensitivityFlag, TopicClass} from "./berean/models/berean";
 import {classifySpiritualState} from "./berean/services/SpiritualStateEngine";
@@ -117,6 +118,13 @@ export const bereanChatProxy = onCall(
             RATE_LIMITS.AI_PER_MINUTE,
             RATE_LIMITS.AI_PER_DAY,
         ]);
+
+        // SERVER-SIDE Berean-specific daily rate limit.
+        // Uses UTC calendar-day windows stored under users/{uid}/rateLimits/.
+        // This is the authoritative backend guard — the iOS AIUsageService mirrors
+        // it for optimistic UX but cannot override this check.
+        // Free tier: 20 Berean queries per UTC day.
+        await checkAndIncrementDailyRateLimit(request.auth.uid, BEREAN_DAILY_LIMITS.bereanQuery);
 
         const data = request.data as BereanChatRequest;
 
