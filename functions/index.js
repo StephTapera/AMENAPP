@@ -1490,3 +1490,12 @@ exports.grantSpaceAccess             = spacesFns.grantSpaceAccess;
 exports.handleStripeSpaceWebhook     = spacesFns.handleStripeSpaceWebhook;
 exports.revokeSpaceLinkAccess        = spacesFns.revokeSpaceLinkAccess;
 // notifyCommunityLinkInvite — persistent HTTPS ghost conflict; removed from default to resolve
+
+// ============================================================================
+// SECURITY MONITORING — Hourly spend + auth anomaly detection
+//   hourlyAnomalyCheck — scheduled every 60 min: checks AI spend vs. caps,
+//                        global sign-in rate, and per-user Berean call spikes.
+//                        Writes alerts to meta/anomalyAlerts/alerts/{id}.
+// ============================================================================
+const anomalyMonitor = require('./anomalyMonitor');
+exports.hourlyAnomalyCheck = anomalyMonitor.hourlyAnomalyCheck;

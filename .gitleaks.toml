@@ -1,0 +1,41 @@
+title = "AMEN App — Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "firebase-api-key"
+description = "Firebase API key"
+regex = '''AIzaSy[0-9A-Za-z_-]{33}'''
+tags = ["firebase", "key"]
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key"
+regex = '''sk-ant-[0-9A-Za-z_-]{40,}'''
+tags = ["anthropic", "key"]
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API key"
+regex = '''sk-[0-9A-Za-z_-]{20,}'''
+tags = ["openai", "key"]
+
+[[rules]]
+id = "pinecone-api-key"
+description = "Pinecone API key"
+regex = '''[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'''
+tags = ["pinecone", "key"]
+
+[allowlist]
+description = "Allowlisted false positives"
+paths = [
+  '''^\.gitleaks\.toml$''',
+  '''^docs/''',
+  '''^\.github/''',
+]
+regexes = [
+  '''GITLEAKS_LICENSE''',
+  '''your-api-key-here''',
+  '''test-key-ci''',
+]
