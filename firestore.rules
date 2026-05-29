@@ -1688,6 +1688,26 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── Berean AI top-level conversation storage ──────────────────────────────
+    // berean_conversations and berean_messages are written by Cloud Functions
+    // (bereanChatProxy / bereanChatProxyStream) and owned per-user.
+    // Clients may read their own conversations/messages; all writes are server-only.
+
+    match /berean_conversations/{docId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /berean_messages/{docId} {
+      // Messages are linked through conversationId; ownership is validated via
+      // the parent conversation document. This prevents cross-user message reads
+      // without an expensive join — the proxy never exposes raw messages to clients;
+      // they are served through the callable which enforces userId checks.
+      allow read: if false;
+      allow write: if false;
+    }
+
     // ── Berean AI — owner-readable, server-write ─────────────────────────────
 
     match /bereanMemory/{docId} {
