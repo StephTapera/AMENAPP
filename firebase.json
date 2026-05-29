@@ -3,7 +3,7 @@
     "rules": "AMENAPP/database.rules.json"
   },
   "firestore": {
-    "rules": "AMENAPP/firestore.deploy.rules",
+    "rules": "firestore.rules",
     "indexes": "AMENAPP/firestore.indexes.json"
   },
   "storage": {
@@ -13,7 +13,7 @@
     {
       "codebase": "default",
       "source": "functions",
-      "runtime": "nodejs22",
+      "runtime": "nodejs20",
       "ignore": [
         "node_modules",
         ".git",
