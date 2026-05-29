@@ -1668,6 +1668,11 @@ service cloud.firestore {
       allow read, write: if false; // Server-only: no client read or write ever
     }
 
+    // Global AI circuit-breaker counter — written by Cloud Functions (Admin SDK) only.
+    match /globalRateLimits/{docId} {
+      allow read, write: if false;
+    }
+
     // ── Berean AI — owner-readable, server-write ─────────────────────────────
 
     match /bereanMemory/{docId} {

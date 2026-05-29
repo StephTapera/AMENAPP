@@ -15,9 +15,10 @@
 
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
+import {logger} from "firebase-functions";
 import * as admin from "firebase-admin";
 import {FieldValue} from "firebase-admin/firestore";
-import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
+import {enforceRateLimit, RATE_LIMITS, checkGlobalCircuitBreaker, incrementGlobalAICounter} from "./rateLimit";
 import {checkAndIncrementDailyRateLimit, BEREAN_DAILY_LIMITS} from "./rateLimitHelper";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
 import type {SensitivityFlag, TopicClass} from "./berean/models/berean";
@@ -126,6 +127,10 @@ export const bereanChatProxy = onCall(
         // Free tier: 20 Berean queries per UTC day.
         await checkAndIncrementDailyRateLimit(request.auth.uid, BEREAN_DAILY_LIMITS.bereanQuery);
 
+        // Global circuit breaker — project-wide daily ceiling.
+        await checkGlobalCircuitBreaker();
+
+        const requestStart = Date.now();
         const data = request.data as BereanChatRequest;
 
         const {
@@ -137,9 +142,12 @@ export const bereanChatProxy = onCall(
         } = data;
         const maxTokens = Math.min(Math.max(Number(data.maxTokens ?? 2000), 128), 2000);
         const temperature = Math.min(Math.max(Number(data.temperature ?? 0.7), 0), 1);
-        const systemPromptSuffix = typeof data.systemPromptSuffix === "string"
-            ? data.systemPromptSuffix.slice(0, 1500)
-            : undefined;
+        // SECURITY: never append raw client-supplied text to the system prompt —
+        // that is a prompt-injection vector. Mode-specific guidance is handled
+        // entirely server-side by buildSystemPrompt(mode). The field is read and
+        // immediately discarded so existing clients don't receive an error.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _ignoredClientSuffix = data.systemPromptSuffix;
 
         // Validate input
         if (!message || typeof message !== "string" || message.trim().length === 0) {
@@ -296,9 +304,7 @@ export const bereanChatProxy = onCall(
             if (contextualPrompt) {
                 systemPrompt += `\n\n${contextualPrompt}`;
             }
-            if (systemPromptSuffix) {
-                systemPrompt += `\n\n${systemPromptSuffix}`;
-            }
+            // systemPromptSuffix intentionally not appended — see SECURITY note above.
             await logAgentSpan(agentRunId, {
                 type: "prompt_built",
                 status: "ok",
@@ -387,11 +393,17 @@ export const bereanChatProxy = onCall(
                 metadata: {model},
             });
 
-            // Log usage for monitoring (no UID — opaque metrics only)
-            console.log("✅ berean_chat_proxy_succeeded", {
+            // Structured telemetry — no UID, no message content, never log sensitive modes' text.
+            logger.info("berean_callable_succeeded", {
                 model,
-                outputTokens: result.usage?.output_tokens || 0,
+                mode,
+                inputLength: message.length,
+                outputTokens: result.usage?.output_tokens ?? 0,
+                latencyMs: Date.now() - requestStart,
+                sensitive: (data.callData?.sensitivityFlags ?? []).length > 0,
             });
+            // Fire-and-forget global counter — never block the response on this write.
+            incrementGlobalAICounter().catch(() => {});
 
             return {
                 response: safeResponseText,

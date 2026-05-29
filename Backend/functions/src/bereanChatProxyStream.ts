@@ -32,7 +32,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {logger} from "firebase-functions";
 import * as admin from "firebase-admin";
-import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
+import {enforceRateLimit, RATE_LIMITS, checkGlobalCircuitBreaker, incrementGlobalAICounter} from "./rateLimit";
 import {checkAndIncrementDailyRateLimit, BEREAN_DAILY_LIMITS} from "./rateLimitHelper";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
 import type {SensitivityFlag, TopicClass} from "./berean/models/berean";
@@ -271,11 +271,22 @@ export const bereanChatProxyStream = onRequest(
             return;
         }
 
+        // Global circuit breaker — project-wide daily ceiling.
+        try {
+            await checkGlobalCircuitBreaker();
+        } catch {
+            res.status(429).json({error: "AI service is taking a brief rest for today. Please try again in a few hours."});
+            return;
+        }
+
+        const requestStart = Date.now();
+
         // ── Validate input ────────────────────────────────────────────────────
         const body = req.body as StreamRequest;
         const {
             message,
-            systemPromptSuffix,
+            // systemPromptSuffix is accepted but never forwarded to the model prompt
+            // (prompt-injection mitigation — C-01 security fix).
             maxTokens = 2000,
             mode = "shepherd",
             callData,
@@ -327,8 +338,9 @@ export const bereanChatProxyStream = onRequest(
         const callDataBlock = buildCallDataBlock(callData);
         if (callDataBlock) systemPrompt += `\n\n${callDataBlock}`;
 
-        // Append the Swift-built system prompt (contains mode instructions + guidance suffix).
-        if (systemPromptSuffix) systemPrompt += `\n\n${systemPromptSuffix}`;
+        // systemPromptSuffix is NOT appended — client-supplied text in the system prompt
+        // is a prompt-injection vector. Mode customisation is handled entirely by
+        // buildBaseSystemPrompt(mode) and the sensitivity/callData blocks above.
 
         // ── Model selection ───────────────────────────────────────────────────
         const model = mode === "scholar" || mode === "debater"
@@ -412,12 +424,25 @@ export const bereanChatProxyStream = onRequest(
                 }
             }
 
+            // Structured telemetry — no UID, no message content.
+            logger.info("berean_stream_succeeded", {
+                mode,
+                inputLength: message.length,
+                latencyMs: Date.now() - requestStart,
+                sensitive: (callData?.sensitivityFlags ?? []).length > 0,
+            });
+            // Fire-and-forget global counter increment.
+            incrementGlobalAICounter().catch(() => {});
+
             res.end();
         } catch (error: unknown) {
             const isAbort =
                 error instanceof Error && error.name === "AbortError";
             if (!isAbort) {
-                console.error("❌ [bereanChatProxyStream] Stream error:", error);
+                logger.error("berean_stream_error", {
+                    errorType: error instanceof Error ? error.name : "unknown",
+                    latencyMs: Date.now() - requestStart,
+                });
                 try {
                     res.write(`data: ${JSON.stringify({error: "stream_error"})}\n\n`);
                 } catch {
