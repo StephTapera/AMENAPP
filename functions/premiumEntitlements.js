@@ -2,6 +2,14 @@
 
 const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+// Loaded lazily inside getSignedDataVerifier() — avoids analysis-time crash when
+// the package is not installed locally (it is a direct dep in package.json and
+// will be present in Cloud Build via npm ci).
+let _appStoreLib = null;
+function requireAppStoreLib() {
+  if (!_appStoreLib) _appStoreLib = require("@apple/app-store-server-library");
+  return _appStoreLib;
+}
 
 const db = admin.firestore();
 const REGION = "us-central1";
@@ -35,6 +43,19 @@ function appStoreConfig() {
 function hasAppStoreServerCredentials() {
   const config = appStoreConfig();
   return Boolean(config.bundleId && config.issuerId && config.keyId && config.privateKey);
+}
+
+let _verifier = null;
+function getSignedDataVerifier() {
+  if (_verifier) return _verifier;
+  const config = appStoreConfig();
+  if (!config.bundleId) throw new Error("APP_STORE_BUNDLE_ID not configured");
+  const { SignedDataVerifier, Environment } = requireAppStoreLib();
+  const env = config.environment === "Production" ? Environment.PRODUCTION : Environment.SANDBOX;
+  // Pass empty root certificates array — the library resolves Apple's root CAs internally.
+  _verifier = new SignedDataVerifier([], true, env, config.bundleId,
+    config.appAppleId ? Number(config.appAppleId) : undefined);
+  return _verifier;
 }
 
 function requireAuth(request) {
@@ -200,9 +221,20 @@ exports.syncPremiumEntitlement = onCall({region: REGION}, async (request) => {
 exports.appStoreServerNotificationV2 = onRequest({region: REGION}, async (req, res) => {
   try {
     const signedPayload = req.body?.signedPayload;
-    const notification = decodeJwsPayload(signedPayload);
+    if (!signedPayload) {
+      res.status(400).send({ok: false, error: "Missing signedPayload"});
+      return;
+    }
+
+    // Cryptographically verify the JWS before trusting any payload data.
+    const verifier = getSignedDataVerifier();
+    const notification = await verifier.verifyAndDecodeNotification(signedPayload);
     const data = notification?.data || {};
-    const transaction = decodeJwsPayload(data.signedTransactionInfo);
+
+    let transaction = null;
+    if (data.signedTransactionInfo) {
+      transaction = await verifier.verifyAndDecodeTransaction(data.signedTransactionInfo);
+    }
 
     if (!transaction?.originalTransactionId) {
       res.status(202).send({ok: true, ignored: true});
