@@ -1729,6 +1729,17 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Security alerts written by anomaly monitor scheduled functions.
+    // Admin console reads these via Admin SDK — never from a client token.
+    match /securityAlerts/{docId} {
+      allow read, write: if false;
+    }
+
+    // Auth failure events written by server triggers for brute-force detection.
+    match /authFailureLog/{docId} {
+      allow read, write: if false;
+    }
+
     // ── Berean AI top-level conversation storage ──────────────────────────────
     // berean_conversations and berean_messages are written by Cloud Functions
     // (bereanChatProxy / bereanChatProxyStream) and owned per-user.

@@ -60,7 +60,52 @@ jobs:
         run: npx jest aiAppCheckEnforcement --testPathPattern=aiAppCheckEnforcement
         working-directory: Backend/functions
 
-  # ── 4. Firestore rules tests ──────────────────────────────────────────────
+  # ── 4. TypeScript compile gate (Backend/functions) ───────────────────────
+  ts-compile:
+    name: TypeScript Compile Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Backend/functions/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend/functions
+      - name: TypeScript compile (no emit)
+        run: node ./node_modules/.bin/tsc --noEmit
+        working-directory: Backend/functions
+
+  # ── 5. Security guardrail static tests ────────────────────────────────────
+  guardrail-tests:
+    name: Security Guardrail Static Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Backend/functions/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend/functions
+      - name: Install Jest (test-only)
+        run: npm install --no-save jest ts-jest @types/jest
+        working-directory: Backend/functions
+      - name: Run all static guardrail tests
+        run: |
+          node ./node_modules/.bin/jest \
+            --testPathPattern="(static|inputGuardrails|streamingSafety|privacy|sessionSecurity|historySanitization)" \
+            --no-coverage \
+            --passWithNoTests
+        working-directory: Backend/functions
+        env:
+          NODE_ENV: test
+
+  # ── 6. Firestore rules tests ──────────────────────────────────────────────
   rules-test:
     name: Firestore Rules Tests
     runs-on: ubuntu-latest
@@ -81,4 +126,4 @@ jobs:
         working-directory: functions
         env:
           FIRESTORE_EMULATOR_HOST: localhost:8080
-      # Note: Add firebase-tools emulator setup if needed for the rules test runner
+      # Note: requires `firebase emulators:start --only firestore` in a background step
