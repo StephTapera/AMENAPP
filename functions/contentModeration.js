@@ -719,37 +719,93 @@ exports.moderatePostText = async function moderatePostText(postId, userId, text)
 
 // ============================================================================
 // SERVER-SIDE POST MODERATION TRIGGER (Firestore onWrite)
-// Runs moderation whenever a new post is created or its text changes.
-// Bypasses client-side moderation for direct Firestore writes.
+// ============================================================================
+//
+// PRE-GATING DESIGN (replaces async/post-publish approach):
+//
+//   1. iOS client writes posts/{postId} with visibility = "under_review"
+//      and requestedVisibility = user's actual choice ("everyone" / etc.).
+//      The post is NOT visible in any feed because all feed queries filter
+//      visibility == "everyone".
+//
+//   2. This trigger fires on the new document. It runs the full GUARDIAN
+//      moderation pipeline (toxicity + spam) before the post is ever exposed
+//      to other users.
+//
+//   3. On PASS  → visibility is promoted to requestedVisibility ("everyone").
+//                  The post appears in feeds for the first time.
+//      On FLAG  → visibility stays "flagged"; post enters human review queue.
+//      On REMOVE→ post is deleted (or marked removed: true) entirely.
+//      On ERROR → fail-closed: visibility stays "under_review" and we add a
+//                  serverModeratedError flag so ops can triage.
+//
+//   Loop-break: the update writes serverModerated=true so re-triggers are
+//   skipped immediately. We also skip if visibility is already a terminal
+//   state ("everyone", "flagged", "followers", "community", "removed").
+//
 // ============================================================================
 
 const {onDocumentWritten} = require('firebase-functions/v2/firestore');
+
+// Visibility values that are terminal — post has already been through the gate.
+const TERMINAL_VISIBILITY = new Set([
+  'everyone', 'followers', 'community', 'flagged', 'removed',
+]);
 
 exports.serverSidePostModeration = onDocumentWritten(
   {document: 'posts/{postId}', region: 'us-central1'},
   async (event) => {
     const postId = event.params.postId;
-    const afterData = event.data.after.data();
+    const afterData = event.data.after ? event.data.after.data() : null;
 
     // Skip deletes
     if (!afterData) return null;
 
-    // Skip if already moderated server-side (avoid infinite loops)
+    // Skip if already moderated server-side (avoid infinite loops caused by
+    // the update writes below re-triggering this function).
     if (afterData.serverModerated === true) return null;
 
-    // Skip if post is already removed or flagged (no need to re-run)
+    // Skip if this post is already in a terminal visibility state.
+    // This guards against direct admin writes or retries that already passed.
+    if (TERMINAL_VISIBILITY.has(afterData.visibility)) return null;
+
+    // Skip if post is already hard-removed
     if (afterData.removed === true) return null;
 
     const userId = afterData.userId || afterData.authorId;
     const text = afterData.content || '';
 
-    if (!text || text.length < 3) return null;
+    // Nothing to moderate (empty posts / short metadata-only posts)
+    if (!text || text.length < 3) {
+      // Promote immediately — no text to check
+      const requestedVis = afterData.requestedVisibility || 'everyone';
+      const db = admin.firestore();
+      await db.collection('posts').doc(postId).update({
+        visibility: requestedVis,
+        moderationStatus: 'not_required',
+        serverModerated: true,
+        serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return null;
+    }
 
-    console.log(`🛡️ [serverSidePostModeration] Running on post ${postId}`);
+    console.log(`🛡️ [serverSidePostModeration] Pre-gating post ${postId} (uid=${userId})`);
+
+    const db = admin.firestore();
+
+    // --- Step 1: Immediately mark as "gating in progress" so the document is
+    // clearly in a known transient state while moderation runs. This is a
+    // best-effort stamp; the main gate is already enforced by visibility="under_review".
+    try {
+      await db.collection('posts').doc(postId).update({
+        moderationStatus: 'checking',
+      });
+    } catch (_) {
+      // Non-fatal — document may have been deleted concurrently
+    }
 
     try {
       const result = await exports.moderatePostText(postId, userId, text);
-      const db = admin.firestore();
 
       // Write unified moderation_jobs record (non-fatal)
       await writeModerationJob({
@@ -766,31 +822,56 @@ exports.serverSidePostModeration = onDocumentWritten(
       });
 
       if (result.action === 'remove') {
+        // Hard violation — remove the post entirely, never make it visible.
         await db.collection('posts').doc(postId).update({
+          visibility: 'removed',
           removed: true,
           moderationStatus: 'rejected',
           moderationReasons: result.reasons,
           serverModerated: true,
           serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log(`🚫 [serverSidePostModeration] Post ${postId} removed`);
+        console.log(`🚫 [serverSidePostModeration] Post ${postId} blocked (pre-gate: never made public)`);
+
       } else if (result.action === 'flag_for_review') {
+        // Soft violation — hold in review queue, do not promote to feed.
         await db.collection('posts').doc(postId).update({
+          visibility: 'flagged',
           flaggedForReview: true,
+          moderationStatus: 'under_review',
           moderationReasons: result.reasons,
           serverModerated: true,
           serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log(`⚠️ [serverSidePostModeration] Post ${postId} flagged`);
+        console.log(`⚠️ [serverSidePostModeration] Post ${postId} held for human review`);
+
       } else {
-        // Mark as server-moderated so we don't re-run
+        // PASS — promote visibility to what the author requested.
+        // requestedVisibility was written by the iOS client at creation time.
+        const requestedVis = afterData.requestedVisibility || 'everyone';
         await db.collection('posts').doc(postId).update({
+          visibility: requestedVis,
+          moderationStatus: 'approved',
           serverModerated: true,
           serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        console.log(`✅ [serverSidePostModeration] Post ${postId} approved → visibility="${requestedVis}"`);
       }
+
     } catch (err) {
-      console.error(`[serverSidePostModeration] Error:`, err);
+      // Fail-closed: keep visibility as "under_review" so the post stays hidden.
+      // Flag the error for ops triage without deleting the post.
+      console.error(`[serverSidePostModeration] Error moderating post ${postId}:`, err);
+      try {
+        await db.collection('posts').doc(postId).update({
+          moderationStatus: 'error',
+          serverModeratedError: err.toString(),
+          serverModerated: true,           // prevents infinite retry loops
+          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (updateErr) {
+        console.error(`[serverSidePostModeration] Failed to write error state:`, updateErr);
+      }
     }
 
     return null;

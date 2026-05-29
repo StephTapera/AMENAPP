@@ -986,10 +986,20 @@ const {executeScheduledPosts} = require("./scheduledPostsFunctions");
 exports.executeScheduledPosts = executeScheduledPosts;
 
 // ============================================================================
-// GDPR DATA EXPORT — "Download My Data" callable
+// GDPR DATA EXPORT — "Download My Data" callable (legacy, kept for BC)
 // ============================================================================
-const {exportUserData} = require("./dataExport");
-exports.exportUserData = exportUserData;
+const {exportUserData: exportUserDataLegacy} = require("./dataExport");
+exports.exportUserData = exportUserDataLegacy;
+
+// ============================================================================
+// USER DATA LIFECYCLE — GDPR/CCPA: export (rate-limited, recent-auth),
+//   deleteBereanHistory (erase AI history + Pinecone vectors),
+//   deleteAccountData (nuclear hard-delete, 5-min auth window)
+// ============================================================================
+const userDataLifecycle = require("./userDataLifecycle");
+exports.exportUserDataV2        = userDataLifecycle.exportUserData;
+exports.deleteBereanHistory     = userDataLifecycle.deleteBereanHistory;
+exports.deleteAccountData       = userDataLifecycle.deleteAccountData;
 
 // ============================================================================
 // STRIPE CONNECT — Creator Studio payments

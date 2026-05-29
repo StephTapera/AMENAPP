@@ -28,6 +28,20 @@ exports.grantAdminRole = onCall({ region: REGION, enforceAppCheck: true }, async
     throw new HttpsError('permission-denied', 'Only admins can grant admin roles');
   }
 
+  // SECURITY (C-03): require a fresh 2FA session before any admin escalation.
+  // twoFaSessionExpiry is set by verify2FAOTP and lives in the caller's ID token.
+  // Value -1 means "2FA not enrolled" (allowed for bootstrapped dev accounts only).
+  const expiry = req.auth?.token?.twoFaSessionExpiry;
+  if (expiry === undefined || expiry === null) {
+    throw new HttpsError('failed-precondition',
+      'A valid 2FA session is required before granting admin roles. ' +
+      'Complete MFA verification and retry.');
+  }
+  if (expiry !== -1 && expiry < Date.now()) {
+    throw new HttpsError('failed-precondition',
+      '2FA session has expired. Re-verify before granting admin roles.');
+  }
+
   const { targetUid } = req.data;
   if (!targetUid || typeof targetUid !== 'string') {
     throw new HttpsError('invalid-argument', 'targetUid required');
@@ -52,6 +66,17 @@ exports.grantAdminRole = onCall({ region: REGION, enforceAppCheck: true }, async
 exports.revokeAdminRole = onCall({ region: REGION, enforceAppCheck: true }, async (req) => {
   if (!req.auth?.token?.admin) {
     throw new HttpsError('permission-denied', 'Only admins can revoke admin roles');
+  }
+
+  // SECURITY (C-03): require fresh 2FA session for all admin role changes.
+  const expiry = req.auth?.token?.twoFaSessionExpiry;
+  if (expiry === undefined || expiry === null) {
+    throw new HttpsError('failed-precondition',
+      'A valid 2FA session is required before revoking admin roles.');
+  }
+  if (expiry !== -1 && expiry < Date.now()) {
+    throw new HttpsError('failed-precondition',
+      '2FA session has expired. Re-verify before revoking admin roles.');
   }
 
   const { targetUid } = req.data;
