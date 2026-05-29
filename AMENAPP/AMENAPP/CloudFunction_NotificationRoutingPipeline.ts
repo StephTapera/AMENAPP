@@ -1,5 +1,9 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import { logger } from "firebase-functions";
 
 type NotificationOpenBehavior = "directOpen" | "guardedOpen" | "inboxOpen" | "softPrompt";
 type NotificationPayloadVersion = "3";
@@ -750,13 +754,32 @@ async function processPendingNotificationDoc(
   }
 }
 
-export const composeNotificationPayload = functions.https.onCall(async (data) => {
-  const record = data as PendingNotificationRecord;
+export const composeNotificationPayload = onCall(async (request) => {
+  // B-25: Auth guard — these callables must only be invoked by authenticated service accounts
+  // or signed-in users with the internal_service custom claim.
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+  const isInternalService = (request.auth.token as Record<string, unknown>)?.internal_service === true;
+  const isAdmin = (request.auth.token as Record<string, unknown>)?.admin === true;
+  if (!isInternalService && !isAdmin) {
+    throw new HttpsError("permission-denied", "Internal service access only.");
+  }
+  const record = request.data as PendingNotificationRecord;
   return buildPushEnvelope(record.pushToken ?? "dry-run-token", record);
 });
 
-export const dispatchPush = functions.https.onCall(async (data) => {
-  const envelope = data as PushDispatchEnvelope;
+export const dispatchPush = onCall(async (request) => {
+  // B-25: Auth guard — only internal services may directly dispatch push messages.
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+  const isInternalService = (request.auth.token as Record<string, unknown>)?.internal_service === true;
+  const isAdmin = (request.auth.token as Record<string, unknown>)?.admin === true;
+  if (!isInternalService && !isAdmin) {
+    throw new HttpsError("permission-denied", "Internal service access only.");
+  }
+  const envelope = request.data as PushDispatchEnvelope;
   return admin.messaging().send({
     token: envelope.token,
     apns: envelope.apns,
@@ -765,13 +788,14 @@ export const dispatchPush = functions.https.onCall(async (data) => {
   });
 });
 
-export const processActivityEvent = functions.firestore
-  .document(`${canonicalNotificationCollections.activityEvents}/{eventId}`)
-  .onCreate(async (snapshot) => {
+export const processActivityEvent = onDocumentCreated(
+  { document: `${canonicalNotificationCollections.activityEvents}/{eventId}`, region: "us-central1" },
+  async (firestoreEvent) => {
+    const snapshot = firestoreEvent.data!;
     const event = snapshot.data() as ActivityEventRecord;
     if (!event || !event.recipientId || !event.type) {
       await incrementMetric("schema_violation_count");
-      functions.logger.error("Invalid activity event", { id: snapshot.id, data: snapshot.data() });
+      logger.error("Invalid activity event", { id: snapshot.id, data: snapshot.data() });
       return;
     }
 
@@ -792,7 +816,7 @@ export const processActivityEvent = functions.firestore
       ]);
 
       if (linkSnap.exists) {
-        throw new functions.https.HttpsError("already-exists", "Duplicate activity event");
+        throw new HttpsError("already-exists", "Duplicate activity event");
       }
 
       if (groupSnap.exists) {
@@ -858,15 +882,15 @@ export const processActivityEvent = functions.firestore
     }, { merge: true });
   });
 
-export const processPendingNotification = functions.firestore
-  .document(`${canonicalNotificationCollections.pendingNotifications}/{pendingId}`)
-  .onCreate(async (snapshot) => {
-    await processPendingNotificationDoc(snapshot);
+export const processPendingNotification = onDocumentCreated(
+  { document: `${canonicalNotificationCollections.pendingNotifications}/{pendingId}`, region: "us-central1" },
+  async (firestoreEvent) => {
+    await processPendingNotificationDoc(firestoreEvent.data!);
   });
 
-export const retryPendingNotifications = functions.pubsub
-  .schedule("every 15 minutes")
-  .onRun(async () => {
+export const retryPendingNotifications = onSchedule(
+  { schedule: "every 15 minutes", region: "us-central1" },
+  async () => {
     const now = admin.firestore.Timestamp.now();
     const snapshot = await db.collection(canonicalNotificationCollections.pendingNotifications)
       .where("status", "==", "retry_queued")
@@ -878,9 +902,9 @@ export const retryPendingNotifications = functions.pubsub
     return null;
   });
 
-export const cleanupExpiredNotifications = functions.pubsub
-  .schedule("every 24 hours")
-  .onRun(async () => {
+export const cleanupExpiredNotifications = onSchedule(
+  { schedule: "every 24 hours", region: "us-central1" },
+  async () => {
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const [dismissedGroups, oldLogs] = await Promise.all([
       db.collection(canonicalNotificationCollections.notificationGroups)
@@ -902,8 +926,17 @@ export const cleanupExpiredNotifications = functions.pubsub
     return null;
   });
 
-export const recordNotificationOpen = functions.https.onCall(async (data) => {
-  const { recipientUserId, notificationId, routeResult } = data;
+export const recordNotificationOpen = onCall(async (request) => {
+  // B-25: Auth guard — must be the notification recipient or an internal service.
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+  const { recipientUserId, notificationId, routeResult } = request.data as { recipientUserId: string; notificationId: string; routeResult: unknown };
+  const isInternalService = (request.auth.token as Record<string, unknown>)?.internal_service === true;
+  const isAdmin = (request.auth.token as Record<string, unknown>)?.admin === true;
+  if (!isInternalService && !isAdmin && request.auth.uid !== recipientUserId) {
+    throw new HttpsError("permission-denied", "Can only record opens for your own notifications.");
+  }
   await db.collection(canonicalNotificationCollections.notificationGroups)
     .doc(notificationId)
     .set({
@@ -920,8 +953,17 @@ export const recordNotificationOpen = functions.https.onCall(async (data) => {
   return { ok: true };
 });
 
-export const markNotificationRead = functions.https.onCall(async (data) => {
-  const { recipientUserId, notificationId } = data;
+export const markNotificationRead = onCall(async (request) => {
+  // B-25: Auth guard — must be the notification recipient.
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+  const { recipientUserId, notificationId } = request.data as { recipientUserId: string; notificationId: string };
+  const isInternalService = (request.auth.token as Record<string, unknown>)?.internal_service === true;
+  const isAdmin = (request.auth.token as Record<string, unknown>)?.admin === true;
+  if (!isInternalService && !isAdmin && request.auth.uid !== recipientUserId) {
+    throw new HttpsError("permission-denied", "Can only mark your own notifications as read.");
+  }
   await db.collection(canonicalNotificationCollections.notificationGroups)
     .doc(notificationId)
     .set(
