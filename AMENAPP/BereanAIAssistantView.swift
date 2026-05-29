@@ -1511,8 +1511,11 @@ struct BereanAIAssistantView: View {
 
     // MARK: Memory Status Banner
 
-    /// Pill displayed above the input bar when there are messages in session memory.
-    /// Lets the user see retention status and clear the session with one tap.
+    /// Rule 2: Memory state must only appear inside the capsule (BereanCompactComposerBar /
+    /// BereanComposerTray). This standalone banner is intentionally NOT wired into
+    /// inputBarView. It remains as a dormant definition in case the capsule surface needs
+    /// to delegate memory display here in the future, but it must not be placed as a
+    /// floating element above or outside the capsule.
     private var memoryStatusBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "brain")
@@ -1745,17 +1748,10 @@ struct BereanAIAssistantView: View {
 
     private var inputBarView: some View {
         VStack(spacing: 0) {
-            // Follow-up chips after AI response (above composer)
-            if showFollowUps && !followUpSuggestions.isEmpty && messageText.isEmpty && !viewModel.messages.isEmpty {
-                BereanFollowUpView(suggestions: Array(followUpSuggestions.prefix(3))) { item in
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    messageText = item.prompt
-                    isInputFocused = true
-                    withAnimation(.easeOut(duration: 0.2)) { showFollowUps = false }
-                }
-                .padding(.bottom, 8)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            // Rule 5: Follow-up chips moved inline to messageBubbleRow (BereanFollowUpChipRow).
+            // The BereanFollowUpView above the composer has been removed to prevent two
+            // simultaneous chip surfaces. Chips now appear only at the bottom of the last
+            // assistant message, never floating above the composer.
 
             if showContextualSuggestions && !contextualSuggestions.isEmpty && !messageText.isEmpty && !isGenerating {
                 contextualSuggestionsView
@@ -6854,6 +6850,9 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
     case prayerCompanion = "Prayer Companion"
     case deepStudy      = "Deep Study"
     case discernment    = "Discernment"
+    case mediaInsight   = "Media Insight"
+    case workLifeWisdom = "Work/Life Wisdom"
+    case safetyReview   = "Safety Review"
     var id: String { rawValue }
 
     var icon: String {
@@ -6870,6 +6869,9 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
         case .prayerCompanion: return "hands.sparkles.fill"
         case .deepStudy:      return "graduationcap.fill"
         case .discernment:    return "scale.3d"
+        case .mediaInsight:   return "play.rectangle.on.rectangle.fill"
+        case .workLifeWisdom: return "briefcase.fill"
+        case .safetyReview:   return "shield.lefthalf.filled"
         }
     }
 
@@ -6887,6 +6889,9 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
         case .prayerCompanion: return "Prayerful, devotional support"
         case .deepStudy:      return "Advanced theological study"
         case .discernment:    return "Wisdom and careful decision support"
+        case .mediaInsight:   return "Summarize and review media content"
+        case .workLifeWisdom: return "Biblical wisdom for work and life"
+        case .safetyReview:   return "Review for harmful or manipulative content"
         }
     }
 
@@ -6934,6 +6939,15 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
         case .discernment:
             return "Help the user reason through choices with wisdom, Scripture, and humility. " +
                    "Name tradeoffs clearly and avoid overclaiming certainty."
+        case .mediaInsight:
+            return "You are Berean in Media Insight mode: analytical and discerning. " +
+                   "Summarize and evaluate sermons, videos, posts, and captions for scriptural accuracy and spiritual value."
+        case .workLifeWisdom:
+            return "You are Berean in Work/Life Wisdom mode: grounded and practical. " +
+                   "Offer biblical wisdom for workplace challenges, relationships, anxiety, and leadership decisions."
+        case .safetyReview:
+            return "You are Berean in Safety Review mode: careful and protective. " +
+                   "Review content for shame, manipulation, spiritual overreach, or harmful counsel, and suggest improvements."
         }
     }
 }

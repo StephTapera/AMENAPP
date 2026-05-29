@@ -30,21 +30,17 @@ struct BereanEnhancedComposerWrapper: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Mode selector (only when idle)
-            if messageText.isEmpty && composerVM.state != .scrollingCompact {
-                responseModePickerView
-                    .padding(.bottom, 8)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-            
-            // Follow-up chips (existing functionality)
-            if showFollowUps && !followUpSuggestions.isEmpty && messageText.isEmpty {
-                followUpChipsView
-                    .padding(.bottom, 8)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-            
-            // Suggestion chips (new - shown when idle)
+            // Rule 3: Mode selector removed from composer surface.
+            // Mode is displayed exclusively in the capsule (BereanCompactComposerBar
+            // via BereanComposerTray). A permanent mode picker row above the text
+            // field is a second mode-indicator surface, which the one-chrome rule forbids.
+
+            // Rule 5: Follow-up chips removed from composer surface.
+            // Chips are rendered inline at the bottom of each assistant message
+            // (BereanFollowUpChipRow in BereanAIAssistantView.messageBubbleRow).
+            // Rendering them here too creates two simultaneous chip surfaces.
+
+            // Suggestion chips (shown when idle)
             if composerVM.state.showSuggestions && messageText.isEmpty {
                 BereanSuggestionChipsView(
                     chips: suggestions,

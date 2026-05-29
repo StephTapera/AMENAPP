@@ -5,16 +5,39 @@ struct AmenCompanionView: View {
     @StateObject private var churchService = ChurchCompanionService.shared
     @StateObject private var visitService = VisitPlanningService.shared
     @StateObject private var privacy = CompanionPrivacyManager.shared
+    @StateObject private var spatial = SpatialSocialViewModel.shared
+    @StateObject private var ai = AskAmenCompanionRouter.shared
+    @State private var askQuery = ""
+    @FocusState private var askFocused: Bool
+
+    private let suggestedQueries = [
+        "Find me a church near me",
+        "Help me compare churches",
+        "Give me a prayer for this new city",
+        "What should I know before visiting a new church?"
+    ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Ask Amen — always-visible hero at the top
+                    askAmenSection
+
+                    // Contextual prompt card (location-aware nudge)
                     if let prompt = vm.activePrompt {
                         CompanionPromptCard(prompt: prompt) { action in
                             vm.handlePromptAction(action)
                         }
                         .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    // Empty state — shown only when nothing has been saved yet
+                    if churchService.savedChurches.isEmpty &&
+                       visitService.activePlans.isEmpty &&
+                       vm.activePrompt == nil &&
+                       ai.lastResponse == nil {
+                        companionEmptyState
                     }
 
                     if !churchService.savedChurches.isEmpty {
@@ -28,20 +51,14 @@ struct AmenCompanionView: View {
                     churchDiscoverySection
 
                     safeConnectionSection
+
+                    // Nearby — absorbed from SpatialSocialView
+                    nearbySection
                 }
                 .padding()
             }
             .navigationTitle("Amen Companion")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        vm.showAskAmen = true
-                    } label: {
-                        Image(systemName: "sparkles")
-                    }
-                }
-            }
             .sheet(isPresented: $vm.showChurchDiscovery) {
                 ChurchDiscoverySheet()
             }
@@ -53,12 +70,144 @@ struct AmenCompanionView: View {
             .sheet(isPresented: $vm.showSafeConnection) {
                 SafeConnectionSheet()
             }
-            .sheet(isPresented: $vm.showAskAmen) {
-                CompanionAskSheet()
+            .task {
+                await vm.initialize()
+                await spatial.initialize()
             }
-            .task { await vm.initialize() }
         }
     }
+
+    // MARK: - Ask Amen Inline
+
+    private var askAmenSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Ask Amen", systemImage: "sparkles")
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            if let response = ai.lastResponse {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(response.text)
+                        .font(.body)
+
+                    if let prayer = response.prayerText {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Prayer", systemImage: "hands.sparkles")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Text(prayer)
+                                .font(.subheadline)
+                                .italic()
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    if !response.suggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Suggestions", systemImage: "lightbulb")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ForEach(response.suggestions, id: \.self) { s in
+                                Text("• \(s)").font(.subheadline)
+                            }
+                        }
+                    }
+
+                    if let error = ai.errorMessage {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                    }
+
+                    Button("Ask another question") {
+                        ai.clearResponse()
+                        askFocused = true
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                }
+                .padding()
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+            } else if ai.isProcessing {
+                HStack(spacing: 10) {
+                    ProgressView().scaleEffect(0.85)
+                    Text("Amen is thinking...")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            } else {
+                // Tappable suggestion chips
+                VStack(spacing: 8) {
+                    ForEach(suggestedQueries, id: \.self) { q in
+                        Button {
+                            Task { await ai.ask(q) }
+                        } label: {
+                            Text(q)
+                                .font(.subheadline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                                .foregroundStyle(.primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                if let error = ai.errorMessage {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+            }
+
+            // Input bar — always visible
+            HStack(spacing: 10) {
+                TextField("Ask Amen Companion...", text: $askQuery)
+                    .focused($askFocused)
+                    .padding(10)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .onSubmit { Task { await submitAsk() } }
+                Button {
+                    Task { await submitAsk() }
+                } label: {
+                    Image(systemName: ai.isProcessing ? "circle.dotted" : "arrow.up.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle((askQuery.isEmpty || ai.isProcessing ? Color.primary.opacity(0.3) : Color.blue))
+                        .animation(.easeInOut(duration: 0.15), value: ai.isProcessing)
+                }
+                .disabled(askQuery.isEmpty || ai.isProcessing)
+            }
+        }
+    }
+
+    private func submitAsk() async {
+        let q = askQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        askQuery = ""
+        await ai.ask(q)
+    }
+
+    // MARK: - Empty State
+
+    private var companionEmptyState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "building.columns.circle.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(.blue.opacity(0.7))
+            Text("Find Your Church Home")
+                .font(.title3.weight(.semibold))
+            Text("Ask Amen above to discover churches near you, plan visits, and connect with your faith community.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Saved Churches
 
     private var savedChurchesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -74,6 +223,8 @@ struct AmenCompanionView: View {
         }
     }
 
+    // MARK: - Visit Plans
+
     private var visitPlansSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Visit Plans", systemImage: "calendar.badge.checkmark")
@@ -85,6 +236,8 @@ struct AmenCompanionView: View {
             }
         }
     }
+
+    // MARK: - Church Discovery
 
     private var churchDiscoverySection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -109,6 +262,8 @@ struct AmenCompanionView: View {
             .buttonStyle(.plain)
         }
     }
+
+    // MARK: - Safe Connections
 
     private var safeConnectionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -152,6 +307,99 @@ struct AmenCompanionView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Nearby (absorbed from SpatialSocialView)
+
+    private var nearbySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Nearby", systemImage: "location.circle.fill")
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            if spatial.isInitializing {
+                HStack(spacing: 10) {
+                    ProgressView().scaleEffect(0.8)
+                    Text("Looking for nearby activity...")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            } else if spatial.currentEnvironment.type == .unknown &&
+                      spatial.nearbyGatherings.isEmpty &&
+                      spatial.activeEphemeralSpaces.isEmpty &&
+                      spatial.smartIntroductions.isEmpty {
+                Button {
+                    Task { await spatial.initialize() }
+                } label: {
+                    HStack {
+                        Image(systemName: "location")
+                            .foregroundStyle(.secondary)
+                        Text("Enable location for nearby gatherings")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+            } else {
+                if let signal = spatial.topAmbientSignal {
+                    AmbientSignalBanner(signal: signal) {
+                        spatial.dismissAmbientSignal(signal)
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                if spatial.currentEnvironment.type != .unknown {
+                    EnvironmentContextCard(environment: spatial.currentEnvironment)
+                }
+
+                if !spatial.activeEphemeralSpaces.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Live Spaces", systemImage: "dot.radiowaves.left.and.right")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ForEach(spatial.activeEphemeralSpaces) { space in
+                            EphemeralSpaceCard(space: space)
+                        }
+                    }
+                }
+
+                if !spatial.nearbyGatherings.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Gatherings Nearby", systemImage: "person.3.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ForEach(spatial.nearbyGatherings) { gathering in
+                            NearbyGatheringCard(gathering: gathering) {
+                                Task { await spatial.createEphemeralSpace(for: gathering) }
+                            }
+                        }
+                    }
+                }
+
+                if !spatial.smartIntroductions.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("People You Might Know", systemImage: "sparkle.magnifyingglass")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Based on shared contexts — not location tracking.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ForEach(spatial.smartIntroductions.prefix(2)) { intro in
+                            SmartIntroductionCard(intro: intro) {
+                                spatial.dismissIntroduction(intro)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -284,7 +532,7 @@ struct VisitPlanRow: View {
     }
 }
 
-// MARK: - Stub Sheets (full implementations below)
+// MARK: - Church Discovery Sheet
 
 struct ChurchDiscoverySheet: View {
     @StateObject private var vm = ChurchCompanionService.shared
@@ -307,8 +555,12 @@ struct ChurchDiscoverySheet: View {
                 if vm.isSearching {
                     ProgressView("Searching...").padding()
                 } else if vm.nearbyResults.isEmpty {
-                    ContentUnavailableView("Describe what you're looking for", systemImage: "building.columns", description: Text("Try: \"Baptist church with Sunday evening service\""))
-                        .padding()
+                    ContentUnavailableView(
+                        "Describe what you're looking for",
+                        systemImage: "building.columns",
+                        description: Text("Try: \"Baptist church with Sunday evening service\"")
+                    )
+                    .padding()
                 } else {
                     List(vm.nearbyResults) { result in
                         ChurchSearchResultRow(result: result)
@@ -383,6 +635,8 @@ struct ChurchTagPill: View {
             .background(.ultraThinMaterial, in: Capsule())
     }
 }
+
+// MARK: - Visit Planning Sheet
 
 struct VisitPlanningSheet: View {
     let church: SmartChurchSummary
@@ -462,6 +716,8 @@ struct VisitPlanningSheet: View {
     }
 }
 
+// MARK: - Safe Connection Sheet
+
 struct SafeConnectionSheet: View {
     @StateObject private var service = SafeConnectionService.shared
     @StateObject private var location = LocationContextService.shared
@@ -537,7 +793,10 @@ struct SafeConnectionSheet: View {
                         Task {
                             do {
                                 let broadArea = location.currentContext.broadAreaLabel
-                                requestedConnection = try await service.requestConnection(intent: selectedIntent, broadArea: broadArea)
+                                requestedConnection = try await service.requestConnection(
+                                    intent: selectedIntent,
+                                    broadArea: broadArea
+                                )
                             } catch {
                                 errorMessage = error.localizedDescription
                             }
@@ -569,106 +828,6 @@ struct SafeConnectionSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cancel") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
-struct CompanionAskSheet: View {
-    @StateObject private var ai = AskAmenCompanionRouter.shared
-    @State private var query = ""
-    @Environment(\.dismiss) private var dismiss
-
-    private let suggestedQueries = [
-        "Find me a church near me",
-        "Help me compare churches",
-        "Give me a prayer for this new city",
-        "What should I know before visiting a new church?"
-    ]
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                if let response = ai.lastResponse {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text(response.text)
-                                .font(.body)
-                                .padding()
-
-                            if let prayer = response.prayerText {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Label("Prayer", systemImage: "hands.sparkles")
-                                        .font(.headline)
-                                    Text(prayer)
-                                        .font(.body)
-                                        .italic()
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding()
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                                .padding(.horizontal)
-                            }
-
-                            if !response.suggestions.isEmpty {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Label("Suggestions", systemImage: "lightbulb")
-                                        .font(.headline)
-                                    ForEach(response.suggestions, id: \.self) { s in
-                                        Text("• \(s)").font(.subheadline)
-                                    }
-                                }
-                                .padding()
-                            }
-                        }
-                    }
-                } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Try asking...")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            ForEach(suggestedQueries, id: \.self) { q in
-                                Button { query = q } label: {
-                                    Text(q)
-                                        .font(.subheadline)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding()
-                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.horizontal)
-                            }
-                        }
-                        .padding(.top)
-                    }
-                }
-
-                Divider()
-
-                HStack(spacing: 10) {
-                    TextField("Ask Amen Companion...", text: $query)
-                        .padding(10)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                    Button {
-                        let q = query
-                        query = ""
-                        Task { await ai.ask(q) }
-                    } label: {
-                        Image(systemName: ai.isProcessing ? "circle.dotted" : "arrow.up.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.blue)
-                    }
-                    .disabled(query.isEmpty || ai.isProcessing)
-                }
-                .padding()
-            }
-            .navigationTitle("Ask Amen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
                 }
             }
         }

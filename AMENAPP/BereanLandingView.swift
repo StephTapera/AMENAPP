@@ -57,7 +57,6 @@ struct BereanLandingView: View {
     var recentConversations: [BereanContinuityEntry] = []
 
     // Animation orchestration
-    @State private var heroComplete = false
     @State private var statusCardVisible = false
 
     // Input state
@@ -69,6 +68,17 @@ struct BereanLandingView: View {
     @State private var hasAnimatedThisSession = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // Quick-suggestion chips shown in the empty state — a single horizontal
+    // scroll row that replaces the old BereanSuggestionPanel card, the
+    // 3-chip sub-row, and the 4 floating context chips.
+    private let quickChips: [(icon: String, label: String, prompt: String)] = [
+        ("questionmark.bubble", "Ask a question",  "I have a question about "),
+        ("book.pages",          "Study scripture", "Help me study "),
+        ("sparkles",            "Explain simply",  "Explain this simply: "),
+        ("magnifyingglass.circle", "Explore context", "Give me historical context for "),
+        ("hands.sparkles",      "Build a prayer",  "Help me build a prayer about "),
+    ]
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -82,7 +92,7 @@ struct BereanLandingView: View {
                         // Push hero to true vertical center of the visible area.
                         Spacer().frame(height: max(24, geo.size.height * (suggestionsVisible ? 0.18 : 0.38)))
 
-                        // Hero greeting
+                        // (3) Hero greeting
                         BereanHeroGreetingView(
                             greeting: greeting,
                             shouldAnimate: !hasAnimatedThisSession,
@@ -91,7 +101,9 @@ struct BereanLandingView: View {
                             }
                         )
 
-                        // Continuity cards — recent studies/prayers to resume
+                        // Continuity cards — recent studies/prayers to resume.
+                        // Only visible in empty state; slide down / out of the way
+                        // when the composer is focused.
                         if !recentConversations.isEmpty && !suggestionsVisible {
                             BereanContinuitySection(
                                 entries: recentConversations,
@@ -111,12 +123,12 @@ struct BereanLandingView: View {
                                 .offset(y: statusCardVisible ? 0 : 12)
                         }
 
-                        // Bottom padding for input bar + suggestions clearance
-                        Spacer().frame(height: suggestionsVisible ? 340 : 110)
+                        // Bottom padding for input bar + chip row clearance
+                        Spacer().frame(height: suggestionsVisible ? 300 : 130)
                     }
                 }
             }
-            // Dismiss suggestions when tapping the background
+            // Dismiss focus when tapping outside the composer
             .onTapGesture {
                 if inputFocused {
                     withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
@@ -126,37 +138,45 @@ struct BereanLandingView: View {
                 }
             }
 
-            // ── Suggestion panel — reveals on focus ─────────────────────
-            VStack(spacing: 12) {
-                if suggestionsVisible {
-                    BereanSuggestionPanel(
-                        onChipTap: { prompt in
-                            inputText = prompt
-                            inputFocused = false
-                            onInputSubmit(prompt)
-                            inputText = ""
-                        },
-                        onPromptTap: { prompt in
-                            inputText = prompt
-                            inputFocused = false
-                            onInputSubmit(prompt)
-                            inputText = ""
+            // ── Bottom chrome stack ─────────────────────────────────────
+            VStack(spacing: 10) {
+
+                // (5) Suggestion chip row — always visible, fades on focus
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(quickChips, id: \.label) { chip in
+                            Button {
+                                onInputSubmit(chip.prompt)
+                                inputText = ""
+                                inputFocused = false
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: chip.icon)
+                                        .font(.systemScaled(12, weight: .medium))
+                                    Text(chip.label)
+                                        .font(.systemScaled(13, weight: .medium))
+                                }
+                                .foregroundColor(Color(.label))
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(Capsule().fill(AmenTheme.Colors.glassFill))
+                                        .overlay(Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
+                                        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
-                    )
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .move(edge: .bottom)),
-                        removal: .opacity.combined(with: .move(edge: .bottom))
-                    ))
+                    }
+                    .padding(.horizontal, 16)
                 }
+                .opacity(suggestionsVisible ? 0 : 1)
+                .scaleEffect(suggestionsVisible ? 0.96 : 1.0, anchor: .bottom)
+                .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: suggestionsVisible)
 
-                // ── Context strip — fades out when suggestions are visible ──
-                BereanContextStrip(label: "Scripture-grounded · Always discerning", icon: "sparkles")
-                    .padding(.horizontal, 20)
-                    .opacity(suggestionsVisible ? 0 : 0.70)
-                    .scaleEffect(suggestionsVisible ? 0.96 : 1.0, anchor: .bottom)
-                    .animation(.easeOut(duration: 0.18), value: suggestionsVisible)
-
-                // ── Floating input bar ──────────────────────────────────
+                // (6) Floating input bar ────────────────────────────────
                 BereanInputBar(
                     text: $inputText,
                     isFocused: $inputFocused,
@@ -605,117 +625,10 @@ struct BereanInputBar: View {
     }
 }
 
-// MARK: - BereanSuggestedPrompt
-
-private struct BereanSuggestedPrompt: Identifiable {
-    let id = UUID()
-    let icon: String
-    let text: String
-}
-
-private let bereanSuggestedPrompts: [BereanSuggestedPrompt] = [
-    BereanSuggestedPrompt(icon: "book.pages",        text: "Explain Romans 8 in plain language"),
-    BereanSuggestedPrompt(icon: "hands.and.sparkles", text: "Give me a prayer for anxiety"),
-    BereanSuggestedPrompt(icon: "heart",              text: "Help me understand forgiveness"),
-    BereanSuggestedPrompt(icon: "doc.text",           text: "Summarize this Church Note"),
-    BereanSuggestedPrompt(icon: "lightbulb",          text: "What does the Bible say about wisdom?"),
-]
-
-private let bereanCategoryChips: [(icon: String, label: String, prompt: String)] = [
-    ("book.closed",     "Bible",   "Help me study the Bible"),
-    ("hands.and.sparkles", "Prayer", "Help me pray"),
-    ("lightbulb",       "Wisdom",  "Give me biblical wisdom"),
-    ("doc.plaintext",   "Notes",   "Help with my church notes"),
-    ("heart.text.square", "Hope",  "Share a verse of hope"),
-]
-
-// MARK: - BereanSuggestionPanel
-
-private struct BereanSuggestionPanel: View {
-    var onChipTap: (String) -> Void
-    var onPromptTap: (String) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Category chips
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(bereanCategoryChips, id: \.label) { chip in
-                        Button {
-                            onChipTap(chip.prompt)
-                        } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: chip.icon)
-                                    .font(.systemScaled(12, weight: .medium))
-                                Text(chip.label)
-                                    .font(.systemScaled(13, weight: .medium))
-                            }
-                            .foregroundColor(Color(.label))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(Capsule().fill(AmenTheme.Colors.glassFill))
-                                    .overlay(Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
-                                    .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-
-            // Suggested prompt rows
-            VStack(spacing: 0) {
-                ForEach(Array(bereanSuggestedPrompts.enumerated()), id: \.element.id) { index, prompt in
-                    Button {
-                        onPromptTap(prompt.text)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: prompt.icon)
-                                .font(.systemScaled(14, weight: .medium))
-                                .foregroundColor(Color(white: 0.55))
-                                .frame(width: 24)
-                            Text(prompt.text)
-                                .font(.systemScaled(14, weight: .regular))
-                                .foregroundColor(Color(.label))
-                                .lineLimit(1)
-                            Spacer()
-                            Image(systemName: "arrow.up.forward")
-                                .font(.systemScaled(10, weight: .medium))
-                                .foregroundColor(Color(white: 0.72))
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 11)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if index < bereanSuggestedPrompts.count - 1 {
-                        Divider()
-                            .padding(.leading, 52)
-                    }
-                }
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(AmenTheme.Colors.glassFill)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.75)
-                    )
-                    .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 3)
-            )
-            .padding(.horizontal, 16)
-        }
-    }
-}
+// BereanSuggestionPanel and bereanSuggestedPrompts / bereanCategoryChips were
+// removed as part of the empty-state consolidation (Agent D, 2026-05-28).
+// Quick-action chips are now rendered inline in BereanLandingView.body as the
+// `quickChips` property; see the (5) Suggestion chip row section.
 
 // MARK: - BereanStatusCard  (AI thinking / processing state)
 
@@ -908,31 +821,86 @@ struct BereanInsightCard: View {
 
 // MARK: - BereanLandingEmbedded
 // Drop-in replacement for BereanEmptyState inside AIBibleStudyView.
-// Renders only hero + cards — the host view owns the input bar.
+// Renders hero block (3) + subtitle (4) + suggestion chip row (5).
+// The host view (AIBibleStudyView) owns the composer (6) at the bottom.
 
 struct BereanLandingEmbedded: View {
+    /// Called when the user taps a suggestion chip — pre-fills the parent input.
     var onActionTap: (String) -> Void = { _ in }
 
     @State private var hasAnimatedThisSession = false
     @State private var greeting: BereanGreeting = BereanGreetingManager.greeting()
+    @State private var chipsVisible = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // Suggestion chips — same set as BereanLandingView for consistency.
+    private let quickChips: [(icon: String, label: String, prompt: String)] = [
+        ("questionmark.bubble",    "Ask a question",   "I have a question about "),
+        ("book.pages",             "Study scripture",  "Help me study "),
+        ("sparkles",               "Explain simply",   "Explain this simply: "),
+        ("magnifyingglass.circle", "Explore context",  "Give me historical context for "),
+        ("hands.sparkles",         "Build a prayer",   "Help me build a prayer about "),
+    ]
 
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
                 // Push hero to true vertical center of the available space.
-                Spacer().frame(height: max(32, geo.size.height * 0.38))
+                Spacer().frame(height: max(32, geo.size.height * 0.30))
 
+                // (3) Hero block
                 BereanHeroGreetingView(
                     greeting: greeting,
                     shouldAnimate: !hasAnimatedThisSession,
                     onSequenceComplete: {
                         hasAnimatedThisSession = true
+                        withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.82)).delay(0.12)) {
+                            chipsVisible = true
+                        }
                     }
                 )
 
-                Spacer().frame(height: 40)
+                Spacer().frame(height: 36)
+
+                // (5) Suggestion chip row — single horizontal scroll of 4–5 short pills.
+                // Fades in after the hero typing animation completes.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(quickChips.enumerated()), id: \.offset) { index, chip in
+                            Button {
+                                HapticManager.selection()
+                                onActionTap(chip.prompt)
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: chip.icon)
+                                        .font(.systemScaled(12, weight: .medium))
+                                    Text(chip.label)
+                                        .font(.systemScaled(13, weight: .medium))
+                                }
+                                .foregroundColor(Color(white: 0.22))
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.white)
+                                        .shadow(color: Color.black.opacity(0.06), radius: 6, y: 2)
+                                )
+                            }
+                            .buttonStyle(ScaleButtonStyle())
+                            .opacity(chipsVisible ? 1 : 0)
+                            .offset(y: chipsVisible ? 0 : 8)
+                            .animation(
+                                Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.82))
+                                    .delay(reduceMotion ? 0 : Double(index) * 0.05),
+                                value: chipsVisible
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+
+                Spacer().frame(height: 24)
             }
             .frame(maxWidth: .infinity)
         }
@@ -940,10 +908,10 @@ struct BereanLandingEmbedded: View {
             greeting = BereanGreetingManager.greeting()
             if reduceMotion {
                 hasAnimatedThisSession = true
+                chipsVisible = true
             }
         }
     }
-
 }
 
 #if DEBUG

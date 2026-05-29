@@ -75,24 +75,32 @@ struct BereanCompactComposerBar: View {
         let shellWidth = min(availableWidth, 620)
 
         VStack(spacing: 0) {
-            // Liquid Glass v1: capability-first adaptive tray with inline mode picker
-            BereanComposerTray(
-                draftText: $messageText,
-                draftIntent: currentDraftIntent,
-                selectedMode: selectedMode,
-                onModeChange: { mode in
-                    showModePicker = false
-                    inferredMode = nil
-                    onModeChange?(mode)
-                    Analytics.logEvent("berean_mode_selected", parameters: ["mode": mode.rawValue])
-                },
-                onChipTap: { suggestion in
-                    messageText = suggestion
-                },
-                onActionTap: handleToolSelection
-            )
-            .padding(.bottom, 8)
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            // Rule 4: BereanComposerTray (capability chip row + mode picker) is only
+            // visible when:
+            //   a) the "+" tools button has been tapped (showActions == true), OR
+            //   b) a meaningful draft intent has been detected (non-empty intent).
+            // When the composer is idle with no text, the tray stays hidden.
+            // The "+" button itself remains the permanent affordance for tool access.
+            if showActions || currentDraftIntent != .empty {
+                BereanComposerTray(
+                    draftText: $messageText,
+                    draftIntent: currentDraftIntent,
+                    selectedMode: selectedMode,
+                    onModeChange: { mode in
+                        showModePicker = false
+                        inferredMode = nil
+                        onModeChange?(mode)
+                        Analytics.logEvent("berean_mode_selected", parameters: ["mode": mode.rawValue])
+                    },
+                    onChipTap: { suggestion in
+                        messageText = suggestion
+                    },
+                    onActionTap: handleToolSelection
+                )
+                .padding(.bottom, 8)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .animation(.amenSpring, value: currentDraftIntent)
+            }
 
             if let ghost = ghostDraft, messageText.isEmpty {
                 ghostDraftChip(ghost: ghost)
@@ -155,6 +163,7 @@ struct BereanCompactComposerBar: View {
             .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.88), value: messageText)
         }
         .frame(maxWidth: .infinity)
+        .animation(.amenSpring, value: showActions)
         .sheet(isPresented: $showActions) {
             BereanComposerToolSheet(
                 actions: quickActions,
