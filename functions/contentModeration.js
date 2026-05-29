@@ -10,6 +10,7 @@
  */
 
 const functions = require('firebase-functions');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 
@@ -29,10 +30,12 @@ function getLanguageClient() {
  * Moderate content submission (posts, comments, captions, bio)
  * Callable function from client
  */
-exports.moderateContent = functions.https.onCall(async (data, context) => {
+exports.moderateContent = onCall(async (request) => {
+  const data = request.data;
+  const context = request;
   // Authenticate
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+    throw new HttpsError('unauthenticated', 'Must be logged in');
   }
 
   const userId = context.auth.uid;

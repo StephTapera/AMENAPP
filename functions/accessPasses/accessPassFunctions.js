@@ -39,6 +39,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.listAccessRequestsForTarget = exports.listAccessPassesForTarget = exports.denyAccessRequest = exports.approveAccessRequest = exports.rotateAccessPassToken = exports.resumeAccessPass = exports.pauseAccessPass = exports.revokeAccessPass = exports.acceptAccessPass = exports.resolveAccessPass = exports.createAccessPass = void 0;
 const functions = __importStar(require("firebase-functions"));
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const accessPassToken_1 = require("./accessPassToken");
 const accessPassValidation_1 = require("./accessPassValidation");
@@ -50,14 +51,16 @@ const db = admin.firestore();
 // ---------------------------------------------------------------------------
 // 1. createAccessPass
 // ---------------------------------------------------------------------------
-exports.createAccessPass = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.createAccessPass = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     const uid = context.auth.uid;
     const { targetType, targetId, orgId, churchId, spaceId, mode, title, subtitle, description, requiresAuth, requiresApproval, allowedEmailDomains, allowedRoleIds, allowedMemberUids, maxUses, maxUsesPerUser, startsAt, expiresAt, checkInDurationMinutes, safetyProfile, landingConfig, } = data;
     if (!targetType || !targetId || !mode || !title) {
-        throw new functions.https.HttpsError("invalid-argument", "missing-required-fields");
+        throw new HttpsError("invalid-argument", "missing-required-fields");
     }
     // Verify admin for target
     await (0, accessPassPermissions_1.verifyAdminForTarget)(uid, targetType, targetId);
@@ -137,11 +140,13 @@ exports.createAccessPass = functions.runWith({ enforceAppCheck: true }).https.on
 // ---------------------------------------------------------------------------
 // 2. resolveAccessPass
 // ---------------------------------------------------------------------------
-exports.resolveAccessPass = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.resolveAccessPass = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     const uid = context.auth?.uid;
     const { accessPassId, token, anonymousSessionId, devicePlatform, appVersion } = data;
     if (!accessPassId || !token) {
-        throw new functions.https.HttpsError("invalid-argument", "missing-fields");
+        throw new HttpsError("invalid-argument", "missing-fields");
     }
     const identity = uid ?? anonymousSessionId ?? "anon";
     // Rate limit
@@ -166,11 +171,11 @@ exports.resolveAccessPass = functions.runWith({ enforceAppCheck: true }).https.o
     }
     // Auth gate
     if (pass.requiresAuth && !uid) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     // Guest preview gate
     if (!pass.requiresAuth && !uid && !pass.safetyProfile.allowGuestPreview) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     const alreadyMember = uid
         ? await (0, accessPassValidation_1.checkIfAlreadyMember)(pass.targetType, pass.targetId, uid)
@@ -189,14 +194,16 @@ exports.resolveAccessPass = functions.runWith({ enforceAppCheck: true }).https.o
 // ---------------------------------------------------------------------------
 // 3. acceptAccessPass
 // ---------------------------------------------------------------------------
-exports.acceptAccessPass = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.acceptAccessPass = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     const uid = context.auth.uid;
     const { accessPassId, token, action, requestMessage } = data;
     if (!accessPassId || !token || !action) {
-        throw new functions.https.HttpsError("invalid-argument", "missing-fields");
+        throw new HttpsError("invalid-argument", "missing-fields");
     }
     await (0, accessPassRateLimit_1.enforceRateLimit)("accept", uid);
     const pass = await (0, accessPassValidation_1.loadAndValidatePass)(accessPassId, token);
@@ -347,15 +354,17 @@ exports.acceptAccessPass = functions.runWith({ enforceAppCheck: true }).https.on
             };
         }
         default:
-            throw new functions.https.HttpsError("invalid-argument", "unknown-action");
+            throw new HttpsError("invalid-argument", "unknown-action");
     }
 });
 // ---------------------------------------------------------------------------
 // 4. revokeAccessPass
 // ---------------------------------------------------------------------------
-exports.revokeAccessPass = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.revokeAccessPass = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     const uid = context.auth.uid;
     const { accessPassId, reason } = data;
@@ -376,9 +385,11 @@ exports.revokeAccessPass = functions.runWith({ enforceAppCheck: true }).https.on
 // ---------------------------------------------------------------------------
 // 5. pauseAccessPass
 // ---------------------------------------------------------------------------
-exports.pauseAccessPass = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.pauseAccessPass = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     await (0, accessPassPermissions_1.verifyPassAdmin)(context.auth.uid, data.accessPassId);
     await db.collection("accessPasses").doc(data.accessPassId).update({
@@ -390,15 +401,17 @@ exports.pauseAccessPass = functions.runWith({ enforceAppCheck: true }).https.onC
 // ---------------------------------------------------------------------------
 // 6. resumeAccessPass
 // ---------------------------------------------------------------------------
-exports.resumeAccessPass = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.resumeAccessPass = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     await (0, accessPassPermissions_1.verifyPassAdmin)(context.auth.uid, data.accessPassId);
     const snap = await db.collection("accessPasses").doc(data.accessPassId).get();
     const pass = snap.data();
     if (pass.status === "revoked" || pass.status === "expired") {
-        throw new functions.https.HttpsError("failed-precondition", "cannot-resume-revoked-or-expired");
+        throw new HttpsError("failed-precondition", "cannot-resume-revoked-or-expired");
     }
     await db.collection("accessPasses").doc(data.accessPassId).update({
         status: "active",
@@ -409,9 +422,11 @@ exports.resumeAccessPass = functions.runWith({ enforceAppCheck: true }).https.on
 // ---------------------------------------------------------------------------
 // 7. rotateAccessPassToken
 // ---------------------------------------------------------------------------
-exports.rotateAccessPassToken = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.rotateAccessPassToken = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     await (0, accessPassPermissions_1.verifyPassAdmin)(context.auth.uid, data.accessPassId);
     const newRawToken = (0, accessPassToken_1.generateRawToken)();
@@ -435,9 +450,11 @@ exports.rotateAccessPassToken = functions.runWith({ enforceAppCheck: true }).htt
 // ---------------------------------------------------------------------------
 // 8. approveAccessRequest
 // ---------------------------------------------------------------------------
-exports.approveAccessRequest = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.approveAccessRequest = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     const uid = context.auth.uid;
     const { requestId } = data;
@@ -474,9 +491,11 @@ exports.approveAccessRequest = functions.runWith({ enforceAppCheck: true }).http
 // ---------------------------------------------------------------------------
 // 9. denyAccessRequest
 // ---------------------------------------------------------------------------
-exports.denyAccessRequest = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.denyAccessRequest = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     await (0, accessPassPermissions_1.verifyRequestAdmin)(context.auth.uid, data.requestId);
     const now = admin.firestore.Timestamp.now();
@@ -492,9 +511,11 @@ exports.denyAccessRequest = functions.runWith({ enforceAppCheck: true }).https.o
 // ---------------------------------------------------------------------------
 // 10. listAccessPassesForTarget
 // ---------------------------------------------------------------------------
-exports.listAccessPassesForTarget = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.listAccessPassesForTarget = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     const { targetType, targetId } = data;
     await (0, accessPassPermissions_1.verifyAdminForTarget)(context.auth.uid, targetType, targetId);
@@ -518,9 +539,11 @@ exports.listAccessPassesForTarget = functions.runWith({ enforceAppCheck: true })
 // ---------------------------------------------------------------------------
 // 11. listAccessRequestsForTarget
 // ---------------------------------------------------------------------------
-exports.listAccessRequestsForTarget = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+exports.listAccessRequestsForTarget = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data;
+    const context = request;
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "auth-required");
+        throw new HttpsError("unauthenticated", "auth-required");
     }
     const { targetType, targetId } = data;
     await (0, accessPassPermissions_1.verifyAdminForTarget)(context.auth.uid, targetType, targetId);

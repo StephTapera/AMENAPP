@@ -1,6 +1,7 @@
 "use strict";
 
 const functions = require("firebase-functions");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 
 const db = admin.firestore();
@@ -67,30 +68,30 @@ const STATUSES = new Set(["draft", "published", "archived", "ended"]);
 const MODULE_TYPES = new Set(["content", "prayer", "discussion", "event", "memory", "tradition"]);
 
 function callable(handler) {
-  return functions.runWith({enforceAppCheck: true}).https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "auth-required");
+  return onCall({ enforceAppCheck: true }, async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "auth-required");
     }
     try {
-      return await handler(data || {}, context);
+      return await handler(request.data || {}, request);
     } catch (error) {
-      if (error instanceof functions.https.HttpsError) throw error;
+      if (error instanceof HttpsError) throw error;
       console.error("contextual-experience-error", {
         code: error.code || "internal",
         message: error.message,
       });
-      throw new functions.https.HttpsError("internal", "contextual-experience-failed");
+      throw new HttpsError("internal", "contextual-experience-failed");
     }
   });
 }
 
 function asString(value, field, max = 240, required = true) {
   if (value === undefined || value === null || value === "") {
-    if (required) throw new functions.https.HttpsError("invalid-argument", `${field}-required`);
+    if (required) throw new HttpsError("invalid-argument", `${field}-required`);
     return "";
   }
   if (typeof value !== "string" || value.length > max) {
-    throw new functions.https.HttpsError("invalid-argument", `${field}-invalid`);
+    throw new HttpsError("invalid-argument", `${field}-invalid`);
   }
   return value.trim();
 }
@@ -98,14 +99,14 @@ function asString(value, field, max = 240, required = true) {
 function asEnum(value, allowed, field, fallback) {
   const normalized = typeof value === "string" ? value : fallback;
   if (!allowed.has(normalized)) {
-    throw new functions.https.HttpsError("invalid-argument", `${field}-invalid`);
+    throw new HttpsError("invalid-argument", `${field}-invalid`);
   }
   return normalized;
 }
 
 function asTimestamp(value, field, required = true) {
   if (value === undefined || value === null) {
-    if (required) throw new functions.https.HttpsError("invalid-argument", `${field}-required`);
+    if (required) throw new HttpsError("invalid-argument", `${field}-required`);
     return null;
   }
   if (typeof value === "number") return Timestamp.fromMillis(value);
@@ -113,7 +114,7 @@ function asTimestamp(value, field, required = true) {
     const millis = Date.parse(value);
     if (!Number.isNaN(millis)) return Timestamp.fromMillis(millis);
   }
-  throw new functions.https.HttpsError("invalid-argument", `${field}-invalid`);
+  throw new HttpsError("invalid-argument", `${field}-invalid`);
 }
 
 function safeMap(value) {
@@ -123,7 +124,7 @@ function safeMap(value) {
 function normalizeId(value, field) {
   const raw = asString(value, field, 160);
   if (!/^[A-Za-z0-9_-]{2,160}$/.test(raw)) {
-    throw new functions.https.HttpsError("invalid-argument", `${field}-invalid`);
+    throw new HttpsError("invalid-argument", `${field}-invalid`);
   }
   return raw;
 }
@@ -156,7 +157,7 @@ async function loadMembership(orgId, uid) {
 async function requireManager(orgId, uid) {
   const membership = await loadMembership(orgId, uid);
   if (!membership || !MANAGER_ROLES.has(membership.role)) {
-    throw new functions.https.HttpsError("permission-denied", "manager-role-required");
+    throw new HttpsError("permission-denied", "manager-role-required");
   }
   return membership;
 }
@@ -167,7 +168,7 @@ async function requireExperienceManager(exp, uid) {
     exp.rolesAllowedToManage :
     Array.from(MANAGER_ROLES);
   if (!scopedRoles.includes(membership.role)) {
-    throw new functions.https.HttpsError("permission-denied", "experience-role-required");
+    throw new HttpsError("permission-denied", "experience-role-required");
   }
   return membership;
 }
@@ -175,7 +176,7 @@ async function requireExperienceManager(exp, uid) {
 async function requireRolePolicyManager(orgId, uid) {
   const membership = await loadMembership(orgId, uid);
   if (!membership || !["owner", "admin"].includes(membership.role)) {
-    throw new functions.https.HttpsError("permission-denied", "owner-or-admin-required");
+    throw new HttpsError("permission-denied", "owner-or-admin-required");
   }
   return membership;
 }
@@ -183,7 +184,7 @@ async function requireRolePolicyManager(orgId, uid) {
 async function requireModerator(orgId, uid) {
   const membership = await loadMembership(orgId, uid);
   if (!membership || !MODERATOR_ROLES.has(membership.role)) {
-    throw new functions.https.HttpsError("permission-denied", "moderator-role-required");
+    throw new HttpsError("permission-denied", "moderator-role-required");
   }
   return membership;
 }
@@ -195,7 +196,7 @@ async function enforceRateLimit(uid, action, max = 30, windowMs = 60 * 1000) {
     const snap = await tx.get(ref);
     const count = snap.exists ? snap.data().count || 0 : 0;
     if (count >= max) {
-      throw new functions.https.HttpsError("resource-exhausted", "rate-limited");
+      throw new HttpsError("resource-exhausted", "rate-limited");
     }
     tx.set(ref, {
       uid,
@@ -279,7 +280,7 @@ function buildExperiencePayload(data, uid, existing = null) {
   const startAt = asTimestamp(data.startAt, "startAt");
   const endAt = asTimestamp(data.endAt, "endAt");
   if (endAt.toMillis() <= startAt.toMillis()) {
-    throw new functions.https.HttpsError("invalid-argument", "endAt-must-be-after-startAt");
+    throw new HttpsError("invalid-argument", "endAt-must-be-after-startAt");
   }
   const orgId = normalizeId(data.organizationId || data.orgId, "organizationId");
   const allowedRoles = Array.isArray(data.rolesAllowedToManage) && data.rolesAllowedToManage.length > 0 ?
@@ -327,7 +328,7 @@ function buildExperiencePayload(data, uid, existing = null) {
 async function getExperienceOrThrow(experienceId) {
   const id = normalizeId(experienceId, "experienceId");
   const snap = await db.collection("contextualExperiences").doc(id).get();
-  if (!snap.exists) throw new functions.https.HttpsError("not-found", "experience-not-found");
+  if (!snap.exists) throw new HttpsError("not-found", "experience-not-found");
   return {id, ref: snap.ref, data: snap.data()};
 }
 
@@ -365,7 +366,7 @@ exports.updateContextualExperience = callable(async (data, context) => {
   const {id, ref, data: existing} = await getExperienceOrThrow(data.experienceId);
   await requireExperienceManager(existing, uid);
   if (existing.status === "archived") {
-    throw new functions.https.HttpsError("failed-precondition", "archived-experience-locked");
+    throw new HttpsError("failed-precondition", "archived-experience-locked");
   }
   const payload = buildExperiencePayload(
       {...existing, ...data, organizationId: existing.organizationId},
@@ -382,7 +383,7 @@ async function updateStatus(data, context, status, action) {
   await enforceRateLimit(uid, action, 30);
   const {id, ref, data: existing} = await getExperienceOrThrow(data.experienceId);
   await requireExperienceManager(existing, uid);
-  if (!STATUSES.has(status)) throw new functions.https.HttpsError("invalid-argument", "status-invalid");
+  if (!STATUSES.has(status)) throw new HttpsError("invalid-argument", "status-invalid");
   await ref.update({status, updatedAt: FieldValue.serverTimestamp(), updatedBy: uid});
   await audit(existing.organizationId, id, uid, action);
   return {success: true, experienceId: id, status};
@@ -398,7 +399,7 @@ exports.deleteContextualExperience = callable(async (data, context) => {
   const {id, ref, data: existing} = await getExperienceOrThrow(data.experienceId);
   await requireExperienceManager(existing, uid);
   if (existing.status === "published") {
-    throw new functions.https.HttpsError("failed-precondition", "unpublish-before-delete");
+    throw new HttpsError("failed-precondition", "unpublish-before-delete");
   }
   await ref.update({
     status: "archived",
@@ -415,7 +416,7 @@ exports.joinContextualExperience = callable(async (data, context) => {
   const {id, data: exp} = await getExperienceOrThrow(data.experienceId);
   await enforceRateLimit(uid, "join", 40);
   if (!(await canReadExperience(exp, uid))) {
-    throw new functions.https.HttpsError("permission-denied", "not-visible");
+    throw new HttpsError("permission-denied", "not-visible");
   }
   const ref = db.collection("contextualExperiences").doc(id).collection("participants").doc(uid);
   await db.runTransaction(async (tx) => {
@@ -481,7 +482,7 @@ exports.getContextualExperience = callable(async (data, context) => {
   const uid = context.auth.uid;
   const {id, data: exp} = await getExperienceOrThrow(data.experienceId);
   if (!(await canReadExperience(exp, uid))) {
-    throw new functions.https.HttpsError("permission-denied", "not-visible");
+    throw new HttpsError("permission-denied", "not-visible");
   }
   const membership = await loadMembership(exp.organizationId, uid);
   return {
@@ -495,7 +496,7 @@ async function createModule(data, context, type) {
   const {id, data: exp} = await getExperienceOrThrow(data.experienceId);
   await enforceRateLimit(uid, `create_${type}_module`, 30);
   await requireExperienceManager(exp, uid);
-  if (!MODULE_TYPES.has(type)) throw new functions.https.HttpsError("invalid-argument", "module-type-invalid");
+  if (!MODULE_TYPES.has(type)) throw new HttpsError("invalid-argument", "module-type-invalid");
   const title = asString(data.title, "title", 140);
   const body = asString(data.body || data.description || "", "body", type === "prayer" ? 600 : 2000, false);
   const ref = db.collection("contextualExperiences").doc(id).collection(`${type}Modules`).doc();
@@ -564,7 +565,7 @@ exports.updateExperienceNotificationSettings = callable(async (data, context) =>
   const {id, data: exp} = await getExperienceOrThrow(data.experienceId);
   await enforceRateLimit(uid, "notifications", 40);
   if (!(await canReadExperience(exp, uid))) {
-    throw new functions.https.HttpsError("permission-denied", "not-visible");
+    throw new HttpsError("permission-denied", "not-visible");
   }
   await db.collection("contextualExperiences").doc(id).collection("notificationPreferences").doc(uid).set({
     userId: uid,
@@ -609,7 +610,7 @@ exports.manageExperienceRoles = callable(async (data, context) => {
   const roles = Array.isArray(data.rolesAllowedToManage) ?
     data.rolesAllowedToManage.filter((role) => MANAGER_ROLES.has(role)) :
     [];
-  if (roles.length === 0) throw new functions.https.HttpsError("invalid-argument", "roles-required");
+  if (roles.length === 0) throw new HttpsError("invalid-argument", "roles-required");
   await ref.update({rolesAllowedToManage: roles, updatedAt: FieldValue.serverTimestamp(), updatedBy: uid});
   await audit(exp.organizationId, id, uid, "manage_roles", {roles});
   return {success: true, rolesAllowedToManage: roles};

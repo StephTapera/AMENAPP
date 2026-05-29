@@ -1,7 +1,8 @@
 // mentorshipFunctions.js
 // Mentorship subscription management via Stripe + Firestore
 
-const functions = require("firebase-functions/v1");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 // Stripe — lazy-initialized so deploy-time analysis doesn't require the key
@@ -18,9 +19,11 @@ function getStripe() {
 // P1 FIX: v1 callables must declare secrets via runWith({secrets:[...]}) so that
 // process.env.STRIPE_SECRET_KEY is injected at runtime. Without this, the env var
 // is undefined in production even when the secret exists in Secret Manager.
-exports.createMentorshipSubscription = functions.runWith({ secrets: ["STRIPE_SECRET_KEY"] }).https.onCall(async (data, context) => {
+exports.createMentorshipSubscription = onCall({ secrets: ["STRIPE_SECRET_KEY"] }, async (request) => {
+  const data = request.data;
+  const context = request;
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Authentication required");
+    throw new HttpsError("unauthenticated", "Authentication required");
   }
 
   const { mentorId, stripePriceId } = data;
@@ -63,9 +66,11 @@ exports.createMentorshipSubscription = functions.runWith({ secrets: ["STRIPE_SEC
   };
 });
 
-exports.cancelMentorshipSubscription = functions.runWith({ secrets: ["STRIPE_SECRET_KEY"] }).https.onCall(async (data, context) => {
+exports.cancelMentorshipSubscription = onCall({ secrets: ["STRIPE_SECRET_KEY"] }, async (request) => {
+  const data = request.data;
+  const context = request;
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Authentication required");
+    throw new HttpsError("unauthenticated", "Authentication required");
   }
 
   const { subscriptionId, relationshipId } = data;
@@ -74,7 +79,7 @@ exports.cancelMentorshipSubscription = functions.runWith({ secrets: ["STRIPE_SEC
   // Verify this user owns the relationship
   const relDoc = await admin.firestore().doc(`mentorshipRelationships/${relationshipId}`).get();
   if (!relDoc.exists || relDoc.data().menteeId !== uid) {
-    throw new functions.https.HttpsError("permission-denied", "Not authorized");
+    throw new HttpsError("permission-denied", "Not authorized");
   }
 
   await getStripe().subscriptions.cancel(subscriptionId);
@@ -86,10 +91,9 @@ exports.cancelMentorshipSubscription = functions.runWith({ secrets: ["STRIPE_SEC
   return { success: true };
 });
 
-exports.sendWeeklyCheckIns = functions.pubsub
-  .schedule("every monday 09:00")
-  .timeZone("America/New_York")
-  .onRun(async () => {
+exports.sendWeeklyCheckIns = onSchedule(
+  { schedule: "every monday 09:00", timeZone: "America/New_York", region: "us-central1" },
+  async () => {
     const db = admin.firestore();
 
     // Fetch all active relationships
