@@ -38,6 +38,15 @@ const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY");
 const CLAUDE_API_KEY = defineSecret("CLAUDE_API_KEY");
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
+// ─── Guardrails ───────────────────────────────────────────────────────────────
+const {
+  validateInput,
+  validateOutput,
+  GUARDRAIL_FALLBACK_RESPONSE,
+  INJECTION_BLOCK_RESPONSE,
+  BEREAN_SYSTEM_PROMPT_HARDENING,
+} = require("./bereanGuardrails");
+
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 const REGION = "us-central1";
@@ -305,6 +314,24 @@ exports.bereanDMSafety = onCall(
     async (request) => {
       requireAuth(request);
       const {prompt, maxTokens = 200} = request.data;
+
+      // ── Guardrail: DMs are a high-risk surface for persona-hijack attempts ──
+      if (prompt && typeof prompt === "string") {
+        const dmGuard = validateInput(prompt, request.auth.uid, "dm_safety");
+        if (!dmGuard.safe) {
+          // Return a flagged-safe result so the message is blocked upstream
+          return makeResponse(
+              JSON.stringify({
+                isSafe: false,
+                riskLevel: "high",
+                categories: ["injection_attempt"],
+                reason: "Input flagged by server-side injection guardrail.",
+              }),
+              "guardrail",
+              "guardrail",
+          );
+        }
+      }
 
       const system = `You are a content safety classifier for a faith-based messaging app.
 Analyze this message for: harassment, grooming, trafficking, sexual content, hate speech,
@@ -715,7 +742,7 @@ exports.bereanChatProxy = onCall(
         await dailyRef.update({dailyCalls: admin.firestore.FieldValue.increment(1)});
       }
 
-      const {systemPrompt, userMessage, conversationHistory, maxTokens} = request.data;
+      const {systemPrompt, userMessage, conversationHistory, maxTokens, mode} = request.data;
 
       if (!userMessage || typeof userMessage !== "string") {
         throw new HttpsError("invalid-argument", "userMessage is required.");
@@ -724,6 +751,19 @@ exports.bereanChatProxy = onCall(
       // ── Input size limits ─────────────────────────────────────────────────
       if (userMessage.length > 4000) {
         throw new HttpsError("invalid-argument", "Message too long. Please keep messages under 4000 characters.");
+      }
+
+      // ── Guardrail: injection / jailbreak detection ────────────────────────
+      const inputGuard = validateInput(userMessage, uid, mode ?? "ask");
+      if (!inputGuard.safe) {
+        return {
+          text: INJECTION_BLOCK_RESPONSE,
+          scriptureReferences: [],
+          hasUnverifiedReferences: false,
+          hasUnrecognizedBook: false,
+          provider: "blocked",
+          modelVersion: "guardrail",
+        };
       }
 
       // Cap conversation history to 20 messages to prevent context stuffing
@@ -753,7 +793,11 @@ exports.bereanChatProxy = onCall(
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: maxTokens ?? 600,
-          system: systemPrompt ?? "",
+          // ── Harden system prompt: append identity/role constraints ─────────
+          // The client may supply a custom system prompt for different Berean
+          // modes, but we always append the hardening suffix so that no
+          // instruction injected later in the conversation can override it.
+          system: (systemPrompt ?? "") + BEREAN_SYSTEM_PROMPT_HARDENING,
           messages,
         }),
       });
@@ -764,6 +808,19 @@ exports.bereanChatProxy = onCall(
       }
 
       const text = json.content?.[0]?.text ?? "";
+
+      // ── Guardrail: output validation ──────────────────────────────────────
+      const outputGuard = validateOutput(text, uid);
+      if (!outputGuard.safe) {
+        return {
+          text: GUARDRAIL_FALLBACK_RESPONSE,
+          scriptureReferences: [],
+          hasUnverifiedReferences: false,
+          hasUnrecognizedBook: false,
+          provider: "guardrail",
+          modelVersion: "guardrail",
+        };
+      }
 
       // ── Scripture reference validation ────────────────────────────────────
       // Extract all verse-pattern references (e.g. "John 3:16", "Ps. 23:1-6")
