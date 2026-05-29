@@ -1163,7 +1163,8 @@ service cloud.firestore {
             ]) &&
             !request.resource.data.keys().hasAny([
               'guardianStatus', 'embeddingRef', 'aiTopics', 'scriptureRefs', 'deletedAt'
-            ]);
+            ]) &&
+            (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt == request.time);
           allow update, delete: if false;
         }
       }
@@ -1182,7 +1183,8 @@ service cloud.firestore {
           allow create: if isSpaceMember(spaceId) &&
             request.auth.uid == uid &&
             request.resource.data.keys().hasOnly(['uid', 'spaceId', 'eventId', 'status', 'createdAt']) &&
-            request.resource.data.status in ['going', 'maybe', 'not_going'];
+            request.resource.data.status in ['going', 'maybe', 'not_going'] &&
+            (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt == request.time);
           allow update: if isSpaceMember(spaceId) &&
             request.auth.uid == uid &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
@@ -1343,7 +1345,8 @@ service cloud.firestore {
         isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
       );
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid
-                      && request.resource.data.keys().hasAll(['userId', 'title', 'createdAt']);
+                      && request.resource.data.keys().hasAll(['userId', 'title', 'createdAt'])
+                      && request.resource.data.createdAt == request.time;
       allow update: if isSignedIn()
                       && (resource.data.userId == request.auth.uid ||
                           isNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
@@ -5194,7 +5197,8 @@ service cloud.firestore {
         (request.resource.data.mentorUid == request.auth.uid ||
          request.resource.data.discipleUid == request.auth.uid) &&
         request.resource.data.keys().hasAll(['mentorUid', 'discipleUid', 'status', 'createdAt']) &&
-        request.resource.data.status == 'pending';
+        request.resource.data.status == 'pending' &&
+        request.resource.data.createdAt == request.time;
       allow update: if isSignedIn() &&
         (resource.data.mentorUid == request.auth.uid ||
          resource.data.discipleUid == request.auth.uid) &&
@@ -5208,7 +5212,8 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isVerifiedWriter() &&
         request.resource.data.followerId == request.auth.uid &&
-        request.resource.data.keys().hasAll(['followerId', 'followingId', 'createdAt']);
+        request.resource.data.keys().hasAll(['followerId', 'followingId', 'createdAt']) &&
+        request.resource.data.createdAt == request.time;
       allow delete: if isSignedIn() && resource.data.followerId == request.auth.uid;
       allow update: if false;
     }
@@ -5310,7 +5315,8 @@ service cloud.firestore {
       allow create: if isVerifiedWriter() &&
         request.resource.data.authorUid == request.auth.uid &&
         request.resource.data.keys().hasAll(['authorUid', 'groupId', 'text', 'createdAt', 'status']) &&
-        request.resource.data.status == 'open';
+        request.resource.data.status == 'open' &&
+        request.resource.data.createdAt == request.time;
       allow update: if isSignedIn() &&
         resource.data.authorUid == request.auth.uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answeredAt']);
