@@ -73,7 +73,12 @@ struct CreatePostIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         await MainActor.run {
-            NotificationCenter.default.post(name: .openCreatePost, object: nil)
+            // P1-A FIX (Audit D): Route through AppNavigationRouter so the cold-launch
+            // queue and auth gate are respected — same path used by Quick Action and
+            // Control Center. The .openCreatePost NC path is retained for in-app callers
+            // (EmptyFeedView, SpatialHomeView) that post it directly; this intent no longer
+            // needs to bypass the router.
+            AppNavigationRouter.shared.navigate(to: .newPost)
         }
         return .result()
     }
@@ -240,7 +245,7 @@ struct PostPrayerRequestIntent: AppIntent {
         if let text = prayerText {
             await MainActor.run { UserDefaults.standard.set(text, forKey: "siri_pending_prayer") }
         }
-        NotificationCenter.default.post(name: .amenOpenPrayerComposer, object: prayerText)
+        await MainActor.run { AppNavigationRouter.shared.navigate(to: .prayerNew) }
         return .result(dialog: "Opening your prayer request in AMEN 🙏")
     }
 }
@@ -260,7 +265,7 @@ struct ShareTestimonyIntent: AppIntent {
         if let text = testimonyText {
             await MainActor.run { UserDefaults.standard.set(text, forKey: "siri_pending_testimony") }
         }
-        NotificationCenter.default.post(name: .amenOpenTestimonyComposer, object: testimonyText)
+        await MainActor.run { AppNavigationRouter.shared.navigate(to: .testimony) }
         return .result(dialog: "Opening your testimony in AMEN ✨")
     }
 }
@@ -295,7 +300,7 @@ struct DiscoverPrayerNeedsIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard await siriEnabled() else { return .result(dialog: siriDisabledDialog) }
-        NotificationCenter.default.post(name: .amenOpenPrayerFeed, object: nil)
+        await MainActor.run { AppNavigationRouter.shared.navigate(to: .resources) }
         return .result(dialog: "Opening the Prayer feed in AMEN 🙏")
     }
 }

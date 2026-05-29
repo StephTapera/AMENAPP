@@ -456,6 +456,7 @@ private struct NewPrayerSheet: View {
             supportDraftTask = nil
         }
         .supportDestinationSheet()
+        .accessibilityIdentifier("screen.composer.prayer")
     }
 
     private func scheduleSupportDraftAnalysis(for text: String) {

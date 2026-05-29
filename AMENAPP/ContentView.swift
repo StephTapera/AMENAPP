@@ -332,7 +332,9 @@ struct ContentView: View {
                         // Releases any destination queued before the scene was mounted
                         // (cold-launch from Siri, Spotlight, or URL scheme).
                         AppNavigationRouter.shared.sceneDidBecomeReady()
-                        AppNavigationRouter.shared.authDidBecomeReady()
+                        if Auth.auth().currentUser != nil {
+                            AppNavigationRouter.shared.authDidBecomeReady()
+                        }
 
                         // Phase 3 — DEFERRED: non-blocking checks
                         Task(priority: .utility) {
@@ -431,15 +433,9 @@ struct ContentView: View {
                 viewModel.selectedTab = 2  // Switch to Messages tab (now at index 2)
             }
         }
-        // ── QUICK ACTIONS: Route consumer ────────────────────────────────────────
-        // Watches AMENQuickActionManager.pendingRoute and navigates once mainContent
-        // is displayed and the user is authenticated. Works for both cold launches
-        // (where the route was stored before auth resolved) and warm launches
-        // (where performActionFor fires while the app is already running).
-        .onReceive(AMENQuickActionManager.shared.$pendingRoute) { route in
-            guard let route else { return }
-            handleQuickActionRoute(route)
-        }
+        // Quick actions now route through AppNavigationRouter.shared.navigate(to:)
+        // directly from AMENQuickActionManager.handle(_:). No separate observer
+        // needed here — the router's onReceive wiring above handles all navigation.
         .onChange(of: scenePhase) { oldPhase, newPhase in
             handleScenePhaseChange(from: oldPhase, to: newPhase)
 
@@ -1213,63 +1209,6 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - Quick Action Route Handler
-
-    /// Navigate to the destination requested by a Home Screen quick action.
-    ///
-    /// Called by `.onReceive(AMENQuickActionManager.shared.$pendingRoute)` which fires:
-    ///   • On cold launch — as soon as mainContent appears (user is authenticated)
-    ///   • On warm launch — immediately when the user selects a shortcut
-    ///
-    /// The function is only reachable when mainContent is displayed, which means
-    /// the user is already past all auth gates and onboarding. If any required
-    /// modal is already open we still switch the underlying tab so it's ready
-    /// after the modal is dismissed.
-    private func handleQuickActionRoute(_ route: AMENAppRoute) {
-        // Always consume the route first — prevents re-firing on view re-appear
-        AMENQuickActionManager.shared.consumePendingRoute()
-
-        // Small delay so any in-progress navigation animations can settle
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
-                switch route {
-
-                case .newPost:
-                    // Tab 0 first so the composer opens against the feed background
-                    viewModel.selectedTab = 0
-                    // Slight additional delay so tab switch completes before sheet opens
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        showCreatePost = true
-                    }
-
-                case .messages:
-                    viewModel.selectedTab = 2
-
-                case .search:
-                    viewModel.selectedTab = 1
-
-                case .activity:
-                    viewModel.selectedTab = 4
-
-                case .bereanAI:
-                    // Berean can open from any tab — switch home first for context
-                    viewModel.selectedTab = 0
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        showBereanAssistantFromMenu = true
-                    }
-
-                case .prayer:
-                    // P1 FIX: Prayer lives in Resources (tab 3), not Home.
-                    // The quick action "Prayer" should land on the Resources tab.
-                    viewModel.selectedTab = 3
-
-                case .myProfile:
-                    viewModel.selectedTab = 5
-                }
-            }
-        }
-    }
-
     // MARK: - Canonical Router Presentation Handler
 
     /// Handles sheet / modal presentations requested by AppNavigationRouter.
@@ -1967,6 +1906,7 @@ struct HomeView: View {
                 .navigationBarTitleDisplayMode(.inline)
             }
         }
+        .accessibilityIdentifier("screen.home")
     }
 
     // MARK: - Computed Properties to help type checker

@@ -228,6 +228,19 @@ struct AMENAPPApp: App {
                 )
             )
             .onAppear {
+                    // UI-TEST DEEP-LINK HOOK: If the process was launched by XCUITest with a
+                    // UITEST_DEEP_LINK environment variable, fire the URL through the canonical
+                    // router after a 1.5 s delay (gives the scene time to become ready and auth
+                    // to resolve). Only compiled in DEBUG builds — no production impact.
+                    #if DEBUG
+                    if let deepLink = ProcessInfo.processInfo.environment["UITEST_DEEP_LINK"],
+                       let url = URL(string: deepLink) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            AppNavigationRouter.shared.navigate(to: url)
+                        }
+                    }
+                    #endif
+
                     // Attach passive touch observer for session-timeout activity tracking.
                     // Uses a gesture recognizer that immediately fails (never consumes touches),
                     // so this is safe on all iOS versions and does not affect hit testing.
