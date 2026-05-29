@@ -454,6 +454,13 @@ struct AMENAPPApp: App {
                         await NotificationTapBootstrapper.shared.resumePendingRoute()
                     }
                     Task { await PostsManager.shared.resumeListeningForProfileUpdatesIfNeeded() }
+                    // Control Center / Lock Screen / Action Button deep-link routing.
+                    // The widget extension (a separate process) cannot call AppNavigationRouter
+                    // directly; instead each control intent writes a "pendingControlAction" key
+                    // to the shared App Group and sets openAppWhenRun = true. We consume that
+                    // key here, on the first .active transition after the app is foregrounded,
+                    // and route through the canonical router.
+                    consumePendingControlAction()
                     // Refresh dynamic shortcuts whenever the app comes to the foreground
                     // so the menu reflects current state (drafts, unread count, etc.)
                     refreshQuickActions()
@@ -885,6 +892,40 @@ struct AMENAPPApp: App {
                 userInfo: ["shareLinkId": shareLinkId]
             )
         }
+    }
+
+    // MARK: - Control Center / Lock Screen / Action Button routing
+
+    /// Reads the "pendingControlAction" key written by the widget extension intents
+    /// (AMENWidgetExtensionControl.swift) and routes to the canonical destination.
+    ///
+    /// The widget extension cannot import the main-app module, so it communicates
+    /// via the shared App Group UserDefaults. This method is called every time the
+    /// scene becomes .active; it is a no-op when no action is pending.
+    private func consumePendingControlAction() {
+        let defaults = UserDefaults(suiteName: "group.com.amenapp.shared")
+        guard let action = defaults?.string(forKey: "pendingControlAction") else { return }
+        // Clear immediately so a repeated foreground doesn't replay the action.
+        defaults?.removeObject(forKey: "pendingControlAction")
+
+        dlog("[ControlAction] Consuming pendingControlAction: \(action)")
+
+        let destination: AppDestination
+        switch action {
+        case "newPost":
+            destination = .newPost
+        case "askBerean":
+            destination = .askBerean(question: nil)
+        case "messages":
+            destination = .messages
+        default:
+            dlog("[ControlAction] Unknown pendingControlAction value: \(action) — ignoring")
+            return
+        }
+
+        // Route via the canonical router. The router handles cold-launch queuing
+        // (scene not yet ready) and auth gating automatically.
+        AppNavigationRouter.shared.navigate(to: destination)
     }
 
     /// Reads a ShareDraft written by the AMENShareExtension via App Group UserDefaults
