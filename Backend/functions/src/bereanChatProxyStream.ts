@@ -36,6 +36,9 @@ import {enforceRateLimit, RATE_LIMITS, checkGlobalCircuitBreaker, incrementGloba
 import {checkAndIncrementDailyRateLimit, BEREAN_DAILY_LIMITS} from "./rateLimitHelper";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
 import type {SensitivityFlag, TopicClass} from "./berean/models/berean";
+import {detectInjection, injectionRefusalMessage} from "./berean/services/InputGuardrails";
+import {validateRawTextOutput} from "./berean/services/SafetyValidator";
+import {ensureAIDisclosure} from "./berean/services/aiDisclosure";
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
@@ -238,6 +241,17 @@ export const bereanChatProxyStream = onRequest(
             return;
         }
 
+        // ── App Check verification ───────────────────────────────────────────
+        // Manual check for HTTP functions (callables use enforceAppCheck:true).
+        // Enforced in strict mode: requests without a valid App Check token are rejected.
+        const appCheckHeader = req.headers["x-firebase-appcheck"] as string | undefined;
+        try {
+            await admin.appCheck().verifyToken(appCheckHeader ?? "");
+        } catch {
+            res.status(401).json({error: "App Check verification failed. Use a genuine AMEN build."});
+            return;
+        }
+
         // ── Auth ──────────────────────────────────────────────────────────────
         const authHeader = (req.headers.authorization ?? "") as string;
         if (!authHeader.startsWith("Bearer ")) {
@@ -301,6 +315,30 @@ export const bereanChatProxyStream = onRequest(
             return;
         }
 
+        // ── Input injection detection ─────────────────────────────────────────
+        const injectionResult = detectInjection(message);
+        if (injectionResult.isInjection) {
+            logger.warn("berean_stream_injection_blocked", {
+                mode,
+                patternSource: injectionResult.pattern,
+                uidPrefix: uid.slice(0, 8),
+            });
+            // Log to bereanGuardrails for abuse pattern analysis (fire-and-forget).
+            admin.firestore().collection("bereanGuardrails").add({
+                eventType: "input_injection",
+                mode,
+                detectedPattern: injectionResult.pattern,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                uidHash: uid.slice(0, 8) + "...",
+                proxy: "stream",
+            }).catch(() => {});
+            res.status(200).json({
+                response: injectionRefusalMessage(),
+                safetyStatus: "blocked_injection",
+            });
+            return;
+        }
+
         const apiKey = anthropicApiKey.value();
 
         // ── Crisis short-circuit (before streaming headers are sent) ──────────
@@ -360,7 +398,11 @@ export const bereanChatProxyStream = onRequest(
             controller.abort();
         });
 
-        // ── Stream from Anthropic ─────────────────────────────────────────────
+        // ── Stream from Anthropic — buffer for safety validation ─────────────
+        // We accumulate the full response server-side before emitting to the client.
+        // This allows validateRawTextOutput to run on the complete text, preventing
+        // unsafe partial responses from reaching the client. The client receives one
+        // validated delta followed by the terminal done event.
         try {
             const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
                 method: "POST",
@@ -381,8 +423,11 @@ export const bereanChatProxyStream = onRequest(
             });
 
             if (!anthropicRes.ok) {
-                const errText = await anthropicRes.text().catch((err: unknown) => { logger.error("bereanChatProxyStream error", { error: err instanceof Error ? err.message : String(err) }); return "unknown"; });
-                logger.error("bereanChatProxyStream upstream error", { status: anthropicRes.status, errText });
+                const errText = await anthropicRes.text().catch((err: unknown) => {
+                    logger.error("bereanChatProxyStream error", {error: err instanceof Error ? err.message : String(err)});
+                    return "unknown";
+                });
+                logger.error("bereanChatProxyStream upstream error", {status: anthropicRes.status, errText});
                 res.write(`data: ${JSON.stringify({error: "upstream_error"})}\n\n`);
                 res.end();
                 return;
@@ -390,15 +435,17 @@ export const bereanChatProxyStream = onRequest(
 
             const reader = anthropicRes.body!.getReader();
             const decoder = new TextDecoder();
-            let buffer = "";
+            let sseBuffer = "";
+            // Accumulate the complete response for safety validation.
+            let responseText = "";
 
             while (true) {
                 const {done, value} = await reader.read();
                 if (done) break;
 
-                buffer += decoder.decode(value, {stream: true});
-                const lines = buffer.split("\n");
-                buffer = lines.pop() ?? "";
+                sseBuffer += decoder.decode(value, {stream: true});
+                const lines = sseBuffer.split("\n");
+                sseBuffer = lines.pop() ?? "";
 
                 for (const line of lines) {
                     if (!line.startsWith("data: ")) continue;
@@ -413,10 +460,8 @@ export const bereanChatProxyStream = onRequest(
                         ) {
                             const text = (event.delta as Record<string, unknown>).text as string;
                             if (text) {
-                                res.write(`data: ${JSON.stringify({delta: text})}\n\n`);
+                                responseText += text;
                             }
-                        } else if (event.type === "message_stop") {
-                            res.write(`data: ${JSON.stringify({done: true})}\n\n`);
                         }
                     } catch {
                         // Skip malformed SSE lines
@@ -424,12 +469,43 @@ export const bereanChatProxyStream = onRequest(
                 }
             }
 
+            // ── Output safety validation ──────────────────────────────────────
+            // Run the conviction-filter / safety validator on the FULL response.
+            // If violations are found, the sanitized fallback replaces the raw output.
+            const validationResult = validateRawTextOutput(responseText);
+            const safetyStatus = validationResult.isValid ? "passed" : "repaired";
+
+            if (!validationResult.isValid) {
+                logger.warn("berean_stream_output_repaired", {
+                    violations: validationResult.violations,
+                    mode,
+                    uidPrefix: uid.slice(0, 8),
+                });
+                // Log to bereanGuardrails (fire-and-forget).
+                admin.firestore().collection("bereanGuardrails").add({
+                    eventType: "output_repaired",
+                    mode,
+                    violations: validationResult.violations,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    uidHash: uid.slice(0, 8) + "...",
+                    proxy: "stream",
+                }).catch(() => {});
+            }
+
+            // Apply the AI-generated disclosure wrapper required by AMEN policy.
+            const safeText = ensureAIDisclosure(validationResult.sanitizedText);
+
+            // Emit the validated response as a single delta, then the terminal event.
+            res.write(`data: ${JSON.stringify({delta: safeText})}\n\n`);
+            res.write(`data: ${JSON.stringify({done: true, safetyStatus, aiDisclosureApplied: true})}\n\n`);
+
             // Structured telemetry — no UID, no message content.
             logger.info("berean_stream_succeeded", {
                 mode,
                 inputLength: message.length,
                 latencyMs: Date.now() - requestStart,
                 sensitive: (callData?.sensitivityFlags ?? []).length > 0,
+                safetyStatus,
             });
             // Fire-and-forget global counter increment.
             incrementGlobalAICounter().catch(() => {});

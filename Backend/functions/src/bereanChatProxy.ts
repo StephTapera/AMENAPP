@@ -24,6 +24,7 @@ import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPol
 import type {SensitivityFlag, TopicClass} from "./berean/models/berean";
 import {classifySpiritualState} from "./berean/services/SpiritualStateEngine";
 import {sanitizeConversationHistory} from "./berean/services/conversationHistory";
+import {detectInjection, injectionRefusalMessage} from "./berean/services/InputGuardrails";
 import {ensureAIDisclosure} from "./berean/services/aiDisclosure";
 import {buildAgentIdentityPromptBlock, resolveBereanAgentIdentity} from "./agents/agentIdentity";
 import {evaluateBereanOutcome} from "./agents/agentOutcomes";
@@ -165,6 +166,34 @@ export const bereanChatProxy = onCall(
                 "invalid-argument",
                 `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters.`
             );
+        }
+
+        // ── Input injection detection ─────────────────────────────────────────
+        const injectionResult = detectInjection(message);
+        if (injectionResult.isInjection) {
+            logger.warn("berean_callable_injection_blocked", {
+                mode,
+                patternSource: injectionResult.pattern,
+                uidPrefix: request.auth.uid.slice(0, 8),
+            });
+            // Log to bereanGuardrails for abuse pattern analysis (fire-and-forget).
+            admin.firestore().collection("bereanGuardrails").add({
+                eventType: "input_injection",
+                mode,
+                detectedPattern: injectionResult.pattern,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                uidHash: request.auth.uid.slice(0, 8) + "...",
+                proxy: "callable",
+            }).catch(() => {});
+            return {
+                response: injectionRefusalMessage(),
+                model: "berean-guardrail",
+                usage: null,
+                agentRunId: null,
+                outcomeStatus: "blocked",
+                outcomeScore: 100,
+                safetyStatus: "blocked_injection",
+            };
         }
 
         // Get API key from secret

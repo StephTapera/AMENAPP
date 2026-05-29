@@ -1673,6 +1673,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Berean guardrail telemetry — injection attempts and output repairs.
+    // Written by Cloud Functions only; never readable by clients.
+    match /bereanGuardrails/{docId} {
+      allow read, write: if false;
+    }
+
     // ── Berean AI — owner-readable, server-write ─────────────────────────────
 
     match /bereanMemory/{docId} {
