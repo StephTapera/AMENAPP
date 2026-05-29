@@ -40,8 +40,18 @@ class DeepLinkRouter: ObservableObject {
         case settings
     }
     
+    // MARK: - ID Validation
+
+    /// Validates that a document ID extracted from a deep link contains only safe characters.
+    /// Firestore document IDs allow letters, numbers, underscores, and hyphens (1–128 chars).
+    /// Rejecting anything outside this set prevents path-traversal / injection via crafted URLs.
+    private static func isValidDocumentId(_ id: String) -> Bool {
+        let pattern = "^[a-zA-Z0-9_-]{1,128}$"
+        return id.range(of: pattern, options: .regularExpression) != nil
+    }
+
     // MARK: - Parse Deep Link
-    
+
     /// Parse URL into a route
     /// Supports:
     /// - amen://post/{id}
@@ -60,31 +70,47 @@ class DeepLinkRouter: ObservableObject {
         
         switch host {
         case "post":
-            guard let postId = pathComponents.first else { return nil }
+            guard let postId = pathComponents.first,
+                  Self.isValidDocumentId(postId) else {
+                dlog("⚠️ DeepLinkRouter: invalid postId in deep link")
+                return nil
+            }
             let commentId = queryItems?.first(where: { $0.name == "comment" })?.value
             return .post(id: postId, highlightCommentId: commentId)
-            
+
         case "user", "profile":
-            guard let userId = pathComponents.first else { return nil }
+            guard let userId = pathComponents.first,
+                  Self.isValidDocumentId(userId) else {
+                dlog("⚠️ DeepLinkRouter: invalid userId in deep link")
+                return nil
+            }
             return .userProfile(userId: userId)
-            
+
         case "church":
-            guard let churchId = pathComponents.first else { return nil }
+            guard let churchId = pathComponents.first,
+                  Self.isValidDocumentId(churchId) else {
+                dlog("⚠️ DeepLinkRouter: invalid churchId in deep link")
+                return nil
+            }
             return .church(churchId: churchId)
-            
+
         case "conversation", "messages":
-            guard let conversationId = pathComponents.first else { return nil }
+            guard let conversationId = pathComponents.first,
+                  Self.isValidDocumentId(conversationId) else {
+                dlog("⚠️ DeepLinkRouter: invalid conversationId in deep link")
+                return nil
+            }
             let messageId = queryItems?.first(where: { $0.name == "message" })?.value
             return .conversation(conversationId: conversationId, highlightMessageId: messageId)
-            
+
         case "category":
             guard let category = pathComponents.first else { return nil }
             return .category(category)
-            
+
         case "search":
             let query = queryItems?.first(where: { $0.name == "q" })?.value ?? ""
             return .search(query: query)
-            
+
         case "settings":
             let section = pathComponents.first
             return .settings(section: section)
@@ -95,7 +121,10 @@ class DeepLinkRouter: ObservableObject {
             let commentId = queryItems?.first(where: { $0.name == "commentId" })?.value
             let prefill   = queryItems?.first(where: { $0.name == "prefill" })?.value
                                        .flatMap { $0.removingPercentEncoding }
-            guard !postId.isEmpty else { return nil }
+            guard !postId.isEmpty, Self.isValidDocumentId(postId) else {
+                dlog("⚠️ DeepLinkRouter: invalid postId in comment deep link")
+                return nil
+            }
             return .comment(postId: postId, commentId: commentId, prefill: prefill)
 
         case "chat":
@@ -103,7 +132,10 @@ class DeepLinkRouter: ObservableObject {
             let threadId = queryItems?.first(where: { $0.name == "threadId" })?.value ?? ""
             let prefill  = queryItems?.first(where: { $0.name == "prefill" })?.value
                                       .flatMap { $0.removingPercentEncoding }
-            guard !threadId.isEmpty else { return nil }
+            guard !threadId.isEmpty, Self.isValidDocumentId(threadId) else {
+                dlog("⚠️ DeepLinkRouter: invalid threadId in chat deep link")
+                return nil
+            }
             return .chat(threadId: threadId, prefill: prefill)
 
         default:
@@ -138,23 +170,20 @@ class DeepLinkRouter: ObservableObject {
         activeRoute = route
 
         // Switch to appropriate tab
+        // Tab layout: 0=Home, 1=Discovery, 2=Messages, 3=Resources, 4=Notifications, 5=Profile
         switch route {
-        case .post, .userProfile, .category, .church:
+        case .post, .userProfile, .category, .comment:
             selectedTab = 0  // Home/Feed tab
-        case .conversation:
-            selectedTab = 3  // Messages tab
+        case .church:
+            selectedTab = 3  // Resources tab (Find Church lives here)
+        case .conversation, .chat:
+            selectedTab = 2  // Messages tab (was 3 — stale index fixed)
         case .notification:
-            selectedTab = 2  // Notifications tab
+            selectedTab = 4  // Notifications tab (was 2 — stale index fixed)
         case .search:
-            selectedTab = 1  // Search tab
+            selectedTab = 1  // Discovery/Search tab
         case .settings:
-            selectedTab = 4  // Profile/Settings tab
-        case .comment:
-            // Open the post's comment thread (home tab, then push post detail)
-            selectedTab = 0
-        case .chat:
-            // Open the DM thread directly
-            selectedTab = 3
+            selectedTab = 5  // Profile/Settings tab (was 4 — stale index fixed)
         }
         // End the reply activity since user opened the destination
         LiveActivityManager.shared.endReplyActivity(reason: .userOpened)

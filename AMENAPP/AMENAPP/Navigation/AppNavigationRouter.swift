@@ -52,7 +52,7 @@ final class AppNavigationRouter: ObservableObject {
 
     // MARK: - Lifecycle gates
 
-    /// True once the root navigation tree is mounted and markSceneReady() has been called.
+    /// True once the root navigation tree is mounted and sceneDidBecomeReady() has been called.
     private var sceneIsReady = false
 
     /// True once the user is authenticated and all auth guards have been passed.
@@ -66,24 +66,17 @@ final class AppNavigationRouter: ObservableObject {
 
     // MARK: - Injected closures (set by ContentView / root scene)
 
-    /// Returns true when the user is authenticated. Set this in ContentView.
+    /// Returns true when the user is authenticated.
     var isAuthenticated: () -> Bool = {
         Auth.auth().currentUser != nil
     }
 
-    /// Returns true when the app is locked (e.g. Shabbat mode blocks the destination).
-    /// Default implementation checks ShabbatModeService.
-    var isDestinationBlocked: (AppDestination) -> Bool = { destination in
-        // Honour Shabbat gate for social features.
-        // Reuse the existing AppAccessController if available.
-        false  // Conservative default; ContentView can override this closure.
-    }
+    /// Returns true when the app policy blocks this destination (e.g. Shabbat gate).
+    var isDestinationBlocked: (AppDestination) -> Bool = { _ in false }
 
     // MARK: - Primary entry point
 
     /// Navigate to a canonical destination. Call this from any external surface.
-    ///
-    /// Thread-safe: always dispatches to the main actor.
     func navigate(to destination: AppDestination) {
         dlog("[AppNavigationRouter] navigate(to: \(destination.analyticsLabel))")
 
@@ -114,8 +107,8 @@ final class AppNavigationRouter: ObservableObject {
 
     // MARK: - Lifecycle signals
 
-    /// Call this once from `mainContent.onAppear` (after auth resolves and the tab bar is mounted).
-    /// Releases any destination that was queued during cold launch.
+    /// Call once from `mainContent.onAppear` after auth resolves and tab bar is mounted.
+    /// Releases any destination queued during cold launch.
     func sceneDidBecomeReady() {
         guard !sceneIsReady else { return }
         sceneIsReady = true
@@ -127,8 +120,8 @@ final class AppNavigationRouter: ObservableObject {
         }
     }
 
-    /// Call this when the user becomes authenticated (e.g. after sign-in, after auth resolves).
-    /// Releases any destination that was queued because auth was not yet ready.
+    /// Call when the user becomes authenticated.
+    /// Releases any destination queued because auth was not yet ready.
     func authDidBecomeReady() {
         guard !authIsReady else { return }
         authIsReady = true
@@ -166,8 +159,7 @@ final class AppNavigationRouter: ObservableObject {
 
         // Shabbat / app-lock gate
         if isDestinationBlocked(destination) {
-            dlog("[AppNavigationRouter] 🚫 Destination blocked by app policy: \(destination.analyticsLabel)")
-            // Route to Resources (tab 3) — ShabbatModeService gate view will handle the UX
+            dlog("[AppNavigationRouter] 🚫 Destination blocked: \(destination.analyticsLabel)")
             selectedTab = 3
             NotificationCenter.default.post(
                 name: .shabbatDeepLinkBlocked,
@@ -179,7 +171,6 @@ final class AppNavigationRouter: ObservableObject {
 
         dlog("[AppNavigationRouter] ▶️ Resolving → \(destination.analyticsLabel)")
 
-        // Switch to the correct tab first, then handle any sheet presentation
         switch destination {
 
         // ── Pure tab switches ──────────────────────────────────────────────
@@ -203,7 +194,6 @@ final class AppNavigationRouter: ObservableObject {
 
         case .settings:
             selectedTab = 5
-            // Optionally post to open a specific settings section
             if case .settings(let section) = destination, let section {
                 NotificationCenter.default.post(
                     name: .navigateToSettings,
@@ -222,7 +212,7 @@ final class AppNavigationRouter: ObservableObject {
                 )
             }
 
-        // ── Composer sheets (open over home tab) ──────────────────────────
+        // ── Composer sheets ────────────────────────────────────────────────
         case .newPost:
             selectedTab = 0
             pendingPresentation = .newPost
@@ -239,12 +229,12 @@ final class AppNavigationRouter: ObservableObject {
             selectedTab = 3
             pendingPresentation = .prayerNew
 
-        // ── Berean (sheet over whatever tab is active) ─────────────────────
+        // ── Berean ─────────────────────────────────────────────────────────
         case .askBerean, .bereanWithVerse, .bereanWithSession:
             pendingPresentation = destination
 
         // ── Faith feature tabs ─────────────────────────────────────────────
-        case .findChurch, .churchNotes, .reflection, .prayerNew,
+        case .findChurch, .churchNotes, .reflection,
              .prayer, .churchNote:
             selectedTab = 3
             pendingPresentation = destination
@@ -298,9 +288,9 @@ final class AppNavigationRouter: ObservableObject {
 
     // MARK: - amenDeepLink P0 fix
 
-    /// Registers the observer for the `"amenDeepLink"` notification that `AmenIntentRouter`
-    /// posts when Siri shortcuts and Spotlight results fire. This was previously never
-    /// observed, causing all Siri shortcuts and Spotlight taps to be silently dropped.
+    /// Registers the observer for the "amenDeepLink" notification that AmenIntentRouter
+    /// posts when Siri shortcuts and Spotlight results fire. Previously no observer
+    /// existed anywhere, so every Siri shortcut and Spotlight tap was silently dropped.
     private func setupAmenDeepLinkObserver() {
         NotificationCenter.default.addObserver(
             forName: Notification.Name("amenDeepLink"),

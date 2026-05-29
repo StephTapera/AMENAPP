@@ -112,7 +112,6 @@ extension AppDestination {
         // Universal links — treat path as the route
         if scheme == "https" || scheme == "http" {
             guard host.hasSuffix("amenapp.com") || host.hasSuffix("amen.app") else { return nil }
-            // https://amenapp.com/post/abc123
             guard let first = path.first else { return nil }
             switch first {
             case "post":
@@ -137,7 +136,6 @@ extension AppDestination {
                 guard let token = q("token"), !token.isEmpty else { return nil }
                 self = .groupJoinLink(token: token)
             case "access":
-                // Delegate to access-pass router; not handled here
                 return nil
             default:
                 return nil
@@ -175,10 +173,9 @@ extension AppDestination {
             self = .prayerNew
 
         case "prayer" where path.isEmpty || path.first == nil:
-            self = .resources         // Prayer lives in Resources tab
+            self = .resources
 
         case "prayer":
-            // amen://prayer/{prayerId}
             guard let id = path.first, Self.isValidId(id) else { return nil }
             self = .prayer(prayerId: id)
 
@@ -200,7 +197,7 @@ extension AppDestination {
         case "notifications":
             self = .activity
 
-        case "discover", "search" where host == "discover":
+        case "discover" where host == "discover":
             self = .discovery
 
         case "search":
@@ -233,11 +230,9 @@ extension AppDestination {
             self = .verseOfDay
 
         case "category":
-            // amen://category/prayer — treat as resources tab
             self = .resources
 
         case "comment":
-            // amen://comment?postId=…  → open the post
             guard let postId = q("postId"), Self.isValidId(postId) else { return nil }
             self = .post(id: postId, highlightCommentId: q("commentId"))
 
@@ -286,7 +281,7 @@ extension AppDestination {
         case .profile, .settings:
             return 5
         case .askBerean, .bereanWithVerse, .bereanWithSession:
-            return 0  // Berean sheet opens over whatever tab is active
+            return 0
         }
     }
 

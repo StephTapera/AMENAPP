@@ -118,9 +118,21 @@ final class AmenIntentRouter {
 
     // MARK: - Private
 
-    /// Broadcasts a deep-link URL string via NotificationCenter so the app root can react.
-    /// The notification name "amenDeepLink" with userInfo key "url" is the contract.
+    /// Broadcasts a deep-link URL string via the canonical AppNavigationRouter AND via
+    /// NotificationCenter (legacy "amenDeepLink") for any observers not yet migrated.
+    ///
+    /// P0 FIX: Previously only the NotificationCenter post was used, but no observer
+    /// for "amenDeepLink" existed anywhere in AMENAPPApp or ContentView, so every
+    /// Siri shortcut and Spotlight result was silently dropped. AppNavigationRouter now
+    /// registers its own "amenDeepLink" observer in init(), and also handles the URL
+    /// directly here for belt-and-suspenders reliability.
     private static func postDeepLink(_ urlString: String) {
+        // Primary path: canonical router (handles cold-launch queue + auth gating)
+        Task { @MainActor in
+            AppNavigationRouter.shared.navigate(to: urlString)
+        }
+        // Legacy broadcast: keeps any remaining NotificationCenter observers working
+        // (e.g. if something in the app still listens for "amenDeepLink" directly).
         NotificationCenter.default.post(
             name: Notification.Name("amenDeepLink"),
             object: nil,

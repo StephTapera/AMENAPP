@@ -14,72 +14,15 @@ import Foundation
 import AppIntents
 
 // MARK: - Shortcuts Provider
-
-@available(iOS 16.0, *)
-struct AmenAppShortcutsProvider: AppShortcutsProvider {
-    @AppShortcutsBuilder
-    static var appShortcuts: [AppShortcut] {
-        AppShortcut(
-            intent: StartPrayerModeIntent(),
-            phrases: [
-                "Start prayer mode in \(.applicationName)",
-                "Open prayer in \(.applicationName)",
-                "Start praying in \(.applicationName)"
-            ],
-            shortTitle: "Start Prayer Mode",
-            systemImageName: "hands.sparkles"
-        )
-        AppShortcut(
-            intent: AskBereanIntent(),
-            phrases: [
-                "Ask Berean in \(.applicationName)",
-                "Ask \(.applicationName) a Bible question",
-                "Ask scripture question in \(.applicationName)"
-            ],
-            shortTitle: "Ask Berean",
-            systemImageName: "book.fill"
-        )
-        AppShortcut(
-            intent: FindChurchIntent(),
-            phrases: [
-                "Find a church in \(.applicationName)",
-                "Find churches near me in \(.applicationName)"
-            ],
-            shortTitle: "Find a Church",
-            systemImageName: "building.columns"
-        )
-        AppShortcut(
-            intent: OpenChurchNotesIntent(),
-            phrases: [
-                "Open my church notes in \(.applicationName)",
-                "Open church notes in \(.applicationName)",
-                "Show my notes in \(.applicationName)"
-            ],
-            shortTitle: "Open Church Notes",
-            systemImageName: "note.text"
-        )
-        AppShortcut(
-            intent: StartReflectionIntent(),
-            phrases: [
-                "Start quiet reflection in \(.applicationName)",
-                "Start reflection in \(.applicationName)",
-                "Open reflection mode in \(.applicationName)"
-            ],
-            shortTitle: "Start Quiet Reflection",
-            systemImageName: "moon.stars"
-        )
-        AppShortcut(
-            intent: SendPrayerRequestIntent(),
-            phrases: [
-                "Send a prayer request in \(.applicationName)",
-                "Create prayer request in \(.applicationName)",
-                "Post prayer request in \(.applicationName)"
-            ],
-            shortTitle: "Send Prayer Request",
-            systemImageName: "paperplane"
-        )
-    }
-}
+//
+// P2 FIX: AmenAppShortcutsProvider has been REMOVED to eliminate the duplicate
+// AppShortcutsProvider registration. iOS only supports one AppShortcutsProvider per
+// app target; having two caused conflicting / duplicate shortcuts in Siri Suggestions.
+//
+// The canonical provider is AMENShortcutsProvider in AMENAPP/AMENAppIntents.swift.
+// The intents defined in this file (StartPrayerModeIntent, AskBereanIntent, etc.)
+// are still registered as shortcuts inside AMENShortcutsProvider via the
+// openPrayerMode / openBerean / etc. NotificationCenter chain → AmenIntentRouter.
 
 // MARK: - 1. StartPrayerModeIntent
 

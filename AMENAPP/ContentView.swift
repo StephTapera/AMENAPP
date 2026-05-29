@@ -10,6 +10,7 @@ import Combine
 import UIKit
 import FirebaseAuth
 import FirebaseFirestore
+import AppTrackingTransparency
 
 struct ContentView: View {
     @StateObject private var viewModel: ContentViewModel
@@ -24,6 +25,8 @@ struct ContentView: View {
     @State private var showTimeoutWarning: Bool = false
     @State private var showFTUE: Bool = false
     @AppStorage("amenAccountTypeOnboardingComplete") private var amenAccountTypeOnboardingComplete: Bool = false
+    // ATT: Persisted flag so we only ever request tracking authorization once.
+    @AppStorage("hasRequestedATT") private var hasRequestedATT: Bool = false
     
     // ⚡️ P1-3 FIX: Extracted specific state from singletons to avoid ContentView
     // redrawing on every @Published change in SessionTimeoutManager, AppReadyStateManager,
@@ -41,6 +44,8 @@ struct ContentView: View {
     }
     @State private var showLimitReachedDialog = false
     @State private var showCreatePost: Bool
+    @State private var showMediaComposer = false
+    @StateObject private var mediaCaptureCoordinator = MediaCaptureCoordinator()
     @State private var showCreateQuickActions = false
     @Namespace private var createPostNamespace
     @State private var postCardFrame: CGRect? = nil
@@ -273,6 +278,21 @@ struct ContentView: View {
                         guard !hasStartedCoreServices else { return }
                         hasStartedCoreServices = true
 
+                        // ATT: Request App Tracking Transparency authorization after the user
+                        // has landed on the main feed — satisfies App Store guideline 5.1.1.
+                        // Gated on hasRequestedATT so it fires at most once per install.
+                        if !hasRequestedATT {
+                            hasRequestedATT = true
+                            Task(priority: .userInitiated) {
+                                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 s — let feed settle
+                                await MainActor.run {
+                                    ATTrackingManager.requestTrackingAuthorization { status in
+                                        dlog("✅ ATT authorization status: \(status.rawValue)")
+                                    }
+                                }
+                            }
+                        }
+
                         // Phase 1 — CRITICAL: feed ready signal (blocks loading overlay)
                         Task(priority: .high) {
                             _ = PostsManager.shared
@@ -280,9 +300,12 @@ struct ContentView: View {
                             AppReadyStateManager.shared.signalReady()
                         }
 
-                        // SAFETY: Absolute maximum timeout — loading screen always dismisses
+                        // SAFETY: Absolute maximum timeout — loading screen always dismisses.
+                        // PERF FIX: Reduced from 5 s to 3 s. waitForFeedReady() already exits
+                        // at 2 s max; this task is a belt-and-suspenders fallback that should
+                        // never fire in practice. 3 s gives 1 s of margin over the feed timeout.
                         Task {
-                            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s hard cap
+                            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3s hard cap
                             AppReadyStateManager.shared.signalReady()
                         }
 
@@ -304,6 +327,12 @@ struct ContentView: View {
                         // Any cold-start push notification route queued before this fires now.
                         NotificationDeepLinkRouter.shared.markAppReady()
                         NotificationTapBootstrapper.shared.appDidBecomeReady()
+
+                        // Signal the canonical AppNavigationRouter.
+                        // Releases any destination queued before the scene was mounted
+                        // (cold-launch from Siri, Spotlight, or URL scheme).
+                        AppNavigationRouter.shared.sceneDidBecomeReady()
+                        AppNavigationRouter.shared.authDidBecomeReady()
 
                         // Phase 3 — DEFERRED: non-blocking checks
                         Task(priority: .utility) {
@@ -539,6 +568,15 @@ struct ContentView: View {
                             }
                     }
 
+                    // Tab 6: Gatherings — gated on AMENFeatureFlags.gatheringsEnabled (default ON).
+                    keepMountedTab(isActive: viewModel.selectedTab == AMENTab.gatherings.rawValue) {
+                        AmenGatheringsHomeView()
+                            .id("gatherings")
+                            .task {
+                                NotificationAggregationService.shared.updateCurrentScreen(.none)
+                            }
+                    }
+
                     // Tab 7: Spaces — gated on SpacesFeatureFlags.spacesLiquidGlassEnabled (default OFF).
                     // AMENTabBar only shows the Spaces tab when the flag is enabled.
                     keepMountedTab(isActive: viewModel.selectedTab == AMENTab.spaces.rawValue) {
@@ -547,6 +585,17 @@ struct ContentView: View {
                             .task {
                                 NotificationAggregationService.shared.updateCurrentScreen(.none)
                             }
+                    }
+
+                    // Tab 8: Notes — merged with Church Notes.
+                    keepMountedTab(isActive: viewModel.selectedTab == AMENTab.communityNotes.rawValue) {
+                        NavigationStack {
+                            ChurchNotesView()
+                        }
+                        .id("communityNotes")
+                        .task {
+                            NotificationAggregationService.shared.updateCurrentScreen(.none)
+                        }
                     }
                 }
                 .animation(nil, value: viewModel.selectedTab)
@@ -729,6 +778,26 @@ struct ContentView: View {
         ) {
             CreatePostView(initialCategory: selectedPostCategory)
         }
+        // Immersive media post composer — full-screen pick → preview → caption → post flow
+        .sheet(isPresented: $showMediaComposer) {
+            MediaPostComposerView(
+                coordinator: mediaCaptureCoordinator,
+                onPost: { items, caption, audience in
+                    let images = items.compactMap { $0.image }
+                    let visibility: Post.PostVisibility = audience == .followers ? .followers : .everyone
+                    Task {
+                        try? await FirebasePostService.shared.createPostWithImages(
+                            content: caption,
+                            category: .openTable,
+                            images: images,
+                            visibility: visibility
+                        )
+                    }
+                    showMediaComposer = false
+                },
+                onDismiss: { showMediaComposer = false }
+            )
+        }
         // Berean Dynamic Island — sits above all content, dismisses on outside tap
         .overlay(alignment: .top) {
             BereanDynamicIsland(
@@ -813,6 +882,22 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .navigateToSettings)) { _ in
             // Navigate to Profile tab (which contains Settings) — tab index 5
             viewModel.selectedTab = 5
+        }
+        // ── Canonical AppNavigationRouter wiring ─────────────────────────────
+        // Observe selectedTab changes from AppNavigationRouter (Siri, Spotlight, URL deep links).
+        .onReceive(AppNavigationRouter.shared.$selectedTab) { tab in
+            // Only forward if the router actually changed the tab (avoid echo loops).
+            // AppNavigationRouter drives this; ContentView's viewModel.selectedTab is
+            // the authoritative binding for the TabView.
+            guard viewModel.selectedTab != tab else { return }
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
+                viewModel.selectedTab = tab
+            }
+        }
+        // Observe pending sheet presentations from AppNavigationRouter.
+        .onReceive(AppNavigationRouter.shared.$pendingPresentation) { destination in
+            guard let destination else { return }
+            handleRouterPresentation(destination)
         }
         .onReceive(NotificationCenter.default.publisher(for: .compulsiveReopenDetected)) { notification in
             // Show supportive redirect when compulsive reopening detected
@@ -1076,12 +1161,16 @@ struct ContentView: View {
     // MARK: - Feed Ready Helper
 
     /// Waits until the feed has posts AND a minimum display time has elapsed,
-    /// so the cinematic loading screen always has enough time to animate.
-    /// Minimum: 2.5 s (lets the orbital discs complete ~1 full rotation visible).
-    /// Maximum: 5 s (graceful timeout on very slow connections).
+    /// PERF FIX: Reduced minimum display time and maximum wait.
+    /// Old values: min=500ms, max=3000ms — both were sized for uncached network fetches.
+    /// New values: min=200ms (just enough for the overlay fade-in), max=2000ms.
+    ///
+    /// On warm launches Firestore's local cache typically returns posts in <50ms,
+    /// so the overlay exits at 200ms instead of waiting the full 500ms.
+    /// The 2s hard cap still catches slow/cold network launches gracefully.
     private func waitForFeedReady() async {
-        let minDisplay: TimeInterval = 0.5   // Always show loading screen at least 500ms
-        let maxWait: TimeInterval = 3.0
+        let minDisplay: TimeInterval = 0.2   // 200ms — lets the overlay fade in cleanly
+        let maxWait: TimeInterval = 2.0      // 2s hard cap (was 3s)
         let pollInterval: TimeInterval = 0.05
         let start = Date()
 
@@ -1170,13 +1259,105 @@ struct ContentView: View {
                     }
 
                 case .prayer:
-                    // Prayer lives on the Home feed (tab 0) — switch there
-                    viewModel.selectedTab = 0
+                    // P1 FIX: Prayer lives in Resources (tab 3), not Home.
+                    // The quick action "Prayer" should land on the Resources tab.
+                    viewModel.selectedTab = 3
 
                 case .myProfile:
                     viewModel.selectedTab = 5
                 }
             }
+        }
+    }
+
+    // MARK: - Canonical Router Presentation Handler
+
+    /// Handles sheet / modal presentations requested by AppNavigationRouter.
+    ///
+    /// AppNavigationRouter sets `pendingPresentation` when a destination requires a
+    /// sheet rather than (or in addition to) a tab switch. This method maps each
+    /// presentable destination to the appropriate existing state flag and then clears
+    /// the pending presentation so it does not replay.
+    private func handleRouterPresentation(_ destination: AppDestination) {
+        // Clear first to avoid re-triggering on the same destination
+        AppNavigationRouter.shared.clearPendingPresentation()
+
+        switch destination {
+        case .newPost:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
+                    showCreatePost = true
+                }
+            }
+
+        case .continueDraft:
+            // Open composer and signal that a draft should be restored.
+            // DraftsManager.shared is consulted by CreatePostView on appear.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
+                    showCreatePost = true
+                }
+            }
+
+        case .askBerean(let question):
+            // Store optional pre-filled question so Berean view picks it up on appear
+            if let question {
+                UserDefaults.standard.set(question, forKey: "pendingBereanQuestion")
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
+                    showBereanAssistantFromMenu = true
+                }
+            }
+
+        case .bereanWithVerse(let reference):
+            UserDefaults.standard.set(reference, forKey: "pendingBereanVerse")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
+                    showBereanAssistantFromMenu = true
+                }
+            }
+
+        case .bereanWithSession:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
+                    showBereanAssistantFromMenu = true
+                }
+            }
+
+        case .prayerNew:
+            NotificationCenter.default.post(name: .amenOpenPrayerComposer, object: nil)
+
+        case .testimony:
+            NotificationCenter.default.post(name: .amenOpenTestimonyComposer, object: nil)
+
+        case .findChurch:
+            NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
+
+        case .churchNotes:
+            NotificationCenter.default.post(name: .navigateToChurchNotes, object: nil)
+
+        case .reflection:
+            // Calm mode — use the same notification path as existing calm mode observers
+            NotificationCenter.default.post(name: Notification.Name("openReflection"), object: nil)
+
+        case .verseOfDay:
+            // Navigate to home tab; HomeView's own observer handles scrolling to the verse
+            viewModel.selectedTab = 0
+
+        case .church(let churchId):
+            // Church sheet — delegate to ChurchDeepLinkHandler which already handles this
+            if let url = URL(string: "amen://church/\(churchId)") {
+                NotificationCenter.default.post(
+                    name: Notification.Name("openChurchFromRouter"),
+                    object: nil,
+                    userInfo: ["churchId": churchId, "url": url]
+                )
+            }
+
+        default:
+            // All other destinations are handled purely by tab switching; no sheet needed.
+            break
         }
     }
 
@@ -1299,6 +1480,24 @@ struct ContentView: View {
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                         selectedPostCategory = .testimonies
                                         showCreatePost = true
+                                    }
+                                }
+                            )
+
+                            Divider()
+                                .background(Color(white: 0.2))
+
+                            createQuickActionButton(
+                                icon: "photo.on.rectangle.angled",
+                                title: "Photos & Video",
+                                delay: 0.15,
+                                action: {
+                                    HapticManager.impact(style: .light)
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
+                                        showCreateQuickActions = false
+                                    }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                        showMediaComposer = true
                                     }
                                 }
                             )
@@ -1689,7 +1888,7 @@ struct HomeView: View {
                                     .foregroundStyle(.primary)
                                 Image(systemName: "chevron.up")
                                     .font(.systemScaled(9, weight: .medium))
-                                    .foregroundStyle(.primary.opacity(0.6))
+                                    .foregroundStyle(AmenTheme.Colors.amenGold.opacity(0.85))
                                     .rotationEffect(.degrees(isCategoriesExpanded ? 180 : 0))
                             }
                         }

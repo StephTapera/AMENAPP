@@ -16,6 +16,7 @@ import FirebaseCrashlytics   // P0 FIX: Crash reporting for production diagnosti
 import GoogleSignIn
 import StoreKit  // ✅ Added for In-App Purchases
 import BackgroundTasks  // ✅ BGAppRefreshTask for background feed refresh
+// AppTrackingTransparency is imported in ContentView where the ATT request is made.
 // import FirebaseVertexAI  // TODO: Add Firebase VertexAI package later to enable AI features
 
 @main
@@ -72,6 +73,16 @@ struct AMENAPPApp: App {
             Self.handleFeedRefreshTask(refreshTask)
         }
 
+        // ✅ PERF: Register overnight verse prefetch task so morning opens are instant.
+        // iOS wakes the app around 3am to warm the daily verse Cloud Function result.
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: "com.amen.app.versePrefetch",
+            using: nil
+        ) { task in
+            guard let refreshTask = task as? BGAppRefreshTask else { return }
+            Self.handleVersePrefetchTask(refreshTask)
+        }
+
         // Phase 3 fix: Configure URLCache for better image scroll performance.
         // Default is only 512KB RAM + 10MB disk — too small for a social feed.
         URLCache.shared = URLCache(
@@ -94,6 +105,13 @@ struct AMENAPPApp: App {
         // Pre-warm taptic engine generators so first user interaction fires with zero latency.
         // This is synchronous but extremely cheap (~0.1ms).
         HapticManager.prepareAll()
+
+        // Donate Siri App Shortcuts so they surface in Siri Suggestions immediately after install.
+        #if canImport(AppIntents)
+        if #available(iOS 16.0, *) {
+            AmenIntentDonationService.donateIntents()
+        }
+        #endif
 
         // PERFORMANCE: Defer singleton initialization to first use
         // Singletons will initialize lazily when first accessed
@@ -296,6 +314,9 @@ struct AMENAPPApp: App {
                         await Self.warmUpServices()
                     }
                     startupTasks.append(utilityTask)
+
+                    // ATT: Request moved to mainContent.onAppear in ContentView so it fires
+                    // AFTER the user has seen meaningful app content (App Store guideline 5.1.1).
                 }
             .onDisappear {
                 // ✅ TRACK APP CLOSE (scroll budget)
@@ -312,31 +333,41 @@ struct AMENAPPApp: App {
             }
             .onOpenURL { url in
                 dlog("🔗 Handling deep link: \(url)")
-                
+
                 // ✅ P0 SECURITY: Handle Firebase Auth callbacks (phone verification, reCAPTCHA)
                 // This MUST be first to ensure 2FA works properly
                 if Auth.auth().canHandle(url) {
                     dlog("✅ Forwarded URL to Firebase Auth for verification")
                     return
                 }
-                
+
                 // Handle Google Sign-In callback
                 GIDSignIn.sharedInstance.handle(url)
-                
-                // ✅ NEW: Handle notification/deep-link intents through the
-                // production routing coordinator first. If the URL is not one of
-                // the supported notification-style destinations, fall back to the
-                // legacy deep-link router for the rest of the app.
+
+                // ── Canonical router (amen://, amenapp://, https://amenapp.com/) ──
+                // AppNavigationRouter.shared.navigate(to:) handles cold-launch queuing,
+                // auth gating, and correct tab-index mapping for all supported schemes.
+                // It also forwards the legacy "amenDeepLink" NotificationCenter broadcast
+                // internally, so Siri / Spotlight deep links are caught here too.
                 Task { @MainActor in
+                    // Always try the canonical router first for amen:// URLs.
+                    if url.scheme == "amen", AppDestination(url: url) != nil {
+                        AppNavigationRouter.shared.navigate(to: url)
+                    }
+
+                    // ✅ NEW: Handle notification/deep-link intents through the
+                    // production routing coordinator first. If the URL is not one of
+                    // the supported notification-style destinations, fall back to the
+                    // legacy deep-link router for the rest of the app.
                     let handledByNotificationCoordinator = await NotificationOpenCoordinator.shared.handleURL(url)
                     if !handledByNotificationCoordinator {
                         NotificationDeepLinkRouter.shared.handleURL(url)
                     }
                 }
-                
+
                 // ✅ Handle email authentication links (passwordless sign-in & email verification)
                 handleEmailAuthenticationLink(url)
-                
+
                 // P1-2: Handle church notes deep links
                 handleChurchNoteDeepLink(url)
 
@@ -346,6 +377,22 @@ struct AMENAPPApp: App {
                 // ✅ Share Extension: user tapped "Post" in the extension
                 if (url.scheme == "com.amenapp" || url.scheme == "amenapp") && url.host == "share" {
                     handleShareExtensionDraft()
+                }
+            }
+            // P0 FIX: Observe "amenDeepLink" notification posted by AmenIntentRouter when Siri
+            // shortcuts and Spotlight results fire. Previously no observer existed anywhere,
+            // so every Siri shortcut and Spotlight tap was silently dropped.
+            // AppNavigationRouter.shared also registers this observer in its init(), but this
+            // belt-and-suspenders app-level observer guarantees we catch it even if the router
+            // has not been lazily initialized yet at the point the notification arrives.
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("amenDeepLink"))) { notification in
+                guard let urlString = notification.userInfo?["url"] as? String else { return }
+                dlog("📡 [AMENAPPApp] Received amenDeepLink notification: \(urlString)")
+                AppNavigationRouter.shared.navigate(to: urlString)
+            }
+            .onContinueUserActivity("com.amen.view") { activity in
+                if let result = AmenSpotlightService.shared.handleSpotlightResult(activity) {
+                    AmenIntentRouter.routeSpotlight(type: result.type, id: result.id)
                 }
             }
             .task {
@@ -359,6 +406,25 @@ struct AMENAPPApp: App {
                 LiveActivityManager.shared.restoreActiveActivities()
                 NotificationTapBootstrapper.shared.appDidBecomeReady()
             }
+            // B-13 FIX: COPPA age gate — shown to any authenticated user who has not
+            // yet completed age verification. AgeAssuranceService.needsVerification is
+            // set to true for migrated users without a DOB on file. The gate fires on
+            // every cold launch until the user provides their date of birth.
+            // Priority: age gate shown BEFORE the main onboarding cover so COPPA
+            // compliance is enforced before any other content is visible.
+            .fullScreenCover(isPresented: Binding(
+                get: {
+                    guard FirebaseApp.app() != nil else { return false }
+                    guard Auth.auth().currentUser != nil else { return false }
+                    // Show if the user has never completed age verification OR the
+                    // AgeAssuranceService flags that verification is still needed.
+                    return !hasCompletedAgeVerification
+                        || AgeAssuranceService.shared.needsVerification
+                },
+                set: { _ in }
+            )) {
+                AgeGateView(isEligible: $ageGateEligible)
+            }
             // Show supplementary interest/follow onboarding once after account creation.
             // This is separate from the username/profile OnboardingView in ContentView.
             // ✅ FIX: Only show if user is authenticated AND has NOT completed onboarding
@@ -367,6 +433,9 @@ struct AMENAPPApp: App {
                     // Guard: Auth.auth() crashes if Firebase is not yet configured
                     // (SwiftUI evaluates body.getter before AppDelegate finishes).
                     guard FirebaseApp.app() != nil else { return false }
+                    // Do not show main onboarding while age gate is still active
+                    guard hasCompletedAgeVerification,
+                          !AgeAssuranceService.shared.needsVerification else { return false }
                     let shouldShow = Auth.auth().currentUser != nil && !hasCompletedOnboarding
                     dlog("🎬 OnboardingFlowView fullScreenCover check: currentUser=\(Auth.auth().currentUser?.uid ?? "nil"), hasCompletedOnboarding=\(hasCompletedOnboarding), shouldShow=\(shouldShow)")
                     return shouldShow
@@ -392,9 +461,20 @@ struct AMENAPPApp: App {
                     // is now invalid (revoked, expired), redirect to sign-in immediately
                     // rather than letting silent permission-denied errors confuse the user.
                     checkAuthTokenValidity()
+                    // PERF FIX: Pre-warm the daily verse in the background as soon as the app
+                    // becomes active. This means that by the time the user navigates to the feed
+                    // the verse is already in todayVerse (served from cache or network-fetched
+                    // while other UI loads), eliminating the blank-spinner-on-cold-start case.
+                    // The service's own guard prevents duplicate calls if already generated today.
+                    Task {
+                        let svc = DailyVerseGenkitService.shared
+                        guard svc.todayVerse == nil || !svc.isPersonalized else { return }
+                        _ = await svc.generatePersonalizedDailyVerse()
+                    }
                 case .background:
                     BehavioralAwarenessEngine.shared.endSession()
                     Self.scheduleBackgroundFeedRefresh()
+                    Self.scheduleVersePrefetch()
                     PostsManager.shared.stopListeningForProfileUpdates()
                     
                     // P1-3 FIX: Additional cleanup safeguard for background transitions.
@@ -458,40 +538,39 @@ struct AMENAPPApp: App {
         )
     }
     
-    // MARK: - Load Onboarding Status (Synchronous)
-    
-    /// ✅ P0 FIX: Load onboarding status synchronously before UI renders
-    /// This prevents OnboardingFlowView from showing on every app open
+    // MARK: - Load Onboarding Status (Cache-first, zero network on warm start)
+
+    /// PERF FIX: Reads the onboarding flag from UserDefaults (written by
+    /// AuthenticationViewModel.completeOnboarding / checkOnboardingStatus).
+    /// This replaces the previous implementation that always issued a Firestore
+    /// network read on the critical `.task` path — adding 200–800 ms to every
+    /// cold launch and every foreground transition.
+    ///
+    /// The UserDefaults key "hasCompletedOnboarding_<uid>" is the same key
+    /// AuthenticationViewModel.checkOnboardingStatus() writes, so it is always
+    /// up-to-date after the first successful launch.
+    ///
+    /// If the key is absent (first-ever launch for this UID), we default to `true`
+    /// so the fullScreenCover for OnboardingFlowView does NOT flash on — ContentView
+    /// owns new-user onboarding via AuthVM.needsOnboarding.
     private func loadOnboardingStatusSync(userId: String) async {
-        do {
-            lazy var db = Firestore.firestore()
-            let document = try await db.collection("users").document(userId).getDocument()
-            
-            if let data = document.data() {
-                let completed = data["hasCompletedOnboarding"] as? Bool 
-                    ?? data["onboardingCompleted"] as? Bool 
-                    ?? true  // Default to true if field doesn't exist (existing users)
-                await MainActor.run {
-                    hasCompletedOnboarding = completed
-                    dlog("✅ [ONBOARDING] Loaded status synchronously: hasCompletedOnboarding = \(completed)")
-                }
-            } else {
-                // No user document exists yet — brand new user.
-                // ContentView/AuthViewModel owns new-user onboarding (OnboardingView).
-                // Setting this to false here would show the legacy OnboardingFlowView on top of
-                // OnboardingView, causing a simultaneous fullScreenCover conflict (P0 crash).
-                await MainActor.run {
-                    hasCompletedOnboarding = true
-                    dlog("⚠️ [ONBOARDING] No user document found - deferring to ContentView onboarding")
-                }
-            }
-        } catch {
-            dlog("❌ [ONBOARDING] Failed to load onboarding status: \(error.localizedDescription)")
-            // Default to true on error to avoid showing onboarding unnecessarily
-            await MainActor.run {
-                hasCompletedOnboarding = true
-            }
+        let key = "hasCompletedOnboarding_\(userId)"
+        // UserDefaults.bool(forKey:) returns false when the key is absent.
+        // We treat "absent" the same as "true" (completed) to match the old
+        // network-fetch default — existing users who predate the flag never see
+        // the extra onboarding screen.
+        let storedValue = UserDefaults.standard.object(forKey: key)
+        let completed: Bool = storedValue != nil
+            ? UserDefaults.standard.bool(forKey: key)
+            : true  // key absent → assume completed (safe default)
+
+        await MainActor.run {
+            hasCompletedOnboarding = completed
+            dlog("✅ [ONBOARDING] Cache-read status (zero network): hasCompletedOnboarding = \(completed)")
         }
+        // AuthenticationViewModel.checkOnboardingStatus() runs concurrently and
+        // will issue a Firestore read if needed; it will update the UserDefaults key
+        // and, if the value differs, the fullScreenCover Binding re-evaluates.
     }
     
     // MARK: - Fetch User for Welcome Screen
@@ -629,6 +708,9 @@ struct AMENAPPApp: App {
                     #if DEBUG
                     dlog("👤 User logged in: \(user.uid)")
                     #endif
+                    // Signal canonical router that auth is resolved so any destination
+                    // queued during splash/cold-launch is now released.
+                    AppNavigationRouter.shared.authDidBecomeReady()
                     do {
                         try await DeviceTokenManager.shared.registerDeviceToken()
                     } catch {
@@ -676,6 +758,8 @@ struct AMENAPPApp: App {
                     AMENUserPreferencesService.shared.stopListening()
                     // Stop HeyFeed listeners on sign-out
                     HeyFeedService.shared.stopListening()
+                    // Reset canonical router auth gate so next sign-in re-arms it.
+                    AppNavigationRouter.shared.authDidSignOut()
                 }
             }
         }
@@ -885,6 +969,47 @@ struct AMENAPPApp: App {
         // Set expiration handler AFTER creating the Task so it can cancel it.
         task.expirationHandler = {
             refreshTask.cancel()
+            task.setTaskCompleted(success: false)
+        }
+    }
+
+    // MARK: - Overnight Verse Prefetch
+
+    /// Schedule the overnight verse prefetch task for around 3am.
+    /// Call this on app launch and after each completed prefetch to chain future wakeups.
+    static func scheduleVersePrefetch() {
+        let request = BGAppRefreshTaskRequest(identifier: "com.amen.app.versePrefetch")
+        // Target 3am local time the next morning
+        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        components.hour = 3
+        components.minute = 0
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.date(from: components) ?? Date()) ?? Date()
+        request.earliestBeginDate = tomorrow
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            dlog("✅ Verse prefetch BGTask scheduled (earliest: 3am)")
+        } catch {
+            dlog("⚠️ Verse prefetch BGTask schedule failed: \(error)")
+        }
+    }
+
+    /// Prefetch today's daily verse in the background so morning opens are instant.
+    private static func handleVersePrefetchTask(_ task: BGAppRefreshTask) {
+        // Reschedule immediately to chain the next overnight wakeup.
+        scheduleVersePrefetch()
+
+        let prefetchTask = Task {
+            guard let user = Auth.auth().currentUser else {
+                task.setTaskCompleted(success: true)
+                return
+            }
+            _ = await DailyVerseGenkitService.shared.generatePersonalizedDailyVerse()
+            task.setTaskCompleted(success: true)
+            dlog("✅ Verse prefetch BGTask completed for user \(user.uid)")
+        }
+
+        task.expirationHandler = {
+            prefetchTask.cancel()
             task.setTaskCompleted(success: false)
         }
     }

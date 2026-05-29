@@ -18,7 +18,9 @@ struct OpenPrayerIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         await MainActor.run {
-            NotificationCenter.default.post(name: .navigateToTab, object: nil, userInfo: ["tab": 2])
+            // P1 FIX: Prayer lives in Resources (tab 3), not Messages (tab 2).
+            // Route through AppNavigationRouter so the index stays canonical.
+            AppNavigationRouter.shared.navigate(to: .resources)
         }
         return .result()
     }
@@ -36,6 +38,9 @@ struct OpenBereanIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         await MainActor.run {
+            // Route through the canonical router; also keep the Live Activity notification
+            // so existing observers in BereanFallbackSheet / BereanIslandViewModel continue to work.
+            AppNavigationRouter.shared.navigate(to: .askBerean(question: question))
             var info: [String: Any] = [:]
             if let q = question { info["prompt"] = q }
             NotificationCenter.default.post(name: .openBereanFromLiveActivity, object: nil, userInfo: info)
