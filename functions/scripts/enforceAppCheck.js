@@ -8,11 +8,12 @@
 // Usage:
 //   FIREBASE_PROJECT=<your-project-id> node scripts/enforceAppCheck.js
 //
-// Auth: uses Application Default Credentials — run one of:
+// Auth: uses Application Default Credentials — run these two commands first:
 //   gcloud auth application-default login
+//   gcloud auth application-default set-quota-project <your-project-id>
 //   OR set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 //
-// The service account needs the "Firebase App Check Admin" IAM role
+// The account needs the "Firebase App Check Admin" IAM role
 // (roles/firebaseappcheck.admin) or "Editor" on the project.
 //
 // Dry-run (prints request but does NOT call API):

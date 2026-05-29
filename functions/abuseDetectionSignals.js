@@ -177,7 +177,7 @@ async function queueRiskEvent(senderId, recipientId, surface, signals, severity)
 //                            flagged/high-risk accounts.
 
 exports.onNewDMMessage = onDocumentCreated(
-  'conversations/{conversationId}/messages/{messageId}',
+  { document: 'conversations/{conversationId}/messages/{messageId}', region: 'us-central1' },
   async (event) => {
     const msg = event.data?.data();
     if (!msg || !msg.content) return;

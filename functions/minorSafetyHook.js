@@ -196,7 +196,7 @@ async function writeMinorSafetyAlert(minorUid, actorUid, alertType, contextId) {
 // [DECISION REQUIRED]: whether to extend this trigger to group Space messages
 //   (currently scoped to conversations/ only).
 exports.onNewDMForMinorProtection = onDocumentCreated(
-  'conversations/{conversationId}/messages/{messageId}',
+  { document: 'conversations/{conversationId}/messages/{messageId}', region: 'us-central1' },
   async (event) => {
     // Gate: do nothing unless policy is confirmed and flag is on.
     if (!(await isMinorSafetyEnabled())) return;
