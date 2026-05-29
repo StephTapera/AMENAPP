@@ -669,6 +669,8 @@ Rules:
 // The iOS client (ClaudeService) calls this instead of api.anthropic.com directly.
 // ============================================================================
 
+const { checkGlobalCircuitBreaker } = require("./globalCircuitBreaker");
+
 exports.bereanChatProxy = onCall(
     {
       region: REGION,
@@ -681,22 +683,59 @@ exports.bereanChatProxy = onCall(
         throw new HttpsError("unauthenticated", "Authentication required.");
       }
 
-      // Rate limit: 10 Berean calls per user per hour
       const uid = request.auth.uid;
+      const db = admin.firestore();
+
+      // ── Global cost circuit-breaker ───────────────────────────────────────
+      await checkGlobalCircuitBreaker("anthropic");
+
+      // ── Hourly rate limit: 30 Berean turns/user/hour ──────────────────────
       const hourKey = new Date().toISOString().slice(0, 13); // e.g. "2026-03-21T14"
-      const usageRef = admin.firestore().doc(`users/${uid}/bereanUsage/${hourKey}`);
+      const usageRef = db.doc(`users/${uid}/bereanUsage/${hourKey}`);
       const usageSnap = await usageRef.get();
-      const count = usageSnap.exists ? usageSnap.data().count : 0;
-      if (count >= 10) {
-        throw new HttpsError("resource-exhausted", "Berean usage limit reached. Try again later.");
+      const count = usageSnap.exists ? (usageSnap.data().count ?? 0) : 0;
+      if (count >= 30) {
+        throw new HttpsError("resource-exhausted", "Berean usage limit reached. Please try again later.");
       }
       await usageRef.set({count: count + 1}, {merge: true});
 
-      const {systemPrompt, userMessage, maxTokens} = request.data;
+      // ── Daily rate limit: 100 Berean turns/user/day ───────────────────────
+      const dayKey = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+      const dailyRef = db.doc(`users/${uid}/aiUsage/berean`);
+      const dailySnap = await dailyRef.get();
+      const dailyData = dailySnap.exists ? dailySnap.data() : {};
+      const storedDay = dailyData.dailyKey ?? "";
+      const dailyCalls = storedDay === dayKey ? (dailyData.dailyCalls ?? 0) : 0;
+      if (dailyCalls >= 100) {
+        throw new HttpsError("resource-exhausted", "Daily Berean usage limit reached. Try again tomorrow.");
+      }
+      if (storedDay !== dayKey) {
+        await dailyRef.set({dailyKey: dayKey, dailyCalls: 1}, {merge: true});
+      } else {
+        await dailyRef.update({dailyCalls: admin.firestore.FieldValue.increment(1)});
+      }
+
+      const {systemPrompt, userMessage, conversationHistory, maxTokens} = request.data;
 
       if (!userMessage || typeof userMessage !== "string") {
         throw new HttpsError("invalid-argument", "userMessage is required.");
       }
+
+      // ── Input size limits ─────────────────────────────────────────────────
+      if (userMessage.length > 4000) {
+        throw new HttpsError("invalid-argument", "Message too long. Please keep messages under 4000 characters.");
+      }
+
+      // Cap conversation history to 20 messages to prevent context stuffing
+      let messages = [];
+      if (Array.isArray(conversationHistory)) {
+        const cappedHistory = conversationHistory.slice(-20);
+        messages = cappedHistory.map((msg) => ({
+          role: msg.role === "assistant" ? "assistant" : "user",
+          content: typeof msg.content === "string" ? msg.content.slice(0, 4000) : "",
+        }));
+      }
+      messages.push({role: "user", content: userMessage});
 
       const apiKey = ANTHROPIC_API_KEY.value();
       if (!apiKey) {
@@ -715,7 +754,7 @@ exports.bereanChatProxy = onCall(
           model: "claude-haiku-4-5-20251001",
           max_tokens: maxTokens ?? 600,
           system: systemPrompt ?? "",
-          messages: [{role: "user", content: userMessage}],
+          messages,
         }),
       });
 

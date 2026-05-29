@@ -13,12 +13,47 @@
 
 'use strict';
 
-const { onCall } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const { checkGlobalCircuitBreaker } = require('./globalCircuitBreaker');
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 const REGION = 'us-central1';
+
+// ─── Shared rate-limit helper ─────────────────────────────────────────────────
+// Shared counter across all 5 AI prompt features:
+//   50 calls/hour and 200 calls/day per authenticated user.
+
+async function enforceAIPromptLimits(uid) {
+  const db = admin.firestore();
+
+  // Hourly: 50 calls/user/hour (shared across all prompt features)
+  const hourKey = new Date().toISOString().slice(0, 13);
+  const hourRef = db.doc(`users/${uid}/aiPromptUsage/${hourKey}`);
+  const hourSnap = await hourRef.get();
+  const hourCount = hourSnap.exists ? (hourSnap.data().count ?? 0) : 0;
+  if (hourCount >= 50) {
+    throw new HttpsError('resource-exhausted', 'AI feature usage limit reached. Please try again later.');
+  }
+  await hourRef.set({ count: hourCount + 1 }, { merge: true });
+
+  // Daily: 200 calls/user/day (shared across all prompt features)
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const dailyRef = db.doc(`users/${uid}/aiUsage/aiPromptFeatures`);
+  const dailySnap = await dailyRef.get();
+  const dailyData = dailySnap.exists ? dailySnap.data() : {};
+  const storedDay = dailyData.dailyKey ?? '';
+  const dailyCalls = storedDay === dayKey ? (dailyData.dailyCalls ?? 0) : 0;
+  if (dailyCalls >= 200) {
+    throw new HttpsError('resource-exhausted', 'Daily AI feature usage limit reached. Try again tomorrow.');
+  }
+  if (storedDay !== dayKey) {
+    await dailyRef.set({ dailyKey: dayKey, dailyCalls: 1 }, { merge: true });
+  } else {
+    await dailyRef.update({ dailyCalls: admin.firestore.FieldValue.increment(1) });
+  }
+}
 
 // ─── Shared Claude helper ─────────────────────────────────────────────────────
 
@@ -54,8 +89,12 @@ exports.vibeMatch = onCall({
   secrets: [ANTHROPIC_API_KEY],
   enforceAppCheck: true,
 }, async (req) => {
+  if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in to use this feature.');
+  await checkGlobalCircuitBreaker('anthropic');
+  await enforceAIPromptLimits(req.auth.uid);
+
   const { currentUserId, targetUserId } = req.data;
-  if (!currentUserId || !targetUserId) throw new Error('Missing user IDs');
+  if (!currentUserId || !targetUserId) throw new HttpsError('invalid-argument', 'Missing user IDs');
 
   const db = admin.firestore();
   const [currentSnap, targetSnap] = await Promise.all([
@@ -93,8 +132,12 @@ exports.digestBrain = onCall({
   secrets: [ANTHROPIC_API_KEY],
   enforceAppCheck: true,
 }, async (req) => {
+  if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in to use this feature.');
+  await checkGlobalCircuitBreaker('anthropic');
+  await enforceAIPromptLimits(req.auth.uid);
+
   const { userId } = req.data;
-  if (!userId) throw new Error('Missing userId');
+  if (!userId) throw new HttpsError('invalid-argument', 'Missing userId');
 
   const db = admin.firestore();
   const [postsSnap, userSnap] = await Promise.all([
@@ -139,8 +182,12 @@ exports.spiritGraph = onCall({
   secrets: [ANTHROPIC_API_KEY],
   enforceAppCheck: true,
 }, async (req) => {
+  if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in to use this feature.');
+  await checkGlobalCircuitBreaker('anthropic');
+  await enforceAIPromptLimits(req.auth.uid);
+
   const { postId, currentUserId } = req.data;
-  if (!postId || !currentUserId) throw new Error('Missing postId or currentUserId');
+  if (!postId || !currentUserId) throw new HttpsError('invalid-argument', 'Missing postId or currentUserId');
 
   const db = admin.firestore();
   const [postSnap, userSnap] = await Promise.all([
@@ -180,8 +227,12 @@ exports.testimonyResonanceScore = onCall({
   secrets: [ANTHROPIC_API_KEY],
   enforceAppCheck: true,
 }, async (req) => {
+  if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in to use this feature.');
+  await checkGlobalCircuitBreaker('anthropic');
+  await enforceAIPromptLimits(req.auth.uid);
+
   const { testimonyText, actionType } = req.data;
-  if (!testimonyText || !actionType) throw new Error('Missing testimonyText or actionType');
+  if (!testimonyText || !actionType) throw new HttpsError('invalid-argument', 'Missing testimonyText or actionType');
 
   const actionLabels = {
     amen: 'stood on this testimony with an Amen',
@@ -218,6 +269,10 @@ exports.livingWordEngine = onCall({
   secrets: [ANTHROPIC_API_KEY],
   enforceAppCheck: true,
 }, async (req) => {
+  if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in to use this feature.');
+  await checkGlobalCircuitBreaker('anthropic');
+  await enforceAIPromptLimits(req.auth.uid);
+
   const { postText, category } = req.data;
   if (!postText || postText.trim().length < 20) return { suggestions: [] };
 

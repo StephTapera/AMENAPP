@@ -3,12 +3,16 @@ const { defineSecret } = require("firebase-functions/params");
 const { logger } = require("firebase-functions");
 const admin = require("firebase-admin");
 const FormData = require("form-data");
+const { checkGlobalCircuitBreaker } = require("./globalCircuitBreaker");
 
 const openAIKey = defineSecret("OPENAI_API_KEY");
 
 exports.openAIProxy = onCall({ secrets: [openAIKey], enforceAppCheck: true }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const uid = request.auth.uid;
+
+  // ── Global cost circuit-breaker ───────────────────────────────────────────
+  await checkGlobalCircuitBreaker("openai");
 
   // ── Hourly rate limit: 20 calls/user/hour ─────────────────────────────────
   const hourKey = new Date().toISOString().slice(0, 13);

@@ -175,7 +175,8 @@ exports.filterSmartNotifications = filterSmartNotifications;
 exports.exportEngagementData = exportEngagementData;
 
 // Content Moderation: Export organic content integrity system
-exports.moderateContent = moderateContent;
+// moderateContent temporarily skipped — deployed as GCFv2 on Firebase but defined as v1 here; needs gen2 conversion before redeploying
+// exports.moderateContent = moderateContent;
 exports.generateWeeklyAlignmentSummary = generateWeeklyAlignmentSummary;
 
 exports.getPremiumEntitlement = premiumEntitlements.getPremiumEntitlement;
@@ -220,16 +221,12 @@ exports.onPostMediaMetadataDelete = onPostMediaMetadataDelete;
 
 // createMediaUploadSession + finalizeMediaUpload moved to creator codebase (platformFunctions.ts)
 exports.generateMediaDraftMetadata = healthyImmersiveMedia.generateMediaDraftMetadata;
-exports.approveMediaMetadata = healthyImmersiveMedia.approveMediaMetadata;
+// approveMediaMetadata — owned by Backend/functions (TS codebase); removed from default to resolve two-codebase conflict
 exports.rejectMediaMetadata = healthyImmersiveMedia.rejectMediaMetadata;
 exports.publishMediaPost = healthyImmersiveMedia.publishMediaPost;
 exports.moderateMediaPost = healthyImmersiveMedia.moderateMediaPost;
-exports.updateMediaProgress = healthyImmersiveMedia.updateMediaProgress;
-exports.createMediaSession = healthyImmersiveMedia.createMediaSession;
-exports.completeMediaSession = healthyImmersiveMedia.completeMediaSession;
-exports.saveToMediaQueue = healthyImmersiveMedia.saveToMediaQueue;
-exports.searchMedia = healthyImmersiveMedia.searchMedia;
-exports.reportMedia = healthyImmersiveMedia.reportMedia;
+// updateMediaProgress / createMediaSession / completeMediaSession / saveToMediaQueue / searchMedia / reportMedia
+// — owned by Backend/functions TS codebase (selahMedia); removed from default to resolve conflict
 exports.recordMediaEvent = healthyImmersiveMedia.recordMediaEvent;
 exports.rankMedia = healthyImmersiveMedia.rankMedia;
 exports.generateCaptionDraft = healthyImmersiveMedia.generateCaptionDraft;
@@ -298,11 +295,8 @@ exports.updateBadgeCount = updateBadgeCount;
 exports.getGroupedNotifications = getGroupedNotifications;
 exports.markNotificationsRead = markNotificationsRead;
 
-// Church Notes comment moderation (Firestore trigger)
-const {
-  onChurchNoteCommentCreate,
-} = require("./churchNotesCommentModeration");
-exports.onChurchNoteCommentCreate = onChurchNoteCommentCreate;
+// onChurchNoteCommentCreate — owned by Backend/functions TS codebase (churchNotes/churchNotesCommentModeration.ts);
+// removed from default to resolve HTTPS↔trigger ghost conflict
 
 // ============================================================================
 // REALTIME DATABASE: COMMENT NOTIFICATIONS
@@ -795,8 +789,7 @@ exports.bereanFeedExplainer = berean.bereanFeedExplainer;
 exports.bereanNotificationText = berean.bereanNotificationText;
 exports.bereanReportTriage = berean.bereanReportTriage;
 exports.bereanRankingLabels = berean.bereanRankingLabels;
-exports.bereanGenericProxy = berean.bereanGenericProxy;
-// exports.bereanChatProxy = berean.bereanChatProxy; // DISABLED: Using TypeScript version from Backend/functions
+// bereanGenericProxy + bereanChatProxy — owned by Backend/functions TS codebase (enforceAppCheck: true confirmed); removed from default codebase to resolve two-codebase conflict
 exports.deleteAccount = berean.deleteAccount;
 
 // ============================================================================
@@ -1093,8 +1086,9 @@ exports.onMessageCreatedClearsNeedsReply = smartInbox.onMessageCreatedClearsNeed
 
 // Algolia sync — Firestore triggers (post create/update) + server-side callable write wrappers
 const algoliaSync = require("./algoliaSync");
-exports.onPostCreatedSyncAlgolia = algoliaSync.onPostCreatedSyncAlgolia;
-exports.onPostUpdatedSyncAlgolia = algoliaSync.onPostUpdatedSyncAlgolia;
+// onPostCreatedSyncAlgolia / onPostUpdatedSyncAlgolia — persistent HTTPS ghost conflict;
+// Backend/functions TS codebase owns algoliaPostUpdateSync + algoliaPostDeleteSync;
+// create-sync TODO: add algoliaPostCreateSync to Backend TS to close the gap
 exports.algolia_syncUser = algoliaSync.algolia_syncUser;
 exports.algolia_deleteUser = algoliaSync.algolia_deleteUser;
 exports.algolia_syncPost = algoliaSync.algolia_syncPost;
@@ -1118,6 +1112,15 @@ const openAIFunctions = require("./openAIFunctions");
 // exports.whisperProxy = openAIFunctions.whisperProxy;
 exports.transcribeAudio = openAIFunctions.transcribeAudio;
 exports.smartSuggestionsProxy = openAIFunctions.smartSuggestionsProxy;
+
+// ============================================================================
+// H-05: AMEN STUDIO AI — content generation & journal reflection
+// amenStudioAI.js was orphaned (never imported). iOS calls studioGenerateContent
+// and studioJournalPrompt via httpsCallable() and received NOT_FOUND. Fixed here.
+// ============================================================================
+const amenStudioAI = require("./amenStudioAI");
+exports.studioGenerateContent = amenStudioAI.studioGenerateContent;
+exports.studioJournalPrompt = amenStudioAI.studioJournalPrompt;
 
 
 // ============================================================================
@@ -1339,28 +1342,8 @@ exports.postAnchoredReply = spatialMessagesFns.postAnchoredReply;
 // All mutations are server-owned and guarded by membership role checks.
 // ============================================================================
 const contextualExperienceFns = require("./contextualExperiences");
-exports.createContextualExperience = contextualExperienceFns.createContextualExperience;
-exports.updateContextualExperience = contextualExperienceFns.updateContextualExperience;
-exports.publishContextualExperience = contextualExperienceFns.publishContextualExperience;
-exports.unpublishContextualExperience = contextualExperienceFns.unpublishContextualExperience;
-exports.archiveContextualExperience = contextualExperienceFns.archiveContextualExperience;
-exports.deleteContextualExperience = contextualExperienceFns.deleteContextualExperience;
-exports.joinContextualExperience = contextualExperienceFns.joinContextualExperience;
-exports.leaveContextualExperience = contextualExperienceFns.leaveContextualExperience;
-exports.resolveContextualExperienceStack = contextualExperienceFns.resolveContextualExperienceStack;
-exports.listOrganizationExperiences = contextualExperienceFns.listOrganizationExperiences;
-exports.getContextualExperience = contextualExperienceFns.getContextualExperience;
-exports.createExperienceEvent = contextualExperienceFns.createExperienceEvent;
-exports.createExperiencePrayerPrompt = contextualExperienceFns.createExperiencePrayerPrompt;
-exports.createExperienceDiscussion = contextualExperienceFns.createExperienceDiscussion;
-exports.createExperienceMemory = contextualExperienceFns.createExperienceMemory;
-exports.createExperienceTradition = contextualExperienceFns.createExperienceTradition;
-exports.moderateExperienceContent = contextualExperienceFns.moderateExperienceContent;
-exports.reportExperienceContent = contextualExperienceFns.reportExperienceContent;
-exports.updateExperienceNotificationSettings = contextualExperienceFns.updateExperienceNotificationSettings;
-exports.updateExperienceTheme = contextualExperienceFns.updateExperienceTheme;
-exports.getExperienceAnalytics = contextualExperienceFns.getExperienceAnalytics;
-exports.manageExperienceRoles = contextualExperienceFns.manageExperienceRoles;
+// All contextual experience functions — owned by Backend/functions TS codebase (contextualExperiences);
+// removed from default codebase to resolve two-codebase conflict
 
 // (conversationOSFns exported at line ~1185 above — no duplicate needed here)
 
@@ -1371,25 +1354,39 @@ exports.manageExperienceRoles = contextualExperienceFns.manageExperienceRoles;
 // ============================================================================
 const bannerFns = require("./banners");
 exports.resolveBannerRail                   = bannerFns.resolveBannerRail;
-exports.logAmenSpaceBannerEvent             = bannerFns.logAmenSpaceBannerEvent;
-exports.validateAmenSpaceBannerCTA          = bannerFns.validateAmenSpaceBannerCTA;
-exports.setAmenSpaceBannerDisplayPreference = bannerFns.setAmenSpaceBannerDisplayPreference;
-exports.setAmenSpaceDefaultBannerSize       = bannerFns.setAmenSpaceDefaultBannerSize;
+// logAmenSpaceBannerEvent / validateAmenSpaceBannerCTA / setAmenSpaceBannerDisplayPreference / setAmenSpaceDefaultBannerSize
+// — owned by Backend/functions TS codebase (amenSpaceBanners); removed from default to resolve two-codebase conflict
 
 // Anonymous Berean — single question, no userId, no session history
 const anonymousBereanFns = require("./anonymousBerean");
 exports.anonymousBereanQuery = anonymousBereanFns.anonymousBereanQuery;
 
 // ============================================================================
+// AI PROMPT FEATURES — UI-driven per-user AI callables
+//   vibeMatch               — 1-sentence spiritual connection reason (Claude Haiku)
+//   digestBrain             — spiritual journey digest paragraph (Claude Sonnet)
+//   spiritGraph             — 1-sentence feed post explanation (Claude Haiku)
+//   testimonyResonanceScore — affirming micro-copy after testimony action (Claude Haiku)
+//   livingWordEngine        — 3 contextual scripture suggestions for post draft (Claude Sonnet)
+// All: App Check enforced, auth required, shared 50/hr + 200/day per-user rate limit,
+//      global Anthropic circuit-breaker.
+// ============================================================================
+const aiPromptFeaturesFns = require("./aiPromptFeatures");
+exports.vibeMatch               = aiPromptFeaturesFns.vibeMatch;
+exports.digestBrain             = aiPromptFeaturesFns.digestBrain;
+exports.spiritGraph             = aiPromptFeaturesFns.spiritGraph;
+exports.testimonyResonanceScore = aiPromptFeaturesFns.testimonyResonanceScore;
+exports.livingWordEngine        = aiPromptFeaturesFns.livingWordEngine;
+
+// ============================================================================
 // CALM CONTROL + SPIRITUAL RHYTHM OS
 // ============================================================================
-exports.evaluateNotificationEligibility  = calmControlFunctions.evaluateNotificationEligibility;
+// evaluateNotificationEligibility — owned by Backend/functions TS codebase; removed from default to resolve conflict
 exports.updateCalmControlSettings        = calmControlFunctions.updateCalmControlSettings;
 exports.updateRhythmSettings             = calmControlFunctions.updateRhythmSettings;
-exports.recordSpiritualActivity          = calmControlFunctions.recordSpiritualActivity;
+// recordSpiritualActivity — owned by Backend/functions TS codebase; removed from default to resolve conflict
 exports.calculateStreakState             = calmControlFunctions.calculateStreakState;
-exports.pauseInactiveUserNotifications   = calmControlFunctions.pauseInactiveUserNotifications;
-exports.restoreUserAfterInactivity       = calmControlFunctions.restoreUserAfterInactivity;
+// pauseInactiveUserNotifications / restoreUserAfterInactivity — owned by Backend/functions TS codebase; removed from default to resolve conflict
 exports.checkSpiritualRhythmInactivity   = calmControlFunctions.checkSpiritualRhythmInactivity;
 exports.updatePrivacySettings            = calmControlFunctions.updatePrivacySettings;
 exports.updateFeedControls               = calmControlFunctions.updateFeedControls;
@@ -1410,11 +1407,9 @@ exports.expirePresenceStates             = calmControlFunctions.expirePresenceSt
 // LLM: Anthropic claude-3-haiku via CLAUDE_API_KEY secret. No raw message text in logs.
 // ============================================================================
 const smartCollabFns = require("./src/smartCollaboration/dist");
-exports.generateThreadSummary        = smartCollabFns.generateThreadSummary;
+// generateThreadSummary — owned by Backend/functions TS codebase; removed from default to resolve conflict
 exports.detectPrayerContextForThread = smartCollabFns.detectPrayerContextForThread;
-exports.extractThreadActions         = smartCollabFns.extractThreadActions;
-exports.generateGroupPulse           = smartCollabFns.generateGroupPulse;
-exports.generateSmartReplies         = smartCollabFns.generateSmartReplies;
+// extractThreadActions / generateGroupPulse / generateSmartReplies — owned by Backend/functions TS codebase; removed from default to resolve conflict
 exports.requestMediaTranscription    = smartCollabFns.requestMediaTranscription;
 
 // ============================================================================
@@ -1425,10 +1420,7 @@ exports.requestMediaTranscription    = smartCollabFns.requestMediaTranscription;
 //   deleteContinueRow       — user callable: remove one Continue-in-AMEN entry
 // ============================================================================
 const discoverFns = require('./discoverFunctions');
-exports.setFeatured             = discoverFns.setFeatured;
-exports.clearFeaturedModeration = discoverFns.clearFeaturedModeration;
-exports.markEngaged             = discoverFns.markEngaged;
-exports.deleteContinueRow       = discoverFns.deleteContinueRow;
+// setFeatured / clearFeaturedModeration / markEngaged / deleteContinueRow — owned by Backend/functions TS codebase; removed from default to resolve conflict
 
 
 // ============================================================================
@@ -1465,4 +1457,4 @@ const spacesFns = require('./src/spaces/dist');
 exports.grantSpaceAccess             = spacesFns.grantSpaceAccess;
 exports.handleStripeSpaceWebhook     = spacesFns.handleStripeSpaceWebhook;
 exports.revokeSpaceLinkAccess        = spacesFns.revokeSpaceLinkAccess;
-exports.notifyCommunityLinkInvite    = spacesFns.notifyCommunityLinkInvite;
+// notifyCommunityLinkInvite — persistent HTTPS ghost conflict; removed from default to resolve
