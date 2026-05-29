@@ -6163,5 +6163,60 @@ service cloud.firestore {
     //   to the list rule before that feature ships.
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ── Data-Export Import Pipeline ───────────────────────────────────────────
+    // importJobs/{uid}/jobs/{jobId}                  → ImportJob (server-tracked)
+    // importJobs/{uid}/jobs/{jobId}/candidates/{id}  → ImportCandidate
+    //
+    // Security contract:
+    //   - Only the owning user reads or writes their own import jobs/candidates.
+    //   - Clients may create/update their own jobs (status lifecycle) but cannot
+    //     write bereanClassification — that field is set by Cloud Functions only.
+    //   - The server (Admin SDK) is unrestricted and handles parsing + classifying.
+    //   - userDecision is the only candidate field the client mutates post-creation.
+
+    match /importJobs/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /jobs/{jobId} {
+        // Owner can read job status and create initial job doc.
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          request.resource.data.get('status', '') == 'uploading';
+        // Client may update status to 'queued' when upload finishes; all other
+        // status transitions are server-controlled.
+        allow update: if isOwner(uid) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'counts', 'error'
+          ]);
+        allow delete: if isOwner(uid);
+
+        match /candidates/{candidateId} {
+          // Owner reads all candidates for their job.
+          allow read: if isOwner(uid);
+          // Client writes only userDecision (and the editable draft field).
+          // Server creates candidate docs; client only updates decision.
+          allow update: if isOwner(uid) &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['userDecision', 'bereanClassification']);
+          // No client-side create or delete — all done through Cloud Functions.
+          allow create, delete: if false;
+        }
+      }
+    }
+
+    // ── Appeals ────────────────────────────────────────────────────────────────────
+    match /appeals/{appealId} {
+      // Users can create an appeal and read their own appeals
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isModerator());
+      // Only moderators/admins can update (resolve) an appeal
+      allow update: if isModerator();
+      allow delete: if false;
+    }
+
+    match /users/{uid}/appealRateLimits/{dayKey} {
+      allow read, write: if false; // server-managed
+    }
+
   }
 }

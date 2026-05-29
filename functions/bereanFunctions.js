@@ -51,6 +51,31 @@ const {
 
 const REGION = "us-central1";
 
+// ── Berean Doctrinal Restraint ────────────────────────────────────────────────
+// This constant enforces theological neutrality on contested denominational
+// issues. It is appended server-side to the system prompts of bereanBibleQA,
+// bereanMoralCounsel, and bereanChatProxy. It cannot be overridden by any
+// client-supplied prompt.
+//
+// IMPORTANT: This constant enforces NEUTRALITY — it does not encode any
+// doctrinal position. Changes require code review AND pastoral advisory sign-off.
+// See docs/governance/GOVERNANCE.md §5 for the full policy and open decisions.
+//
+// [DECISION REQUIRED]: The exact framing language Berean uses when addressing
+// contested doctrine (see GOVERNANCE.md D-11). The paragraph below is the
+// approved technical guard; the human-facing framing language is a separate
+// product decision.
+const BEREAN_DOCTRINAL_RESTRAINT = `
+DENOMINATIONAL NEUTRALITY: On theologically contested issues (baptism mode,
+cessationism vs. continuationism, eschatology/end-times specifics,
+Calvinist/Arminian debate, women in ministry, worship style preferences),
+you MUST present the relevant scripture and how different Christian traditions
+interpret it — NOT advocate for one position. Say "Some traditions believe X
+because of [verse], while others hold Y because of [verse]." Never say "The correct
+view is..." on contested doctrine. Respect the diversity within the Body of Christ.
+If asked which denomination you prefer or what your church is, say: "I'm here to
+help you explore scripture across the breadth of Christian tradition."`;
+
 /**
  * Call OpenAI chat completions.
  * @param {string} apiKey
@@ -152,7 +177,8 @@ exports.bereanBibleQA = onCall(
 Answer biblical questions with care, grace, and scriptural grounding.
 Always cite specific Bible verses inline (e.g. John 3:16) when making factual or theological claims.
 If uncertain, say "I'm not certain" and suggest consulting a pastor or scholar.
-Do not fabricate scripture references. Tone: warm, pastoral, non-divisive across denominations.`;
+Do not fabricate scripture references. Tone: warm, pastoral, non-divisive across denominations.` +
+`\n${BEREAN_DOCTRINAL_RESTRAINT}`;
 
       const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.5);
 
@@ -194,7 +220,8 @@ exports.bereanMoralCounsel = onCall(
 Offer thoughtful, biblically-grounded moral guidance with empathy and grace.
 Acknowledge the complexity of real-life moral decisions. Never be harsh or judgmental.
 Suggest prayer and seeking counsel from a pastor when appropriate.
-Cite scripture where relevant. Avoid being preachy — be a friend and guide.`;
+Cite scripture where relevant. Avoid being preachy — be a friend and guide.` +
+`\n${BEREAN_DOCTRINAL_RESTRAINT}`;
 
       const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.6);
       return makeResponse(content, "openai", "gpt-4o");
@@ -697,6 +724,7 @@ Rules:
 // ============================================================================
 
 const { checkGlobalCircuitBreaker } = require("./globalCircuitBreaker");
+const { checkForCrisis } = require("./crisisDetectionHook");
 
 exports.bereanChatProxy = onCall(
     {
@@ -766,6 +794,35 @@ exports.bereanChatProxy = onCall(
         };
       }
 
+      // ── Crisis signal pre-check ───────────────────────────────────────────
+      // Runs BEFORE the AI call. For high/critical signals, replaces the
+      // Berean response entirely with crisis resources and a pastoral message.
+      // Does NOT restrict or modify the user's account in any way.
+      // Content (userMessage) is never stored — only metadata is queued.
+      // See docs/safety/CRISIS_RESPONSE.md for the full policy spec.
+      const crisisCheck = await checkForCrisis(userMessage, uid, "berean_turn");
+      if (crisisCheck.severity === "critical" || crisisCheck.severity === "high") {
+        // Do NOT try to counsel — acknowledge distress, hand off to trained professionals.
+        const resourceList = crisisCheck.resources
+          .map((r) => `${r.name}: ${r.contact}`)
+          .join("; ");
+        return {
+          text: "I hear that you're going through something really difficult. " +
+                "Please reach out to one of these crisis resources right away — " +
+                "they have trained people available 24/7: " +
+                resourceList +
+                ". You matter, and there are people who want to help.",
+          scriptureReferences: [],
+          hasUnverifiedReferences: false,
+          hasUnrecognizedBook: false,
+          provider: "crisis_resource",
+          modelVersion: "crisis_hook",
+          crisisResourcesSurfaced: crisisCheck.resources,
+        };
+      }
+      // For 'warning', Berean responds normally — signal has already been
+      // logged server-side by checkForCrisis (metadata only, no content).
+
       // Cap conversation history to 20 messages to prevent context stuffing
       let messages = [];
       if (Array.isArray(conversationHistory)) {
@@ -795,9 +852,10 @@ exports.bereanChatProxy = onCall(
           max_tokens: maxTokens ?? 600,
           // ── Harden system prompt: append identity/role constraints ─────────
           // The client may supply a custom system prompt for different Berean
-          // modes, but we always append the hardening suffix so that no
-          // instruction injected later in the conversation can override it.
-          system: (systemPrompt ?? "") + BEREAN_SYSTEM_PROMPT_HARDENING,
+          // modes, but we always append the hardening suffix and doctrinal
+          // restraint so that no instruction injected later in the conversation
+          // can override them.
+          system: (systemPrompt ?? "") + BEREAN_SYSTEM_PROMPT_HARDENING + `\n${BEREAN_DOCTRINAL_RESTRAINT}`,
           messages,
         }),
       });
