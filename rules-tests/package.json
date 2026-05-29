@@ -1,0 +1,19 @@
+{
+  "name": "amen-firestore-rules-tests",
+  "version": "1.0.0",
+  "description": "Firestore Security Rules deny/allow test suite for the AMEN app",
+  "private": true,
+  "scripts": {
+    "test": "mocha --timeout 30000 firestore.test.js",
+    "test:watch": "mocha --timeout 30000 --watch firestore.test.js"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase-admin": "^12.0.0",
+    "mocha": "^10.3.0",
+    "chai": "^4.4.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

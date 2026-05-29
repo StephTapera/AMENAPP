@@ -24,6 +24,13 @@ service cloud.firestore {
         (request.auth.token.moderator == true || request.auth.token.admin == true);
     }
 
+    // True if the caller holds the "trustSafetyReviewer" custom claim.
+    // Used for access to sensitive T&S collections (humanReviewQueue, behavioralAlerts,
+    // evidenceRecords, moderationAuditLog). Set by Admin SDK via setCustomUserClaims.
+    function isTrustSafetyReviewer() {
+      return isSignedIn() && request.auth.token.trustSafetyReviewer == true;
+    }
+
     function hasNoPremiumSpoofFields() {
       return !request.resource.data.keys().hasAny([
         'premiumTier',
@@ -92,11 +99,54 @@ service cloud.firestore {
     // subcollections (/users/{uid}/usage, /users/{uid}/safety, etc.) which
     // are already owner-only below. Never add PII fields to this root document.
     // Broad read is intentional — required for profile browsing and social graph.
+    //
+    // PRIVACY AUDIT 2026-05-28:
+    //   - email field: currently stored on the root doc by UserModel/UserService.updateUserEmail.
+    //     This is a P1 privacy issue — every signed-in user can read every other user's email.
+    //     ACTION REQUIRED: migrate email writes to /users/{uid}/usage/pii and strip email
+    //     from the root document in all existing records via a one-time migration CF.
+    //     The rule below does NOT enforce field-level redaction because Firestore rules cannot
+    //     filter individual fields on document reads (only the whole doc). The fix must be
+    //     at the data layer (stop writing email to the root doc).
+    //   - phoneNumber field: DiscoveryService.loadContactSuggestions queries users by
+    //     phoneNumber stored on the root doc. This leaks phone numbers to any signed-in
+    //     user who can read the document. ACTION REQUIRED: move phoneNumber to
+    //     /users/{uid}/usage/pii and proxy the contact lookup through a Cloud Function
+    //     that reads the locked subcollection server-side (see contactLookupByPhone CF stub).
+    //
+    // FIELD-LEVEL READ MASKING NOTE:
+    //   Firestore Security Rules do NOT support field-level masking on document reads.
+    //   A rule can only allow or deny access to the entire document — individual fields
+    //   cannot be hidden from an otherwise readable document. Therefore, any email or
+    //   phoneNumber fields that still exist on the root /users/{uid} document will be
+    //   visible to all signed-in users who can read the document (i.e., everyone signed in).
+    //   The ONLY effective mitigation is the data migration described above: remove these
+    //   PII fields from the root doc entirely and store them exclusively in the locked
+    //   /users/{uid}/private/pii subcollection (server-readable only). This gap is tracked
+    //   as Risk #1 in docs/security/THREAT_MODEL.md.
+
+    // PII_MIGRATION_REQUIRED: email/phoneNumber fields must be moved to
+    // /users/{uid}/private/pii via Cloud Function migration.
+    // See THREAT_MODEL.md Risk #1 and docs/security/PII_MIGRATION_PLAN.md.
+    //
+    // This helper blocks NEW client writes of email/phoneNumber to the root doc.
+    // It does NOT prevent the Admin SDK (Cloud Functions) from writing these fields
+    // during the migration phase — Admin SDK bypasses Security Rules entirely.
+    // Once migration is complete and all existing records are clean, this guard
+    // acts as a permanent defense-in-depth preventing PII re-introduction.
+    function hasNoPIIFields() {
+      return !request.resource.data.keys().hasAny(['email', 'phoneNumber']);
+    }
+
+    function piuFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['email', 'phoneNumber']);
+    }
 
     match /users/{uid} {
       allow read: if isSignedIn();
-      allow create: if isOwner(uid) && hasNoPremiumSpoofFields();
-      allow update: if isOwner(uid) && premiumFieldsUnchanged() &&
+      allow create: if isOwner(uid) && hasNoPremiumSpoofFields() && hasNoPIIFields();
+      allow update: if isOwner(uid) && premiumFieldsUnchanged() && piuFieldsUnchanged() &&
         // followersCount is a Cloud Function-only counter (set by onUserFollow/onUserUnfollow CF).
         // Self-writes to followersCount enable fake-popularity inflation — block them.
         // followingCount is legitimately incremented by the client on its own doc as part of
@@ -373,6 +423,14 @@ service cloud.firestore {
         allow update: if false;
       }
 
+      // PII subcollection — migration target for email/phoneNumber fields removed from root doc.
+      // PII_MIGRATION_REQUIRED: After the migration CF runs, email and phoneNumber will live
+      // here exclusively. Client reads/writes are blocked — all access is via Admin SDK (CF).
+      // See docs/security/PII_MIGRATION_PLAN.md and THREAT_MODEL.md Risk #1.
+      match /private/{docId} {
+        allow read, write: if false; // Server (Admin SDK) only — no client access ever
+      }
+
       // Creator projects.
       match /creatorProjects/{projectId} {
         allow read, write: if isOwner(uid);
@@ -629,6 +687,8 @@ service cloud.firestore {
       // initial set. Server fields (publishedAt, moderationDecision, reportCount,
       // safetyDecision, flaggedAt, moderationStatus) must NOT be set by the client.
       // isVerifiedWriter() ensures unverified email accounts cannot publish posts.
+      // SIZE LIMITS (defense-in-depth — primary enforcement in finalizePostPublish CF):
+      //   caption/body: 5000 chars; title: 300 chars. Prevents runaway document growth.
       allow create: if isVerifiedWriter() &&
         request.resource.data.authorId == request.auth.uid &&
         !(request.resource.data.get('status', 'publishing') in ['published', 'flagged_published', 'removed', 'banned', 'deleted']) &&
@@ -636,12 +696,15 @@ service cloud.firestore {
         !request.resource.data.keys().hasAny([
           'publishedAt', 'moderationDecision', 'safetyDecision', 'flaggedAt',
           'moderationStatus', 'mediaCaptionModeration', 'captionModeration'
-        ]);
+        ]) &&
+        request.resource.data.get('caption', '').size() <= 5000 &&
+        request.resource.data.get('body', '').size() <= 5000 &&
+        request.resource.data.get('title', '').size() <= 300;
       // Edits: author only. Server-owned status/decision/moderation fields are immutable by client.
       allow update: if isSignedIn() &&
         resource.data.authorId == request.auth.uid &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'authorId', 'publishedAt', 'moderationDecision', 'safetyDecision',
+          'authorId', 'createdAt', 'publishedAt', 'moderationDecision', 'safetyDecision',
           'reportCount', 'flaggedAt', 'publishState', 'status', 'publicationVisibility',
           // Safety OS: moderationStatus is server-authoritative — client cannot self-approve.
           'moderationStatus', 'mediaCaptionModeration', 'captionModeration',
@@ -877,6 +940,18 @@ service cloud.firestore {
 
     // ── Berean AI conversations ───────────────────────────────────────────────
     // Each user owns their own conversation tree; no one else can read it.
+    //
+    // ISOLATION AUDIT 2026-05-29: owner-only isolation is enforced at all levels:
+    //   /bereanConversations/{uid}                   — isOwner(uid) on list reads
+    //   /bereanConversations/{uid}/{conversationId}   — isOwner(uid) (below)
+    //   /bereanConversations/{uid}/{cId}/messages/{mId} — isOwner(uid) (below)
+    //   /users/{uid}/bereanConversations/{cId}        — isOwner(uid) (users block above)
+    //   /users/{uid}/bereanMemory/{docId}             — isOwner(uid), write:false (above)
+    //   /users/{uid}/bereanContext/{docId}            — isOwner(uid), write:false (above)
+    //   /users/{uid}/bereanActions/{docId}            — isOwner(uid), write:false (above)
+    //   /users/{uid}/bereanSavedMessages/{docId}      — isOwner(uid) (above)
+    // User B cannot read any of User A's Berean data through any of these paths.
+    // Top-level /bereanMemory and /bereanThreads also enforce userId == request.auth.uid.
 
     match /bereanConversations/{uid}/{conversationId} {
       allow read, write: if isOwner(uid);
@@ -1325,7 +1400,9 @@ service cloud.firestore {
             'anchorBlockId', 'anchorRange',
             'anchorText', 'anchorStart', 'anchorEnd',
             'resolved', 'createdAt', 'updatedAt'
-          ]);
+          ])
+          // SIZE LIMIT: comment body capped at 5000 chars
+          && request.resource.data.get('body', '').size() <= 5000;
         allow update: if isSignedIn()
           && resource.data.authorUid == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body', 'resolved', 'updatedAt']);
@@ -1533,11 +1610,12 @@ service cloud.firestore {
     // ── Messaging — participant-gated client access ───────────────────────────
 
     match /conversations/{conversationId} {
-      // get: caller must be a participant; list: authenticated (app always scopes
-      // with whereField("participantIds", arrayContains: uid) — rules can't inspect
-      // list-query WHERE clauses, so ownership is enforced at the get level.
+      // get: caller must be a participant.
+      // list: Firestore rules evaluate each candidate document, so requiring
+      // participantIds to contain the caller's UID safely restricts list results
+      // to conversations the caller belongs to — even without inspecting the query.
       allow get: if isSignedIn() && request.auth.uid in resource.data.participantIds;
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participantIds;
       allow create: if isSignedIn()
         && request.auth.uid in request.resource.data.participantIds
         && request.resource.data.participantIds.size() >= 2;
@@ -1568,21 +1646,26 @@ service cloud.firestore {
     // ── Block & restriction enforcement — server-only ─────────────────────────
     // Written by createBlock / antiHarassmentEnforcement callables.
     // Clients must never directly read or write block records.
+    //
+    // SECURITY AUDIT 2026-05-29: Confirmed server-only. All three collections
+    // (/userRestrictions, /enforcementHistory, /rateLimits) deny ALL client
+    // reads and writes — no exceptions, no authenticated bypass.
+    // Admin SDK (Cloud Functions) has full access via rule bypass.
 
     match /blockedUsers/{docId} {
       allow read, write: if false;
     }
 
     match /userRestrictions/{docId} {
-      allow read, write: if false;
+      allow read, write: if false; // Server-only: no client read or write ever
     }
 
     match /enforcementHistory/{docId} {
-      allow read, write: if false;
+      allow read, write: if false; // Server-only: no client read or write ever
     }
 
     match /rateLimits/{docId} {
-      allow read, write: if false;
+      allow read, write: if false; // Server-only: no client read or write ever
     }
 
     // ── Berean AI — owner-readable, server-write ─────────────────────────────
@@ -1616,7 +1699,8 @@ service cloud.firestore {
 
     match /bereanSessions/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      // H-04: ownership filter prevents cross-user enumeration
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create, update: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
@@ -1626,27 +1710,31 @@ service cloud.firestore {
 
     match /churchJourneys/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      // H-04: ownership filter prevents cross-user enumeration
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
     }
 
     match /churchInteractions/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      // H-04: ownership filter prevents cross-user enumeration
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /churchVisits/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      // H-04: ownership filter prevents cross-user enumeration
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /churchMemberships/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      // H-04: ownership filter prevents cross-user enumeration
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
     }
 
@@ -1922,8 +2010,14 @@ service cloud.firestore {
 
     match /prayers/{prayerId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      // H-04: ownership filter prevents cross-user enumeration
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // SIZE LIMIT: prayer body capped at 5000 chars; title at 300 chars.
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.get('body', '').size() <= 5000 &&
+        request.resource.data.get('text', '').size() <= 5000 &&
+        request.resource.data.get('title', '').size() <= 300;
       allow update: if isSignedIn() && (
         resource.data.userId == request.auth.uid ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayerCount'])
@@ -2041,18 +2135,33 @@ service cloud.firestore {
         && resource.data.get('followerId', '') == request.auth.uid;
     }
 
+    // SECURITY (H-01): social graph collections must not be freely enumerable —
+    // any signed-in user could otherwise deanonymize follower lists regardless
+    // of the showFollowerCount / showFollowingCount privacy toggles.
+    // get: only the follower or the followed account may read a single record.
+    // list: false — all list queries must go through a server-side callable that
+    // enforces the target user's showFollowerCount/showFollowingCount preference.
     match /userFollowing/{docId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn()
+        && (resource.data.get('followerId', '') == request.auth.uid
+            || resource.data.get('followingId', '') == request.auth.uid);
+      allow list: if false;
       allow write: if false;
     }
 
     match /followers/{docId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn()
+        && (resource.data.get('followerId', '') == request.auth.uid
+            || resource.data.get('followingId', '') == request.auth.uid);
+      allow list: if false;
       allow write: if false;
     }
 
     match /following/{docId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn()
+        && (resource.data.get('followerId', '') == request.auth.uid
+            || resource.data.get('followingId', '') == request.auth.uid);
+      allow list: if false;
       allow write: if false;
     }
 
@@ -2183,13 +2292,15 @@ service cloud.firestore {
 
     match /notificationDigests/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      // H-04: ownership filter prevents cross-user enumeration
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
     }
 
     match /notificationEngagement/{docId} {
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn();
+      // H-04: ownership filter prevents cross-user enumeration
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
     }
 
@@ -4696,9 +4807,10 @@ service cloud.firestore {
         ]);
 
       match /claims/{claimId} {
-        allow read: if isSignedIn() &&
-          (resource.data.uid == request.auth.uid || isAdmin());
-        allow create, update, delete: if false;
+        // requestedBy is written by the server (Admin SDK) — never the client.
+        // Claimer may read their own request; admins may read all.
+        allow read: if request.auth.uid == resource.data.requestedBy || isAdmin();
+        allow write: if false; // server-only state machine
       }
 
       match /suggestedEdits/{editId} {
@@ -4738,13 +4850,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /orgOpsRuns/{runId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
     match /users/{uid}/organizationMemberships/{orgId} {
       allow read: if isOwner(uid);
       allow write: if false;
     }
 
     match /users/{uid}/organizationClaims/{claimId} {
-      allow read: if isOwner(uid);
+      // Claimer may read their own subcollection records. All writes are
+      // server-only (requestOrgClaim, approveClaim, rejectClaim CFs).
+      allow read: if request.auth.uid == uid;
       allow write: if false;
     }
 
@@ -5425,6 +5544,58 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── Anonymous-Accountable Mode ────────────────────────────────────────
+    //
+    // anonIdMappings: maps stable anonId → realUid. STRICTLY server-only.
+    // Clients cannot read this collection under any circumstances — this is
+    // the privacy guarantee that makes the feature trustworthy.
+    // De-anonymization is only possible via the resolveAnonymousPost callable
+    // (admin-only, every call is written to trustAuditLog).
+    match /anonIdMappings/{anonId} {
+      allow read, write: if false;
+    }
+
+    // anonRateLimits: per-user rolling 24-hour post-count windows. Server-only.
+    match /anonRateLimits/{uid} {
+      allow read, write: if false;
+    }
+
+    // ── AMEN Discover / Feed Engine ───────────────────────────────────────
+    // discoverItems: curated content index. Server writes only.
+    // Signed-in clients may read (used for future client-side preview queries).
+    match /discoverItems/{itemId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // discoverSessions: feed session tracking — server-written only.
+    match /discoverSessions/{sessionId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // recommendationMetadata: scoring and safety metadata — server only.
+    match /recommendationMetadata/{document=**} {
+      allow read, write: if false;
+    }
+
+    // User discover subcollections:
+    //   discoverEvents    — rate-limit counters; server writes, user reads own.
+    //   discoverFeedback  — user feedback signals; server writes, user reads own.
+    //   hiddenDiscoverItems — items user hid; server writes, user reads own.
+    match /users/{uid}/discoverEvents/{eventId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    match /users/{uid}/discoverFeedback/{feedbackId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    match /users/{uid}/hiddenDiscoverItems/{itemId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
     // ── Default deny ─────────────────────────────────────────────────────
     // Catch-all: deny everything not matched above.
 
@@ -5936,6 +6107,41 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
     // ─── End Community Notes ─────────────────────────────────────────────────
+
+    // ── Collection-group enumeration protection ──────────────────────────────
+    // SECURITY NOTE 2026-05-29:
+    // Firebase Rules v2 evaluates collection-group queries against all matching
+    // path rules, including nested subcollection rules. For sensitive collections
+    // that contain per-user private data, the per-user subcollection rules above
+    // (isOwner(uid), isConversationParticipant, etc.) already prevent cross-user
+    // enumeration at query evaluation time: Firestore will deny any document
+    // where the rule predicate returns false. No additional collection-group
+    // catch-all is required for collections that already enforce ownership.
+    //
+    // CONFIRMED ENUMERATION-SAFE PATHS (ownership enforced in rules above):
+    //   /users/{uid}/bereanConversations/{cId}    — isOwner(uid)
+    //   /bereanConversations/{uid}/{cId}           — isOwner(uid)
+    //   /prayers/{prayerId}                        — resource.data.userId == request.auth.uid
+    //   /users/{uid}/prayers/{prayerId}            — isOwner(uid) [via prayerReflections]
+    //   /prayerRequests/{docId}                    — owner OR isPublic==true
+    //   /testimonies/{docId}                       — isSignedIn() (intentionally public)
+    //   /conversations/{cId}/messages/{mId}        — isConversationParticipant(cId)
+    //   /users/{uid}/safety/{docId}               — isOwner(uid) OR isModerator()
+    //   All selah_*, reflections, journal paths    — userId == request.auth.uid
+    //
+    // KNOWN ACCEPTABLE EXPOSURE (isSignedIn() broad reads — public content):
+    //   /testimonies/{docId}  — faith testimonies are intentionally public (like posts)
+    //   /prayerWall/{docId}   — community wall is intentionally public
+    //   /dailyVerses, /topics, /trending, etc. — public reference content
+    //
+    // ACTION REQUIRED for full enumeration hardening:
+    //   testimonies and prayerRequests list queries use allow read: if isSignedIn()
+    //   OR resource.data.userId filter. The list path on testimonies allows a
+    //   signed-in user to enumerate all testimonies. This is intentional (they are
+    //   public faith stories, analogous to posts). If testimonies should ever support
+    //   private visibility, add: resource.data.isPublic == true || resource.data.userId == request.auth.uid
+    //   to the list rule before that feature ships.
+    // ─────────────────────────────────────────────────────────────────────────
 
   }
 }
