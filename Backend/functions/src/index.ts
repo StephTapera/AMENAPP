@@ -88,7 +88,6 @@ export {
     muteObjectHub,
     reportHubContent,
     indexPostIntoHub,
-    attachCommunityHubPreviewToPost,
 } from "./communityHubs";
 
 // Accessibility Intelligence Layer
@@ -101,6 +100,9 @@ export * from "./resolveOrCreateConversation";
 
 // Suggested Accounts Rail
 export * from "./suggestedAccounts";
+
+// Find People to Follow — getSuggestedFollows + registerDiscoveryLocation
+export * from "./discovery";
 
 // UserProfileMini context callable
 export * from "./profileMini/getUserProfileMiniContext";
@@ -141,29 +143,16 @@ export * from "./bereanPulse";
 export {
     onCommentCreatedUpdatePreviews,
     onCommentDeletedUpdatePreviews,
-    onCommentUpdatedUpdatePreviews,
-    onCommentUpdatedUpdatePreviewsTrigger,
-    onPostUpdatedUpdatePreviews,
-    onPostUpdatedUpdatePreviewsTrigger,
-    onPostPreviewDirtyRebuild,
-    onPostDeletedClearPreviews,
-    onPostDeletedClearPreviewsTrigger,
-    onBlockRelationshipUpdatedRefreshPreviews,
-    onBlockRelationshipUpdatedRefreshPreviewsTrigger,
     onUserProfileImageUpdatedRefreshPreviews,
     refreshDynamicReplyPreviews,
     scheduledReplyPreviewRefresh,
     detectCommunityPulse,
     selectFollowedReplyCandidate,
-    hasStrongRelationship,
-    selectFollowedReplyFromRelationships,
     countVisibleCommunityMatches,
     generateBereanInsightCandidate,
     passesPreviewModeration,
     denormalizePreviewCandidates,
     shouldRefreshPreviewAvatars,
-    shouldSkipPostPreviewUpdate,
-    recordPreviewImpression,
 } from "./generateDynamicReplyPreviews";
 
 // CONTRACT.md §12 — authoritative onReplyCreate + rebuildReplyPreviews
@@ -195,6 +184,15 @@ export * from "./antiHarassmentEnforcement";
 export * from "./accountSuspension";
 export * from "./twoFactorAuth";
 export * from "./accountLifecycle";
+
+// Just-In-Time (JIT) Admin Access — Trust OS requirement.
+// Moderator roles are time-limited, not permanent. Moderators request a
+// short-lived elevation session (max 8 hours); the scheduled cleanup revokes
+// claims automatically when the window closes.
+// Callables: requestTemporaryElevation, revokeElevation
+// Scheduled: cleanupExpiredJitSessions (every 30 minutes)
+// Audit:     trustAuditLog (jit_session_created | jit_session_revoked | jit_session_expired)
+export * from "./jitAccess";
 
 // Safety Reporting — server-side report creation with validation
 // HIGH-3: submitReport callable validates reason, verifies evidence, computes
@@ -419,6 +417,16 @@ export * from "./covenant/submitCovenantReport";
 export * from "./covenant/indexCovenantSearchDocument";
 export * from "./covenant/stripeCovenantWebhook";
 
+// Org Subscription OS — Stripe-based billing for organization Plus/Pro tiers
+// Callables: createOrgSubscriptionCheckout (opens Stripe-hosted checkout for claimed org owners)
+//            getOrgBillingPortalURL (opens Stripe Customer Portal for billing management)
+// Webhook:   stripeOrgWebhook (HTTPS) — writes organizations/{orgId}/billing/subscription
+//            and updates org.modules[] after Stripe confirms payment
+// Idempotency: deduplicates by Stripe event ID in stripeEvents/{eventId}
+export * from "./orgSubscription/createOrgSubscriptionCheckout";
+export * from "./orgSubscription/getOrgBillingPortalURL";
+export * from "./orgSubscription/stripeOrgWebhook";
+
 // Berean Extended Intelligence — memory, threads, translation comparison, follow-ups,
 //   context linking, safety classification, preference sync
 // Callables: saveBereanInsight, updateBereanMemory, deleteBereanMemory,
@@ -624,16 +632,32 @@ export * from "./churchNotes/churchNotesContentGeneration";
 export * from "./churchNotes/churchNotesDraftApproval";
 export * from "./churchNotes/churchNotesExtendedCallables";
 export * from "./churchNotes/churchNotesPrivacyAudit";
+export { analyzeChurchNoteMemory } from "./churchNotes/churchNotesMemory";
 
-// Social OS — Media Provenance and Authenticity
-// createMediaSession, completeMediaSession, saveToMediaQueue, updateMediaProgress,
-// reportMedia, and getMediaTrustContext are owned by the default codebase (healthyImmersiveMedia.js).
-export { registerMediaProvenance } from "./media/registerMediaProvenance";
+// Social OS — Healthy Media Sessions, Provenance and Authenticity
+export * from "./media/createMediaSession";
+export { registerMediaProvenance, getMediaTrustContext } from "./media/registerMediaProvenance";
 
 // In-App Giving — server-side Stripe charge (Apple Pay + card tokenization)
 export * from "./giving/processGivingCharge";
 
 export * from "./giving/analyzePostTrustLogoMatch";
+
+// Organization Identity Verification — Trust OS (C-04)
+// submitOrgVerificationRequest: org owner/admin submits EIN/domain details for review
+// approveOrgVerification:       platform admin sets identityVerified: true + audit log
+// rejectOrgVerification:        platform admin rejects with reason + audit log
+// Prerequisite: processGivingCharge.ts already enforces nonprofit.identityVerified before
+// any donation transfer is processed; these callables complete that pipeline.
+export * from "./orgVerification";
+
+// Organization Claim System — search, submit, approve, reject, create stub
+// Callables: requestOrgClaim, approveClaim, rejectClaim, createOrgStub
+// Security: Auth + App Check. claimStatus / source / sourceId are server-only.
+// Rate limit: 5 claim submissions per hour, max 3 simultaneous pending claims.
+// Guardian check on every submission. Domain-match → auto-verify path.
+// Google Places: placeId stored ONLY — no name/address/phone persisted from Places.
+export * from "./orgClaim";
 
 // Calm Control OS — privacy settings, feed controls, notification eligibility, inactivity management
 // Callables: updatePrivacySettings, updateFeedControls, updateNotificationSettings,
@@ -838,6 +862,15 @@ export {
   generateAltText,
 } from "./mediaCaptions";
 
+// Anonymous-Accountable Mode — Trust OS requirement.
+// createAnonymousPost:  authenticated user posts pseudonymously.
+//   - stable anonId derived server-side via HMAC(uid, ANON_SALT)
+//   - anonIdMappings/{anonId} mapping stored server-only (Firestore rules: allow read, write: if false)
+//   - rate limited: 3 anon posts per 24-hour rolling window
+// resolveAnonymousPost: admin-only de-anonymization. Every call is written to trustAuditLog.
+// Prerequisites: deploy ANON_SALT secret before enabling the anonModeEnabled feature flag.
+export { createAnonymousPost, resolveAnonymousPost } from "./anonPost";
+
 // ─── Community Notes ──────────────────────────────────────────────────────────
 // scriptureParser: parse + index Scripture refs from note text (server-side only)
 // communityNotesWriter: Gen2 Firestore trigger — Algolia + Pinecone sync on write/delete
@@ -845,9 +878,58 @@ export {
 export { onCommunityNoteWritten } from "./communityNotes/communityNotesWriter";
 export {
   onLikeCreated, onLikeDeleted,
-  onCommentCreated, onCommentDeleted,
-  onAmenCreated, onAmenDeleted,
+  onNoteCommentCreated, onNoteCommentDeleted,
+  onNoteAmenCreated, onNoteAmenDeleted,
   onSaveCreated, onSaveDeleted,
   onFollowCreated, onFollowDeleted,
   searchCommunityNotes,
 } from "./communityNotes/engagement";
+// Multi-Tenant Contextual Experience System
+export * from "./contextualExperiences";
+
+// Organization Seed Pipeline — admin-only bulk import of NCES / IPEDS / IRS BMF data.
+// All callables require admin custom claim (admin: true). Feature-flagged behind
+// config/featureFlags.orgSeedEnabled. Never touches Google Places data (policy enforced
+// inside batchUpsert). Dry-run support on all import functions.
+//   importNcesCCD      — K-12 public schools (~100k records from NCES CCD CSV)
+//   importNcesPSS      — K-12 private schools (~33k records from NCES PSS CSV)
+//   importIPEDS        — postsecondary institutions (~6k from IPEDS CSV)
+//   importIRSBMF       — exempt religious orgs/churches (~1.5M filtered to X-series NTEE)
+//   deduplicateOrgs    — finds same-name/proximity pairs and merges by source priority
+//   algolia_syncOrg    — single or bulk sync of org stubs to Algolia `organizations` index
+export { importNcesCCD } from "./orgSeed/ncesCCDImport";
+export { importNcesPSS } from "./orgSeed/ncesPSSImport";
+export { importIPEDS } from "./orgSeed/ipedsImport";
+export { importIRSBMF } from "./orgSeed/irsBMFImport";
+export { deduplicateOrgs } from "./orgSeed/orgDeduplication";
+export { algolia_syncOrg } from "./orgSeed/orgAlgoliaSync";
+
+// ─── Security Hardening OS — Auth, Privacy, Anomaly Detection ────────────────
+//
+// Privacy / GDPR-CCPA:
+//   deleteBereanHistory      — erases all Berean conversation data for a user (right to erasure)
+//   requestUserDataExport    — packages all user data to a signed-URL JSON (right to portability)
+//
+// Auth & Account-Takeover Hardening:
+//   revokeAllSessions        — revokes all refresh tokens for the calling user
+//   reportAccountCompromise  — user-initiated compromise report → revoke + securityIncidents
+//   requireRecentAuth        — issues single-use grant for sensitive actions (delete, email change…)
+//
+// Anomaly Monitoring (scheduled):
+//   monitorInjectionSpikes   — alerts on >10 injection blocks per 15 min
+//   monitorAISpend           — warns at 80% / critical at 100% of daily AI token cap
+//   monitorFailedAuthSpike   — alerts on >20 failed auth attempts per uid per 30 min
+//
+// All callables: App Check + Auth enforced.
+export { deleteBereanHistory } from "./privacy/deleteBereanHistory";
+export { requestUserDataExport } from "./privacy/userDataExport";
+export {
+  revokeAllSessions,
+  reportAccountCompromise,
+} from "./auth/sessionRevocation";
+export { requireRecentAuth } from "./auth/sensitiveActionGate";
+export {
+  monitorInjectionSpikes,
+  monitorAISpend,
+  monitorFailedAuthSpike,
+} from "./monitoring/anomalyMonitor";
