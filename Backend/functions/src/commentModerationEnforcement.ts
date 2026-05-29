@@ -44,7 +44,6 @@ import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
-const rtdb = admin.database();
 
 // ─── Moderation Thresholds ────────────────────────────────────────────────────
 
@@ -163,7 +162,7 @@ async function writeRtdbModerationStatus(
         return;
     }
 
-    await rtdb
+    await admin.database()
         .ref(`comments/${postId}/${commentId}`)
         .update({ moderationStatus: status });
 

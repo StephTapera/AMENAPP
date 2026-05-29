@@ -3,9 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>NSPrivacyTracking</key>
-    <false/>
+    <true/>
     <key>NSPrivacyTrackingDomains</key>
-    <array/>
+    <array>
+        <string>firebase.io</string>
+        <string>google-analytics.com</string>
+        <string>googleadservices.com</string>
+        <string>doubleclick.net</string>
+    </array>
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
         <dict>
@@ -13,6 +18,9 @@
             <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
+                <!-- 1C8F.1: Access info from the same app that wrote it -->
+                <string>1C8F.1</string>
+                <!-- CA92.1: Required by third-party SDKs (Firebase, Algolia) that are on Apple's required-reasons list -->
                 <string>CA92.1</string>
             </array>
         </dict>
@@ -21,7 +29,10 @@
             <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
+                <!-- C617.1: Display file timestamps to the user; no fingerprinting -->
                 <string>C617.1</string>
+                <!-- 0A2A.1: Required by third-party SDKs that are on Apple's required-reasons list -->
+                <string>0A2A.1</string>
             </array>
         </dict>
         <dict>
@@ -29,6 +40,7 @@
             <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
+                <!-- 35F9.1: Measure time on-device without sending to third parties; used for session timing and analytics -->
                 <string>35F9.1</string>
             </array>
         </dict>
@@ -37,7 +49,17 @@
             <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
+                <!-- E174.1: Check available disk space before writing media/cache to device -->
                 <string>E174.1</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryActiveKeyboard</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- 3EC4.1: Customise UI on device only; not sent off-device or used for fingerprinting -->
+                <string>3EC4.1</string>
             </array>
         </dict>
     </array>
@@ -191,6 +213,54 @@
         <dict>
             <key>NSPrivacyCollectedDataType</key>
             <string>NSPrivacyCollectedDataTypeHealth</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeUserID</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePaymentInfo</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeMessageContent</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeSearchHistory</string>
             <key>NSPrivacyCollectedDataTypeLinked</key>
             <false/>
             <key>NSPrivacyCollectedDataTypeTracking</key>

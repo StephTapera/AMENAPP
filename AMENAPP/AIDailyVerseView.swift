@@ -22,24 +22,13 @@ struct AIDailyVerseCard: View {
             onLoad: { Task { await loadDailyVerse() } }
         )
         .padding(.horizontal)
+        // PERF FIX: DailyVerseGenkitService.init() already pre-loads today's cached verse
+        // synchronously before any view appears. The redundant UserDefaults read that was
+        // here added ~2 ms of main-thread work and an extra JSONDecoder pass on every appear.
+        // Only trigger a network generation when there is genuinely no verse yet (cold install).
         .task {
-            // ✅ FIXED: Load cached verse first to prevent crash
-            // Try to load from cache
-            if verseService.todayVerse == nil {
-                // First attempt to load from UserDefaults cache
-                if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
-                   let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
-                   Calendar.current.isDate(date, inSameDayAs: Date()),
-                   let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
-                    await MainActor.run {
-                        verseService.todayVerse = verse
-                        dlog("📖 Loaded cached verse from UserDefaults")
-                    }
-                } else {
-                    // No cache, load fresh verse
-                    await loadDailyVerse()
-                }
-            }
+            guard verseService.todayVerse == nil, !verseService.isGenerating else { return }
+            await loadDailyVerse()
         }
     }
 
@@ -110,6 +99,15 @@ struct DailyVerseBannerView: View {
         .shadow(color: Color.black.opacity(0.08), radius: 14, y: 6)
         .shadow(color: Color.black.opacity(0.03), radius: 6, y: 2)
         .animation(.spring(response: 0.35, dampingFraction: 0.82), value: isExpanded)
+        .task(id: verse?.reference) {
+            guard let v = verse else { return }
+            let saved = loadSavedVerses(key: "savedDailyVerses")
+            let today = Calendar.current.startOfDay(for: Date())
+            didSaveToday = saved.contains {
+                $0.reference == v.reference && $0.text == v.text &&
+                Calendar.current.isDate($0.date, inSameDayAs: today)
+            }
+        }
         .sheet(isPresented: $showSelahView) {
             if let verse {
                 SelahView(
@@ -210,6 +208,9 @@ struct DailyVerseBannerView: View {
     private func saveToday() {
         guard let verse else { return }
         didSaveToday = saveDailyVerse(verse)
+        if didSaveToday {
+            HapticManager.impact(style: .light)
+        }
     }
 
     private func saveDailyVerse(_ verse: PersonalizedDailyVerse) -> Bool {
@@ -301,6 +302,8 @@ struct ExpandableSection: View {
     let onSelah: () -> Void
     let onSave: () -> Void
 
+    private let amenPurple = Color(red: 0.44, green: 0.26, blue: 0.80)
+
     var body: some View {
         if isExpanded {
             VStack(spacing: 8) {
@@ -325,22 +328,27 @@ struct ExpandableSection: View {
 
                 Button(action: onSave) {
                     HStack {
-                        Text(didSaveToday ? "Saved Today" : "Save Today")
+                        Text(didSaveToday ? "Saved" : "Save Verse")
                             .font(.systemScaled(12, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(didSaveToday ? amenPurple : .secondary)
                         Spacer()
                         Image(systemName: didSaveToday ? "checkmark" : "bookmark")
                             .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(didSaveToday ? amenPurple : .secondary)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.white.opacity(0.45))
+                            .fill(didSaveToday
+                                ? amenPurple.opacity(0.10)
+                                : Color.white.opacity(0.45))
                     )
                 }
                 .buttonStyle(.plain)
+                .disabled(didSaveToday)
+                .accessibilityLabel(didSaveToday ? "Verse saved" : "Save verse")
+                .accessibilityHint(didSaveToday ? "" : "Saves this verse to your personal library")
             }
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
