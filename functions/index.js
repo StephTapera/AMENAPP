@@ -1411,6 +1411,29 @@ exports.testimonyResonanceScore = aiPromptFeaturesFns.testimonyResonanceScore;
 exports.livingWordEngine        = aiPromptFeaturesFns.livingWordEngine;
 
 // ============================================================================
+// SAFETY DETECTION — Abuse signals, minor protection, crisis hook, appeals
+//   onNewDMMessage              — Firestore trigger: abuse/exploitation/fraud signal
+//                                 extraction on new DM docs (metadata only, no content stored)
+//   onNewDMForMinorProtection   — Firestore trigger: grooming pattern detection for
+//                                 adult→minor DMs (feature-flag gated, fail-closed)
+//   submitAppeal                — callable: user submits appeal for a moderation action
+//   getAppealStatus             — callable: user checks status of their appeal
+//   resolveAppeal               — callable: moderator resolves an appeal (HITL gate)
+// crisisDetectionHook is imported internally by bereanFunctions — no direct export needed.
+// All triggers: no content stored; metadata-only; all actions require human review.
+// ============================================================================
+const abuseDetectionFns = require('./abuseDetectionSignals');
+exports.onNewDMMessage = abuseDetectionFns.onNewDMMessage;
+
+const minorSafetyFns = require('./minorSafetyHook');
+exports.onNewDMForMinorProtection = minorSafetyFns.onNewDMForMinorProtection;
+
+const appealsFns = require('./appealsService');
+exports.submitAppeal    = appealsFns.submitAppeal;
+exports.getAppealStatus = appealsFns.getAppealStatus;
+exports.resolveAppeal   = appealsFns.resolveAppeal;
+
+// ============================================================================
 // CALM CONTROL + SPIRITUAL RHYTHM OS
 // ============================================================================
 // evaluateNotificationEligibility — owned by Backend/functions TS codebase; removed from default to resolve conflict
@@ -1499,3 +1522,18 @@ exports.revokeSpaceLinkAccess        = spacesFns.revokeSpaceLinkAccess;
 // ============================================================================
 const anomalyMonitor = require('./anomalyMonitor');
 exports.hourlyAnomalyCheck = anomalyMonitor.hourlyAnomalyCheck;
+
+// ============================================================================
+// DATA-EXPORT IMPORT PIPELINE — Berean conversion gate for user-owned archives
+//   ingestImportArchive      — Storage trigger: fires on imports/{uid}/{jobId}/archive.zip
+//                              Unzips archive, discovers structure, extracts posts + media,
+//                              writes ImportCandidate docs, deletes raw archive, sets status=classifying
+//   classifyImportCandidates — Firestore trigger: fires when job status → "classifying"
+//                              Runs cheap pre-filter then Berean LLM gate on each candidate,
+//                              writes bereanClassification, sets status=ready
+//
+// Deploy: firebase deploy --only functions:ingestImportArchive,functions:classifyImportCandidates
+// ============================================================================
+const importFns = require('./importFunctions');
+exports.ingestImportArchive      = importFns.ingestImportArchive;
+exports.classifyImportCandidates = importFns.classifyImportCandidates;
