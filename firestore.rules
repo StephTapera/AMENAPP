@@ -31,6 +31,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.trustSafetyReviewer == true;
     }
 
+    // True if the caller's Firebase Auth sign-in is no older than maxAgeSeconds.
+    // auth_time is the Unix timestamp (seconds) when the user authenticated.
+    // Use for sensitive account operations that require fresh sign-in evidence.
+    function recentlyAuthenticated(maxAgeSeconds) {
+      return isSignedIn() &&
+        (request.time.toMillis() / 1000) - request.auth.token.auth_time <= maxAgeSeconds;
+    }
+
+    // Sensitive action grants — server-written, consumed once, expire quickly.
+    // Clients must use requireRecentAuth callable to get a grant before calling
+    // sensitive operations (account deletion, email change, 2FA disable).
+    // match /sensitiveActionGrants/{grantId} — allow read, write: if false (below)
+
     function hasNoPremiumSpoofFields() {
       return !request.resource.data.keys().hasAny([
         'premiumTier',
@@ -1685,6 +1698,34 @@ service cloud.firestore {
     // Berean guardrail telemetry — injection attempts and output repairs.
     // Written by Cloud Functions only; never readable by clients.
     match /bereanGuardrails/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Auth / session security — server-only collections ─────────────────────
+
+    // Sensitive-action grants: short-lived, single-use tokens issued by
+    // requireRecentAuth callable. Never readable or writable by clients.
+    match /sensitiveActionGrants/{grantId} {
+      allow read, write: if false;
+    }
+
+    // Session revocation audit trail.
+    match /sessionAuditLog/{docId} {
+      allow read, write: if false;
+    }
+
+    // Account compromise reports — queued for Trust & Safety review.
+    match /securityIncidents/{docId} {
+      allow read, write: if false;
+    }
+
+    // Data export rate limiting — prevents export abuse.
+    match /exportRateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    // Data export audit log.
+    match /dataExportAuditLog/{docId} {
       allow read, write: if false;
     }
 

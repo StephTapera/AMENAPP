@@ -66,6 +66,12 @@ async function suspendUser(
     // 1. Disable in Firebase Auth — prevents all future sign-ins.
     await auth.updateUser(uid, { disabled: true });
 
+    // Revoke all refresh tokens so active sessions cannot obtain new ID tokens.
+    // Without this, a suspended user stays active until their current token expires (≤1 hour).
+    await auth.revokeRefreshTokens(uid).catch((err) => {
+        functions.logger.warn(`[AccountSuspension] Token revocation failed for ${uid}:`, err);
+    });
+
     // 2. Write accountStatus to the user document so clients can show UX.
     await db.collection("users").doc(uid).set(
         {

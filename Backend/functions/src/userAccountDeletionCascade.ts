@@ -102,6 +102,9 @@ export const userAccountDeletionCascade = functions
         await deleteUserSubcollections(userId);
 
         // ── Phase 8: Delete Firebase Auth account ────────────────────────────
+        // Revoke refresh tokens first so active sessions cannot mint new ID tokens
+        // during the window between cascade start and Auth deletion.
+        await admin.auth().revokeRefreshTokens(userId).catch(() => {});
         try {
             await admin.auth().deleteUser(userId);
         } catch (err: unknown) {
