@@ -2,11 +2,57 @@
  * Cloud Functions for Authentication
  * P0-2: Username Uniqueness Transaction
  * P0-3: Account Deletion Cascade
+ * Security: Session revocation, credential-stuffing protection, email/password change hooks
  */
 
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
+const {logger} = require("firebase-functions");
+
+// ---------------------------------------------------------------------------
+// Security helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * FNV-1a 32-bit hash of a string.
+ * Used to derive an opaque Firestore key from a username so we never store
+ * the username itself as a document path component (avoids PII in doc IDs).
+ * @param {string} str
+ * @returns {string} hex string, 8 chars
+ */
+function hashUsername(str) {
+  let hash = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = (hash * 16777619) >>> 0;
+  }
+  return hash.toString(16);
+}
+
+/**
+ * Assert that the caller authenticated recently (within `windowSecs`).
+ * Firebase ID tokens carry `auth_time` (seconds since epoch).
+ * Throws `failed-precondition` if the token is older than the window.
+ * @param {object} authToken  request.auth.token
+ * @param {number} windowSecs Maximum age of the auth session in seconds
+ */
+function requireRecentAuth(authToken, windowSecs) {
+  const authTimeSec = authToken.auth_time; // seconds since epoch
+  if (!authTimeSec) {
+    throw new HttpsError(
+        "failed-precondition",
+        "Re-authentication required. Please sign in again to continue."
+    );
+  }
+  const ageSec = Math.floor(Date.now() / 1000) - authTimeSec;
+  if (ageSec > windowSecs) {
+    throw new HttpsError(
+        "failed-precondition",
+        "This action requires a recent sign-in. Please re-authenticate and try again."
+    );
+  }
+}
 
 /**
  * P0-2: Reserve a username using a transaction
@@ -208,7 +254,55 @@ exports.resolveUsernameToEmail = onCall(
         throw new HttpsError("invalid-argument", "Invalid username format");
       }
 
+      // ── Credential-stuffing / brute-force protection ──────────────────────
+      // Rate limit this endpoint both per-username (hashed) and per-IP.
+      // Fail CLOSED: if Firestore is unavailable the request is blocked.
+      // Both limits throw the SAME generic error to avoid username enumeration.
       const db = admin.firestore();
+      const hourKey = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
+      const usernameHash = hashUsername(normalizedUsername);
+
+      try {
+        // --- Per-username limit: 10 lookups per hour per username hash ---
+        const uRef = db.doc(`rateLimits/username_${usernameHash}_${hourKey}`);
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(uRef);
+          if (!snap.exists) {
+            tx.set(uRef, {count: 1, createdAt: admin.firestore.FieldValue.serverTimestamp()});
+          } else {
+            const count = (snap.data().count || 0) + 1;
+            if (count > 10) {
+              throw Object.assign(new Error("rate"), {code: "rate_limit"});
+            }
+            tx.update(uRef, {count: admin.firestore.FieldValue.increment(1)});
+          }
+        });
+
+        // --- Per-IP limit: 30 lookups per hour across all usernames ---
+        const rawIp = request.rawRequest?.ip || "unknown";
+        // Hash IP too so we never store raw IPs in Firestore paths.
+        const ipHash = hashUsername(rawIp); // same FNV-1a fn, different input
+        const ipRef = db.doc(`rateLimits/ip_${ipHash}_${hourKey}`);
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(ipRef);
+          if (!snap.exists) {
+            tx.set(ipRef, {count: 1, createdAt: admin.firestore.FieldValue.serverTimestamp()});
+          } else {
+            const count = (snap.data().count || 0) + 1;
+            if (count > 30) {
+              throw Object.assign(new Error("rate"), {code: "rate_limit"});
+            }
+            tx.update(ipRef, {count: admin.firestore.FieldValue.increment(1)});
+          }
+        });
+      } catch (rlErr) {
+        // Uniform error for both limit types — prevents enumeration oracle.
+        throw new HttpsError(
+            "resource-exhausted",
+            "Too many attempts. Please try again later."
+        );
+      }
+      // ── End rate-limit guard ──────────────────────────────────────────────
 
       // Step 1: look up the uid from the public (email-free) index
       const lookupDoc = await db
@@ -780,6 +874,142 @@ exports.revokeUserSessions = onCall(
       } catch (err) {
         console.error(`❌ [revokeUserSessions] Failed for ${uid}:`, err);
         throw new HttpsError("internal", "Failed to revoke sessions.");
+      }
+    }
+);
+
+// ============================================================================
+// SENSITIVE ACCOUNT ACTIONS — session revocation + recent-auth enforcement
+// ============================================================================
+
+/**
+ * revokeOtherSessions
+ *
+ * Requires recent authentication (≤5 minutes). Revokes all Firebase refresh
+ * tokens for the caller, invalidating every session on every other device.
+ * Existing ID tokens remain valid for up to 1 hour (Firebase SDK behaviour);
+ * this is the documented upper bound and is expected.
+ *
+ * Call this from the iOS client after the user explicitly chooses
+ * "Sign out all other devices" in account security settings.
+ */
+exports.revokeOtherSessions = onCall(
+    {region: "us-central1", enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Must be authenticated.");
+      }
+
+      // Enforce recent auth — 5 minute window
+      requireRecentAuth(request.auth.token, 5 * 60);
+
+      const uid = request.auth.uid;
+
+      try {
+        await admin.auth().revokeRefreshTokens(uid);
+        logger.info("[revokeOtherSessions]", {event: "session_revocation", uid, timestamp: new Date().toISOString()});
+        return {revoked: true, message: "All other sessions have been signed out."};
+      } catch (err) {
+        logger.error("[revokeOtherSessions] failed", {uid, error: err.message});
+        throw new HttpsError("internal", "Failed to revoke other sessions. Please try again.");
+      }
+    }
+);
+
+/**
+ * onEmailChange
+ *
+ * Called by the iOS client AFTER Firebase Auth has successfully updated the
+ * user's email (client-side reauthentication already enforced by Firebase SDK
+ * for email/password providers). This callable:
+ *   1. Revokes all refresh tokens so every other device must re-authenticate
+ *      with the new credentials.
+ *   2. Propagates the new email to the Firestore user document.
+ *
+ * Requires authentication (the client already holds a fresh token post-change).
+ * Note: We intentionally do NOT log the email value — only uid + timestamp.
+ */
+exports.onEmailChange = onCall(
+    {region: "us-central1", enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Must be authenticated.");
+      }
+
+      const uid = request.auth.uid;
+
+      // Verify the token's email matches what the caller claims was set.
+      // request.auth.token.email is the email in the newly-minted ID token —
+      // Firebase Auth updates this immediately after a successful email change.
+      const tokenEmail = request.auth.token.email;
+      if (!tokenEmail) {
+        throw new HttpsError(
+            "failed-precondition",
+            "Token does not contain an email. Ensure the ID token was refreshed after the email change."
+        );
+      }
+
+      try {
+        // 1. Revoke all refresh tokens — forces all other devices to sign in again
+        await admin.auth().revokeRefreshTokens(uid);
+
+        // 2. Propagate email update to Firestore user document
+        await admin.firestore().collection("users").doc(uid).update({
+          email: tokenEmail,
+          emailChangedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        logger.info("[onEmailChange]", {
+          event: "email_change",
+          uid,
+          timestamp: new Date().toISOString(),
+          // email value deliberately omitted from log
+        });
+
+        return {ok: true, message: "Email updated and other sessions revoked."};
+      } catch (err) {
+        logger.error("[onEmailChange] failed", {uid, error: err.message});
+        throw new HttpsError("internal", "Failed to complete email change. Please try again.");
+      }
+    }
+);
+
+/**
+ * onPasswordChange
+ *
+ * Called by the iOS client AFTER Firebase Auth has successfully updated the
+ * user's password. Revokes all refresh tokens to force re-authentication
+ * everywhere. Requires recent auth (≤5 minutes).
+ *
+ * Note: We intentionally do NOT log the password or any credential value —
+ * only uid + timestamp.
+ */
+exports.onPasswordChange = onCall(
+    {region: "us-central1", enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Must be authenticated.");
+      }
+
+      // Password changes are sensitive — require very recent auth
+      requireRecentAuth(request.auth.token, 5 * 60);
+
+      const uid = request.auth.uid;
+
+      try {
+        await admin.auth().revokeRefreshTokens(uid);
+
+        logger.info("[onPasswordChange]", {
+          event: "password_change",
+          uid,
+          timestamp: new Date().toISOString(),
+          // no credential values in log
+        });
+
+        return {ok: true, message: "Password updated and other sessions revoked."};
+      } catch (err) {
+        logger.error("[onPasswordChange] failed", {uid, error: err.message});
+        throw new HttpsError("internal", "Failed to complete password change. Please try again.");
       }
     }
 );

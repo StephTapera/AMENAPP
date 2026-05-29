@@ -167,6 +167,15 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
+      // signInEvents — server-managed (Admin SDK only via authAnomalyDetector CF).
+      // Owner can read their own sign-in history; no client writes allowed.
+      // Documents contain: timestamp, platform, appVersion.
+      // IP is deliberately NOT stored (privacy by design).
+      match /signInEvents/{eventId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+
       match /safety/{docId} {
         allow read: if isOwner(uid) || isModerator();
         allow create, update, delete: if false;

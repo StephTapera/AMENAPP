@@ -725,6 +725,7 @@ exports.checkUsernameAvailability = authenticationHelpers.checkUsernameAvailabil
 // Username → email resolver (used by SignInView for username-based login)
 // Secure: email never stored in public Firestore; Admin SDK resolves uid → email server-side.
 // Falls back to users collection query if usernameLookup doc is missing, and backfills it.
+// Rate-limited: 10/hr per username hash, 30/hr per IP hash — protects against credential stuffing.
 exports.resolveUsernameToEmail = authenticationHelpers.resolveUsernameToEmail;
 
 // One-time backfill: populates usernameLookup for accounts pre-dating the index.
@@ -737,10 +738,31 @@ exports.manualCascadeDelete = authenticationHelpers.manualCascadeDelete;
 // P0-2: Server-set ageTier — fires on user document creation, computes tier from birthYear.
 exports.onUserDocCreated = authenticationHelpers.onUserDocCreated;
 
+// Sign-out current device: revoke refresh tokens (called during sign-out flow)
+exports.revokeUserSessions = authenticationHelpers.revokeUserSessions;
+
+// Session revocation (sign-out all other devices — requires recent auth ≤5 min)
+exports.revokeOtherSessions = authenticationHelpers.revokeOtherSessions;
+
+// Post-email-change: revoke other sessions + propagate new email to Firestore.
+exports.onEmailChange = authenticationHelpers.onEmailChange;
+
+// Post-password-change: revoke other sessions (requires recent auth ≤5 min).
+exports.onPasswordChange = authenticationHelpers.onPasswordChange;
+
 // P0: Account deletion pipeline (processes deletionRequests/{userId} — cascades
 // Storage, RTDB, Firestore, and Auth deletion. Created when user taps Delete Account.)
 const {processAccountDeletion} = require("./accountDeletion");
 exports.processAccountDeletion = processAccountDeletion;
+
+// ============================================================================
+// AUTH ANOMALY DETECTION — sign-in event logging + rapid sign-in detection
+// ============================================================================
+const authAnomalyDetector = require("./authAnomalyDetector");
+
+// Called by iOS client after every successful sign-in.
+// Records device metadata (no IP/PII) and queues safety review on anomaly.
+exports.logSignInEvent = authAnomalyDetector.logSignInEvent;
 
 // ============================================================================
 // USER ACTIVITY & FCM TOKEN LIFECYCLE
