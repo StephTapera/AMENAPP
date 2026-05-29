@@ -172,7 +172,7 @@ function computeConfidence(targets) {
 // ============================================================================
 
 const submitHeyFeedNLRequest = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth && request.auth.uid;
@@ -229,7 +229,7 @@ const submitHeyFeedNLRequest = onCall(
 );
 
 const removeHeyFeedNLPreference = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth && request.auth.uid;
@@ -251,7 +251,7 @@ const removeHeyFeedNLPreference = onCall(
 );
 
 const resetHeyFeedNLPreferences = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth && request.auth.uid;
@@ -272,7 +272,7 @@ const resetHeyFeedNLPreferences = onCall(
 );
 
 const parseHeyFeedIntent = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth && request.auth.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");

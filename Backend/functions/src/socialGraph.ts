@@ -198,7 +198,7 @@ async function fanOutToFollowerRelationships(
 // ---------------------------------------------------------------------------
 
 export const markRelationshipSeen = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const viewerId = request.auth?.uid;
     if (!viewerId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");

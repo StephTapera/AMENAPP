@@ -673,6 +673,7 @@ exports.bereanChatProxy = onCall(
     {
       region: REGION,
       secrets: [ANTHROPIC_API_KEY],
+      enforceAppCheck: true,
       minInstances: 1,
     },
     async (request) => {
@@ -850,7 +851,7 @@ exports.deleteAccount = onCall(
 // Input:  { title, topic, keyVerses, keyPoints, pastorName, date }
 // Output: { days: [{ title, prompt, scriptureReference, actionStep, reflectionQuestion }] }
 exports.bereanSermonWeekPlan = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
 
@@ -922,7 +923,7 @@ Generate the 6-day plan as JSON.`;
 // Input:  { patterns: [{ category, count, avgIntensity, isRecurring }], rhythms: [{ rhythm, engagements, isConsistent }] }
 // Output: { insight, suggestedFocus, suggestedVerse, encouragement }
 exports.bereanSpiritualGraphAnalysis = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
 
@@ -975,7 +976,7 @@ Provide pastoral insight as JSON.`;
 // Input:  { season, holiday, userContext, promptType }
 // Output: { reflection, scripture, actionStep, prayer, followUpQuestion }
 exports.bereanSeasonalPrompt = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
 

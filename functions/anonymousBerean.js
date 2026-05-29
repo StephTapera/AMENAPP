@@ -15,7 +15,7 @@ const SYSTEM_PROMPT =
   "Do not request personal information. Do not ask follow-up questions.";
 
 const anonymousBereanQuery = onCall(
-  { maxInstances: 10, enforceAppCheck: false },
+  { maxInstances: 10, enforceAppCheck: true },
   async (request) => {
     const { question } = request.data;
 

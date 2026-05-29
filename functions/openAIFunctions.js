@@ -6,15 +6,65 @@ const FormData = require("form-data");
 
 const openAIKey = defineSecret("OPENAI_API_KEY");
 
-exports.openAIProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false }, async (request) => {
+exports.openAIProxy = onCall({ secrets: [openAIKey], enforceAppCheck: true }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const uid = request.auth.uid;
+
+  // ── Hourly rate limit: 20 calls/user/hour ─────────────────────────────────
   const hourKey = new Date().toISOString().slice(0, 13);
   const usageRef = admin.firestore().doc(`users/${uid}/openAIUsage/${hourKey}`);
   const snap = await usageRef.get();
   const count = snap.exists ? snap.data().count : 0;
   if (count >= 20) throw new HttpsError("resource-exhausted", "AI usage limit reached.");
   await usageRef.set({ count: count + 1 }, { merge: true });
+
+  // ── H-08: Daily call budget: 100 calls/user/day ───────────────────────────
+  const dayKey = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const dailyRef = admin.firestore().doc(`users/${uid}/aiUsage/openai`);
+  const dailySnap = await dailyRef.get();
+  const dailyData = dailySnap.exists ? dailySnap.data() : {};
+  const storedDay = dailyData.dailyKey ?? "";
+  const dailyCalls = storedDay === dayKey ? (dailyData.dailyCalls ?? 0) : 0;
+  if (dailyCalls >= 100) throw new HttpsError("resource-exhausted", "Daily AI usage limit reached. Try again tomorrow.");
+  // If the day rolled over, reset the counter to 1; otherwise increment.
+  if (storedDay !== dayKey) {
+    await dailyRef.set({ dailyKey: dayKey, dailyCalls: 1 }, { merge: true });
+  } else {
+    await dailyRef.update({ dailyCalls: admin.firestore.FieldValue.increment(1) });
+  }
+
+  // ── H-08: Aggregate org-level daily cap ───────────────────────────────────
+  // Read cap from config (default 10000) and compare to today's org-wide total.
+  try {
+    const [configSnap, orgSnap] = await Promise.all([
+      admin.firestore().doc("config/aiLimits").get(),
+      admin.firestore().doc("meta/aiUsage").get(),
+    ]);
+    const orgCap = configSnap.exists ? (configSnap.data().openaiDailyOrgCap ?? 10000) : 10000;
+    const orgData = orgSnap.exists ? orgSnap.data() : {};
+    const orgDay = orgData.openaiTodayKey ?? "";
+    const orgCalls = orgDay === dayKey ? (orgData.openaiTodayCalls ?? 0) : 0;
+    if (orgCalls >= orgCap) {
+      logger.warn("[openAIProxy] org daily cap reached", { orgCalls, orgCap, dayKey });
+      throw new HttpsError("resource-exhausted", "Service is at capacity. Please try again later.");
+    }
+    // Increment org counter
+    if (orgDay !== dayKey) {
+      await admin.firestore().doc("meta/aiUsage").set(
+        { openaiTodayKey: dayKey, openaiTodayCalls: 1 },
+        { merge: true }
+      );
+    } else {
+      await admin.firestore().doc("meta/aiUsage").update({
+        openaiTodayCalls: admin.firestore.FieldValue.increment(1),
+      });
+    }
+  } catch (capError) {
+    // If org-cap check fails (e.g. missing doc), log and continue — don't block users on a config read error.
+    if (capError.code !== undefined) throw capError; // re-throw HttpsErrors from cap check
+    logger.error("[openAIProxy] org-cap check failed, proceeding", capError);
+  }
+
   const { model, messages, maxTokens, temperature, systemPrompt } = request.data;
   if (!messages || !Array.isArray(messages)) throw new HttpsError("invalid-argument", "messages array required.");
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -27,7 +77,7 @@ exports.openAIProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false }, a
   return { text: json.choices?.[0]?.message?.content ?? "", usage: json.usage ?? null };
 });
 
-exports.whisperProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false, timeoutSeconds: 120, memory: "512MiB", minInstances: 1 }, async (request) => {
+exports.whisperProxy = onCall({ secrets: [openAIKey], enforceAppCheck: true, timeoutSeconds: 120, memory: "512MiB", minInstances: 1 }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const uid = request.auth.uid;
   const hourKey = new Date().toISOString().slice(0, 13);
@@ -59,7 +109,7 @@ exports.whisperProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false, ti
 });
 
 // transcribeAudio — client uploads audio to Storage, function downloads and transcribes via Whisper
-exports.transcribeAudio = onCall({ secrets: [openAIKey], enforceAppCheck: false, timeoutSeconds: 120, memory: "512MiB" }, async (request) => {
+exports.transcribeAudio = onCall({ secrets: [openAIKey], enforceAppCheck: true, timeoutSeconds: 120, memory: "512MiB" }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const uid = request.auth.uid;
 
@@ -114,7 +164,7 @@ exports.transcribeAudio = onCall({ secrets: [openAIKey], enforceAppCheck: false,
   return { text: json.text ?? "", confidence: Math.max(0, Math.min(1, 1.0 + avgLogprob)) };
 });
 
-exports.smartSuggestionsProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false }, async (request) => {
+exports.smartSuggestionsProxy = onCall({ secrets: [openAIKey], enforceAppCheck: true }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const { prompt, maxTokens } = request.data;
   if (!prompt) throw new HttpsError("invalid-argument", "prompt required.");

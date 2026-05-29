@@ -52,7 +52,7 @@ async function callClaude(apiKey, model, systemPrompt, userContent, maxTokens = 
 exports.vibeMatch = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   const { currentUserId, targetUserId } = req.data;
   if (!currentUserId || !targetUserId) throw new Error('Missing user IDs');
@@ -91,7 +91,7 @@ Why might they connect?`;
 exports.digestBrain = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   const { userId } = req.data;
   if (!userId) throw new Error('Missing userId');
@@ -137,7 +137,7 @@ Speak directly to the user (second person). Return ONLY the paragraph.`;
 exports.spiritGraph = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   const { postId, currentUserId } = req.data;
   if (!postId || !currentUserId) throw new Error('Missing postId or currentUserId');
@@ -178,7 +178,7 @@ Why did this post appear in their feed?`;
 exports.testimonyResonanceScore = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   const { testimonyText, actionType } = req.data;
   if (!testimonyText || !actionType) throw new Error('Missing testimonyText or actionType');
@@ -216,7 +216,7 @@ Write a warm, specific affirmation for this moment.`;
 exports.livingWordEngine = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   const { postText, category } = req.data;
   if (!postText || postText.trim().length < 20) return { suggestions: [] };

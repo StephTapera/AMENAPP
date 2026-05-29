@@ -280,7 +280,7 @@ exports.generatePrayerRecap = onCall(
   {
     secrets: [CLAUDE_API_KEY],
     region: 'us-central1',
-    enforceAppCheck: false,
+    enforceAppCheck: true,
   },
   async (request) => {
     const userId = request.auth?.uid;

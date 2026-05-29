@@ -12,7 +12,7 @@ const db = getFirestore();
 // ── submitHeyFeedNLRequest ─────────────────────────────────────────────────
 
 export const submitHeyFeedNLRequest = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -84,7 +84,7 @@ export const submitHeyFeedNLRequest = functions.onCall(
 // ── removeHeyFeedNLPreference ─────────────────────────────────────────────
 
 export const removeHeyFeedNLPreference = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -109,7 +109,7 @@ export const removeHeyFeedNLPreference = functions.onCall(
 // ── resetHeyFeedNLPreferences ─────────────────────────────────────────────
 
 export const resetHeyFeedNLPreferences = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -132,7 +132,7 @@ export const resetHeyFeedNLPreferences = functions.onCall(
 // ── parseHeyFeedIntent (preview only, no write) ───────────────────────────
 
 export const parseHeyFeedIntent = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
