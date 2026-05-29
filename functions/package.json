@@ -16,10 +16,12 @@
   "main": "index.js",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
+    "@apple/app-store-server-library": "^3.1.0",
     "@google-cloud/language": "^6.0.0",
     "@google-cloud/translate": "^8.0.0",
     "@google-cloud/vertexai": "^1.10.0",
     "@google-cloud/vision": "^4.3.3",
+    "adm-zip": "^0.5.16",
     "firebase-admin": "^13.6.1",
     "firebase-functions": "^7.2.3",
     "form-data": "^4.0.0",
