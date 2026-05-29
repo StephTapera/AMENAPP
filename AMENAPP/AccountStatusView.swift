@@ -10,6 +10,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Models
 
@@ -66,6 +67,11 @@ struct AccountStatusView: View {
     @State private var isLoading = true
     @State private var selectedAction: ModerationHistoryAction?
     @State private var showAppealSheet = false
+    @State private var showCompromiseConfirm = false
+    @State private var isReportingCompromise = false
+    @State private var compromiseReported = false
+    @State private var compromiseError: String?
+    @State private var showCompromiseError = false
 
     private var db: Firestore { Firestore.firestore() }
 
@@ -163,6 +169,55 @@ struct AccountStatusView: View {
                     .padding(.horizontal, 16)
                 }
 
+                // MARK: Emergency Security
+                Text("EMERGENCY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Button {
+                        showCompromiseConfirm = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: compromiseReported ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                                .foregroundStyle(compromiseReported ? .green : .red)
+                                .font(.systemScaled(18))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(compromiseReported ? "Compromise Report Filed" : "Report Account Compromise")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(compromiseReported ? .green : .red)
+                                Text(compromiseReported
+                                     ? "Tokens revoked. Our team has been notified."
+                                     : "Think someone has access to your account?")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if isReportingCompromise { ProgressView().tint(.red) }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isReportingCompromise || compromiseReported)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.red.opacity(compromiseReported ? 0 : 0.2), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Immediately revokes all active sessions and notifies the security team. Use only if you believe your account was accessed without permission.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
                 // MARK: Info Card
                 VStack(spacing: 0) {
                     HStack(alignment: .top, spacing: 10) {
@@ -194,6 +249,23 @@ struct AccountStatusView: View {
             }
         }
         .task { await loadStatus() }
+        .confirmationDialog(
+            "Report Account Compromise?",
+            isPresented: $showCompromiseConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Report Compromise", role: .destructive) {
+                Task { await reportAccountCompromise() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will immediately sign you out on all devices and notify our security team. Only use this if you believe your account was accessed without your permission.")
+        }
+        .alert("Report Failed", isPresented: $showCompromiseError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(compromiseError ?? "Could not file the report. Please try again or contact support.")
+        }
         .sheet(isPresented: $showAppealSheet) {
             if let action = selectedAction {
                 AppealSubmissionSheet(action: action) {
@@ -327,6 +399,23 @@ struct AccountStatusView: View {
         case "expired":  return Color(.systemGray)
         case "resolved": return .green
         default:         return Color(.systemGray)
+        }
+    }
+
+    // MARK: - Compromise Report
+
+    private func reportAccountCompromise() async {
+        isReportingCompromise = true
+        defer { isReportingCompromise = false }
+        do {
+            let functions = Functions.functions(region: "us-central1")
+            _ = try await functions.httpsCallable("reportAccountCompromise").call()
+            await MainActor.run { compromiseReported = true }
+        } catch {
+            await MainActor.run {
+                compromiseError = error.localizedDescription
+                showCompromiseError = true
+            }
         }
     }
 

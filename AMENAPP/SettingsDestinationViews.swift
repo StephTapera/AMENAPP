@@ -805,18 +805,21 @@ struct DownloadDataView: View {
 
         do {
             let functions = Functions.functions(region: "us-central1")
-            let result = try await functions.httpsCallable("exportUserData").call()
+            let result = try await functions.httpsCallable("requestUserDataExport").call()
 
-            guard let dict = result.data as? [String: Any] else {
-                throw NSError(domain: "DataExport", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response from server"])
+            guard let dict = result.data as? [String: Any],
+                  let signedUrlString = dict["signedUrl"] as? String,
+                  let signedUrl = URL(string: signedUrlString) else {
+                throw NSError(domain: "DataExport", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "Invalid response from server"])
             }
 
-            let data = try JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted)
-            let filename = "AMEN_data_export_\(Int(Date().timeIntervalSince1970)).json"
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-            try data.write(to: url)
-
-            await MainActor.run { shareItem = url }
+            await MainActor.run { shareItem = signedUrl }
+        } catch let err as NSError where err.code == FunctionsErrorCode.resourceExhausted.rawValue {
+            await MainActor.run {
+                exportError = "You can only request one export per 24 hours. Please try again tomorrow."
+                showError = true
+            }
         } catch {
             await MainActor.run {
                 exportError = error.localizedDescription
@@ -1300,6 +1303,12 @@ struct BereanAISettingsView: View {
     @AppStorage("berean_personalization") private var personalizationEnabled: Bool = false
     @AppStorage("berean_focus_topics") private var focusTopicsRaw: String = ""
 
+    @State private var showDeleteHistoryConfirm = false
+    @State private var isDeletingHistory = false
+    @State private var deleteHistoryError: String?
+    @State private var showDeleteHistoryError = false
+    @State private var deleteHistorySuccess = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -1407,12 +1416,103 @@ struct BereanAISettingsView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
+                Text("DATA PRIVACY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Button {
+                        showDeleteHistoryConfirm = true
+                    } label: {
+                        HStack(spacing: 13) {
+                            Image(systemName: "trash")
+                                .font(.systemScaled(15))
+                                .foregroundStyle(.red)
+                                .frame(width: 22)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(isDeletingHistory ? "Deleting…" : "Delete Conversation History")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.red)
+                                Text("Permanently removes all Berean AI chats and memory")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if isDeletingHistory {
+                                ProgressView().tint(.red)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isDeletingHistory)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                if deleteHistorySuccess {
+                    Label("Conversation history deleted.", systemImage: "checkmark.circle.fill")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.green)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                }
+
+                Text("This cannot be undone. Your future conversations start fresh.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
                 Spacer(minLength: 32)
             }
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Berean AI")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Delete all Berean AI conversation history?",
+            isPresented: $showDeleteHistoryConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete History", role: .destructive) {
+                Task { await deleteBereanHistory() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes all your Berean AI conversations, memory, and insights. This cannot be undone.")
+        }
+        .alert("Delete Failed", isPresented: $showDeleteHistoryError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteHistoryError ?? "An error occurred. Please try again.")
+        }
+    }
+
+    private func deleteBereanHistory() async {
+        isDeletingHistory = true
+        deleteHistorySuccess = false
+        defer { isDeletingHistory = false }
+        do {
+            let functions = Functions.functions(region: "us-central1")
+            _ = try await functions.httpsCallable("deleteBereanHistory").call()
+            await MainActor.run { deleteHistorySuccess = true }
+        } catch {
+            await MainActor.run {
+                deleteHistoryError = error.localizedDescription
+                showDeleteHistoryError = true
+            }
+        }
     }
 }
 

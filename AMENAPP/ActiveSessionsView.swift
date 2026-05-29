@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 struct ActiveSessionsView: View {
     @Environment(\.dismiss) var dismiss
@@ -16,6 +17,11 @@ struct ActiveSessionsView: View {
     @State private var showSignOutConfirmation = false
     @State private var deviceToSignOut: DeviceSession?
     @State private var currentDeviceId: String = ""
+    @State private var showRevokeAllConfirmation = false
+    @State private var isRevokingAll = false
+    @State private var revokeAllError: String?
+    @State private var showRevokeAllError = false
+    @State private var revokeAllSuccess = false
 
     var body: some View {
         NavigationStack {
@@ -43,6 +49,23 @@ struct ActiveSessionsView: View {
             }
             .refreshable {
                 await loadDevices()
+            }
+            .confirmationDialog(
+                "Sign out all devices?",
+                isPresented: $showRevokeAllConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Sign Out All Devices", role: .destructive) {
+                    Task { await revokeAllSessions() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will immediately sign you out on every device, including this one. You'll need to sign in again.")
+            }
+            .alert("Error", isPresented: $showRevokeAllError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(revokeAllError ?? "Failed to sign out all devices. Please try again.")
             }
             .alert("Sign Out Device?", isPresented: $showSignOutConfirmation) {
                 Button("Cancel", role: .cancel) { }
@@ -170,11 +193,46 @@ struct ActiveSessionsView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Button {
+                        showRevokeAllConfirmation = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: isRevokingAll ? "ellipsis.circle.fill" : "rectangle.portrait.and.arrow.right")
+                                .foregroundStyle(.red)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(isRevokingAll ? "Signing out all devices…" : "Sign Out All Devices")
+                                    .font(.systemScaled(14, weight: .semibold))
+                                    .foregroundStyle(.red)
+                                Text("Immediately revokes all active sessions")
+                                    .font(.systemScaled(13))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if isRevokingAll { ProgressView().tint(.red) }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isRevokingAll)
                 }
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
+
+                if revokeAllSuccess {
+                    Label("All other sessions have been signed out.", systemImage: "checkmark.circle.fill")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.green)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                }
 
                 Spacer(minLength: 40)
             }
@@ -257,6 +315,25 @@ struct ActiveSessionsView: View {
             return identifier
         }
         return "unknown-device"
+    }
+
+    private func revokeAllSessions() async {
+        isRevokingAll = true
+        revokeAllSuccess = false
+        defer { isRevokingAll = false }
+        do {
+            let functions = Functions.functions(region: "us-central1")
+            _ = try await functions.httpsCallable("revokeAllSessions").call()
+            await MainActor.run {
+                revokeAllSuccess = true
+                devices.removeAll()
+            }
+        } catch {
+            await MainActor.run {
+                revokeAllError = error.localizedDescription
+                showRevokeAllError = true
+            }
+        }
     }
 }
 
