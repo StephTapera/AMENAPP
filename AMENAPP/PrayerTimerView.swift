@@ -13,7 +13,8 @@ struct PrayerTimerView: View {
     @State private var timeRemaining = 300 // 5 minutes default
     @State private var isRunning = false
     @State private var timer: Timer?
-    
+    @State private var sessionStarted = false
+
     enum PrayerPhase: String, CaseIterable {
         case adoration = "Adoration"
         case confession = "Confession"
@@ -226,6 +227,7 @@ struct PrayerTimerView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         stopTimer()
+                        PrayerSessionManager.shared.end()
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
@@ -237,13 +239,19 @@ struct PrayerTimerView: View {
         }
         .onDisappear {
             stopTimer()
+            PrayerSessionManager.shared.end()
+            sessionStarted = false
         }
     }
     
     private func toggleTimer() {
         isRunning.toggle()
-        
+
         if isRunning {
+            if !sessionStarted {
+                sessionStarted = true
+                PrayerSessionManager.shared.start(title: "Prayer Session")
+            }
             startTimer()
         } else {
             stopTimer()
@@ -278,6 +286,7 @@ struct PrayerTimerView: View {
             if currentIndex < PrayerPhase.allCases.count - 1 {
                 currentPhase = PrayerPhase.allCases[currentIndex + 1]
                 timeRemaining = 300
+                PrayerSessionManager.shared.updateTopic(currentPhase.rawValue)
             } else {
                 // Completed all phases
                 stopTimer()

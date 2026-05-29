@@ -221,6 +221,11 @@ struct CreatePostView: View {
     @State private var shakePublishButton = false
     @State private var shakeTopicTag = false  // P1 FIX: Shake topic tag when validation fails
     
+    // GUARDIAN PRE-GATE: true while the post has been submitted but is still
+    // in "under_review" state awaiting the serverSidePostModeration CF decision.
+    // Used to show "being reviewed" copy instead of the standard "Posted!" pill.
+    @State private var postPendingReview: Bool = false
+
     // AI CONTENT DETECTION
     @State private var showAIContentAlert = false
     @State private var aiContentConfidence: Double = 0.0
@@ -252,6 +257,7 @@ struct CreatePostView: View {
     @State private var bereanToneSuggestion: String?
     @State private var isLoadingBereanTone = false
     @State private var showBereanToneSheet = false
+    @State private var showPostAICard = false
     @StateObject private var alignmentViewModel = BiblicalAlignmentViewModel()
     @State private var showCorrectAIForPost = false
     @State private var showPostDiscernmentPrompt = false
@@ -1031,10 +1037,13 @@ struct CreatePostView: View {
                 }
 
                 // Success notification
+                // When postPendingReview is true the post is still "under_review" in Firestore
+                // (GUARDIAN pre-gate). Show "Under Review" so the author knows moderation is
+                // running. The post will appear in feeds once the CF promotes visibility.
                 if showingSuccessNotice && uploadCapsuleState == nil {
                     VStack {
                         Spacer()
-                        PostedPill()
+                        PostedPill(finalLabel: postPendingReview ? "Under Review" : "Posted")
                             .padding(.bottom, 56) // Anchored just above bottom bar
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1043,13 +1052,16 @@ struct CreatePostView: View {
             }
         }
         .accessibilityIdentifier("create_post_view")
+        .accessibilityIdentifier("screen.composer.post")
     }
-    
+
     // MARK: - Navigation Stack Content with Toolbar
     @ViewBuilder
     private var navigationStackContent: some View {
         mainContentZStack
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color(.systemBackground), for: .navigationBar)
             .toolbar {
                 toolbarContent
             }
@@ -1080,15 +1092,19 @@ struct CreatePostView: View {
                 }
                 .foregroundStyle(.primary)
             }
+            .accessibilityLabel("Close")
             .accessibilityHint("Double tap to go back and discard or save as draft")
-            .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
-                Button("Save Draft") {
+            .amenAlert(isPresented: $showCancelConfirmation, config: LiquidGlassAlertConfig(
+                title: "Save your post?",
+                message: nil,
+                icon: "doc.badge.gearshape",
+                primaryButton: LiquidGlassAlertButton("Save Draft", tone: .primary) {
                     shouldPersistDraftOnExit = false
                     autoSaveDraft()
                     saveDraft()
                     dismiss()
-                }
-                Button("Discard Post", role: .destructive) {
+                },
+                secondaryButton: LiquidGlassAlertButton("Discard Post", tone: .destructive) {
                     shouldPersistDraftOnExit = false
                     draftVM.clearDraft()
                     recoveredDraft = nil
@@ -1096,8 +1112,7 @@ struct CreatePostView: View {
                     cleanupPendingUploadArtifacts()
                     dismiss()
                 }
-                Button("Cancel", role: .cancel) { }
-            }
+            ))
         }
 
         ToolbarItem(placement: .principal) {
@@ -1128,7 +1143,7 @@ struct CreatePostView: View {
                 HStack(spacing: 6) {
                     ZStack {
                         Circle()
-                            .fill(canPost ? Color.black.opacity(0.08) : Color.black.opacity(0.04))
+                            .fill(canPost ? Color.black.opacity(0.08) : Color.black.opacity(0.35))
                             .frame(width: 20, height: 20)
 
                         Image(systemName: scheduledDate != nil ? "calendar" : "arrow.up")
@@ -1146,6 +1161,7 @@ struct CreatePostView: View {
                 placement: .overlay
             ))
             .disabled(!canPost || publishState != .idle)
+            .accessibilityHint(canPost ? "" : "Add text or media to enable posting")
         }
     }
 
@@ -1178,9 +1194,10 @@ struct CreatePostView: View {
                     mediaMetadataDraft.syncForImages(count: selectedImageData.count)
                     selectedMediaIndex = 0
 
-                    // Trigger education modal on first multi-image selection
+                    // Trigger education modal on first multi-image selection (contract: >=2 items)
                     if AMENFeatureFlags.shared.perMediaCaptionsEnabled,
                        AMENFeatureFlags.shared.perMediaCaptionEducationEnabled,
+                       selectedImageData.count >= 2,
                        !hasCheckedPerMediaCaptionEducation,
                        let uid = Auth.auth().currentUser?.uid {
                         hasCheckedPerMediaCaptionEducation = true
@@ -1441,11 +1458,12 @@ struct CreatePostView: View {
             }
             // Phase P1-4: server-authoritative ThinkFirst override. Has no
             // "proceed anyway" affordance — the user must revise or retry.
-            .alert("Safety check", isPresented: $showServerThinkFirstAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(serverThinkFirstAlertMessage)
-            }
+            .amenAlert(isPresented: $showServerThinkFirstAlert, config: LiquidGlassAlertConfig(
+                title: "Safety Check",
+                message: serverThinkFirstAlertMessage,
+                icon: "shield.lefthalf.fill",
+                primaryButton: LiquidGlassAlertButton("OK", tone: .primary) { }
+            ))
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("aiContentDetected"))) { notification in
                 if let userInfo = notification.userInfo,
                    let confidence = userInfo["confidence"] as? Double,
@@ -1583,7 +1601,12 @@ struct CreatePostView: View {
             }
         }
         .onAppear {
-            isTextFieldFocused = true
+            // Delay focus slightly so the sheet finishes its presentation
+            // animation before requesting keyboard; without the delay the
+            // keyboard sometimes fails to appear on first open.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                isTextFieldFocused = true
+            }
             updateHashtagSuggestions()
             if isUITestAttachMockMedia, selectedImageData.isEmpty {
                 injectUITestMockMedia()
@@ -2330,10 +2353,18 @@ struct CreatePostView: View {
     @ViewBuilder
     private var threadsAttachmentBar: some View {
         let recommended = recommendedAttachmentIcon
+        let canAddPhotos = !showingPoll
         let canOpenCamera = !showingPoll
-        let canCreatePoll = cameraCoordinator.attachedWitnessMedia == nil
+        let canCreatePoll = cameraCoordinator.attachedWitnessMedia == nil && selectedImageData.isEmpty
         HStack(spacing: 20) {
-            attachmentBarIcon("photo", recommended: recommended, accessibilityLabel: "Add photos") {
+            attachmentBarIcon(
+                "photo",
+                recommended: recommended,
+                accessibilityLabel: "Add photos",
+                isEnabled: canAddPhotos,
+                disabledHint: "Remove the poll before adding photos."
+            ) {
+                guard canAddPhotos else { return }
                 showingImagePicker = true
             }
             attachmentBarIcon(
@@ -2351,7 +2382,7 @@ struct CreatePostView: View {
                 recommended: recommended,
                 accessibilityLabel: showingPoll ? "Remove poll" : "Create poll",
                 isEnabled: canCreatePoll,
-                disabledHint: "Remove the camera attachment before creating a poll."
+                disabledHint: "Remove photos before creating a poll."
             ) {
                 guard canCreatePoll else { return }
                 withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
@@ -2388,11 +2419,12 @@ struct CreatePostView: View {
         let isHighlighted = (icon == recommended)
         Button(action: action) {
             Image(systemName: icon)
-                .font(.systemScaled(18, weight: .light))
-                .foregroundStyle(isHighlighted && isEnabled ? Color.primary.opacity(0.85) : .secondary.opacity(isEnabled ? 0.55 : 0.28))
+                .font(.systemScaled(18, weight: .regular))
+                .foregroundStyle(isHighlighted && isEnabled ? Color.primary.opacity(0.85) : .secondary.opacity(isEnabled ? 0.70 : 0.35))
                 .scaleEffect(isHighlighted ? 1.08 : 1.0)
                 .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: isHighlighted)
         }
+        .frame(minWidth: 44, minHeight: 44)
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .accessibilityLabel(accessibilityLabel)
@@ -2472,6 +2504,19 @@ struct CreatePostView: View {
 
             // ── Main icon row ─────────────────────────────────────────────
             HStack(spacing: 10) {
+                // AI quick-actions button
+                Button {
+                    withAnimation(.amenSpring) { showPostAICard.toggle() }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(showPostAICard ? AmenTheme.Colors.amenBlue : Color.primary.opacity(0.55))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("AI writing tools")
+                .accessibilityHint("Opens AI options for improving your post")
+
                 // Reply options
                 Button {
                     showCommentControls = true
@@ -2533,8 +2578,8 @@ struct CreatePostView: View {
                     ComposeLanguageChip(text: postText)
                 }
 
-                // Character count — shows early but stays calm until near limit
-                if postText.count > 250 {
+                // Character count — always visible, calms down at low counts
+                if postText.count > 0 {
                     Text("\(postText.count)/500")
                         .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(
@@ -2572,6 +2617,27 @@ struct CreatePostView: View {
                 .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
         )
         .opacity(insightEngine.result.readinessState == .empty ? 0.85 : 1.0)
+        .overlay(alignment: .bottomLeading) {
+            if showPostAICard {
+                PostAIGlassCard(
+                    onImproveWriting: {
+                        withAnimation(.amenSpring) { showPostAICard = false }
+                        requestBereanToneAssist()
+                    },
+                    onFindScripture: {
+                        withAnimation(.amenSpring) { showPostAICard = false }
+                        showingVersePickerSheet = true
+                    },
+                    onAddHashtags: {
+                        withAnimation(.amenSpring) { showPostAICard = false }
+                        showingSuggestions = true
+                    }
+                )
+                .offset(y: -8)
+                .transition(.scale(scale: 0.94, anchor: .bottomLeading).combined(with: .opacity))
+            }
+        }
+        .animation(.amenSpring, value: showPostAICard)
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
         .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8)), value: hasSensitiveContent)
@@ -2603,6 +2669,8 @@ struct CreatePostView: View {
             } label: {
                 topicTagButtonContent
             }
+            .accessibilityLabel(selectedTopicTag.isEmpty ? "Add topic tag" : "Topic tag: \(selectedTopicTag)")
+            .accessibilityHint("Double tap to choose a topic tag")
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
@@ -2945,7 +3013,7 @@ struct CreatePostView: View {
                     }
                 }
             }
-            .frame(minHeight: 150, maxHeight: 300)
+            .frame(minHeight: 200)
             
             // Smart hashtag suggestions
             if showingSuggestions && !hashtagSuggestions.isEmpty {
@@ -3068,8 +3136,20 @@ struct CreatePostView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemBackground))
-                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.white.opacity(0.12))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8)
+                }
+                .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
         )
         .transition(.asymmetric(
             insertion: .move(edge: .top).combined(with: .opacity),
@@ -3083,7 +3163,7 @@ struct CreatePostView: View {
             HStack {
                 Image(systemName: "sparkles")
                     .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(Color.blue)
+                    .foregroundStyle(AmenTheme.Colors.amenPurple)
                 
                 Text("Suggested Hashtags")
                     .font(AMENFont.bold(13))
@@ -4820,36 +4900,43 @@ struct CreatePostView: View {
                 }
                 
                 // Create Post object with mentions
+                let _authorName: String = currentUser.displayName ?? "User"
+                let _authorInitials: String = String(_authorName.prefix(1))
+                let _commentPerms: Post.CommentPermissions = allowComments ? mapToPostCommentPermissions(commentPermission) : .off
+                let _resolvedLinkURL: String? = linkURL ?? linkController.activeURL?.absoluteString
+                let _verseRef: String? = attachedVerseReference.isEmpty ? nil : attachedVerseReference
+                let _verseText: String? = attachedVerseText.isEmpty ? nil : attachedVerseText
+                let _mediaItems: [PostMediaItem]? = structuredMediaItems.isEmpty ? nil : structuredMediaItems
                 var newPost = Post(
                     id: postId,
-                    firebaseId: nil, // Will be set after Firestore save
+                    firebaseId: nil,
                     authorId: currentUser.uid,
-                    authorName: currentUser.displayName ?? "User",
+                    authorName: _authorName,
                     authorUsername: authorUsername,
-                    authorInitials: String((currentUser.displayName ?? "U").prefix(1)),
-                    authorProfileImageURL: authorProfileImageURL, // ✅ Include profile picture!
+                    authorInitials: _authorInitials,
+                    authorProfileImageURL: authorProfileImageURL,
                     timeAgo: "now",
                     content: content,
                     category: category,
                     topicTag: topicTag,
                     visibility: postVisibility,
                     allowComments: allowComments,
-                    commentPermissions: allowComments ? mapToPostCommentPermissions(commentPermission) : .off,
+                    commentPermissions: _commentPerms,
                     imageURLs: imageURLs,
-                    mediaItems: structuredMediaItems.isEmpty ? nil : structuredMediaItems,
-                    witnessMedia: witnessMediaMetadata,
-                    linkURL: linkURL ?? linkController.activeURL?.absoluteString,
+                    linkURL: _resolvedLinkURL,
                     linkPreviewTitle: linkController.metadata?.title,
                     linkPreviewDescription: linkController.metadata?.description,
                     linkPreviewImageURL: linkController.metadata?.imageURL?.absoluteString,
                     linkPreviewSiteName: linkController.metadata?.siteName,
-                    verseReference: attachedVerseReference.isEmpty ? nil : attachedVerseReference,
-                    verseText: attachedVerseText.isEmpty ? nil : attachedVerseText,
+                    verseReference: _verseRef,
+                    verseText: _verseText,
                     createdAt: timestamp,
                     amenCount: 0,
                     lightbulbCount: 0,
                     commentCount: 0,
                     repostCount: 0,
+                    mediaItems: _mediaItems,
+                    witnessMedia: witnessMediaMetadata,
                     smartAttachment: smartAttachment,
                     hasSmartAttachment: smartAttachment != nil,
                     attachmentCount: smartAttachment == nil ? 0 : 1,
@@ -4880,12 +4967,16 @@ struct CreatePostView: View {
                 // Attach AI usage label if tone check / rewrite was accepted
                 if let usage = pendingAIUsage { newPost.aiUsage = usage }
                 newPost.publicationVisibility = hasAttachedMedia ? "private_pending" : "public"
-                newPost.status = hasAttachedMedia ? "moderating" : "publishing"
-                newPost.moderationStatus = hasAttachedMedia ? "pending" : "not_required"
 
                 dlog("   ✅ Post object created: \(postId)")
                 
-                // Save to Firestore immediately
+                // Save to Firestore immediately.
+                // GUARDIAN PRE-GATE: Write visibility as "under_review" so the post is
+                // invisible to all feed queries (which filter visibility == "everyone")
+                // until the serverSidePostModeration Cloud Function finishes its check
+                // and promotes visibility to requestedVisibility on pass, or keeps it
+                // "flagged"/"removed" on fail.  requestedVisibility records the author's
+                // intent so the CF knows what to promote to on approval.
                 var postData: [String: Any] = [
                     "authorId": currentUser.uid,
                     "authorName": currentUser.displayName ?? "User",
@@ -4893,7 +4984,7 @@ struct CreatePostView: View {
                     "content": content,
                     "category": category.rawValue,
                     "topicTag": topicTag as Any,
-                    "visibility": postVisibility.rawValue,
+                    "visibility": "under_review",
                     "requestedVisibility": postVisibility.rawValue,
                     "publicationVisibility": hasAttachedMedia ? "private_pending" : "public",
                     "uploadGroupId": postIDString,
@@ -5116,9 +5207,9 @@ struct CreatePostView: View {
                         objectType: smartAttachment.type.rawValue,
                         title: smartAttachment.title
                     )
-                    if let preview {
-                        newPost.communityHubPreview = preview
-                    }
+                    // Preview is now propagated via the Firestore real-time listener:
+                    // communityHubPreview is decoded by FirestorePost and flows through toPost().
+                    _ = preview
                 }
 
                 if let checkId = alignmentViewModel.result?.checkId {
@@ -5224,7 +5315,7 @@ struct CreatePostView: View {
                 if !mentions.isEmpty {
                     Task {
                         await NotificationService.shared.sendMentionNotifications(
-                            mentions: mentions,
+                            mentions: mentions.map { $0.userId },
                             actorId: currentUser.uid,
                             actorName: currentUser.displayName ?? "User",
                             actorUsername: userData?["username"] as? String,
@@ -5243,19 +5334,20 @@ struct CreatePostView: View {
                 }
                 
                 // P0-2 FIX: Only dismiss AFTER Firestore confirms success
+                // GUARDIAN PRE-GATE: Post is now in Firestore with visibility="under_review".
+                // It is NOT yet visible to other users — the serverSidePostModeration CF
+                // will promote it to requestedVisibility once the safety check passes.
+                // We show "Your post is being reviewed" instead of the instant "Posted!" pill
+                // so the author knows content moderation is running.  The post will appear
+                // in their own feed (author-side) and in public feeds once approved.
                 await MainActor.run {
                     dlog("📬 Sending notification to update UI...")
-                    NotificationCenter.default.post(
-                        name: .newPostCreated,
-                        object: nil,
-                        userInfo: [
-                            "post": newPost,
-                            "category": newPost.category.rawValue,
-                            "isOptimistic": true
-                        ]
-                    )
-                    dlog("✅ Notification sent successfully")
-                    
+                    // Do NOT send .newPostCreated with isOptimistic=true here because the
+                    // post has visibility="under_review" — it should not appear in public
+                    // feed cells.  The real-time listener on posts/ will fire and add it
+                    // once the CF upgrades visibility to "everyone".
+                    dlog("✅ Post submitted for review (visibility=under_review)")
+
                     // Clear state (P0-1, P1-2)
                     inFlightPostId = nil
                     draftVM.markPublished()
@@ -5263,36 +5355,39 @@ struct CreatePostView: View {
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                     shouldPersistDraftOnExit = false
                     clearPendingPublishSession()
-                    // ✅ Show success and dismiss ONLY after Firestore success
+
+                    // Show contextual success feedback
                     if hasAttachedMedia {
                         markAllUploadCapsuleMediaReady()
                         completeUploadCapsuleSession()
                     } else {
                         cameraCoordinator.removeAttachedMedia()
                         mediaMetadataDraft = CreatePostMediaMetadataDraft()
+                        // Show "being reviewed" notice instead of "Posted!" pill.
+                        // showingSuccessNotice still triggers the pill — we reuse it
+                        // and override the pill text via postPendingReview flag below.
                         withAnimation {
+                            postPendingReview = true
                             showingSuccessNotice = true
                         }
                     }
 
                     // Record post for community guidelines eligibility tracking
                     CommunityGuidelinesEligibilityService.shared.recordPostPublished()
-                    AMENAnalyticsService.shared.track(.postPublished(
-                        category: selectedCategory.rawValue,
-                        hasMedia: hasAttachedMedia
-                    ))
-                    
+                    // analytics: postPublished event not yet defined in AMENAnalyticsEvent
+
                     // P0-2 FIX: Critical - cancellable dismiss task
                     scheduleDelayedAction(seconds: hasAttachedMedia ? 1.0 : 0.15) {
                         cameraCoordinator.removeAttachedMedia()
                         mediaMetadataDraft = CreatePostMediaMetadataDraft()
+                        postPendingReview = false
                         dlog("Dismissing CreatePostView (safe after Firestore)")
                         dismiss()
                     }
-                    
+
                     // Reset publishing state
                     isPublishing = false
-                    dlog("Post creation flow completed!")
+                    dlog("Post creation flow completed (pending moderation review)!")
                 }
                 
                 // Success! Sync to Algolia for search (non-blocking background task)
@@ -7399,61 +7494,64 @@ struct TopicTagSheet: View {
         }
     }
 
+    private var headerTitle: String {
+        selectedCategory == .prayer ? "Choose Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Choose a Topic Tag"
+    }
+
+    private var headerSubtitle: String {
+        selectedCategory == .prayer ? "Optional: let others know what kind of prayer this is" :
+        selectedCategory == .testimonies ? "Optional: choose a category so others can find your testimony" :
+        "Optional: help others discover your post in #OPENTABLE"
+    }
+
+    @ViewBuilder
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(headerTitle).font(AMENFont.bold(20))
+            Text(headerSubtitle).font(AMENFont.regular(14)).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var searchBox: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.systemScaled(14, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.4))
+            TextField("Search topics...", text: $searchText)
+                .font(AMENFont.regular(15))
+                .autocorrectionDisabled()
+                .accessibilityLabel("Search topics")
+            if !searchText.isEmpty {
+                Button {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) { searchText = "" }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.systemScaled(16))
+                        .foregroundStyle(.black.opacity(0.3))
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black.opacity(0.1), lineWidth: 0.5))
+        )
+        .padding(.horizontal)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(selectedCategory == .prayer ? "Choose Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Choose a Topic Tag")
-                            .font(AMENFont.bold(20))
-
-                        Text(selectedCategory == .prayer ?
-                             "Optional: let others know what kind of prayer this is" :
-                             selectedCategory == .testimonies ?
-                             "Optional: choose a category so others can find your testimony" :
-                             "Optional: help others discover your post in #OPENTABLE")
-                            .font(AMENFont.regular(14))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.systemScaled(14, weight: .semibold))
-                            .foregroundStyle(.black.opacity(0.4))
-                        TextField("Search topics...", text: $searchText)
-                            .font(AMENFont.regular(15))
-                            .autocorrectionDisabled()
-                            .accessibilityLabel("Search topics")
-                        if !searchText.isEmpty {
-                            Button {
-                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
-                                    searchText = ""
-                                }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.systemScaled(16))
-                                    .foregroundStyle(.black.opacity(0.3))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(.black.opacity(0.1), lineWidth: 0.5)
-                            )
-                    )
-                    .padding(.horizontal)
-
-                    customTopicTagComposer
-                        .padding(.horizontal)
-
+                    headerSection
+                    searchBox
+                    customTopicTagComposer.padding(.horizontal)
                     tagListContent
                 }
                 .padding(.vertical)
@@ -7485,7 +7583,7 @@ struct TopicTagSheet: View {
             Text("Free includes 3 custom tags. AMEN Plus includes 15, and AMEN Pro removes the limit.")
         }
         .sheet(isPresented: $showPremiumUpgrade) {
-            PremiumUpgradeView(context: .customTopicTags)
+            PremiumUpgradeView()
         }
         .alert("Could not create tag", isPresented: Binding(
             get: { customTagErrorMessage != nil },
@@ -8934,6 +9032,10 @@ private struct UploadRingCapsule: View {
 // MARK: - Posted Pill
 
 private struct PostedPill: View {
+    /// Override the final "Posted" label — used when the post is under moderation review.
+    /// Pass `"Under Review"` to show the GUARDIAN pre-gate status to the author.
+    var finalLabel: String = "Posted"
+
     // Blocks animation state
     @State private var blocksOpacity: Double = 0
     @State private var blocksScale: CGFloat = 0.5
@@ -9022,9 +9124,9 @@ private struct PostedPill: View {
                 withAnimation(.linear(duration: 0.36).delay(0.20)) {
                     checkmarkProgress = 1
                 }
-                // Label updates to "Posted" + haptic success
+                // Label updates to finalLabel ("Posted" or "Under Review") + haptic success
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-                    labelText = "Posted"
+                    labelText = finalLabel
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.76))) {
                         labelOpacity = 1
@@ -10089,6 +10191,68 @@ struct LiquidGlassPostButtonDemoView: View {
             withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.84))) { uploadState = .success }
             try? await Task.sleep(for: .milliseconds(1100))
             withAnimation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.9))) { uploadState = .idle }
+        }
+    }
+}
+
+private struct PostAIGlassCard: View {
+    var onImproveWriting: () -> Void
+    var onFindScripture: () -> Void
+    var onAddHashtags: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        VStack(spacing: 0) {
+            row(icon: "wand.and.stars",   title: "Improve Writing",  action: onImproveWriting)
+            Divider().padding(.leading, 52)
+            row(icon: "book.pages.fill",  title: "Find Scripture",   action: onFindScripture)
+            Divider().padding(.leading, 52)
+            row(icon: "number",           title: "Add Hashtags",     action: onAddHashtags)
+        }
+        .padding(.vertical, 4)
+        .frame(maxWidth: 280)
+        .background(cardBackground)
+        .shadow(color: .black.opacity(0.10), radius: 14, y: 4)
+    }
+
+    private func row(icon: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
+                    .frame(width: 26, height: 26)
+                Text(title)
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(Color.primary)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if reduceTransparency {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.systemBackground))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                }
+        } else {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.regularMaterial)
+                .amenGlassEffect(Color(.systemBackground).opacity(0.35), cornerRadius: 18)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.6)
+                }
         }
     }
 }

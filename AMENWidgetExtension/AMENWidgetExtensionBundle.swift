@@ -30,6 +30,8 @@ struct AMENWidgetExtensionBundle: WidgetBundle {
         BereanLiveActivityWidget()
         // Dynamic Island — Prayer Chain Live Activity
         PrayerChainLiveActivityWidget()
+        // Dynamic Island — Active Prayer Session Live Activity
+        PrayerSessionLiveActivity()
         // Control Center / Lock Screen / Action Button controls (iOS 18+)
         if #available(iOSApplicationExtension 18.0, *) {
             AmenNewPostControl()

@@ -53,6 +53,15 @@
 		EF4E20822F1F421D0066C5C2 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20812F1F421D0066C5C2 /* FirebaseRemoteConfig */; };
 		EF4E20842F1F421D0066C5C2 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20832F1F421D0066C5C2 /* FirebaseStorage */; };
 		EF4E20862F1F421D0066C5C2 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20852F1F421D0066C5C2 /* FirebaseStorageCombine-Community */; };
+		EF5480DF2FC9DD0C00EEE566 /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = EF5480DE2FC9DD0C00EEE566 /* GoogleMaps */; };
+		EF5480E12FC9DF5700EEE566 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5480E02FC9DF5700EEE566 /* StoreKit.framework */; };
+		EF5480E32FC9DF5F00EEE566 /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5480E22FC9DF5F00EEE566 /* AuthenticationServices.framework */; };
+		EF5480E52FC9DF6D00EEE566 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5480E42FC9DF6D00EEE566 /* AVFoundation.framework */; };
+		EF5480E72FC9DF7200EEE566 /* Speech.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5480E62FC9DF7200EEE566 /* Speech.framework */; };
+		EF5480E92FC9DF7A00EEE566 /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5480E82FC9DF7A00EEE566 /* CoreLocation.framework */; };
+		EF5480EB2FC9DF8000EEE566 /* MapKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5480EA2FC9DF8000EEE566 /* MapKit.framework */; };
+		EF5480ED2FC9DF8800EEE566 /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5480EC2FC9DF8800EEE566 /* PhotosUI.framework */; };
+		EF5480EF2FC9DF8E00EEE566 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5480EE2FC9DF8E00EEE566 /* UserNotifications.framework */; };
 		EF5B39062F5BA7A500152D09 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5B39052F5BA7A500152D09 /* WidgetKit.framework */; };
 		EF5B39082F5BA7A500152D09 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5B39072F5BA7A500152D09 /* SwiftUI.framework */; };
 		EF5B39152F5BA7A600152D09 /* AMENWidgetExtensionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -237,6 +246,14 @@
 		EF475AEE2F58573100744F61 /* SexualContentPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualContentPolicy.swift; sourceTree = "<group>"; };
 		EF475AF02F58576F00744F61 /* MediaModerationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModerationPipeline.swift; sourceTree = "<group>"; };
 		EF475AF22F58586600744F61 /* ProactiveFrictionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProactiveFrictionView.swift; sourceTree = "<group>"; };
+		EF5480E02FC9DF5700EEE566 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		EF5480E22FC9DF5F00EEE566 /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
+		EF5480E42FC9DF6D00EEE566 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		EF5480E62FC9DF7200EEE566 /* Speech.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Speech.framework; path = System/Library/Frameworks/Speech.framework; sourceTree = SDKROOT; };
+		EF5480E82FC9DF7A00EEE566 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
+		EF5480EA2FC9DF8000EEE566 /* MapKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MapKit.framework; path = System/Library/Frameworks/MapKit.framework; sourceTree = SDKROOT; };
+		EF5480EC2FC9DF8800EEE566 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
+		EF5480EE2FC9DF8E00EEE566 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
 		EF55D2072F4E9DF40086707A /* FTUEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTUEManager.swift; sourceTree = "<group>"; };
 		EF55D2092F4E9E1B0086707A /* CoachMarkOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkOverlay.swift; sourceTree = "<group>"; };
 		EF55D20B2F4E9E4D0086707A /* CoachMarkFramePreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkFramePreferences.swift; sourceTree = "<group>"; };
@@ -531,6 +548,9 @@
 		EFFAA58B2FC8B349004D4A2D /* CommunityNotesBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNotesBrowseView.swift; sourceTree = "<group>"; };
 		EFFAA58C2FC8B363004D4A2D /* CommunityNoteCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNoteCardView.swift; sourceTree = "<group>"; };
 		EFFAA58D2FC8B3A7004D4A2D /* CommunityNotePublishSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNotePublishSheet.swift; sourceTree = "<group>"; };
+		EFFAA61B2FC99BAB004D4A2D /* NearbyUsersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyUsersService.swift; sourceTree = "<group>"; };
+		EFFAA62C2FC99DB2004D4A2D /* NearbyPermissionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyPermissionSheet.swift; sourceTree = "<group>"; };
+		EFFAA6302FC9A2EE004D4A2D /* NearbyPeopleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyPeopleView.swift; sourceTree = "<group>"; };
 		FE6331EA2267427EBCD3177B /* AmenSyncReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncReviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -566,6 +586,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				BereanActivityAttributes.swift,
+				Shared/PrayerSessionAttributes.swift,
 			);
 			target = EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */;
 		};
@@ -661,6 +682,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EF4BA9DA2F29FDD3000B930F /* AlgoliaAbtesting in Frameworks */,
+				EF5480DF2FC9DD0C00EEE566 /* GoogleMaps in Frameworks */,
 				EF4E20642F1F421D0066C5C2 /* FirebaseAppDistribution-Beta in Frameworks */,
 				EF4E20702F1F421D0066C5C2 /* FirebaseFirestore in Frameworks */,
 				EF4BA9E62F29FDD3000B930F /* AlgoliaInsights in Frameworks */,
@@ -674,6 +696,7 @@
 				EF4BA9EC2F29FDD3000B930F /* AlgoliaQuerySuggestions in Frameworks */,
 				EF4BA9DE2F29FDD3000B930F /* AlgoliaAnalytics in Frameworks */,
 				EF4E206C2F1F421D0066C5C2 /* FirebaseCrashlytics in Frameworks */,
+				EF5480E12FC9DF5700EEE566 /* StoreKit.framework in Frameworks */,
 				EF4E20762F1F421D0066C5C2 /* FirebaseFunctionsCombine-Community in Frameworks */,
 				EF4E20862F1F421D0066C5C2 /* FirebaseStorageCombine-Community in Frameworks */,
 				EF4E206E2F1F421D0066C5C2 /* FirebaseDatabase in Frameworks */,
@@ -681,22 +704,29 @@
 				EF5D8DC62F3EDC80000BB6C9 /* GoogleGenerativeAI in Frameworks */,
 				EF4E20842F1F421D0066C5C2 /* FirebaseStorage in Frameworks */,
 				EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */,
+				EF5480E32FC9DF5F00EEE566 /* AuthenticationServices.framework in Frameworks */,
+				EF5480E52FC9DF6D00EEE566 /* AVFoundation.framework in Frameworks */,
 				EF4BA9E02F29FDD3000B930F /* AlgoliaComposition in Frameworks */,
 				EF4E20822F1F421D0066C5C2 /* FirebaseRemoteConfig in Frameworks */,
 				EF4E205C2F1F421D0066C5C2 /* FirebaseAnalytics in Frameworks */,
+				EF5480E92FC9DF7A00EEE566 /* CoreLocation.framework in Frameworks */,
 				EF4E207E2F1F421D0066C5C2 /* FirebaseMessaging in Frameworks */,
 				EF4E207C2F1F421D0066C5C2 /* FirebaseMLModelDownloader in Frameworks */,
 				EF4BA9E42F29FDD3000B930F /* AlgoliaIngestion in Frameworks */,
 				EF4E20802F1F421D0066C5C2 /* FirebasePerformance in Frameworks */,
 				EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */,
+				EF5480EF2FC9DF8E00EEE566 /* UserNotifications.framework in Frameworks */,
 				EF4E206A2F1F421D0066C5C2 /* FirebaseCore in Frameworks */,
 				EF43AAD12F5412C40075E1B5 /* ActivityKit.framework in Frameworks */,
 				EF4E20622F1F421D0066C5C2 /* FirebaseAppCheck in Frameworks */,
 				EF4BA9EE2F29FDD3000B930F /* AlgoliaRecommend in Frameworks */,
+				EF5480E72FC9DF7200EEE566 /* Speech.framework in Frameworks */,
 				EF4BA9EA2F29FDD3000B930F /* AlgoliaPersonalization in Frameworks */,
 				EF4E205E2F1F421D0066C5C2 /* FirebaseAnalyticsCore in Frameworks */,
+				EF5480ED2FC9DF8800EEE566 /* PhotosUI.framework in Frameworks */,
 				EF4E20742F1F421D0066C5C2 /* FirebaseFunctions in Frameworks */,
 				EF4BA9F02F29FDD3000B930F /* AlgoliaSearch in Frameworks */,
+				EF5480EB2FC9DF8000EEE566 /* MapKit.framework in Frameworks */,
 				EF4E20662F1F421D0066C5C2 /* FirebaseAuth in Frameworks */,
 				EF4E20722F1F421D0066C5C2 /* FirebaseFirestoreCombine-Community in Frameworks */,
 				EF4BA9DC2F29FDD3000B930F /* AlgoliaAbtestingV3 in Frameworks */,
@@ -1225,6 +1255,9 @@
 				EF7DBD2D2FC55951005CA8BC /* Config.local.xcconfig */,
 				EF7DBD3C2FC55A76005CA8BC /* Selah */,
 				EFFAA5862FC8B2BA004D4A2D /* CommunityNotes */,
+				EFFAA61B2FC99BAB004D4A2D /* NearbyUsersService.swift */,
+				EFFAA62C2FC99DB2004D4A2D /* NearbyPermissionSheet.swift */,
+				EFFAA6302FC9A2EE004D4A2D /* NearbyPeopleView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1346,6 +1379,14 @@
 		EFBDED3F2F251CD1001E650E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EF5480EE2FC9DF8E00EEE566 /* UserNotifications.framework */,
+				EF5480EC2FC9DF8800EEE566 /* PhotosUI.framework */,
+				EF5480EA2FC9DF8000EEE566 /* MapKit.framework */,
+				EF5480E82FC9DF7A00EEE566 /* CoreLocation.framework */,
+				EF5480E62FC9DF7200EEE566 /* Speech.framework */,
+				EF5480E42FC9DF6D00EEE566 /* AVFoundation.framework */,
+				EF5480E22FC9DF5F00EEE566 /* AuthenticationServices.framework */,
+				EF5480E02FC9DF5700EEE566 /* StoreKit.framework */,
 				EF43AAD02F5412C40075E1B5 /* ActivityKit.framework */,
 				EF7475D82F2C85CD00A4434F /* XCTest.framework */,
 				EF5B39052F5BA7A500152D09 /* WidgetKit.framework */,
@@ -1499,6 +1540,7 @@
 				EF38A1202F2D114F004E694A /* GoogleSignIn */,
 				EF38A1222F2D114F004E694A /* GoogleSignInSwift */,
 				EF5D8DC52F3EDC80000BB6C9 /* GoogleGenerativeAI */,
+				EF5480DE2FC9DD0C00EEE566 /* GoogleMaps */,
 			);
 			productName = AMENAPP;
 			productReference = EF81519B2F184E97008912E3 /* AMENAPP.app */;
@@ -1564,6 +1606,7 @@
 				EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */,
 				EF38A11F2F2D114F004E694A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				EF5D8DC42F3EDC80000BB6C9 /* XCRemoteSwiftPackageReference "generative-ai-swift" */,
+				EF5480DD2FC9DD0C00EEE566 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EF81519C2F184E97008912E3 /* Products */;
@@ -2220,6 +2263,14 @@
 				minimumVersion = 12.8.0;
 			};
 		};
+		EF5480DD2FC9DD0C00EEE566 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googlemaps/ios-maps-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.13.0;
+			};
+		};
 		EF5D8DC42F3EDC80000BB6C9 /* XCRemoteSwiftPackageReference "generative-ai-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/google/generative-ai-swift";
@@ -2420,6 +2471,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = EF4E20562F1F421D0066C5C2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = "FirebaseStorageCombine-Community";
+		};
+		EF5480DE2FC9DD0C00EEE566 /* GoogleMaps */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EF5480DD2FC9DD0C00EEE566 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */;
+			productName = GoogleMaps;
 		};
 		EF5D8DC52F3EDC80000BB6C9 /* GoogleGenerativeAI */ = {
 			isa = XCSwiftPackageProductDependency;
