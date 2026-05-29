@@ -404,12 +404,6 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      // Church notes subcollection (user-scoped).
-      match /churchNotes/{noteId} {
-        allow read: if isOwner(uid);
-        allow write: if false;
-      }
-
       match /churchNoteFolders/{folderId} {
         allow read, write: if isOwner(uid);
       }
