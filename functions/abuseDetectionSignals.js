@@ -14,7 +14,6 @@
 
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 
 // ── Signal patterns ────────────────────────────────────────────────────────────
 //
@@ -170,43 +169,42 @@ async function queueRiskEvent(senderId, recipientId, surface, signals, severity)
   });
 }
 
-// ── Firestore trigger: new DM message ─────────────────────────────────────────
+// ── Firestore trigger handler: new DM message ────────────────────────────────
 //
-// Fires on every new message in a conversation.
+// Handler for every new message in a conversation.
+// Registered as exports.onNewDMMessage in index.js (trigger defined there so
+// Firebase CLI resolves the function name from the root export key).
 // [DECISION REQUIRED] D-12: whether to scan all DMs or only messages from
 //                            flagged/high-risk accounts.
 
-exports.onNewDMMessage = onDocumentCreated(
-  { document: 'conversations/{conversationId}/messages/{messageId}', region: 'us-central1' },
-  async (event) => {
-    const msg = event.data?.data();
-    if (!msg || !msg.content) return;
+exports.handleNewDMMessage = async (event) => {
+  const msg = event.data?.data();
+  if (!msg || !msg.content) return;
 
-    const signals = extractSignals(msg.content);
-    if (signals.length === 0) return;
+  const signals = extractSignals(msg.content);
+  if (signals.length === 0) return;
 
-    // Severity: any two or more signals in a single message → high; one signal → medium.
-    const severity = signals.length >= 2 ? 'high' : 'medium';
+  // Severity: any two or more signals in a single message → high; one signal → medium.
+  const severity = signals.length >= 2 ? 'high' : 'medium';
 
-    // Log signal metadata only — never log message content.
-    logger.warn('[abuseDetection] signals found in DM', {
-      conversationId: event.params.conversationId,
-      senderId: msg.senderId,
-      signalTypes: signals.map(s => s.type),
-      severity,
-      signalCount: signals.length,
-      // Content NOT logged — metadata only.
-    });
+  // Log signal metadata only — never log message content.
+  logger.warn('[abuseDetection] signals found in DM', {
+    conversationId: event.params.conversationId,
+    senderId: msg.senderId,
+    signalTypes: signals.map(s => s.type),
+    severity,
+    signalCount: signals.length,
+    // Content NOT logged — metadata only.
+  });
 
-    await queueRiskEvent(
-      msg.senderId,
-      msg.recipientId || null,
-      'dm',
-      signals,
-      severity,
-    );
-  },
-);
+  await queueRiskEvent(
+    msg.senderId,
+    msg.recipientId || null,
+    'dm',
+    signals,
+    severity,
+  );
+};
 
 // ── Velocity heuristic: mass DM detection ─────────────────────────────────────
 //
@@ -269,6 +267,7 @@ module.exports = {
   extractSignals,
   queueRiskEvent,
   checkDMVelocity,
+  handleNewDMMessage: exports.handleNewDMMessage,
   // Expose thresholds so tests can assert against current values without
   // importing a constant they don't own.
   MASS_DM_THRESHOLD_PER_HOUR,

@@ -11,7 +11,6 @@
 
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 
 // ── Feature flag check ─────────────────────────────────────────────────────────
 // [DECISION REQUIRED]: set minorSafetyEnabled = true in config/featureFlags
@@ -195,83 +194,82 @@ async function writeMinorSafetyAlert(minorUid, actorUid, alertType, contextId) {
 //
 // [DECISION REQUIRED]: whether to extend this trigger to group Space messages
 //   (currently scoped to conversations/ only).
-exports.onNewDMForMinorProtection = onDocumentCreated(
-  { document: 'conversations/{conversationId}/messages/{messageId}', region: 'us-central1' },
-  async (event) => {
-    // Gate: do nothing unless policy is confirmed and flag is on.
-    if (!(await isMinorSafetyEnabled())) return;
+// Handler exported here; trigger registered in index.js so Firebase CLI resolves
+// the function name from the root export key (not the submodule require path).
+exports.handleNewDMForMinorProtection = async (event) => {
+  // Gate: do nothing unless policy is confirmed and flag is on.
+  if (!(await isMinorSafetyEnabled())) return;
 
-    const msg = event.data?.data();
-    if (!msg || !msg.content || !msg.senderId) return;
+  const msg = event.data?.data();
+  if (!msg || !msg.content || !msg.senderId) return;
 
-    const { conversationId } = event.params;
-    const senderId = msg.senderId;
+  const { conversationId } = event.params;
+  const senderId = msg.senderId;
 
-    // Resolve conversation participants to find the recipient(s).
-    const participants = await getConversationParticipants(conversationId);
-    const recipientIds = participants.filter(uid => uid !== senderId);
+  // Resolve conversation participants to find the recipient(s).
+  const participants = await getConversationParticipants(conversationId);
+  const recipientIds = participants.filter(uid => uid !== senderId);
 
-    if (recipientIds.length === 0) {
-      logger.debug('[minorSafety] no recipients found', { conversationId });
-      return;
-    }
+  if (recipientIds.length === 0) {
+    logger.debug('[minorSafety] no recipients found', { conversationId });
+    return;
+  }
 
-    // Check if any recipient is a minor.
-    // [DECISION REQUIRED]: in group conversations, apply check if ANY participant is minor?
-    //   Current: check all recipients, act if any is a minor.
-    let minorRecipientId = null;
-    for (const recipientId of recipientIds) {
-      if (await isMinorAccount(recipientId)) {
-        minorRecipientId = recipientId;
-        break;
-      }
-    }
-
-    if (!minorRecipientId) {
-      // No minor recipient — no action needed.
-      return;
-    }
-
-    // Verify sender is an adult (or unknown = treated as adult for safety purposes).
-    const senderIsMinor = await isMinorAccount(senderId);
-    // [DECISION REQUIRED]: apply grooming detection to minor-to-minor DMs?
-    //   Rationale for adult-only: grooming is typically adult→minor.
-    //   Rationale for all: peer-to-peer exploitation also occurs.
-    //   Current scaffold: adult→minor only.
-    if (senderIsMinor) {
-      logger.debug('[minorSafety] minor-to-minor DM — skipping grooming check', {
-        conversationId,
-        // [DECISION REQUIRED]: add minor-to-minor safety patterns separately?
-      });
-      return;
-    }
-
-    logger.info('[minorSafety] adult-to-minor DM detected, running grooming check', {
-      conversationId,
-      senderId,
-      minorRecipientId,
-      // Content NOT logged.
-    });
-
-    // Run grooming signal detection on message content.
-    const signals = detectGroomingSignals(msg.content);
-
-    if (signals.length > 0) {
-      logger.warn('[minorSafety] grooming signals detected', {
-        conversationId,
-        senderId,
-        signalCount: signals.length,
-        // Content NOT logged — pattern labels only.
-      });
-
-      // Queue for human review (P0 — proposed 1-hour SLA).
-      await queueGroomingReview(senderId, minorRecipientId, signals, conversationId);
-
-      // Write to minor's safety subcollection to trigger guardian alert.
-      await writeMinorSafetyAlert(minorRecipientId, senderId, 'grooming_signal', conversationId);
+  // Check if any recipient is a minor.
+  // [DECISION REQUIRED]: in group conversations, apply check if ANY participant is minor?
+  //   Current: check all recipients, act if any is a minor.
+  let minorRecipientId = null;
+  for (const recipientId of recipientIds) {
+    if (await isMinorAccount(recipientId)) {
+      minorRecipientId = recipientId;
+      break;
     }
   }
-);
+
+  if (!minorRecipientId) {
+    // No minor recipient — no action needed.
+    return;
+  }
+
+  // Verify sender is an adult (or unknown = treated as adult for safety purposes).
+  const senderIsMinor = await isMinorAccount(senderId);
+  // [DECISION REQUIRED]: apply grooming detection to minor-to-minor DMs?
+  //   Rationale for adult-only: grooming is typically adult→minor.
+  //   Rationale for all: peer-to-peer exploitation also occurs.
+  //   Current scaffold: adult→minor only.
+  if (senderIsMinor) {
+    logger.debug('[minorSafety] minor-to-minor DM — skipping grooming check', {
+      conversationId,
+      // [DECISION REQUIRED]: add minor-to-minor safety patterns separately?
+    });
+    return;
+  }
+
+  logger.info('[minorSafety] adult-to-minor DM detected, running grooming check', {
+    conversationId,
+    senderId,
+    minorRecipientId,
+    // Content NOT logged.
+  });
+
+  // Run grooming signal detection on message content.
+  const signals = detectGroomingSignals(msg.content);
+
+  if (signals.length > 0) {
+    logger.warn('[minorSafety] grooming signals detected', {
+      conversationId,
+      senderId,
+      signalCount: signals.length,
+      // Content NOT logged — pattern labels only.
+    });
+
+    // Queue for human review (P0 — proposed 1-hour SLA).
+    await queueGroomingReview(senderId, minorRecipientId, signals, conversationId);
+
+    // Write to minor's safety subcollection to trigger guardian alert.
+    await writeMinorSafetyAlert(minorRecipientId, senderId, 'grooming_signal', conversationId);
+  }
+};
 
 // ── Apply age-appropriate defaults to a user account ─────────────────────────
 /**
@@ -316,13 +314,10 @@ async function applyMinorAccountDefaults(uid) {
 // ── Exports ───────────────────────────────────────────────────────────────────
 // detectGroomingSignals and isMinorAccount are exported for unit testing.
 // applyMinorAccountDefaults is exported for use by account creation flows.
-// onNewDMForMinorProtection is the active Firestore trigger (gated by feature flag).
+// handleNewDMForMinorProtection is the handler; the trigger is registered in index.js.
 module.exports = {
   detectGroomingSignals,
   applyMinorAccountDefaults,
   isMinorAccount,
-  // onNewDMForMinorProtection is registered above via onDocumentCreated;
-  // export it so it can be included in functions/index.js when policy is confirmed.
-  // [DECISION REQUIRED]: add to functions/index.js exports only after policy sign-off.
-  onNewDMForMinorProtection: exports.onNewDMForMinorProtection,
+  handleNewDMForMinorProtection: exports.handleNewDMForMinorProtection,
 };

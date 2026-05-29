@@ -1423,10 +1423,16 @@ exports.livingWordEngine        = aiPromptFeaturesFns.livingWordEngine;
 // All triggers: no content stored; metadata-only; all actions require human review.
 // ============================================================================
 const abuseDetectionFns = require('./abuseDetectionSignals');
-exports.onNewDMMessage = abuseDetectionFns.onNewDMMessage;
+exports.onNewDMMessage = onDocumentCreated(
+  { document: 'conversations/{conversationId}/messages/{messageId}', region: 'us-central1' },
+  abuseDetectionFns.handleNewDMMessage
+);
 
 const minorSafetyFns = require('./minorSafetyHook');
-exports.onNewDMForMinorProtection = minorSafetyFns.onNewDMForMinorProtection;
+exports.onNewDMForMinorProtection = onDocumentCreated(
+  { document: 'conversations/{conversationId}/messages/{messageId}', region: 'us-central1' },
+  minorSafetyFns.handleNewDMForMinorProtection
+);
 
 const appealsFns = require('./appealsService');
 exports.submitAppeal    = appealsFns.submitAppeal;
