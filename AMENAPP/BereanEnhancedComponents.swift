@@ -10,7 +10,8 @@ import SwiftUI
 struct BereanSmartSuggestionPills: View {
     let suggestions: [String]
     let onSelect: (String) -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
     
     var body: some View {
@@ -23,7 +24,7 @@ struct BereanSmartSuggestionPills: View {
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 8)
                     .animation(
-                        .spring(response: 0.4, dampingFraction: 0.68)
+                        reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.68)
                             .delay(Double(index) * 0.06),
                         value: appeared
                     )
@@ -32,7 +33,7 @@ struct BereanSmartSuggestionPills: View {
             .padding(.horizontal, 20)
         }
         .onAppear {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 appeared = true
             }
         }
@@ -84,7 +85,8 @@ struct BereanEnhancedResponseCard: View {
     let onCopy: () -> Void
     let onShare: () -> Void
     let onAskDeeper: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showActions = false
     
     var body: some View {
@@ -110,7 +112,7 @@ struct BereanEnhancedResponseCard: View {
             }
         }
         .onTapGesture {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.70)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.70)) {
                 showActions.toggle()
             }
         }
@@ -149,7 +151,8 @@ private struct ResponseActionChip: View {
 struct BereanStreamingText: View {
     let fullText: String
     let isComplete: Bool
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var displayedText = ""
     @State private var cursorVisible = true
     
@@ -176,7 +179,7 @@ struct BereanStreamingText: View {
     
     private func startCursorBlink() {
         Timer.scheduledTimer(withTimeInterval: 0.53, repeats: true) { _ in
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                 cursorVisible.toggle()
             }
         }
@@ -189,11 +192,12 @@ struct BereanStreamingText: View {
 struct BereanContextToolbar: View {
     @Binding var isScrolling: Bool
     @Binding var isFocused: Bool
-    
+
     let onNewChat: () -> Void
     let onHistory: () -> Void
     let onSettings: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var toolbarOpacity: Double = 1.0
     @State private var toolbarScale: CGFloat = 1.0
     
@@ -216,13 +220,13 @@ struct BereanContextToolbar: View {
         .opacity(toolbarOpacity)
         .scaleEffect(toolbarScale)
         .onChange(of: isScrolling) { scrolling in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.72)) {
                 toolbarOpacity = scrolling ? 0.3 : 1.0
                 toolbarScale = scrolling ? 0.94 : 1.0
             }
         }
         .onChange(of: isFocused) { focused in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.72)) {
                 toolbarOpacity = focused ? 0 : 1.0
                 toolbarScale = focused ? 0.90 : 1.0
             }
@@ -251,6 +255,7 @@ private struct ToolbarButton: View {
 struct BereanMorphingModeSelector: View {
     @Binding var selectedMode: BereanQuickMode
     @Namespace private var animation
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         HStack(spacing: 0) {
@@ -260,7 +265,7 @@ struct BereanMorphingModeSelector: View {
                     isSelected: selectedMode == mode,
                     namespace: animation,
                     action: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.68)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.68)) {
                             selectedMode = mode
                         }
                     }
@@ -317,6 +322,7 @@ private struct BereanModeButton: View {
 /// Premium loading indicator for Berean responses
 
 struct BereanLiquidLoadingState: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: CGFloat = 0
     
     private func dotOpacity(for index: Int) -> Double {
@@ -370,7 +376,7 @@ struct BereanLiquidLoadingState: View {
                 )
         )
         .onAppear {
-            withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 2.0).repeatForever(autoreverses: false)) {
                 phase = 1
             }
         }
@@ -384,7 +390,8 @@ struct BereanScriptureReferenceCard: View {
     let reference: String
     let verse: String
     let onOpen: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
     
     var body: some View {
@@ -425,7 +432,7 @@ struct BereanScriptureReferenceCard: View {
         .opacity(appeared ? 1 : 0)
         .scaleEffect(appeared ? 1 : 0.94)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.68).delay(0.1)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.68).delay(0.1)) {
                 appeared = true
             }
         }
@@ -505,7 +512,8 @@ struct BereanDailyTrainingPromptCard: View {
 
 struct BereanLongPressContextMenu: View {
     let actions: [ContextAction]
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
     
     struct ContextAction: Identifiable {
@@ -539,7 +547,7 @@ struct BereanLongPressContextMenu: View {
                 .opacity(appeared ? 1 : 0)
                 .offset(x: appeared ? 0 : -10)
                 .animation(
-                    .spring(response: 0.4, dampingFraction: 0.68)
+                    reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.68)
                         .delay(Double(index) * 0.04),
                     value: appeared
                 )
@@ -566,7 +574,7 @@ struct BereanLongPressContextMenu: View {
         )
         .scaleEffect(appeared ? 1 : 0.88, anchor: .top)
         .onAppear {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.70)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.70)) {
                 appeared = true
             }
         }

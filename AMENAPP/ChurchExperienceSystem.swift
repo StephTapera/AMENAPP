@@ -275,6 +275,7 @@ private extension View {
 private struct ChurchExperienceStarRatingRow: View {
     let label: String
     @Binding var score: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 8) {
@@ -288,7 +289,7 @@ private struct ChurchExperienceStarRatingRow: View {
                     Image(systemName: star <= score ? "star.fill" : "star")
                         .font(.systemScaled(20))
                         .foregroundStyle(star <= score ? Color.black : Color(white: 0.75))
-                        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: score)
+                        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.7), value: score)
                         .onTapGesture { score = star }
                 }
             }
@@ -304,6 +305,7 @@ private struct SignalChip: View {
     let signal: ChurchExperienceSignal
     let isSelected: Bool
     let onTap: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -319,7 +321,7 @@ private struct SignalChip: View {
             .glassCapsule(selected: isSelected)
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: isSelected)
     }
 }
 
@@ -329,6 +331,7 @@ private struct FitTagChip: View {
     let tag: ChurchFitTag
     let isSelected: Bool
     let onTap: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -344,7 +347,7 @@ private struct FitTagChip: View {
             .glassCapsule(selected: isSelected)
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: isSelected)
     }
 }
 
@@ -357,6 +360,7 @@ struct ChurchExperienceComposer: View {
     let authorName: String
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var step: Int = 1
     @State private var entry = ChurchExperienceEntry(churchId: "", authorId: "", authorName: "", visitDate: Date(), isFirstTimeVisitor: true)
@@ -462,7 +466,7 @@ struct ChurchExperienceComposer: View {
                 Capsule()
                     .fill(i <= step ? Color.black : Color(white: 0.88))
                     .frame(height: 3)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: step)
+                    .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: step)
             }
         }
     }
@@ -484,7 +488,7 @@ struct ChurchExperienceComposer: View {
                         Image(systemName: star <= entry.overallScore ? "star.fill" : "star")
                             .font(.systemScaled(36))
                             .foregroundStyle(star <= entry.overallScore ? Color.black : Color(white: 0.82))
-                            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: entry.overallScore)
+                            .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.7), value: entry.overallScore)
                             .onTapGesture { entry.overallScore = star }
                     }
                 }
@@ -512,7 +516,7 @@ struct ChurchExperienceComposer: View {
                                 .glassCapsule(selected: entry.wouldReturn == choice)
                         }
                         .buttonStyle(.plain)
-                        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: entry.wouldReturn)
+                        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: entry.wouldReturn)
                     }
                 }
                 .padding(.horizontal, 24)
@@ -720,7 +724,7 @@ struct ChurchExperienceComposer: View {
             .glassCapsule(selected: entry.visibility == vis)
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: entry.visibility)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: entry.visibility)
     }
 
     @ViewBuilder
@@ -749,7 +753,7 @@ struct ChurchExperienceComposer: View {
             Divider()
             HStack(spacing: 12) {
                 if step > 1 {
-                    Button("Back") { withAnimation { step -= 1 } }
+                    Button("Back") { withAnimation(reduceMotion ? nil : .default) { step -= 1 } }
                         .font(AMENFont.semiBold(15))
                         .foregroundStyle(Color(white: 0.45))
                         .frame(width: 70)
@@ -763,7 +767,7 @@ struct ChurchExperienceComposer: View {
                 .padding(.vertical, 14)
                 .background(ctaEnabled ? Color.black : Color(white: 0.82), in: Capsule())
                 .disabled(!ctaEnabled)
-                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: ctaEnabled)
+                .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: ctaEnabled)
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
@@ -847,7 +851,7 @@ struct ChurchExperienceComposer: View {
         // In production: persist to local store / queue for Firestore write
         // ChurchExperienceStore.shared.submit(entry)
 
-        withAnimation {
+        withAnimation(reduceMotion ? nil : .default) {
             showSuccessToast = true
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
@@ -876,6 +880,7 @@ struct ChurchExperienceConcernFlow: View {
     let churchId: String
     let churchName: String
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedCategory: PrivateConcernCategory? = nil
     @State private var concernText: String = ""
     @State private var submitted = false
@@ -918,7 +923,7 @@ struct ChurchExperienceConcernFlow: View {
                                     .glassCard(cornerRadius: 14)
                                 }
                                 .buttonStyle(.plain)
-                                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: selectedCategory)
+                                .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: selectedCategory)
                                 .padding(.horizontal, 16)
                             }
                         }
@@ -1159,6 +1164,7 @@ struct ChurchExperienceListView: View {
     let churchId: String
     let churchName: String
     @Binding var entries: [ChurchExperienceEntry]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showComposer = false
     @State private var expandedEntryIds: Set<String> = []
@@ -1257,7 +1263,7 @@ struct ChurchExperienceListView: View {
                     .font(AMENFont.regular(14))
                     .foregroundStyle(Color(white: 0.25))
                     .lineLimit(isExpanded ? nil : 2)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: isExpanded)
+                    .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: isExpanded)
 
                 if text.count > 100 {
                     Button(isExpanded ? "Show less" : "Read more") {

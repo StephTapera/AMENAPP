@@ -722,6 +722,7 @@ final class WalkWithChristStore: ObservableObject {
 // MARK: - Entry Hero View (editorial, image-led, AMEN-original)
 
 struct WalkWithChristView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var store = WalkWithChristStore.shared
     @State private var showOnboarding = false
     @State private var showPath = false
@@ -1428,7 +1429,7 @@ struct WalkWithChristView: View {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(store.profile.pathAssigned.accentColor)
                             .frame(width: geo.size.width * pct, height: 6)
-                            .animation(.easeOut(duration: 0.5), value: pct)
+                            .animation(reduceMotion ? .none : .easeOut(duration: 0.5), value: pct)
                     }
                 }
                 .frame(height: 6)
@@ -1572,6 +1573,7 @@ struct WalkWithChristView: View {
 struct WalkWithChristOnboarding: View {
     @ObservedObject var store: WalkWithChristStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var step = 0
     @State private var selectedStage: WalkStage?
@@ -1603,7 +1605,7 @@ struct WalkWithChristOnboarding: View {
                     needStep.tag(4)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.easeInOut(duration: 0.30), value: step)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.30), value: step)
 
                 // Navigation buttons
                 navigationRow
@@ -1638,7 +1640,7 @@ struct WalkWithChristOnboarding: View {
                     Capsule()
                         .fill(i <= step ? ink : Color(white: 0.85))
                         .frame(width: i == step ? 20 : 6, height: 6)
-                        .animation(.easeOut(duration: 0.20), value: step)
+                        .animation(reduceMotion ? .none : .easeOut(duration: 0.20), value: step)
                 }
                 Spacer()
                 Text("\(step + 1) of \(totalSteps)")
@@ -1750,7 +1752,7 @@ struct WalkWithChristOnboarding: View {
         HStack(spacing: 12) {
             if step > 0 {
                 Button {
-                    withAnimation(.easeOut(duration: 0.25)) { step -= 1 }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { step -= 1 }
                 } label: {
                     Image(systemName: "arrow.left")
                         .font(.systemScaled(15, weight: .semibold))
@@ -1766,7 +1768,7 @@ struct WalkWithChristOnboarding: View {
 
             Button {
                 if step < totalSteps - 1 {
-                    withAnimation(.easeOut(duration: 0.25)) { step += 1 }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { step += 1 }
                 } else {
                     finishOnboarding()
                 }
@@ -1878,7 +1880,7 @@ struct WalkWithChristOnboarding: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
-        .animation(.easeOut(duration: 0.14), value: isSelected)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.14), value: isSelected)
     }
 }
 
@@ -2396,6 +2398,7 @@ struct WalkModuleDetailView: View {
 struct WalkWithChristCheckIn: View {
     @ObservedObject var store: WalkWithChristStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var questionIndex = 0
     @State private var answers: [String] = Array(repeating: "", count: 5)
@@ -2464,7 +2467,7 @@ struct WalkWithChristCheckIn: View {
                     HStack(spacing: 12) {
                         if questionIndex > 0 {
                             Button {
-                                withAnimation(.easeOut(duration: 0.2)) { questionIndex -= 1 }
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { questionIndex -= 1 }
                             } label: {
                                 Image(systemName: "arrow.left")
                                     .font(.systemScaled(15, weight: .semibold))
@@ -2480,10 +2483,10 @@ struct WalkWithChristCheckIn: View {
 
                         Button {
                             if questionIndex < WalkWithChristData.checkInQuestions.count - 1 {
-                                withAnimation(.easeOut(duration: 0.2)) { questionIndex += 1 }
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { questionIndex += 1 }
                             } else {
                                 store.recordCheckIn()
-                                withAnimation { done = true }
+                                withAnimation(reduceMotion ? nil : .default) { done = true }
                             }
                         } label: {
                             Text(questionIndex < WalkWithChristData.checkInQuestions.count - 1 ? "Next" : "Finish")
@@ -2511,7 +2514,7 @@ struct WalkWithChristCheckIn: View {
             ForEach(["Yes", "Somewhat", "Not really"], id: \.self) { option in
                 let isSelected = answers[questionIndex] == option
                 Button {
-                    withAnimation(.easeOut(duration: 0.14)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) {
                         answers[questionIndex] = option
                     }
                 } label: {
@@ -2538,7 +2541,7 @@ struct WalkWithChristCheckIn: View {
             ForEach(Array(zip(moods, moodIcons)), id: \.0) { mood, icon in
                 let isSelected = answers[questionIndex] == mood
                 Button {
-                    withAnimation(.easeOut(duration: 0.14)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) {
                         answers[questionIndex] = mood
                     }
                 } label: {

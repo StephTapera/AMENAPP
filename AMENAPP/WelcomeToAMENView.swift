@@ -76,6 +76,8 @@ struct WelcomePackageView: View {
         self.onEnter = onEnter
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // Hero reveal
     @State private var heroOpacity: Double = 0
     @State private var heroScale: CGFloat = 1.02
@@ -291,7 +293,7 @@ struct WelcomePackageView: View {
             }
             .frame(width: 72, alignment: .leading)
             .offset(x: isExiting ? -20 : 0, y: labelsOffset)
-            .animation(isExiting ? .easeIn(duration: 0.22) : nil, value: isExiting)
+            .animation(isExiting ? (reduceMotion ? .none : .easeIn(duration: 0.22)) : nil, value: isExiting)
 
             Spacer()
 
@@ -310,7 +312,7 @@ struct WelcomePackageView: View {
             }
             .frame(width: 72, alignment: .trailing)
             .offset(x: isExiting ? 20 : 0, y: labelsOffset)
-            .animation(isExiting ? .easeIn(duration: 0.22) : nil, value: isExiting)
+            .animation(isExiting ? (reduceMotion ? .none : .easeIn(duration: 0.22)) : nil, value: isExiting)
         }
         .padding(.horizontal, 16)
         .opacity(isExiting ? 0 : labelsOpacity)
@@ -374,7 +376,7 @@ struct WelcomePackageView: View {
         }
         .opacity(isExiting ? 0 : cardsOpacity)
         .offset(y: isExiting ? 28 : cardsOffset)
-        .animation(isExiting ? .easeIn(duration: 0.2) : nil, value: isExiting)
+        .animation(isExiting ? (reduceMotion ? .none : .easeIn(duration: 0.2)) : nil, value: isExiting)
     }
 
     // MARK: - Bottom CTA
@@ -428,7 +430,7 @@ struct WelcomePackageView: View {
 
     private func runEntrySequence() {
         // Hero: fade in + scale settle (300ms)
-        withAnimation(.easeOut(duration: 0.30)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.30)) {
             heroOpacity = 1.0
         }
         withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.88))) {
@@ -440,7 +442,7 @@ struct WelcomePackageView: View {
             guard !specularDidFire else { return }
             specularDidFire = true
             try? await Task.sleep(nanoseconds: 500_000_000)
-            withAnimation(.easeInOut(duration: 0.65)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.65)) {
                 specularX = 1.3
             }
         }
@@ -494,7 +496,7 @@ struct WelcomePackageView: View {
             displayedVerse.append(char)
             try? await Task.sleep(nanoseconds: 28_000_000) // ~28ms/char
         }
-        withAnimation(.easeIn(duration: 0.25)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.25)) {
             verseComplete = true
         }
         // Single subtle haptic on completion
@@ -505,8 +507,7 @@ struct WelcomePackageView: View {
 
     private func startCardBreathing() {
         withAnimation(
-            .easeInOut(duration: 4.8)
-            .repeatForever(autoreverses: true)
+            reduceMotion ? nil : .easeInOut(duration: 4.8).repeatForever(autoreverses: true)
         ) {
             cardBreath = 0.96
         }
@@ -516,15 +517,15 @@ struct WelcomePackageView: View {
 
     private func triggerExit() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        withAnimation(.easeIn(duration: 0.22)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.22)) {
             isExiting = true
         }
         // Hero dims slightly
-        withAnimation(.easeIn(duration: 0.22)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.22)) {
             heroOpacity = 0.28
         }
         // CTA hides
-        withAnimation(.easeIn(duration: 0.18)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.18)) {
             ctaOpacity = 0
             headerOpacity = 0
         }
@@ -546,11 +547,13 @@ struct WelcomePackageView: View {
 // MARK: - Button Style
 
 struct MinimalScaleButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.88 : 1.0)
-            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.14), value: configuration.isPressed)
     }
 }
 

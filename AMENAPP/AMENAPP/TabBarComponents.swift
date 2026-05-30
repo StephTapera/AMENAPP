@@ -7,6 +7,7 @@ struct AnimatedQuickActionButton: View {
     let title: String
     let delay: Double
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isPressed = false
     @State private var isAppeared = false
@@ -40,12 +41,12 @@ struct AnimatedQuickActionButton: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeIn(duration: 0.08)) {
+                    withAnimation(reduceMotion ? nil : .easeIn(duration: 0.08)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.15)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                         isPressed = false
                     }
                 }
@@ -103,6 +104,7 @@ struct CompactTabBar: View {
 
     // ✅ REAL-TIME PROFILE PHOTO UPDATE
     @State private var profilePhotoUpdateTrigger = UUID() // Force AsyncImage to reload
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // All tabs in order: Home, People, Messages, Resources, Notifications, Profile
     let allTabs: [(icon: String, tag: Int)] = [
@@ -160,7 +162,7 @@ struct CompactTabBar: View {
                 Task {
                     try? await Task.sleep(for: .milliseconds(500))
                     await MainActor.run {
-                        withAnimation { badgePulse = false }
+                        withAnimation(reduceMotion ? nil : .default) { badgePulse = false }
                     }
                 }
             }
@@ -181,7 +183,7 @@ struct CompactTabBar: View {
                 Task {
                     try? await Task.sleep(for: .milliseconds(500))
                     await MainActor.run {
-                        withAnimation { newPostsBadgePulse = false }
+                        withAnimation(reduceMotion ? nil : .default) { newPostsBadgePulse = false }
                     }
                 }
             }
@@ -305,7 +307,7 @@ struct CompactTabBar: View {
                         Circle()
                             .fill(Color.white.opacity(isSelected ? 0.4 : 0))
                             .frame(width: 44, height: 44)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isSelected)
+                            .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.7), value: isSelected)
 
                         // Profile tab shows user's photo if available
                         if tab.tag == 5 {
@@ -321,7 +323,7 @@ struct CompactTabBar: View {
                                 // Scales up ahead of the pill landing (snappier spring)
                                 .scaleEffect(isSelected ? 1.12 : 1.0)
                                 .animation(
-                                    .spring(response: 0.32, dampingFraction: 0.65),
+                                    reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.65),
                                     value: isSelected
                                 )
                                 // Native bounce fires once on selection (iOS 17+)
@@ -347,7 +349,7 @@ struct CompactTabBar: View {
                         }
                     }
                     .offset(y: isSelected ? -2 : 0)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isSelected)
+                    .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: isSelected)
 
                     // Gold active dot
                     Circle()
@@ -355,7 +357,7 @@ struct CompactTabBar: View {
                         .frame(width: 4, height: 4)
                         .scaleEffect(isSelected ? 1.0 : 0.01)
                         .opacity(isSelected ? 1.0 : 0)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.5), value: isSelected)
+                        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.5), value: isSelected)
                 }
                 .frame(width: 44, height: 40)
             }
@@ -467,7 +469,7 @@ struct CompactTabBar: View {
         }
         .scaleEffect(createButtonScale)
         .brightness(isLongPressing ? 0.06 : 0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.55), value: createButtonScale)
+        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.55), value: createButtonScale)
         .contentShape(Circle())
         .accessibilityLabel("Create post")
         .accessibilityHint("Tap to compose a new post. Long press for quick options.")
@@ -530,6 +532,7 @@ struct CompactTabBar: View {
 
 struct UnreadDot: View {
     let pulse: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -540,7 +543,7 @@ struct UnreadDot: View {
                     .frame(width: 14, height: 14)
                     .scaleEffect(pulse ? 1.8 : 1.0)
                     .opacity(pulse ? 0 : 1)
-                    .animation(.easeOut(duration: 0.6), value: pulse)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.6), value: pulse)
             }
 
             // White border ring — separates dot from icon underneath (Instagram-style)
@@ -553,7 +556,7 @@ struct UnreadDot: View {
                 .fill(Color.red)
                 .frame(width: 6, height: 6)
                 .scaleEffect(pulse ? 1.15 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pulse)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: pulse)
         }
         // CRITICAL FIX: Color-only indicator. The dot communicates state visually via
         // color alone. The parent tab button already exposes the count through
@@ -569,6 +572,7 @@ struct SmartMessageBadge: View {
     let unreadCount: Int
     let pulse: Bool
     @State private var showCount: Bool = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -579,7 +583,7 @@ struct SmartMessageBadge: View {
                     .frame(width: showCount ? 22 : 14, height: showCount ? 22 : 14)
                     .scaleEffect(pulse ? 1.8 : 1.0)
                     .opacity(pulse ? 0 : 1)
-                    .animation(.easeOut(duration: 0.6), value: pulse)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.6), value: pulse)
             }
 
             if showCount && unreadCount > 0 {
