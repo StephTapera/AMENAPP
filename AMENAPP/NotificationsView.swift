@@ -1238,6 +1238,7 @@ struct GroupedNotificationRow: View {
     let onLongPress: () -> Void
     let onAvatarTap: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var followService = FollowService.shared
     @ObservedObject private var profileCache = NotificationProfileCache.shared
     @State private var actorProfile: CachedProfile?
@@ -1283,8 +1284,8 @@ struct GroupedNotificationRow: View {
                         .padding(.top, 22)
                         .scaleEffect((group.hasUnread && !swipeMarkedRead) ? 1 : 0)
                         .opacity((group.hasUnread && !swipeMarkedRead) ? 1 : 0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: swipeMarkedRead)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: group.hasUnread)
+                        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: swipeMarkedRead)
+                        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: group.hasUnread)
                         .accessibilityHidden(true)
 
                     // Avatar with type badge overlay
@@ -1587,6 +1588,7 @@ private struct FollowBackButton: View {
     let actorId: String
     let onFollowBack: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isFollowingBack = false
 
     var body: some View {
@@ -1620,7 +1622,7 @@ private struct FollowBackButton: View {
                 }
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isFollowingBack)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.75), value: isFollowingBack)
         .accessibilityLabel(isFollowingBack ? "Following" : "Follow back")
         .accessibilityHint(isFollowingBack ? "" : "Double tap to follow this person back")
     }
@@ -2193,6 +2195,7 @@ struct NotificationSettingsSheet: View {
 // MARK: - Loading Skeleton
 
 struct NotificationSkeletonRow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmerPhase: CGFloat = -1.0
 
     var body: some View {
@@ -2231,7 +2234,7 @@ struct NotificationSkeletonRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
         .onAppear {
-            withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 1.4).repeatForever(autoreverses: false)) {
                 shimmerPhase = 1.4
             }
         }
@@ -2277,11 +2280,12 @@ extension View {
 
 // P0 FIX: Instant press feedback for notification rows
 struct NotificationRowButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 

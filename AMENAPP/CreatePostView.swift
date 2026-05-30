@@ -36,6 +36,7 @@ struct CreatePostView: View {
 
     @Environment(\.dismiss) var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var postsManager: PostsManager = .shared
     @ObservedObject private var draftsManager: DraftsManager = .shared
     @ObservedObject private var userService: UserService = .shared
@@ -825,7 +826,7 @@ struct CreatePostView: View {
             }
 
             ComposerLinkPreview(controller: linkController)
-                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
+                .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
             smartAttachmentComposerPreview
 
             // Music attachment card (Threads-style)
@@ -1051,7 +1052,7 @@ struct CreatePostView: View {
                     .background(Color.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .padding(.horizontal, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: publishFailureBannerMessage != nil)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: publishFailureBannerMessage != nil)
                 }
 
                 // Upload progress overlay
@@ -1077,7 +1078,7 @@ struct CreatePostView: View {
                         .padding(.bottom, 102)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.easeOut(duration: 0.2), value: uploadCapsuleState)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: uploadCapsuleState)
                 }
 
                 // Success notification
@@ -1091,7 +1092,7 @@ struct CreatePostView: View {
                             .padding(.bottom, 56) // Anchored just above bottom bar
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(response: 0.45, dampingFraction: 0.72), value: showingSuccessNotice)
+                    .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.72), value: showingSuccessNotice)
                 }
             }
         }
@@ -1996,7 +1997,7 @@ struct CreatePostView: View {
 
             // Hide engagement counts toggle
             Button {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                     hideEngagementCounts.toggle()
                 }
                 HapticManager.impact(style: .light)
@@ -2241,12 +2242,12 @@ struct CreatePostView: View {
                     )
                     .padding(.horizontal, 20)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showingPoll)
+                    .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: showingPoll)
                 }
 
                 ComposerLinkPreview(controller: linkController)
                     .padding(.horizontal, 20)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
+                    .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
                 smartAttachmentComposerPreview
                     .padding(.horizontal, 20)
 
@@ -2255,7 +2256,7 @@ struct CreatePostView: View {
                     LinkCardView(urlString: linkURL, onRemove: { linkURL = "" })
                         .padding(.horizontal, 20)
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkURL)
+                        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: linkURL)
                 }
 
                 if let scheduledDate = scheduledDate {
@@ -2608,7 +2609,7 @@ struct CreatePostView: View {
             HStack(spacing: 10) {
                 // AI quick-actions button
                 Button {
-                    withAnimation(.amenSpring) { showPostAICard.toggle() }
+                    withAnimation(reduceMotion ? nil : .amenSpring) { showPostAICard.toggle() }
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "sparkles")
@@ -2731,15 +2732,15 @@ struct CreatePostView: View {
             if showPostAICard {
                 PostAIGlassCard(
                     onImproveWriting: {
-                        withAnimation(.amenSpring) { showPostAICard = false }
+                        withAnimation(reduceMotion ? nil : .amenSpring) { showPostAICard = false }
                         requestBereanToneAssist()
                     },
                     onFindScripture: {
-                        withAnimation(.amenSpring) { showPostAICard = false }
+                        withAnimation(reduceMotion ? nil : .amenSpring) { showPostAICard = false }
                         showingVersePickerSheet = true
                     },
                     onAddHashtags: {
-                        withAnimation(.amenSpring) { showPostAICard = false }
+                        withAnimation(reduceMotion ? nil : .amenSpring) { showPostAICard = false }
                         showingSuggestions = true
                     }
                 )
@@ -2747,13 +2748,13 @@ struct CreatePostView: View {
                 .transition(.scale(scale: 0.94, anchor: .bottomLeading).combined(with: .opacity))
             }
         }
-        .animation(.amenSpring, value: showPostAICard)
+        .animation(reduceMotion ? .none : .amenSpring, value: showPostAICard)
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
         .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8)), value: hasSensitiveContent)
         .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8)), value: shouldShowVerseSuggestion)
-        .animation(.easeOut(duration: 0.2), value: selectedImageData.count)
-        .animation(.easeOut(duration: 0.2), value: insightEngine.result.readinessState)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: selectedImageData.count)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: insightEngine.result.readinessState)
     }
 
     // MARK: - View Components
@@ -2773,7 +2774,7 @@ struct CreatePostView: View {
             topicTagHeaderView
             
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     showingTopicTagSheet = true
                 }
             } label: {
@@ -2872,7 +2873,7 @@ struct CreatePostView: View {
             }
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     showingAudienceSheet = true
                 }
             } label: {
@@ -3009,7 +3010,7 @@ struct CreatePostView: View {
             }
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     showingChurchTagSheet = true
                 }
             } label: {
@@ -3026,7 +3027,7 @@ struct CreatePostView: View {
                     Spacer()
                     if !taggedChurchName.isEmpty {
                         Button {
-                            withAnimation {
+                            withAnimation(reduceMotion ? nil : .default) {
                                 taggedChurchId = ""
                                 taggedChurchName = ""
                             }
@@ -3193,7 +3194,7 @@ struct CreatePostView: View {
                                 .font(AMENFont.semiBold(12))
                                 .foregroundStyle(.purple)
                             Button {
-                                withAnimation(.easeOut(duration: 0.15)) {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                                     taggedUsers.removeAll { $0.userId == user.userId }
                                 }
                                 HapticManager.impact(style: .light)
@@ -3272,7 +3273,7 @@ struct CreatePostView: View {
             insertion: .move(edge: .top).combined(with: .opacity),
             removal: .opacity
         ))
-        .animation(.spring(response: 0.3, dampingFraction: 0.78), value: mentionSuggestions.count)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.78), value: mentionSuggestions.count)
     }
     
     private var hashtagSuggestionsView: some View {
@@ -3373,7 +3374,7 @@ struct CreatePostView: View {
         .padding(.horizontal, 20)
         .transition(.scale.combined(with: .opacity))
     }
-    
+
     private var characterCountView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -3410,7 +3411,7 @@ struct CreatePostView: View {
     }
     
     private func handleCategorySelection(_ category: PostCategory) {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             selectedCategory = category
             updateHashtagSuggestions()
         }
@@ -3671,32 +3672,32 @@ struct CreatePostView: View {
         // Detect if user is typing a hashtag
         let words = text.components(separatedBy: .whitespacesAndNewlines)
         if let lastWord = words.last, lastWord.hasPrefix("#") && lastWord.count > 1 {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showingSuggestions = true
             }
         }
-        
+
         // MARK: - Mention Detection
         // Detect if user is typing a mention (@username)
         if let lastWord = words.last, lastWord.hasPrefix("@") && lastWord.count > 1 {
             currentMentionQuery = String(lastWord.dropFirst()) // Remove @
             searchForMentions(query: currentMentionQuery)
         } else {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showMentionSuggestions = false
                 mentionSuggestions = []
             }
         }
     }
-    
+
     private func insertHashtag(_ tag: String) {
         if postText.isEmpty || postText.last == " " {
             postText += tag + " "
         } else {
             postText += " " + tag + " "
         }
-        
-        withAnimation {
+
+        withAnimation(reduceMotion ? nil : .default) {
             showingSuggestions = false
         }
     }
@@ -3791,13 +3792,13 @@ struct CreatePostView: View {
 
         guard showNotice else { return }
 
-        withAnimation {
+        withAnimation(reduceMotion ? nil : .default) {
             showingDraftSavedNotice = true
         }
 
         // P0-2 FIX: Use cancellable task instead of DispatchQueue
         scheduleDelayedAction(seconds: 2) {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showingDraftSavedNotice = false
             }
         }
@@ -3832,7 +3833,7 @@ struct CreatePostView: View {
     private func triggerPublishShake() {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.error)
-        withAnimation(.default) {
+        withAnimation(reduceMotion ? nil : .default) {
             shakePublishButton = true
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -5326,7 +5327,7 @@ struct CreatePostView: View {
                             cameraCoordinator.removeAttachedMedia()
                             mediaMetadataDraft = CreatePostMediaMetadataDraft()
                             publishFailureBannerMessage = nil
-                            withAnimation { showingSuccessNotice = true }
+                            withAnimation(reduceMotion ? nil : .default) { showingSuccessNotice = true }
                         }
                         // P0-2 FIX: Critical - cancellable dismiss task
                         scheduleDelayedAction(seconds: hasAttachedMedia ? 1.0 : 0.15) {
@@ -5557,7 +5558,7 @@ struct CreatePostView: View {
                         // Show "being reviewed" notice instead of "Posted!" pill.
                         // showingSuccessNotice still triggers the pill — we reuse it
                         // and override the pill text via postPendingReview flag below.
-                        withAnimation {
+                        withAnimation(reduceMotion ? nil : .default) {
                             postPendingReview = true
                             showingSuccessNotice = true
                             uploadState = .success  // P1-1: driven by publish pipeline, not fixed timer
@@ -6434,7 +6435,7 @@ struct CreatePostView: View {
                 mediaMetadataDraft = CreatePostMediaMetadataDraft()
                 // CF-01 Part A: Thread published successfully — clear idempotency key.
                 postIdempotencyKey = nil
-                withAnimation { showingSuccessNotice = true }
+                withAnimation(reduceMotion ? nil : .default) { showingSuccessNotice = true }
                 HapticManager.notification(type: .success)
                 // Record post for community guidelines eligibility tracking
                 CommunityGuidelinesEligibilityService.shared.recordPostPublished()
@@ -6515,11 +6516,11 @@ struct CreatePostView: View {
                     .setData(mutableScheduledPostData)
                 
                 await MainActor.run {
-                    
-                    withAnimation {
+
+                    withAnimation(reduceMotion ? nil : .default) {
                         showingSuccessNotice = true
                     }
-                    
+
                     isPublishing = false
                     inFlightPostId = nil  // FIX: clear hash so user can post again after scheduling
                     draftVM.markPublished()
@@ -6572,13 +6573,13 @@ struct CreatePostView: View {
     /// Search for users to mention
     private func searchForMentions(query: String) {
         guard !query.isEmpty else {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showMentionSuggestions = false
                 mentionSuggestions = []
             }
             return
         }
-        
+
         // Cancel any in-flight search so a stale callback cannot write to @State
         // after the TextEditor's keyboard session has been torn down, which would
         // trigger RTIInputSystemClient UIEmojiSearchOperations on a null session → SIGABRT.
@@ -6586,12 +6587,12 @@ struct CreatePostView: View {
         mentionSearchTask = Task {
             do {
                 let results = try await AlgoliaSearchService.shared.searchUsers(query: query)
-                
+
                 guard !Task.isCancelled else { return }
-                
+
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         // Limit to 5 results
                         mentionSuggestions = Array(results.prefix(5))
                         showMentionSuggestions = !results.isEmpty
@@ -6602,7 +6603,7 @@ struct CreatePostView: View {
             }
         }
     }
-    
+
     /// Insert mention into text
     private func insertMention(_ user: AlgoliaUser) {
         // Find the last @ symbol and replace from there
@@ -6610,8 +6611,8 @@ struct CreatePostView: View {
             let beforeMention = postText[..<lastAtIndex]
             postText = beforeMention + "@\(user.username) "
         }
-        
-        withAnimation {
+
+        withAnimation(reduceMotion ? nil : .default) {
             showMentionSuggestions = false
             mentionSuggestions = []
         }
@@ -6930,7 +6931,9 @@ enum PostButtonState {
 struct CirclePostButton: View {
     @Binding var postText: String
     let onPost: () async -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var buttonState: PostButtonState = .idle
     @State private var isPressed = false
     @State private var iconScale: CGFloat = 1
@@ -6953,7 +6956,7 @@ struct CirclePostButton: View {
                     .scaleEffect(pulseScale)
                     .opacity(pulseOpacity)
                     .onAppear {
-                        withAnimation(.easeOut(duration: 2).repeatForever(autoreverses: false)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 2).repeatForever(autoreverses: false)) {
                             pulseScale = 1.3
                             pulseOpacity = 0
                         }
@@ -6962,7 +6965,7 @@ struct CirclePostButton: View {
                         pulseTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
                             pulseScale = 1
                             pulseOpacity = 0.3
-                            withAnimation(.easeOut(duration: 2)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 2)) {
                                 pulseScale = 1.3
                                 pulseOpacity = 0
                             }
@@ -6994,7 +6997,7 @@ struct CirclePostButton: View {
                     .frame(width: 42, height: 42)
                     .rotationEffect(.degrees(-90))
                     .onAppear {
-                        withAnimation(.easeInOut(duration: 0.45)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.45)) {
                             ringProgress = 1.0
                         }
                     }
@@ -7031,7 +7034,7 @@ struct CirclePostButton: View {
             .frame(width: 18, height: 18)
         }
         .scaleEffect(isPressed ? 0.86 : 1.0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.6), value: isPressed)
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -7051,9 +7054,9 @@ struct CirclePostButton: View {
             updateButtonState(for: newValue)
         }
     }
-    
+
     // MARK: - Computed Properties
-    
+
     private var circleBackgroundColor: Color {
         switch buttonState {
         case .idle:
@@ -7082,43 +7085,43 @@ struct CirclePostButton: View {
     
     private func updateButtonState(for text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         if !trimmed.isEmpty && buttonState == .idle {
-            withAnimation(.easeOut(duration: 0.35)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
                 buttonState = .ready
                 ringProgress = 0
             }
         } else if trimmed.isEmpty && buttonState == .ready {
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 buttonState = .idle
                 ringProgress = 0
             }
         }
     }
-    
+
     private func triggerPost() {
         guard buttonState == .ready else { return }
-        
+
         // Transition to posting state
         buttonState = .posting
-        
+
         // Icon launch animation
-        withAnimation(.easeIn(duration: 0.28)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.28)) {
             iconRotation = 35
             iconScale = 0.15
             iconOpacity = 0
         }
-        
+
         // Show spinner after 220ms
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
             withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.65))) {
                 showSpinner = true
             }
-            
+
             // Execute post action
             Task {
                 await onPost()
-                
+
                 // Transition to sent state after posting completes
                 await MainActor.run {
                     transitionToSent()
@@ -7126,24 +7129,24 @@ struct CirclePostButton: View {
             }
         }
     }
-    
+
     private func transitionToSent() {
         buttonState = .sent
-        
+
         // Collapse spinner
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             showSpinner = false
         }
-        
+
         // Show checkmark after 150ms
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.55))) {
                 showCheck = true
             }
-            
+
             // Reset to idle after 1.2s
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                     resetToIdle()
                 }
             }
@@ -7167,7 +7170,9 @@ struct CirclePostButton: View {
 struct ThreadsPostButton: View {
     @Binding var postText: String
     let onPost: () async -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var buttonState: PostButtonState = .idle
     @State private var isPressed = false
     @State private var showSpinner = false
@@ -7203,13 +7208,13 @@ struct ThreadsPostButton: View {
                 }
             }
             .frame(minWidth: 44)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showSpinner)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showCheck)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: showSpinner)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: showCheck)
         }
         .buttonStyle(.plain)
         .disabled(buttonState != .ready)
         .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -7229,62 +7234,62 @@ struct ThreadsPostButton: View {
     
     private func updateButtonState(for text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         if !trimmed.isEmpty && buttonState == .idle {
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 buttonState = .ready
             }
         } else if trimmed.isEmpty && buttonState == .ready {
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 buttonState = .idle
             }
         }
     }
-    
+
     private func triggerPost() {
         guard buttonState == .ready else { return }
-        
+
         // Transition to posting state
         buttonState = .posting
-        
+
         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             showSpinner = true
         }
-        
+
         // Execute post action
         Task {
             await onPost()
-            
+
             // Transition to sent state after posting completes
             await MainActor.run {
                 transitionToSent()
             }
         }
     }
-    
+
     private func transitionToSent() {
         buttonState = .sent
-        
+
         // Hide spinner
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             showSpinner = false
         }
-        
+
         // Show checkmark after brief delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                 showCheck = true
             }
-            
+
             // Reset to idle after 1s
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                     resetToIdle()
                 }
             }
         }
     }
-    
+
     private func resetToIdle() {
         buttonState = .idle
         showCheck = false
@@ -7295,14 +7300,15 @@ struct ThreadsPostButton: View {
 
 struct SpinnerRing: View {
     @State private var rotation: Double = 0
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             // Outer track circle
             Circle()
                 .stroke(Color.white.opacity(0.15), lineWidth: 2.5)
                 .frame(width: 20, height: 20)
-            
+
             // Spinning arc
             Circle()
                 .trim(from: 0, to: 0.7)
@@ -7313,7 +7319,7 @@ struct SpinnerRing: View {
                 .frame(width: 20, height: 20)
                 .rotationEffect(.degrees(rotation))
                 .onAppear {
-                    withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
+                    withAnimation(reduceMotion ? nil : .linear(duration: 0.9).repeatForever(autoreverses: false)) {
                         rotation = 360
                     }
                 }
@@ -7397,6 +7403,7 @@ private struct GlassCategorySegment: View {
     let action: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Label always visible so users can read every category at a glance.
     private var showLabel: Bool { true }
@@ -7464,7 +7471,7 @@ private struct GlassCategorySegment: View {
                     withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) { isPressed = false }
                 }
         )
-        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
     }
 
     // Short label to keep the pill compact
@@ -7921,7 +7928,8 @@ struct TopicTagCard: View {
     let color: Color
     let isSelected: Bool
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -7978,8 +7986,8 @@ struct TopicTagCard: View {
             .scaleEffect(isPressed ? 0.95 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
     }
 }
 
@@ -8698,6 +8706,7 @@ struct ComposerSchedulePill: View {
     var onClear: () -> Void
 
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isScheduled: Bool { scheduledDate != nil }
 
@@ -8754,8 +8763,8 @@ struct ComposerSchedulePill: View {
         .onAppear {
             withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) { appeared = true }
         }
-        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: isScheduled)
-        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: scheduledDate)
+        .animation(reduceMotion ? .none : .spring(response: 0.30, dampingFraction: 0.78), value: isScheduled)
+        .animation(reduceMotion ? .none : .spring(response: 0.30, dampingFraction: 0.78), value: scheduledDate)
     }
 }
 
@@ -8766,7 +8775,8 @@ struct MinimalToolbarButton: View {
     let isActive: Bool
     let activeColor: Color
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -8805,7 +8815,7 @@ struct MinimalToolbarButton: View {
             .scaleEffect(isPressed ? 0.88 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isActive)
     }
 }
 
@@ -9173,6 +9183,8 @@ private struct TaggedUsersView: View {
 private struct UploadRingCapsule: View {
     let progress: Double   // 0.0 – 1.0
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let ringSize: CGFloat   = 22
     private let dotSize: CGFloat    = 5
     private let strokeWidth: CGFloat = 2
@@ -9194,7 +9206,7 @@ private struct UploadRingCapsule: View {
                     )
                     .frame(width: ringSize, height: ringSize)
                     .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 0.15), value: progress)
+                    .animation(reduceMotion ? .none : .linear(duration: 0.15), value: progress)
 
                 // Center dot
                 Circle()
@@ -9381,6 +9393,7 @@ private struct BereanToneButton: View {
     let isLoading: Bool
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulseScale: CGFloat = 1.0
     @State private var isAnimating = false
 
@@ -9414,7 +9427,7 @@ private struct BereanToneButton: View {
                                 .frame(width: 3.5, height: 3.5)
                                 .scaleEffect(pulseScale)
                                 .animation(
-                                    .easeInOut(duration: 0.55)
+                                    reduceMotion ? .none : .easeInOut(duration: 0.55)
                                         .repeatForever()
                                         .delay(Double(i) * 0.18),
                                     value: pulseScale
@@ -9437,7 +9450,7 @@ private struct BereanToneButton: View {
         .accessibilityLabel("Berean tone assist")
         .onAppear {
             if isLoading { pulseScale = 1.4 }
-            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
                 isAnimating = true
             }
         }

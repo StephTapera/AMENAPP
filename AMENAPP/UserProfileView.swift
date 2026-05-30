@@ -337,6 +337,7 @@ struct UserProfileView: View {
     @Namespace private var tabNamespace
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Mutuals
     @StateObject private var mutualsVM = MutualsViewModel()
@@ -506,7 +507,7 @@ struct UserProfileView: View {
                                 .transition(.move(edge: .leading).combined(with: .opacity))
                         }
                     }
-                    .animation(.snappy(duration: 0.2), value: showCompactHeader)
+                    .animation(reduceMotion ? .none : .snappy(duration: 0.2), value: showCompactHeader)
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -671,14 +672,14 @@ struct UserProfileView: View {
     }
     
     private func handleErrorRetry() async {
-        withAnimation {
+        withAnimation(reduceMotion ? nil : .default) {
             showInlineError = false
         }
         await loadProfileData()
     }
-    
+
     private func handleErrorDismiss() {
-        withAnimation {
+        withAnimation(reduceMotion ? nil : .default) {
             showInlineError = false
         }
     }
@@ -1205,7 +1206,7 @@ struct UserProfileView: View {
                 dlog("📵 Device appears to be offline. Using cached data if available.")
                 errorMessage = "You're offline. Showing cached data."
                 inlineErrorMessage = "No internet connection. Some content may be outdated."
-                withAnimation {
+                withAnimation(reduceMotion ? nil : .default) {
                     showInlineError = true
                 }
                 
@@ -1224,7 +1225,7 @@ struct UserProfileView: View {
                     showErrorAlert = true
                 } else {
                     inlineErrorMessage = errorMessage
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         showInlineError = true
                     }
                 }
@@ -2169,11 +2170,11 @@ struct UserProfileView: View {
             }
             .buttonStyle(.plain)
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
     }
-    
+
     // MARK: - Profile Header
-    
+
     private var messageButtonBackground: some View {
         RoundedRectangle(cornerRadius: 20)
             .fill(Color(white: 0.93))
@@ -2392,7 +2393,7 @@ struct UserProfileView: View {
                             // Show more/less only when bio overflows 3 lines
                             if profileData.bio.count > 120 {
                                 Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                                         bioExpanded.toggle()
                                     }
                                 } label: {
@@ -2528,9 +2529,9 @@ struct UserProfileView: View {
                                     .transition(.scale.combined(with: .opacity))
                             }
                         }
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
+                        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
                     }
-                    
+
                     // Privacy Status Indicators - P0-4: Include BLOCKED_BY status
                     if isBlockedBy || isBlocked || isMuted || isHidden {
                         VStack(spacing: 8) {
@@ -2567,10 +2568,10 @@ struct UserProfileView: View {
                             }
                         }
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isBlockedBy)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isBlocked)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isMuted)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isHidden)
+                        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: isBlockedBy)
+                        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: isBlocked)
+                        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: isMuted)
+                        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: isHidden)
                     }
                 }
                 .padding(ProfileDesignTokens.contentInset)
@@ -2596,7 +2597,7 @@ struct UserProfileView: View {
                     guard selectedTab != tab else { return }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78)) {
                         selectedTab = tab
                     }
                 } label: {
@@ -3205,11 +3206,13 @@ struct UnifiedFeedItemCard: View {
     let onLike: () -> Void
     let onReply: () -> Void
     let onToggleExpand: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var needsExpansion: Bool {
         item.content.count > 120
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Post content
@@ -3218,7 +3221,7 @@ struct UnifiedFeedItemCard: View {
                 .foregroundStyle(.primary)
                 .lineSpacing(4)
                 .lineLimit(isExpanded ? nil : 4)
-                .animation(.easeInOut(duration: 0.3), value: isExpanded)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: isExpanded)
             
             // See More button
             if needsExpansion {
@@ -3296,7 +3299,8 @@ struct ReadOnlyProfilePostCard: View {
     let onLike: () -> Void
     let onReply: () -> Void
     let onToggleExpand: () -> Void  // ✅ NEW: Toggle expansion callback
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     @State private var swipeOffset: CGFloat = 0  // ✅ NEW: Swipe gesture tracking
     @State private var swipeDirection: SwipeDirection?  // ✅ NEW: Swipe direction
@@ -3324,7 +3328,7 @@ struct ReadOnlyProfilePostCard: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .lineLimit(isExpanded ? nil : 10)
-                .animation(.easeInOut(duration: 0.3), value: isExpanded)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: isExpanded)
             
             // "Show more" button
             if needsExpansion && !isExpanded {
@@ -3391,7 +3395,7 @@ struct ReadOnlyProfilePostCard: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .scaleEffect(isLiked ? 1.1 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isLiked)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: isLiked)
                 
                 // Comment Button with count badge
                 Button {
@@ -3550,11 +3554,11 @@ struct ReadOnlyProfilePostCard: View {
         
         // Determine swipe direction
         if value.translation.width > 20 {
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 swipeDirection = .right  // Amen
             }
         } else if value.translation.width < -20 {
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 swipeDirection = .left  // Comment
             }
         } else {
@@ -4221,6 +4225,7 @@ struct InterestTagsView: View {
 struct HandDrawnInterestTag: View {
     let interest: String
     let index: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animateStroke: CGFloat = 0
     
     var body: some View {
@@ -4244,8 +4249,7 @@ struct HandDrawnInterestTag: View {
             .onAppear {
                 // Stagger animation by index
                 withAnimation(
-                    .easeInOut(duration: 0.8)
-                    .delay(Double(index) * 0.15)
+                    reduceMotion ? nil : .easeInOut(duration: 0.8).delay(Double(index) * 0.15)
                 ) {
                     animateStroke = 1.0
                 }
@@ -4555,6 +4559,7 @@ struct LoadingStateView: View {
 
 /// Shimmer effect for skeleton loading states
 struct ShimmerEffect: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: CGFloat = 0
     let duration: Double
     
@@ -4582,8 +4587,7 @@ struct ShimmerEffect: ViewModifier {
             )
             .onAppear {
                 withAnimation(
-                    .linear(duration: duration)
-                    .repeatForever(autoreverses: false)
+                    reduceMotion ? nil : .linear(duration: duration).repeatForever(autoreverses: false)
                 ) {
                     phase = 1
                 }
@@ -4785,6 +4789,7 @@ struct BackToTopButton: View {
 
 /// Custom refresh control with animation
 struct CustomRefreshControl: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let isRefreshing: Bool
     let progress: CGFloat
     
@@ -4800,17 +4805,17 @@ struct CustomRefreshControl: View {
                 .frame(width: 30, height: 30)
                 .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                 .animation(
-                    isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .none,
+                    isRefreshing ? (reduceMotion ? .none : .linear(duration: 1).repeatForever(autoreverses: false)) : .none,
                     value: isRefreshing
                 )
-            
+
             // Center dot
             Circle()
                 .fill(Color.black.opacity(0.5))
                 .frame(width: 8, height: 8)
                 .scaleEffect(isRefreshing ? 1.2 : 0.8)
                 .animation(
-                    isRefreshing ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true) : .none,
+                    isRefreshing ? (reduceMotion ? .none : .easeInOut(duration: 0.6).repeatForever(autoreverses: true)) : .none,
                     value: isRefreshing
                 )
         }
