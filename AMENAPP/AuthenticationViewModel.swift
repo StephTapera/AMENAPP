@@ -1134,7 +1134,12 @@ class AuthenticationViewModel: ObservableObject {
             // Update password
             try await user.updatePassword(to: newPassword)
             dlog("✅ Password changed successfully")
-            
+
+            // Revoke all other sessions after password change so stolen sessions
+            // can no longer authenticate with the old token
+            let callable = Functions.functions().httpsCallable("onPasswordChange")
+            try? await callable.call()
+
         } catch {
             dlog("❌ Password change failed: \(error.localizedDescription)")
             throw error

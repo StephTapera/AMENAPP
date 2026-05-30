@@ -260,8 +260,10 @@ class FollowService: ObservableObject {
             object: nil,
             userInfo: ["userId": userId, "isFollowing": true]
         )
+        // Invalidate RecommendedUsersAIService cache so suggestions refresh
+        NotificationCenter.default.post(name: NSNotification.Name("userDidFollowSomeone"), object: nil)
     }
-    
+
     // MARK: - Unfollow User
     
     // Track in-progress unfollow operations to prevent duplicates

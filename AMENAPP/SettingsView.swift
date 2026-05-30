@@ -673,6 +673,10 @@ struct SDPressStyle: ButtonStyle {
 
 // Security (was its own section — now one row)
 struct SecurityGroupView: View {
+    @State private var showSignOutConfirm = false
+    @State private var isRevokingOtherSessions = false
+    @State private var revocationMessage: String?
+
     var body: some View {
         SDDetailScaffold(title: "Security") {
             SDGroup {
@@ -691,8 +695,46 @@ struct SecurityGroupView: View {
                         UIApplication.shared.open(url)
                     }
                 }
+                SDDivider()
+                SDActionRow(
+                    icon: "rectangle.portrait.and.arrow.right",
+                    label: "Sign Out All Other Devices"
+                ) {
+                    showSignOutConfirm = true
+                }
+            }
+            if let msg = revocationMessage {
+                Text(msg)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
             }
         }
+        .confirmationDialog(
+            "Sign out all other devices?",
+            isPresented: $showSignOutConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Sign Out Other Devices", role: .destructive) {
+                Task { await revokeOtherSessions() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("All other devices signed into your account will need to sign in again.")
+        }
+    }
+
+    private func revokeOtherSessions() async {
+        isRevokingOtherSessions = true
+        revocationMessage = nil
+        do {
+            let callable = Functions.functions().httpsCallable("revokeOtherSessions")
+            _ = try await callable.call()
+            revocationMessage = "All other devices have been signed out."
+        } catch {
+            revocationMessage = "Unable to sign out other devices. Please re-authenticate and try again."
+        }
+        isRevokingOtherSessions = false
     }
 }
 

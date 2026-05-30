@@ -8,8 +8,6 @@
 import SwiftUI
 
 struct TrendingTopic: Identifiable, Hashable {
-    static func == (lhs: TrendingTopic, rhs: TrendingTopic) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
     let id: String
     let icon: String
     let iconColor: Color

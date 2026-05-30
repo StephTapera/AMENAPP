@@ -110,7 +110,10 @@ async function callOpenAI(apiKey, systemPrompt, userPrompt, maxTokens = 512, tem
   }
 
   const json = await response.json();
-  return json.choices?.[0]?.message?.content ?? "";
+  return {
+    content: json.choices?.[0]?.message?.content ?? "",
+    tokensUsed: json.usage?.total_tokens ?? 0,
+  };
 }
 
 /**
@@ -146,7 +149,10 @@ async function callClaude(apiKey, systemPrompt, userPrompt, maxTokens = 512, tem
   }
 
   const json = await response.json();
-  return json.content?.[0]?.text ?? "";
+  return {
+    content: json.content?.[0]?.text ?? "",
+    tokensUsed: (json.usage?.input_tokens ?? 0) + (json.usage?.output_tokens ?? 0),
+  };
 }
 
 /**
@@ -199,6 +205,66 @@ async function checkSharedBereanRateLimit(uid, db) {
   }
 }
 
+// ── Per-user daily token budgets ──────────────────────────────────────────────
+// Enforces Anthropic/OpenAI API cost at the user level. Pre-flight check before
+// each LLM call; actual usage is recorded post-call from the API response.
+// Budgets by tier: free=15k tokens/day, plus=150k/day, pro=unlimited.
+const DAILY_TOKEN_BUDGETS = {free: 15000, plus: 150000, pro: null};
+
+/**
+ * Pre-flight: read current token usage and throw if the estimated cost would
+ * exceed the user's tier budget. Returns {tier, currentUsed, budget}.
+ */
+async function checkTokenBudget(uid, db, estimatedTokens) {
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const [tokenSnap, userSnap] = await Promise.all([
+    db.doc(`users/${uid}/aiUsage/bereanTokenBudget`).get(),
+    db.collection("users").doc(uid).get(),
+  ]);
+  const userData = userSnap.exists ? userSnap.data() : {};
+  const tier = userData.premiumEntitlement?.tier ?? userData.premiumTier ?? "free";
+  const budget = DAILY_TOKEN_BUDGETS[tier] ?? DAILY_TOKEN_BUDGETS.free;
+  if (budget === null) return {tier, budget, currentUsed: 0};
+  const tokenData = tokenSnap.exists ? tokenSnap.data() : {};
+  const currentUsed = tokenData.date === dayKey ? (tokenData.tokensUsed ?? 0) : 0;
+  if (currentUsed + estimatedTokens > budget) {
+    throw new HttpsError(
+        "resource-exhausted",
+        "Daily AI conversation limit reached. Upgrade your plan for more.",
+        {tier, budget, used: currentUsed},
+    );
+  }
+  return {tier, budget, currentUsed};
+}
+
+/**
+ * Post-call: increment the user's daily token counter by actual tokens used.
+ * Non-blocking — failures are logged but never surfaced to the client.
+ */
+async function recordTokenUsage(uid, db, tokensUsed) {
+  if (!tokensUsed || tokensUsed <= 0) return;
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const tokenRef = db.doc(`users/${uid}/aiUsage/bereanTokenBudget`);
+  try {
+    const snap = await tokenRef.get();
+    const data = snap.exists ? snap.data() : {};
+    if (data.date === dayKey) {
+      await tokenRef.update({
+        tokensUsed: admin.firestore.FieldValue.increment(tokensUsed),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      await tokenRef.set({
+        date: dayKey,
+        tokensUsed,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  } catch (err) {
+    console.error("[tokenBudget] recordTokenUsage failed:", err.message);
+  }
+}
+
 // ─── BIBLE Q&A ────────────────────────────────────────────────────────────────
 
 exports.bereanBibleQA = onCall(
@@ -220,7 +286,8 @@ If uncertain, say "I'm not certain" and suggest consulting a pastor or scholar.
 Do not fabricate scripture references. Tone: warm, pastoral, non-divisive across denominations.` +
 `\n${BEREAN_DOCTRINAL_RESTRAINT}`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.5);
+      const {content, tokensUsed: callTokens} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.5);
+      recordTokenUsage(uid, db, callTokens).catch(() => {});
 
       // Extract citations from response (verse patterns like "John 3:16")
       const citations = [];
@@ -243,7 +310,7 @@ exports.bereanBibleQAFallback = onCall(
       const system = `You are Berean, a biblical AI assistant. Give a brief, scriptural answer to this question.
 Cite at least one Bible verse. Be concise (under 150 words). Tone: warm, non-divisive.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
       return makeResponse(content, "openai", "gpt-4o-fallback");
     },
 );
@@ -269,7 +336,7 @@ Suggest prayer and seeking counsel from a pastor when appropriate.
 Cite scripture where relevant. Avoid being preachy — be a friend and guide.` +
 `\n${BEREAN_DOCTRINAL_RESTRAINT}`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.6);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.6);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -293,7 +360,7 @@ Help believers integrate their faith into professional and entrepreneurial decis
 Provide practical, biblically-informed advice. Cite relevant scripture and principles.
 Output as JSON: { faithPrinciple: string, practicalSteps: [string], scripture: string }`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -316,7 +383,7 @@ Summarize this sermon/church note into structured JSON with these exact keys:
 }
 Be concise and faithful to the content. Do not add content not in the notes.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.3);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.3);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -334,7 +401,7 @@ Output JSON: { "references": ["array of verse references like John 3:16, Romans 
 Only include explicit references (book + chapter:verse). Do not infer or guess.
 If none are found, return { "references": [] }.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.1);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.1);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -358,7 +425,7 @@ Output JSON:
 }
 Be encouraging, not harsh. Suggestions should feel like a friend's advice, not a correction.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -381,7 +448,7 @@ Output JSON:
 }
 Be constructive and kind. Most comments are fine — only flag genuine issues.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.3);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.3);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -424,7 +491,7 @@ Output JSON ONLY:
   "reason": "brief explanation"
 }`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.1);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.1);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -504,7 +571,7 @@ Write ONE short sentence (max 12 words) explaining why this post matches the use
 Be friendly and specific. Example: "Shown because you follow prayer topics."
 Do not include quotation marks in your response.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.5);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.5);
       return makeResponse(content.trim(), "openai", "gpt-4o");
     },
 );
@@ -522,7 +589,7 @@ Rules: NO engagement bait. NO scarcity hooks ("Don't miss out!"). NO trending pu
 Notifications must be calm, informative, and faith-appropriate.
 Output JSON: { "title": "max 40 chars", "body": "max 100 chars" }`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -546,7 +613,7 @@ Output JSON:
 }
 Be thorough. This is safety-critical — err on the side of caution.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.2);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.2);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -571,7 +638,7 @@ Output JSON:
 }
 addictionRisk > 0.7 should be downranked. isRagebait = true should be heavily downranked.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.2);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.2);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -663,7 +730,7 @@ exports.bereanGenericProxy = onCall(
 Task type: ${taskType ?? "general"}.
 Respond helpfully, biblically-grounded, and with pastoral warmth.`;
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.5);
+      const {content} = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.5);
       return makeResponse(content, "openai", "gpt-4o");
     },
 );
@@ -705,7 +772,7 @@ Rules:
 
         let rawContent = "";
         try {
-          rawContent = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 150, 0.7);
+          ({content: rawContent} = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 150, 0.7));
           const parsed = JSON.parse(rawContent);
           const suggestions = (parsed.suggestions ?? [])
             .slice(0, 3)
@@ -748,7 +815,7 @@ Rules:
             throw new Error("CLAUDE_API_KEY secret not configured");
           }
 
-          const rewritten = await callClaude(apiKey, systemPrompt, userPrompt, 300, 0.5);
+          const {content: rewritten} = await callClaude(apiKey, systemPrompt, userPrompt, 300, 0.5);
           const trimmed = rewritten.trim().slice(0, 500);
 
           // Return as 3 slots: slot 1 = rewritten, slots 2-3 = shorter fallback variants
@@ -889,6 +956,14 @@ exports.bereanChatProxy = onCall(
       }
       messages.push({role: "user", content: userMessage});
 
+      // ── Pre-flight token budget check ─────────────────────────────────────
+      // Estimate input tokens from message lengths (rough: chars / 4).
+      // Include maxTokens as a budget reserve for the output.
+      const estimatedInputTokens = Math.ceil(
+          messages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0) / 4,
+      );
+      await checkTokenBudget(uid, db, estimatedInputTokens + (maxTokens ?? 600));
+
       const apiKey = ANTHROPIC_API_KEY.value();
       if (!apiKey) {
         throw new HttpsError("internal", "ANTHROPIC_API_KEY secret not configured.");
@@ -921,6 +996,12 @@ exports.bereanChatProxy = onCall(
       }
 
       const text = json.content?.[0]?.text ?? "";
+
+      // Record actual token usage (non-blocking — never fail the response)
+      const tokensUsed = (json.usage?.input_tokens ?? 0) + (json.usage?.output_tokens ?? 0);
+      recordTokenUsage(uid, db, tokensUsed).catch((e) =>
+        console.error("[tokenBudget] bereanChatProxy record failed:", e.message),
+      );
 
       // ── Guardrail: output validation ──────────────────────────────────────
       const outputGuard = validateOutput(text, uid);
@@ -1117,7 +1198,7 @@ ${pastorName ? `Pastor: ${pastorName}` : ""}
 Generate the 6-day plan as JSON.`;
 
       try {
-        const content = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 1500, 0.6);
+        const {content} = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 1500, 0.6);
         const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
         return parsed;
       } catch (e) {
@@ -1169,7 +1250,7 @@ ${(rhythms || []).map((r) => `- ${r.rhythm}: ${r.engagements} engagements, consi
 Provide pastoral insight as JSON.`;
 
       try {
-        const content = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 500, 0.5);
+        const {content} = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 500, 0.5);
         const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
         return parsed;
       } catch (e) {
@@ -1226,7 +1307,7 @@ Prompt type: ${promptType || "reflection"}
 Generate a seasonal reflection as JSON.`;
 
       try {
-        const content = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 600, 0.6);
+        const {content} = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 600, 0.6);
         const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
         return parsed;
       } catch (e) {

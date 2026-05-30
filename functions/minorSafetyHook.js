@@ -13,12 +13,12 @@ const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 
 // ── Feature flag check ─────────────────────────────────────────────────────────
-// [DECISION REQUIRED]: set minorSafetyEnabled = true in config/featureFlags
+// [DECISION REQUIRED]: set minorSafetyModeEnabled = true in config/featureFlags
 // when minimum-age policy and verification are in place
 async function isMinorSafetyEnabled() {
   try {
     const snap = await admin.firestore().doc('config/featureFlags').get();
-    return snap.exists ? (snap.data().minorSafetyEnabled ?? false) : false;
+    return snap.exists ? (snap.data().minorSafetyModeEnabled ?? false) : false;
   } catch {
     return false; // fail closed — don't run if we can't check the flag
   }

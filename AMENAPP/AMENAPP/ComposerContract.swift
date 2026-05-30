@@ -25,6 +25,7 @@ struct ComposerDraft: Identifiable, Codable {
     var postType: ComposerPostType = .standard
     var isAnonymousPrayer: Bool = false
     var musicTrack: MusicTrack? = nil
+    var scheduledAt: Date? = nil       // set → post queued; nil → publish immediately
     var savedAt: Date = Date()
 
     var isEmpty: Bool {

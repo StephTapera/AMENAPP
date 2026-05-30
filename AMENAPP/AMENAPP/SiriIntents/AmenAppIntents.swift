@@ -152,10 +152,18 @@ final class AmenIntentDonationService {
     /// Call this on first launch (and after any login state change) so
     /// iOS surfaces the correct phrases in Siri Suggestions and Shortcuts.
     static func donateIntents() {
+        #if targetEnvironment(simulator)
+        // On simulator, updateAppShortcutParameters() triggers the lskd metadata daemon
+        // to try to validate the provider, which always fails with
+        // LNMetadataProviderErrorDomain Code=9004. App Shortcuts don't function on
+        // simulator anyway — skip the call entirely to keep the log clean.
+        dlog("[AmenIntents] Skipping App Shortcuts registration on simulator (lskd unsupported)")
+        #else
         dlog("[AmenIntents] Donating app shortcuts to system")
         // AmenAppShortcutsProvider was removed (P2 FIX — duplicate provider).
         // The canonical provider is AMENShortcutsProvider in AMENAppIntents.swift.
         AMENShortcutsProvider.updateAppShortcutParameters()
+        #endif
     }
 }
 

@@ -280,7 +280,8 @@ class DiscoveryViewModel: ObservableObject {
                     guard let uid = user.id,
                           uid != currentUserId,
                           showInDiscovery,
-                          !blockedIds.contains(uid)   // P0: exclude blocked users
+                          !blockedIds.contains(uid),   // P0: exclude blocked users
+                          (doc.data()["ageTier"] as? String) != "blocked"  // COPPA: exclude under-13 accounts
                     else { continue }
                     users.append(user)
                 }
@@ -361,7 +362,8 @@ class DiscoveryViewModel: ObservableObject {
                     if user.id == nil { user.id = doc.documentID }
                     guard let uid = user.id,
                           uid != currentUserId,
-                          !blockedIds.contains(uid)
+                          !blockedIds.contains(uid),
+                          (doc.data()["ageTier"] as? String) != "blocked"  // COPPA: exclude under-13 accounts
                     else { continue }
                     users.append(user)
                 }
@@ -391,7 +393,8 @@ class DiscoveryViewModel: ObservableObject {
                     if user.id == nil { user.id = doc.documentID }
                     guard let uid = user.id,
                           uid != currentUserId,
-                          !blockedIds.contains(uid)
+                          !blockedIds.contains(uid),
+                          (doc.data()["ageTier"] as? String) != "blocked"  // COPPA: exclude under-13 accounts
                     else { continue }
                     users.append(user)
                 }
@@ -432,7 +435,8 @@ class DiscoveryViewModel: ObservableObject {
                           uid != currentUserId,
                           showInDiscovery,
                           !blockedIds.contains(uid),    // P0: block filter
-                          !existingIds.contains(uid)    // P1: dedup across pages
+                          !existingIds.contains(uid),   // P1: dedup across pages
+                          (doc.data()["ageTier"] as? String) != "blocked"  // COPPA: exclude under-13 accounts
                     else { continue }
                     newUsers.append(user)
                 }
@@ -534,7 +538,8 @@ class DiscoveryViewModel: ObservableObject {
                     if user.id == nil { user.id = doc.documentID }
                     guard let uid = user.id,
                           uid != currentUserId,
-                          !blockedIds.contains(uid) // P0: block filter
+                          !blockedIds.contains(uid), // P0: block filter
+                          (doc.data()["ageTier"] as? String) != "blocked"  // COPPA: exclude under-13 accounts
                     else { continue }
                     users.append(user)
                 }
