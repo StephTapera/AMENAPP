@@ -24,7 +24,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 //             request/response shape without a dedicated callable.
 // ---------------------------------------------------------------------------
 export const bereanGenericProxy = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -44,7 +44,7 @@ export const bereanGenericProxy = onCall(
 //    Purpose: Generates an AI-powered reflection on a shared media item.
 // ---------------------------------------------------------------------------
 export const createMediaReflection = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -64,7 +64,7 @@ export const createMediaReflection = onCall(
 //    Purpose: AI-powered sermon snap / sermon summary generation.
 // ---------------------------------------------------------------------------
 export const sermonSnapProxy = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -85,7 +85,7 @@ export const sermonSnapProxy = onCall(
 //    Purpose: Server-authoritative acceptance of a trust/safety connection request.
 // ---------------------------------------------------------------------------
 export const acceptSafeConnection = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -106,7 +106,7 @@ export const acceptSafeConnection = onCall(
 //    Purpose: Conversational AI companion endpoint.
 // ---------------------------------------------------------------------------
 export const askAmenCompanion = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -127,7 +127,7 @@ export const askAmenCompanion = onCall(
 //    Purpose: AI-powered content moderation / safety classification.
 // ---------------------------------------------------------------------------
 export const bereanShieldAnalyze = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -148,7 +148,7 @@ export const bereanShieldAnalyze = onCall(
 //    Purpose: Classifies the user's physical/spatial environment context.
 // ---------------------------------------------------------------------------
 export const classifyEnvironment = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -169,7 +169,7 @@ export const classifyEnvironment = onCall(
 //    Purpose: Server-authoritative approval of AI-generated media metadata.
 // ---------------------------------------------------------------------------
 export const approveMediaMetadata = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");

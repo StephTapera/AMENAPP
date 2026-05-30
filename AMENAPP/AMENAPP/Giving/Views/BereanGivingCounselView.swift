@@ -332,15 +332,20 @@ struct BereanGivingCounselView: View {
                         .buttonStyle(.plain)
                     }
 
-                    Button {} label: {
-                        Text("Save for later")
+                    Button {
+                        vm.toggleSaved(id: rec.id)
+                    } label: {
+                        let isSaved = vm.savedRecommendationIds.contains(rec.id)
+                        Label(isSaved ? "Saved" : "Save for later",
+                              systemImage: isSaved ? "bookmark.fill" : "bookmark")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(AmenTheme.Colors.textSecondary)
+                            .foregroundStyle(isSaved ? AmenTheme.Colors.accentPrimary : AmenTheme.Colors.textSecondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background(AmenTheme.Colors.backgroundSecondary, in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(vm.savedRecommendationIds.contains(rec.id) ? "Remove from saved" : "Save for later")
                 }
             }
         }

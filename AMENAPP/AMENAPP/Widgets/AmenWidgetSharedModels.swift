@@ -13,16 +13,8 @@
 import Foundation
 import WidgetKit
 
-// MARK: - dlog shim
-//
-// The main app target links DebugLog.swift which defines dlog().
-// The Widget Extension does NOT link that file, so we provide a minimal
-// fallback here that is only compiled when WIDGET_EXTENSION is defined.
-// In Xcode: add -DWIDGET_EXTENSION to the widget extension's Swift Other Flags.
-// If you prefer, you can simply add DebugLog.swift to the widget extension target
-// instead — then remove this entire block.
-
-#if WIDGET_EXTENSION
+// Private dlog shim — file-scoped so it compiles in both the main app and the
+// Widget Extension without conflicting with the global dlog in DebugLog.swift.
 @inline(__always)
 private func dlog(
     _ message: @autoclosure () -> String,
@@ -33,7 +25,6 @@ private func dlog(
     print("[Widget]", message())
     #endif
 }
-#endif
 
 // MARK: - Shared Data Models
 

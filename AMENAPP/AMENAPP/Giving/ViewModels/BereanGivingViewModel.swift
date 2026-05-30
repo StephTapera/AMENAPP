@@ -15,6 +15,7 @@ final class BereanGivingViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var selectedRecommendation: BereanGivingRecommendation? = nil
     @Published var showScripture: Set<UUID> = []
+    @Published var savedRecommendationIds: Set<UUID> = []
 
     private let service = BereanGivingService()
     var profile: GivingProfile = .empty
@@ -38,6 +39,14 @@ final class BereanGivingViewModel: ObservableObject {
             candidates: candidates
         )
         isLoading = false
+    }
+
+    func toggleSaved(id: UUID) {
+        if savedRecommendationIds.contains(id) {
+            savedRecommendationIds.remove(id)
+        } else {
+            savedRecommendationIds.insert(id)
+        }
     }
 
     func toggleScripture(id: UUID) {

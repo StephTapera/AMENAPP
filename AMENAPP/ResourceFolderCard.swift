@@ -204,131 +204,80 @@ struct ResourceFolderCard: View {
 }
 
 // MARK: - FolderSquareCard
-// Compact square folder — used in 3-column grids.
-// Icon is the visual anchor; name sits at the bottom of the folder face.
-// Same folder metaphor as ResourceFolderCard but square and icon-first.
+// Liquid Glass square card — used in 3-column grids.
+// Replaces the folder metaphor with a pure glass surface tinted by accentColor.
 
 struct FolderSquareCard: View {
     let icon: String
     let title: String
     let accentColor: Color
-    let folderColor: Color
-    let paperColor: Color
+    let folderColor: Color   // kept for API compatibility
+    let paperColor: Color    // kept for API compatibility
 
     var body: some View {
         ZStack(alignment: .bottom) {
-
-            // ── Folder back ──────────────────────────────────────────────────
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(folderColor)
-                .frame(width: nil, height: nil) // fills parent
-                .overlay(alignment: .topLeading) {
-                    // Tab nub
-                    Capsule()
-                        .fill(folderColor.mix(with: .black, by: 0.10))
-                        .frame(width: 20, height: 6)
-                        .offset(x: 8, y: -3)
-                }
-
-            // ── 2 peeking paper sheets (top-right area) ──────────────────────
-            VStack(spacing: 0) {
-                HStack(alignment: .bottom, spacing: -4) {
-                    Spacer()
-                    squarePaperSheet(rotation: -5)
-                    squarePaperSheet(rotation: 4)
-                        .padding(.trailing, 10)
-                }
-                .frame(height: 16)
-                Spacer()
-            }
-            .padding(.top, 6)
-
-            // ── Folder front face ─────────────────────────────────────────────
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            // Gradient base
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(
                     LinearGradient(
-                        stops: [
-                            .init(color: accentColor.mix(with: .white, by: 0.20), location: 0),
-                            .init(color: accentColor.mix(with: .black, by: 0.06), location: 1)
-                        ],
+                        colors: [accentColor, accentColor.mix(with: .black, by: 0.28)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
-                // Glass sheen
-                .overlay(alignment: .top) {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [.white.opacity(0.25), .clear],
-                                startPoint: .top,
-                                endPoint: .init(x: 0.5, y: 0.5)
-                            )
-                        )
-                }
-                // Edge highlight
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.white.opacity(0.40), accentColor.opacity(0.12)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                // Icon — centered, prominent
-                .overlay(alignment: .center) {
-                    VStack(spacing: 4) {
-                        // Icon badge
-                        ZStack {
-                            Circle()
-                                .fill(.white.opacity(0.18))
-                                .frame(width: 26, height: 26)
-                            Image(systemName: icon)
-                                .font(.systemScaled(12, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
-                        // Title below icon
-                        Text(title)
-                            .font(.systemScaled(9, weight: .bold))
-                            .foregroundStyle(.white)
-                            .shadow(color: .black.opacity(0.18), radius: 1, y: 1)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.horizontal, 6)
-                }
-                // shrinks slightly from bottom so the back folder peeks at top
-                .padding(.top, 14)
-        }
-        .aspectRatio(1.0, contentMode: .fit)   // square
-        .shadow(color: accentColor.opacity(0.22), radius: 14, x: 0, y: 6)
-        .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 2)
-    }
 
-    private func squarePaperSheet(rotation: Double) -> some View {
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
-            .fill(paperColor)
-            .overlay(
-                VStack(spacing: 4) {
-                    ForEach(0..<2, id: \.self) { _ in
-                        Capsule()
-                            .fill(Color(.systemGray4).opacity(0.45))
-                            .frame(height: 1.5)
-                    }
-                }
-                .padding(.horizontal, 4)
-                .padding(.top, 5)
+            // Glass material layer
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .opacity(0.28)
+
+            // Specular top-left arc
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.30), .clear],
+                        startPoint: .topLeading, endPoint: .center
+                    )
+                )
+
+            // Bottom scrim for text legibility
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.20)],
+                startPoint: .center, endPoint: .bottom
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .stroke(Color(.systemGray4).opacity(0.25), lineWidth: 0.5)
-            )
-            .frame(width: 16, height: 20)
-            .rotationEffect(.degrees(rotation))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+            // Content
+            VStack(spacing: 0) {
+                Spacer()
+                Image(systemName: icon)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.18), radius: 4)
+                    .frame(maxWidth: .infinity)
+                Spacer().frame(height: 10)
+                Text(title)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 12)
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.white.opacity(0.55), .white.opacity(0.08)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.5
+                )
+        }
+        .shadow(color: accentColor.opacity(0.32), radius: 14, x: 0, y: 6)
+        .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 2)
     }
 }
 

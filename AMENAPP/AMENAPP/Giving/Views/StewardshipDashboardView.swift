@@ -55,6 +55,30 @@ struct StewardshipDashboardView: View {
         .sheet(isPresented: $vm.showIncomeInput) {
             incomeInputSheet
         }
+        .sheet(item: $vm.activeSection) { section in
+            NavigationStack {
+                VStack(spacing: 20) {
+                    Image(systemName: section.icon)
+                        .font(.system(size: 44, weight: .light))
+                        .foregroundStyle(AmenTheme.Colors.amenGold)
+                        .padding(.top, 32)
+                    Text(section.rawValue)
+                        .font(.title2.weight(.semibold))
+                    Text("This section is coming soon.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .navigationTitle(section.rawValue)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { vm.activeSection = nil }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
     }
 
     // MARK: - Privacy Banner
@@ -324,7 +348,10 @@ struct StewardshipDashboardView: View {
     private var quickActions: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
             ForEach(StewardshipViewModel.StewardshiSection.allCases.filter { $0 != .planner }, id: \.id) { section in
-                Button {} label: {
+                Button {
+                    HapticManager.impact(style: .light)
+                    vm.activeSection = section
+                } label: {
                     HStack(spacing: 10) {
                         Image(systemName: section.icon)
                             .font(.system(size: 15))
