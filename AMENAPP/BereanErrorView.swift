@@ -105,7 +105,7 @@ struct BereanErrorBanner: View {
                 
                 // Error text
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(error.userFriendlyMessage)
+                    Text(error.errorDescription ?? "An error occurred")
                         .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color(white: 0.2))
                     
@@ -216,7 +216,7 @@ struct BereanFullScreenError: View {
             
             // Error message
             VStack(spacing: 12) {
-                Text(error.userFriendlyMessage)
+                Text(error.errorDescription ?? "An error occurred")
                     .font(.custom("Georgia", size: 28))
                     .fontWeight(.light)
                     .foregroundStyle(Color(white: 0.2))

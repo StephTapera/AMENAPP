@@ -138,6 +138,10 @@ struct EnhancedChurchNoteEditor: View {
     private var contextAllFilled: Bool { contextFilledCount == 4 }
     private var contextCompletionFraction: Double { Double(contextFilledCount) / 4.0 }
 
+    // TC-01: Draft persistence for new notes
+    private let draftKey = "church_notes_editor_draft"
+    @State private var wasSaved = false
+
     // Animation 3: Focus Mode + Word Momentum
     @State private var focusMode = false
     @State private var titleSectionAppeared = false
@@ -307,6 +311,28 @@ struct EnhancedChurchNoteEditor: View {
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                 withAnimation { titleSectionAppeared = true }
+            }
+            // TC-01: Restore draft for new notes
+            if !isEditMode {
+                if let draft = UserDefaults.standard.dictionary(forKey: draftKey) {
+                    title    = draft["title"]    as? String ?? title
+                    content  = draft["content"]  as? String ?? content
+                    scripture = draft["scripture"] as? String ?? scripture
+                }
+                UserDefaults.standard.removeObject(forKey: draftKey)
+            }
+        }
+        .onDisappear {
+            // TC-01: Persist draft when navigating away from a new, unsaved note
+            if !isEditMode && !wasSaved && (!title.isEmpty || !content.isEmpty) {
+                let draft: [String: String] = [
+                    "title": title,
+                    "content": content,
+                    "scripture": scripture
+                ]
+                UserDefaults.standard.set(draft, forKey: draftKey)
+            } else if wasSaved {
+                UserDefaults.standard.removeObject(forKey: draftKey)
             }
         }
         .sheet(isPresented: $showSongSearch) {
@@ -1180,6 +1206,7 @@ struct EnhancedChurchNoteEditor: View {
                 
                 await MainActor.run {
                     hasUnsavedChanges = false
+                    wasSaved = true
                     dismiss()
                 }
                 

@@ -101,8 +101,11 @@ final class AppLifecycleManager {
         // DraftsManager: clears in-memory and UserDefaults drafts so a newly
         // signed-in account cannot see the previous user's unsaved posts.
         DraftsManager.shared.reset()
-        // BadgeCountManager: stops drift-recovery tasks and zeroes all counts /
-        // caches so the next user starts with a clean badge state.
+        // BadgeCountManager: stop all Firestore snapshot listeners first (PE-03 FIX:
+        // explicit stopListening() call so dangling listeners are removed before
+        // the full reset wipes published state), then zero all counts and caches
+        // so the next user starts with a clean badge state.
+        BadgeCountManager.shared.stopListening()
         BadgeCountManager.shared.reset()
         // GrowthLoopEngine: detaches Firestore listener and clears loop/metrics
         // data so growth-loop history from the previous user is never visible
@@ -146,20 +149,32 @@ final class AppLifecycleManager {
         // BUG-12 FIX: Set isClearingCache = true before the async clear starts so
         // AuthenticationViewModel.signIn() can gate on it and prevent a second
         // user from loading stale data before the clear completes.
+        // PE-02 FIX: clearPersistence() takes a completion block — the rest of the
+        // sign-out sequence (resuming sign-in waiters) happens INSIDE the completion
+        // block so it never runs before the cache clear finishes.
         isClearingCache = true
-        Task {
-            defer {
-                Task { @MainActor in
-                    self.isClearingCache = false
-                    // Issue 5 FIX: Resume all callers that suspended in waitForCacheClear().
-                    let waiters = self.cacheClearContinuations
-                    self.cacheClearContinuations.removeAll()
-                    for c in waiters { c.resume() }
-                    dlog("✅ Firestore cache clear done — resumed \(waiters.count) waiting sign-in(s)")
-                }
+        Firestore.firestore().clearPersistence { [weak self] error in
+            // PE-02 FIX: Log clearPersistence failures; previously try? silently
+            // discarded errors, making cache-clear failures invisible in production.
+            if let error = error {
+                print("clearPersistence error: \(error)")
+            } else {
+                dlog("✅ Firestore persistence cache cleared for new session")
             }
-            try? await Firestore.firestore().clearPersistence()
-            dlog("✅ Firestore persistence cache cleared for new session")
+            // Resume all callers that suspended in waitForCacheClear() AFTER the
+            // completion block fires — i.e., only once the clear has actually finished
+            // (or failed). This was previously done in a defer on the Task body, which
+            // is equivalent timing-wise, but the completion-block form is explicit and
+            // avoids the nested Task { @MainActor } hop that could reorder on a busy queue.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isClearingCache = false
+                // Issue 5 FIX: Resume all callers that suspended in waitForCacheClear().
+                let waiters = self.cacheClearContinuations
+                self.cacheClearContinuations.removeAll()
+                for c in waiters { c.resume() }
+                dlog("✅ Firestore cache clear done — resumed \(waiters.count) waiting sign-in(s)")
+            }
         }
     }
 }

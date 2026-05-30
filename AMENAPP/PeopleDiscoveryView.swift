@@ -86,8 +86,6 @@ class DiscoveryViewModel: ObservableObject {
 
     init() {
         loadRecentSearches()
-        // Fix #10: load static trending immediately so UI is never empty
-        trendingTopics = TrendingTopic.mockTopics
         // Fix #5: keep followingUserIds in sync with FollowService canonical set
         followCancellable = FollowService.shared.$following
             .receive(on: DispatchQueue.main)
@@ -143,7 +141,6 @@ class DiscoveryViewModel: ObservableObject {
     // MARK: - Trending (static-first, Firestore replaces async)  — Fix #10
 
     func loadTrendingFromFirestore() async {
-        // Static is already loaded in init(); Firestore results replace when ready.
         defer { isLoadingTrending = false }
         lazy var db = Firestore.firestore()
 

@@ -62,6 +62,9 @@ final class AppNavigationRouter: ObservableObject {
     /// Destination queued because auth is not yet resolved.
     private var authPendingDestination: AppDestination? = nil
 
+    /// Timeout task that fires if auth never resolves within 10 seconds.
+    private var authTimeoutTask: Task<Void, Never>? = nil
+
     // MARK: - Injected closures (set by ContentView / root scene)
 
     /// Returns true when the user is authenticated.
@@ -123,6 +126,9 @@ final class AppNavigationRouter: ObservableObject {
     func authDidBecomeReady() {
         guard !authIsReady else { return }
         authIsReady = true
+        // Cancel the timeout — auth resolved normally before the 10-second deadline.
+        authTimeoutTask?.cancel()
+        authTimeoutTask = nil
         dlog("[AppNavigationRouter] ✅ Auth is ready")
 
         if let pending = authPendingDestination {
@@ -135,6 +141,8 @@ final class AppNavigationRouter: ObservableObject {
     func authDidSignOut() {
         authIsReady = false
         authPendingDestination = nil
+        authTimeoutTask?.cancel()
+        authTimeoutTask = nil
         dlog("[AppNavigationRouter] 🔓 Auth gate reset (sign-out)")
     }
 
@@ -152,6 +160,28 @@ final class AppNavigationRouter: ObservableObject {
         if destination.requiresAuth && !isAuthenticated() {
             dlog("[AppNavigationRouter] ⏸ Auth required — queuing until sign-in: \(destination.analyticsLabel)")
             authPendingDestination = destination
+            // Arm a 10-second timeout so the held destination doesn't block forever
+            // if the auth state listener never fires (e.g. cold start with no network).
+            if authTimeoutTask == nil {
+                authTimeoutTask = Task { [weak self] in
+                    do {
+                        try await Task.sleep(for: .seconds(10))
+                    } catch {
+                        return  // cancelled — auth resolved normally
+                    }
+                    guard let self else { return }
+                    await MainActor.run {
+                        guard !self.authIsReady else { return }
+                        dlog("[AppNavigationRouter] ⏱ Auth timeout — dropping held destination, routing to sign-in")
+                        self.authPendingDestination = nil
+                        self.authTimeoutTask = nil
+                        // Signal the root scene to show sign-in by resetting to tab 0.
+                        // ContentView observes authIsReady == false to present the auth flow.
+                        self.selectedTab = 0
+                        NotificationCenter.default.post(name: .amenAuthTimeout, object: nil)
+                    }
+                }
+            }
             return
         }
 
@@ -300,4 +330,7 @@ final class AppNavigationRouter: ObservableObject {
 extension Notification.Name {
     /// Posted by AppNavigationRouter when a search destination is resolved with a query.
     static let amenOpenSearch = Notification.Name("amenOpenSearch")
+    /// Posted when the auth-ready gate times out after 10 seconds without resolving.
+    /// Observers (e.g. ContentView) should route the user to the sign-in screen.
+    static let amenAuthTimeout = Notification.Name("amenAuthTimeout")
 }

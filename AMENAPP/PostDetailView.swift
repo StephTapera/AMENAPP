@@ -553,6 +553,7 @@ struct PostDetailView: View {
                     }
                 }
             }
+            guard !postId.isEmpty else { return }
             if !isListening {
                 commentService.startListening(to: postId)
                 isListening = true

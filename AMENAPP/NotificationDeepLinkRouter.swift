@@ -75,14 +75,14 @@ final class NotificationDeepLinkRouter: ObservableObject {
     /// Route notification to appropriate screen
     func route(_ notification: AppNotification) {
         let destination = determineDestination(for: notification)
-        
+
         dlog("🔗 Routing notification to: \(destination)")
-        
+
         // Track engagement for smart notification engine
         SmartNotificationEngine.shared.recordNotificationInteraction(notification)
-        
-        // Navigate
-        performNavigation(to: destination)
+
+        // Navigate — use verifyAndNavigate so profile block check is enforced
+        verifyAndNavigate(to: destination)
     }
     
     /// Route from push notification payload
@@ -345,6 +345,16 @@ final class NotificationDeepLinkRouter: ObservableObject {
     /// shows nothing" trust-erosion pattern.
     func verifyAndNavigate(to destination: NavigationDestination) {
         Task {
+            // NV-01: Block check — abort profile navigation if the target user is
+            // blocked by the current user or has blocked the current user.
+            if case .profile(let targetUserId) = destination {
+                let isBlocked = await BlockService.shared.hasBlockRelationship(userId: targetUserId)
+                if isBlocked {
+                    dlog("🚫 Profile deep-link blocked — block relationship exists for userId: \(targetUserId)")
+                    return
+                }
+            }
+
             let verified = await contentExists(for: destination)
             let resolved = verified ? destination : .notifications
             if !verified {

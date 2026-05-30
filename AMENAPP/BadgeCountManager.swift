@@ -603,6 +603,19 @@ extension BadgeCountManager {
         dlog("🛑 Real-time badge listeners stopped")
     }
 
+    /// PE-03 FIX: Public stop-all-listeners entry point with a name that matches
+    /// the convention used by every other service in AppLifecycleManager
+    /// (e.g. NotificationService.stopListening(), MessageSettingsService.stopListening()).
+    /// Removes all three Firestore snapshot listeners (conversationsListener,
+    /// notificationsListener, serverCountListener) and cancels drift-recovery /
+    /// reconciliation tasks so they cannot write stale badge counts after sign-out.
+    /// AppLifecycleManager.performFullSignOutCleanup() calls reset() which calls
+    /// stopRealtimeUpdates(); this method is an explicit alias for callers that
+    /// only need to stop listeners without clearing the full badge state.
+    func stopListening() {
+        stopRealtimeUpdates()
+    }
+
     /// Reset the permission retry counters. Call this only on explicit sign-out
     /// so a fresh sign-in gets a full 3-retry budget.
     func resetRetryCounters() {

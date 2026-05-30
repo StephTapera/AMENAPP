@@ -1211,7 +1211,7 @@ struct CreatePostView: View {
                         }
                     }
 
-                    Text(scheduledDate != nil ? "Schedule" : "Post")
+                    Text(postPendingReview ? "Pending Review" : scheduledDate != nil ? "Schedule" : "Post")
                 }
             }
             .buttonStyle(.amenGlass(
