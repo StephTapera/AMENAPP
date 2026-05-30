@@ -410,7 +410,7 @@ struct CommentsView: View {
                     }
                     .zIndex(Double(topParticipants.count - index))  // Stack properly
                     .transition(.scale.combined(with: .opacity))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: topParticipants.count)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: topParticipants.count)
                 }
             }
             .padding(.horizontal, 24)
@@ -731,7 +731,7 @@ struct CommentsView: View {
                         Task { @MainActor in
                             try? await Task.sleep(nanoseconds: 600_000_000)
                             transientHighlightedCommentIds = Set(highlightedCommentIds)
-                            withAnimation(.easeOut(duration: 0.35)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
                                 proxy.scrollTo("\(targetId)-main", anchor: .center)
                             }
                             try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -743,7 +743,7 @@ struct CommentsView: View {
             .overlay(alignment: .bottomTrailing) {
                 if LiquidGlassEffectsFlags.jumpToLatestPill && showJumpToLatest {
                     JumpToLatestPill {
-                        withAnimation(.easeOut(duration: 0.25)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                             scrollProxy?.scrollTo("commentsBottom", anchor: .bottom)
                             showJumpToLatest = false
                         }
@@ -978,7 +978,7 @@ struct CommentsView: View {
                                                         .frame(width: 3, height: 3)
                                                         .opacity(isLoadingBereanSuggestion ? 1 : 0)
                                                         .animation(
-                                                            .easeInOut(duration: 0.5)
+                                                            reduceMotion ? .none : .easeInOut(duration: 0.5)
                                                                 .repeatForever()
                                                                 .delay(Double(i) * 0.16),
                                                             value: isLoadingBereanSuggestion
@@ -1309,7 +1309,7 @@ struct CommentsView: View {
                 // animate in with opacity+offset(y:12) spring(0.4, 0.85).
                 // Reduce Motion is handled inside PostCommentRow's transition.
                 Task { @MainActor in
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85)) {
                         Task { _ = await updateCommentsFromService() }
                     }
                 }
@@ -1320,7 +1320,7 @@ struct CommentsView: View {
             guard let tempId = notification.userInfo?["tempId"] as? String,
                   let notificationPostId = notification.userInfo?["postId"] as? String,
                   notificationPostId == self.postId else { return }
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 commentsWithReplies.removeAll { $0.comment.id == tempId }
             }
             errorMessage = "Comment failed to send. Please try again."
@@ -1713,7 +1713,7 @@ struct CommentsView: View {
                 guard !Task.isCancelled else { return }
                 do {
                     let results = try await AlgoliaSearchService.shared.searchUsers(query: query)
-                    withAnimation(.easeOut(duration: 0.15)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                         mentionResults = Array(results.prefix(5))
                         showMentionPicker = !mentionResults.isEmpty
                     }
@@ -1725,7 +1725,7 @@ struct CommentsView: View {
             mentionDebounceTask?.cancel()
             mentionDebounceTask = nil
             if showMentionPicker {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                     showMentionPicker = false
                     mentionResults = []
                 }
@@ -1739,7 +1739,7 @@ struct CommentsView: View {
             let before = commentText[..<lastAtIndex]
             commentText = before + "@\(user.username) "
         }
-        withAnimation(.easeOut(duration: 0.15)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
             showMentionPicker = false
             mentionResults = []
         }
@@ -1865,11 +1865,12 @@ struct CommentsView: View {
     }
 
     private func dismissBereanSuggestion() {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             bereanSuggestion = nil
         }
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceMotion) private var reduceMotionForInsert
 
     private func mainCommentRow(for commentWithReplies: CommentWithReplies) -> some View {
@@ -1928,7 +1929,7 @@ struct CommentsView: View {
         }
         // Scroll composer into view so the "Replying to" chip is visible
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.easeOut(duration: 0.3)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                 scrollProxy?.scrollTo("commentsBottom", anchor: .bottom)
             }
         }
@@ -2459,14 +2460,14 @@ struct CommentsView: View {
                         // Remove highlight after 2 seconds
                         Task { @MainActor in
                             try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            _ = withAnimation {
+                            _ = withAnimation(reduceMotion ? nil : .default) {
                                 newCommentIds.remove(id)
                             }
                         }
                         
                         // Scroll to new comment
                         if let scrollProxy = scrollProxy {
-                            withAnimation(.easeOut(duration: 0.4)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) {
                                 scrollProxy.scrollTo("\(id)-main", anchor: .top)
                             }
                         }
@@ -2923,7 +2924,7 @@ struct CommentsView: View {
         let pending = commentsWithReplies
             .map(\.comment)
             .filter { $0.approvalStatus == "pending" }
-        withAnimation { pendingComments = pending }
+        withAnimation(reduceMotion ? nil : .default) { pendingComments = pending }
     }
 
     // MARK: - Photo moderation + attach
@@ -3188,7 +3189,7 @@ private struct PostCommentRow: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: didJustFollow)
+                .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.7), value: didJustFollow)
             }
 
             Text("•")
@@ -3368,7 +3369,7 @@ private struct PostCommentRow: View {
         )
         .onLongPressGesture(minimumDuration: 0.35) {
             guard LiquidGlassEffectsFlags.reactionSheet, !isTextSelecting else { return }
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 showSoftReactions = true
             }
         }
@@ -3382,7 +3383,7 @@ private struct PostCommentRow: View {
                             }
                             onAmen()
                         }
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             showSoftReactions = false
                         }
                     }
@@ -3398,7 +3399,7 @@ private struct PostCommentRow: View {
                             )
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             showSoftReactions = false
                         }
                     }
@@ -3410,7 +3411,7 @@ private struct PostCommentRow: View {
         }
         .onTapGesture {
             if showSoftReactions {
-                withAnimation(.easeOut(duration: 0.2)) { showSoftReactions = false }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showSoftReactions = false }
             }
         }
         .contextMenu {
@@ -3834,9 +3835,18 @@ struct EmojiQuickPickerView: View {
 // Custom button style for emoji buttons with smooth press animation
 struct EmojiButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+        EmojiButtonBody(configuration: configuration)
+    }
+
+    private struct EmojiButtonBody: View {
+        let configuration: ButtonStyle.Configuration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+        }
     }
 }
 
@@ -4049,7 +4059,7 @@ struct CommentReactionPicker: View {
             .onTapGesture { } // Intentional: absorbs tap on the capsule background so it does not dismiss the reaction tray overlay
         }
         .onAppear {
-            withAnimation { appeared = true }
+            withAnimation(reduceMotion ? nil : .default) { appeared = true }
         }
     }
 }

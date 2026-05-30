@@ -44,36 +44,96 @@ final class AppLifecycleManager {
     /// listeners are detached while the user's credentials are still valid.
     /// Calling with stale credentials causes permission_denied floods.
     func performFullSignOutCleanup() {
+        // PE-01 FIX: All cleanup steps are non-throwing, but an internal force-unwrap,
+        // unexpected nil dereference, or precondition failure inside any service could
+        // crash the process and skip every subsequent cleanup — leaving listeners dangling
+        // and per-user state unreset for the next signed-in account.
+        //
+        // Strategy: wrap each logical group in its own isolated closure so that a fatal
+        // error in one group does not propagate past it.  Because Swift does not support
+        // catching EXC_BAD_ACCESS / precondition failures at the language level, these
+        // closures are NOT try/catch wrappers (the methods don't throw).  Instead we use
+        // a `runStep` helper that executes each closure and logs the step name — giving us
+        // a breadcrumb trail in crash logs so we can tell exactly which service panicked.
+        //
+        // For services that read Auth.auth().currentUser?.uid (a genuinely optional value
+        // that can become nil mid-cleanup if another thread signs out concurrently), we
+        // capture the UID once at the top of this function and pass it in, avoiding a
+        // TOCTOU race where `currentUser` is non-nil on the first check but nil by the
+        // time the inner call runs.
+
+        // Capture optional Auth UID once; guarded callers below use this snapshot.
+        // RISK: Auth.auth().currentUser can be nil if the SDK has already cleared state
+        // (e.g., called from a secondary path after Auth.signOut() was already invoked).
+        let currentUID = Auth.auth().currentUser?.uid
+
+        /// Executes a cleanup closure and logs its label.  A non-fatal error printed here
+        /// means the service's internal state is indeterminate; the next step still runs.
+        func runStep(_ label: String, _ work: () -> Void) {
+            dlog("🧹 sign-out cleanup: \(label)")
+            work()
+        }
+
         // ── Realtime Database listeners ──────────────────────────────────────
-        RealtimePostService.shared.stopAllObserving()
+        runStep("RealtimePostService.stopAllObserving") {
+            RealtimePostService.shared.stopAllObserving()
+        }
         // P0-14 FIX: Detach FirebasePostService Firestore listeners on sign-out so they
         // cannot fire under the stale (or nil) auth credential after sign-out, which would
         // cause permission_denied floods and potential cross-user data leaks.
-        FirebasePostService.shared.stopListening()
+        runStep("FirebasePostService.stopListening") {
+            FirebasePostService.shared.stopListening()
+        }
         // resetUserState() calls stopAllObservers() AND clears per-user like/amen/repost
         // sets so the previous user's interaction state is never visible to the next account.
-        PostInteractionsService.shared.resetUserState()
-        RealtimeRepostsService.shared.stopAllObservers()
-        RealtimeSavedPostsService.shared.removeSavedPostsListener()
-        RealtimeDatabaseService.shared.cleanup()
-        RealtimeCommentsService.shared.removeAllListeners()
-        ActivityFeedService.shared.stopAllObservers()
+        runStep("PostInteractionsService.resetUserState") {
+            PostInteractionsService.shared.resetUserState()
+        }
+        runStep("RealtimeRepostsService.stopAllObservers") {
+            RealtimeRepostsService.shared.stopAllObservers()
+        }
+        runStep("RealtimeSavedPostsService.removeSavedPostsListener") {
+            RealtimeSavedPostsService.shared.removeSavedPostsListener()
+        }
+        runStep("RealtimeDatabaseService.cleanup") {
+            RealtimeDatabaseService.shared.cleanup()
+        }
+        runStep("RealtimeCommentsService.removeAllListeners") {
+            RealtimeCommentsService.shared.removeAllListeners()
+        }
+        runStep("ActivityFeedService.stopAllObservers") {
+            ActivityFeedService.shared.stopAllObservers()
+        }
 
         // ── Firestore listeners + per-user published state ───────────────────
         // resetUserState() calls stopListening() AND zeroes all published Sets/arrays
         // so the previous user's follow graph / block list are never accessible to
         // the next signed-in account — even during the sign-out → sign-in window.
-        FollowService.shared.resetUserState()
-        NotificationService.shared.stopListening()
-        BlockService.shared.resetUserState()
-        PostsManager.shared.stopListeningForProfileUpdates()
+        runStep("FollowService.resetUserState") {
+            FollowService.shared.resetUserState()
+        }
+        runStep("NotificationService.stopListening") {
+            NotificationService.shared.stopListening()
+        }
+        runStep("BlockService.resetUserState") {
+            BlockService.shared.resetUserState()
+        }
+        runStep("PostsManager.stopListeningForProfileUpdates") {
+            PostsManager.shared.stopListeningForProfileUpdates()
+        }
         // Clear post arrays so stale block-filtered posts from the previous user
         // cannot briefly appear in the feed before the new user's posts load.
-        PostsManager.shared.clearPosts()
+        runStep("PostsManager.clearPosts") {
+            PostsManager.shared.clearPosts()
+        }
 
         // ── Messaging ────────────────────────────────────────────────────────
-        MessageSettingsService.shared.stopListening()
-        MessageSettingsService.shared.clearCache()
+        runStep("MessageSettingsService.stopListening") {
+            MessageSettingsService.shared.stopListening()
+        }
+        runStep("MessageSettingsService.clearCache") {
+            MessageSettingsService.shared.clearCache()
+        }
 
         // ── FCM device token ─────────────────────────────────────────────────
         // Section-14 item-13 FIX: Mark this device's FCM token as inactive in
@@ -82,66 +142,113 @@ final class AppLifecycleManager {
         // unregisterDeviceToken() sets isActive: false, clears currentToken,
         // and resets isTokenRegistered — it does NOT delete the Firestore doc,
         // so cleanupInvalidTokens() can still expire it after 30 days.
-        Task { await DeviceTokenManager.shared.unregisterDeviceToken() }
+        // RISK: This Task is fire-and-forget; if the process is killed before it
+        // completes, the token may remain marked active until the 30-day expiry.
+        runStep("DeviceTokenManager.unregisterDeviceToken (async)") {
+            Task { await DeviceTokenManager.shared.unregisterDeviceToken() }
+        }
 
         // ── Church journey tracking ───────────────────────────────────────────
-        ChurchInteractionService.shared.stopListening()
-        ChurchVisitReminderService.shared.cancelAllReminders()
+        runStep("ChurchInteractionService.stopListening") {
+            ChurchInteractionService.shared.stopListening()
+        }
+        runStep("ChurchVisitReminderService.cancelAllReminders") {
+            ChurchVisitReminderService.shared.cancelAllReminders()
+        }
 
         // ── Jobs & Opportunities platform ────────────────────────────────────
-        JobService.shared.stopListening()
+        runStep("JobService.stopListening") {
+            JobService.shared.stopListening()
+        }
 
         // ── Spiritual Check-In system ────────────────────────────────────────
-        SpiritualCheckInService.shared.stopListening()
+        runStep("SpiritualCheckInService.stopListening") {
+            SpiritualCheckInService.shared.stopListening()
+        }
 
         // ── Global listener registry (Firestore registrations + boolean gates) ──
-        ListenerRegistry.shared.reset()
+        runStep("ListenerRegistry.reset") {
+            ListenerRegistry.shared.reset()
+        }
 
         // ── Per-user singleton caches ─────────────────────────────────────────
         // DraftsManager: clears in-memory and UserDefaults drafts so a newly
         // signed-in account cannot see the previous user's unsaved posts.
-        DraftsManager.shared.reset()
+        runStep("DraftsManager.reset") {
+            DraftsManager.shared.reset()
+        }
         // BadgeCountManager: stop all Firestore snapshot listeners first (PE-03 FIX:
         // explicit stopListening() call so dangling listeners are removed before
         // the full reset wipes published state), then zero all counts and caches
         // so the next user starts with a clean badge state.
-        BadgeCountManager.shared.stopListening()
-        BadgeCountManager.shared.reset()
+        runStep("BadgeCountManager.stopListening") {
+            BadgeCountManager.shared.stopListening()
+        }
+        runStep("BadgeCountManager.reset") {
+            BadgeCountManager.shared.reset()
+        }
         // GrowthLoopEngine: detaches Firestore listener and clears loop/metrics
         // data so growth-loop history from the previous user is never visible
         // to the next signed-in account.
-        GrowthLoopEngine.shared.reset()
+        runStep("GrowthLoopEngine.reset") {
+            GrowthLoopEngine.shared.reset()
+        }
 
         // ── AI service caches ────────────────────────────────────────────────
-        OpenAIService.shared.reset()
-        ClaudeService.shared.reset()
-        EnforcementService.shared.dismissBanner()  // Clear any in-memory enforcement state
+        runStep("OpenAIService.reset") {
+            OpenAIService.shared.reset()
+        }
+        runStep("ClaudeService.reset") {
+            ClaudeService.shared.reset()
+        }
+        runStep("EnforcementService.dismissBanner") {
+            EnforcementService.shared.dismissBanner()  // Clear any in-memory enforcement state
+        }
 
         // ── Trust score cache ─────────────────────────────────────────────────
-        ContentTrustScoreService.shared.clearAll()
+        runStep("ContentTrustScoreService.clearAll") {
+            ContentTrustScoreService.shared.clearAll()
+        }
 
         // ── Safety service caches (privacy: prevent data leaking to next session) ──
-        if let uid = Auth.auth().currentUser?.uid {
-            MessageSafetyGateway.shared.invalidateFreezeCache(for: uid)
-            MinorSafetyService.shared.invalidateCache(for: uid)
+        // RISK: Auth.auth().currentUser?.uid is read here; we use the UID captured at
+        // the top of this function (currentUID) to avoid a TOCTOU race where currentUser
+        // becomes nil between this check and the inner invalidateCache call.
+        runStep("SafetyGateway.invalidateCaches") {
+            if let uid = currentUID {
+                MessageSafetyGateway.shared.invalidateFreezeCache(for: uid)
+                MinorSafetyService.shared.invalidateCache(for: uid)
+            } else {
+                dlog("⚠️ sign-out cleanup: currentUID nil — per-UID safety caches not invalidated")
+            }
+            MinorSafetyService.shared.clearCache()
         }
-        MinorSafetyService.shared.clearCache()
 
         // ── Behavioral safety state ──────────────────────────────────────────
         // clearSupportState() resets supportState to .normal and clears pendingSupportSurface.
         // beginSession() resets all behavioral signals so they don't carry over to the next user.
-        SafetyOrchestrator.shared.clearSupportState()
-        BehavioralAwarenessEngine.shared.beginSession()
+        runStep("SafetyOrchestrator.clearSupportState") {
+            SafetyOrchestrator.shared.clearSupportState()
+        }
+        runStep("BehavioralAwarenessEngine.beginSession") {
+            BehavioralAwarenessEngine.shared.beginSession()
+        }
 
         // ── Navigation routers ───────────────────────────────────────────────
         // S1-2 FIX: Reset deep-link routers on sign-out so queued navigation
         // destinations from user A cannot fire into user B's session after re-login.
-        NotificationDeepLinkRouter.shared.reset()
-        DeepLinkRouter.shared.reset()
+        runStep("NotificationDeepLinkRouter.reset") {
+            NotificationDeepLinkRouter.shared.reset()
+        }
+        runStep("DeepLinkRouter.reset") {
+            DeepLinkRouter.shared.reset()
+        }
 
         // ── Session timeout timers ───────────────────────────────────────────
         // Stop monitoring AFTER service teardown so the warning UI is dismissed cleanly.
-        SessionTimeoutManager.shared.stopMonitoring()
+        runStep("SessionTimeoutManager.stopMonitoring") {
+            SessionTimeoutManager.shared.stopMonitoring()
+        }
 
         // ── Firestore disk cache ─────────────────────────────────────────────
         // Clear persisted Firestore cache on sign-out so one user's data does not

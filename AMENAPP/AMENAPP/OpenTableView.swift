@@ -83,6 +83,7 @@ struct OpenTableView: View {
     }
 
     @Environment(\.tabBarVisible) private var tabBarVisible
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -141,7 +142,7 @@ struct OpenTableView: View {
                 if !prefsService.isLoaded || (prefsService.preferences.widgetsEnabled && prefsService.preferences.dailyVerseWidgetEnabled) {
                     DailyVerseBanner()
                         .padding(.horizontal)
-                        .transition(.opacity.animation(.easeIn(duration: 0.2)))
+                        .transition(.opacity.animation(reduceMotion ? .none : .easeIn(duration: 0.2)))
                         .onAppear {
                             dlog("📊 Daily Verse Banner displayed: widgetsEnabled=\(prefsService.preferences.widgetsEnabled), dailyVerseWidgetEnabled=\(prefsService.preferences.dailyVerseWidgetEnabled)")
                         }
@@ -265,12 +266,12 @@ struct OpenTableView: View {
                 // The fetch continues in the background — pull-to-refresh still works.
                 try? await Task.sleep(nanoseconds: 4_000_000_000)
                 if isInitialLoad {
-                    withAnimation(.easeOut(duration: 0.25)) { isInitialLoad = false }
+                    withAnimation(reduceMotion ? .none : .easeOut(duration: 0.25)) { isInitialLoad = false }
                 }
             }
         }
         .onChange(of: networkMonitor.isConnected) { _, isConnected in
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? .none : .easeOut(duration: 0.25)) {
                 showOfflineBanner = !isConnected
             }
         }
@@ -426,11 +427,11 @@ struct OpenTableView: View {
             showLocked = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .feedSuggestionsPersonalized)) { _ in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75)) {
                 showPersonalizationToast = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? .none : .easeOut(duration: 0.25)) {
                     showPersonalizationToast = false
                 }
             }
@@ -710,7 +711,8 @@ struct OpenTableView: View {
 
 struct CollapsibleTrendingSection: View {
     @AppStorage("trendingSectionExpanded") private var isExpanded = true
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with expand/collapse button
@@ -785,8 +787,8 @@ struct CollapsibleTrendingSection: View {
                 }
                 .frame(height: 100)
                 .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .scale(scale: 0.95)).animation(.spring(response: 0.3, dampingFraction: 0.8)),
-                    removal: .opacity.combined(with: .scale(scale: 0.95)).animation(.spring(response: 0.3, dampingFraction: 0.8))
+                    insertion: .opacity.combined(with: .scale(scale: 0.95)).animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8)),
+                    removal: .opacity.combined(with: .scale(scale: 0.95)).animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8))
                 ))
             }
         }
@@ -799,6 +801,7 @@ private struct ExperienceResolverBannerWrapper: View {
     @ObservedObject private var resolver = ExperienceResolverService.shared
     @State private var isDismissed = false
     @State private var showExperienceDetail = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if !isDismissed,
@@ -807,7 +810,7 @@ private struct ExperienceResolverBannerWrapper: View {
                 resolved: resolver.resolved,
                 onTap: { showExperienceDetail = true },
                 onDismiss: {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    withAnimation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78)) {
                         isDismissed = true
                     }
                 }

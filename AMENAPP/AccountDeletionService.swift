@@ -41,105 +41,130 @@ final class AccountDeletionService: ObservableObject {
     func deleteAccount(userId: String) async throws {
         dlog("🗑 [AccountDeletion] Starting deletion for \(userId)")
 
+        // ─────────────────────────────────────────────────────────────────────
+        // SAFETY INVARIANT: Firebase Auth deletion MUST be the very last step.
+        // If ANY Firestore / RTDB / Storage step fails, we throw before reaching
+        // Auth deletion so the user can retry without leaving orphaned data.
+        // Re-authentication must be performed by the caller (via
+        // reauthenticateWithPassword / reauthenticateWithAppleToken) BEFORE
+        // invoking this function, so the Auth token is still valid for all
+        // Firestore writes below.
+        // ─────────────────────────────────────────────────────────────────────
+
         // 1. Cancel any active Stripe subscriptions via Cloud Function
         try await cancelStripeSubscriptions(userId: userId)
 
-        // 2. Delete Firestore subcollections
-        let subcollections = [
-            "users/\(userId)/bookmarkedMedia",
-            "users/\(userId)/mediaHistory",
-            "users/\(userId)/readingProgress",
-            "users/\(userId)/completedReflections",
-            "users/\(userId)/notifications",
-            "users/\(userId)/fcmTokens",
-            "users/\(userId)/followers",
-            "users/\(userId)/following",
-            "users/\(userId)/blockedUsers",
-            "users/\(userId)/blocks",
-            "users/\(userId)/savedSearches",
-            "users/\(userId)/private"      // DOB / age assurance — must delete
-        ]
-        for path in subcollections {
-            try await deleteCollectionBatch(path: path)
-        }
+        // ── Steps 2–7: All Firestore / RTDB cascade work happens here. ────────
+        // If anything in this block throws, we propagate the error immediately
+        // and do NOT proceed to Auth deletion, preventing orphaned data.
+        do {
+            // 2. Delete Firestore subcollections
+            let subcollections = [
+                "users/\(userId)/bookmarkedMedia",
+                "users/\(userId)/mediaHistory",
+                "users/\(userId)/readingProgress",
+                "users/\(userId)/completedReflections",
+                "users/\(userId)/notifications",
+                "users/\(userId)/fcmTokens",
+                "users/\(userId)/followers",
+                "users/\(userId)/following",
+                "users/\(userId)/blockedUsers",
+                "users/\(userId)/blocks",
+                "users/\(userId)/savedSearches",
+                "users/\(userId)/private"      // DOB / age assurance — must delete
+            ]
+            for path in subcollections {
+                try await deleteCollectionBatch(path: path)
+            }
 
-        // 3. Delete user-authored content
-        let contentCollections: [(collection: String, field: String)] = [
-            ("posts",                   "userId"),
-            ("posts",                   "authorId"),   // authorId variant
-            ("prayerRequests",          "userId"),
-            ("testimonies",             "userId"),
-            ("churchNotes",             "userId"),
-            ("mentorshipRelationships", "userId"),
-            ("checkIns",                "userId"),
-            ("follows",                 "followerId"),
-            ("follows_index",           "followerId"),
-            ("followRequests",          "requesterId"),
-            ("savedPosts",              "userId"),
-            ("drafts",                  "userId"),
-            ("userReports",             "reporterId"),  // reporter's own reports
-            ("savedSearches",           "userId"),
-            ("searchAlerts",            "userId")
-        ]
-        for item in contentCollections {
-            try await deleteDocumentsWhereField(
-                collection: item.collection,
-                field: item.field,
-                equalTo: userId
+            // 3. Delete user-authored content
+            let contentCollections: [(collection: String, field: String)] = [
+                ("posts",                   "userId"),
+                ("posts",                   "authorId"),   // authorId variant
+                ("prayerRequests",          "userId"),
+                ("testimonies",             "userId"),
+                ("churchNotes",             "userId"),
+                ("mentorshipRelationships", "userId"),
+                ("checkIns",                "userId"),
+                ("follows",                 "followerId"),
+                ("follows_index",           "followerId"),
+                ("followRequests",          "requesterId"),
+                ("savedPosts",              "userId"),
+                ("drafts",                  "userId"),
+                ("userReports",             "reporterId"),  // reporter's own reports
+                ("savedSearches",           "userId"),
+                ("searchAlerts",            "userId")
+            ]
+            for item in contentCollections {
+                try await deleteDocumentsWhereField(
+                    collection: item.collection,
+                    field: item.field,
+                    equalTo: userId
+                )
+            }
+
+            // 3a. Delete subcollections under user-authored posts
+            //     Firestore does NOT auto-delete subcollections when a parent document is deleted.
+            try await deleteSubcollectionsForUserDocs(
+                collection: "posts",
+                field: "userId",
+                userId: userId,
+                subcollections: ["comments", "likes", "reactions"]
             )
+            // Also cover the authorId variant
+            try await deleteSubcollectionsForUserDocs(
+                collection: "posts",
+                field: "authorId",
+                userId: userId,
+                subcollections: ["comments", "likes", "reactions"]
+            )
+
+            // 3b. Delete subcollections under user prayer requests
+            try await deleteSubcollectionsForUserDocs(
+                collection: "prayerRequests",
+                field: "userId",
+                userId: userId,
+                subcollections: ["prayedBy", "intercessors"]
+            )
+
+            // 3c. Delete subcollections under church notes
+            try await deleteSubcollectionsForUserDocs(
+                collection: "churchNotes",
+                field: "userId",
+                userId: userId,
+                subcollections: ["attachments"]
+            )
+
+            // 4. Mark conversations as deleted for this user (don't delete shared history)
+            try await leaveAllConversations(userId: userId)
+
+            // 5. Delete Algolia search index records (non-fatal — failure must not block deletion)
+            await deleteAlgoliaRecords(userId: userId)
+
+            // 6. Delete Realtime Database nodes
+            // These are not covered by Firestore deletion and contain personal data:
+            // presence, typing indicators, counters, user_posts, user_profiles.
+            await deleteRealtimeDatabaseNodes(userId: userId)
+
+            // 7. Delete main user document
+            try await db.document("users/\(userId)").delete()
+            dlog("✅ [AccountDeletion] Firestore user doc deleted")
+
+        } catch {
+            // Firestore / RTDB cascade failed — do NOT delete the Auth account.
+            // The user's Auth token is still valid so they can retry later.
+            dlog("❌ [AccountDeletion] Data cascade failed — Auth account preserved. Error: \(error)")
+            throw error
         }
-
-        // 3a. Delete subcollections under user-authored posts
-        //     Firestore does NOT auto-delete subcollections when a parent document is deleted.
-        try await deleteSubcollectionsForUserDocs(
-            collection: "posts",
-            field: "userId",
-            userId: userId,
-            subcollections: ["comments", "likes", "reactions"]
-        )
-        // Also cover the authorId variant
-        try await deleteSubcollectionsForUserDocs(
-            collection: "posts",
-            field: "authorId",
-            userId: userId,
-            subcollections: ["comments", "likes", "reactions"]
-        )
-
-        // 3b. Delete subcollections under user prayer requests
-        try await deleteSubcollectionsForUserDocs(
-            collection: "prayerRequests",
-            field: "userId",
-            userId: userId,
-            subcollections: ["prayedBy", "intercessors"]
-        )
-
-        // 3c. Delete subcollections under church notes
-        try await deleteSubcollectionsForUserDocs(
-            collection: "churchNotes",
-            field: "userId",
-            userId: userId,
-            subcollections: ["attachments"]
-        )
-
-        // 4. Mark conversations as deleted for this user (don't delete shared history)
-        try await leaveAllConversations(userId: userId)
-
-        // 5. Delete Algolia search index records (non-fatal — failure must not block deletion)
-        await deleteAlgoliaRecords(userId: userId)
-
-        // 6. Delete Realtime Database nodes
-        // These are not covered by Firestore deletion and contain personal data:
-        // presence, typing indicators, counters, user_posts, user_profiles.
-        await deleteRealtimeDatabaseNodes(userId: userId)
-
-        // 7. Delete main user document
-        try await db.document("users/\(userId)").delete()
-        dlog("✅ [AccountDeletion] Firestore user doc deleted")
+        // ── End of Firestore / RTDB cascade ──────────────────────────────────
 
         // 8. Delete Firebase Storage files from ALL user upload paths
+        //    Non-fatal: storage failures should not block Auth deletion at this
+        //    point because all Firestore documents have already been removed.
         await deleteStorageFiles(userId: userId)
 
-        // 9. Delete Firebase Auth account — MUST be last
+        // 9. Delete Firebase Auth account — MUST be last.
+        //    Reached only if ALL steps above completed without throwing.
         try await Auth.auth().currentUser?.delete()
         dlog("✅ [AccountDeletion] Firebase Auth account deleted")
 

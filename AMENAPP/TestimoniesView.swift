@@ -36,6 +36,7 @@ struct TestimoniesView: View {
     @State private var personalizationTask: Task<Void, Never>?
     @State private var viewedPostIds: Set<UUID> = []
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.tabBarVisible) private var tabBarVisible
     
     // Animation timing constants
@@ -125,7 +126,7 @@ struct TestimoniesView: View {
                                     .foregroundStyle(.blue)
                                 }
                                 .buttonStyle(.plain)
-                                .animation(.easeOut(duration: fastAnimationDuration), value: selectedCategory)
+                                .animation(reduceMotion ? .none : .easeOut(duration: fastAnimationDuration), value: selectedCategory)
                             }
                         }
                         
@@ -298,7 +299,7 @@ struct TestimoniesView: View {
                     .padding(.horizontal)
                 }
                 .buttonStyle(.plain)
-                .animation(.easeOut(duration: standardAnimationDuration), value: isCategoryBrowseExpanded)
+                .animation(reduceMotion ? .none : .easeOut(duration: standardAnimationDuration), value: isCategoryBrowseExpanded)
                 
                 // Expandable Category Grid
                 if isCategoryBrowseExpanded {
@@ -382,7 +383,7 @@ struct TestimoniesView: View {
                         }
                     }
                     .padding(.horizontal)
-                    .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: standardAnimationDuration)))
+                    .transition(.opacity.combined(with: .move(edge: .top)).animation(reduceMotion ? .none : .easeOut(duration: standardAnimationDuration)))
                 }
             }
             
@@ -704,6 +705,7 @@ struct TestimonyCategoryCard: View {
     let count: Int?
     let action: () -> Void
     @State private var showCategoryDetail = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(category: TestimonyCategory, isSelected: Bool, count: Int? = nil, action: @escaping () -> Void) {
         self.category = category
@@ -752,7 +754,7 @@ struct TestimonyCategoryCard: View {
             )
         }
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.15), value: isSelected)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isSelected)
     }
 }
 
@@ -797,6 +799,7 @@ struct TestimonyPostCard: View {
         _hasReposted = State(initialValue: post.isRepost)
     }
     
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isFollowing = false
     @State private var isFollowLoading = false
     @State private var isTogglingAmen = false
@@ -856,7 +859,7 @@ struct TestimonyPostCard: View {
                 .accessibilityLabel(isFollowing ? "Unfollow \(post.authorName)" : "Follow \(post.authorName)")
                 .accessibilityHint(isFollowing ? "Tap to unfollow" : "Tap to follow and see their testimonies")
                 .symbolEffect(.bounce, value: isFollowing)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
                 .offset(x: 2, y: 2)
             }
         }
@@ -1360,7 +1363,7 @@ struct TestimonyPostCard: View {
         guard !isFollowLoading else { return }
         let previousState = isFollowing
         // Optimistic update
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { isFollowing.toggle() }
+        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7)) { isFollowing.toggle() }
         isFollowLoading = true
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
@@ -1370,7 +1373,7 @@ struct TestimonyPostCard: View {
         } catch {
             dlog("❌ toggleFollow failed for \(post.authorName): \(error.localizedDescription)")
             await MainActor.run {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { isFollowing = previousState }
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7)) { isFollowing = previousState }
                 let errHaptic = UINotificationFeedbackGenerator()
                 errHaptic.notificationOccurred(.error)
             }
@@ -1386,7 +1389,8 @@ struct TestimonyCommentSection: View {
     @Binding var commentCount: Int
     var showPreviewOnly: Bool = false
     var onExpandComments: (() -> Void)? = nil
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var commentText = ""
     @State private var showQuickResponses = false
     @FocusState private var isCommentFocused: Bool
@@ -1457,9 +1461,9 @@ struct TestimonyCommentSection: View {
                         }
                     }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.15)))
+                .transition(.opacity.combined(with: .move(edge: .top)).animation(reduceMotion ? .none : .easeOut(duration: 0.15)))
             }
-            
+
             if !showPreviewOnly {
                 // Comment input
                 HStack(spacing: 12) {
@@ -1494,7 +1498,7 @@ struct TestimonyCommentSection: View {
                                     .foregroundStyle(.black.opacity(0.5))
                             }
                             .buttonStyle(.plain)
-                            .animation(.easeOut(duration: 0.15), value: showQuickResponses)
+                            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: showQuickResponses)
                         }
                     }
                     .padding(.horizontal, 12)
@@ -1587,6 +1591,7 @@ struct TestimonyCommentRow: View {
     let comment: TestimonyFeedComment
     let commentId: String
     let postId: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasAmened = false
     @State private var amenCount: Int
     @State private var localToast: Toast? = nil
@@ -1652,7 +1657,7 @@ struct TestimonyCommentRow: View {
                     .accessibilityHint("Double-tap to amen this comment")
 
                     Button {
-                        withAnimation(.easeOut(duration: 0.15)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                             showReplyComposer.toggle()
                         }
                         if showReplyComposer {
@@ -2001,9 +2006,10 @@ struct TestimonyCategoryDetailInlineView: View {
 
 struct TestimonyFullCommentSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let post: Post
     @Binding var commentCount: Int
-    
+
     @State private var commentText = ""
     @State private var showQuickResponses = false
     @State private var isLoading = true
@@ -2068,7 +2074,7 @@ struct TestimonyFullCommentSheet: View {
                     .foregroundStyle(.black.opacity(0.5))
             }
             .buttonStyle(.plain)
-            .animation(.easeOut(duration: 0.15), value: showQuickResponses)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: showQuickResponses)
         }
     }
     
@@ -2185,9 +2191,9 @@ struct TestimonyFullCommentSheet: View {
                                 }
                                 .padding(.horizontal)
                             }
-                            .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.15)))
+                            .transition(.opacity.combined(with: .move(edge: .top)).animation(reduceMotion ? .none : .easeOut(duration: 0.15)))
                         }
-                        
+
                         // Comments or empty state
                         if isLoading {
                             VStack(spacing: 12) {
