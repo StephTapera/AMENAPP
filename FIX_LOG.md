@@ -44,9 +44,10 @@
 - CS-08: CommentsView — Report/Block/Mute already in context menu via PostCommentRow (lines 3416–3492)
 - CS-04: PrivacyInfo.xcprivacy — all NSPrivacyAccessedAPIType required-reasons entries present; NSPrivacyCollectedDataTypes covers camera/mic/location/contacts
 
+| 18 | DS-01 (R11–R23) | Design | 130+ files | d673328–0a37a11 | Full app reduce-motion rollout — ~900+ instances guarded across all major and minor views |
+
 ## Findings Blocked (require backend or human action)
 | Finding | Reason |
 |---------|--------|
 | MN-01 | Account deletion race — auth deletes before Firestore cascade; server-side transaction ordering required |
 | CS-05 | Age assurance token claims stale — requires Cloud Function to write custom auth claims |
-| DS-01 (remaining) | 349 total animation instances; PostCard covered (22); remaining files need systematic rollout |
