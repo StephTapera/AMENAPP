@@ -30,9 +30,9 @@ import FirebaseAuth
 /// The UI should present these gracefully, NOT as hard crash errors.
 enum CommentRateLimitError: LocalizedError {
     /// Hit the per-minute global window.
-    case rateLimitedPerMinute(retryAfter: TimeInterval)
+    case rateLimitedPerMinute(retryAfter: TimeInterval, isNewAccount: Bool = false)
     /// Hit the per-hour global window.
-    case rateLimitedPerHour(retryAfter: TimeInterval)
+    case rateLimitedPerHour(retryAfter: TimeInterval, isNewAccount: Bool = false)
     /// Hit the per-post per-10-min window.
     case rateLimitedPerPost(postId: String, retryAfter: TimeInterval)
     /// Soft spam signal — caller should warn but MAY still allow the post.
@@ -47,11 +47,13 @@ enum CommentRateLimitError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .rateLimitedPerMinute(let t):
-            return "Slow down — give the conversation room to breathe. Try again in \(Int(ceil(t)))s."
-        case .rateLimitedPerHour(let t):
+        case .rateLimitedPerMinute(let t, let isNewAccount):
+            let suffix = isNewAccount ? " New accounts have a brief comment cooldown while your account gets established." : ""
+            return "Slow down — give the conversation room to breathe. Try again in \(Int(ceil(t)))s.\(suffix)"
+        case .rateLimitedPerHour(let t, let isNewAccount):
             let min = Int(ceil(t / 60))
-            return "Slow down — give the conversation room to breathe. Try again in ~\(min)min."
+            let suffix = isNewAccount ? " New accounts have lower comment limits for the first 7 days." : ""
+            return "Slow down — give the conversation room to breathe. Try again in ~\(min)min.\(suffix)"
         case .rateLimitedPerPost(_, let t):
             return "You've commented a lot here — take a breath. Try again in \(Int(ceil(t)))s."
         case .suspectedSpam(let reason):
@@ -62,7 +64,7 @@ enum CommentRateLimitError: LocalizedError {
     /// True for hard rate-limit errors; false for soft spam warnings.
     var isHardLimit: Bool {
         switch self {
-        case .rateLimitedPerMinute, .rateLimitedPerHour, .rateLimitedPerPost: return true
+        case .rateLimitedPerMinute, .rateLimitedPerHour, .rateLimitedPerPost:  return true
         case .suspectedSpam: return false
         }
     }
@@ -70,8 +72,8 @@ enum CommentRateLimitError: LocalizedError {
     /// Seconds until the user may retry (nil for soft spam warnings).
     var retryAfter: TimeInterval? {
         switch self {
-        case .rateLimitedPerMinute(let t): return t
-        case .rateLimitedPerHour(let t):   return t
+        case .rateLimitedPerMinute(let t, _): return t
+        case .rateLimitedPerHour(let t, _):   return t
         case .rateLimitedPerPost(_, let t): return t
         case .suspectedSpam: return nil
         }
@@ -154,7 +156,7 @@ actor CommentRateLimiter {
         if inLastMinute.count >= minuteLimit {
             guard let oldest1 = inLastMinute.min(by: { $0.timestamp < $1.timestamp }) else { return .success(()) }
             let retryAfter = minuteWindow - now.timeIntervalSince(oldest1.timestamp)
-            return .failure(.rateLimitedPerMinute(retryAfter: max(0, retryAfter)))
+            return .failure(.rateLimitedPerMinute(retryAfter: max(0, retryAfter), isNewAccount: isNewAccount))
         }
 
         // ── 2. Per-hour check ────────────────────────────────────────────────
@@ -162,7 +164,7 @@ actor CommentRateLimiter {
         if inLastHour.count >= hourLimit {
             guard let oldest2 = inLastHour.min(by: { $0.timestamp < $1.timestamp }) else { return .success(()) }
             let retryAfter = hourWindow - now.timeIntervalSince(oldest2.timestamp)
-            return .failure(.rateLimitedPerHour(retryAfter: max(0, retryAfter)))
+            return .failure(.rateLimitedPerHour(retryAfter: max(0, retryAfter), isNewAccount: isNewAccount))
         }
 
         // ── 3. Per-post per-10-min check ─────────────────────────────────────
