@@ -442,8 +442,8 @@ struct UnifiedChatView: View {
                 }
             }
             .background(Color.clear)
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showStrikeNotice)
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showAccountFrozen)
+            .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: showStrikeNotice)
+            .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: showAccountFrozen)
         }
     }
 
@@ -505,7 +505,7 @@ struct UnifiedChatView: View {
         ComposerLinkPreview(controller: chatLinkController)
             .padding(.horizontal, 12)
             .padding(.top, 4)
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: chatLinkController.activeURL)
+            .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: chatLinkController.activeURL)
         if case .resolving = messageAttachmentState {
             Text("Analyzing link...")
                 .font(.systemScaled(12, weight: .medium))
@@ -601,7 +601,7 @@ struct UnifiedChatView: View {
                 }
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.spring(response: 0.32, dampingFraction: 0.75), value: nudge)
+            .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.75), value: nudge)
         }
 
         // Compact input bar — collapses smoothly when scrolled into history.
@@ -1518,11 +1518,11 @@ struct UnifiedChatView: View {
                     let newProgress = min(max(rawProgress, 0), 1)
                     // Only apply when not focused (don't collapse while typing)
                     if !isInputFocused && !isRecording {
-                        withAnimation(.interpolatingSpring(stiffness: 220, damping: 32)) {
+                        withAnimation(reduceMotion ? nil : .interpolatingSpring(stiffness: 220, damping: 32)) {
                             composerCollapseProgress = newProgress
                         }
                     } else {
-                        withAnimation(.interpolatingSpring(stiffness: 220, damping: 32)) {
+                        withAnimation(reduceMotion ? nil : .interpolatingSpring(stiffness: 220, damping: 32)) {
                             composerCollapseProgress = 0
                         }
                     }
@@ -1540,7 +1540,7 @@ struct UnifiedChatView: View {
                 .onChange(of: messages.count) { oldCount, newCount in
                     // P1-2 FIX: Only auto-scroll if near bottom
                     if isNearBottom && newCount > oldCount {
-                        withAnimation(.easeOut(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                             proxy.scrollTo(bottomID, anchor: .bottom)
                         }
                     }
@@ -1554,7 +1554,7 @@ struct UnifiedChatView: View {
                 // Berean: scroll to bottom when typing indicator appears
                 .onChange(of: isBereanStreaming) { _, isStreaming in
                     if isStreaming {
-                        withAnimation(.easeOut(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                             proxy.scrollTo(bottomID, anchor: .bottom)
                         }
                     }
@@ -1571,15 +1571,15 @@ struct UnifiedChatView: View {
 
                     // Scroll to bottom on first load
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation {
+                        withAnimation(reduceMotion ? nil : .default) {
                             proxy.scrollTo(bottomID, anchor: .bottom)
                         }
                     }
-                    
+
                     // Then scroll to unread if exists
                     if firstUnreadMessageId != nil {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            withAnimation {
+                            withAnimation(reduceMotion ? nil : .default) {
                                 proxy.scrollTo("unread-separator", anchor: .top)
                             }
                         }
@@ -1594,7 +1594,7 @@ struct UnifiedChatView: View {
                 .onChange(of: threadSearchJumpTargetId) { _, target in
                     guard let target, !target.isEmpty else { return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        withAnimation(.easeOut(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                             proxy.scrollTo(target, anchor: .center)
                         }
                         threadSearchJumpTargetId = nil
@@ -1603,7 +1603,7 @@ struct UnifiedChatView: View {
                 .overlay(alignment: .bottomTrailing) {
                     if LiquidGlassEffectsFlags.jumpToLatestPill, showJumpToLatest {
                         JumpToLatestPill {
-                            withAnimation(.easeOut(duration: 0.25)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                                 proxy.scrollTo(bottomID, anchor: .bottom)
                             }
                         }
@@ -1684,7 +1684,7 @@ struct UnifiedChatView: View {
     private var jumpToUnreadButton: some View {
         Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            withAnimation(.easeOut(duration: 0.3)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                 chatScrollProxy?.scrollTo("unread-separator", anchor: .top)
                 showJumpToUnread = false
             }
@@ -1766,7 +1766,7 @@ struct UnifiedChatView: View {
         .scaleEffect(isAttachTrayOpen ? 1.0 : 0.85)
         .opacity(isAttachTrayOpen ? 1.0 : 0.0)
         .animation(
-            .spring(response: 0.4, dampingFraction: 0.6)
+            reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.6)
                 .delay(Double(index) * 0.04),
             value: isAttachTrayOpen
         )
@@ -2077,8 +2077,8 @@ struct UnifiedChatView: View {
                         .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(Color.primary.opacity(0.6))
                         .rotationEffect(.degrees((isMediaSectionExpanded || showLiquidGlassAttachmentMenu) ? 45 : 0))
-                        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isMediaSectionExpanded)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: showLiquidGlassAttachmentMenu)
+                        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.6), value: isMediaSectionExpanded)
+                        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.6), value: showLiquidGlassAttachmentMenu)
                 }
             }
             .buttonStyle(SpringButtonStyle())
@@ -2116,11 +2116,11 @@ struct UnifiedChatView: View {
                     .opacity(0.25)
                     .clipShape(RoundedRectangle(cornerRadius: inputCornerRadius))
                 )
-                .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isInputFocused)
+                .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.65), value: isInputFocused)
             let inputBorder = RoundedRectangle(cornerRadius: inputCornerRadius)
                 .stroke(Color.white, lineWidth: 1)
                 .opacity(0.2)
-                .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isInputFocused)
+                .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.65), value: isInputFocused)
             HStack(spacing: 8) {
                 ZStack(alignment: .leading) {
                     if messageText.isEmpty {
@@ -2187,8 +2187,8 @@ struct UnifiedChatView: View {
                                     : AnyShapeStyle(recipientAccentColor ?? Color.amenGold)
                             )
                             .frame(width: 32, height: 32)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isMessageEmpty)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
+                            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isMessageEmpty)
+                            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
 
                         if isRecording {
                             Image(systemName: "stop.fill")
@@ -2207,8 +2207,8 @@ struct UnifiedChatView: View {
                                 .transition(.scale.combined(with: .opacity))
                         }
                     }
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isMessageEmpty)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isMessageEmpty)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
                 }
                 .highlightSweep(trigger: sendSweepTrigger)
                 .buttonStyle(SpringButtonStyle())
@@ -2243,8 +2243,8 @@ struct UnifiedChatView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: messageText)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isInputBarFocused)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: messageText)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: isInputBarFocused)
         .onAppear {
             if !reduceMotion {
                 withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) {
@@ -2383,7 +2383,7 @@ struct UnifiedChatView: View {
         // user and stale entries (>5s), so the callback contains only remote typers.
         messagingService.startListeningToTyping(conversationId: conversation.id) { typingNames in
             Task { @MainActor in
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(self.reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                     self.isTyping = !typingNames.isEmpty
                     self.remoteTypingNames = typingNames
                 }
@@ -3204,7 +3204,7 @@ struct UnifiedChatView: View {
 
     private func scrollToMessage(_ messageId: String) {
         guard messages.contains(where: { $0.id == messageId }) else { return }
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             chatScrollProxy?.scrollTo(messageId, anchor: .center)
         }
     }
@@ -3562,7 +3562,7 @@ struct UnifiedChatView: View {
                         pendingMessages.removeValue(forKey: messageId)
                         messages.removeAll { $0.id == messageId }
                         accountFrozenReason = reason
-                        withAnimation { showAccountFrozen = true }
+                        withAnimation(reduceMotion ? nil : .default) { showAccountFrozen = true }
                         UINotificationFeedbackGenerator().notificationOccurred(.error)
                     }
                     return
@@ -3574,7 +3574,7 @@ struct UnifiedChatView: View {
                         messages.removeAll { $0.id == messageId }
                         safetyStrikeReason = reason
                         safetyStrikeCount += 1
-                        withAnimation { showStrikeNotice = true }
+                        withAnimation(reduceMotion ? nil : .default) { showStrikeNotice = true }
                         UINotificationFeedbackGenerator().notificationOccurred(.error)
                     }
                     return
@@ -4390,7 +4390,7 @@ struct UnifiedChatView: View {
         bereanStreamingText = ""
         bereanStreamingTokenCount = 0
         bereanTriggeredByMessageId = userMessageId
-        withAnimation(.easeInOut(duration: 0.2)) { isBereanStreaming = true }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { isBereanStreaming = true }
 
         HapticManager.impact(style: .light)
 
@@ -4459,7 +4459,7 @@ struct UnifiedChatView: View {
                 messages.append(bereanMessage)
 
                 // End streaming state
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                     isBereanStreaming = false
                     bereanStreamingText = ""
                 }
@@ -5150,6 +5150,8 @@ struct LiquidGlassMessageBubble: View {
     var onContextMenuRequest: ((CGRect) -> Void)? = nil
     var onMediaAction: (() -> Void)? = nil   // Phase 11: media overlay trigger
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // Inline double-tap reaction bar state
     @State private var showInlineReactions = false
     @State private var capturedBubbleFrame: CGRect = .zero
@@ -5217,7 +5219,7 @@ struct LiquidGlassMessageBubble: View {
                         .foregroundStyle(abs(swipeOffset) >= swipeThreshold ? .blue : .secondary)
                         .scaleEffect(abs(swipeOffset) >= swipeThreshold ? 1.1 : 0.8)
                         .opacity(min(1.0, abs(swipeOffset) / swipeThreshold))
-                        .animation(.spring(response: 0.2), value: swipeOffset)
+                        .animation(reduceMotion ? .none : .spring(response: 0.2), value: swipeOffset)
                 }
 
             HStack(alignment: .bottom, spacing: 6) {
@@ -5431,11 +5433,11 @@ struct LiquidGlassMessageBubble: View {
         .offset(y: isVisible ? 0 : 4)
         .onAppear {
             let delay: Double = isFromCurrentUser ? 0 : 0.05
-            withAnimation(.interpolatingSpring(stiffness: 180, damping: 16).delay(delay)) {
+            withAnimation(reduceMotion ? nil : .interpolatingSpring(stiffness: 180, damping: 16).delay(delay)) {
                 isVisible = true
             }
         }
-        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: showInlineReactions)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.7), value: showInlineReactions)
     }
 
     // MARK: - Inline Reaction Bar
@@ -5447,7 +5449,7 @@ struct LiquidGlassMessageBubble: View {
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     onReact(emoji)
-                    withAnimation { showInlineReactions = false }
+                    withAnimation(reduceMotion ? nil : .default) { showInlineReactions = false }
                 } label: {
                     Text(emoji)
                         .font(.systemScaled(26))
@@ -5590,6 +5592,7 @@ struct LiquidGlassMessageBubble: View {
 // MARK: - Typing Indicator (iMessage 3-dot bounce)
 
 struct LiquidGlassTypingIndicator: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: Int = 0
     private let timer = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
 
@@ -5602,7 +5605,7 @@ struct LiquidGlassTypingIndicator: View {
                         .fill(Color(.systemGray3))
                         .frame(width: 8, height: 8)
                         .offset(y: phase == i ? -4 : 0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: phase)
+                        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.5), value: phase)
                 }
             }
             .padding(.horizontal, 14)
@@ -5626,10 +5629,18 @@ struct LiquidGlassTypingIndicator: View {
 /// Spring-based button style with smooth scale animation
 struct SpringButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.88 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
-            .brightness(configuration.isPressed ? -0.05 : 0)
+        SpringButtonBody(configuration: configuration)
+    }
+
+    private struct SpringButtonBody: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        var body: some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.88 : 1.0)
+                .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+                .brightness(configuration.isPressed ? -0.05 : 0)
+        }
     }
 }
 
@@ -5725,6 +5736,7 @@ private struct QuickReplyModel: Identifiable {
 
 struct QuickReplyChipsView: View {
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isExpanded: Bool
     @Binding var dismissedChipIds: Set<String>
     let onChipTapped: (String) -> Void
@@ -5759,7 +5771,7 @@ struct QuickReplyChipsView: View {
                             .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .rotationEffect(.degrees(isExpanded ? 45 : 0))
-                            .animation(.spring(response: 0.45, dampingFraction: 0.7), value: isExpanded)
+                            .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.7), value: isExpanded)
                     }
 
                     Text("Quick replies")
@@ -5772,7 +5784,7 @@ struct QuickReplyChipsView: View {
                         .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        .animation(.spring(response: 0.45, dampingFraction: 0.7), value: isExpanded)
+                        .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.7), value: isExpanded)
                 }
             }
             .buttonStyle(.plain)
@@ -5785,7 +5797,7 @@ struct QuickReplyChipsView: View {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .animation(.spring(response: 0.45, dampingFraction: 0.7), value: visibleReplies.map { $0.id })
+                .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.7), value: visibleReplies.map { $0.id })
             }
         }
     }
@@ -5833,7 +5845,7 @@ struct QuickReplyChipsView: View {
         .offset(x: slidingOutId == reply.id ? 300 : 0)
         .opacity(slidingOutId == reply.id ? 0 : 1)
         .animation(
-            .spring(response: 0.4, dampingFraction: 0.6).delay(Double(index) * 0.08),
+            reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.6).delay(Double(index) * 0.08),
             value: isExpanded
         )
     }
@@ -6004,6 +6016,7 @@ enum BereanStreamingService {
 // MARK: - Feature 1: AMEN Reaction Tray
 
 private struct AmenReactionTray: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let reactions = ["🙏 Pray", "🙌 Amen", "💙 Encouraged", "👁 Seen", "🤔 Thinking"]
     let onSelect: (String) -> Void
     @State private var isVisible = false
@@ -6031,7 +6044,7 @@ private struct AmenReactionTray: View {
                 .opacity(isVisible ? 1 : 0)
                 .scaleEffect(isVisible ? 1 : 0.7)
                 .offset(y: isVisible ? 0 : 6)
-                .animation(.interpolatingSpring(stiffness: 220, damping: 18).delay(Double(index) * 0.04), value: isVisible)
+                .animation(reduceMotion ? .none : .interpolatingSpring(stiffness: 220, damping: 18).delay(Double(index) * 0.04), value: isVisible)
             }
         }
         .padding(.horizontal, 12)
@@ -6209,6 +6222,7 @@ struct GlassPollCard: View {
 }
 
 private struct PollOptionRow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let option: PollMessage.PollOption
     let totalVotes: Int
     let isSelected: Bool
@@ -6234,7 +6248,7 @@ private struct PollOptionRow: View {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(isSelected ? Color.black.opacity(0.08) : Color.black.opacity(0.04))
                         .frame(width: geo.size.width * animatedProgress, height: 44)
-                        .animation(.spring(response: 0.45, dampingFraction: 0.75), value: animatedProgress)
+                        .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.75), value: animatedProgress)
                 }
                 .frame(height: 44)
 

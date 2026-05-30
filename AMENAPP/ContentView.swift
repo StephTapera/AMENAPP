@@ -109,6 +109,7 @@ struct ContentView: View {
     // and the app opens on Resources instead of Home.
     @State private var hasHandledFirstActivation = false
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     init() {
         // Initialize property wrappers - default to HomeView (tab 0) to show OpenTable
@@ -188,7 +189,7 @@ struct ContentView: View {
                         } else {
                             // New / logged-out user: standard splash
                             SplashView {
-                                withAnimation(.easeIn(duration: 0.2)) { showSplash = false }
+                                withAnimation(reduceMotion ? nil : .easeIn(duration: 0.2)) { showSplash = false }
                             }
                             .zIndex(1)
                             .transition(.opacity)
@@ -376,12 +377,12 @@ struct ContentView: View {
                     }
             }
         }
-        .animation(.easeOut(duration: 0.2), value: authViewModel.needs2FAVerification)
-        .animation(.easeOut(duration: 0.2), value: authViewModel.isAuthenticated)
-        .animation(.easeOut(duration: 0.2), value: authViewModel.isDeactivated)
-        .animation(.easeOut(duration: 0.2), value: authViewModel.needsUsernameSelection)
-        .animation(.easeOut(duration: 0.2), value: authViewModel.needsOnboarding)
-        .animation(.easeOut(duration: 0.2), value: authViewModel.needsEmailVerification)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: authViewModel.needs2FAVerification)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: authViewModel.isAuthenticated)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: authViewModel.isDeactivated)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: authViewModel.needsUsernameSelection)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: authViewModel.needsOnboarding)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: authViewModel.needsEmailVerification)
         // ✅ CONSOLIDATED MODAL PRESENTATIONS (prevents auth flow conflicts)
         .sheet(item: $activeModal) { modal in
             Group {
@@ -724,7 +725,7 @@ struct ContentView: View {
             // Always reserve space - tab bar moves offscreen with keyboard instead of disappearing
             Color.clear
                 .frame(height: showTabBar ? 74 : 0) // capsule height (54) + bottom padding (10) + extra (10)
-                .animation(.easeOut(duration: 0.25), value: showTabBar)
+                .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: showTabBar)
         }
         .overlay(alignment: .bottom) {
             // Always render tab bar, move it offscreen when keyboard appears
@@ -740,7 +741,7 @@ struct ContentView: View {
                 isMinimized: tabScrollBridge.isMinimized
             )
             .offset(y: showTabBar ? 0 : 150) // Move offscreen when keyboard appears
-            .animation(.easeOut(duration: 0.25), value: showTabBar)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: showTabBar)
             .onChange(of: viewModel.selectedTab) { _, _ in
                 tabScrollBridge.expand()
             }
@@ -1035,7 +1036,7 @@ struct ContentView: View {
             queue: .main
         ) { [self] _ in
             Task { @MainActor in
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
                     viewModel.selectedTab = 1
                 }
             }
@@ -1367,7 +1368,7 @@ struct ContentView: View {
                 dlog("🚦 [TAB] First activation — skipping Shabbat tab redirect (tab init deferred to .task)")
             } else if shabbatNow && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
                 dlog("🚦 [TAB] Shabbat active on foreground — redirecting to Resources (tab 3)")
-                withAnimation(.easeInOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
                     viewModel.selectedTab = 3
                 }
             }
@@ -1693,6 +1694,7 @@ struct HomeView: View {
     @State private var lastScrollOffset: CGFloat = 0
     @State private var showToolbar = true
     @Environment(\.tabBarVisible) private var tabBarVisible  // ✅ Access tab bar visibility
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var lastScrollTime: Date = Date()
     
     // Hysteresis thresholds — hide quickly on downward scroll, restore on upward
@@ -1738,19 +1740,19 @@ struct HomeView: View {
             AMENTabBarScrollBridge.shared.expand()
             if !showToolbar || !tabBarVisible.wrappedValue {
                 // Single smooth animation without bounce
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
                 }
             }
             return
         }
-        
+
         // Scrolling up significantly - show UI
         if delta > scrollUpThreshold {
             AMENTabBarScrollBridge.shared.expand()
             if !showToolbar || !tabBarVisible.wrappedValue {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
                 }
@@ -1760,17 +1762,17 @@ struct HomeView: View {
         else if delta < -scrollDownThreshold && offset < -50 {
             AMENTabBarScrollBridge.shared.minimize()
             if showToolbar || tabBarVisible.wrappedValue {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                     showToolbar = false
                     tabBarVisible.wrappedValue = false
                 }
             }
         }
-        
+
         // Auto-collapse category pills when scrolling down
         if delta < -60 && offset < -100 {
             if isCategoriesExpanded {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                     isCategoriesExpanded = false
                 }
             }
@@ -2007,7 +2009,7 @@ struct HomeView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedFeedMode)
+                        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: selectedFeedMode)
                     }
 
                     // Subtle collaboration suggestions (only in OpenTable / Everyone mode)
@@ -2046,13 +2048,13 @@ struct HomeView: View {
             // }
             .refreshable {
                 await refreshCurrentCategory()
-                withAnimation(.easeOut(duration: 0.18)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                     proxy.scrollTo("top", anchor: .top)
                 }
             }
             // Tab bar home button re-tap: scroll to top and refresh feed
             .onReceive(NotificationCenter.default.publisher(for: .homeTabTapped)) { _ in
-                withAnimation(.easeOut(duration: 0.18)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                     proxy.scrollTo("top", anchor: .top)
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
@@ -2171,8 +2173,8 @@ struct HomeView: View {
                 .frame(height: isQuiet ? nil : 0, alignment: .top)
                 .clipped()
         }
-        .animation(.easeInOut(duration: 0.15), value: viewModel.selectedCategory)
-        .animation(.easeInOut(duration: 0.15), value: selectedFeedMode)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: viewModel.selectedCategory)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: selectedFeedMode)
     }
 }
 
@@ -2340,6 +2342,7 @@ struct SearchButton: View {
     @State private var showFirstTimeLongPressHint = false
     @State private var isLongPressing = false
     @AppStorage("hasSeenBereanLongPressHint") private var hasSeenLongPressHint = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -2373,7 +2376,7 @@ struct SearchButton: View {
             }
             .scaleEffect(isPressed ? 0.92 : 1.0)
             .scaleEffect(quickActionButtonScale)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: quickActionButtonScale)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: quickActionButtonScale)
             .onTapGesture {
                 // Regular tap - open Berean AI immediately
                 HapticManager.impact(style: .light)
@@ -2433,7 +2436,7 @@ struct SearchButton: View {
                         
                         // Auto-hide hint after 5 seconds
                         DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                            withAnimation(.easeOut(duration: 0.3)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                 showFirstTimeLongPressHint = false
                             }
                         }
@@ -2442,7 +2445,7 @@ struct SearchButton: View {
             }
             .opacity(isVisible ? 1 : 0)
             .scaleEffect(isVisible ? 1 : 0.8)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isVisible)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isVisible)
             .reportBereanButtonFrame()
         }
     }

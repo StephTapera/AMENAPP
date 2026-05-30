@@ -37,8 +37,9 @@ struct PrayerView: View {
     @State private var viewedPostIds: Set<UUID> = []
 
     @Environment(\.tabBarVisible) private var tabBarVisible
-    
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+
     enum PrayerTab: String, CaseIterable {
         case requests = "Requests"
         case praises = "Praises"
@@ -211,7 +212,7 @@ struct PrayerView: View {
         .overlay(alignment: .bottom) {
             BurdenMatchPrompt()
                 .padding(.bottom, 16)
-                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: BurdenMatchService.shared.showMatchPrompt)
+                .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.7), value: BurdenMatchService.shared.showMatchPrompt)
         }
         .task {
             // Keep listener alive across tab switches — only start if not already active
@@ -271,7 +272,7 @@ struct PrayerView: View {
                 CollaborationHubView(isShowing: $showCollaborationHub)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                     .zIndex(11)
-                    .animation(.smooth(duration: 0.3), value: showCollaborationHub)
+                    .animation(reduceMotion ? .none : .smooth(duration: 0.3), value: showCollaborationHub)
             }
         }
         // LiveDiscussionView uses @Binding instead of @Environment(\.dismiss), so it is
@@ -281,7 +282,7 @@ struct PrayerView: View {
                 LiveDiscussionView(isShowing: $showLiveDiscussion)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                     .zIndex(10)
-                    .animation(.smooth(duration: 0.3), value: showLiveDiscussion)
+                    .animation(reduceMotion ? .none : .smooth(duration: 0.3), value: showLiveDiscussion)
             }
         }
     }
@@ -425,9 +426,10 @@ struct PrayerBannerCard: View {
     let description: String
     let gradientColors: [Color]?
     let isBlackAndWhite: Bool
-    
+
     @State private var isPressed = false
     @State private var shimmerPhase: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {  // ✅ Reduced from 14 to 8
@@ -512,19 +514,19 @@ struct PrayerBannerCard: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeIn(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeIn(duration: 0.1)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                         isPressed = false
                     }
                 }
         )
         .onAppear {
             if !isBlackAndWhite {
-                withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                withAnimation(reduceMotion ? nil : .linear(duration: 3).repeatForever(autoreverses: false)) {
                     shimmerPhase = 400
                 }
             }
@@ -541,6 +543,7 @@ struct PrayerBannerCard: View {
 struct DailyPrayerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentPrayerIndex = 0
     @State private var completedPrayers: Set<Int> = []
     @State private var showCompletionCelebration = false
@@ -583,22 +586,22 @@ struct DailyPrayerView: View {
             (colorScheme == .dark ? Color.black.opacity(0.85) : AmenTheme.Colors.backgroundPrimary)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.smooth(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                         dismiss()
                     }
                 }
-            
+
             VStack(spacing: 0) {
                 // Header
                 HStack {
                     Text("Daily Prayer")
                         .font(AMENFont.bold(24))
                         .foregroundStyle(.white)
-                    
+
                     Spacer()
-                    
+
                     Button {
-                        withAnimation(.smooth(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                             dismiss()
                         }
                     } label: {
@@ -699,9 +702,10 @@ struct DailyPrayerCard: View {
     let prayer: DailyPrayerItem
     let isCompleted: Bool
     let onComplete: () -> Void
-    
+
     @State private var showFullPrayer = false
     @State private var isButtonPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     // MARK: - Computed Properties for Button Styling
     
@@ -1032,12 +1036,12 @@ struct DailyPrayerCard: View {
                     .simultaneousGesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { _ in
-                                withAnimation(.easeIn(duration: 0.1)) {
+                                withAnimation(reduceMotion ? nil : .easeIn(duration: 0.1)) {
                                     isButtonPressed = true
                                 }
                             }
                             .onEnded { _ in
-                                withAnimation(.easeOut(duration: 0.1)) {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                                     isButtonPressed = false
                                 }
                             }
@@ -1066,7 +1070,8 @@ struct DailyPrayerItem {
 
 struct CompletionCelebrationView: View {
     @Binding var isShowing: Bool
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.8)
@@ -1104,7 +1109,7 @@ struct CompletionCelebrationView: View {
                 }
                 
                 Button {
-                    withAnimation(.smooth(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                         isShowing = false
                     }
                 } label: {
@@ -1481,7 +1486,8 @@ struct PrayerPostCard: View {
     @State private var showEncouragementSheet = false
     @State private var encouragementSent = false
     @Namespace private var glassNamespace
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // Check if this is the user's own post
     private var isOwnPost: Bool {
         guard let currentUserId = FirebaseManager.shared.currentUser?.uid else {
@@ -2141,7 +2147,7 @@ struct PrayerPostCard: View {
                     if capturedHasAmened && !capturedIsOwnPost && capturedTopicTag == "Prayer Request" {
                         try? await PrayerFollowThroughService.shared.commitToPray(prayerId: postId)
                         await MainActor.run {
-                            withAnimation { showEncouragementSheet = true }
+                            withAnimation(reduceMotion ? nil : .default) { showEncouragementSheet = true }
                         }
                     }
                 } catch {
@@ -2563,8 +2569,9 @@ struct PrayerReactionButton: View {
     let count: Int?
     let isActive: Bool
     let action: () -> Void
-    
+
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         Button(action: action) {
@@ -2596,12 +2603,12 @@ struct PrayerReactionButton: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeIn(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeIn(duration: 0.1)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                         isPressed = false
                     }
                 }
@@ -2626,9 +2633,10 @@ struct PrayerCommentSection: View {
     let prayerCategory: PrayerPostCard.PrayerCategory
     let post: Post  // Post parameter to get postId
     @Binding var commentCount: Int  // Bind to parent's count for real-time updates
-    
+
     @State private var commentText = ""
     @State private var showQuickPrayers = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showVerseSelector = false
     @State private var isLoading = true
     @State private var isSubmitting = false  // NEW: Track submit state
@@ -2713,7 +2721,7 @@ struct PrayerCommentSection: View {
                 Spacer()
                 
                 Button {
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         showError = false
                     }
                 } label: {
@@ -2935,10 +2943,10 @@ struct PrayerCommentSection: View {
                 
                 // Show user-friendly error
                 errorMessage = "Failed to post comment. Please try again."
-                withAnimation {
+                withAnimation(reduceMotion ? nil : .default) {
                     showError = true
                 }
-                
+
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
             }
@@ -3068,11 +3076,12 @@ struct PrayerCommentRow: View {
     let comment: Comment  // Use real Comment model
     let postCategory: PrayerPostCard.PrayerCategory
     let onDelete: () -> Void
-    
+
     @State private var hasPrayed = false
     @State private var localPrayCount: Int
     @State private var showDeleteAlert = false
     @State private var showReplyField = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var replyText = ""
     @State private var isSubmittingReply = false
     @FocusState private var replyFieldFocused: Bool
@@ -3334,7 +3343,7 @@ struct PrayerCommentRow: View {
                 await MainActor.run {
                     replyText = ""
                     isSubmittingReply = false
-                    withAnimation { showReplyField = false }
+                    withAnimation(reduceMotion ? nil : .default) { showReplyField = false }
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                 }
@@ -3721,6 +3730,7 @@ struct LiveDiscussionView: View {
     @State private var isMuted = true
     @State private var isHandRaised = false
     @State private var participantCount = Int.random(in: 45...234)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     enum DiscussionTopic: String, CaseIterable {
         case general = "General Prayer"
@@ -3735,11 +3745,11 @@ struct LiveDiscussionView: View {
             Color.black.opacity(0.85)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.smooth(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                         isShowing = false
                     }
                 }
-            
+
             VStack(spacing: 0) {
                 // Header
                 HStack {
@@ -3748,25 +3758,25 @@ struct LiveDiscussionView: View {
                             Circle()
                                 .fill(Color(red: 1.0, green: 0.3, blue: 0.3))
                                 .frame(width: 8, height: 8)
-                            
+
                             Text("LIVE")
                                 .font(AMENFont.bold(12))
                                 .foregroundStyle(Color(red: 1.0, green: 0.3, blue: 0.3))
                         }
-                        
+
                         Text("Live Discussion")
                             .font(AMENFont.bold(26))
                             .foregroundStyle(.white)
-                        
+
                         Text("\(participantCount) people listening")
                             .font(AMENFont.regular(13))
                             .foregroundStyle(.white.opacity(0.6))
                     }
-                    
+
                     Spacer()
-                    
+
                     Button {
-                        withAnimation(.smooth(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                             isShowing = false
                         }
                     } label: {
@@ -3778,13 +3788,13 @@ struct LiveDiscussionView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
                 .padding(.bottom, 20)
-                
+
                 // Topic selector
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(DiscussionTopic.allCases, id: \.self) { topic in
                             Button {
-                                withAnimation(.smooth(duration: 0.3)) {
+                                withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                                     selectedTopic = topic
                                 }
                             } label: {
@@ -3840,7 +3850,7 @@ struct LiveDiscussionView: View {
                 // Control buttons
                 HStack(spacing: 20) {
                     Button {
-                        withAnimation {
+                        withAnimation(reduceMotion ? nil : .default) {
                             isMuted.toggle()
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -3851,20 +3861,20 @@ struct LiveDiscussionView: View {
                                 Circle()
                                     .fill(isMuted ? Color.white.opacity(0.15) : Color(red: 1.0, green: 0.3, blue: 0.3))
                                     .frame(width: 60, height: 60)
-                                
+
                                 Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
                                     .font(.systemScaled(24, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
-                            
+
                             Text(isMuted ? "Unmute" : "Muted")
                                 .font(AMENFont.semiBold(12))
                                 .foregroundStyle(.white.opacity(0.8))
                         }
                     }
-                    
+
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.65)) {
                             isHandRaised.toggle()
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -3891,9 +3901,9 @@ struct LiveDiscussionView: View {
                         }
                     }
                     .accessibilityLabel(isHandRaised ? "Lower your hand" : "Raise your hand to speak")
-                    
+
                     Button {
-                        withAnimation(.smooth(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                             isShowing = false
                         }
                     } label: {
@@ -3927,7 +3937,8 @@ struct LiveSpeakerCard: View {
     let name: String
     let topic: String
     let isSpeaking: Bool
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 16) {
             ZStack {
@@ -3946,7 +3957,7 @@ struct LiveSpeakerCard: View {
                         .frame(width: 56, height: 56)
                         .scaleEffect(isSpeaking ? 1.1 : 1.0)
                         .opacity(isSpeaking ? 0.8 : 0)
-                        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isSpeaking)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isSpeaking)
                 }
             }
             
@@ -3994,6 +4005,7 @@ struct CollaborationHubView: View {
     @Binding var isShowing: Bool
     @State private var selectedFilter: CollabFilter = .all
     @State private var searchText = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Real data — loaded from Firestore on .task
     @State private var collaborators: [Collaborator] = []
@@ -4034,7 +4046,7 @@ struct CollaborationHubView: View {
             Color.black.opacity(0.85)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.smooth(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                         isShowing = false
                     }
                 }
@@ -4055,7 +4067,7 @@ struct CollaborationHubView: View {
                     Spacer()
 
                     Button {
-                        withAnimation(.smooth(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                             isShowing = false
                         }
                     } label: {
@@ -4092,7 +4104,7 @@ struct CollaborationHubView: View {
                     HStack(spacing: 8) {
                         ForEach(CollabFilter.allCases, id: \.self) { filter in
                             Button {
-                                withAnimation(.smooth(duration: 0.3)) {
+                                withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                                     selectedFilter = filter
                                 }
                             } label: {
@@ -4231,7 +4243,7 @@ struct CollaborationHubView: View {
                 )
             }
 
-            withAnimation(.smooth(duration: 0.3)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                 collaborators = mapped
                 isLoading = false
             }
@@ -4271,7 +4283,7 @@ struct CollaborationHubView: View {
                         )
                         // Pulse animation serves as a lightweight shimmer substitute
                         .opacity(isLoading ? 1.0 : 0.0)
-                        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: isLoading)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: isLoading)
                 }
             }
             .padding(.horizontal, 24)
@@ -4348,6 +4360,7 @@ struct CollaboratorCard: View {
     let collaborator: Collaborator
     @State private var isPressed = false
     @State private var showChat = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -4447,7 +4460,7 @@ struct CollaboratorCard: View {
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .opacity(isPressed ? 0.8 : 1.0)
         .onLongPressGesture(minimumDuration: 0.4, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.smooth(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -4535,6 +4548,7 @@ struct PrayerGroup: Identifiable {
 struct PrayerGroupDetailView: View {
     let group: PrayerGroup
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasJoined = false
     @State private var selectedTab: GroupDetailTab = .about
     @State private var showGroupDailyPrayer = false
@@ -4608,7 +4622,7 @@ struct PrayerGroupDetailView: View {
                 HStack(spacing: 8) {
                     ForEach(GroupDetailTab.allCases, id: \.self) { tab in
                         Button {
-                            withAnimation {
+                            withAnimation(reduceMotion ? nil : .default) {
                                 selectedTab = tab
                             }
                         } label: {
@@ -4673,7 +4687,7 @@ struct PrayerGroupDetailView: View {
     
     private var joinButton: some View {
         Button {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 hasJoined = true
             }
             let haptic = UINotificationFeedbackGenerator()

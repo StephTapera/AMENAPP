@@ -22,6 +22,7 @@ struct BereanAIAssistantView: View {
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase  // FIX 4: Detect background/foreground
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel = BereanViewModel()
     @StateObject private var notesService = ChurchNotesService()
     @StateObject private var liquidComposerVM = BereanComposerViewModel()  // Liquid Glass composer state
@@ -253,7 +254,7 @@ struct BereanAIAssistantView: View {
         // ✅ Change welcome text only on view appear (not continuously)
         // Pick a random index each time the view appears
         let randomIndex = Int.random(in: 0..<welcomeTexts.count)
-        withAnimation(.easeInOut(duration: 0.5)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.5)) {
             currentWelcomeTextIndex = randomIndex
         }
     }
@@ -342,7 +343,7 @@ struct BereanAIAssistantView: View {
             }
         }
         
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             contextualSuggestions = Array(suggestions.prefix(3))
             showContextualSuggestions = !suggestions.isEmpty
         }
@@ -429,9 +430,9 @@ struct BereanAIAssistantView: View {
                 let collapse = value < -110
                 let expand = value > -50
                 if collapse && !shouldCollapseBibleIcon {
-                    withAnimation(.easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = true }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = true }
                 } else if expand && shouldCollapseBibleIcon {
-                    withAnimation(.easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = false }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = false }
                 }
                 if scrolledDown { userHasScrolledUp = true }
                 else if backAtTop { userHasScrolledUp = false }
@@ -447,7 +448,7 @@ struct BereanAIAssistantView: View {
         chatScrollView
         .onChange(of: viewModel.messages.count) { _, _ in
             if !userHasScrolledUp, let lastMessage = viewModel.messages.last {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                     proxy.scrollTo(lastMessage.id, anchor: .bottom)
                 }
             }
@@ -459,7 +460,7 @@ struct BereanAIAssistantView: View {
                 withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) { showFollowUps = true }
                 messageClaims[last.id] = extractClaims(from: last)
             } else {
-                withAnimation(.easeOut(duration: 0.2)) { showFollowUps = false }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showFollowUps = false }
             }
         }
         .onChange(of: viewModel.messages.last?.content.count) { _, _ in
@@ -470,7 +471,7 @@ struct BereanAIAssistantView: View {
         .onChange(of: isInputFocused) { _, newValue in
             if newValue, let lastMessage = viewModel.messages.last {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                         proxy.scrollTo(lastMessage.id, anchor: .bottom)
                     }
                 }
@@ -494,7 +495,7 @@ struct BereanAIAssistantView: View {
                 }
                 .environment(\.messageShareHandler) { message in
                     messageToShare = message
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         showShareSheet = true
                     }
                 }
@@ -563,7 +564,7 @@ struct BereanAIAssistantView: View {
             insertion: .scale(scale: 0.9).combined(with: .opacity),
             removal: .opacity
         ))
-        .animation(.easeOut(duration: 0.2), value: viewModel.messages.count)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: viewModel.messages.count)
 
         if isLastBerean {
             BereanFollowUpChipRow(
@@ -894,7 +895,7 @@ struct BereanAIAssistantView: View {
                 .zIndex(2000)
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isVoiceListening)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: isVoiceListening)
         // ✅ Handle image selection after picker dismisses
         .onChange(of: selectedImage) { _, newImage in
             if let image = newImage {
@@ -942,7 +943,7 @@ struct BereanAIAssistantView: View {
                     }
                     try? await Task.sleep(nanoseconds: 5_000_000_000) // 5.0 s
                     guard !Task.isCancelled else { return }
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         showFirstTimeLongPressHint = false
                     }
                 }
@@ -985,7 +986,7 @@ struct BereanAIAssistantView: View {
                         streamWasInterrupted = true
                     }
                     viewModel.stopGeneration()
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         isThinking = false
                         isGenerating = false
                     }
@@ -1075,7 +1076,7 @@ struct BereanAIAssistantView: View {
                 haptic.notificationOccurred(.success)
                 
                 await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         showShareSheet = false
                         messageToShare = nil
                     }
@@ -1107,7 +1108,7 @@ struct BereanAIAssistantView: View {
     // MARK: - Smart Feature Handler
     
     private func handleSmartFeature(_ feature: SmartFeature) {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             showSmartFeatures = false
         }
         
@@ -1149,7 +1150,7 @@ struct BereanAIAssistantView: View {
                 Button {
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
-                    withAnimation(.easeOut(duration: 0.2)) { dismiss() }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { dismiss() }
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.systemScaled(18, weight: .medium))
@@ -1205,7 +1206,7 @@ struct BereanAIAssistantView: View {
     
     private var closeButton: some View {
         Button {
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 dismiss()
             }
         } label: {
@@ -1235,7 +1236,7 @@ struct BereanAIAssistantView: View {
                     )
                     .frame(width: 40, height: 40)
                     .scaleEffect(isThinking ? 1.05 : 1.0)
-                    .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: isThinking)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: isThinking)
                     .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
 
                 Image(systemName: "sparkles")
@@ -1265,8 +1266,8 @@ struct BereanAIAssistantView: View {
         Button {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
-            
-            withAnimation(.easeOut(duration: 0.25)) {
+
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 showSmartFeatures.toggle()
             }
         } label: {
@@ -1282,8 +1283,8 @@ struct BereanAIAssistantView: View {
         Button {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
-            
-            withAnimation(.easeOut(duration: 0.25)) {
+
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 activeModal = .premiumUpgrade
             }
         } label: {
@@ -1561,7 +1562,7 @@ struct BereanAIAssistantView: View {
             message: "Berean will lose context from this conversation.",
             icon: "brain.head.profile",
             primaryButton: LiquidGlassAlertButton("Clear Session", tone: .destructive) {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                     viewModel.clearMessages()
                 }
             },
@@ -1583,7 +1584,7 @@ struct BereanAIAssistantView: View {
             HStack(spacing: 6) {
                 ForEach(BereanPersonalityMode.allCases) { mode in
                     Button {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             personalityMode = mode
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1696,7 +1697,7 @@ struct BereanAIAssistantView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         // If mode has a seed prompt and composer is empty, pre-fill it
         if !mode.seedPrompt.isEmpty && messageText.isEmpty {
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 messageText = mode.seedPrompt
                 isInputFocused = true
             }
@@ -1734,7 +1735,7 @@ struct BereanAIAssistantView: View {
                     }
                     .buttonStyle(.plain)
                     .scaleEffect(active ? 1.03 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: active)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: active)
                 }
             }
             .padding(.horizontal, 10)
@@ -1782,9 +1783,9 @@ struct BereanAIAssistantView: View {
             .padding(.horizontal, 16)
         }
         .padding(.bottom, 12)
-        .animation(.easeOut(duration: 0.25), value: keyboardHeight)
-        .animation(.spring(response: 0.40, dampingFraction: 0.80), value: messageText.isEmpty)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: sessionMode)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: keyboardHeight)
+        .animation(reduceMotion ? .none : .spring(response: 0.40, dampingFraction: 0.80), value: messageText.isEmpty)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: sessionMode)
     }
 
     // Composer card — exact match to reference images:
@@ -1803,7 +1804,7 @@ struct BereanAIAssistantView: View {
                 .padding(.bottom, 4)
         }
         .background(composerBackground)
-        .animation(.easeOut(duration: 0.35), value: isInputFocused)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.35), value: isInputFocused)
     }
 
     private var composerDivider: some View {
@@ -1897,7 +1898,7 @@ struct BereanAIAssistantView: View {
         HStack(spacing: 8) {
             ForEach(BereanResponseMode.allCases, id: \.self) { mode in
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         responseMode = mode
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1967,7 +1968,7 @@ struct BereanAIAssistantView: View {
                     let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else {
                         contextualSuggestions = []
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             showContextualSuggestions = false
                         }
                         return
@@ -1982,11 +1983,11 @@ struct BereanAIAssistantView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .animation(.spring(response: 0.50, dampingFraction: 0.80), value: messageText)
+                .animation(reduceMotion ? .none : .spring(response: 0.50, dampingFraction: 0.80), value: messageText)
         }
         .onReceive(placeholderTimer) { _ in
             guard messageText.isEmpty && !isInputFocused else { return }
-            withAnimation(.easeOut(duration: 0.4)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) {
                 placeholderIndex = (placeholderIndex + 1) % placeholderOptions.count
             }
         }
@@ -2000,7 +2001,7 @@ struct BereanAIAssistantView: View {
                     messageText = suggestion
                     isInputFocused = true
                     // Hide suggestions after selection
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         showContextualSuggestions = false
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -2068,7 +2069,7 @@ struct BereanAIAssistantView: View {
                         .frame(width: 36, height: 36)
                         .scaleEffect(1.25)
                         .opacity(0)
-                        .animation(.easeOut(duration: 1.0).repeatForever(autoreverses: false), value: isVoiceListening)
+                        .animation(reduceMotion ? .none : .easeOut(duration: 1.0).repeatForever(autoreverses: false), value: isVoiceListening)
                 }
 
                 Image(systemName: isVoiceListening ? "waveform" : "mic")
@@ -2119,7 +2120,7 @@ struct BereanAIAssistantView: View {
         }
         .buttonStyle(ScaleButtonStyle())
         .transition(.scale.combined(with: .opacity))
-        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: !messageText.isEmpty)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.72), value: !messageText.isEmpty)
         .accessibilityLabel("Send message")
     }
 
@@ -2146,7 +2147,7 @@ struct BereanAIAssistantView: View {
         }
         .buttonStyle(ScaleButtonStyle())
         .transition(.scale.combined(with: .opacity))
-        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isGenerating)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.72), value: isGenerating)
         .accessibilityLabel("Stop generating")
     }
     
@@ -2200,8 +2201,7 @@ struct BereanAIAssistantView: View {
                                 lineWidth: 2.5
                             )
                             .animation(
-                                .linear(duration: 1.5)
-                                .repeatForever(autoreverses: false),
+                                reduceMotion ? .none : .linear(duration: 1.5).repeatForever(autoreverses: false),
                                 value: siriAnimationProgress
                             )
                     }
@@ -2232,7 +2232,7 @@ struct BereanAIAssistantView: View {
         #endif
         
         // Show quick actions menu
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             showPlusMenu = true
         }
     }
@@ -2311,10 +2311,10 @@ struct BereanAIAssistantView: View {
                 recognizer.stopRecording()
                 
                 await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         isVoiceListening = false
                     }
-                    
+
                     // Use transcribed text
                     if !recognizer.transcribedText.isEmpty {
                         messageText = recognizer.transcribedText
@@ -2336,7 +2336,7 @@ struct BereanAIAssistantView: View {
                 do {
                     try recognizer.startRecording()
                     await MainActor.run {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             isVoiceListening = true
                         }
                     }
@@ -2380,7 +2380,7 @@ struct BereanAIAssistantView: View {
             queue: .main
         ) { notification in
             guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(self.reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 keyboardHeight = keyboardFrame.height
             }
         }
@@ -2390,7 +2390,7 @@ struct BereanAIAssistantView: View {
             object: nil,
             queue: .main
         ) { _ in
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(self.reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 keyboardHeight = 0
             }
         }
@@ -2432,11 +2432,11 @@ struct BereanAIAssistantView: View {
         }
         
         // Clear error banner
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             showErrorBanner = false
             showError = nil
         }
-        
+
         // Remove the last assistant message if it exists and was an error
         if let lastAssistantIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
             // Only remove if it's empty or an error placeholder
@@ -2502,15 +2502,15 @@ struct BereanAIAssistantView: View {
 
     /// Start a new conversation
     private func startNewConversation() {
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             // Save current conversation if it has messages
             if !viewModel.messages.isEmpty {
                 viewModel.saveCurrentConversation()
             }
-            
+
             // Clear messages
             viewModel.clearMessages()
-            
+
             // Reset UI state
             showSuggestions = true
             messageText = ""
@@ -2527,9 +2527,9 @@ struct BereanAIAssistantView: View {
     
     /// Clear all data
     private func clearAllData() {
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             viewModel.clearAllData()
-            
+
             // Reset UI state
             showSuggestions = true
             messageText = ""
@@ -2553,7 +2553,7 @@ struct BereanAIAssistantView: View {
 
         case .shareAsPost, .shareWithGroup:
             messageToShare = message
-            withAnimation(.easeOut(duration: 0.2)) { showShareSheet = true }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showShareSheet = true }
 
         case .translate:
             activeModal = .translationPicker
@@ -2656,7 +2656,7 @@ struct BereanAIAssistantView: View {
     /// Stop AI generation
     private func stopGeneration() {
         Task { @MainActor in
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 isGenerating = false
                 isThinking = false
             }
@@ -2715,7 +2715,7 @@ struct BereanAIAssistantView: View {
             
             // Show upgrade prompt after short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(self.reduceMotion ? nil : .easeOut(duration: 0.3)) {
                     activeModal = .premiumUpgrade
                 }
             }
@@ -2764,7 +2764,7 @@ struct BereanAIAssistantView: View {
             timestamp: Date()
         )
         
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             // ✅ P0-5: Use appendMessage instead of direct append
             viewModel.appendMessage(userMessage)
             messageText = ""
@@ -2786,7 +2786,7 @@ struct BereanAIAssistantView: View {
         )
         
         // Add placeholder immediately so user sees thinking indicator
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             // ✅ P0-5: Use appendMessage for placeholder
             viewModel.appendMessage(placeholderMessage)
         }
@@ -2839,11 +2839,11 @@ struct BereanAIAssistantView: View {
                     premiumManager.incrementMessageCount()
                     dlog("📊 Message count updated: \(premiumManager.freeMessagesUsed)/\(premiumManager.FREE_MESSAGES_PER_DAY)")
                     
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         isThinking = false
                         isGenerating = false  // ✅ Clear generating state
                     }
-                    
+
                     // ✅ P0-6: Auto-save conversation after successful message
                     if viewModel.messages.count >= 2 {  // At least one exchange
                         Task {
@@ -2893,11 +2893,11 @@ struct BereanAIAssistantView: View {
                         viewModel.messages.remove(at: lastIndex)
                     }
                     
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         isThinking = false
                         isGenerating = false  // ✅ Clear generating state
                     }
-                    
+
                     // ✅ Enhanced error handling with specific user-friendly messages
                     let bereanError: BereanError
                     if let openAIError = error as? OpenAIError {
@@ -3068,15 +3068,16 @@ struct BereanQuickActionCard: View {
     let title: String
     let color: Color
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
         Button(action: {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
-            
-            withAnimation(.easeOut(duration: 0.2)) {
+
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 action()
             }
         }) {
@@ -3132,7 +3133,7 @@ struct BereanQuickActionCard: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.smooth(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -3215,12 +3216,13 @@ struct SuggestedPromptCard: View {
     let prompt: String
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.easeOut(duration: 0.18)) { action() }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) { action() }
         } label: {
             HStack(spacing: 12) {
                 Text(prompt)
@@ -3254,7 +3256,7 @@ struct SuggestedPromptCard: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.smooth(duration: 0.18)) { isPressed = pressing }
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.18)) { isPressed = pressing }
         }, perform: {})
     }
 }
@@ -3334,6 +3336,7 @@ struct BereanMessageBubbleView: View {
     @State private var completionPulse = false
     @Environment(\.messageShareHandler) private var shareHandler
     @Environment(\.bereanQuickActionHandler) private var quickActionEnv
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var dataManager: BereanDataManager
 
     var body: some View {
@@ -3351,7 +3354,7 @@ struct BereanMessageBubbleView: View {
                     .scaleEffect(appeared ? 1 : 0.94, anchor: .bottomLeading)
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.78), value: appeared)
+        .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.78), value: appeared)
         .onAppear {
             guard !appeared else { return }
             withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78))) {
@@ -3398,7 +3401,7 @@ struct BereanMessageBubbleView: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 6)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.22).delay(0.04)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22).delay(0.04)) {
                 appeared = true
             }
         }
@@ -3465,7 +3468,7 @@ struct BereanMessageBubbleView: View {
                 }
                 // Animate new sections appearing during streaming
                 .animation(
-                    .easeOut(duration: style.animationDuration),
+                    reduceMotion ? .none : .easeOut(duration: style.animationDuration),
                     value: messageSections.count
                 )
 
@@ -3534,12 +3537,12 @@ struct BereanMessageBubbleView: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
-            withAnimation(.easeOut(duration: calmModeEnabled ? 0.5 : 0.28).delay(0.03)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: calmModeEnabled ? 0.5 : 0.28).delay(0.03)) {
                 appeared = true
             }
             if onFollowUp != nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + (calmModeEnabled ? 0.7 : 0.55)) {
-                    withAnimation(.easeOut(duration: calmModeEnabled ? 0.35 : 0.22)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: calmModeEnabled ? 0.35 : 0.22)) {
                         showFollowUpRow = true
                     }
                 }
@@ -3547,11 +3550,11 @@ struct BereanMessageBubbleView: View {
         }
         .onChange(of: isGenerating) { oldValue, newValue in
             if oldValue && !newValue && isLastAssistantMessage {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                     completionPulse = true
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation(.easeOut(duration: 0.35)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
                         completionPulse = false
                     }
                 }
@@ -3593,7 +3596,7 @@ struct BereanMessageBubbleView: View {
                     onApply: { onFollowUp?("Show me how to apply this to my life today.") },
                     onRelatedVerses: { onFollowUp?("Find related Bible verses for this.") },
                     onSearch: {
-                        withAnimation(.easeOut(duration: 0.2)) { showSearch = true }
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showSearch = true }
                     }
                 )
                 .scaleEffect(menuScale, anchor: .bottomLeading)
@@ -3604,7 +3607,7 @@ struct BereanMessageBubbleView: View {
         }
         .onTapGesture {
             if showMessageMenu {
-                withAnimation(.easeOut(duration: 0.18)) { showMessageMenu = false }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) { showMessageMenu = false }
             }
         }
     }
@@ -3616,7 +3619,7 @@ struct BereanMessageBubbleView: View {
             }
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) { lightbulbPressed.toggle() }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { lightbulbPressed.toggle() }
             } label: {
                 Image(systemName: lightbulbPressed ? "lightbulb.fill" : "lightbulb")
                     .font(.systemScaled(13, weight: .medium))
@@ -3626,7 +3629,7 @@ struct BereanMessageBubbleView: View {
             .buttonStyle(.plain)
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) { praisePressed.toggle() }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { praisePressed.toggle() }
             } label: {
                 Image(systemName: praisePressed ? "hands.clap.fill" : "hands.clap")
                     .font(.systemScaled(13, weight: .medium))
@@ -3665,7 +3668,7 @@ struct BereanMessageBubbleView: View {
             Spacer()
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     showSearch.toggle()
                     if !showSearch { searchQuery = "" }
                 }
@@ -3679,9 +3682,9 @@ struct BereanMessageBubbleView: View {
             Button {
                 UIPasteboard.general.string = message.content
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.easeOut(duration: 0.15)) { copied = true }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { copied = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    withAnimation(.easeOut(duration: 0.2)) { copied = false }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { copied = false }
                 }
             } label: {
                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
@@ -3901,6 +3904,7 @@ struct BereanMessageBubbleView: View {
 
     private struct BreathingStreamIndicator: View {
         @State private var pulse = false
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         var body: some View {
             Circle()
@@ -3909,7 +3913,7 @@ struct BereanMessageBubbleView: View {
                 .scaleEffect(pulse ? 1.35 : 0.9)
                 .opacity(pulse ? 0.35 : 0.8)
                 .onAppear {
-                    withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                         pulse = true
                     }
                 }
@@ -3925,6 +3929,7 @@ struct BereanMessageBubbleView: View {
         let calmModeEnabled: Bool
 
         @State private var isExpanded = false
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         private var shouldCollapse: Bool {
             section.body.count > 360
@@ -3955,7 +3960,7 @@ struct BereanMessageBubbleView: View {
 
                 if shouldCollapse {
                     Button {
-                        withAnimation(.easeOut(duration: calmModeEnabled ? 0.35 : 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: calmModeEnabled ? 0.35 : 0.2)) {
                             isExpanded.toggle()
                         }
                     } label: {
@@ -4140,7 +4145,8 @@ struct SmartReactionButton: View {
 struct VerseReferenceChip: View {
     let reference: String
     let action: (() -> Void)?
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     init(reference: String, action: (() -> Void)? = nil) {
@@ -4181,12 +4187,12 @@ struct VerseReferenceChip: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.smooth(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) {
                 isPressed = pressing
             }
         }, perform: {})
     }
-    
+
     private func openVerseReference() {
         // ✅ Navigate to Bible view with verse reference
         BereanNavigationHelper.openBibleVerse(reference: reference)
@@ -4207,6 +4213,7 @@ struct HeaderThinkingDot: View {
     let index: Int
     let isActive: Bool
     @State private var phase = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -4219,13 +4226,12 @@ struct HeaderThinkingDot: View {
                 let delay = Double(index) * 0.18
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                     withAnimation(
-                        .easeInOut(duration: 0.55)
-                        .repeatForever(autoreverses: true)
+                        reduceMotion ? nil : .easeInOut(duration: 0.55).repeatForever(autoreverses: true)
                     ) { phase = true }
                 }
             }
             .onChange(of: isActive) { _, active in
-                if !active { withAnimation { phase = false } }
+                if !active { withAnimation(reduceMotion ? nil : .default) { phase = false } }
             }
     }
 }
@@ -4238,6 +4244,7 @@ struct HeaderThinkingDot: View {
 struct ThinkingIndicatorView: View {
 
     @State private var animating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let dotSize: CGFloat = 8
     private let dotSpacing: CGFloat = 5
@@ -4255,7 +4262,7 @@ struct ThinkingIndicatorView: View {
                         .offset(y: animating ? -bounceHeight : 0)
                         .opacity(animating ? 1.0 : 0.45)
                         .animation(
-                            .easeInOut(duration: 0.5)
+                            reduceMotion ? .none : .easeInOut(duration: 0.5)
                                 .repeatForever(autoreverses: true)
                                 .delay(Double(i) * 0.16),
                             value: animating
@@ -4289,6 +4296,7 @@ struct BereanVoiceListeningOverlay: View {
 
     @State private var pulseScale: CGFloat = 1.0
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let coral = Color(red: 0.88, green: 0.38, blue: 0.28)
 
@@ -4338,7 +4346,7 @@ struct BereanVoiceListeningOverlay: View {
                         .frame(width: 118, height: 118)
                         .scaleEffect(appeared ? 1.0 : 0.6)
                         .opacity(appeared ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.4), value: recognizer.isRecording)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.4), value: recognizer.isRecording)
 
                     // Pearl orb — active (shimmer + faster pulse) while recording
                     BereanOrbView(isActive: recognizer.isRecording)
@@ -4368,7 +4376,7 @@ struct BereanVoiceListeningOverlay: View {
                         .foregroundStyle(Color(white: 0.55))
                         .opacity(recognizer.transcribedText.isEmpty ? 1 : 0)
                 }
-                .animation(.easeInOut(duration: 0.25), value: recognizer.transcribedText)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.25), value: recognizer.transcribedText)
                 .padding(.bottom, 52)
 
                 // Action buttons
@@ -4414,8 +4422,7 @@ struct BereanVoiceListeningOverlay: View {
                 appeared = true
             }
             withAnimation(
-                .easeInOut(duration: 1.6)
-                .repeatForever(autoreverses: true)
+                reduceMotion ? nil : .easeInOut(duration: 1.6).repeatForever(autoreverses: true)
             ) {
                 pulseScale = 1.08
             }
@@ -4427,7 +4434,8 @@ struct BereanVoiceListeningOverlay: View {
 
 struct BereanSendButton: View {
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
     
     var body: some View {
@@ -4435,10 +4443,10 @@ struct BereanSendButton: View {
             let haptic = UIImpactFeedbackGenerator(style: .medium)
             haptic.impactOccurred()
             
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 isAnimating = true
             }
-            
+
             action()
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -4582,14 +4590,16 @@ enum SmartFeature: String, CaseIterable {
 struct SmartFeaturesPanel: View {
     @Binding var isShowing: Bool
     let onFeatureSelect: (SmartFeature) -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             // Backdrop
             Color.black.opacity(0.3)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         isShowing = false
                     }
                 }
@@ -4657,7 +4667,8 @@ struct SmartFeaturesPanel: View {
 struct SmartFeatureButton: View {
     let feature: SmartFeature
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -4665,7 +4676,7 @@ struct SmartFeatureButton: View {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
             
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 action()
             }
         }) {
@@ -4713,7 +4724,7 @@ struct SmartFeatureButton: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.smooth(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -5794,7 +5805,8 @@ struct ShareToFeedSheet: View {
     let message: BereanMessage
     @Binding var isShowing: Bool
     let onShare: (String) -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shareText: String = ""
     @State private var addPersonalNote = false
     @State private var personalNote = ""
@@ -5814,12 +5826,12 @@ struct ShareToFeedSheet: View {
         Color.black.opacity(0.7)
             .ignoresSafeArea()
             .onTapGesture {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     isShowing = false
                 }
             }
     }
-    
+
     private var sheetContentView: some View {
         VStack(spacing: 0) {
             handleBar
@@ -5849,7 +5861,7 @@ struct ShareToFeedSheet: View {
             Spacer()
             
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     isShowing = false
                 }
             } label: {
@@ -5945,7 +5957,7 @@ struct ShareToFeedSheet: View {
     
     private var personalNoteToggle: some View {
         Button {
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 addPersonalNote.toggle()
             }
         } label: {
@@ -6053,7 +6065,9 @@ struct ShareToFeedSheet: View {
 
 struct BereanPremiumUpgradeView: View {
     @Binding var isShowing: Bool
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let premiumFeatures: [(icon: String, title: String, description: String, color: Color)] = [
         ("infinity.circle.fill", "Unlimited Conversations", "No daily message limits - ask as much as you want", Color(red: 0.4, green: 0.7, blue: 1.0)),
         ("brain.head.profile.fill", "Advanced AI Model", "Access to the most sophisticated Bible study AI", Color(red: 0.6, green: 0.5, blue: 1.0)),
@@ -6097,7 +6111,7 @@ struct BereanPremiumUpgradeView: View {
         HStack {
             Spacer()
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     isShowing = false
                 }
             } label: {
@@ -6788,7 +6802,8 @@ struct QuickActionButton: View {
     let subtitle: String
     let gradient: LinearGradient
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -6830,12 +6845,12 @@ struct QuickActionButton: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                         isPressed = false
                     }
                 }
@@ -7148,6 +7163,7 @@ struct BereanStatusChip: View {
     let style: ChipStyle
     var animated: Bool = false
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
@@ -7157,7 +7173,7 @@ struct BereanStatusChip: View {
                     .fill(style.color)
                     .frame(width: 5, height: 5)
                     .scaleEffect(pulse ? 1.35 : 0.85)
-                    .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
                     .onAppear { pulse = true }
             } else {
                 Image(systemName: style.icon)
@@ -7299,6 +7315,7 @@ struct BereanFollowUpActionsRow: View {
     var onFollowUp: (String) -> Void
     var onQuickAction: (BereanMessage, BereanResponseAction) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var secondaryVisible = false
 
     var body: some View {
@@ -7365,7 +7382,7 @@ struct BereanFollowUpActionsRow: View {
         ))
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                withAnimation(.easeOut(duration: 0.22)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
                     secondaryVisible = true
                 }
             }
@@ -8439,6 +8456,7 @@ struct BereanOrbView: View {
     @State private var breathScale: CGFloat = 1.0
     @State private var shimmerAngle: Double = 0
     @State private var glowOpacity: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let size: CGFloat = 110
 
@@ -8527,15 +8545,15 @@ struct BereanOrbView: View {
                         )
                         .blendMode(.screen)
                         .opacity(isActive ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.5), value: isActive)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.5), value: isActive)
                 )
                 .shadow(color: Color(white: 0.60).opacity(0.30), radius: 18, x: 0, y: 8)
                 .shadow(color: Color(white: 0.85).opacity(0.80), radius: 4, x: -3, y: -3)
                 .scaleEffect(breathScale)
                 .animation(
-                    isActive
+                    reduceMotion ? .none : (isActive
                         ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true)
-                        : .easeInOut(duration: 2.6).repeatForever(autoreverses: true),
+                        : .easeInOut(duration: 2.6).repeatForever(autoreverses: true)),
                     value: breathScale
                 )
         }
@@ -8543,23 +8561,23 @@ struct BereanOrbView: View {
             breathScale = isActive ? 1.06 : 1.032
             glowOpacity = isActive ? 1 : 0.6
             if isActive {
-                withAnimation(.linear(duration: 2.2).repeatForever(autoreverses: false)) {
+                withAnimation(reduceMotion ? nil : .linear(duration: 2.2).repeatForever(autoreverses: false)) {
                     shimmerAngle = 360
                 }
             }
         }
         .onChange(of: isActive) { _, active in
-            withAnimation(.easeInOut(duration: 0.45)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.45)) {
                 breathScale = active ? 1.06 : 1.032
                 glowOpacity = active ? 1 : 0.6
             }
             if active {
                 shimmerAngle = 0
-                withAnimation(.linear(duration: 2.2).repeatForever(autoreverses: false)) {
+                withAnimation(reduceMotion ? nil : .linear(duration: 2.2).repeatForever(autoreverses: false)) {
                     shimmerAngle = 360
                 }
             } else {
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                     shimmerAngle = 0
                 }
             }
@@ -8642,6 +8660,7 @@ struct BereanLandingQuickGrid: View {
     ]
 
     @State private var visibleCards: Set<UUID> = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 10) {
@@ -8663,7 +8682,7 @@ struct BereanLandingQuickGrid: View {
                 .opacity(visibleCards.contains(action.id) ? 1 : 0)
                 .offset(y: visibleCards.contains(action.id) ? 0 : 8)
                 .animation(
-                    .spring(response: 0.45, dampingFraction: 0.80)
+                    reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.80)
                         .delay(Double(idx) * 0.06),
                     value: visibleCards.contains(action.id)
                 )
@@ -8792,6 +8811,7 @@ struct BereanLandingPromptRow: View {
     let onTap: () -> Void
 
     @State private var highlighted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: {
@@ -8821,7 +8841,7 @@ struct BereanLandingPromptRow: View {
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.easeOut(duration: 0.14)) { highlighted = pressing }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) { highlighted = pressing }
         } perform: {}
         .overlay(alignment: .bottom) {
             if !isLast {
@@ -8852,6 +8872,7 @@ struct BereanHeroWelcomeSection: View {
     @State private var heroVisible = false
     @State private var badgePressed = false
     @State private var orbPulse: CGFloat = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -8896,7 +8917,7 @@ struct BereanHeroWelcomeSection: View {
                     .padding(.bottom, 20)
                     .opacity(heroVisible ? 1 : 0)
                     .offset(y: heroVisible ? 0 : 10)
-                    .animation(.spring(response: 0.68, dampingFraction: 0.78).delay(0.06), value: heroVisible)
+                    .animation(reduceMotion ? .none : .spring(response: 0.68, dampingFraction: 0.78).delay(0.06), value: heroVisible)
 
                     // ── Hairline divider ─────────────────────────────────────
                     Rectangle()
@@ -8909,12 +8930,12 @@ struct BereanHeroWelcomeSection: View {
                         .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(BereanDesign.textSecond)
                         .multilineTextAlignment(.leading)
-                        .transition(.opacity.animation(.easeInOut(duration: 0.40)))
+                        .transition(.opacity.animation(reduceMotion ? .none : .easeInOut(duration: 0.40)))
                         .id(welcomeTextIndex)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 14)
                         .opacity(heroVisible ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.46).delay(0.18), value: heroVisible)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.46).delay(0.18), value: heroVisible)
 
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -8960,7 +8981,7 @@ struct BereanHeroWelcomeSection: View {
             heroVisible = true
             orbPulse = 1.06
         }
-        .animation(.spring(response: 0.40, dampingFraction: 0.78), value: shouldCollapse)
+        .animation(reduceMotion ? .none : .spring(response: 0.40, dampingFraction: 0.78), value: shouldCollapse)
     }
 }
 
@@ -8974,6 +8995,7 @@ struct BereanModeCapsule: View {
     @Binding var personalityMode: BereanPersonalityMode
     @State private var badgeScale: CGFloat = 1.0
     @State private var shimmerPhase: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Warm pink → coral gradient — mirrors reference's pink→orange toggle
     private let capsuleGradient = LinearGradient(
@@ -9106,7 +9128,7 @@ struct BereanModeCapsule: View {
         // Total frame: pill width (68) + badge bleed (10) + slight margin (4)
         .frame(width: 68 + 24, height: 46, alignment: .trailing)
         .onAppear {
-            withAnimation(.linear(duration: 1.8).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 1.8).repeatForever(autoreverses: false)) {
                 shimmerPhase = 1.3
             }
         }
@@ -9156,6 +9178,7 @@ struct BereanGroundedQuickSection: View {
     let onNewPrompt: () -> Void
 
     @State private var visible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let columns = [
         GridItem(.flexible(), spacing: 10),
@@ -9175,7 +9198,7 @@ struct BereanGroundedQuickSection: View {
         .padding(.top, 12)
         .opacity(visible ? 1 : 0)
         .offset(y: visible ? 0 : 12)
-        .animation(.spring(response: 0.52, dampingFraction: 0.80).delay(0.18), value: visible)
+        .animation(reduceMotion ? .none : .spring(response: 0.52, dampingFraction: 0.80).delay(0.18), value: visible)
         .onAppear { visible = true }
     }
 }
@@ -9242,6 +9265,7 @@ struct BereanGroundedPromptsSection: View {
     let onNewPrompt: () -> Void
 
     @State private var visible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -9289,7 +9313,7 @@ struct BereanGroundedPromptsSection: View {
         .padding(.vertical, 16)
         .opacity(visible ? 1 : 0)
         .offset(y: visible ? 0 : 12)
-        .animation(.spring(response: 0.60, dampingFraction: 0.80).delay(0.18), value: visible)
+        .animation(reduceMotion ? .none : .spring(response: 0.60, dampingFraction: 0.80).delay(0.18), value: visible)
         .onAppear { visible = true }
     }
 }
@@ -9303,6 +9327,7 @@ struct BereanGroundedPromptRow: View {
     let onTap: () -> Void
 
     @State private var highlighted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -9329,7 +9354,7 @@ struct BereanGroundedPromptRow: View {
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.easeOut(duration: 0.15)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                 highlighted = pressing
             }
         } perform: {}
