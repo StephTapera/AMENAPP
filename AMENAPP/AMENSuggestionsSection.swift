@@ -256,6 +256,8 @@ struct AMENSuggestionCategoryPill: View {
     let namespace: Namespace.ID
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: onTap) {
             ZStack {
@@ -275,7 +277,7 @@ struct AMENSuggestionCategoryPill: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
             }
-            .animation(.spring(response: 0.35, dampingFraction: 0.78), value: isSelected)
+            .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.78), value: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -287,6 +289,7 @@ struct AMENPersonSuggestionCard: View {
     let suggestion: FollowSuggestion
     var onFollowTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isFollowInFlight = false
     @State private var isPressed = false
 
@@ -424,7 +427,7 @@ struct AMENPersonSuggestionCard: View {
                 .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 4)
         )
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -449,6 +452,7 @@ struct AMENStudySuggestionCard: View {
     let study: AMENSuggestion
     var onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
@@ -511,7 +515,7 @@ struct AMENStudySuggestionCard: View {
                     .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 3)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
@@ -528,6 +532,7 @@ struct AMENCommunitySuggestionCard: View {
     let topic: DiscoveryTopic
     var onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
@@ -608,7 +613,7 @@ struct AMENCommunitySuggestionCard: View {
                     .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 3)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
@@ -625,6 +630,7 @@ struct AMENTopicPillCard: View {
     let topic: DiscoveryTopic
     var onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
@@ -654,7 +660,7 @@ struct AMENTopicPillCard: View {
                     .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
             )
             .scaleEffect(isPressed ? 0.96 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.75), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
@@ -668,6 +674,7 @@ struct AMENTopicPillCard: View {
 // MARK: - Skeleton Card
 
 struct AMENPersonSuggestionCardSkeleton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmer = false
 
     var body: some View {
@@ -697,7 +704,7 @@ struct AMENPersonSuggestionCardSkeleton: View {
         )
         .opacity(shimmer ? 0.5 : 1.0)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
                 shimmer = true
             }
         }

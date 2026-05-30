@@ -69,6 +69,8 @@ struct VoiceSphereView: View {
     var onTapHold: (() -> Void)? = nil
     var onRelease: (() -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var pulsing = false
     @State private var foldOffset: CGFloat = 0
     @State private var ringScale1: CGFloat = 1
@@ -92,7 +94,7 @@ struct VoiceSphereView: View {
                 endRadius: 220
             )
             .frame(width: 440, height: 440)
-            .animation(.easeInOut(duration: 0.8), value: state.ringColor)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.8), value: state.ringColor)
 
             VStack(spacing: 0) {
                 Text("AMEN")
@@ -132,14 +134,14 @@ struct VoiceSphereView: View {
                     .font(.systemScaled(11, weight: .regular))
                     .tracking(3)
                     .foregroundStyle(statusColor)
-                    .animation(.easeInOut(duration: 0.5), value: state)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.5), value: state)
                     .padding(.bottom, 6)
 
                 Text(state.hintLabel)
                     .font(.systemScaled(15, weight: .light))
                     .foregroundStyle(.white.opacity(0.14))
                     .frame(height: 20)
-                    .animation(.easeInOut(duration: 0.4), value: state)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.4), value: state)
                     .padding(.bottom, 48)
             }
             .padding(.vertical, 40)
@@ -174,13 +176,13 @@ struct VoiceSphereView: View {
         ringScale1 = 1; ringScale2 = 1; ringScale3 = 1
         foldOffset = 0
 
-        withAnimation(.easeInOut(duration: newState.pulseDuration).repeatForever(autoreverses: true)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: newState.pulseDuration).repeatForever(autoreverses: true)) {
             pulsing = true
         }
 
         if newState != .idle {
             startRings(for: newState)
-            withAnimation(.easeInOut(duration: newState.pulseDuration).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: newState.pulseDuration).repeatForever(autoreverses: true)) {
                 foldOffset = newState == .listening ? 6 : 5
             }
         }
@@ -202,7 +204,7 @@ struct VoiceSphereView: View {
         func pulse() {
             scale.wrappedValue = 1
             opacity.wrappedValue = 0.65
-            withAnimation(.easeOut(duration: duration).delay(delay)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: duration).delay(delay)) {
                 scale.wrappedValue = 1.75
                 opacity.wrappedValue = 0
             }
@@ -223,6 +225,8 @@ struct OrbSphere: View {
     let foldOffset: CGFloat
     let pulsing: Bool
     let pulseScale: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -273,7 +277,7 @@ struct OrbSphere: View {
         }
         .scaleEffect(pulsing ? pulseScale : 1.0)
         .animation(
-            .easeInOut(duration: 4).repeatForever(autoreverses: true),
+            reduceMotion ? .none : .easeInOut(duration: 4).repeatForever(autoreverses: true),
             value: pulsing
         )
     }
@@ -285,6 +289,8 @@ struct FoldLayer: View {
     let index: Int
     let size: CGFloat
     let offset: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var widthFraction: CGFloat { 0.76 - CGFloat(index) * 0.09 }
     private var heightFraction: CGFloat { 0.96 - CGFloat(index) * 0.07 }
@@ -302,9 +308,9 @@ struct FoldLayer: View {
                 y: -(size / 2) + (size * heightFraction / 2) + topInset
             )
             .animation(
-                .easeInOut(duration: 1.6)
-                .repeatForever(autoreverses: true)
-                .delay(animDelay),
+                reduceMotion ? .none : .easeInOut(duration: 1.6)
+                    .repeatForever(autoreverses: true)
+                    .delay(animDelay),
                 value: offset
             )
     }

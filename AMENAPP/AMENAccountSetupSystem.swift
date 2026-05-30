@@ -301,6 +301,7 @@ struct AccountSetupChecklistView: View {
 
 private struct SetupProgressBar: View {
     let fraction: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     var body: some View {
@@ -323,7 +324,7 @@ private struct SetupProgressBar: View {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(.black)
                     .frame(width: appeared ? geo.size.width * fraction : 0, height: 6)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.80), value: fraction)
+                    .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.80), value: fraction)
             }
         }
         .frame(height: 6)
@@ -342,6 +343,7 @@ struct SetupChecklistRow: View {
     let isRequired: Bool
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tapped = false
 
     var body: some View {
@@ -368,7 +370,7 @@ struct SetupChecklistRow: View {
                             .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(.white)
                             .scaleEffect(isComplete ? 1 : 0.1)
-                            .animation(.spring(response: 0.22, dampingFraction: 0.70), value: isComplete)
+                            .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.70), value: isComplete)
                     } else {
                         Text("\(itemNumber)")
                             .font(AMENFont.semiBold(13))
@@ -425,7 +427,7 @@ struct SetupChecklistRow: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(tapped ? 0.97 : 1.0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.70), value: tapped)
+        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.70), value: tapped)
     }
 }
 
@@ -435,6 +437,7 @@ struct SetupCompletionCard: View {
     let accountType: AMENAccountType
     let onContinue: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     private var completionCopy: String {
@@ -464,7 +467,7 @@ struct SetupCompletionCard: View {
                         .font(.systemScaled(32, weight: .medium))
                         .foregroundStyle(.black.opacity(0.75))
                         .scaleEffect(appeared ? 1 : 0.5)
-                        .animation(.spring(response: 0.45, dampingFraction: 0.65), value: appeared)
+                        .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.65), value: appeared)
 
                     VStack(spacing: 5) {
                         Text("Your account is ready")
@@ -587,6 +590,7 @@ struct ComposerPresetChipRow: View {
     let accountType: AMENAccountType
     let onSelect: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedChip: String? = nil
 
     private var presets: [String] {
@@ -641,7 +645,7 @@ struct ComposerPresetChipRow: View {
                     }
                     .buttonStyle(.plain)
                     .scaleEffect(selectedChip == preset ? 1.04 : 1.0)
-                    .animation(.spring(response: 0.22, dampingFraction: 0.70), value: selectedChip)
+                    .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.70), value: selectedChip)
                 }
             }
             .padding(.horizontal, 1)

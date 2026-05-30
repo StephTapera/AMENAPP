@@ -14,6 +14,7 @@ import FirebaseFirestore
 
 struct DiscoverPeopleView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var searchService = UserSearchService.shared
     @ObservedObject private var followService = FollowService.shared
     
@@ -141,7 +142,7 @@ struct DiscoverPeopleView: View {
             
             if !searchText.isEmpty {
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         searchText = ""
                     }
                 } label: {
@@ -423,7 +424,8 @@ struct DiscoveryFilterChip: View {
     let filter: DiscoverPeopleView.DiscoveryFilter
     let isSelected: Bool
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -450,7 +452,7 @@ struct DiscoveryFilterChip: View {
             .scaleEffect(isPressed ? 0.95 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -464,6 +466,7 @@ struct DiscoveryFilterChip: View {
 struct ThreadsStyleUserCard: View {
     let user: FirebaseSearchUser
     @ObservedObject private var followService = FollowService.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isFollowing = false
     @State private var isPressed = false
     
@@ -553,7 +556,7 @@ struct ThreadsStyleUserCard: View {
                 .stroke(Color.primary.opacity(0.06), lineWidth: 1)
         )
         .scaleEffect(isPressed ? 0.98 : 1.0)
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
         .task {
             await loadFollowStatus()
         }
@@ -563,7 +566,7 @@ struct ThreadsStyleUserCard: View {
                 .onEnded { _ in isPressed = false }
         )
     }
-    
+
     private func loadFollowStatus() async {
         guard Auth.auth().currentUser?.uid != nil else { return }
         isFollowing = await followService.isFollowing(userId: user.id)
@@ -576,6 +579,7 @@ struct ThreadsFollowButton: View {
     @Binding var isFollowing: Bool
     let userId: String
     @ObservedObject private var followService = FollowService.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isProcessing = false
     // P1 FIX: track "Requested" state for private accounts
     @State private var isRequested = false
@@ -632,8 +636,8 @@ struct ThreadsFollowButton: View {
         }
         .disabled(isProcessing)
         .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRequested)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isRequested)
         .task {
             // Hydrate "Requested" state from FollowStateManager on appear
             let state = await FollowStateManager.shared.getState(for: userId)
@@ -707,7 +711,7 @@ struct ThreadsFollowButton: View {
                 for doc in snap.documents { try await doc.reference.delete() }
                 FollowStateManager.shared.updateState(for: userId, state: .notFollowing)
                 await MainActor.run {
-                    withAnimation { isRequested = false }
+                    withAnimation(reduceMotion ? nil : Animation.default) { isRequested = false }
                     isProcessing = false
                 }
             } catch {
@@ -721,6 +725,7 @@ struct ThreadsFollowButton: View {
 // MARK: - User Card Skeleton
 
 struct UserCardSkeleton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
     
     var body: some View {
@@ -762,8 +767,7 @@ struct UserCardSkeleton: View {
         )
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(
-            .easeInOut(duration: 1.0)
-            .repeatForever(autoreverses: true),
+            reduceMotion ? .none : .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
             value: isAnimating
         )
         .onAppear {

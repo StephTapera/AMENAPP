@@ -319,6 +319,7 @@ final class CreatorStore: ObservableObject {
 // MARK: - Main View
 
 struct CreatorView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var store = CreatorStore.shared
     @State private var selectedTab: CreatorTab = .discover
     @State private var selectedCategory: CreatorCategory? = nil
@@ -518,7 +519,7 @@ struct CreatorView: View {
                                 .onTapGesture { selectedCreator = creator }
                                 .opacity(appeared ? 1 : 0)
                                 .offset(x: appeared ? 0 : 30)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.75).delay(Double(idx) * 0.08), value: appeared)
+                                .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.75).delay(Double(idx) * 0.08), value: appeared)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -563,7 +564,7 @@ struct CreatorView: View {
                         .onTapGesture { selectedCreator = creator }
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 16)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.05 + Double(idx) * 0.04), value: appeared)
+                        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75).delay(0.05 + Double(idx) * 0.04), value: appeared)
                     }
                 }
             }
@@ -620,7 +621,7 @@ struct CreatorView: View {
                             .padding(.horizontal, 20)
                             .opacity(appeared ? 1 : 0)
                             .offset(y: appeared ? 0 : 12)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(Double(idx) * 0.05), value: appeared)
+                            .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75).delay(Double(idx) * 0.05), value: appeared)
                     }
                 }
             }
@@ -640,7 +641,7 @@ struct CreatorView: View {
                         SeriesCard(series: series, creator: creatorFor(series.creatorID))
                             .opacity(appeared ? 1 : 0)
                             .scaleEffect(appeared ? 1 : 0.92)
-                            .animation(.spring(response: 0.45, dampingFraction: 0.75).delay(Double(idx) * 0.06), value: appeared)
+                            .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.75).delay(Double(idx) * 0.06), value: appeared)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -671,7 +672,7 @@ struct CreatorView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     Button {
-                        withAnimation { selectedTab = .discover }
+                        withAnimation(reduceMotion ? nil : .default) { selectedTab = .discover }
                     } label: {
                         Text("Browse Creators")
                             .font(.systemScaled(15, weight: .semibold))
@@ -1252,6 +1253,7 @@ struct TipJarSheet: View {
     let creator: FaithCreator
     @ObservedObject var store: CreatorStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedAmount: Double = 5.0
     @State private var message: String = ""
@@ -1362,7 +1364,7 @@ struct TipJarSheet: View {
                 .disabled(isSending || didSend)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
-                .animation(.spring(response: 0.3, dampingFraction: 0.75), value: didSend)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: didSend)
             }
             .navigationTitle("Tip Jar")
             .navigationBarTitleDisplayMode(.inline)

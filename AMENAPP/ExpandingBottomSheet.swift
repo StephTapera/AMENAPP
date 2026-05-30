@@ -42,6 +42,7 @@ struct ExpandingBottomSheet<Header: View, Expanded: View>: View {
 
     // MARK: Internal state
     @State private var scrollOffset: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: Derived values — single source of truth
     private var progress: CGFloat {
@@ -94,13 +95,13 @@ struct ExpandingBottomSheet<Header: View, Expanded: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 // Subtle zoom-in as sheet rises (scale 1 → 1.06)
                 .scaleEffect(1 + 0.06 * progress, anchor: .top)
-                .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.85), value: progress)
+                .animation(reduceMotion ? .none : .interactiveSpring(response: 0.35, dampingFraction: 0.85), value: progress)
 
             // Progressive dark overlay for contrast
             Color.black
                 .opacity(overlayOpacity)
                 .ignoresSafeArea()
-                .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.85), value: progress)
+                .animation(reduceMotion ? .none : .interactiveSpring(response: 0.35, dampingFraction: 0.85), value: progress)
         }
     }
 
@@ -137,7 +138,7 @@ struct ExpandingBottomSheet<Header: View, Expanded: View>: View {
                     .opacity(revealProgress())
                     .offset(y: (1 - revealProgress()) * 24)
                     .animation(
-                        .interactiveSpring(response: 0.4, dampingFraction: 0.82),
+                        reduceMotion ? .none : .interactiveSpring(response: 0.4, dampingFraction: 0.82),
                         value: progress
                     )
                     .padding(.bottom, geo.safeAreaInsets.bottom + 16)
@@ -162,7 +163,7 @@ struct ExpandingBottomSheet<Header: View, Expanded: View>: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(
-            .interactiveSpring(response: 0.38, dampingFraction: 0.82),
+            reduceMotion ? .none : .interactiveSpring(response: 0.38, dampingFraction: 0.82),
             value: sheetHeight
         )
     }
@@ -190,6 +191,7 @@ struct ReadMoreText: View {
 
     @State private var expanded = false
     @State private var isTruncated = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -213,7 +215,7 @@ struct ReadMoreText: View {
                     }
                     .hidden()
                 )
-                .animation(.spring(response: 0.32, dampingFraction: 0.78), value: expanded)
+                .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: expanded)
 
             if isTruncated {
                 Button {

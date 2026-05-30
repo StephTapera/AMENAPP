@@ -10,6 +10,7 @@ import SwiftUI
 
 struct ChurchNotesOnboardingView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("hasSeenChurchNotesOnboarding") private var hasSeenOnboarding = false
     @State private var currentFeature = 0
     @State private var showContent = false
@@ -90,7 +91,7 @@ struct ChurchNotesOnboardingView: View {
                                     .scaleEffect(pulseAnimation ? 1.1 : 1.0)
                                     .opacity(pulseAnimation ? 0.8 : 1.0)
                                     .animation(
-                                        .easeInOut(duration: 2.0)
+                                        reduceMotion ? .none : .easeInOut(duration: 2.0)
                                         .repeatForever(autoreverses: true),
                                         value: pulseAnimation
                                     )
@@ -118,7 +119,7 @@ struct ChurchNotesOnboardingView: View {
                         }
                         .opacity(showContent ? 1 : 0)
                         .offset(y: showContent ? 0 : 20)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1), value: showContent)
+                        .animation(reduceMotion ? .none : .spring(response: 0.6, dampingFraction: 0.8).delay(0.1), value: showContent)
 
                         // Features Grid
                         VStack(spacing: 20) {
@@ -127,7 +128,7 @@ struct ChurchNotesOnboardingView: View {
                                     .opacity(showContent ? 1 : 0)
                                     .offset(y: showContent ? 0 : 30)
                                     .animation(
-                                        .spring(response: 0.6, dampingFraction: 0.8)
+                                        reduceMotion ? .none : .spring(response: 0.6, dampingFraction: 0.8)
                                         .delay(0.2 + Double(index) * 0.1),
                                         value: showContent
                                     )
@@ -170,7 +171,7 @@ struct ChurchNotesOnboardingView: View {
                         }
                         .opacity(showContent ? 1 : 0)
                         .offset(y: showContent ? 0 : 20)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.6), value: showContent)
+                        .animation(reduceMotion ? .none : .spring(response: 0.6, dampingFraction: 0.8).delay(0.6), value: showContent)
                         .padding(.top, 20)
                         .padding(.bottom, 40)
                     }
@@ -207,6 +208,7 @@ struct ChurchNotesOnboardingView: View {
 private struct FeatureCard: View {
     let feature: ChurchNotesFeature
     let index: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
@@ -253,7 +255,7 @@ private struct FeatureCard: View {
                 .shadow(color: .black.opacity(0.02), radius: 2, x: 0, y: 1)
         )
         .scaleEffect(isPressed ? 0.98 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
     }
 }
 

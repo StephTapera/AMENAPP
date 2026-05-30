@@ -85,6 +85,7 @@ struct EmptyStateView: View {
     var action: (() -> Void)? = nil
 
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 20) {
@@ -93,12 +94,12 @@ struct EmptyStateView: View {
                     .font(.systemScaled(52))
                     .scaleEffect(appeared ? 1 : 0.7)
                     .opacity(appeared ? 1 : 0)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: appeared)
+                    .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7), value: appeared)
             } else {
                 AmenGlass3DIcon(systemName: icon, tint: iconTint, size: 80)
                     .scaleEffect(appeared ? 1 : 0.7)
                     .opacity(appeared ? 1 : 0)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: appeared)
+                    .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7), value: appeared)
             }
 
             VStack(spacing: 6) {
@@ -114,7 +115,7 @@ struct EmptyStateView: View {
             }
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 10)
-            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1), value: appeared)
+            .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.1), value: appeared)
 
             if let actionTitle, let action {
                 AmenLiquidGlassPillButton(
@@ -126,7 +127,7 @@ struct EmptyStateView: View {
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 10)
-                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.18), value: appeared)
+                .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.18), value: appeared)
             }
         }
         .padding(32)
@@ -145,13 +146,14 @@ struct SkeletonCard: View {
     var height: CGFloat = 120
     var cornerRadius: CGFloat = 16
     @State private var shimmer = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(Color.secondary.opacity(shimmer ? 0.10 : 0.05))
             .frame(height: height)
             .animation(
-                .easeInOut(duration: 0.9).repeatForever(autoreverses: true),
+                reduceMotion ? .none : .easeInOut(duration: 0.9).repeatForever(autoreverses: true),
                 value: shimmer
             )
             .onAppear { shimmer = true }

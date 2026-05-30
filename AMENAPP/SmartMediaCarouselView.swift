@@ -26,6 +26,8 @@ struct SmartMediaCarouselView: View {
     let items: [CarouselMediaItem]
     let onMediaPress: (CarouselMediaItem) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var currentIndex: Int = 0
     @GestureState private var dragOffset: CGFloat = 0
     @State private var videoProgress: CGFloat = 0.0
@@ -167,7 +169,7 @@ struct SmartMediaCarouselView: View {
                 }
         )
         .offset(x: CGFloat(-currentIndex) * width + dragOffset * 0.88)
-        .animation(.spring(response: 0.38, dampingFraction: 0.88), value: currentIndex)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.88), value: currentIndex)
     }
 
     // MARK: - Glass Play Button
@@ -213,7 +215,7 @@ struct SmartMediaCarouselView: View {
             Capsule()
                 .fill(Color.black.opacity(0.55))
                 .frame(width: max(8, (width - 24) * videoProgress), height: 7)
-                .animation(.linear(duration: 0.1), value: videoProgress)
+                .animation(reduceMotion ? .none : .linear(duration: 0.1), value: videoProgress)
         }
         .clipShape(Capsule())
         .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
@@ -361,23 +363,23 @@ struct SmartMediaCarouselView: View {
                     Capsule()
                         .fill(Color.black.opacity(0.5))
                         .frame(width: 22, height: 7)
-                        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: currentIndex)
+                        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.72), value: currentIndex)
                 } else {
                     Circle()
                         .fill(Color.black.opacity(0.15))
                         .frame(width: 7, height: 7)
-                        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: currentIndex)
+                        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.72), value: currentIndex)
                 }
             }
         }
-        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: currentIndex)
+        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.72), value: currentIndex)
     }
 
     // MARK: - Helpers
 
     private func startVideoProgressAnimation() {
         videoProgress = 0.0
-        withAnimation(.linear(duration: 8.0)) {
+        withAnimation(reduceMotion ? nil : .linear(duration: 8.0)) {
             videoProgress = 1.0
         }
     }
