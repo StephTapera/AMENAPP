@@ -14,6 +14,7 @@ import MapKit
 /// DEPRECATED: Old Prayer Wall with map - No longer used
 /// Use PrayerWallView in PrayerView.swift instead
 struct PrayerWallMapView_DEPRECATED: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isShowing: Bool
     @State private var selectedCategory: PrayerCategory? = nil
     @State private var selectedPin: PrayerPin? = nil
@@ -244,7 +245,7 @@ struct PrayerWallMapView_DEPRECATED: View {
             Spacer()
 
             Button {
-                withAnimation(.smooth(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                     isShowing = false
                 }
             } label: {
@@ -300,7 +301,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                             category: category,
                             isSelected: selectedCategory == category,
                             onSelect: {
-                                withAnimation(.smooth(duration: 0.3)) {
+                                withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                                     selectedCategory = category
                                 }
                             }
@@ -360,7 +361,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                     Spacer()
 
                     Button {
-                        withAnimation(.smooth(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                             selectedPin = nil
                         }
                     } label: {
@@ -486,9 +487,10 @@ struct PrayerPin: Identifiable {
 // MARK: - Prayer Pin View
 
 struct PrayerPinView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let pin: PrayerPin
     let isSelected: Bool
-    
+
     var body: some View {
         ZStack {
             // Pulsing glow — purely decorative
@@ -505,7 +507,7 @@ struct PrayerPinView: View {
                 .foregroundStyle(pin.category.color)
                 .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
     }
 }
 

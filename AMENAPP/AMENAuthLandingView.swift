@@ -13,6 +13,7 @@ import FirebaseAuth
 
 struct AMENAuthLandingView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Stagger animation state
     @State private var logoScale:    CGFloat = 0.9
@@ -295,22 +296,22 @@ struct AMENAuthLandingView: View {
             logoScale   = 1.0
             logoOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.08)) {
+        withAnimation(reduceMotion ? nil : easeOut35.delay(0.08)) {
             wordOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.18)) {
+        withAnimation(reduceMotion ? nil : easeOut35.delay(0.18)) {
             btn1Opacity = 1; btn1Offset = 0
         }
-        withAnimation(easeOut35.delay(0.26)) {
+        withAnimation(reduceMotion ? nil : easeOut35.delay(0.26)) {
             btn2Opacity = 1; btn2Offset = 0
         }
-        withAnimation(.easeOut(duration: 0.3).delay(0.32)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(0.32)) {
             divOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.38)) {
+        withAnimation(reduceMotion ? nil : easeOut35.delay(0.38)) {
             btn3Opacity = 1; btn3Offset = 0
         }
-        withAnimation(.easeOut(duration: 0.3).delay(0.46)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(0.46)) {
             linkOpacity = 1
         }
     }

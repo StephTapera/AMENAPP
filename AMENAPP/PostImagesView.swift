@@ -96,6 +96,7 @@ struct FullScreenPostImageView: View {
     let imageURLs: [String]
     let startIndex: Int
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
     @State private var currentIndex: Int
     @State private var scale: CGFloat = 1.0
@@ -216,7 +217,7 @@ struct FullScreenPostImageView: View {
                                     .fill(i == currentIndex ? Color.white : Color.white.opacity(0.35))
                                     .frame(width: i == currentIndex ? 7 : 5,
                                            height: i == currentIndex ? 7 : 5)
-                                    .animation(.spring(response: 0.25), value: currentIndex)
+                                    .animation(reduceMotion ? .none : .spring(response: 0.25), value: currentIndex)
                             }
                         }
                         .padding(.bottom, 44)
@@ -228,7 +229,7 @@ struct FullScreenPostImageView: View {
         .statusBarHidden()
         .onTapGesture {
             // Single tap toggles chrome
-            withAnimation(.easeInOut(duration: 0.18)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
                 showChrome.toggle()
             }
         }

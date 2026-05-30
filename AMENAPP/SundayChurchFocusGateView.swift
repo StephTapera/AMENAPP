@@ -14,6 +14,7 @@ import SwiftUI
 struct SundayChurchFocusGateView: View {
     @ObservedObject private var focusManager = SundayChurchFocusManager.shared
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var selectedTab: Int
 
     @State private var glowPulse = false
@@ -268,7 +269,7 @@ struct SundayChurchFocusGateView: View {
         }
         .onAppear {
             // Glow pulse
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
                 glowPulse = true
             }
             // Staggered entrance
@@ -288,6 +289,7 @@ struct FeatureButton: View {
     let subtitle: String
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
@@ -339,10 +341,10 @@ struct FeatureButton: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeInOut(duration: 0.08)) { isPressed = true }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.08)) { isPressed = true }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = false }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.12)) { isPressed = false }
                 }
         )
     }
@@ -352,6 +354,7 @@ struct FeatureButton: View {
 
 struct LiquidGlassToggleButton: View {
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
@@ -399,10 +402,10 @@ struct LiquidGlassToggleButton: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeInOut(duration: 0.1)) { isPressed = true }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.1)) { isPressed = true }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeInOut(duration: 0.1)) { isPressed = false }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.1)) { isPressed = false }
                 }
         )
     }

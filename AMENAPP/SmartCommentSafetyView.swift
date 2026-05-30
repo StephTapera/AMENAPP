@@ -198,6 +198,7 @@ struct SmartCommentSafetyView: View {
     let onProceed: () -> Void
     let onAlternative: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDismissed = false
 
     var body: some View {
@@ -237,7 +238,7 @@ struct SmartCommentSafetyView: View {
             Spacer()
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     isDismissed = true
                 }
             } label: {
@@ -287,7 +288,7 @@ struct SmartCommentSafetyView: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         isDismissed = true
                     }
                     onProceed()
@@ -348,7 +349,7 @@ struct SmartCommentSafetyView: View {
             }
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     isDismissed = true
                 }
                 onProceed()
@@ -405,7 +406,7 @@ struct SmartCommentSafetyView: View {
             .buttonStyle(.plain)
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     isDismissed = true
                 }
                 onProceed()
@@ -445,6 +446,7 @@ struct CommentInputBarView: View {
     let postType: String
     let onSubmit: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var text: String = ""
     @State private var assessment: CommentSafetyAssessment? = nil
     @State private var priorCount: Int = 0
@@ -475,7 +477,7 @@ struct CommentInputBarView: View {
                         handleAlternative(actionId)
                     }
                 )
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: assessment.riskLevel)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: assessment.riskLevel)
             }
 
             // Input row
@@ -539,7 +541,7 @@ struct CommentInputBarView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .animation(.easeInOut(duration: 0.15), value: text.isEmpty)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: text.isEmpty)
             }
         }
         .padding(.horizontal, 12)

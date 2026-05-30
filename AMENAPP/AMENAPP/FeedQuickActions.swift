@@ -10,6 +10,8 @@ struct BereanQuickActionButton: View {
     @State private var isPressed = false
     @State private var isAppeared = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
@@ -39,12 +41,12 @@ struct BereanQuickActionButton: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeIn(duration: 0.08)) {
+                    withAnimation(reduceMotion ? nil : .easeIn(duration: 0.08)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.15)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                         isPressed = false
                     }
                 }
@@ -66,6 +68,8 @@ struct QuickActionRow: View {
     let action: () -> Void
 
     @State private var isPressed = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -106,12 +110,12 @@ struct QuickActionRow: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                         isPressed = false
                     }
                 }
@@ -233,6 +237,8 @@ struct CreateQuickActionRow: View {
 
     @State private var isPressed = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
@@ -272,12 +278,12 @@ struct CreateQuickActionRow: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                         isPressed = false
                     }
                 }

@@ -7,13 +7,14 @@ struct SmartTrendingCard: View {
     let title: String
     let subtitle: String
     let backgroundColor: Color
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     @State private var showDetails = false
     
     var body: some View {
         Button {
-            withAnimation(.smooth(duration: 0.3)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) {
                 showDetails = true
             }
             
@@ -148,7 +149,7 @@ struct SmartTrendingCard: View {
         .buttonStyle(PlainButtonStyle())
         .padding(.horizontal, 20)
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.smooth(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -649,7 +650,9 @@ struct TopIdeaCard: View {
 struct NotificationBadge: View {
     let count: Int
     let pulse: Bool
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             // Pulse circle background (appears when new notification arrives)
@@ -659,7 +662,7 @@ struct NotificationBadge: View {
                     .frame(width: 20, height: 20)
                     .scaleEffect(pulse ? 1.5 : 1.0)
                     .opacity(pulse ? 0 : 1)
-                    .animation(.easeOut(duration: 0.6), value: pulse)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.6), value: pulse)
             }
             
             // Main badge
@@ -687,7 +690,7 @@ struct NotificationBadge: View {
             }
         }
         .scaleEffect(pulse ? 1.2 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: pulse)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.5), value: pulse)
         .transition(.scale.combined(with: .opacity))
     }
 }

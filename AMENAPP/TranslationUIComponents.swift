@@ -166,6 +166,7 @@ struct CommentTranslationRow: View {
     let commentId: String
     var isPublicContent: Bool = true
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var uiState: TranslationUIState = .available
     @State private var showingOriginal: Bool = false
     @State private var detectedLang: String? = nil
@@ -193,7 +194,7 @@ struct CommentTranslationRow: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                             showingOriginal.toggle()
                         }
                     } label: {
@@ -250,7 +251,7 @@ struct CommentTranslationRow: View {
             surface: .commentSheet,
             isPublicContent: isPublicContent
         )
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
             uiState = result
         }
     }
@@ -324,6 +325,7 @@ struct TranslationSourceLabel: View {
 struct TranslationLoadingChip: View {
     var compact: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var opacity: Double = 0.4
 
     var body: some View {
@@ -341,7 +343,7 @@ struct TranslationLoadingChip: View {
         .foregroundStyle(.secondary)
         .opacity(opacity)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                 opacity = 1.0
             }
         }
@@ -427,12 +429,13 @@ struct TranslationInfoSheet: View {
 // MARK: - PulsingOpacityModifier (used in PostCard loading chip)
 
 struct PulsingOpacityModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var opacity: Double = 0.4
     func body(content: Content) -> some View {
         content
             .opacity(opacity)
             .onAppear {
-                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                     opacity = 1.0
                 }
             }

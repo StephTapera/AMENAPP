@@ -10,6 +10,7 @@
 import SwiftUI
 
 struct PrayerBreakModalView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) var dismiss
     @State private var animate = false
     @State private var breatheAnimation = false
@@ -37,7 +38,7 @@ struct PrayerBreakModalView: View {
                     .foregroundStyle(.white)
                     .scaleEffect(breatheAnimation ? 1.08 : 1.0)
                     .animation(
-                        .easeInOut(duration: 2.5)
+                        reduceMotion ? .none : .easeInOut(duration: 2.5)
                             .repeatForever(autoreverses: true),
                         value: breatheAnimation
                     )

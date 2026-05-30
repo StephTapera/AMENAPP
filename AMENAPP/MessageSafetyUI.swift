@@ -135,6 +135,7 @@ struct MessageSafetyWarningBanner: View {
 /// Replaces the normal "Sending…" state for messages that are held for review.
 /// Shown in the sender's own message bubble area.
 struct HeldMessageIndicator: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulse = false
 
     var body: some View {
@@ -144,7 +145,7 @@ struct HeldMessageIndicator: View {
                     .fill(Color.yellow.opacity(0.15))
                     .frame(width: 28, height: 28)
                     .scaleEffect(pulse ? 1.15 : 1.0)
-                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
 
                 Image(systemName: "clock.fill")
                     .font(.systemScaled(14))
@@ -195,6 +196,8 @@ struct StrikeNoticeView: View {
     var onFollowThem: (() -> Void)? = nil
     /// Bind to the parent's loading state so the button shows a spinner while the follow is in-flight.
     var isFollowLoading: Bool = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // ── Auto-dismiss ─────────────────────────────────────────────────────────
     private let autoDismissAfter: Double = 6.0
@@ -313,7 +316,7 @@ struct StrikeNoticeView: View {
                 severity
                     .opacity(0.55)
                     .frame(width: geo.size.width * progress, height: 2)
-                    .animation(.linear(duration: autoDismissAfter), value: progress)
+                    .animation(reduceMotion ? .none : .linear(duration: autoDismissAfter), value: progress)
             }
             .frame(height: 2)
         }

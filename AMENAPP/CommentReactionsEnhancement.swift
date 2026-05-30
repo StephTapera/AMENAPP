@@ -382,10 +382,12 @@ struct ReactionPicker: View {
 struct ReactionButtonStyle: ButtonStyle {
     let color: Color
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 1.2 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.5), value: configuration.isPressed)
     }
 }
 

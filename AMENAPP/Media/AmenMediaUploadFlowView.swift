@@ -93,6 +93,7 @@ struct AIMetadataDraft {
 // MARK: - Main View
 
 struct AmenMediaUploadFlowView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
     @State private var step: UploadStep = .typeSelection
 
@@ -124,7 +125,7 @@ struct AmenMediaUploadFlowView: View {
                 }
                 if step.rawValue > 0 {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Back") { withAnimation(.spring(duration: 0.3)) { step = UploadStep(rawValue: step.rawValue - 1) ?? .typeSelection } }
+                        Button("Back") { withAnimation(reduceMotion ? nil : .spring(duration: 0.3)) { step = UploadStep(rawValue: step.rawValue - 1) ?? .typeSelection } }
                             .foregroundStyle(.white.opacity(0.7))
                     }
                 }
@@ -155,7 +156,7 @@ struct AmenMediaUploadFlowView: View {
     }
 
     private func advance() {
-        withAnimation(.spring(duration: 0.35)) {
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.35)) {
             step = UploadStep(rawValue: step.rawValue + 1) ?? .publish
         }
     }
@@ -164,6 +165,7 @@ struct AmenMediaUploadFlowView: View {
 // MARK: - Step 1: Type Selection
 
 private struct TypeSelectionStep: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var selected: MediaUploadType?
     let onNext: () -> Void
 
@@ -182,12 +184,13 @@ private struct TypeSelectionStep: View {
                 .padding(.top, 24)
                 .padding(.bottom, 120)
             }
-            bottomBar(enabled: selected != nil) { onNext() }
+            bottomBar(enabled: selected != nil, reduceMotion: reduceMotion) { onNext() }
         }
     }
 }
 
 private struct TypeCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let type: MediaUploadType
     let isSelected: Bool
 
@@ -213,13 +216,14 @@ private struct TypeCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(isSelected ? Color(red: 0.4, green: 0.9, blue: 0.7).opacity(0.6) : .white.opacity(0.1), lineWidth: 1)
         )
-        .animation(.spring(duration: 0.25), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(duration: 0.25), value: isSelected)
     }
 }
 
 // MARK: - Step 2: Media Pick
 
 private struct MediaPickStep: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var items: [PhotosPickerItem]
     @Binding var imageData: Data?
     let type: MediaUploadType
@@ -269,7 +273,7 @@ private struct MediaPickStep: View {
             }
 
             Spacer()
-            bottomBar(enabled: !items.isEmpty) { onNext() }
+            bottomBar(enabled: !items.isEmpty, reduceMotion: reduceMotion) { onNext() }
         }
     }
 }
@@ -277,6 +281,7 @@ private struct MediaPickStep: View {
 // MARK: - Step 3: Caption + Audience
 
 private struct CaptionAudienceStep: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var caption: String
     @Binding var audience: MediaAudience
     @Binding var category: String
@@ -342,7 +347,7 @@ private struct CaptionAudienceStep: View {
                         .tint(Color(red: 0.4, green: 0.9, blue: 0.7))
                 }
 
-                bottomBar(enabled: true) { onNext() }
+                bottomBar(enabled: true, reduceMotion: reduceMotion) { onNext() }
                     .padding(.top, 8)
             }
             .padding(20)
@@ -353,6 +358,7 @@ private struct CaptionAudienceStep: View {
 // MARK: - Step 4: AI Metadata Review
 
 private struct AIReviewStep: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var draft: AIMetadataDraft
     let caption: String
     let onNext: () -> Void
@@ -411,7 +417,7 @@ private struct AIReviewStep: View {
                             .foregroundStyle(.white.opacity(0.5))
                             .textCase(.uppercase)
                         Spacer()
-                        approveButton(approved: $draft.tagsApproved)
+                        approveButton(approved: $draft.tagsApproved, reduceMotion: reduceMotion)
                     }
                     FlexTagCloud(tags: draft.topicTags)
                     approvalStatus(draft.tagsApproved)
@@ -420,7 +426,7 @@ private struct AIReviewStep: View {
                 .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.1), lineWidth: 1))
 
-                bottomBar(enabled: draft.allApproved, label: "Looks good — continue") { onNext() }
+                bottomBar(enabled: draft.allApproved, label: "Looks good — continue", reduceMotion: reduceMotion) { onNext() }
                     .padding(.top, 8)
             }
             .padding(20)
@@ -429,6 +435,7 @@ private struct AIReviewStep: View {
 }
 
 private struct MetadataReviewCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let label: String
     let icon: String
     let content: String
@@ -450,7 +457,7 @@ private struct MetadataReviewCard: View {
                         .foregroundStyle(Color(red: 1.0, green: 0.85, blue: 0.3))
                 }
                 Spacer()
-                approveButton(approved: $isApproved)
+                approveButton(approved: $isApproved, reduceMotion: reduceMotion)
             }
             Text(content)
                 .font(.custom("OpenSans-Regular", size: 14))
@@ -464,14 +471,14 @@ private struct MetadataReviewCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(isApproved ? Color(red: 0.4, green: 0.9, blue: 0.7).opacity(0.4) : .white.opacity(0.1), lineWidth: 1)
         )
-        .animation(.spring(duration: 0.25), value: isApproved)
+        .animation(reduceMotion ? .none : .spring(duration: 0.25), value: isApproved)
     }
 }
 
 @ViewBuilder
-private func approveButton(approved: Binding<Bool>) -> some View {
+private func approveButton(approved: Binding<Bool>, reduceMotion: Bool = false) -> some View {
     Button {
-        withAnimation(.spring(duration: 0.2)) { approved.wrappedValue.toggle() }
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.2)) { approved.wrappedValue.toggle() }
     } label: {
         HStack(spacing: 4) {
             Image(systemName: approved.wrappedValue ? "checkmark.circle.fill" : "circle")
@@ -603,7 +610,7 @@ private func sectionLabel(_ text: String) -> some View {
 }
 
 @ViewBuilder
-private func bottomBar(enabled: Bool, label: String = "Continue", action: @escaping () -> Void) -> some View {
+private func bottomBar(enabled: Bool, label: String = "Continue", reduceMotion: Bool = false, action: @escaping () -> Void) -> some View {
     VStack(spacing: 0) {
         Divider().background(.white.opacity(0.08))
         Button(action: action) {
@@ -622,7 +629,7 @@ private func bottomBar(enabled: Bool, label: String = "Continue", action: @escap
         .disabled(!enabled)
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .animation(.spring(duration: 0.25), value: enabled)
+        .animation(reduceMotion ? .none : .spring(duration: 0.25), value: enabled)
     }
     .background(.black.opacity(0.6))
 }
