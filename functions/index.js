@@ -1020,7 +1020,7 @@ exports.exportUserData = exportUserDataLegacy;
 // ============================================================================
 const userDataLifecycle = require("./userDataLifecycle");
 exports.exportUserDataV2        = userDataLifecycle.exportUserData;
-exports.deleteBereanHistory     = userDataLifecycle.deleteBereanHistory;
+// deleteBereanHistory — owned by Backend/functions TS codebase; removed from default to resolve conflict
 exports.deleteAccountData       = userDataLifecycle.deleteAccountData;
 
 // ============================================================================
@@ -1435,9 +1435,7 @@ exports.onNewDMForMinorProtection = onDocumentCreated(
 );
 
 const appealsFns = require('./appealsService');
-exports.submitAppeal    = appealsFns.submitAppeal;
-exports.getAppealStatus = appealsFns.getAppealStatus;
-exports.resolveAppeal   = appealsFns.resolveAppeal;
+// submitAppeal / getAppealStatus / resolveAppeal — owned by Backend/functions TS codebase; removed from default to resolve conflict
 
 // ============================================================================
 // CALM CONTROL + SPIRITUAL RHYTHM OS
