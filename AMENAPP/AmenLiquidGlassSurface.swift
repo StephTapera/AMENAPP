@@ -432,13 +432,18 @@ struct AmenLiquidWhiteButtonStyle: ButtonStyle {
 struct AmenLiquidWhiteCircleButtonStyle: ButtonStyle {
     var isProminent = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(isProminent ? .white : .black)
             .background {
                 Circle()
-                    .fill(isProminent ? AnyShapeStyle(Color.black) : AnyShapeStyle(.ultraThinMaterial))
+                    .fill(isProminent
+                        ? AnyShapeStyle(Color.black)
+                        : (reduceTransparency
+                            ? AnyShapeStyle(Color(uiColor: .systemBackground).opacity(0.95))
+                            : AnyShapeStyle(.ultraThinMaterial)))
                     .overlay {
                         Circle()
                             .fill(

@@ -280,6 +280,9 @@ struct UnifiedChatView: View {
     // messageId → safety warning signals for recipient-side banner
     @State private var messageWarnings: [String: [SafetySignal]] = [:]
 
+    // CS-01: Age gate — blocks DM entry for users who do not meet the minimum age tier
+    @State private var showAgeGateAlert = false
+
     // PERF: Computed once per render cycle rather than inline in the gradient,
     // preventing repeated trimmingCharacters calls on every keystroke.
     private var isMessageEmpty: Bool {
@@ -945,8 +948,19 @@ struct UnifiedChatView: View {
                 },
                 secondaryButton: LiquidGlassAlertButton("No thanks", tone: .dismiss) { pendingBereanText = nil }
             ))
+            // CS-01: Age gate alert — shown when user does not meet the minimum DM age tier
+            .alert("Age Restriction", isPresented: $showAgeGateAlert) {
+                Button("OK") { dismiss() }
+            } message: {
+                Text("Direct messages are not available for your account.")
+            }
             // Lifecycle cluster
             .task {
+                // CS-01: COPPA age-gate — block DM access for users below the required tier
+                guard AgeAssuranceService.shared.currentUserTier.canAccessDMs else {
+                    showAgeGateAlert = true
+                    return
+                }
                 await setupChatViewAsync()
                 await chatMemoryService.loadItems(for: conversation.id)
                 chatExtractionEngine.resetSession()

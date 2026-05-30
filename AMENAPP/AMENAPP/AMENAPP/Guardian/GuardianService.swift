@@ -34,10 +34,12 @@ final class GuardianService: ObservableObject {
     ///   - messageId: The Firestore message document ID.
     ///   - channelId: The Firestore channel document ID.
     ///   - failClosed: When `true`, a timeout or network error returns `.block` instead of `.allow`.
-    ///                 Set this to `true` for communal / monitored channels where grooming,
-    ///                 CSAM, or crisis/self-harm content must never slip through on classifier delay.
-    ///                 Defaults to `false` (fail-open) to preserve UX for general moderation.
-    func awaitVerdict(messageId: String, channelId: String, failClosed: Bool = false) async throws -> GuardianDecision {
+    ///                 Defaults to `true` so communal channels (public posts, comment threads,
+    ///                 prayer wall) never allow grooming, CSAM, or crisis content through on a
+    ///                 classifier delay.
+    ///                 **For private DMs only**, pass `failClosed: false` explicitly — false-positives
+    ///                 are more harmful than false-negatives in a 1:1 conversation context.
+    func awaitVerdict(messageId: String, channelId: String, failClosed: Bool = true) async throws -> GuardianDecision {
         do {
             return try await withThrowingTaskGroup(of: GuardianDecision.self) { group in
                 group.addTask {
