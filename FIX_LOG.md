@@ -1,5 +1,11 @@
 # FIX LOG — Overnight Run 2026-05-30
 
-| # | Finding | Files Changed | Build Result | Commit | Notes |
-|---|---------|---------------|--------------|--------|-------|
-| — | PHASE 0 HARD STOP | none | n/a | none | Dirty working tree detected. No fixes attempted. See AUDIT_REPORT.md. |
+## Phase 0 Baseline
+- Branch: `audit/overnight-20260530` created from `0308206`
+- Tag: `overnight-baseline-20260530`
+- Baseline build: PENDING
+
+## Fixes Applied
+
+| # | Finding ID | Area | Files Changed | Build | Commit | Notes |
+|---|-----------|------|---------------|-------|--------|-------|
