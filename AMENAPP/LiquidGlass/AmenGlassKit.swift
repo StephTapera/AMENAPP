@@ -109,6 +109,7 @@ struct AmenGlassActionRail: View {
             .disabled(item.isDisabled)
             .opacity(item.isDisabled ? 0.38 : 1)
             .accessibilityLabel(item.label)
+            .accessibilityAddTraits(.isButton)
         }
     }
 

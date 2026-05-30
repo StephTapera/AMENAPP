@@ -567,6 +567,8 @@ struct OpenTableView: View {
         // Threads-style post divider (System 14)
         if AMENFeatureFlags.shared.postDividerEnabled {
             FeedPostDivider()
+        } else {
+            Color.clear.frame(height: 0.5)
         }
     }
     

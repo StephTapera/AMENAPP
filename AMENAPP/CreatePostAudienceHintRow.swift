@@ -55,7 +55,7 @@ struct CreatePostAudienceHintRow: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(AudienceHint.allHints) { hint in
-                        AudienceHintPill(hint: hint) {
+                        AudienceHintPill(hint: hint, isSelected: selectedHint?.id == hint.id) {
                             withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.7))) {
                                 selectedHint = hint
                             }
@@ -119,6 +119,7 @@ struct CreatePostAudienceHintRow: View {
 
 private struct AudienceHintPill: View {
     let hint: AudienceHint
+    var isSelected: Bool = false
     let onTap: () -> Void
 
     var body: some View {
@@ -145,6 +146,7 @@ private struct AudienceHintPill: View {
         .buttonStyle(.plain)
         .accessibilityLabel(hint.label)
         .accessibilityAddTraits(.isButton)
+        .accessibilityValue(isSelected ? "Selected" : "")
         .accessibilityHint("Selects \(hint.label) as the audience for your post")
     }
 }

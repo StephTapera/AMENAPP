@@ -165,6 +165,7 @@ struct SundayRestModeSheet: View {
                 .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Override Rest Mode")
     }
 }
 

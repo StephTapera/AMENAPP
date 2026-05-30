@@ -183,6 +183,7 @@ struct ModernPrayerWallView: View {
                             .foregroundStyle(.blue)
                     }
                     .accessibilityLabel("New prayer")
+                    .accessibilityHint("Opens new prayer form")
                 }
             }
             .sheet(isPresented: $showNewPrayer) {

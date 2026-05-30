@@ -10,6 +10,7 @@ struct VictimShieldControlsView: View {
     @State private var showPanicFlow = false
     @State private var showTrustedContacts = false
     @State private var errorMessage: String?
+    @State private var isPanicInFlight = false
 
     var body: some View {
         List {
@@ -54,7 +55,14 @@ struct VictimShieldControlsView: View {
             // MARK: Panic Mode
             Section {
                 Button {
-                    showPanicFlow = true
+                    guard !isPanicInFlight else { return }
+                    isPanicInFlight = true
+                    Task {
+                        defer { isPanicInFlight = false }
+                        // Brief async yield so the disabled state renders before the sheet appears
+                        await Task.yield()
+                        await MainActor.run { showPanicFlow = true }
+                    }
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
@@ -66,10 +74,16 @@ struct VictimShieldControlsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Image(systemName: "shield.lefthalf.filled.slash")
-                            .foregroundStyle(.red)
+                        if isPanicInFlight {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                        } else {
+                            Image(systemName: "shield.lefthalf.filled.slash")
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
+                .disabled(isPanicInFlight)
                 .buttonStyle(.plain)
             } header: {
                 Text("Emergency")

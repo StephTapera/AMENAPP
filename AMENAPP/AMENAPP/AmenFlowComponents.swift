@@ -43,7 +43,7 @@ struct AmenFlowGatewayView: View {
                             title: "Find a Church",
                             subtitle: "Help me find a real local church.",
                             icon: "building.columns.fill",
-                            tint: Color(red: 0.12, green: 0.35, blue: 0.82)
+                            tint: AmenTheme.Colors.amenBlue
                         )
                     }
                     .buttonStyle(.plain)

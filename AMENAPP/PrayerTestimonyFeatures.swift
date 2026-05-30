@@ -373,6 +373,7 @@ struct ChurchPulseSection: View {
                                     .font(AMENFont.regular(12))
                                     .foregroundStyle(.primary)
                                     .lineLimit(1)
+                                    .accessibilityLabel(post.content)
                             }
                         }
                     }
@@ -615,29 +616,33 @@ struct PrayerRoomsSection: View {
     @State private var showCreateRoom = false
 
     var body: some View {
-        if !service.upcomingRooms.isEmpty || service.isLoading {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label("Prayer Rooms", systemImage: "person.3.sequence.fill")
-                        .font(.systemScaled(15, weight: .semibold))
-                    Spacer()
-                    Button { showCreateRoom = true } label: {
-                        Image(systemName: "plus.circle").foregroundStyle(.purple)
-                    }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Prayer Rooms", systemImage: "person.3.sequence.fill")
+                    .font(.systemScaled(15, weight: .semibold))
+                Spacer()
+                Button { showCreateRoom = true } label: {
+                    Image(systemName: "plus.circle").foregroundStyle(.purple)
                 }
-                .padding(.horizontal, 16)
+                .accessibilityLabel("Create prayer room")
+            }
+            .padding(.horizontal, 16)
 
-                if service.isLoading {
-                    ProgressView().frame(maxWidth: .infinity)
-                } else {
-                    ForEach(service.upcomingRooms) { room in
-                        PrayerRoomCard(room: room).padding(.horizontal, 16)
-                    }
+            if service.isLoading {
+                ProgressView().frame(maxWidth: .infinity)
+            } else if service.upcomingRooms.isEmpty {
+                Text("No prayer rooms yet")
+                    .foregroundColor(.secondary)
+                    .font(.subheadline)
+                    .padding(.horizontal, 16)
+            } else {
+                ForEach(service.upcomingRooms) { room in
+                    PrayerRoomCard(room: room).padding(.horizontal, 16)
                 }
             }
-            .padding(.vertical, 12)
-            .sheet(isPresented: $showCreateRoom) { CreatePrayerRoomView() }
         }
+        .padding(.vertical, 12)
+        .sheet(isPresented: $showCreateRoom) { CreatePrayerRoomView() }
     }
 }
 
@@ -764,6 +769,7 @@ struct BurdenMatchPrompt: View {
                 HStack(spacing: 12) {
                     Button("Not now") { service.declineMatch() }
                         .buttonStyle(.bordered)
+                        .accessibilityLabel("Not now")
                     Button {
                         guard let matchedUserId = service.pendingMatchUserId, !isConnecting else { return }
                         isConnecting = true
@@ -981,7 +987,12 @@ class PrayerGroupsService: ObservableObject {
                     let category = data["category"] as? String ?? "General"
                     // Firestore stores color as an optional hex string; fall back to amenPurple.
                     let colorHex = data["colorHex"] as? String ?? ""
-                    let color: Color = colorHex.isEmpty ? Color(red: 0.55, green: 0.45, blue: 1.0) : Color(hex: colorHex)
+                    let color: Color
+                    if colorHex.isEmpty {
+                        color = Color(red: 0.55, green: 0.45, blue: 1.0) // amenPurple fallback
+                    } else {
+                        color = Color(hex: colorHex)
+                    }
                     // Use the Firestore document ID as a stable string key; synthesise a UUID for Identifiable.
                     let docId = doc.documentID
                     let uuid = UUID(uuidString: docId) ?? UUID()

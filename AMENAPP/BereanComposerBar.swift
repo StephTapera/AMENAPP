@@ -99,7 +99,7 @@ struct BereanCompactComposerBar: View {
                 .animation(.amenSpring, value: currentDraftIntent)
             }
 
-            if let ghost = ghostDraft, messageText.isEmpty {
+            if let ghost = ghostDraft, messageText.isEmpty, onChipTap != nil {
                 ghostDraftChip(ghost: ghost)
                     .padding(.bottom, 8)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -353,7 +353,7 @@ struct BereanCompactComposerBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("More Berean tools")
-        .accessibilityHint("Opens Explain Simply, Explore Context, Cross-reference, Prayer, Deep Study, and attachment tools")
+        .accessibilityHint("Opens additional Berean tools")
     }
 
     // inputField logic extracted to ComposerTextField.swift

@@ -76,6 +76,7 @@ struct AMENLoadingIndicator: View {
 /// header row (40 pt avatar + name/timestamp), 3 body text lines, icon action bar.
 struct PostSkeletonView: View {
     @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Shimmer fill — matches PostCard's Color(.systemBackground) surface
     private let shimmerStrong = Color.gray.opacity(0.2)
@@ -171,7 +172,9 @@ struct PostSkeletonView: View {
         )
         .accessibilityHidden(true)
         .onAppear {
-            isAnimating = true
+            if !reduceMotion {
+                isAnimating = true
+            }
         }
     }
 }
@@ -194,7 +197,8 @@ struct PostListSkeletonView: View {
 /// Compact skeleton for smaller items (messages, notifications)
 struct CompactSkeletonView: View {
     @State private var isAnimating = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 12) {
             Circle()
@@ -220,7 +224,9 @@ struct CompactSkeletonView: View {
             value: isAnimating
         )
         .onAppear {
-            isAnimating = true
+            if !reduceMotion {
+                isAnimating = true
+            }
         }
     }
 }

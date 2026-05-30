@@ -42,7 +42,7 @@ struct AltTextEditorSheet: View {
                 HStack {
                     Text("\(altText.count)/1000")
                         .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(altText.count > 1000 ? .red : .secondary)
+                        .foregroundStyle(altText.count > 1000 ? .red : altText.count >= 800 ? .orange : .secondary)
                     
                     Spacer()
                     

@@ -250,6 +250,7 @@ struct BereanVoiceCompanionView: View {
             Text("Berean is thinking…")
                 .font(.custom("OpenSans-Regular", size: 14))
                 .foregroundStyle(.secondary)
+                .accessibilityLabel("Berean response")
         }
         .padding(10)
         .background(Color(uiColor: .secondarySystemBackground), in: Capsule())

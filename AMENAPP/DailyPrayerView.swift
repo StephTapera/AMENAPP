@@ -270,6 +270,7 @@ struct PrayerCard: View {
                             if isCompleted {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
+                                    .accessibilityValue("Completed")
                             }
                         }
                         
@@ -499,6 +500,9 @@ struct WeekPrayersContent: View {
                                 .fill(selectedDay == index ? Color.black.opacity(0.05) : Color.clear)
                         )
                     }
+                    .accessibilityLabel("Day \(weekDays[index])")
+                    .accessibilityValue(selectedDay == index ? "Selected" : "")
+                    .accessibilityAddTraits(selectedDay == index ? .isSelected : [])
                 }
             }
             .padding(.horizontal)

@@ -183,7 +183,7 @@ struct AmenGlassFilterDropdown: View {
                 .fill(Color(.systemBackground))
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                        .strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
                 }
         } else {
             // Light glass surface per spec: systemBackground tint, not dark.

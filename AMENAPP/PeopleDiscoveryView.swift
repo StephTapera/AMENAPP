@@ -899,6 +899,7 @@ struct PeopleDiscoveryViewNew: View {
                     .foregroundStyle(.primary)
                 Spacer()
             }
+            .accessibilityElement(children: .combine)
             .padding(.horizontal, 20)
 
             if isLoading && people.isEmpty {
@@ -1487,6 +1488,7 @@ struct DiscoveryPersonRow: View {
     // Local mirror of isFollowing so the button updates instantly without
     // waiting for the parent ForEach to re-evaluate via FollowService publish.
     @State private var localIsFollowing: Bool = false
+    @State private var isFollowInProgress: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1575,6 +1577,8 @@ struct DiscoveryPersonRow: View {
 
             // Follow button — uses localIsFollowing for instant feedback
             Button {
+                guard !isFollowInProgress else { return }
+                isFollowInProgress = true
                 HapticManager.impact(style: .light)
                 // Toggle local state immediately so button reflects new state
                 // even before the parent ForEach re-renders via FollowService.
@@ -1585,6 +1589,7 @@ struct DiscoveryPersonRow: View {
                 onFollow()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
                     withAnimation(.easeOut(duration: 0.2)) { showCheckmark = false }
+                    isFollowInProgress = false
                 }
             } label: {
                 ZStack {
@@ -1620,6 +1625,7 @@ struct DiscoveryPersonRow: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showCheckmark)
             }
             .buttonStyle(ScaleButtonStyle())
+            .disabled(isFollowInProgress)
             // P2: Accessibility — announce follow state to VoiceOver
             .accessibilityLabel(localIsFollowing ? "Following \(user.displayName)" : "Follow \(user.displayName)")
             .accessibilityHint(localIsFollowing ? "Tap to unfollow" : "Tap to follow")

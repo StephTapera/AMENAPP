@@ -26,6 +26,8 @@ struct BlockUserButton: View {
         } label: {
             Label("Block @\(username)", systemImage: "hand.raised.fill")
         }
+        .accessibilityLabel("Block user")
+        .accessibilityHint("Prevents this user from seeing your content")
         .amenAlert(
             isPresented: $showBlockConfirmation,
             config: LiquidGlassAlertConfig(
@@ -67,13 +69,15 @@ struct UnblockUserButton: View {
     let userId: String
     let username: String
     @State private var showUnblockConfirmation = false
-    
+    @State private var isUnblockInFlight = false
+
     var body: some View {
         Button {
             showUnblockConfirmation = true
         } label: {
             Label("Unblock @\(username)", systemImage: "hand.raised.slash")
         }
+        .disabled(isUnblockInFlight)
         .confirmationDialog(
             "Unblock @\(username)?",
             isPresented: $showUnblockConfirmation,
@@ -90,7 +94,9 @@ struct UnblockUserButton: View {
     }
     
     private func unblockUser() {
+        isUnblockInFlight = true
         Task {
+            defer { isUnblockInFlight = false }
             do {
                 try await BlockService.shared.unblockUser(userId: userId)
                 dlog("✅ Unblocked @\(username)")

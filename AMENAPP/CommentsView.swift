@@ -343,7 +343,7 @@ struct CommentsView: View {
                                     Circle()
                                         .fill(
                                             LinearGradient(
-                                                colors: [Color.black, Color.black.opacity(0.8)],
+                                                colors: [Color(.label), Color(.label).opacity(0.8)],
                                                 startPoint: .topLeading,
                                                 endPoint: .bottomTrailing
                                             )
@@ -365,7 +365,7 @@ struct CommentsView: View {
                                 Circle()
                                     .fill(
                                         LinearGradient(
-                                            colors: [Color.black, Color.black.opacity(0.8)],
+                                            colors: [Color(.label), Color(.label).opacity(0.8)],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
@@ -748,6 +748,7 @@ struct CommentsView: View {
                             showJumpToLatest = false
                         }
                     }
+                    .accessibilityLabel("Jump to latest comments")
                     .padding(.trailing, 16)
                     .padding(.bottom, 140)
                     .transition(.move(edge: .bottom).combined(with: .opacity))

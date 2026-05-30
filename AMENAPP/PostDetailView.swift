@@ -62,6 +62,7 @@ struct PostDetailView: View {
     @State private var isGuardrailBlocked = false
     // Track 4 — BereanInsightCard tap press animation
     @State private var isInsightCardPressed = false
+    @State private var lastDismissDate = Date.distantPast
     @State private var isSubmittingComment = false  // debounce: prevent double-submit
     @State private var isPostExpanded = true         // Default expanded in detail view
     @State private var replyingToUsername: String? = nil  // Set when Reply is tapped
@@ -657,7 +658,11 @@ struct PostDetailView: View {
     private var topNavBar: some View {
         HStack(alignment: .center, spacing: 12) {
             // Floating glass dismiss pill (spec: "floating liquid-glass X to dismiss")
-            Button { dismiss() } label: {
+            Button {
+                guard Date().timeIntervalSince(lastDismissDate) > 0.3 else { return }
+                lastDismissDate = Date()
+                dismiss()
+            } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)

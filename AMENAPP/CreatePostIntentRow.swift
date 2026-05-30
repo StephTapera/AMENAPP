@@ -119,7 +119,7 @@ struct CreatePostIntentRow: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(primaryIntents, id: \.rawValue) { intent in
-                        IntentPill(intent: intent) {
+                        IntentPill(intent: intent, isSelected: selectedIntent == intent) {
                             withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.7))) {
                                 selectedIntent = intent
                             }
@@ -183,6 +183,7 @@ struct CreatePostIntentRow: View {
 
 private struct IntentPill: View {
     let intent: PostIntent
+    var isSelected: Bool = false
     let onTap: () -> Void
 
     var body: some View {
@@ -209,6 +210,7 @@ private struct IntentPill: View {
         .buttonStyle(.plain)
         .accessibilityLabel(intent.composerDisplayName)
         .accessibilityAddTraits(.isButton)
+        .accessibilityValue(isSelected ? "Selected" : "")
         .accessibilityHint("Selects \(intent.composerDisplayName) as the intent for your post")
     }
 }

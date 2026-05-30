@@ -907,7 +907,6 @@ class PostsManager: ObservableObject {
     
     private let firebasePostService = FirebasePostService.shared
     private let personalizationService = PersonalizationService.shared
-    private var profileUpdateListeners: [String: Any] = [:] // Store Firestore listeners
     private var profileRefreshTask: Task<Void, Never>? // Batch profile refresh loop — must be cancelled on cleanup
     
     private var cancellables = Set<AnyCancellable>()
@@ -1518,29 +1517,19 @@ class PostsManager: ObservableObject {
         dlog("🧹 PostsManager: post arrays cleared on sign-out")
     }
 
-    // ✅ P0-1 FIX: Add cleanup method to remove all profile listeners
-    /// Stop all profile picture listeners to prevent memory leaks
+    // ✅ P0-1 FIX: Add cleanup method to stop the profile refresh loop
+    /// Stop the batch profile refresh timer to prevent memory leaks
     /// Call this from view onDisappear blocks
     @MainActor
     func stopListeningForProfileUpdates() {
-        dlog("🛑 Stopping \(profileUpdateListeners.count) profile picture listeners...")
-        
-        // Remove all Firestore listeners
-        for (_, listener) in profileUpdateListeners {
-            if let firestoreListener = listener as? ListenerRegistration {
-                firestoreListener.remove()
-            }
-        }
-        
-        // Clear the dictionary
-        profileUpdateListeners.removeAll()
-        
+        dlog("🛑 Stopping profile picture refresh timer...")
+
         // Cancel the background refresh loop
         profileRefreshTask?.cancel()
         profileRefreshTask = nil
         hasStartedProfileRefresh = false
-        
-        dlog("✅ All profile listeners stopped")
+
+        dlog("✅ Profile refresh timer stopped")
     }
     
     /// Update all posts from a specific user with their new profile image

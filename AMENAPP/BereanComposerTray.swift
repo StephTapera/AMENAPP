@@ -114,6 +114,10 @@ struct BereanComposerTray: View {
         .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: draftIntent)
         .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: showModePicker)
         .animation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.82), value: showCapabilities)
+        .onChange(of: draftIntent) { _, _ in
+            goldPulseTask?.cancel()
+            goldPulseTask = nil
+        }
     }
 
     // MARK: - Tray Background

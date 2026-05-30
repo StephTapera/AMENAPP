@@ -50,7 +50,7 @@ struct FeedViewModeSwitcher: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(mode.rawValue)
-        .accessibilityAddTraits(isActive ? [.isSelected] : [])
+        .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 
     @ViewBuilder

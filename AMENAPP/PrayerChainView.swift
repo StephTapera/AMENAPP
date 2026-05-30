@@ -133,6 +133,7 @@ struct PrayerChainCard: View {
                     Text(chain.title)
                         .font(.systemScaled(16, weight: .semibold))
                         .lineLimit(1)
+                        .truncationMode(.tail)
                     Text("by \(chain.creatorName)")
                         .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
@@ -171,7 +172,7 @@ struct PrayerChainCard: View {
                         .fill(participant.status == .completed ? AmenTheme.Colors.amenPurple : Color(.systemGray4))
                         .frame(width: 28, height: 28)
                         .overlay(
-                            Text(String(participant.name.prefix(1)))
+                            Text(participant.name.isEmpty ? "?" : String(participant.name.prefix(1)))
                                 .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.white)
                         )

@@ -119,7 +119,8 @@ struct WellnessLibraryView: View {
             .foregroundStyle(isSelected ? .white : AmenTheme.Colors.textPrimary)
             .cornerRadius(20)
         }
-        .accessibilityLabel(label)
+        .accessibilityLabel("Filter: \(label)")
+        .accessibilityHint("Double-tap to toggle filter")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

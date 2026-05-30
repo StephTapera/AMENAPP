@@ -311,60 +311,6 @@ final class DiscoveryService: ObservableObject {
         // Re-enable after migrating phoneNumber to /users/{uid}/usage/pii and
         // implementing the contactLookupByPhone callable.
         contactSuggestions = []
-        return
-
-        // --- ORIGINAL IMPLEMENTATION (kept for reference, unreachable until migration) ---
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        isContactSuggestionsLoading = true
-        defer { isContactSuggestionsLoading = false }
-
-        let normalized = Set(phoneNumbers.map { normalizePhone($0) }.filter { !$0.isEmpty })
-        guard !normalized.isEmpty else { contactSuggestions = []; return }
-
-        let followingSet = FollowService.shared.following
-        var suggestions: [FollowSuggestion] = []
-        var seen = Set<String>()
-
-        // Firestore `in` supports up to 30 items per query
-        let chunks = Array(normalized).chunked(into: 30)
-        do {
-            for chunk in chunks {
-                let snapshot = try await db
-                    .collection("users")
-                    .whereField("phoneNumber", in: chunk)
-                    .limit(to: 30)
-                    .getDocuments()
-
-                for doc in snapshot.documents {
-                    let d = doc.data()
-                    let userId = doc.documentID
-                    guard userId != uid,
-                          !followingSet.contains(userId),
-                          seen.insert(userId).inserted,
-                          let displayName = d["displayName"] as? String,
-                          let username = d["username"] as? String else { continue }
-
-                    let person = DiscoveryPerson(
-                        id: userId, displayName: displayName, username: username,
-                        bio: d["bio"] as? String ?? "",
-                        avatarURL: d["profileImageURL"] as? String,
-                        followerCount: d["followersCount"] as? Int ?? 0,
-                        isVerified: d["isVerified"] as? Bool ?? false,
-                        isFollowing: false, mutualFollowersCount: 0,
-                        followReason: "In your contacts",
-                        topicAffinities: d["topicAffinities"] as? [String] ?? [],
-                        qualityScore: d["qualityScore"] as? Double ?? 50
-                    )
-                    suggestions.append(FollowSuggestion(
-                        id: userId, person: person, reason: "In your contacts", isFollowing: false
-                    ))
-                }
-            }
-        } catch {
-            dlog("[DiscoveryService] Contact suggestions failed: \(error)")
-        }
-
-        contactSuggestions = suggestions
     }
 
     /// Normalizes a raw phone string to E.164 (+1XXXXXXXXXX for US numbers).
@@ -753,7 +699,7 @@ final class DiscoveryService: ObservableObject {
             let snapshot = try await db.collection("users")
                 .whereField("usernameLower", isGreaterThanOrEqualTo: lowered)
                 .whereField("usernameLower", isLessThan: lowered + "\u{f8ff}")
-                .limit(to: 15)
+                .limit(to: 20)
                 .getDocuments()
 
             let followingSet = FollowService.shared.following
@@ -863,7 +809,7 @@ final class DiscoveryService: ObservableObject {
             let snapshot = try await db.collection("churchNotes")
                 .whereField("titleLower", isGreaterThanOrEqualTo: lowered)
                 .whereField("titleLower", isLessThan: lowered + "\u{f8ff}")
-                .limit(to: 16)
+                .limit(to: 20)
                 .getDocuments()
 
             return snapshot.documents.compactMap { doc in

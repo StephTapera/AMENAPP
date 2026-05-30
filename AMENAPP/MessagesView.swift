@@ -469,6 +469,8 @@ struct MessagesView: View {
             ))
             // Recompute conversation cache when the glass filter dropdown selection changes
             .onChange(of: inboxSelectionMap) { _, _ in recomputeConversationCache() }
+            // Clear search when switching tabs so stale results are not shown
+            .onChange(of: selectedTab) { _, _ in searchText = "" }
     }
 
     private var inboxObserversModifier: InboxObserversModifier {

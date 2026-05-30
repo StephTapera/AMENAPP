@@ -658,6 +658,7 @@ private struct BadgeView: View {
                     }
                 }
             }
+            .accessibilityValue("\(count) new items")
             .onChange(of: count) { oldValue, newValue in
                 // Increment pulse: existing badge gets a bounce on any count increase.
                 // Skip the bounce pulse when Reduce Motion is enabled.

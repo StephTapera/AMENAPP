@@ -186,6 +186,7 @@ class AuthenticationViewModel: ObservableObject {
                 guard self.needs2FAVerification else { return }  // Only wipe during active 2FA wait
                 dlog("🔐 AuthVM: app backgrounded during 2FA wait — wiping pending credential")
                 self.pending2FACredential = nil
+                self.errorMessage = "Your session expired. Please sign in again."
                 // Note: needs2FAVerification stays true — when foregrounded the user
                 // sees the 2FA screen and tapping verify will fail (no credential),
                 // which surfaces a clean "session expired, please sign in again" error.

@@ -150,6 +150,8 @@ struct SpacesListView: View {
     private var spacesList: some View {
         if viewModel.isLoading && viewModel.spaces.isEmpty {
             loadingView
+        } else if !viewModel.isLoading && viewModel.error != nil && viewModel.spaces.isEmpty {
+            errorStateView
         } else if !viewModel.isLoading && viewModel.filteredSpaces.isEmpty {
             emptyStateView
         } else {
@@ -239,6 +241,19 @@ struct SpacesListView: View {
             }
             .padding()
             .accessibilityElement(children: .combine)
+            Spacer()
+        }
+    }
+
+    private var errorStateView: some View {
+        VStack {
+            Spacer()
+            VStack(spacing: 12) {
+                Text("Couldn't load spaces")
+                    .foregroundColor(.secondary)
+                Button("Try Again") { Task { await viewModel.loadSpaces(communityId: communityId) } }
+                    .buttonStyle(.bordered)
+            }
             Spacer()
         }
     }

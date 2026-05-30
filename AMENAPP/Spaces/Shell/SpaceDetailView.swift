@@ -34,6 +34,9 @@ struct SpaceDetailView: View {
     // Agent E's purchase sheet — LockedPreviewShell sets this to true via onUnlock.
     @State private var showPurchaseSheet: Bool = false
 
+    // NV-07: Error state for member/entitlement load failures.
+    @State private var loadError: String? = nil
+
     // Agent F: cross-community link state
     // LinkInviteSheet — shown from the "Link another community" toolbar action (admin/owner only).
     @State private var showLinkInviteSheet: Bool = false
@@ -47,6 +50,23 @@ struct SpaceDetailView: View {
             mainScrollContent
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
+
+            // NV-07: Error overlay — shown when member/entitlement load fails
+            if let err = loadError {
+                VStack(spacing: 12) {
+                    Text("Couldn't load space details")
+                        .foregroundColor(.secondary)
+                    Button("Retry") {
+                        loadError = nil
+                        Task { await loadMembers() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(AmenTheme.Colors.backgroundPrimary.opacity(0.92))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Error: \(err). Retry button available.")
+            }
 
             // Locked overlay — full-screen LockedPreviewShell, wired to E's purchase sheet
             if isLocked && !isCheckingEntitlement {
@@ -433,7 +453,8 @@ struct SpaceDetailView: View {
                 )
             }
         } catch {
-            // Non-fatal — empty roster is shown; no force-unwrap risk.
+            // NV-07: Surface load error so the user can retry.
+            loadError = error.localizedDescription
         }
         isLoadingMembers = false
     }

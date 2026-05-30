@@ -799,6 +799,7 @@ struct TestimonyPostCard: View {
     
     @State private var isFollowing = false
     @State private var isFollowLoading = false
+    @State private var isTogglingAmen = false
 
     // MARK: - Computed Properties
     
@@ -1033,38 +1034,43 @@ struct TestimonyPostCard: View {
         .accessibilityLabel(hasAmened ? "Remove Amen" : "Amen")
         .accessibilityValue("\(amenCount) amens")
         .accessibilityHint(hasAmened ? "Tap to remove your amen" : "Tap to amen this testimony")
+        .disabled(isTogglingAmen)
     }
-    
+
     private func toggleAmen() async {
+        guard !isTogglingAmen else { return }
+        isTogglingAmen = true
+        defer { isTogglingAmen = false }
+
         // Store previous state for rollback
         let previousAmened = hasAmened
         let previousCount = amenCount
-        
+
         // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             hasAmened.toggle()
             amenCount = hasAmened ? amenCount + 1 : amenCount - 1
         }
-        
+
         let haptic = UIImpactFeedbackGenerator(style: hasAmened ? .medium : .light)
         haptic.impactOccurred()
-        
+
         // Background sync to Firebase
         let postId = post.id.uuidString
-        
+
         do {
             let interactionsService = PostInteractionsService.shared
             try await interactionsService.toggleAmen(postId: postId)
         } catch {
             dlog("❌ Failed to toggle amen: \(error)")
-            
+
             // On error, revert the optimistic update
             await MainActor.run {
                 withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     hasAmened = previousAmened
                     amenCount = previousCount
                 }
-                
+
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
             }
@@ -1643,6 +1649,7 @@ struct TestimonyCommentRow: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(hasAmened ? "Remove amen from comment" : "Amen comment")
                     .accessibilityValue("\(amenCount) amens")
+                    .accessibilityHint("Double-tap to amen this comment")
 
                     Button {
                         withAnimation(.easeOut(duration: 0.15)) {

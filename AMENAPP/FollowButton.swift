@@ -54,6 +54,7 @@ struct SocialFollowButton: View {
             )
         }
         .disabled(isLoading)
+        .accessibilityHint(isFollowing ? "Unfollows this person" : "Follow or send a follow request")
         .task {
             await checkFollowStatus()
         }

@@ -95,7 +95,7 @@ private struct AMENPillNavBadge: View {
             .foregroundStyle(.white)
             .padding(.horizontal, count > 9 ? 4 : 0)
             .frame(minWidth: 16, minHeight: 16)
-            .background(Color.red)
+            .background(AmenTheme.Colors.statusError)
             .clipShape(Capsule())
             .overlay(Capsule().strokeBorder(Color(.systemBackground).opacity(0.9), lineWidth: 1.2))
     }

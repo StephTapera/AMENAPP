@@ -632,6 +632,7 @@ struct EnhancedChurchNoteEditor: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(scripture.trimmingCharacters(in: .whitespaces).isEmpty || isLookingUpVerse)
+                .opacity(scripture.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1.0)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
@@ -821,38 +822,56 @@ struct EnhancedChurchNoteEditor: View {
                     QuickInsertButton(icon: "book.fill", label: "Scripture") {
                         insertTemplate("\n\n📖 Scripture: ")
                     }
-                    
+                    .accessibilityLabel("Insert scripture reference")
+                    .accessibilityHint("Adds a scripture template at the end of your notes")
+
                     QuickInsertButton(icon: "lightbulb.fill", label: "Key Point") {
                         insertTemplate("\n\n💡 Key Point: ")
                     }
-                    
+                    .accessibilityLabel("Insert key point")
+                    .accessibilityHint("Adds a key point template at the end of your notes")
+
                     QuickInsertButton(icon: "hand.raised.fill", label: "Application") {
                         insertTemplate("\n\n🙏 Application: ")
                     }
-                    
+                    .accessibilityLabel("Insert application")
+                    .accessibilityHint("Adds an application template at the end of your notes")
+
                     QuickInsertButton(icon: "heart.fill", label: "Prayer") {
                         insertTemplate("\n\n❤️ Prayer: ")
                     }
-                    
+                    .accessibilityLabel("Insert prayer")
+                    .accessibilityHint("Adds a prayer template at the end of your notes")
+
                     QuickInsertButton(icon: "star.fill", label: "Reflection") {
                         insertTemplate("\n\n✨ Reflection: ")
                     }
-                    
+                    .accessibilityLabel("Insert reflection")
+                    .accessibilityHint("Adds a reflection template at the end of your notes")
+
                     QuickInsertButton(icon: "checkmark.circle.fill", label: "Action Step") {
                         insertTemplate("\n\n✅ Action Step: ")
                     }
+                    .accessibilityLabel("Insert action step")
+                    .accessibilityHint("Adds an action step template at the end of your notes")
 
                     QuickInsertButton(icon: "music.note", label: "Add Song") {
                         showSongSearch = true
                     }
+                    .accessibilityLabel("Add worship song")
+                    .accessibilityHint("Opens song search to attach a worship song to this note")
 
                     QuickInsertButton(icon: "mic.fill", label: "Record") {
                         showTranscription = true
                     }
+                    .accessibilityLabel("Record sermon transcription")
+                    .accessibilityHint("Opens live sermon transcription")
 
                     QuickInsertButton(icon: "camera.viewfinder", label: "Scan") {
                         showPhotoScan = true
                     }
+                    .accessibilityLabel("Scan bulletin or slide")
+                    .accessibilityHint("Opens camera to scan printed text into your notes")
                 }
                 .padding(.horizontal, 20)
             }
