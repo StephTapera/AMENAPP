@@ -85,6 +85,7 @@ struct PostCard: View {
     @State private var isFollowInFlight = false  // P0 FIX: Prevent duplicate follow operations
     @State private var actionMenuButtonFrame: CGRect = .zero
     @Environment(\.tabBarVisible) private var tabBarVisible
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     // Testimony resonance micro-copy
     @State private var testimonyResonanceCopy: String = ""
@@ -2232,7 +2233,7 @@ struct PostCard: View {
                     guard !isTextSelecting else { return }
                     closeActionMenu(animated: false)
                     HapticManager.impact(style: .light)
-                    withAnimation(.amenSpring) { showPostActionMenu = true }
+                    withAnimation(reduceMotion ? .none : .amenSpring) { showPostActionMenu = true }
                 }
                 .contextMenu {
                     // Reply
@@ -2557,7 +2558,7 @@ struct PostCard: View {
                 if newValue != nil {
                     closeActionMenu(animated: false)
                 } else if !tabBarVisible.wrappedValue {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         tabBarVisible.wrappedValue = true
                     }
                 }
@@ -2902,7 +2903,7 @@ struct PostCard: View {
                     .font(.caption.bold())
                 Spacer()
                 Button("×") {
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         showDebugOverlay = false
                     }
                 }
@@ -3433,7 +3434,7 @@ struct PostCard: View {
                 } else {
                     AmenInlineObjectHubPill(model: model) {
                         if AMENFeatureFlags.shared.objectHubInlineClusterEnabled {
-                            withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.86)) {
                                 isInlineHubClusterExpanded = true
                             }
                         } else {
@@ -3807,7 +3808,7 @@ struct PostCard: View {
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-                .animation(.easeInOut(duration: 0.15), value: activeMediaIndex)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: activeMediaIndex)
             }
         }
 
@@ -4580,7 +4581,7 @@ struct PostCard: View {
             // 1b. Emoji reaction button — opens ReactionTray on tap
             if !isUserPost {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7)) {
                         isReactionTrayPresented.toggle()
                     }
                 } label: {
@@ -4869,7 +4870,7 @@ struct PostCard: View {
         .disabled(disabled)
         .opacity(disabled ? 0.4 : 1.0)
         // Fast spring so icon color/weight change feels instant on tap
-        .animation(.spring(response: 0.12, dampingFraction: 0.75), value: isActive)
+        .animation(reduceMotion ? .none : .spring(response: 0.12, dampingFraction: 0.75), value: isActive)
         .accessibilityLabel(accessibilityLabel ?? icon)
         .accessibilityHint(accessibilityHint ?? "")
     }
@@ -5166,7 +5167,7 @@ struct PostCard: View {
     private func deletePost() {
         guard let post = post else { return }
         // Optimistic: collapse card immediately so it feels instant
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             isDeletingPost = true
         }
         Task {
@@ -5498,7 +5499,7 @@ struct PostCard: View {
                             try? await Task.sleep(nanoseconds: 5_000_000_000)
                             guard !Task.isCancelled else { return }
                             await MainActor.run {
-                                withAnimation(.easeOut(duration: 0.3)) {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                     showTestimonyResonance = false
                                 }
                             }
@@ -5847,6 +5848,7 @@ private struct AmenPostCardPlusButton: View {
 
     @GestureState private var isPressed = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let isDark = colorScheme == .dark
@@ -5879,8 +5881,8 @@ private struct AmenPostCardPlusButton: View {
             .frame(width: 40, height: 40)
             .shadow(color: Color.black.opacity(isExpanded ? 0.12 : 0.08), radius: isExpanded ? 20 : 14, y: isExpanded ? 12 : 7)
             .scaleEffect(isPressed ? 0.94 : (isExpanded ? 1.02 : 1.0))
-            .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isExpanded)
-            .animation(.easeOut(duration: 0.12), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.34, dampingFraction: 0.82), value: isExpanded)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: isPressed)
         }
         .accessibilityLabel(isExpanded ? "Close post actions" : "Open post actions")
         .buttonStyle(.plain)
@@ -5898,6 +5900,7 @@ private struct AmenPostCardOverflowButton: View {
 
     @GestureState private var isPressed = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let isDark = colorScheme == .dark
@@ -5929,7 +5932,7 @@ private struct AmenPostCardOverflowButton: View {
             .frame(width: 40, height: 40)
             .shadow(color: Color.black.opacity(0.08), radius: 14, y: 7)
             .scaleEffect(isPressed ? 0.94 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: isPressed)
         }
         .accessibilityLabel("More options")
         .buttonStyle(.plain)
@@ -5952,6 +5955,7 @@ private struct AmenPostCardActionMenu: View {
     let onVisitProfile: () -> Void
 
     @State private var hasAppeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         AmenGlassContainer(cornerRadius: 18) {
@@ -5982,7 +5986,7 @@ private struct AmenPostCardActionMenu: View {
         .offset(y: hasAppeared ? 0 : -6)
         .shadow(color: AmenTheme.Colors.glassHighlightTop.opacity(hasAppeared ? 0.2 : 0), radius: 8, y: -2)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 hasAppeared = true
             }
         }
@@ -5998,6 +6002,7 @@ private struct AmenGlassContainer<Content: View>: View {
 
     @State private var shinePhase: CGFloat = -0.9
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(cornerRadius: CGFloat = 32, @ViewBuilder content: () -> Content) {
         self.cornerRadius = cornerRadius
@@ -6081,7 +6086,7 @@ private struct AmenGlassContainer<Content: View>: View {
         }
         .onAppear {
             shinePhase = -0.9
-            withAnimation(.easeInOut(duration: 0.95).delay(0.06)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.95).delay(0.06)) {
                 shinePhase = 1.05
             }
         }
@@ -6096,6 +6101,7 @@ private struct AmenGlassRow: View {
 
     @GestureState private var isPressed = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let isDark = colorScheme == .dark
@@ -6137,7 +6143,7 @@ private struct AmenGlassRow: View {
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .opacity(isDisabled ? 0.72 : 1.0)
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .animation(.easeOut(duration: 0.12), value: isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: isPressed)
         }
         .buttonStyle(.plain)
         .gesture(
@@ -6382,7 +6388,8 @@ private struct PostCardInteractionsModifier: ViewModifier {
     @Binding var hasCommented: Bool
     
     @State private var hasCompletedInitialLoad = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // PERF: Single narrow value watched by ONE onChange — replaces 4 separate dictionary-level
     // observers. Each PostCard only re-evaluates its own 4 counts, not the full global dict.
     private struct PostCounts: Equatable {
@@ -6570,7 +6577,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     .removeDuplicates()
             ) { newState in
                 guard post != nil else { return }
-                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
+                let animation: Animation? = (hasCompletedInitialLoad && !reduceMotion) ? .default : nil
                 if isLightbulbToggleInFlight {
                     if newState == expectedLightbulbState {
                         if hasLitLightbulb != newState {
@@ -6591,7 +6598,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     .removeDuplicates()
             ) { newState in
                 guard post != nil else { return }
-                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
+                let animation: Animation? = (hasCompletedInitialLoad && !reduceMotion) ? .default : nil
                 if hasSaidAmen != newState {
                     withAnimation(animation) { hasSaidAmen = newState }
                 }
@@ -6603,7 +6610,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     .removeDuplicates()
             ) { newState in
                 guard post != nil else { return }
-                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
+                let animation: Animation? = (hasCompletedInitialLoad && !reduceMotion) ? .default : nil
                 if isRepostToggleInFlight {
                     if newState == expectedRepostState {
                         if hasReposted != newState {
@@ -6827,6 +6834,7 @@ struct EditCommentSheet: View {
 struct PostLinkButton: View {
     let url: String
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         Button {
@@ -6878,12 +6886,12 @@ struct PostLinkButton: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeInOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.1)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeInOut(duration: 0.1)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.1)) {
                         isPressed = false
                     }
                 }

@@ -210,6 +210,13 @@ class RealtimeRepostsService: ObservableObject {
             .child("user-reposts")
             .child(targetUserId)
         
+        // Remove any existing observer for this user before attaching a new one,
+        // so re-calling observeUserReposts does not accumulate duplicate handles.
+        if let existing = repostObservers[targetUserId] {
+            repostsRef.removeObserver(withHandle: existing)
+            repostObservers.removeValue(forKey: targetUserId)
+        }
+
         let handle = repostsRef.observe(.value) { snapshot in
             Task {
                 do {
@@ -225,7 +232,7 @@ class RealtimeRepostsService: ObservableObject {
                 }
             }
         }
-        
+
         repostObservers[targetUserId] = handle
         dlog("👀 Observing reposts for user: \(targetUserId)")
     }
