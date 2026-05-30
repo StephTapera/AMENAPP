@@ -215,6 +215,7 @@ struct LivingSermonView: View {
     @StateObject private var vm = LivingSermonViewModel()
     @State private var inputText: String = ""
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -262,7 +263,7 @@ struct LivingSermonView: View {
                                 ))
                         }
                     }
-                    .animation(.spring(response: 0.35, dampingFraction: 0.82), value: vm.activeTab)
+                    .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.82), value: vm.activeTab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // Spacer for bottom bar
@@ -295,7 +296,7 @@ struct LivingSermonView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        withAnimation { vm.isCapturing.toggle() }
+                        withAnimation(reduceMotion ? nil : .default) { vm.isCapturing.toggle() }
                     } label: {
                         Text(vm.isCapturing ? "Pause" : "Resume")
                             .font(AMENFont.semiBold(13))
@@ -320,6 +321,7 @@ struct LivingSermonView: View {
 private struct SermonStatusBar: View {
     @ObservedObject var vm: LivingSermonViewModel
     @State private var recPulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 10) {
@@ -363,7 +365,7 @@ private struct SermonStatusBar: View {
                     .fill(Color.red)
                     .frame(width: 7, height: 7)
                     .opacity(recPulse ? 0.3 : 1.0)
-                    .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: recPulse)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: recPulse)
                 Text("REC")
                     .font(AMENFont.bold(11))
                     .foregroundColor(Color.red)
@@ -406,6 +408,7 @@ private struct SermonTabPill: View {
     let tab: LivingSermonTab
     let isActive: Bool
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -436,7 +439,7 @@ private struct SermonTabPill: View {
             )
         }
         .buttonStyle(GlassPressStyle())
-        .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isActive)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.75), value: isActive)
     }
 }
 
@@ -520,6 +523,7 @@ private struct SermonWaveformStrip: View {
     let isActive: Bool
     @State private var heights: [CGFloat] = [0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.45, 0.65]
     private let barCount = 8
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 2) {
@@ -528,11 +532,13 @@ private struct SermonWaveformStrip: View {
                     .fill(Color.black.opacity(0.55))
                     .frame(width: 2.5, height: isActive ? heights[i] * 22 : 6)
                     .animation(
-                        isActive
-                            ? .easeInOut(duration: 0.45 + Double(i) * 0.07)
-                                .repeatForever(autoreverses: true)
-                                .delay(Double(i) * 0.06)
-                            : .default,
+                        reduceMotion ? .none : (
+                            isActive
+                                ? .easeInOut(duration: 0.45 + Double(i) * 0.07)
+                                    .repeatForever(autoreverses: true)
+                                    .delay(Double(i) * 0.06)
+                                : .default
+                        ),
                         value: heights[i]
                     )
             }
@@ -547,7 +553,7 @@ private struct SermonWaveformStrip: View {
         guard isActive else { return }
         for i in 0..<barCount {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.06) {
-                withAnimation(.easeInOut(duration: 0.45 + Double(i) * 0.07)
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.45 + Double(i) * 0.07)
                     .repeatForever(autoreverses: true)) {
                     heights[i] = CGFloat.random(in: 0.2...1.0)
                 }
@@ -563,6 +569,7 @@ private struct SermonCaptureTab: View {
     @Binding var inputText: String
     @State private var lastNoteId: String? = nil
     @State private var showScriptureBadge: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -603,7 +610,7 @@ private struct SermonCaptureTab: View {
                 }
                 .onChange(of: vm.notes.count) { _, _ in
                     if let last = vm.notes.last {
-                        withAnimation(.easeOut(duration: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                             proxy.scrollTo(last.id, anchor: .bottom)
                         }
                     }
@@ -617,7 +624,7 @@ private struct SermonCaptureTab: View {
         }
         .onChange(of: inputText) { _, text in
             let hasVersePattern = text.range(of: #"(\d?\s?[A-Za-z]+)\s(\d+):(\d+)"#, options: .regularExpression) != nil
-            withAnimation(.easeInOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
                 showScriptureBadge = hasVersePattern && !text.isEmpty
             }
         }
@@ -830,6 +837,7 @@ private struct HighlightCircleButton: View {
 private struct SermonTranscriptTab: View {
     @ObservedObject var vm: LivingSermonViewModel
     @State private var selectedSegmentId: String? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -890,7 +898,7 @@ private struct SermonTranscriptTab: View {
                     .padding(.vertical, 4)
                 }
                 .onChange(of: vm.transcript.count) { _, _ in
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         proxy.scrollTo("listening", anchor: .bottom)
                     }
                 }
@@ -983,6 +991,7 @@ private struct ListeningDotsRow: View {
     @State private var d2: Bool = false
     @State private var d3: Bool = false
     @State private var dotsTimer: Timer?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
@@ -1007,19 +1016,19 @@ private struct ListeningDotsRow: View {
         Circle()
             .fill(Color(white: active ? 0.3 : 0.75))
             .frame(width: 4, height: 4)
-            .animation(.easeInOut(duration: 0.4), value: active)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.4), value: active)
     }
 
     private func startDots() {
         let interval = 0.5
         dotsTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
             DispatchQueue.main.async {
-                withAnimation { d1.toggle() }
+                withAnimation(reduceMotion ? nil : .default) { d1.toggle() }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    withAnimation { d2.toggle() }
+                    withAnimation(reduceMotion ? nil : .default) { d2.toggle() }
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
-                    withAnimation { d3.toggle() }
+                    withAnimation(reduceMotion ? nil : .default) { d3.toggle() }
                 }
             }
         }
@@ -1227,6 +1236,7 @@ private struct SermonFlowLayout: Layout {
 
 private struct ScriptureDensityBar: View {
     let density: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1251,7 +1261,7 @@ private struct ScriptureDensityBar: View {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(Color.black.opacity(0.75))
                         .frame(width: geo.size.width * density, height: 8)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: density)
+                        .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8), value: density)
                 }
             }
             .frame(height: 8)

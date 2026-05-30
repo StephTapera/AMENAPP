@@ -143,6 +143,8 @@ private struct RepostRowPressStyle: ButtonStyle {
 // MARK: - GlassRowButtonStyle
 
 private struct GlassRowButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
@@ -150,7 +152,7 @@ private struct GlassRowButtonStyle: ButtonStyle {
                     ? Color.white.opacity(0.07)
                     : Color.clear
             )
-            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -161,6 +163,7 @@ private struct GlassRowButtonStyle: ButtonStyle {
 struct QuotePostComposerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let originalPost: Post
 
     var onPublish: ((_ quoteText: String, _ originalPost: Post) -> Void)?
@@ -323,7 +326,7 @@ struct QuotePostComposerView: View {
             .clipShape(Capsule())
         }
         .disabled(!canPublish)
-        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: canPublish)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.7), value: canPublish)
     }
 
     // MARK: - User Row
@@ -502,7 +505,7 @@ struct QuotePostComposerView: View {
             insertion: .move(edge: .top).combined(with: .opacity),
             removal: .opacity
         ))
-        .animation(.spring(response: 0.3, dampingFraction: 0.78), value: mentionSuggestions.count)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.78), value: mentionSuggestions.count)
     }
 
     // MARK: - Hashtag Suggestions
@@ -586,7 +589,7 @@ struct QuotePostComposerView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                         Button {
-                            withAnimation(.easeOut(duration: 0.15)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                                 attachedImages.remove(at: idx)
                                 if idx < selectedPhotoItems.count {
                                     selectedPhotoItems.remove(at: idx)
@@ -777,7 +780,7 @@ struct QuotePostComposerView: View {
                     HapticManager.impact(style: .light)
                     quoteText += quoteText.isEmpty || quoteText.hasSuffix(" ") ? "#" : " #"
                     isFocused = true
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         showHashtagSuggestions = true
                     }
                 } label: {
@@ -818,7 +821,7 @@ struct QuotePostComposerView: View {
                                 .monospacedDigit()
                         }
                     }
-                    .animation(.easeInOut(duration: 0.2), value: charCount)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: charCount)
                 }
             }
             .padding(.horizontal, 16)
@@ -837,7 +840,7 @@ struct QuotePostComposerView: View {
             currentMentionQuery = String(lastWord.dropFirst())
             searchForQuoteMentions(query: currentMentionQuery)
         } else {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showMentionSuggestions = false
                 mentionSuggestions = []
             }
@@ -845,11 +848,11 @@ struct QuotePostComposerView: View {
 
         // Hashtag detection: #tag
         if let lastWord = words.last, lastWord.hasPrefix("#") && lastWord.count > 1 {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showHashtagSuggestions = true
             }
         } else if !(words.last?.hasPrefix("#") ?? false) {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showHashtagSuggestions = false
             }
         }
@@ -859,7 +862,7 @@ struct QuotePostComposerView: View {
 
     private func searchForQuoteMentions(query: String) {
         guard !query.isEmpty else {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showMentionSuggestions = false
                 mentionSuggestions = []
             }
@@ -873,7 +876,7 @@ struct QuotePostComposerView: View {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         mentionSuggestions = Array(results.prefix(5))
                         showMentionSuggestions = !results.isEmpty
                     }
@@ -889,7 +892,7 @@ struct QuotePostComposerView: View {
             let beforeMention = quoteText[..<lastAtIndex]
             quoteText = beforeMention + "@\(user.username) "
         }
-        withAnimation {
+        withAnimation(reduceMotion ? nil : .default) {
             showMentionSuggestions = false
             mentionSuggestions = []
         }
@@ -925,7 +928,7 @@ struct QuotePostComposerView: View {
                 quoteText += " " + tag + " "
             }
         }
-        withAnimation {
+        withAnimation(reduceMotion ? nil : .default) {
             showHashtagSuggestions = false
         }
     }

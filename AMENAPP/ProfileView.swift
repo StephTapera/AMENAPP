@@ -157,6 +157,7 @@ struct ProfileView: View {
     // NEW: Tab bar visibility on scroll
     @Environment(\.tabBarVisible) private var tabBarVisible
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var lastScrollOffset: CGFloat = 0
     @State private var scrollVelocity: CGFloat = 0
     
@@ -456,7 +457,7 @@ struct ProfileView: View {
                     }(),
                     anchor: .top
                 )
-                .animation(scrollOffset > AmenHero.profileBannerHeight ? .none : Motion.liquidSpring, value: scrollOffset)
+                .animation(scrollOffset > AmenHero.profileBannerHeight || reduceMotion ? .none : Motion.liquidSpring, value: scrollOffset)
                 .background(
                     GeometryReader { geometry in
                         Color.clear
@@ -592,10 +593,10 @@ struct ProfileView: View {
                 Spacer()
             }
             .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showRefreshToast)
+            .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.7), value: showRefreshToast)
         }
     }
-    
+
     // MARK: - Gesture Handlers
     
     /// P0 FIX: Extract scroll gesture to reduce body complexity
@@ -698,7 +699,7 @@ struct ProfileView: View {
                     dlog("   ✅ CONFIRMED post from database")
                     if let index = self.userPosts.firstIndex(where: { $0.id == newPost.id }) {
                         // Update existing (in case data changed)
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                             self.userPosts[index] = newPost
                         }
                         dlog("   Updated existing post at index \(index)")
@@ -1030,7 +1031,7 @@ struct ProfileView: View {
             
             // Hide toast after 2 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                withAnimation {
+                withAnimation(reduceMotion ? nil : .default) {
                     showRefreshToast = false
                 }
             }
@@ -1054,10 +1055,10 @@ struct ProfileView: View {
             let postService = FirebasePostService.shared
             let refreshedPosts = try await postService.fetchUserPosts(userId: userId)
             
-            withAnimation(.easeInOut(duration: 0.3)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
                 userPosts = refreshedPosts
             }
-            
+
             dlog("✅ Posts refreshed after creation: \(refreshedPosts.count) total")
         } catch {
             dlog("❌ Error refreshing posts after creation: \(error)")
@@ -1562,7 +1563,7 @@ struct ProfileView: View {
 
     private func dismissDigestBanner() {
         digestDismissTask?.cancel()
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             showDigestBanner = false
         }
     }
@@ -1735,7 +1736,7 @@ struct ProfileView: View {
                 let isActive = selectedTab == tab
                 Button {
                     HapticManager.impact(style: .light)
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78)) {
                         selectedTab = tab
                     }
                     dlog("📊 Tab switched to: \(tab.rawValue)")
@@ -2165,7 +2166,7 @@ struct ProfileView: View {
                         },
                         isCurrentUserProfile: true
                     )
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                    .transition(.opacity.animation(reduceMotion ? .none : .easeOut(duration: 0.15)))
                     .id("media")
                     .onAppear {
                         mediaFeedVM.ingestPosts(userPosts)
@@ -2175,20 +2176,20 @@ struct ProfileView: View {
                     }
                 } else {
                     PostsContentView(posts: $userPosts)
-                        .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                        .transition(.opacity.animation(reduceMotion ? .none : .easeOut(duration: 0.15)))
                         .id("posts")
                 }
             case .replies:
                 RepliesContentView(replies: $userReplies)
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                    .transition(.opacity.animation(reduceMotion ? .none : .easeOut(duration: 0.15)))
                     .id("replies")
             case .saved:
                 SavedContentView(savedPosts: $savedPosts)
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                    .transition(.opacity.animation(reduceMotion ? .none : .easeOut(duration: 0.15)))
                     .id("saved")
             case .reposts:
                 RepostsContentView(reposts: $reposts)
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                    .transition(.opacity.animation(reduceMotion ? .none : .easeOut(duration: 0.15)))
                     .id("reposts")
             }
         }
@@ -2364,7 +2365,8 @@ struct ProfilePostCard: View {
     
     @ObservedObject private var postsManager = PostsManager.shared
     @ObservedObject private var interactionsService = PostInteractionsService.shared
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // Check if current user is the post owner
     private var isCurrentUserPost: Bool {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return false }
@@ -2768,9 +2770,9 @@ struct ProfilePostCard: View {
                 .foregroundColor(color)
         }
         .scaleEffect(min(Double(abs(swipeOffset)) / 60.0, 1.2))
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: swipeOffset)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: swipeOffset)
     }
-    
+
     private func triggerSwipeLikeAction() {
         // haptic
         HapticManager.impact(style: .light)
@@ -3219,6 +3221,7 @@ struct ProfileReplyCard: View {
 
 struct EditProfileView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var profileData: UserProfileData
     @State private var name: String
     @State private var username: String
@@ -3906,7 +3909,7 @@ struct EditProfileView: View {
             Button("Add") {
                 let t = newTopicText.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !t.isEmpty && !profileTopics.contains(t) && profileTopics.count < 5 {
-                    withAnimation { profileTopics.append(t) }
+                    withAnimation(reduceMotion ? nil : .default) { profileTopics.append(t) }
                     hasChanges = true
                 }
                 newTopicText = ""

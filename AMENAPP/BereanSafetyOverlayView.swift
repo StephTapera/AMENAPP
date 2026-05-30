@@ -16,6 +16,7 @@ struct BereanSafetyOverlayView: View {
     @ObservedObject var safetyService   = BereanConversationSafetyService.shared
     @ObservedObject var recipientService = BereanRecipientProtectionService.shared
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded: Bool = false
     @State private var showBoundaryPicker: Bool = false
 
@@ -56,10 +57,10 @@ struct BereanSafetyOverlayView: View {
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: safetyService.activeIntervention != nil)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: isExpanded)
-        .animation(.easeInOut(duration: 0.25), value: showBoundaryPicker)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: recipientService.pendingMediaRequests.count)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75), value: safetyService.activeIntervention != nil)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75), value: isExpanded)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.25), value: showBoundaryPicker)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75), value: recipientService.pendingMediaRequests.count)
         .padding(.horizontal, 12)
         .padding(.bottom, 4)
     }
@@ -214,6 +215,7 @@ private struct SafetyOptionButton: View {
     let conversationId: String
     @Binding var isExpanded: Bool
     @Binding var showBoundaryPicker: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
@@ -256,21 +258,21 @@ private struct SafetyOptionButton: View {
             }
 
         case .redirectConversation:
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }
             dlog("[BereanOverlay] redirect conversation selected conv=\(conversationId)")
 
         case .pauseChat(let minutes):
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }
             dlog("[BereanOverlay] pause chat \(minutes)min conv=\(conversationId)")
 
         case .sendBoundaryMessage:
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 showBoundaryPicker = true
                 isExpanded = false
             }
@@ -279,7 +281,7 @@ private struct SafetyOptionButton: View {
             Task {
                 await BereanAccountabilityService.shared.recordSignal(.flaggedConversation)
             }
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }
@@ -292,7 +294,7 @@ private struct SafetyOptionButton: View {
                     in: conversationId
                 )
             }
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }
@@ -306,6 +308,7 @@ private struct SafetyOptionButton: View {
 struct BereanBoundaryMessagePicker: View {
     let conversationId: String
     @Binding var showBoundaryPicker: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -316,7 +319,7 @@ struct BereanBoundaryMessagePicker: View {
 
             ForEach(BoundaryMessage.presets) { preset in
                 BoundaryPresetRow(preset: preset, conversationId: conversationId) {
-                    withAnimation(.easeInOut(duration: 0.25)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
                         showBoundaryPicker = false
                     }
                 }
@@ -398,6 +401,7 @@ struct BereanConflictRewriteBar: View {
     let onSendAsIs: () -> Void
     let onEdit: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isVisible: Bool = true
 
     var body: some View {
@@ -429,17 +433,17 @@ struct BereanConflictRewriteBar: View {
                 HStack(spacing: 8) {
                     ConflictRewriteActionButton(title: "Use this instead", icon: "checkmark.circle.fill") {
                         onUseRewrite(rewrittenText)
-                        withAnimation { isVisible = false }
+                        withAnimation(reduceMotion ? nil : .default) { isVisible = false }
                     }
 
                     ConflictRewriteActionButton(title: "Send as is", icon: "arrow.right.circle") {
                         onSendAsIs()
-                        withAnimation { isVisible = false }
+                        withAnimation(reduceMotion ? nil : .default) { isVisible = false }
                     }
 
                     ConflictRewriteActionButton(title: "Edit", icon: "pencil.circle") {
                         onEdit(rewrittenText)
-                        withAnimation { isVisible = false }
+                        withAnimation(reduceMotion ? nil : .default) { isVisible = false }
                     }
                 }
             }
@@ -458,7 +462,7 @@ struct BereanConflictRewriteBar: View {
             .shadow(color: .black.opacity(0.07), radius: 6, x: 0, y: 2)
             .padding(.horizontal, 12)
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: isVisible)
+            .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75), value: isVisible)
         }
     }
 }

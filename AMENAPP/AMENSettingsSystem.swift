@@ -442,10 +442,11 @@ struct STDivider: View {
 }
 
 struct STPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(configuration.isPressed ? Color.primary.opacity(0.04) : Color.clear)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
@@ -554,6 +555,7 @@ struct SettingsSearchResultsView: View {
 struct SettingsSuggestedCard: View {
     @Binding var isDismissed: Bool
     var onAction: (AMENSettingsSection) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let suggestions: [(String, String, AMENSettingsSection)] = [
         ("lock.fill", "Turn on private profile", .privacy),
@@ -570,7 +572,7 @@ struct SettingsSuggestedCard: View {
                         .foregroundStyle(ST.primary)
                     Spacer()
                     Button {
-                        withAnimation(ST.spring) { isDismissed = true }
+                        withAnimation(reduceMotion ? nil : ST.spring) { isDismissed = true }
                     } label: {
                         Image(systemName: "xmark")
                             .font(.systemScaled(12, weight: .medium))
@@ -669,6 +671,7 @@ struct AccountTypePill: View {
 
 struct AMENSettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var searchService = SettingsSearchService()
     @State private var searchText: String = ""
     @AppStorage("dismissedSuggestionsSettings") private var isSuggestedDismissed: Bool = false
@@ -704,7 +707,7 @@ struct AMENSettingsView: View {
                             .padding(.bottom, 12)
                             .opacity(appeared ? 1 : 0)
                             .offset(y: appeared ? 0 : 10)
-                            .animation(ST.spring.delay(0.05), value: appeared)
+                            .animation(reduceMotion ? .none : ST.spring.delay(0.05), value: appeared)
 
                             if searchText.isEmpty {
                                 mainContent
@@ -754,7 +757,7 @@ struct AMENSettingsView: View {
                 sectionDestination(section)
             }
             .onAppear {
-                withAnimation(ST.spring.delay(0.1)) { appeared = true }
+                withAnimation(reduceMotion ? nil : ST.spring.delay(0.1)) { appeared = true }
             }
         }
     }
@@ -775,7 +778,7 @@ struct AMENSettingsView: View {
                     }
                 if !searchText.isEmpty {
                     Button {
-                        withAnimation(ST.spring) { searchText = "" }
+                        withAnimation(reduceMotion ? nil : ST.spring) { searchText = "" }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.systemScaled(15))
@@ -809,7 +812,7 @@ struct AMENSettingsView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
             .opacity(appeared ? 1 : 0)
-            .animation(ST.spring.delay(0.1), value: appeared)
+            .animation(reduceMotion ? .none : ST.spring.delay(0.1), value: appeared)
 
             // Sections list
             let groups: [[AMENSettingsSection]] = [
@@ -834,7 +837,7 @@ struct AMENSettingsView: View {
                 .padding(.bottom, gIndex < groups.count - 1 ? 10 : 0)
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 14)
-                .animation(ST.spring.delay(0.12 + Double(gIndex) * 0.05), value: appeared)
+                .animation(reduceMotion ? .none : ST.spring.delay(0.12 + Double(gIndex) * 0.05), value: appeared)
             }
         }
     }
@@ -1090,6 +1093,7 @@ struct SafetySettingsViewNew: View {
     @AppStorage("amen_anti_harassment")    private var antiHarassment: Bool = false
     @State private var customWords: [String] = ["hate", "spam"]
     @State private var newWord: String = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         STDetailScaffold(title: "Safety") {
@@ -1132,7 +1136,7 @@ struct SafetySettingsViewNew: View {
                     Button {
                         let trimmed = newWord.trimmingCharacters(in: .whitespaces)
                         if !trimmed.isEmpty && !customWords.contains(trimmed) {
-                            withAnimation(ST.spring) { customWords.append(trimmed) }
+                            withAnimation(reduceMotion ? nil : ST.spring) { customWords.append(trimmed) }
                             newWord = ""
                         }
                     } label: {
@@ -1188,6 +1192,7 @@ struct MessagesSettingsViewNew: View {
     @AppStorage("amen_dm_curfew_enabled")  private var curfewEnabled: Bool = false
     @State private var curfewStart: Date  = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var curfewEnd: Date    = Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: Date()) ?? Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let dmOptions      = ["Everyone", "Followers", "Nobody"]
     private let reqOptions     = ["Filtered", "Off"]
@@ -1282,7 +1287,7 @@ struct MessagesSettingsViewNew: View {
                     .padding(.horizontal, 16).padding(.vertical, 8)
                 }
             }
-            .animation(ST.spring, value: curfewEnabled)
+            .animation(reduceMotion ? .none : ST.spring, value: curfewEnabled)
         }
     }
 }
@@ -1290,6 +1295,7 @@ struct MessagesSettingsViewNew: View {
 // MARK: - 5. Notifications Settings
 
 struct NotificationsSettingsViewNew: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("amen_notif_likes")           private var likes: Bool = true
     @AppStorage("amen_notif_comments")        private var comments: Bool = true
     @AppStorage("amen_notif_replies")         private var replies: Bool = true
@@ -1416,7 +1422,7 @@ struct NotificationsSettingsViewNew: View {
                     .padding(.horizontal, 16).padding(.vertical, 8)
                 }
             }
-            .animation(ST.spring, value: quietEnabled)
+            .animation(reduceMotion ? .none : ST.spring, value: quietEnabled)
         }
     }
 }
@@ -1481,6 +1487,7 @@ struct ContentPostingSettingsView: View {
 // MARK: - 7. Feed & Discovery
 
 struct FeedDiscoverySettingsViewNew: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("amen_feed_mode")           private var feedMode: String = "Standard"
     @AppStorage("amen_sensitive_content")   private var sensitiveContent: String = "Standard"
     @AppStorage("amen_autoplay")            private var autoplay: String = "On"
@@ -1530,7 +1537,7 @@ struct FeedDiscoverySettingsViewNew: View {
             SettingsSectionHeader(title: "Focus Modes")
             VStack(spacing: 0) {
                 Button {
-                    withAnimation(ST.spring) { focusModeExpanded.toggle() }
+                    withAnimation(reduceMotion ? nil : ST.spring) { focusModeExpanded.toggle() }
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "moon.stars")
@@ -1576,7 +1583,7 @@ struct FeedDiscoverySettingsViewNew: View {
                                 )
                                 .frame(width: 20, height: 20)
                                 .onTapGesture {
-                                    withAnimation(ST.spring) {
+                                    withAnimation(reduceMotion ? nil : ST.spring) {
                                         selectedFocusMode = selectedFocusMode == mode.1 ? "None" : mode.1
                                     }
                                 }
@@ -1584,7 +1591,7 @@ struct FeedDiscoverySettingsViewNew: View {
                         .padding(.horizontal, 16).padding(.vertical, 11)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            withAnimation(ST.spring) {
+                            withAnimation(reduceMotion ? nil : ST.spring) {
                                 selectedFocusMode = selectedFocusMode == mode.1 ? "None" : mode.1
                             }
                         }
@@ -1675,6 +1682,7 @@ struct FeedDiscoverySettingsViewNew: View {
 // MARK: - 8. Berean AI Settings
 
 struct BereanAISettingsViewNew: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("amen_berean_enabled")      private var bereanEnabled: Bool = true
     @AppStorage("amen_berean_mode")         private var defaultMode: String = "Study"
     @AppStorage("amen_berean_memory")       private var contextMemory: Bool = true
@@ -1759,7 +1767,7 @@ struct BereanAISettingsViewNew: View {
                         .buttonStyle(STPressStyle())
                     }
                 }
-                .animation(ST.spring, value: contextMemory)
+                .animation(reduceMotion ? .none : ST.spring, value: contextMemory)
 
                 SettingsSectionHeader(title: "Transparency & Data")
                 STGroup {
@@ -1771,7 +1779,7 @@ struct BereanAISettingsViewNew: View {
                 }
             }
         }
-        .animation(ST.spring, value: bereanEnabled)
+        .animation(reduceMotion ? .none : ST.spring, value: bereanEnabled)
         .alert("Clear Context Memory", isPresented: $showClearMemoryConfirm) {
             Button("Clear Memory", role: .destructive) {}
             Button("Cancel", role: .cancel) {}
@@ -2026,6 +2034,7 @@ struct StorageDataSettingsView: View {
 // MARK: - 12. Security
 
 struct SecuritySettingsViewNew: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("amen_2fa_enabled")      private var twoFA: Bool = false
     @AppStorage("amen_login_alerts")     private var loginAlerts: Bool = true
 
@@ -2046,7 +2055,7 @@ struct SecuritySettingsViewNew: View {
                     SettingsNavigationRow(icon: "gearshape", title: "Manage 2FA", subtitle: "Change method or recovery codes")
                 }
             }
-            .animation(ST.spring, value: twoFA)
+            .animation(reduceMotion ? .none : ST.spring, value: twoFA)
 
             SettingsSectionHeader(title: "Active Sessions")
             STGroup {

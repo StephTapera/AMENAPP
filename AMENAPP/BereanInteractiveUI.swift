@@ -305,7 +305,7 @@ struct BereanOnboardingFlow: View {
                 .offset(x: -90, y: 100)
                 .blur(radius: 70)
                 .scaleEffect(orbL ? 1.08 : 1.0)
-                .animation(.easeInOut(duration: 8).repeatForever(autoreverses: true), value: orbL)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 8).repeatForever(autoreverses: true), value: orbL)
                 .onAppear { orbL = true }
                 .allowsHitTesting(false)
 
@@ -319,7 +319,7 @@ struct BereanOnboardingFlow: View {
                 .offset(x: 90, y: 80)
                 .blur(radius: 65)
                 .scaleEffect(orbR ? 1.10 : 1.0)
-                .animation(.easeInOut(duration: 7).repeatForever(autoreverses: true), value: orbR)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 7).repeatForever(autoreverses: true), value: orbR)
                 .onAppear { orbR = true }
                 .allowsHitTesting(false)
         }
@@ -331,13 +331,14 @@ struct BereanOnboardingFlow: View {
 private struct BereanStepDots: View {
     let total: Int
     let current: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         HStack(spacing: 6) {
             ForEach(0..<total, id: \.self) { i in
                 Capsule()
                     .fill(i == current ? BUI.coral : BUI.inkFaint.opacity(0.35))
                     .frame(width: i == current ? 22 : 6, height: 6)
-                    .animation(BUI.snap(), value: current)
+                    .animation(reduceMotion ? .none : BUI.snap(), value: current)
             }
         }
     }
@@ -387,11 +388,12 @@ private struct BereanOnboardingCTA: View {
 }
 
 private struct BereanCTAPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.88 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -432,6 +434,7 @@ struct BereanThinkingTaskPills: View {
 
     @Namespace private var pillNamespace
     @State private var isSimulating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -478,7 +481,7 @@ struct BereanThinkingTaskPills: View {
             .padding(.horizontal, BUI.hPad)
             .padding(.vertical, 16)
             .animation(
-                .spring(response: 0.58, dampingFraction: 0.72),
+                reduceMotion ? .none : .spring(response: 0.58, dampingFraction: 0.72),
                 value: tasks.map(\.id)
             )
 
@@ -520,7 +523,7 @@ struct BereanThinkingTaskPills: View {
         guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
 
         // Toggle checked
-        withAnimation(BUI.bounce()) {
+        withAnimation(reduceMotion ? .none : BUI.bounce()) {
             tasks[idx].isChecked.toggle()
         }
 
@@ -556,7 +559,7 @@ struct BereanThinkingTaskPills: View {
 
         // Pick first unchecked task; if all checked, reset all
         if tasks.allSatisfy({ $0.isChecked }) {
-            withAnimation(BUI.bounce()) {
+            withAnimation(reduceMotion ? .none : BUI.bounce()) {
                 for i in tasks.indices { tasks[i].isChecked = false; tasks[i].checkProgress = 0 }
             }
             // Re-sort
@@ -591,6 +594,7 @@ private struct BereanTaskPill: View {
     let task: BereanThinkingTaskPills.BereanTask
     let namespace: Namespace.ID
     let onTap: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -613,7 +617,7 @@ private struct BereanTaskPill: View {
                             .transition(.scale(scale: 0.4).combined(with: .opacity))
                     }
                 }
-                .animation(.spring(response: 0.30, dampingFraction: 0.60), value: task.isChecked)
+                .animation(reduceMotion ? .none : .spring(response: 0.30, dampingFraction: 0.60), value: task.isChecked)
 
                 // Labels
                 VStack(alignment: .leading, spacing: 2) {
@@ -656,6 +660,7 @@ private struct BereanTaskPill: View {
 private struct BereanUIThinkingDots: View {
     @State private var active = 0
     let timer = Timer.publish(every: 0.38, on: .main, in: .common).autoconnect()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
@@ -664,7 +669,7 @@ private struct BereanUIThinkingDots: View {
                     .fill(i == active ? BUI.coral : BUI.inkFaint.opacity(0.40))
                     .frame(width: 5, height: 5)
                     .scaleEffect(i == active ? 1.3 : 1.0)
-                    .animation(BUI.snap(), value: active)
+                    .animation(reduceMotion ? .none : BUI.snap(), value: active)
             }
         }
         .onReceive(timer) { _ in
@@ -706,6 +711,7 @@ struct BereanInputOverlay: View {
     @State private var isMenuOpen = false
     @State private var messageText = ""
     @FocusState private var inputFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -713,7 +719,7 @@ struct BereanInputOverlay: View {
             // ── Base chat layer (blurs when menu is open) ─────────────────────
             chatBase
                 .blur(radius: isMenuOpen ? 18 : 0)
-                .animation(.spring(response: 0.40, dampingFraction: 0.82), value: isMenuOpen)
+                .animation(reduceMotion ? .none : .spring(response: 0.40, dampingFraction: 0.82), value: isMenuOpen)
 
             // ── Dark scrim overlay ─────────────────────────────────────────────
             if isMenuOpen {
@@ -721,7 +727,7 @@ struct BereanInputOverlay: View {
                     .ignoresSafeArea()
                     .transition(.opacity)
                     .onTapGesture { dismissMenu() }
-                    .animation(.easeInOut(duration: 0.22), value: isMenuOpen)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.22), value: isMenuOpen)
             }
 
             // ── Menu content (staggered items) ────────────────────────────────
@@ -751,14 +757,14 @@ struct BereanInputOverlay: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 100) // lift above input bar
-                .animation(.spring(response: 0.42, dampingFraction: 0.76), value: isMenuOpen)
+                .animation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.76), value: isMenuOpen)
             }
 
             // ── Bottom input bar (always visible) ────────────────────────────
             inputBar
         }
         .background(BUI.bg.ignoresSafeArea())
-        .animation(.spring(response: 0.42, dampingFraction: 0.78), value: isMenuOpen)
+        .animation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.78), value: isMenuOpen)
     }
 
     // MARK: Chat base (simplified for overlay prototype)
@@ -824,7 +830,7 @@ struct BereanInputOverlay: View {
                         .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(isMenuOpen ? .white : BUI.inkSoft)
                         .rotationEffect(.degrees(isMenuOpen ? 45 : 0))
-                        .animation(BUI.snap(), value: isMenuOpen)
+                        .animation(reduceMotion ? .none : BUI.snap(), value: isMenuOpen)
                 }
                 .frame(width: 36, height: 36)
             }
@@ -860,7 +866,7 @@ struct BereanInputOverlay: View {
             .buttonStyle(BereanCTAPressStyle())
             .disabled(!canSend)
             .opacity(canSend ? 1.0 : 0.4)
-            .animation(.easeOut(duration: 0.12), value: canSend)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: canSend)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -982,6 +988,7 @@ struct BereanMorphingToolbar: View {
     @State private var isDepthExpanded = false
     @State private var selectedDepth: DepthMode = .balanced
     @Namespace private var toolbarNamespace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum DepthMode: String, CaseIterable {
         case quick   = "Quick"
@@ -1076,7 +1083,7 @@ struct BereanMorphingToolbar: View {
                             removal: .move(edge: .top).combined(with: .opacity)
                         )
                     )
-                    .animation(BUI.bounce(), value: isDepthExpanded)
+                    .animation(reduceMotion ? .none : BUI.bounce(), value: isDepthExpanded)
             }
         }
     }
@@ -1087,7 +1094,7 @@ struct BereanMorphingToolbar: View {
         HStack(spacing: 6) {
             ForEach(DepthMode.allCases, id: \.self) { mode in
                 Button {
-                    withAnimation(BUI.snap()) { selectedDepth = mode }
+                    withAnimation(reduceMotion ? .none : BUI.snap()) { selectedDepth = mode }
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
                     HStack(spacing: 5) {
