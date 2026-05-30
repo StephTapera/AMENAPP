@@ -262,6 +262,8 @@ private struct AMENSheetDimmer: View {
     let opacity: CGFloat       // 0-1 driven by live sheet position
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         switch style {
         case .dimmed(let maxOpacity):
@@ -270,7 +272,7 @@ private struct AMENSheetDimmer: View {
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onTap)
-                .animation(.easeInOut(duration: 0.22), value: isVisible)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.22), value: isVisible)
 
         case .blurred:
             Rectangle()
@@ -279,7 +281,7 @@ private struct AMENSheetDimmer: View {
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onTap)
-                .animation(.easeInOut(duration: 0.22), value: isVisible)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.22), value: isVisible)
 
         case .none:
             EmptyView()
@@ -431,6 +433,8 @@ private struct AMENBottomSheetModifier<SheetContent: View>: ViewModifier {
     let configuration: AMENSheetConfiguration
     let sheetContent: () -> SheetContent
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @StateObject private var controller: AMENSheetController
 
     init(isPresented: Binding<Bool>,
@@ -447,7 +451,7 @@ private struct AMENBottomSheetModifier<SheetContent: View>: ViewModifier {
             content
                 // Subtle scale-down of the feed when the sheet is presented (Apple-style)
                 .scaleEffect(isPresented ? 0.965 : 1.0)
-                .animation(.spring(response: 0.40, dampingFraction: 0.88), value: isPresented)
+                .animation(reduceMotion ? .none : .spring(response: 0.40, dampingFraction: 0.88), value: isPresented)
 
             if isPresented {
                 AMENBottomSheetContainer(

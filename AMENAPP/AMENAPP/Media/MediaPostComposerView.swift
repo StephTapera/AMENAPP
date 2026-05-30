@@ -31,6 +31,8 @@ struct MediaPostComposerView: View {
     var onPost: ([ImmersiveCapturedItem], String, PostAudience) -> Void
     var onDismiss: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var caption: String = ""
     @State private var selectedAudience: PostAudience = .everyone
     @State private var isPosting: Bool = false
@@ -433,9 +435,9 @@ struct MediaPostComposerView: View {
             onRemoveMusic: { selectedMusic = nil },
             onRemoveScripture: { selectedVerse = "" }
         )
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedMusic?.id)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedCommunityId)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedVerse)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: selectedMusic?.id)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: selectedCommunityId)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: selectedVerse)
     }
 
     // MARK: - Attachment Toolbar

@@ -182,6 +182,8 @@ struct AMENAccountTypeOnboardingView: View {
     /// Entrance animation state for each card.
     @State private var cardOffsets: [Bool] = [false, false, false]
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -281,8 +283,7 @@ struct AMENAccountTypeOnboardingView: View {
         for index in AMENAccountType.allCases.indices {
             let delay = Double(index) * 0.08
             withAnimation(
-                .spring(response: 0.4, dampingFraction: 0.85)
-                .delay(delay)
+                reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85).delay(delay)
             ) {
                 cardOffsets[index] = true
             }
@@ -297,6 +298,7 @@ private struct AccountTypeCard: View {
     let isSelected: Bool
 
     @State private var isPressed: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -360,8 +362,8 @@ private struct AccountTypeCard: View {
             }
         }
         .scaleEffect(isPressed ? 0.975 : 1.0)
-        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isPressed)
-        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
     }
 
     // MARK: Icon Bubble
@@ -400,7 +402,7 @@ private struct AccountTypeCard: View {
                     .frame(width: 24, height: 24)
             }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
     }
 }
 

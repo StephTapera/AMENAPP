@@ -19,6 +19,7 @@ struct CrisisBereanModule: View {
     @Bindable var viewModel: CrisisSupportViewModel
     @State private var userInput: String = ""
     @FocusState private var inputFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,7 +33,7 @@ struct CrisisBereanModule: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
-        .animation(CrisisAnimationTokens.bereanReveal, value: viewModel.bereanEscalationVisible)
+        .animation(reduceMotion ? .none : CrisisAnimationTokens.bereanReveal, value: viewModel.bereanEscalationVisible)
     }
 
     // MARK: - Berean Card
@@ -60,7 +61,7 @@ struct CrisisBereanModule: View {
                 .foregroundStyle(.white.opacity(0.90))
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
-                .animation(CrisisAnimationTokens.bereanReveal, value: viewModel.bereanPrompt)
+                .animation(reduceMotion ? .none : CrisisAnimationTokens.bereanReveal, value: viewModel.bereanPrompt)
 
             // Quick actions
             quickActionsRow
@@ -219,7 +220,7 @@ struct CrisisBereanModule: View {
         let text = userInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         viewModel.bereanQuickAction(text)
-        withAnimation(CrisisAnimationTokens.bereanReveal) {
+        withAnimation(reduceMotion ? nil : CrisisAnimationTokens.bereanReveal) {
             userInput = ""
         }
         inputFocused = false
@@ -232,6 +233,7 @@ private struct BereanQuickActionPill: View {
     let label: String
     let onTap: () -> Void
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -246,7 +248,7 @@ private struct BereanQuickActionPill: View {
                         .overlay(Capsule().stroke(.white.opacity(0.12), lineWidth: 0.6))
                 )
                 .scaleEffect(isPressed ? 0.96 : 1.0)
-                .animation(.interactiveSpring(response: 0.20, dampingFraction: 0.70), value: isPressed)
+                .animation(reduceMotion ? .none : .interactiveSpring(response: 0.20, dampingFraction: 0.70), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(

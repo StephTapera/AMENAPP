@@ -85,6 +85,8 @@ struct SeasonDiscernmentBandView: View {
     @Binding var selectedSeason: WalkSpiritualSeason?
     let onBereanTap: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let ink   = Color(red: 0.10, green: 0.09, blue: 0.09)
     private let slate = Color(red: 0.38, green: 0.38, blue: 0.40)
     private let warm  = Color(red: 0.62, green: 0.48, blue: 0.30)
@@ -125,7 +127,7 @@ struct SeasonDiscernmentBandView: View {
                             season: season,
                             isSelected: selectedSeason == season
                         ) {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.75)) {
                                 selectedSeason = selectedSeason == season ? nil : season
                             }
                         }
@@ -325,6 +327,8 @@ struct SundayApplicationCard: View {
     @StateObject private var vm = SundayApplicationViewModel()
     let onBereanTap: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let ink   = Color(red: 0.10, green: 0.09, blue: 0.09)
     private let slate = Color(red: 0.38, green: 0.38, blue: 0.40)
     private let warm  = Color(red: 0.62, green: 0.48, blue: 0.30)
@@ -420,7 +424,7 @@ struct SundayApplicationCard: View {
                                     : 0,
                                 height: 4
                             )
-                            .animation(.easeOut(duration: 0.4), value: completedCount)
+                            .animation(reduceMotion ? .none : .easeOut(duration: 0.4), value: completedCount)
                     }
                 }
                 .frame(height: 4)
@@ -466,6 +470,8 @@ private struct ApplicationStepRow: View {
     let isComplete: Bool
     let onToggle: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let ink   = Color(red: 0.10, green: 0.09, blue: 0.09)
     private let slate = Color(red: 0.38, green: 0.38, blue: 0.40)
     private let warm  = Color(red: 0.62, green: 0.48, blue: 0.30)
@@ -487,7 +493,7 @@ private struct ApplicationStepRow: View {
                             .foregroundStyle(slate)
                     }
                 }
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isComplete)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isComplete)
 
                 Text(text)
                     .font(.systemScaled(13))
@@ -495,7 +501,7 @@ private struct ApplicationStepRow: View {
                     .strikethrough(isComplete, color: slate.opacity(0.5))
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .animation(.easeOut(duration: 0.2), value: isComplete)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: isComplete)
 
                 Spacer()
             }
@@ -705,6 +711,7 @@ final class FaithfulFollowThroughViewModel: ObservableObject {
 struct FaithfulFollowThroughPlannerSheet: View {
     @ObservedObject var vm: FaithfulFollowThroughViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let onBereanTap: (String) -> Void
 
     @State private var commitment = ""
@@ -809,7 +816,7 @@ struct FaithfulFollowThroughPlannerSheet: View {
             ) {
                 ForEach(FollowThroughArea.allCases, id: \.self) { area in
                     AreaChip(area: area, isSelected: selectedArea == area) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7)) {
                             selectedArea = area
                         }
                     }
@@ -828,7 +835,7 @@ struct FaithfulFollowThroughPlannerSheet: View {
             HStack(spacing: 8) {
                 ForEach(FollowThroughFrequency.allCases, id: \.self) { freq in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7)) {
                             selectedFrequency = freq
                         }
                     } label: {
@@ -954,7 +961,7 @@ struct FaithfulFollowThroughPlannerSheet: View {
             reminderEnabled: reminderEnabled
         )
         await vm.savePlan(plan)
-        withAnimation { isSaved = true }
+        withAnimation(reduceMotion ? nil : .default) { isSaved = true }
         try? await Task.sleep(nanoseconds: 1_200_000_000)
         dismiss()
     }
@@ -1074,6 +1081,7 @@ private struct FollowThroughPlanRow: View {
     let onBerean: () -> Void
 
     @State private var tappedToday = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let ink   = Color(red: 0.10, green: 0.09, blue: 0.09)
     private let slate = Color(red: 0.38, green: 0.38, blue: 0.40)
@@ -1113,7 +1121,7 @@ private struct FollowThroughPlanRow: View {
             Spacer()
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7)) {
                     tappedToday = true
                 }
                 onCheckOff()

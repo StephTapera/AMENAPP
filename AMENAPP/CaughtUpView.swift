@@ -182,6 +182,8 @@ struct CaughtUpCard: View {
 struct AnimatedCheckRing: View {
     var appeared: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var ringProgress: CGFloat = 0
     @State private var checkOpacity: Double = 0
     @State private var checkScale: CGFloat = 0.5
@@ -229,7 +231,7 @@ struct AnimatedCheckRing: View {
         .onChange(of: appeared) { _, isAppeared in
             guard isAppeared else { return }
             // Draw ring first
-            withAnimation(.easeOut(duration: 0.55)) {
+            withAnimation(reduceMotion ? .none : .easeOut(duration: 0.55)) {
                 ringProgress = 1.0
             }
             // Then pop the check
@@ -248,6 +250,8 @@ struct AnimatedCheckRing: View {
 struct RapidRefreshNudgeBanner: View {
     @Binding var isVisible: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         nudgeBanner(
             icon: "arrow.clockwise",
@@ -256,7 +260,7 @@ struct RapidRefreshNudgeBanner: View {
         )
         .opacity(isVisible ? 1 : 0)
         .offset(y: isVisible ? 0 : -20)
-        .animation(.spring(response: 0.38, dampingFraction: 0.78), value: isVisible)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.78), value: isVisible)
     }
 }
 
@@ -267,6 +271,8 @@ struct DeepScrollNudgeBanner: View {
     @Binding var isVisible: Bool
     var onDismiss: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         nudgeBanner(
             icon: "hand.raised.fill",
@@ -276,7 +282,7 @@ struct DeepScrollNudgeBanner: View {
         )
         .opacity(isVisible ? 1 : 0)
         .offset(y: isVisible ? 0 : -20)
-        .animation(.spring(response: 0.38, dampingFraction: 0.78), value: isVisible)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.78), value: isVisible)
     }
 }
 
@@ -446,10 +452,12 @@ private struct VisibilityPreferenceKey: PreferenceKey {
 // MARK: - Button style
 
 private struct CaughtUpPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .opacity(configuration.isPressed ? 0.75 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }

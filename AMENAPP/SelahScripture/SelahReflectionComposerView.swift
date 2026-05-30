@@ -15,6 +15,7 @@ struct SelahReflectionComposerView: View {
     @ObservedObject var viewModel: SelahReflectionViewModel
     let verseReference: String
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: Local UI state
     @State private var showSavedToast: Bool = false
@@ -72,7 +73,7 @@ struct SelahReflectionComposerView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 .ignoresSafeArea(edges: .bottom)
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSavedToast)
+                .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: showSavedToast)
             }
         }
         .background(.regularMaterial)
@@ -91,7 +92,7 @@ struct SelahReflectionComposerView: View {
         .onChange(of: viewModel.savedSuccessfully) { _, newValue in
             guard newValue else { return }
             dismissTask?.cancel()
-            withAnimation { showSavedToast = true }
+            withAnimation(reduceMotion ? nil : .default) { showSavedToast = true }
             dismissTask = Task {
                 try? await Task.sleep(for: .seconds(1.5))
                 guard !Task.isCancelled else { return }
@@ -189,7 +190,7 @@ struct SelahReflectionComposerView: View {
                 )
                 .accessibilityIdentifier("reflection.partnerIdField")
                 .transition(.opacity.combined(with: .move(edge: .top)))
-                .animation(.easeInOut(duration: 0.2), value: viewModel.shareScope)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: viewModel.shareScope)
             }
 
             if viewModel.shareScope == .namedGroup {
@@ -207,7 +208,7 @@ struct SelahReflectionComposerView: View {
                 )
                 .accessibilityIdentifier("reflection.groupIdField")
                 .transition(.opacity.combined(with: .move(edge: .top)))
-                .animation(.easeInOut(duration: 0.2), value: viewModel.shareScope)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: viewModel.shareScope)
             }
         }
     }

@@ -49,6 +49,8 @@ struct SocialComposerAudienceSheet: View {
     @Binding var crossPostDestinations: [CrossPostDestination]
     var onDone: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // Pre-populate cross-post destinations the first time the sheet appears
     // if the caller passed an empty array (convenience fallback).
     private let defaultDestinations: [CrossPostDestination] = [
@@ -140,7 +142,7 @@ struct SocialComposerAudienceSheet: View {
                     label: option.displayName,
                     isSelected: audience == option
                 ) {
-                    withAnimation(Motion.springPress) {
+                    withAnimation(reduceMotion ? nil : Motion.springPress) {
                         audience = option
                     }
                     UISelectionFeedbackGenerator().selectionChanged()
@@ -161,7 +163,7 @@ struct SocialComposerAudienceSheet: View {
                     label: option.displayName,
                     isSelected: replyPolicy == option
                 ) {
-                    withAnimation(Motion.springPress) {
+                    withAnimation(reduceMotion ? nil : Motion.springPress) {
                         replyPolicy = option
                         // Reset review toggle if opening to anyone
                         if option == .anyone {
@@ -212,7 +214,7 @@ struct SocialComposerAudienceSheet: View {
             .frame(minHeight: 52)
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(Motion.springPress) {
+                withAnimation(reduceMotion ? nil : Motion.springPress) {
                     reviewAndApprove.toggle()
                 }
             }
@@ -264,6 +266,7 @@ private struct AudiencePickerRow: View {
     let onTap: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -277,7 +280,7 @@ private struct AudiencePickerRow: View {
                                 : AmenTheme.Colors.textSecondary.opacity(0.08)
                         )
                         .frame(width: 28, height: 28)
-                        .animation(Motion.springPress, value: isSelected)
+                        .animation(reduceMotion ? .none : Motion.springPress, value: isSelected)
 
                     Image(systemName: icon)
                         .font(.system(size: 13, weight: .semibold))
@@ -286,7 +289,7 @@ private struct AudiencePickerRow: View {
                                 ? AmenTheme.Colors.amenBlue
                                 : AmenTheme.Colors.textSecondary
                         )
-                        .animation(Motion.springPress, value: isSelected)
+                        .animation(reduceMotion ? .none : Motion.springPress, value: isSelected)
                 }
 
                 // Label
@@ -311,7 +314,7 @@ private struct AudiencePickerRow: View {
                     ? AmenTheme.Colors.pressedOverlay
                     : Color.clear
             )
-            .animation(Motion.springPress, value: isPressed)
+            .animation(reduceMotion ? .none : Motion.springPress, value: isPressed)
         }
         .buttonStyle(AmenPressStyle(scale: 0.985))
         .accessibilityLabel(label)

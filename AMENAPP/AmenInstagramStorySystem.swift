@@ -306,6 +306,7 @@ final class InstagramStoryShareManager {
 struct AmenStoryShareView: View {
     let content: AmenStoryContent
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedStyle: AmenStoryStyle = .glassCard
     @State private var showLogo = true
@@ -434,8 +435,8 @@ struct AmenStoryShareView: View {
                 )
                 .offset(y: cardOffset)
                 .opacity(cardOpacity)
-                .animation(.spring(response: 0.55, dampingFraction: 0.82), value: cardOffset)
-                .animation(.easeOut(duration: 0.38), value: cardOpacity)
+                .animation(reduceMotion ? .none : .spring(response: 0.55, dampingFraction: 0.82), value: cardOffset)
+                .animation(reduceMotion ? .none : .easeOut(duration: 0.38), value: cardOpacity)
 
             // Specular highlight sweep
             if sweepProgress >= 0 {
@@ -450,7 +451,7 @@ struct AmenStoryShareView: View {
                     .frame(width: previewW, height: previewH)
                     .offset(x: (sweepProgress - 0.5) * previewW * 2.4)
                     .clipped()
-                    .animation(.easeInOut(duration: 0.65), value: sweepProgress)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.65), value: sweepProgress)
                     .allowsHitTesting(false)
             }
         }
@@ -567,14 +568,14 @@ struct AmenStoryShareView: View {
     }
 
     private func runEntranceAnimation() {
-        withAnimation {
+        withAnimation(reduceMotion ? nil : .default) {
             cardOffset  = 0
             cardOpacity = 1
         }
         // Specular sweep after card settles
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
             sweepProgress = 0
-            withAnimation(.easeInOut(duration: 0.65)) { sweepProgress = 1 }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.65)) { sweepProgress = 1 }
         }
     }
 
@@ -618,9 +619,9 @@ struct AmenStoryShareView: View {
             return
         }
         InstagramStoryShareManager.shared.saveToPhotos(image: image)
-        withAnimation { savedSuccess = true; isSaving = false }
+        withAnimation(reduceMotion ? nil : .default) { savedSuccess = true; isSaving = false }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-            withAnimation { savedSuccess = false }
+            withAnimation(reduceMotion ? nil : .default) { savedSuccess = false }
         }
     }
 }

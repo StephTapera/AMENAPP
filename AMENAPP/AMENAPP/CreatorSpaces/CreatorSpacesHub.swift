@@ -8,6 +8,7 @@ struct CreatorSpacesHub: View {
     @State private var selectedMode: CSCaptureMode? = nil
     @State private var showCapture = false
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -29,7 +30,7 @@ struct CreatorSpacesHub: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.82).delay(0.05)) {
+            withAnimation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.82).delay(0.05)) {
                 appeared = true
             }
             CreatorSpacesAnalytics.track(.creatorSpaceJoined, parameters: ["surface": "creator_hub"])
@@ -100,7 +101,7 @@ struct CreatorSpacesHub: View {
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 14)
                         .animation(
-                            .spring(response: 0.44, dampingFraction: 0.84)
+                            reduceMotion ? .none : .spring(response: 0.44, dampingFraction: 0.84)
                             .delay(0.08 + Double(index) * 0.06),
                             value: appeared
                         )
@@ -183,7 +184,7 @@ struct CreatorSpacesHub: View {
             emptyCreationsCard
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 10)
-                .animation(.spring(response: 0.44, dampingFraction: 0.84).delay(0.28), value: appeared)
+                .animation(reduceMotion ? .none : .spring(response: 0.44, dampingFraction: 0.84).delay(0.28), value: appeared)
         }
     }
 
@@ -210,11 +211,13 @@ struct CreatorSpacesHub: View {
 // MARK: - Button Style
 
 private struct CreatorCardButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.92 : 1.0)
-            .animation(.spring(response: 0.22, dampingFraction: 0.82), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.82), value: configuration.isPressed)
     }
 }
 

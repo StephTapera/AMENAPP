@@ -158,6 +158,7 @@ struct AMENResourcesHubView: View {
     @State private var scrollOffset: CGFloat = 0
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - Computed item list
 
@@ -267,9 +268,9 @@ struct AMENResourcesHubView: View {
         .navigationDestination(item: $selectedEntry) { entry in
             AMENResourceDetailView(entry: entry)
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSearchActive)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedMode)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: vm.selectedCategory)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: isSearchActive)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: selectedMode)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: vm.selectedCategory)
     }
 
     // MARK: - Saved Resources Persistence
@@ -641,12 +642,12 @@ struct AMENResourcesHubView: View {
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     if tab == .search {
-                        withAnimation { isSearchActive.toggle() }
+                        withAnimation(reduceMotion ? nil : .default) { isSearchActive.toggle() }
                         if isSearchActive { searchFocused = true }
                         else { searchFocused = false; searchText = ""; vm.searchText = "" }
                     } else {
                         if isSearchActive {
-                            withAnimation { isSearchActive = false }
+                            withAnimation(reduceMotion ? nil : .default) { isSearchActive = false }
                             searchFocused = false
                             searchText = ""
                             vm.searchText = ""
@@ -721,6 +722,8 @@ private struct StackingMediaCard: View {
     let onTap: () -> Void
     let onPlay: () -> Void
     let onSave: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var cardScale: CGFloat = 1.0
     @State private var isPressed = false
@@ -869,7 +872,7 @@ private struct StackingMediaCard: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     if !isPressed {
-                        withAnimation(.easeOut(duration: 0.1)) { isPressed = true }
+                        withAnimation(reduceMotion ? .none : .easeOut(duration: 0.1)) { isPressed = true }
                     }
                 }
                 .onEnded { _ in
@@ -920,6 +923,8 @@ private struct StackingMediaCard: View {
 // MARK: - Dark Shimmer Modifier
 
 private struct DarkShimmerModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var phase: CGFloat = -1
 
     func body(content: Content) -> some View {
@@ -940,7 +945,7 @@ private struct DarkShimmerModifier: ViewModifier {
         )
         .clipped()
         .onAppear {
-            withAnimation(.linear(duration: 1.6).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? .none : .linear(duration: 1.6).repeatForever(autoreverses: false)) {
                 phase = 1
             }
         }

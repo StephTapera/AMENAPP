@@ -36,6 +36,8 @@ struct BereanPostAssistBar: View {
     let onVerseChipTapped: (String) -> Void
     let onAskBerean: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var assistance: PostCreationAssistance?
     @State private var isAnalyzing = false
     @State private var debounceTask: Task<Void, Never>?
@@ -92,7 +94,7 @@ struct BereanPostAssistBar: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.80), value: visible)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.80), value: visible)
         .onChange(of: text) { _, newText in
             scheduleAnalysis(newText)
         }
@@ -101,7 +103,7 @@ struct BereanPostAssistBar: View {
     private func scheduleAnalysis(_ text: String) {
         debounceTask?.cancel()
         guard text.count > 20 else {
-            withAnimation { visible = false }
+            withAnimation(reduceMotion ? nil : .default) { visible = false }
             return
         }
         debounceTask = Task {
@@ -114,7 +116,7 @@ struct BereanPostAssistBar: View {
     private func analyze(_ text: String) async {
         isAnalyzing = true
         assistance = await core.assistPostCreation(text: text, userId: userId)
-        withAnimation { visible = true }
+        withAnimation(reduceMotion ? nil : .default) { visible = true }
         isAnalyzing = false
     }
 
@@ -419,6 +421,8 @@ struct BereanPrayerAssistBar: View {
     let userId: String?
     let onAskBerean: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var intelligence: PrayerRequestIntelligence?
     @State private var showCrisisCard = false
     @State private var debounceTask: Task<Void, Never>?
@@ -463,7 +467,7 @@ struct BereanPrayerAssistBar: View {
         .onChange(of: text) { _, newText in
             scheduleAnalysis(newText)
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.80), value: showCrisisCard)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.80), value: showCrisisCard)
     }
 
     private func scheduleAnalysis(_ text: String) {
@@ -475,7 +479,7 @@ struct BereanPrayerAssistBar: View {
             let result = await core.processPrayerRequest(text: text, userId: userId)
             await MainActor.run {
                 intelligence = result
-                withAnimation {
+                withAnimation(reduceMotion ? nil : .default) {
                     showCrisisCard = result.crisisDetected
                 }
             }
@@ -533,6 +537,8 @@ struct BereanCommentToneHint: View {
     let text: String
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var toneTag: String?
     @State private var debounceTask: Task<Void, Never>?
 
@@ -559,7 +565,7 @@ struct BereanCommentToneHint: View {
                 .transition(.scale(scale: 0.85).combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.30, dampingFraction: 0.75), value: toneTag)
+        .animation(reduceMotion ? .none : .spring(response: 0.30, dampingFraction: 0.75), value: toneTag)
         .onChange(of: text) { _, newText in
             scheduleToneCheck(newText)
         }
@@ -573,7 +579,7 @@ struct BereanCommentToneHint: View {
             guard !Task.isCancelled else { return }
             let tag = await SemanticTopicService.shared.extractTagsFast(from: text).first(where: { $0.hasPrefix("tone:") })
             await MainActor.run {
-                withAnimation { toneTag = tag }
+                withAnimation(reduceMotion ? nil : .default) { toneTag = tag }
             }
         }
     }
@@ -589,6 +595,8 @@ struct BereanContextualEntryPoint: View {
     let userId: String?
     let onPromptSelected: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var isExpanded = false
     @State private var prompts: [String] = []
 
@@ -600,7 +608,7 @@ struct BereanContextualEntryPoint: View {
                     ForEach(prompts.prefix(3), id: \.self) { prompt in
                         Button {
                             onPromptSelected(prompt)
-                            withAnimation { isExpanded = false }
+                            withAnimation(reduceMotion ? nil : .default) { isExpanded = false }
                         } label: {
                             Text(prompt)
                                 .font(.systemScaled(13, weight: .medium))
