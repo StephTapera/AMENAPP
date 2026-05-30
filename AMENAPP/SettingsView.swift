@@ -11,6 +11,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 // MARK: - Design Tokens
 
