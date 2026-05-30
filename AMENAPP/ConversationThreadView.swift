@@ -200,6 +200,7 @@ struct ConversationThreadView: View {
     @State private var showSortPicker = false
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Sorted replies based on current sort mode
     private var sortedComments: [CommentWithReplies] {
@@ -271,14 +272,14 @@ struct ConversationThreadView: View {
                                 ThreadReflectionCard(
                                     onContinue: {
                                         let cid = item.comment.id ?? ""
-                                        withAnimation(Animation.linear(duration: 0.2)) {
+                                        withAnimation(reduceMotion ? nil : Animation.linear(duration: 0.2)) {
                                             _ = reflectionTriggerIds.remove(cid)
                                         }
                                     },
                                     onPray: {
                                         onBerean("Lead me in a brief prayer of reflection.")
                                         let cid = item.comment.id ?? ""
-                                        withAnimation(Animation.linear(duration: 0.2)) {
+                                        withAnimation(reduceMotion ? nil : Animation.linear(duration: 0.2)) {
                                             _ = reflectionTriggerIds.remove(cid)
                                         }
                                     }
@@ -490,6 +491,7 @@ struct ThreadReplyRow: View {
     @State private var isTextSelecting = false
     @State private var activeCommentSheet: CommentSheet?
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var badges: [ThreadWisdomBadge] { WisdomRankingService.badges(for: comment) }
     private var isOwn: Bool { comment.authorId == Auth.auth().currentUser?.uid }
@@ -626,7 +628,7 @@ struct ThreadReplyRow: View {
                                 Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
                                     .font(.systemScaled(14))
                                     .scaleEffect(hasAmened ? 1.15 : 1.0)
-                                    .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
+                                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
                                 if localAmenCount > 0 {
                                     Text("\(localAmenCount)")
                                         .font(.systemScaled(13))
@@ -924,6 +926,7 @@ private struct ThreadReplyBranchRow: View {
     @State private var textSelection: PostTextSelection?
     @State private var isTextSelecting = false
     @State private var activeCommentSheet: CommentSheet?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private enum CommentSheet: Identifiable {
         case quoteComposer(QuoteComposerContext)
@@ -1041,7 +1044,7 @@ private struct ThreadReplyBranchRow: View {
                             Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
                                 .font(.systemScaled(12))
                                 .scaleEffect(hasAmened ? 1.15 : 1.0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
+                                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
                             if localAmenCount > 0 {
                                 Text("\(localAmenCount)")
                                     .font(.systemScaled(11))
@@ -1196,6 +1199,7 @@ private struct ThreadConnectorLine: View {
     let isExpanded: Bool
 
     @State private var lineHeight: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -1219,7 +1223,7 @@ private struct ThreadConnectorLine: View {
                     )
                     .frame(width: 2)
                     .frame(height: isExpanded ? max(lineHeight, geo.size.height) : 24)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.75), value: isExpanded)
+                    .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.75), value: isExpanded)
             }
             .onAppear { lineHeight = geo.size.height }
         }
@@ -1438,6 +1442,7 @@ struct ThreadComposerView: View {
     @State private var deescalationOverride = false
     @State private var analysisTask: Task<Void, Never>? = nil
     @State private var isSubmitting = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var canPost: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSubmitting
@@ -1479,7 +1484,7 @@ struct ThreadComposerView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
-                        withAnimation {
+                        withAnimation(reduceMotion ? nil : .default) {
                             replyingToUsername = nil
                             text = text.hasPrefix("@\(username) ")
                                 ? String(text.dropFirst("@\(username) ".count))
@@ -1544,7 +1549,7 @@ struct ThreadComposerView: View {
                         .frame(width: 34, height: 34)
                         .background(canPost ? Color(red: 0.78, green: 0.50, blue: 0.18) : Color(.systemGray4),
                                     in: Circle())
-                        .animation(.easeInOut(duration: 0.15), value: canPost)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: canPost)
                 }
                 .buttonStyle(.plain)
                 .disabled(!canPost)
@@ -1578,6 +1583,7 @@ private struct ThreadSkeletonRow: View {
     let depth: Int // 0 = root, 1 = nested
 
     @State private var phase: CGFloat = -1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -1608,7 +1614,7 @@ private struct ThreadSkeletonRow: View {
             }
         }
         .onAppear {
-            withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 1.3).repeatForever(autoreverses: false)) {
                 phase = 1.4
             }
         }

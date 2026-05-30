@@ -31,6 +31,7 @@ struct SearchExpandBar: View {
     var onSelectResult: (DiscoverySearchResult) -> Void
     var onClose: () -> Void
     var scrollProgress: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Layout
     @State private var barState: SearchBarState = .collapsed
@@ -67,7 +68,7 @@ struct SearchExpandBar: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(.spring(response: 0.38, dampingFraction: 0.78), value: showDropdown)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.78), value: showDropdown)
         .onChange(of: query) { _, newVal in
             scheduleSearch(newVal)
             withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
@@ -119,7 +120,7 @@ struct SearchExpandBar: View {
                 .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
                 .scaleEffect(fieldFocused ? 1.06 : 1.0)
-                .animation(.spring(response: 0.48, dampingFraction: 0.82), value: fieldFocused)
+                .animation(reduceMotion ? .none : .spring(response: 0.48, dampingFraction: 0.82), value: fieldFocused)
                 .frame(width: 36, height: 44)
                 .padding(.leading, 4)
 
@@ -178,7 +179,7 @@ struct SearchExpandBar: View {
                     y: fieldFocused ? 10 : 4
                 )
                 .offset(y: fieldFocused ? -2 : 0)
-                .animation(.spring(response: 0.48, dampingFraction: 0.82), value: fieldFocused)
+                .animation(reduceMotion ? .none : .spring(response: 0.48, dampingFraction: 0.82), value: fieldFocused)
                 .opacity(1.0 - 0.04 * glassProgress)
         )
         .scaleEffect(1.0 - 0.012 * glassProgress)

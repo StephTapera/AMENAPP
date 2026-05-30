@@ -12,6 +12,7 @@ import FirebaseAuth
 
 struct WriterNoteView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var notesService: ChurchNotesService
     
     @State private var title = ""
@@ -173,7 +174,7 @@ struct WriterNoteView: View {
                 .shadow(color: canSave ? Color.blue.opacity(0.3) : Color.black.opacity(0.05), radius: 12, y: 6)
             }
             .disabled(!canSave || isSaving)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: canSave)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: canSave)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
@@ -218,7 +219,7 @@ struct WriterNoteView: View {
                 .focused($focusedField, equals: .title)
                 .padding(.horizontal, 20)
                 .padding(.vertical, title.isEmpty ? 8 : 24)
-                .animation(.easeInOut(duration: 0.2), value: title.isEmpty)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: title.isEmpty)
         }
     }
     
@@ -458,7 +459,8 @@ struct CleanTextField: View {
     @Binding var text: String
     var focusedField: FocusState<WriterNoteView.Field?>.Binding
     let field: WriterNoteView.Field
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var isFocused: Bool {
         focusedField.wrappedValue == field
     }
@@ -490,7 +492,7 @@ struct CleanTextField: View {
                     lineWidth: isFocused ? 2 : 1
                 )
         )
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
     }
 }
 

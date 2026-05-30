@@ -11,6 +11,7 @@ import AVFoundation
 struct VoiceToWisdomView: View {
     @StateObject var viewModel: VoiceToWisdomViewModel
     @Binding var noteBody: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isExpanded: Bool = false
 
@@ -31,8 +32,8 @@ struct VoiceToWisdomView: View {
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: viewModel.isRecording)
-        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: viewModel.isProcessing)
+        .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7), value: viewModel.isRecording)
+        .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7), value: viewModel.isProcessing)
         .onDisappear { viewModel.cleanup() }
     }
 
@@ -76,7 +77,7 @@ struct VoiceToWisdomView: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(Color.amenEmerald)
                         .frame(width: 3, height: height)
-                        .animation(.spring(response: 0.25, dampingFraction: 0.5), value: height)
+                        .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.5), value: height)
                 }
             }
             .frame(height: 36)
@@ -150,6 +151,7 @@ struct VoiceToWisdomView: View {
 
 private struct ProcessingShimmerCard: View {
     @State private var shimmerOffset: CGFloat = -180
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -186,7 +188,7 @@ private struct ProcessingShimmerCard: View {
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.amenEmerald.opacity(0.15), lineWidth: 1))
         )
         .onAppear {
-            withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 1.2).repeatForever(autoreverses: false)) {
                 shimmerOffset = 320
             }
         }

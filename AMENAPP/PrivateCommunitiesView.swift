@@ -11,6 +11,7 @@ import SwiftUI
 
 struct PrivateCommunitiesView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab: CommunityTab = .discover
     @State private var searchText = ""
     @State private var showCreateCommunity = false
@@ -150,7 +151,7 @@ struct PrivateCommunitiesView: View {
                         }
                     }
                     .padding(.vertical, 20)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: selectedTab)
+                    .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: selectedTab)
                 }
             }
             .blur(radius: showOnboarding ? 10 : 0)
@@ -433,7 +434,7 @@ struct PrivateCommunitiesView: View {
             
             if !searchText.isEmpty {
                 Button {
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         searchText = ""
                     }
                 } label: {
@@ -450,7 +451,7 @@ struct PrivateCommunitiesView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
     }
-    
+
     // MARK: - Tab Selector
     private var tabSelector: some View {
         HStack(spacing: 0) {
@@ -1080,7 +1081,8 @@ let allCommunities = [
 struct CommunityOnboardingView: View {
     let onComplete: () -> Void
     let onSkip: () -> Void
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var currentPage = 0
     @State private var isAnimating = false
     
@@ -1157,7 +1159,7 @@ struct CommunityOnboardingView: View {
                         Capsule()
                             .fill(currentPage == index ? Color.white : Color.white.opacity(0.3))
                             .frame(width: currentPage == index ? 24 : 8, height: 8)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentPage)
+                            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: currentPage)
                     }
                 }
                 .padding(.vertical, 20)
@@ -1237,6 +1239,7 @@ struct OnboardingPage {
 struct OnboardingPageView: View {
     let page: OnboardingPage
     @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(spacing: 32) {
@@ -1258,7 +1261,7 @@ struct OnboardingPageView: View {
                     .frame(width: 200, height: 200)
                     .scaleEffect(isAnimating ? 1.1 : 0.9)
                     .animation(
-                        Animation.easeInOut(duration: 2)
+                        reduceMotion ? .none : Animation.easeInOut(duration: 2)
                             .repeatForever(autoreverses: true),
                         value: isAnimating
                     )
@@ -2609,6 +2612,7 @@ struct EngagementChartView: View {
 // MARK: - Event Calendar View
 struct EventCalendarView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedDate = Date()
     @State private var showCreateEvent = false
     @State private var selectedEventType: EventType = .all
@@ -2671,7 +2675,7 @@ struct EventCalendarView: View {
                     
                     if !searchText.isEmpty {
                         Button {
-                            withAnimation {
+                            withAnimation(reduceMotion ? nil : .default) {
                                 searchText = ""
                             }
                         } label: {
@@ -2687,7 +2691,7 @@ struct EventCalendarView: View {
                 )
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
-                
+
                 // Event type filter
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -2731,7 +2735,7 @@ struct EventCalendarView: View {
                         
                         HStack(spacing: 12) {
                             Button {
-                                withAnimation {
+                                withAnimation(reduceMotion ? nil : .default) {
                                     selectedDate = Calendar.current.date(byAdding: .month, value: -1, to: selectedDate) ?? selectedDate
                                 }
                             } label: {
@@ -2741,9 +2745,9 @@ struct EventCalendarView: View {
                                     .frame(width: 32, height: 32)
                                     .background(Circle().fill(Color(.systemGray6)))
                             }
-                            
+
                             Button {
-                                withAnimation {
+                                withAnimation(reduceMotion ? nil : .default) {
                                     selectedDate = Calendar.current.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
                                 }
                             } label: {

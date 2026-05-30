@@ -21,6 +21,7 @@ import SwiftUI
 struct AgeGateView: View {
     @Binding var isEligible: Bool
     @AppStorage("hasCompletedAgeVerification") private var hasCompletedAgeVerification = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var birthDate = Calendar.current.date(
         byAdding: .year, value: -16, to: Date()
@@ -42,13 +43,13 @@ struct AgeGateView: View {
                     .foregroundStyle(.indigo)
                     .opacity(appeared ? 1 : 0)
                     .scaleEffect(appeared ? 1 : 0.8)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: appeared)
+                    .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7), value: appeared)
 
                 Text("How old are you?")
                     .font(.title2.bold())
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 12)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1), value: appeared)
+                    .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7).delay(0.1), value: appeared)
 
                 Text("You must be \(AppConfig.Legal.minimumAge) or older to use AMEN")
                     .font(.subheadline)
@@ -57,7 +58,7 @@ struct AgeGateView: View {
                     .padding(.horizontal, 32)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 12)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.15), value: appeared)
+                    .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7).delay(0.15), value: appeared)
             }
 
             DatePicker(
@@ -99,12 +100,12 @@ struct AgeGateView: View {
                     .fill(age >= AppConfig.Legal.minimumAge ? Color.indigo : Color.indigo.opacity(0.35))
             )
             .padding(.horizontal, 24)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: age >= AppConfig.Legal.minimumAge)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: age >= AppConfig.Legal.minimumAge)
 
             Spacer()
         }
         .onAppear {
-            withAnimation { appeared = true }
+            withAnimation(reduceMotion ? nil : .default) { appeared = true }
         }
     }
 }

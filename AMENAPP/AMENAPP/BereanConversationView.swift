@@ -24,6 +24,7 @@ struct BereanConversationView: View {
     @State private var showJourney = false
     @FocusState private var composerFocused: Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let conversationId: String
     let initialPrompt: String?
@@ -173,10 +174,10 @@ struct BereanConversationView: View {
                 .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8)), value: viewModel.messages.count)
             }
             .onChange(of: viewModel.messages.count) { _ in
-                withAnimation { proxy.scrollTo(viewModel.messages.last?.id ?? "loading", anchor: .bottom) }
+                withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(viewModel.messages.last?.id ?? "loading", anchor: .bottom) }
             }
             .onChange(of: viewModel.isLoading) { loading in
-                if loading { withAnimation { proxy.scrollTo("loading", anchor: .bottom) } }
+                if loading { withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo("loading", anchor: .bottom) } }
             }
         }
     }
@@ -455,6 +456,7 @@ struct BereanLeadershipBanner: View {
 
 struct BereanThinkingIndicator: View {
     @State private var phase = 0.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
@@ -474,7 +476,7 @@ struct BereanThinkingIndicator: View {
                         .frame(width: 7, height: 7)
                         .scaleEffect(phase == Double(i) ? 1.4 : 1.0)
                         .animation(
-                            .easeInOut(duration: 0.4).repeatForever().delay(Double(i) * 0.15),
+                            reduceMotion ? .none : .easeInOut(duration: 0.4).repeatForever().delay(Double(i) * 0.15),
                             value: phase
                         )
                 }

@@ -65,6 +65,7 @@ private struct AboutPersonAvatar: View {
 private struct AboutPersonResponseBubble: View {
     let text: String
     let isLoading: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -76,7 +77,7 @@ private struct AboutPersonResponseBubble: View {
                             .frame(width: 7, height: 7)
                             .scaleEffect(isLoading ? 1.0 : 0.6)
                             .animation(
-                                .easeInOut(duration: 0.55)
+                                reduceMotion ? .none : .easeInOut(duration: 0.55)
                                 .repeatForever()
                                 .delay(Double(index) * 0.18),
                                 value: isLoading
@@ -111,6 +112,7 @@ public struct BereanAboutPersonView: View {
     @State private var isLoading = false
     @State private var showOptInError = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let functions = Functions.functions()
 
@@ -211,8 +213,8 @@ public struct BereanAboutPersonView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .animation(.spring(response: 0.45, dampingFraction: 0.8), value: response)
-            .animation(.spring(response: 0.45, dampingFraction: 0.8), value: isLoading)
+            .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.8), value: response)
+            .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.8), value: isLoading)
         }
         .frame(maxWidth: .infinity)
     }
@@ -255,7 +257,7 @@ public struct BereanAboutPersonView: View {
                     .font(.system(size: 32))
                     .foregroundStyle(canSend ? Color.amenGold : Color.secondary.opacity(0.4))
                     .scaleEffect(canSend ? 1.0 : 0.9)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: canSend)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: canSend)
             }
             .disabled(!canSend)
             .accessibilityLabel("Send message")

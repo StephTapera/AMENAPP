@@ -245,6 +245,7 @@ private struct QuickAvatarView: View {
 private struct BreathingAvatarWrapper: View {
     let conversation: ChatConversation
     @State private var animating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isUnread: Bool { conversation.unreadCount > 0 }
 
@@ -274,10 +275,10 @@ private struct BreathingAvatarWrapper: View {
                     Circle()
                         .stroke(Color.black.opacity(animating ? 0.15 : 0), lineWidth: 1)
                         .padding(-9)
-                        .animation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true).delay(0.4), value: animating)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 2.6).repeatForever(autoreverses: true).delay(0.4), value: animating)
                 }
             }
-            .animation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true), value: animating)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 2.6).repeatForever(autoreverses: true), value: animating)
             .onAppear {
                 guard isUnread else { return }
                 animating = true
@@ -417,6 +418,7 @@ private struct ThreadAvatarView: View {
 // Subtle shimmer for skeleton state
 private struct ShimmerView: View {
     @State private var phase: CGFloat = -1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -428,7 +430,7 @@ private struct ShimmerView: View {
             .frame(width: geo.size.width * 2)
             .offset(x: geo.size.width * phase)
             .onAppear {
-                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                withAnimation(reduceMotion ? nil : .linear(duration: 1.4).repeatForever(autoreverses: false)) {
                     phase = 1.0
                 }
             }
@@ -471,6 +473,8 @@ struct InboxEmptyState: View {
     private let amenGold   = Color(red: 0.83, green: 0.69, blue: 0.22)
     private let amenPurple = Color(red: 0.44, green: 0.26, blue: 0.80)
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 20)
@@ -481,12 +485,12 @@ struct InboxEmptyState: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 18)
         .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.78).delay(0.05)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.78).delay(0.05)) {
                 appeared = true
             }
             // Subtle breathing pulse on icon (noMessages only)
             if case .noMessages = mode {
-                withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true).delay(0.6)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 2.2).repeatForever(autoreverses: true).delay(0.6)) {
                     iconPulse = true
                 }
             }
@@ -875,6 +879,7 @@ struct OdometerBadgeView: View {
     let count: Int
     @State private var appeared = false
     @State private var digitKey = UUID()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -892,7 +897,7 @@ struct OdometerBadgeView: View {
                                 .offset(y: appeared ? 0 : 14)
                                 .opacity(appeared ? 1 : 0)
                                 .animation(
-                                    .spring(response: 0.3, dampingFraction: 0.72)
+                                    reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.72)
                                     .delay(Double(idx) * 0.04),
                                     value: digitKey
                                 )
@@ -915,7 +920,7 @@ struct OdometerBadgeView: View {
         }
         .scaleEffect(count > 0 ? 1 : 0)
         .opacity(count > 0 ? 1 : 0)
-        .animation(.spring(response: 0.4, dampingFraction: 0.55), value: count)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.55), value: count)
         .onAppear { appeared = true }
         .onChange(of: count) { _, _ in
             // Re-trigger digit roll on count change

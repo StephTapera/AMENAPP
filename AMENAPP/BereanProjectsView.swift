@@ -104,6 +104,7 @@ private let bereanCollections: [BereanCollection] = [
 
 struct BereanProjectsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onProjectSelected: ((BereanProject) -> Void)? = nil
 
     @State private var projects: [BereanProject] = BereanProjectStore.load()
@@ -401,7 +402,7 @@ struct BereanProjectsView: View {
         }
         Divider()
         Button(role: .destructive) {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 projects.removeAll { $0.id == project.id }
                 BereanProjectStore.save(projects)
             }
@@ -688,6 +689,7 @@ struct BereanProjectDetailView: View {
 
 struct BereanNewProjectSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onCreate: (BereanProject) -> Void
 
     @State private var title = ""
@@ -717,8 +719,8 @@ struct BereanNewProjectSheet: View {
                                 .foregroundStyle(Color.bereanProjectAccent(selectedColorKey))
                         }
                         .padding(.top, 12)
-                        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: selectedColorKey)
-                        .animation(.spring(response: 0.28, dampingFraction: 0.78), value: selectedIconIndex)
+                        .animation(reduceMotion ? .none : .spring(response: 0.30, dampingFraction: 0.78), value: selectedColorKey)
+                        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.78), value: selectedIconIndex)
 
                         // Colour strip
                         HStack(spacing: 12) {
@@ -735,8 +737,8 @@ struct BereanNewProjectSheet: View {
                                             )
                                             .scaleEffect(1.38)
                                     )
-                                    .animation(.spring(response: 0.28, dampingFraction: 0.78), value: isSelected)
-                                    .onTapGesture { withAnimation { selectedColorKey = key } }
+                                    .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.78), value: isSelected)
+                                    .onTapGesture { withAnimation(reduceMotion ? nil : .default) { selectedColorKey = key } }
                             }
                         }
 
@@ -758,8 +760,8 @@ struct BereanNewProjectSheet: View {
                                         )
                                 }
                                 .frame(height: 44)
-                                .animation(.spring(response: 0.26, dampingFraction: 0.78), value: isSelected)
-                                .onTapGesture { withAnimation { selectedIconIndex = i } }
+                                .animation(reduceMotion ? .none : .spring(response: 0.26, dampingFraction: 0.78), value: isSelected)
+                                .onTapGesture { withAnimation(reduceMotion ? nil : .default) { selectedIconIndex = i } }
                             }
                         }
                         .padding(.horizontal, 2)

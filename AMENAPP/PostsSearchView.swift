@@ -18,6 +18,7 @@ struct PostsSearchView: View {
     @State private var searchText = ""
     @State private var selectedCategory: PostCategory = .trending
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     // ✅ HEY FEED: Keyword trigger
     @State private var showHeyFeedControls = false
@@ -207,7 +208,7 @@ struct PostsSearchView: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedCategory)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: selectedCategory)
     }
     
     // MARK: - Search Bar
@@ -224,7 +225,7 @@ struct PostsSearchView: View {
                     .foregroundColor(searchText.lowercased().contains("heyfeed") ? .blue : .white)
                     .autocorrectionDisabled()
                     .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                             isSearchFocused = true
                         }
                     }
@@ -240,7 +241,7 @@ struct PostsSearchView: View {
                     .transition(.scale.combined(with: .opacity))
                 } else if isSearchFocused {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                             isSearchFocused = false
                         }
                     } label: {
@@ -281,8 +282,8 @@ struct PostsSearchView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
-        .animation(.easeInOut(duration: 0.2), value: searchText.isEmpty)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isSearchFocused)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: searchText.isEmpty)
     }
     
     // MARK: - Recent Searches

@@ -64,6 +64,7 @@ enum ONB {
 struct ONBPageDots: View {
     let total: Int
     let current: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
@@ -71,7 +72,7 @@ struct ONBPageDots: View {
                 Capsule()
                     .fill(i == current ? ONB.inkPrimary : ONB.inkRule)
                     .frame(width: i == current ? 20 : 6, height: 6)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.72), value: current)
+                    .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: current)
             }
         }
     }
@@ -208,6 +209,7 @@ struct ONBPrimaryButton: View {
     let action: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: {
@@ -248,13 +250,13 @@ struct ONBPrimaryButton: View {
                     .shadow(color: .black.opacity(0.10), radius: 18, y: 6)
                     .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
                     .opacity(isEnabled ? 1.0 : 0.45)
-                    .animation(.easeInOut(duration: 0.2), value: isEnabled)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isEnabled)
             )
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled || isLoading)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.6), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -482,6 +484,7 @@ struct ONBInputField: View {
     var showPasswordToggle: Bool = false
     @Binding var showPassword: Bool
     @FocusState.Binding var focused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         label: String,
@@ -551,7 +554,7 @@ struct ONBInputField: View {
                     )
             )
             .shadow(color: ONB.glassShadow, radius: 4, y: 1)
-            .animation(.easeInOut(duration: 0.18), value: focused)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.18), value: focused)
         }
     }
 }
