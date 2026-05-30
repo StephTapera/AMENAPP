@@ -150,6 +150,7 @@ enum FriendInterest: String, CaseIterable {
 
 struct FindFriendsView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var vm = FindFriendsViewModel()
 
     var body: some View {
@@ -201,7 +202,7 @@ struct FindFriendsView: View {
         )
         .padding(.horizontal)
         .padding(.top, 12)
-        .animation(.easeInOut(duration: 0.15), value: vm.searchText.isEmpty)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: vm.searchText.isEmpty)
     }
 
     // MARK: Interest filter (visible in suggestions mode only)
@@ -395,6 +396,8 @@ struct CommunityPersonRow: View {
     let isPending: Bool
     let onFollow: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 12) {
             avatar
@@ -516,14 +519,15 @@ struct CommunityPersonRow: View {
         }
         .buttonStyle(.plain)
         .disabled(isPending)
-        .animation(.easeInOut(duration: 0.15), value: isFollowing)
-        .animation(.easeInOut(duration: 0.15), value: isPending)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: isFollowing)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: isPending)
     }
 }
 
 // MARK: - Skeleton row (loading placeholder)
 
 struct CommunityPersonRowSkeleton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmer = false
 
     var body: some View {
@@ -546,7 +550,7 @@ struct CommunityPersonRowSkeleton: View {
         }
         .opacity(shimmer ? 0.4 : 1.0)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                 shimmer = true
             }
         }

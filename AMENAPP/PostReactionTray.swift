@@ -9,6 +9,8 @@ private struct PostReactionBubble: View {
     let isSelected: Bool
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 4) {
@@ -33,7 +35,7 @@ private struct PostReactionBubble: View {
                     )
             )
             .scaleEffect(isSelected ? 1.05 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -48,6 +50,8 @@ struct PostReactionOverlay: View {
 
     @State private var scale: CGFloat = 0.6
     @State private var opacity: Double = 0
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -83,7 +87,7 @@ struct PostReactionOverlay: View {
             .opacity(opacity)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7)) {
                 scale = 1.0
                 opacity = 1.0
             }
@@ -91,7 +95,7 @@ struct PostReactionOverlay: View {
     }
 
     private func dismiss() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.8)) {
             scale = 0.6
             opacity = 0
         }
@@ -110,6 +114,8 @@ struct PostReactionTray: View {
     let reactionCounts: ReactionCounts
     let userReaction: String?
     let onReact: (String?) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var topEmojis: [(emoji: String, count: Int)] {
         reactionCounts
@@ -142,8 +148,8 @@ struct PostReactionTray: View {
                     )
                 }
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: topEmojis.map(\.emoji))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: userReaction)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: topEmojis.map(\.emoji))
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: userReaction)
         }
     }
 }

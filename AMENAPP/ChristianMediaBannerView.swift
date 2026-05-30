@@ -58,6 +58,7 @@ struct ChristianMediaBannerView: View {
     @State private var appeared = false
     /// Drives press depth feedback — set by MediaBannerPressStyle via environment
     @Environment(\.mediaBannerIsPressed) private var isPressed
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -75,12 +76,12 @@ struct ChristianMediaBannerView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 10)
                 .offset(y: isPressed ? 1 : 0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.76), value: isPressed)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.76), value: isPressed)
         }
         .frame(maxWidth: .infinity)
         .frame(height: CMDesign.bannerHeight)
         .scaleEffect(isPressed ? 0.975 : 1.0)
-        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.72), value: isPressed)
         .onAppear {
             withAnimation(Motion.adaptive(.spring(response: 0.72, dampingFraction: 0.82)).delay(0.08)) {
                 appeared = true
@@ -207,6 +208,7 @@ struct ChristianMediaBannerView: View {
 /// Back two are cinematic scene cards; front-most is implicit (the editorial card sits on top).
 struct LayeredMediaPreviewStack: View {
     let appeared: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -327,7 +329,7 @@ struct LayeredMediaPreviewStack: View {
         .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 4)
         .rotationEffect(.degrees(rotation))
         .offset(x: xOffset, y: yOffset)
-        .animation(.spring(response: 0.66, dampingFraction: 0.80).delay(delay), value: appeared)
+        .animation(reduceMotion ? .none : .spring(response: 0.66, dampingFraction: 0.80).delay(delay), value: appeared)
     }
 }
 

@@ -15,6 +15,7 @@ struct ChristianMediaView: View {
     @StateObject private var vm = ChristianMediaViewModel()
     @Namespace private var tabNamespace
     @Namespace private var filterNamespace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var scrollOffset: CGFloat = 0
     @State private var showBereanSheet = false
@@ -95,7 +96,7 @@ struct ChristianMediaView: View {
                 }
                 .coordinateSpace(name: "scroll")
                 .onPreferenceChange(MediaScrollOffsetKey.self) { value in
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         scrollOffset = max(0, -value)
                     }
                 }
@@ -108,7 +109,7 @@ struct ChristianMediaView: View {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .animation(.spring(response: 0.4, dampingFraction: 0.75), value: vm.currentItem?.id)
+                .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75), value: vm.currentItem?.id)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -149,7 +150,7 @@ struct ChristianMediaView: View {
         .padding(.bottom, 8)
         .opacity(heroOpacity)
         .scaleEffect(heroScale)
-        .animation(.easeOut(duration: 0.1), value: scrollOffset)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.1), value: scrollOffset)
     }
 
     // MARK: - Custom Tab Control
@@ -225,7 +226,7 @@ struct ChristianMediaView: View {
             .background(isActive ? accentPurple : Color.primary.opacity(0.08))
             .clipShape(Capsule())
             .scaleEffect(isActive ? 1.05 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isActive)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: isActive)
         }
     }
 

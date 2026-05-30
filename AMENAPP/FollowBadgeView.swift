@@ -12,6 +12,8 @@ struct FollowBadgeView: View {
     /// When true, tapping opens a menu instead of directly following — skips all follow animations.
     var openMenuMode: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var scale: CGFloat = 1.0
     @State private var showRipple = false
     @State private var showToast = false
@@ -26,7 +28,7 @@ struct FollowBadgeView: View {
                     .scaleEffect(showRipple ? 3.2 : 1.0)
                     .opacity(showRipple ? 0 : 0.8)
                     .animation(
-                        showRipple ? .easeOut(duration: 0.55) : .none,
+                        reduceMotion ? .none : (showRipple ? .easeOut(duration: 0.55) : .none),
                         value: showRipple
                     )
             }
@@ -56,10 +58,10 @@ struct FollowBadgeView: View {
                             .opacity(isFollowed ? 1 : 0)
                             .scaleEffect(isFollowed ? 1 : 0.4)
                     }
-                    .animation(openMenuMode ? nil : .spring(response: 0.38, dampingFraction: 0.62), value: isFollowed)
+                    .animation(openMenuMode || reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.62), value: isFollowed)
                 )
                 .scaleEffect(scale)
-                .animation(openMenuMode ? nil : .spring(response: 0.38, dampingFraction: 0.58), value: isFollowed)
+                .animation(openMenuMode || reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.58), value: isFollowed)
         }
         // "Following" toast — only in direct-follow mode
         .overlay(alignment: .top) {
@@ -98,12 +100,12 @@ struct FollowBadgeView: View {
         if aboutToFollow {
             showRipple = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                withAnimation { showRipple = true }
+                withAnimation(reduceMotion ? nil : .default) { showRipple = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showRipple = false }
             }
             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { showToast = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-                withAnimation(.easeOut(duration: 0.3)) { showToast = false }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) { showToast = false }
             }
         }
 

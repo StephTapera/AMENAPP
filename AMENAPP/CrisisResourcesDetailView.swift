@@ -20,6 +20,7 @@ struct CrisisResourcesDetailView: View {
     @State private var breathPhase: BreathPhase = .inhale
     @State private var breathScale: CGFloat = 1.0
     @State private var appeared = false   // materialization gate
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let locale = CrisisResourceResolver.resolve()
 
@@ -101,7 +102,7 @@ struct CrisisResourcesDetailView: View {
         .navigationBarBackButtonHidden(false)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.55).delay(0.08)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.55).delay(0.08)) {
                 appeared = true
             }
         }
@@ -321,7 +322,7 @@ struct CrisisResourcesDetailView: View {
                         .font(.custom("OpenSans-Regular", size: 13))
                         .foregroundStyle(.secondary)
                 }
-                .animation(.easeInOut(duration: breathPhase == .inhale ? 4.0 : breathPhase == .hold ? 0 : 6.0), value: breathScale)
+                .animation(reduceMotion ? .none : .easeInOut(duration: breathPhase == .inhale ? 4.0 : breathPhase == .hold ? 0 : 6.0), value: breathScale)
                 .frame(height: 120)
             }
         }
@@ -510,7 +511,7 @@ struct CrisisResourcesDetailView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 guard breathingActive else { return }
                 breathPhase = .exhale
-                withAnimation(.easeInOut(duration: 6.0)) { breathScale = 1.0 }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 6.0)) { breathScale = 1.0 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 6.5) {
                     startBreathingCycle()
                 }
@@ -526,6 +527,7 @@ private struct SupportSectionCard<Content: View>: View {
     let isExpanded: Bool
     @ViewBuilder let content: () -> Content
     let onToggle: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var accentColor: Color {
         switch section {
@@ -600,7 +602,7 @@ private struct SupportSectionCard<Content: View>: View {
                 )
         )
         .shadow(color: .black.opacity(isExpanded ? 0.07 : 0.04), radius: isExpanded ? 12 : 6, y: 2)
-        .animation(.spring(response: 0.38, dampingFraction: 0.8), value: isExpanded)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.8), value: isExpanded)
     }
 }
 
@@ -837,11 +839,13 @@ private struct QuickContactPill: View {
 // MARK: - Squish Button Style (fluidity)
 
 struct SquishButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .opacity(configuration.isPressed ? 0.88 : 1.0)
-            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 

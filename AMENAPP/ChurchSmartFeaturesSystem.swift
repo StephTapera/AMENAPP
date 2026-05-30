@@ -78,6 +78,7 @@ enum SpiritualNeed: String, CaseIterable, Identifiable {
 struct SpiritualNeedsRouterView: View {
     @Binding var selectedNeeds: Set<SpiritualNeed>
     let onFind: ([SpiritualNeed]) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
@@ -122,7 +123,7 @@ struct SpiritualNeedsRouterView: View {
             }
             .buttonStyle(.plain)
             .disabled(selectedNeeds.isEmpty)
-            .animation(.spring(response: 0.38, dampingFraction: 0.82), value: selectedNeeds.isEmpty)
+            .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: selectedNeeds.isEmpty)
             .padding(.horizontal, 20)
             .padding(.top, 20)
             .padding(.bottom, 4)
@@ -173,7 +174,7 @@ struct SpiritualNeedsRouterView: View {
             .opacity(atMax ? 0.45 : 1.0)
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: isSelected)
     }
 }
 
@@ -449,6 +450,7 @@ struct VisitTogetherView: View {
     @State private var showOpenTableComposer = false
     @State private var showShareCard         = false
     @State private var showSavedConfirm      = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Lightweight church info — avoids coupling to ChurchEntity/ChurchRichProfile
     struct VisitTogetherChurch {
@@ -506,9 +508,9 @@ struct VisitTogetherView: View {
                     detail: church.serviceTime,
                     highlight: false
                 ) {
-                    withAnimation { showSavedConfirm = true }
+                    withAnimation(reduceMotion ? nil : .default) { showSavedConfirm = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        withAnimation { showSavedConfirm = false }
+                        withAnimation(reduceMotion ? nil : .default) { showSavedConfirm = false }
                     }
                 }
                 Divider().padding(.leading, 52)
@@ -609,6 +611,7 @@ struct VisitTogetherView: View {
 struct ChurchInviteComposer: View {
     let church: VisitTogetherView.VisitTogetherChurch
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var messageText: String = ""
     @State private var sent = false
 
@@ -670,7 +673,7 @@ struct ChurchInviteComposer: View {
                     }
 
                     Button {
-                        withAnimation { sent = true }
+                        withAnimation(reduceMotion ? nil : .default) { sent = true }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { dismiss() }
                     } label: {
                         HStack(spacing: 6) {
@@ -708,6 +711,7 @@ struct ChurchInviteComposer: View {
 struct OpenTablePostComposer: View {
     let church: VisitTogetherView.VisitTogetherChurch
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var postText: String = ""
     @State private var posted = false
 
@@ -770,7 +774,7 @@ struct OpenTablePostComposer: View {
                     .padding(.horizontal, 20)
 
                     Button {
-                        withAnimation { posted = true }
+                        withAnimation(reduceMotion ? nil : .default) { posted = true }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { dismiss() }
                     } label: {
                         Text(posted ? "Posted to #OpenTable" : "Post to #OpenTable")
@@ -1019,13 +1023,14 @@ struct LiveChurchIntelligenceView: View {
 // Pulsing animation modifier
 private struct PulsingModifier: ViewModifier {
     @State private var pulsing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .scaleEffect(pulsing ? 1.5 : 1.0)
             .opacity(pulsing ? 0 : 0.6)
             .animation(
-                .easeInOut(duration: 1.2).repeatForever(autoreverses: false),
+                reduceMotion ? .none : .easeInOut(duration: 1.2).repeatForever(autoreverses: false),
                 value: pulsing
             )
             .onAppear { pulsing = true }

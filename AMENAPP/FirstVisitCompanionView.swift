@@ -63,6 +63,7 @@ private struct OutlinePillButton: View {
     var isAccent = false
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pressed = false
 
     var borderColor: Color {
@@ -100,7 +101,7 @@ private struct OutlinePillButton: View {
             .clipShape(Capsule())
             .overlay(Capsule().stroke(borderColor, lineWidth: 1))
             .scaleEffect(pressed ? PVTokens.pressScale : 1.0)
-            .animation(.spring(response: 0.18, dampingFraction: 0.7), value: pressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.18, dampingFraction: 0.7), value: pressed)
         }
         .buttonStyle(.plain)
         ._onButtonGesture(pressing: { p in pressed = p }, perform: {})
@@ -161,6 +162,7 @@ private struct MinimalCalendarView: View {
     @Binding var selectedDate: Date
     let minDate: Date
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var displayMonth: Date = Date()
 
     private let cal = Calendar.current
@@ -217,7 +219,7 @@ private struct MinimalCalendarView: View {
 
                         Button {
                             if !isPast {
-                                withAnimation(PVTokens.expandSpring) {
+                                withAnimation(reduceMotion ? nil : PVTokens.expandSpring) {
                                     selectedDate = date
                                 }
                             }
@@ -278,7 +280,7 @@ private struct MinimalCalendarView: View {
 
     private func shiftMonth(_ delta: Int) {
         if let newMonth = cal.date(byAdding: .month, value: delta, to: displayMonth) {
-            withAnimation(PVTokens.expandSpring) { displayMonth = newMonth }
+            withAnimation(reduceMotion ? nil : PVTokens.expandSpring) { displayMonth = newMonth }
         }
     }
 }
@@ -288,6 +290,7 @@ private struct MinimalCalendarView: View {
 struct FirstVisitCompanionView: View {
     @StateObject private var viewModel = FirstVisitCompanionViewModel()
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let church: VisitCompanionChurch
 
@@ -431,7 +434,7 @@ struct FirstVisitCompanionView: View {
 
     private func toggle(_ section: AccordionSection) {
         let opening = expanded != section
-        withAnimation(PVTokens.expandSpring) {
+        withAnimation(reduceMotion ? nil : PVTokens.expandSpring) {
             expanded = opening ? section : nil
         }
         // Auto-trigger AI visit guide when "What to Expect" opens
@@ -556,7 +559,7 @@ struct FirstVisitCompanionView: View {
                         isAccent: viewModel.visitPlan != nil
                     ) {
                         if viewModel.visitPlan == nil {
-                            withAnimation(PVTokens.expandSpring) { expanded = .service }
+                            withAnimation(reduceMotion ? nil : PVTokens.expandSpring) { expanded = .service }
                         }
                     }
                     if let website = church.website,
@@ -708,7 +711,7 @@ struct FirstVisitCompanionView: View {
             } else {
                 ForEach(Array(church.services.enumerated()), id: \.element.id) { idx, service in
                     Button {
-                        withAnimation(PVTokens.expandSpring) {
+                        withAnimation(reduceMotion ? nil : PVTokens.expandSpring) {
                             viewModel.selectedService = service
                         }
                     } label: {
@@ -872,7 +875,7 @@ struct FirstVisitCompanionView: View {
                         Capsule()
                             .fill(PVTokens.accent)
                             .frame(width: geo.size.width * viewModel.checklist.completionPercentage, height: 4)
-                            .animation(PVTokens.expandSpring, value: viewModel.checklist.completionPercentage)
+                            .animation(reduceMotion ? .none : PVTokens.expandSpring, value: viewModel.checklist.completionPercentage)
                     }
                 }
                 .frame(height: 4)
@@ -883,7 +886,7 @@ struct FirstVisitCompanionView: View {
             // Checklist items
             ForEach(Array(viewModel.checklist.displayItems.enumerated()), id: \.element.key) { idx, item in
                 Button {
-                    withAnimation(PVTokens.expandSpring) {
+                    withAnimation(reduceMotion ? nil : PVTokens.expandSpring) {
                         viewModel.updateChecklistItem(key: item.key, value: !item.isComplete)
                     }
                 } label: {
@@ -1082,7 +1085,7 @@ struct FirstVisitCompanionView: View {
                     .buttonStyle(.plain)
                     .disabled(!isReadyToCreate || viewModel.isLoading)
                     .padding(.horizontal, PVTokens.hPad)
-                    .animation(PVTokens.expandSpring, value: isReadyToCreate)
+                    .animation(reduceMotion ? .none : PVTokens.expandSpring, value: isReadyToCreate)
 
                     if !isReadyToCreate {
                         Text(readinessHint)

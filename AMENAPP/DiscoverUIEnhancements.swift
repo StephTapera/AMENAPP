@@ -15,7 +15,8 @@ struct EnhancedSearchBar: View {
     let placeholder: String
     let onSubmit: () -> Void
     let onClear: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmerPhase: CGFloat = 0
     private let borderColor: Color = Color.white.opacity(0.35)
     
@@ -87,7 +88,7 @@ struct EnhancedSearchBar: View {
         .scaleEffect(isFocused ? 1.005 : 1.0)
         .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72)), value: isFocused)
         .onAppear {
-            withAnimation(.linear(duration: 3.5).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 3.5).repeatForever(autoreverses: false)) {
                 shimmerPhase = 400
             }
         }
@@ -101,7 +102,8 @@ struct EnhancedFilterPill: View {
     let systemImage: String?
     let isActive: Bool
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -151,12 +153,12 @@ struct EnhancedFilterPill: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.6)) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.6)) {
                         isPressed = false
                     }
                 }
@@ -345,7 +347,8 @@ struct EnhancedProfileCard: View {
     let previewPosts: [DiscoveryPost]
     let onFollow: () -> Void
     let onTapProfile: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isFollowing: Bool
     @State private var appeared = false
     @State private var glowPhase: CGFloat = 0
@@ -494,12 +497,12 @@ struct EnhancedProfileCard: View {
             withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.78)).delay(0.08)) {
                 appeared = true
             }
-            withAnimation(.linear(duration: 4).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 4).repeatForever(autoreverses: true)) {
                 glowPhase = .pi * 2
             }
         }
     }
-    
+
     private func formatFollowers(_ n: Int) -> String {
         if n >= 1_000_000 { return String(format: "%.1fM followers", Double(n) / 1_000_000) }
         if n >= 1_000 { return String(format: "%.1fK followers", Double(n) / 1_000) }
@@ -514,7 +517,8 @@ struct EnhancedAIAnswerCard: View {
     let answer: String
     let isLoading: Bool
     let onAskMore: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
     @State private var pulsePhase: CGFloat = 0
     
@@ -556,7 +560,7 @@ struct EnhancedAIAnswerCard: View {
                             .frame(width: 7, height: 7)
                             .scaleEffect(isLoading ? 1.0 : 0.6)
                             .animation(
-                                .easeInOut(duration: 0.6)
+                                reduceMotion ? .none : .easeInOut(duration: 0.6)
                                     .repeatForever()
                                     .delay(Double(i) * 0.15),
                                 value: isLoading
@@ -605,7 +609,7 @@ struct EnhancedAIAnswerCard: View {
             withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.76)).delay(0.12)) {
                 appeared = true
             }
-            withAnimation(.linear(duration: 2.5).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 2.5).repeatForever(autoreverses: true)) {
                 pulsePhase = .pi * 2
             }
         }

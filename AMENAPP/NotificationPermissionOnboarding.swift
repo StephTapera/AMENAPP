@@ -36,6 +36,7 @@ extension View {
 struct NotificationPermissionOnboardingSheet: View {
     @Binding var isPresented: Bool
     @State private var step: Int = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var quietStart = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var quietEnd   = Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var quietEnabled = true
@@ -62,7 +63,7 @@ struct NotificationPermissionOnboardingSheet: View {
                         Capsule()
                             .fill(i <= step ? Color(.label) : Color(.systemGray4))
                             .frame(width: i == step ? 24 : 8, height: 4)
-                            .animation(.spring(response: 0.3), value: step)
+                            .animation(reduceMotion ? .none : .spring(response: 0.3), value: step)
                     }
                 }
                 .padding(.top, 20)
@@ -80,7 +81,7 @@ struct NotificationPermissionOnboardingSheet: View {
                     insertion: .move(edge: .trailing).combined(with: .opacity),
                     removal:   .move(edge: .leading).combined(with: .opacity)
                 ))
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: step)
+                .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.85), value: step)
 
                 Spacer()
 
@@ -310,7 +311,7 @@ struct NotificationPermissionOnboardingSheet: View {
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 20)
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: quietEnabled)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: quietEnabled)
         }
         .onChange(of: quietStart) { _, _ in
             markManualQuietHoursChange()
@@ -355,17 +356,17 @@ struct NotificationPermissionOnboardingSheet: View {
     private func handleCTA() {
         switch step {
         case 0:
-            withAnimation { step = 1 }
+            withAnimation(reduceMotion ? nil : .default) { step = 1 }
         case 1:
             if permissionStatus == .notDetermined {
                 Task {
                     await requestPermission()
                     await MainActor.run {
-                        withAnimation { step = 2 }
+                        withAnimation(reduceMotion ? nil : .default) { step = 2 }
                     }
                 }
             } else {
-                withAnimation { step = 2 }
+                withAnimation(reduceMotion ? nil : .default) { step = 2 }
             }
         default:
             Task { await saveQuietHours() }

@@ -19,6 +19,7 @@ import Photos
 struct ImportReviewSheet: View {
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var service = DataImportService.shared
     @State private var destination: ImportDestination = .memories
     @State private var showingConfirmation = false
@@ -247,7 +248,7 @@ struct ImportReviewSheet: View {
             .shadow(color: canImport ? .blue.opacity(0.3) : .clear, radius: 10, x: 0, y: 4)
         }
         .disabled(!canImport)
-        .animation(.easeInOut(duration: 0.2), value: count)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: count)
     }
 
     // MARK: - Progress / States
@@ -351,6 +352,8 @@ private struct ImportItemRow: View {
     let isExpanded: Bool
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -422,7 +425,7 @@ private struct ImportItemRow: View {
                 )
         )
         .opacity(item.isDuplicate ? 0.55 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: item.isSelected)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: item.isSelected)
     }
 }
 
@@ -472,6 +475,7 @@ private struct DestinationChip: View {
 
 private struct ProgressCircle: View {
     let progress: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         ZStack {
             Circle().stroke(.secondary.opacity(0.2), lineWidth: 6)
@@ -479,7 +483,7 @@ private struct ProgressCircle: View {
                 .trim(from: 0, to: progress)
                 .stroke(Color.blue, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.3), value: progress)
+                .animation(reduceMotion ? .none : .linear(duration: 0.3), value: progress)
             Text("\(Int(progress * 100))%")
                 .font(.systemScaled(15, weight: .semibold))
         }

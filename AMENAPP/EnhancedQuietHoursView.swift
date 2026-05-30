@@ -13,6 +13,7 @@ struct EnhancedQuietHoursView: View {
     @ObservedObject private var adaptiveEngine = AdaptiveQuietHoursEngine.shared
     @ObservedObject private var progressiveEngine = ProgressiveQuietingEngine.shared
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var quietHoursEnabled = false
     @State private var startTime = "22:00"
@@ -159,7 +160,7 @@ struct EnhancedQuietHoursView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.3), value: quietHoursEnabled)
+        .animation(reduceMotion ? .none : .spring(response: 0.3), value: quietHoursEnabled)
         .padding(.bottom, 24)
     }
 
@@ -267,7 +268,7 @@ struct EnhancedQuietHoursView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
             .padding(.horizontal, 16)
-            .animation(.spring(response: 0.3), value: progressiveQuieting)
+            .animation(reduceMotion ? .none : .spring(response: 0.3), value: progressiveQuieting)
 
             Text("Notification volume gradually decreases as quiet hours approach: 2hr → minimal, 1hr → moderate, 30min → substantial, <15min → critical only")
                 .font(AMENFont.regular(12))
@@ -311,7 +312,7 @@ struct EnhancedQuietHoursView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
             .padding(.horizontal, 16)
-            .animation(.spring(response: 0.3), value: adaptiveLearning)
+            .animation(reduceMotion ? .none : .spring(response: 0.3), value: adaptiveLearning)
 
             Text("AMEN learns when you're typically active and inactive to suggest optimal quiet hours. Requires \(adaptiveLearning ? "7 days" : "opt-in") of usage data.")
                 .font(AMENFont.regular(12))

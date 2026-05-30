@@ -14,6 +14,7 @@ struct DevotionalGeneratorView: View {
     @State private var viewModel = DevotionalGeneratorViewModel()
     @State private var showHistory = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -34,8 +35,8 @@ struct DevotionalGeneratorView: View {
                         .transition(.opacity)
                 }
             }
-            .animation(.spring(response: 0.45, dampingFraction: 0.82), value: viewModel.phase)
-            .animation(.spring(response: 0.45, dampingFraction: 0.82), value: viewModel.showGenerated)
+            .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.82), value: viewModel.phase)
+            .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.82), value: viewModel.showGenerated)
             .navigationTitle("Devotional Generator")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -140,7 +141,7 @@ struct DevotionalGeneratorView: View {
                     Circle()
                         .fill(viewModel.phase == p ? Color.orange : Color.secondary.opacity(0.3))
                         .frame(width: 8, height: 8)
-                        .animation(.spring(response: 0.3), value: viewModel.phase)
+                        .animation(reduceMotion ? .none : .spring(response: 0.3), value: viewModel.phase)
                 }
             }
 

@@ -26,6 +26,7 @@ struct MediaCarouselView: View {
     @GestureState private var dragOffset: CGFloat = 0
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let itemWidth: CGFloat = UIScreen.main.bounds.width - 64 // Padding + peek
     private let itemSpacing: CGFloat = 12
@@ -123,7 +124,7 @@ struct MediaCarouselView: View {
             y: currentIndex == index ? 8 : 4
         )
         .scaleEffect(currentIndex == index ? 1.0 : 0.94)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: currentIndex)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: currentIndex)
     }
     
     private var pageIndicators: some View {
@@ -135,7 +136,7 @@ struct MediaCarouselView: View {
                         width: index == currentIndex ? 7 : 5,
                         height: index == currentIndex ? 7 : 5
                     )
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentIndex)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: currentIndex)
             }
         }
         .padding(.vertical, 8)
@@ -161,7 +162,7 @@ struct MediaCarouselView: View {
             )
             .padding(.horizontal, 4)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
-            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
             .accessibilityLabel("Caption: \(caption)")
             .accessibilityAddTraits(.isStaticText)
             .id("per-media-caption-\(currentIndex)")

@@ -20,12 +20,13 @@ import FirebaseAuth
 
 struct PrayerFollowThroughBar: View {
     let post: Post
-    
+
     @State private var hasPrayed: Bool = false
     @State private var prayCount: Int = 0
     @State private var isInFlight: Bool = false
     @State private var showEncouragementSheet: Bool = false
     @State private var encouragementSent: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     private var currentUserId: String? { Auth.auth().currentUser?.uid }
     private var isOwnPost: Bool { post.authorId == currentUserId }
@@ -68,7 +69,7 @@ struct PrayerFollowThroughBar: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isInFlight)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: hasPrayed)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: hasPrayed)
                 
                 // "Encourage" button — shows after praying or always
                 if hasPrayed && !encouragementSent {
@@ -105,7 +106,7 @@ struct PrayerFollowThroughBar: View {
             .padding(.bottom, 8)
             .sheet(isPresented: $showEncouragementSheet) {
                 EncouragementSheet(post: post, onSent: {
-                    withAnimation { encouragementSent = true }
+                    withAnimation(reduceMotion ? nil : .default) { encouragementSent = true }
                 })
                 .presentationDetents([.height(320)])
             }
@@ -172,8 +173,9 @@ struct PrayerFollowThroughBar: View {
 struct EncouragementSheet: View {
     let post: Post
     let onSent: () -> Void
-    
+
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedMessage: String = ""
     @State private var isSending = false
     
@@ -228,7 +230,7 @@ struct EncouragementSheet: View {
                                 )
                             }
                             .buttonStyle(.plain)
-                            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: selectedMessage)
+                            .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.7), value: selectedMessage)
                         }
                     }
                     .padding(.horizontal)
@@ -308,10 +310,11 @@ struct EncouragementSheet: View {
 
 struct TestimonyReflectPrompt: View {
     let post: Post
-    
+
     @State private var showReflectSheet = false
     @State private var hasResponded = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var isOwnPost: Bool { post.authorId == Auth.auth().currentUser?.uid }
     
     var body: some View {
@@ -328,7 +331,7 @@ struct TestimonyReflectPrompt: View {
         }
         .sheet(isPresented: $showReflectSheet) {
             ReflectSheet(post: post, onSubmitted: {
-                withAnimation { hasResponded = true }
+                withAnimation(reduceMotion ? nil : .default) { hasResponded = true }
             })
             .presentationDetents([.height(400)])
         }
@@ -548,6 +551,7 @@ struct AISparkleSearchButton: View {
     let action: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
@@ -560,7 +564,7 @@ struct AISparkleSearchButton: View {
                 .frame(width: 28, height: 28)
                 .blendMode(.multiply)
                 .scaleEffect(isPressed ? 0.80 : 1.0)
-                .animation(.spring(response: 0.22, dampingFraction: 0.52), value: isPressed)
+                .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.52), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
