@@ -32,6 +32,8 @@ struct ThreadedReplyComposer: View {
     @State private var isShakingEmpty = false
     @FocusState private var isFocused: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let maxCharacters = 280
 
     // MARK: Derived
@@ -308,7 +310,7 @@ struct ThreadedReplyComposer: View {
             guard canSend else {
                 // Shake + haptic if tried to send empty
                 HapticManager.notification(type: .error)
-                withAnimation(Motion.shakeLinear) { isShakingEmpty = true }
+                withAnimation(reduceMotion ? nil : Motion.shakeLinear) { isShakingEmpty = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { isShakingEmpty = false }
                 return
             }

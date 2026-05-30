@@ -13,8 +13,9 @@ import SwiftUI
 
 struct StudyPlanGeneratorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var genkitService = BereanGenkitService.shared
-    
+
     @State private var topic = ""
     @State private var duration = 7
     @State private var studyPlan: StudyPlan?
@@ -98,7 +99,7 @@ struct StudyPlanGeneratorView: View {
                                                 days: days,
                                                 isSelected: duration == days
                                             ) {
-                                                withAnimation(.easeOut(duration: 0.2)) {
+                                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                                                     duration = days
                                                 }
                                             }
@@ -152,7 +153,7 @@ struct StudyPlanGeneratorView: View {
                         } else if let studyPlan = studyPlan {
                             // Display study plan
                             StudyPlanDisplay(plan: studyPlan) {
-                                withAnimation(.easeOut(duration: 0.3)) {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                     self.studyPlan = nil
                                     topic = ""
                                     errorMessage = nil
@@ -191,7 +192,7 @@ struct StudyPlanGeneratorView: View {
                 )
                 
                 await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         studyPlan = result
                         isGenerating = false
                     }
@@ -317,8 +318,9 @@ struct StudyPlanDisplay: View {
 
 struct ScriptureAnalyzerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var genkitService = BereanGenkitService.shared
-    
+
     @State private var reference = ""
     @State private var analysisType: ScriptureAnalysisType = .context
     @State private var analysis: String?
@@ -400,7 +402,7 @@ struct ScriptureAnalyzerView: View {
                                                 type: type,
                                                 isSelected: analysisType == type
                                             ) {
-                                                withAnimation(.easeOut(duration: 0.2)) {
+                                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                                                     analysisType = type
                                                 }
                                             }
@@ -474,7 +476,7 @@ struct ScriptureAnalyzerView: View {
                                     .lineSpacing(6)
                                 
                                 Button {
-                                    withAnimation(.easeOut(duration: 0.3)) {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                         self.analysis = nil
                                         reference = ""
                                         errorMessage = nil
@@ -533,7 +535,7 @@ struct ScriptureAnalyzerView: View {
                 )
                 
                 await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         analysis = result
                         isAnalyzing = false
                     }

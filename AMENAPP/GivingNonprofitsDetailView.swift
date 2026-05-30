@@ -17,6 +17,7 @@ struct GivingNonprofitsDetailView: View {
     @State private var showingDonationInfo = false
     @State private var showingHelpRequest = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum GivingTab: String, CaseIterable {
         case vetted   = "Vetted"
@@ -122,7 +123,7 @@ struct GivingNonprofitsDetailView: View {
         }
         .navigationBarHidden(true)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.5).delay(0.06)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.5).delay(0.06)) {
                 appeared = true
             }
         }

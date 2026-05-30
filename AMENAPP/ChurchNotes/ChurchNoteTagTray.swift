@@ -15,6 +15,7 @@ struct ChurchNoteTagTray: View {
 
     @State private var newTagText: String = ""
     @State private var isAddingTag: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - Suggested Tags
 
@@ -54,7 +55,7 @@ struct ChurchNoteTagTray: View {
                         appliedChip(tag)
                     }
                 }
-                .animation(CNToken.Anim.chipInsert, value: appliedTags)
+                .animation(reduceMotion ? .none : CNToken.Anim.chipInsert, value: appliedTags)
             }
 
             // Content-suggested tags
@@ -67,7 +68,7 @@ struct ChurchNoteTagTray: View {
                         suggestedChip(tag, isContentMatch: false)
                     }
                 }
-                .animation(CNToken.Anim.chipInsert, value: contentSuggestions)
+                .animation(reduceMotion ? .none : CNToken.Anim.chipInsert, value: contentSuggestions)
             } else if appliedTags.isEmpty {
                 // Show some default suggestions when nothing is applied yet
                 TagWrapLayout(spacing: 6) {
@@ -120,7 +121,7 @@ struct ChurchNoteTagTray: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             } else {
                 Button {
-                    withAnimation(CNToken.Anim.chipInsert) {
+                    withAnimation(reduceMotion ? nil : CNToken.Anim.chipInsert) {
                         isAddingTag = true
                     }
                 } label: {
@@ -151,7 +152,7 @@ struct ChurchNoteTagTray: View {
             Text(tag)
                 .font(.systemScaled(12, weight: .medium))
             Button {
-                withAnimation(CNToken.Anim.chipInsert) {
+                withAnimation(reduceMotion ? nil : CNToken.Anim.chipInsert) {
                     appliedTags.removeAll { $0 == tag }
                 }
             } label: {
@@ -180,7 +181,7 @@ struct ChurchNoteTagTray: View {
 
     private func suggestedChip(_ tag: String, isContentMatch: Bool) -> some View {
         Button {
-            withAnimation(CNToken.Anim.chipInsert) {
+            withAnimation(reduceMotion ? nil : CNToken.Anim.chipInsert) {
                 appliedTags.append(tag)
             }
         } label: {
@@ -215,7 +216,7 @@ struct ChurchNoteTagTray: View {
             newTagText = ""
             return
         }
-        withAnimation(CNToken.Anim.chipInsert) {
+        withAnimation(reduceMotion ? nil : CNToken.Anim.chipInsert) {
             appliedTags.append(trimmed)
         }
         newTagText = ""

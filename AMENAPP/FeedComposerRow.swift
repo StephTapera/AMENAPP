@@ -7,6 +7,7 @@ import FirebaseAuth
 struct FeedComposerRow: View {
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var userService = LegacyUserService.shared
     @State private var placeholder = "What's on your heart today?"
     @State private var text = ""
@@ -86,7 +87,7 @@ struct FeedComposerRow: View {
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 12)
-                        .animation(.easeInOut(duration: 0.3), value: placeholder)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: placeholder)
                         .onTapGesture { expand() }
 
                     // ── Hairline divider ──
@@ -109,11 +110,11 @@ struct FeedComposerRow: View {
             .contentShape(Capsule())
             .onTapGesture { if !isExpanded { expand() } }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: isExpanded)
+        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.72), value: isExpanded)
         .task {
             guard let uid = Auth.auth().currentUser?.uid else { return }
             let t = await ComposerPlaceholderService.shared.getPlaceholder(for: uid)
-            withAnimation(.easeInOut(duration: 0.3)) { placeholder = t }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { placeholder = t }
         }
         .onChange(of: isFocused) { _, focused in
             if !focused && text.isEmpty {

@@ -12,6 +12,7 @@ import AVFoundation
 
 struct GroundingExerciseView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let healthStore = HKHealthStore()
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -60,9 +61,9 @@ struct GroundingExerciseView: View {
                 mainView
             }
         }
-        .animation(.easeInOut(duration: 0.35), value: showCompletion)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.35), value: showCompletion)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.5)) { appeared = true }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.5)) { appeared = true }
             // Speak the first step prompt
             speakPrompt(currentStep.4.first ?? "")
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -173,7 +174,7 @@ struct GroundingExerciseView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: checkedCount)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: checkedCount)
 
             // Scripture anchor
             Text("\"Be still, and know that I am God.\" — Psalm 46:10")
@@ -224,13 +225,13 @@ struct GroundingExerciseView: View {
 
     private func advanceStep() {
         if stepIndex < steps.count - 1 {
-            withAnimation(.easeInOut(duration: 0.3)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
                 stepIndex += 1
                 checkedCount = 0
                 appeared = false
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeOut(duration: 0.4)) { appeared = true }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) { appeared = true }
             }
             // Speak new step prompt + haptic pulse
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -241,7 +242,7 @@ struct GroundingExerciseView: View {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             speakPrompt("You are grounded. You used all five of your senses to anchor yourself to this moment.")
             Task { await writeHealthKit() }
-            withAnimation { showCompletion = true }
+            withAnimation(reduceMotion ? nil : .default) { showCompletion = true }
         }
     }
 

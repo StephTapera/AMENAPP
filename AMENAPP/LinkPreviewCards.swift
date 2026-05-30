@@ -152,6 +152,7 @@ struct RichLinkPreviewCard: View {
     let isLoading: Bool
     let onRemove: (() -> Void)?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var linkSafetySheet: AnyView?
     @State private var showLinkSafety = false
 
@@ -227,7 +228,7 @@ struct RichLinkPreviewCard: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.75)
         )
-        .animation(.easeInOut(duration: 0.25), value: isLoading)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.25), value: isLoading)
     }
 
     // MARK: Thumbnail
@@ -467,6 +468,7 @@ struct FeedLinkPreviewCard: View {
 // ─────────────────────────────────────────────────────────────────────────────
 
 private struct LinkPreviewShimmerModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: CGFloat = -1
 
     func body(content: Content) -> some View {
@@ -484,7 +486,7 @@ private struct LinkPreviewShimmerModifier: ViewModifier {
                 .blendMode(.plusLighter)
             )
             .onAppear {
-                withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                withAnimation(reduceMotion ? nil : .linear(duration: 1.2).repeatForever(autoreverses: false)) {
                     phase = 1.2
                 }
             }

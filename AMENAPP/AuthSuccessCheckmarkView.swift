@@ -9,7 +9,8 @@ import SwiftUI
 
 struct AuthSuccessCheckmarkView: View {
     @Binding var isPresented: Bool
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var capsuleScale: CGFloat = 0.8
     @State private var capsuleOpacity: Double = 0
     @State private var contentOpacity: Double = 0
@@ -94,7 +95,7 @@ struct AuthSuccessCheckmarkView: View {
         }
         
         // Content fades in
-        withAnimation(.easeOut(duration: 0.3).delay(0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(0.2)) {
             contentOpacity = 1.0
         }
         
@@ -104,18 +105,18 @@ struct AuthSuccessCheckmarkView: View {
         }
         
         // Subtle pulse effect
-        withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.8).delay(0.3)) {
             pulseScale = 1.15
             pulseOpacity = 0.3
         }
-        
-        withAnimation(.easeIn(duration: 0.4).delay(0.8)) {
+
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.4).delay(0.8)) {
             pulseOpacity = 0
         }
         
         // Auto dismiss after showing
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation(.easeInOut(duration: 0.4)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.4)) {
                 capsuleScale = 0.9
                 capsuleOpacity = 0
                 contentOpacity = 0

@@ -28,6 +28,7 @@ struct CommunityNotePublishSheet: View {
 
     @StateObject private var service = CommunityNotesService.shared
     @FocusState private var bodyFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - Validation constants
 
@@ -211,7 +212,7 @@ struct CommunityNotePublishSheet: View {
     private func categoryChip(_ cat: NoteCategory) -> some View {
         let isSelected = selectedCategory == cat
         Button {
-            withAnimation(Motion.popToggle) { selectedCategory = cat }
+            withAnimation(reduceMotion ? nil : Motion.popToggle) { selectedCategory = cat }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: cat.icon)
@@ -276,7 +277,7 @@ struct CommunityNotePublishSheet: View {
     private func visibilitySegment(_ option: NoteVisibility) -> some View {
         let isSelected = visibility == option
         Button {
-            withAnimation(Motion.springPress) { visibility = option }
+            withAnimation(reduceMotion ? nil : Motion.springPress) { visibility = option }
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: option.icon)
@@ -358,7 +359,7 @@ struct CommunityNotePublishSheet: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(AmenTheme.Colors.amenGold)
             Button {
-                withAnimation(Motion.popToggle) {
+                withAnimation(reduceMotion ? nil : Motion.popToggle) {
                     tags.removeAll { $0 == tag }
                 }
             } label: {
@@ -493,9 +494,9 @@ struct CommunityNotePublishSheet: View {
             )
 
             // Show success toast briefly then dismiss
-            withAnimation(Motion.appearEase) { showSuccessToast = true }
+            withAnimation(reduceMotion ? nil : Motion.appearEase) { showSuccessToast = true }
             try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 s
-            withAnimation(Motion.appearEase) { showSuccessToast = false }
+            withAnimation(reduceMotion ? nil : Motion.appearEase) { showSuccessToast = false }
             isPresented = false
 
         } catch {
@@ -517,7 +518,7 @@ struct CommunityNotePublishSheet: View {
             tagInput = ""
             return
         }
-        withAnimation(Motion.popToggle) {
+        withAnimation(reduceMotion ? nil : Motion.popToggle) {
             tags.append(cleaned)
         }
         tagInput = ""

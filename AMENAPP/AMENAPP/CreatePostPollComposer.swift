@@ -164,7 +164,9 @@ struct CompactGlassButton: View {
     let action: () -> Void
     
     @State private var isPressed = false
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var isClose: Bool { icon == "xmark" }
 
     var body: some View {
@@ -219,8 +221,8 @@ struct CompactGlassButton: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: count)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isActive)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: count)
     }
 }
 
