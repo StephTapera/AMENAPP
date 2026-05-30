@@ -4,6 +4,7 @@ import FirebaseAuth
 import FirebaseFunctions
 
 struct OnboardingFunnelView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var step: OnboardingStep = .welcome
     @State private var selectedInterests: Set<UserInterest> = []
     @State private var churchName = ""
@@ -35,13 +36,13 @@ struct OnboardingFunnelView: View {
                         invitePage.tag(OnboardingStep.invite)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
-                    .animation(.spring(response: 0.32, dampingFraction: 0.80), value: step)
+                    .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.80), value: step)
                     navigationButtons
                 }
                 .transition(.opacity)
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.86), value: showCompletionOrbit)
+        .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.86), value: showCompletionOrbit)
         .task {
             await loadProfileCompletionSnapshot()
         }
@@ -53,7 +54,7 @@ struct OnboardingFunnelView: View {
                 Capsule()
                     .fill(s.rawValue <= step.rawValue ? Color(red: 0.10, green: 0.60, blue: 0.56) : AmenTheme.Colors.surfaceChip)
                     .frame(height: 4)
-                    .animation(.spring(response: 0.32, dampingFraction: 0.80), value: step)
+                    .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.80), value: step)
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 12)
@@ -113,7 +114,7 @@ struct OnboardingFunnelView: View {
             }
         }()
         return Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.80)) {
                 if isSelected { selectedInterests.remove(interest) } else { selectedInterests.insert(interest) }
             }
         } label: {
@@ -215,7 +216,7 @@ struct OnboardingFunnelView: View {
         HStack {
             if step.rawValue > 0 {
                 Button("Back") {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.80)) {
                         step = OnboardingStep(rawValue: step.rawValue - 1) ?? .welcome
                     }
                 }
@@ -223,7 +224,7 @@ struct OnboardingFunnelView: View {
             }
             Spacer()
             Button(step == .invite ? "Get Started" : "Next") {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) { advance() }
+                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.80)) { advance() }
             }
             .font(.custom("OpenSans-Bold", size: 16)).foregroundStyle(.white)
             .padding(.horizontal, 28).padding(.vertical, 14)
