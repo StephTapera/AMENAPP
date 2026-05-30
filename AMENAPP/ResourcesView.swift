@@ -36,6 +36,7 @@ struct ResourcesView: View {
     @State private var showHeader: Bool = true
     @State private var navigateToWalkWithChrist = false
     @Environment(\.tabBarVisible) private var tabBarVisible
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     /// Drives category pills compression — 0 = fully visible, 1 = fully hidden
     private var pillsCompression: CGFloat {
@@ -113,7 +114,7 @@ struct ResourcesView: View {
                         contentView
                             .onChange(of: scrollToResults) { _, shouldScroll in
                                 if shouldScroll {
-                                    withAnimation(.easeOut(duration: 0.2)) {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                                         proxy.scrollTo("searchResults", anchor: .top)
                                     }
                                     Task {
@@ -139,12 +140,12 @@ struct ResourcesView: View {
                     }
                 )
                 .onReceive(NotificationCenter.default.publisher(for: .libraryTabTapped)) { _ in
-                    withAnimation(.easeOut(duration: 0.18)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                         proxy.scrollTo("amenLibraryTop", anchor: .top)
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .libraryTabRecentlySaved)) { _ in
-                    withAnimation(.easeOut(duration: 0.18)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                         proxy.scrollTo("searchResults", anchor: .top)
                     }
                 }
@@ -152,7 +153,7 @@ struct ResourcesView: View {
             .scrollEdgeTopBlur(scrollOffset: scrollOffset)
             .navigationBarHidden(true)
             .scrollDismissesKeyboard(.interactively)
-            .animation(.easeOut(duration: 0.15), value: searchFilteredResources.count)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: searchFilteredResources.count)
             .onAppear {
                 setupKeyboardObservers()
                 greetingService.refreshGreeting()
@@ -201,7 +202,7 @@ struct ResourcesView: View {
     // MARK: - Scroll Handling
 
     private func handleScrollOffset(_ offset: CGFloat) {
-        withAnimation(.interactiveSpring(response: 0.25, dampingFraction: 0.8)) {
+        withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.25, dampingFraction: 0.8)) {
             scrollOffset = offset
         }
         
@@ -353,8 +354,8 @@ struct ResourcesView: View {
                 background: .balanced,
                 placement: .inline
             ))
-            .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
-            .animation(.easeOut(duration: 0.2), value: isSearchingWithAI)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: searchText.isEmpty)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: isSearchingWithAI)
             
             // Text field with custom styling
             TextField("Search resources...", text: $searchText)
@@ -377,11 +378,11 @@ struct ResourcesView: View {
             // Clear button with glass effect
             if !searchText.isEmpty {
                 Button {
-                    withAnimation(.easeOut(duration: 0.15)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                         searchText = ""
                     }
                     isSearchFocused = false
-                    
+
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                 } label: {
@@ -441,9 +442,9 @@ struct ResourcesView: View {
         .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.75), radius: 12, x: 0, y: 4)
         .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.45), radius: 4, x: 0, y: 2)
         .padding(.horizontal)
-        .animation(.easeOut(duration: 0.15), value: searchText.isEmpty)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: searchText.isEmpty)
     }
-    
+
     private var categoryPillsView: some View {
         LiquidGlassSegmentedControl(
             selection: $selectedCategory,
@@ -1499,7 +1500,7 @@ struct ResourcesView: View {
             queue: .main
         ) { notification in
             guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 keyboardHeight = keyboardFrame.height
             }
         }
@@ -1509,7 +1510,7 @@ struct ResourcesView: View {
             object: nil,
             queue: .main
         ) { _ in
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 keyboardHeight = 0
             }
         }
@@ -1551,7 +1552,7 @@ struct ResourcesView: View {
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         aiSearchResults = results
                         useAISearch = true
                         isSearchingWithAI = false
@@ -1563,7 +1564,7 @@ struct ResourcesView: View {
                 guard !Task.isCancelled else { return }
                 // Fall back to keyword search on error.
                 await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         useAISearch = false
                         isSearchingWithAI = false
                         scrollToResults = true
@@ -1713,7 +1714,8 @@ struct BibleFactCard: View {
     let fact: BibleFact
     @Binding var isRefreshing: Bool
     let onRefresh: () -> Void
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -1745,7 +1747,7 @@ struct BibleFactCard: View {
                                 .fill(.ultraThinMaterial)
                         )
                         .rotationEffect(.degrees(isRefreshing ? 360 : 0))
-                        .animation(.linear(duration: 1).repeatCount(isRefreshing ? 100 : 0, autoreverses: false), value: isRefreshing)
+                        .animation(reduceMotion ? .none : .linear(duration: 1).repeatCount(isRefreshing ? 100 : 0, autoreverses: false), value: isRefreshing)
                 }
                 .disabled(isRefreshing)
             }
@@ -1922,7 +1924,7 @@ struct FeaturedBanner: View {
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         .padding(.horizontal)
         .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isHovered)
+        .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.75), value: isHovered)
         .onAppear {
             isVisible = true
             // P1 FIX: Only run shimmer while visible. The previous unconditional
@@ -1953,7 +1955,8 @@ struct LiquidGlassConnectCard: View {
     @State private var isPressed = false
     @State private var isExpanded = false
     @State private var showOnboarding = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 16) {
@@ -2053,12 +2056,12 @@ struct LiquidGlassConnectCard: View {
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in
-                        withAnimation(.easeIn(duration: 0.1)) {
+                        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.1)) {
                             isPressed = true
                         }
                     }
                     .onEnded { _ in
-                        withAnimation(.easeOut(duration: 0.1)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                             isPressed = false
                         }
                     }
@@ -2654,10 +2657,11 @@ struct CompactConnectBanner: View {
 struct LiquidGlassSegmentedControl: View {
     @Binding var selection: ResourcesView.ResourceCategory
     let categories: [ResourcesView.ResourceCategory]
-    
+
     @Namespace private var segmentAnimation
     @State private var isAnimating = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
@@ -2707,7 +2711,7 @@ struct LiquidGlassSegmentedControl: View {
                         }
                     }
                 )
-                .animation(.spring(response: 0.38, dampingFraction: 0.72), value: selection)
+                .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: selection)
         }
         .buttonStyle(ResourcesSegmentButtonStyle())
     }
@@ -2724,11 +2728,12 @@ struct LiquidGlassSegmentedControl: View {
 // MARK: - Segment Button Style (Resources specific to avoid conflicts)
 
 struct ResourcesSegmentButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .opacity(configuration.isPressed ? 0.75 : 1.0)
-            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -3725,11 +3730,12 @@ struct WellnessCard: View {
 // Subtle press scale + opacity for all tappable resource cards
 
 struct ResourceCardPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.88 : 1.0)
-            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

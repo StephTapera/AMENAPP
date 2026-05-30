@@ -14,6 +14,7 @@ import FirebaseAuth
 
 struct StudioHubView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var subscriptionService = StudioSubscriptionService.shared
     @State private var activeMode: StudioMode?
     @State private var showPaywall = false
@@ -42,7 +43,7 @@ struct StudioHubView: View {
                             .padding(.bottom, 20)
                             .opacity(cardsVisible ? 1 : 0)
                             .offset(y: cardsVisible ? 0 : 20)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: cardsVisible)
+                            .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: cardsVisible)
 
                         // Primary creation modes — 2x2 grid
                         VStack(spacing: 14) {
@@ -52,14 +53,14 @@ struct StudioHubView: View {
                                 }
                                 .opacity(cardsVisible ? 1 : 0)
                                 .offset(y: cardsVisible ? 0 : 20)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.10), value: cardsVisible)
+                                .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.10), value: cardsVisible)
 
                                 DarkGlassModeCard(mode: .canvas, subscription: subscriptionService) {
                                     activateMode(.canvas)
                                 }
                                 .opacity(cardsVisible ? 1 : 0)
                                 .offset(y: cardsVisible ? 0 : 20)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.15), value: cardsVisible)
+                                .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.15), value: cardsVisible)
                             }
                             HStack(spacing: 14) {
                                 DarkGlassModeCard(mode: .journal, subscription: subscriptionService) {
@@ -67,14 +68,14 @@ struct StudioHubView: View {
                                 }
                                 .opacity(cardsVisible ? 1 : 0)
                                 .offset(y: cardsVisible ? 0 : 20)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.20), value: cardsVisible)
+                                .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.20), value: cardsVisible)
 
                                 DarkGlassModeCard(mode: .legacy, subscription: subscriptionService) {
                                     activateMode(.legacy)
                                 }
                                 .opacity(cardsVisible ? 1 : 0)
                                 .offset(y: cardsVisible ? 0 : 20)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.25), value: cardsVisible)
+                                .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.25), value: cardsVisible)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -87,7 +88,7 @@ struct StudioHubView: View {
                         .padding(.top, 14)
                         .opacity(cardsVisible ? 1 : 0)
                         .offset(y: cardsVisible ? 0 : 20)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.28), value: cardsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.28), value: cardsVisible)
 
                         // Faith Reel Studio — now live
                         FaithReelLiveCard {
@@ -97,7 +98,7 @@ struct StudioHubView: View {
                         .padding(.top, 14)
                         .opacity(cardsVisible ? 1 : 0)
                         .offset(y: cardsVisible ? 0 : 20)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.30), value: cardsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.30), value: cardsVisible)
 
                         // Synaptic Studio
                         DarkGlassSynapticCard {
@@ -111,7 +112,7 @@ struct StudioHubView: View {
                         .padding(.top, 14)
                         .opacity(cardsVisible ? 1 : 0)
                         .offset(y: cardsVisible ? 0 : 20)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.35), value: cardsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.35), value: cardsVisible)
 
                         // Blueprint
                         DarkGlassBlueprintCard()
@@ -119,7 +120,7 @@ struct StudioHubView: View {
                             .padding(.top, 14)
                             .opacity(cardsVisible ? 1 : 0)
                             .offset(y: cardsVisible ? 0 : 20)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.40), value: cardsVisible)
+                            .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.40), value: cardsVisible)
 
                         // Collab
                         DarkGlassCollabCard()
@@ -127,7 +128,7 @@ struct StudioHubView: View {
                             .padding(.top, 14)
                             .opacity(cardsVisible ? 1 : 0)
                             .offset(y: cardsVisible ? 0 : 20)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.45), value: cardsVisible)
+                            .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.45), value: cardsVisible)
 
                         // Weekly Challenge
                         DarkGlassChallengeCard()
@@ -135,7 +136,7 @@ struct StudioHubView: View {
                             .padding(.top, 14)
                             .opacity(cardsVisible ? 1 : 0)
                             .offset(y: cardsVisible ? 0 : 20)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.50), value: cardsVisible)
+                            .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.50), value: cardsVisible)
 
                         Color.clear.frame(height: 40)
                     }
@@ -259,6 +260,7 @@ private struct DarkGlassModeCard: View {
     @State private var isPressed = false
     @State private var rippleScale: CGFloat = 0
     @State private var rippleOpacity: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: {
@@ -349,7 +351,7 @@ private struct DarkGlassModeCard: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -360,7 +362,7 @@ private struct DarkGlassModeCard: View {
     private func triggerRipple() {
         rippleScale = 0
         rippleOpacity = 1
-        withAnimation(.easeOut(duration: 0.55)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.55)) {
             rippleScale = 1
             rippleOpacity = 0
         }
@@ -375,6 +377,7 @@ private struct FaithReelLiveCard: View {
     @State private var isPressed = false
     @State private var rippleScale: CGFloat = 0
     @State private var rippleOpacity: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: {
@@ -441,7 +444,7 @@ private struct FaithReelLiveCard: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -452,7 +455,7 @@ private struct FaithReelLiveCard: View {
     private func triggerRipple() {
         rippleScale = 0
         rippleOpacity = 1
-        withAnimation(.easeOut(duration: 0.55)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.55)) {
             rippleScale = 1
             rippleOpacity = 0
         }
@@ -467,6 +470,7 @@ private struct DarkGlassSynapticCard: View {
     @State private var isPressed = false
     @State private var rippleScale: CGFloat = 0
     @State private var rippleOpacity: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: {
@@ -543,7 +547,7 @@ private struct DarkGlassSynapticCard: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -554,7 +558,7 @@ private struct DarkGlassSynapticCard: View {
     private func triggerRipple() {
         rippleScale = 0
         rippleOpacity = 1
-        withAnimation(.easeOut(duration: 0.55)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.55)) {
             rippleScale = 1
             rippleOpacity = 0
         }
@@ -728,6 +732,7 @@ private struct DarkGlassChallengeCard: View {
     @State private var isPressed = false
     @State private var rippleScale: CGFloat = 0
     @State private var rippleOpacity: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
@@ -793,7 +798,7 @@ private struct DarkGlassChallengeCard: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -807,7 +812,7 @@ private struct DarkGlassChallengeCard: View {
     private func triggerRipple() {
         rippleScale = 0
         rippleOpacity = 1
-        withAnimation(.easeOut(duration: 0.55)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.55)) {
             rippleScale = 1
             rippleOpacity = 0
         }

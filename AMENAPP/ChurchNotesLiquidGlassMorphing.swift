@@ -37,6 +37,7 @@ struct SermonGlassCard: View {
     let session: SermonCaptureSession
     @Binding var isExpanded: Bool
     var namespace: Namespace.ID
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if isExpanded {
@@ -49,7 +50,7 @@ struct SermonGlassCard: View {
 
     private var collapsedCard: some View {
         Button {
-            withAnimation(GlassMorphSpring.primary) { isExpanded = true }
+            withAnimation(reduceMotion ? nil : GlassMorphSpring.primary) { isExpanded = true }
         } label: {
             HStack(spacing: 12) {
                 // Waveform icon morphs into player waveform
@@ -110,6 +111,7 @@ struct SermonGlassPlayerSheet: View {
     var namespace: Namespace.ID
     @State private var playbackProgress: Double = 0
     @State private var isPlaying: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -178,12 +180,12 @@ struct SermonGlassPlayerSheet: View {
 
                 // Playback controls
                 HStack(spacing: 40) {
-                    Button { withAnimation(GlassMorphSpring.detail) { playbackProgress = max(0, playbackProgress - 0.1) } } label: {
+                    Button { withAnimation(reduceMotion ? nil : GlassMorphSpring.detail) { playbackProgress = max(0, playbackProgress - 0.1) } } label: {
                         Image(systemName: "gobackward.15")
                             .font(.systemScaled(22, weight: .light))
                             .foregroundColor(.black)
                     }
-                    Button { withAnimation(GlassMorphSpring.detail) { isPlaying.toggle() } } label: {
+                    Button { withAnimation(reduceMotion ? nil : GlassMorphSpring.detail) { isPlaying.toggle() } } label: {
                         ZStack {
                             Circle()
                                 .fill(Color.black)
@@ -193,7 +195,7 @@ struct SermonGlassPlayerSheet: View {
                                 .foregroundColor(.white)
                         }
                     }
-                    Button { withAnimation(GlassMorphSpring.detail) { playbackProgress = min(1, playbackProgress + 0.1) } } label: {
+                    Button { withAnimation(reduceMotion ? nil : GlassMorphSpring.detail) { playbackProgress = min(1, playbackProgress + 0.1) } } label: {
                         Image(systemName: "goforward.15")
                             .font(.systemScaled(22, weight: .light))
                             .foregroundColor(.black)
@@ -204,7 +206,7 @@ struct SermonGlassPlayerSheet: View {
 
             // Dismiss button
             Button {
-                withAnimation(GlassMorphSpring.dismiss) { isExpanded = false }
+                withAnimation(reduceMotion ? nil : GlassMorphSpring.dismiss) { isExpanded = false }
             } label: {
                 ZStack {
                     Circle()
@@ -236,6 +238,7 @@ struct TranscriptLineMorphView: View {
     var namespace: Namespace.ID
     @Binding var expandedID: String?
     @State private var editedText: String = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isExpanded: Bool { expandedID == paragraph.id }
 
@@ -247,13 +250,13 @@ struct TranscriptLineMorphView: View {
                 collapsedLine
             }
         }
-        .animation(GlassMorphSpring.primary, value: isExpanded)
+        .animation(reduceMotion ? .none : GlassMorphSpring.primary, value: isExpanded)
     }
 
     private var collapsedLine: some View {
         Button {
             editedText = paragraph.text
-            withAnimation(GlassMorphSpring.primary) {
+            withAnimation(reduceMotion ? nil : GlassMorphSpring.primary) {
                 expandedID = paragraph.id
             }
         } label: {
@@ -313,7 +316,7 @@ struct TranscriptLineMorphView: View {
                 Spacer()
 
                 Button {
-                    withAnimation(GlassMorphSpring.dismiss) { expandedID = nil }
+                    withAnimation(reduceMotion ? nil : GlassMorphSpring.dismiss) { expandedID = nil }
                 } label: {
                     Text("Done")
                         .font(AMENFont.semiBold(13))
@@ -391,6 +394,7 @@ struct WorshipPillMorph: View {
     @Binding var isExpanded: Bool
     @State private var progress: Double = 0
     @State private var isPlaying: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -404,7 +408,7 @@ struct WorshipPillMorph: View {
 
     private var collapsedPill: some View {
         Button {
-            withAnimation(GlassMorphSpring.primary) { isExpanded = true }
+            withAnimation(reduceMotion ? nil : GlassMorphSpring.primary) { isExpanded = true }
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "music.note")
@@ -448,7 +452,7 @@ struct WorshipPillMorph: View {
                 }
                 Spacer()
                 Button {
-                    withAnimation(GlassMorphSpring.dismiss) { isExpanded = false }
+                    withAnimation(reduceMotion ? nil : GlassMorphSpring.dismiss) { isExpanded = false }
                 } label: {
                     Image(systemName: "chevron.down")
                         .font(.systemScaled(12, weight: .medium))
@@ -470,12 +474,12 @@ struct WorshipPillMorph: View {
 
             // Controls
             HStack(spacing: 32) {
-                Button { withAnimation(GlassMorphSpring.detail) { progress = max(0, progress - 0.1) } } label: {
+                Button { withAnimation(reduceMotion ? nil : GlassMorphSpring.detail) { progress = max(0, progress - 0.1) } } label: {
                     Image(systemName: "gobackward.15")
                         .font(.systemScaled(18, weight: .light))
                         .foregroundColor(.black)
                 }
-                Button { withAnimation(GlassMorphSpring.detail) { isPlaying.toggle() } } label: {
+                Button { withAnimation(reduceMotion ? nil : GlassMorphSpring.detail) { isPlaying.toggle() } } label: {
                     ZStack {
                         Circle().fill(Color.black).frame(width: 44, height: 44)
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
@@ -483,7 +487,7 @@ struct WorshipPillMorph: View {
                             .foregroundColor(.white)
                     }
                 }
-                Button { withAnimation(GlassMorphSpring.detail) { progress = min(1, progress + 0.1) } } label: {
+                Button { withAnimation(reduceMotion ? nil : GlassMorphSpring.detail) { progress = min(1, progress + 0.1) } } label: {
                     Image(systemName: "goforward.15")
                         .font(.systemScaled(18, weight: .light))
                         .foregroundColor(.black)
@@ -519,6 +523,7 @@ struct WaveformGlassCapsule: View {
     var showBackground: Bool = false
 
     @State private var phase: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -536,12 +541,12 @@ struct WaveformGlassCapsule: View {
                 capsuleContent
             }
         }
-        .onAppear { if isActive { withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) { phase = 1 } } }
+        .onAppear { if isActive { withAnimation(reduceMotion ? nil : .linear(duration: 0.8).repeatForever(autoreverses: false)) { phase = 1 } } }
         .onChange(of: isActive) { active in
             if active {
-                withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) { phase = 1 }
+                withAnimation(reduceMotion ? nil : .linear(duration: 0.8).repeatForever(autoreverses: false)) { phase = 1 }
             } else {
-                withAnimation(.easeOut(duration: 0.3)) { phase = 0 }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) { phase = 0 }
             }
         }
     }
@@ -568,6 +573,8 @@ private struct ChurchNotesWaveformBar: View {
     let isActive: Bool
     let barColor: Color
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var animatedHeight: CGFloat {
         let base = CGFloat(amplitude)
         let modifier = 0.6 + 0.4 * sin(Double(index) * 0.5 + phase * .pi * 2)
@@ -580,7 +587,7 @@ private struct ChurchNotesWaveformBar: View {
             .fill(barColor)
             .frame(width: 2, height: animatedHeight)
             .animation(
-                .easeInOut(duration: 0.4)
+                reduceMotion ? .none : .easeInOut(duration: 0.4)
                     .repeatForever(autoreverses: true)
                     .delay(Double(index) * 0.04),
                 value: phase
@@ -594,6 +601,7 @@ private struct ChurchNotesWaveformBar: View {
 struct SermonCaptureLiveBadge: View {
     var namespace: Namespace.ID
     @State private var pulse: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 5) {
@@ -601,7 +609,7 @@ struct SermonCaptureLiveBadge: View {
                 .fill(Color.red)
                 .frame(width: 6, height: 6)
                 .scaleEffect(pulse ? 1.3 : 1.0)
-                .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
 
             Text("REC")
                 .font(AMENFont.semiBold(10))
@@ -640,6 +648,7 @@ struct GestureMorphContainer<Content: View, Expanded: View>: View {
 
     @State private var dragOffset: CGFloat = 0
     private let threshold: CGFloat = 40
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -664,7 +673,7 @@ struct GestureMorphContainer<Content: View, Expanded: View>: View {
                 }
                 .onEnded { value in
                     let dy = value.translation.height
-                    withAnimation(GlassMorphSpring.primary) {
+                    withAnimation(reduceMotion ? nil : GlassMorphSpring.primary) {
                         if !isExpanded && dy < -threshold {
                             isExpanded = true
                         } else if isExpanded && dy > threshold {

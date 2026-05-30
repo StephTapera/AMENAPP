@@ -45,6 +45,7 @@ struct MinimalAuthenticationView: View {
 
     @Environment(\.dismiss) var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var namespace
 
     // Forgot password flow
@@ -150,9 +151,9 @@ struct MinimalAuthenticationView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.88), value: showEmailForm)
+        .animation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.88), value: showEmailForm)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.60).delay(0.08)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.60).delay(0.08)) {
                 appeared = true
             }
         }
@@ -329,7 +330,7 @@ struct MinimalAuthenticationView: View {
                 .padding(.horizontal, 20)
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 18)
-                .animation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.05), value: appeared)
+                .animation(reduceMotion ? .none : .spring(response: 0.55, dampingFraction: 0.82).delay(0.05), value: appeared)
 
                 Spacer().frame(height: 60)
             }
@@ -400,7 +401,7 @@ struct MinimalAuthenticationView: View {
                             .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 32)
-                            .animation(.easeOut(duration: 0.5).delay(0.08), value: isLogin)
+                            .animation(reduceMotion ? .none : .easeOut(duration: 0.5).delay(0.08), value: isLogin)
 
                         Spacer().frame(height: 8)
 
@@ -426,12 +427,12 @@ struct MinimalAuthenticationView: View {
 
                         HStack(spacing: 0) {
                             modeTab(title: "Sign In", selected: isLogin) {
-                                withAnimation(.easeInOut(duration: 0.22)) {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                                     isLogin = true; errorMessage = nil; signUpStep = 0
                                 }
                             }
                             modeTab(title: "Sign Up", selected: !isLogin) {
-                                withAnimation(.easeInOut(duration: 0.22)) {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                                     isLogin = false; errorMessage = nil; signUpStep = 0
                                 }
                             }
@@ -546,7 +547,7 @@ struct MinimalAuthenticationView: View {
                                 RoundedRectangle(cornerRadius: 14)
                                     .fill(isCurrentStepValid ? Color.black : Color(white: 0.72))
                             )
-                            .animation(.easeInOut(duration: 0.2), value: isCurrentStepValid)
+                            .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isCurrentStepValid)
                         }
                         .disabled(isLoading || !isCurrentStepValid)
                         .padding(.horizontal, 32)
@@ -920,7 +921,7 @@ struct MinimalAuthenticationView: View {
     }
 
     private func showError(_ message: String) {
-        withAnimation(.easeInOut(duration: 0.22)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
             errorMessage = message
         }
         // Accessibility: announce error for VoiceOver users who won't see the banner
@@ -1085,6 +1086,7 @@ private struct EditorialInputField: View {
     @Binding var showPassword: Bool
 
     @FocusState private var isFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         label: String,
@@ -1154,7 +1156,7 @@ private struct EditorialInputField: View {
                         lineWidth: isFocused ? 1.5 : 1
                     )
             )
-            .animation(.easeInOut(duration: 0.18), value: isFocused)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.18), value: isFocused)
         }
     }
 }
@@ -1173,6 +1175,8 @@ private struct EditorialDateField: View {
         return f
     }()
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var maxDate: Date {
         Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
     }
@@ -1187,7 +1191,7 @@ private struct EditorialDateField: View {
             VStack(spacing: 0) {
                 // Tap row
                 Button {
-                    withAnimation(.easeInOut(duration: 0.22)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                         showPicker.toggle()
                     }
                 } label: {
@@ -1325,6 +1329,8 @@ private struct SignUpStepperCard: View {
     @Binding var showDatePicker: Bool
     @Binding var hasPickedBirthDate: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let steps: [(icon: String, label: String)] = [
         ("person.fill",     "Your Info"),
         ("lock.fill",       "Security"),
@@ -1383,14 +1389,14 @@ private struct SignUpStepperCard: View {
                             .foregroundStyle(isActive ? .white : Color(white: 0.62))
                     }
                 }
-                .animation(.spring(response: 0.28, dampingFraction: 0.76), value: step)
+                .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.76), value: step)
 
                 // Step label
                 Text(steps[index].label)
                     .font(.systemScaled(isActive ? 20 : 16,
                                   weight: isActive ? .semibold : .regular))
                     .foregroundStyle(isActive ? Color.black : Color(white: 0.56))
-                    .animation(.easeInOut(duration: 0.2), value: step)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: step)
 
                 Spacer()
             }
@@ -1428,7 +1434,7 @@ private struct SignUpStepperCard: View {
                 .frame(width: 2, height: 24)
             Spacer()
         }
-        .animation(.easeInOut(duration: 0.3), value: active)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: active)
     }
 
     // MARK: - Step fields
@@ -1477,7 +1483,7 @@ private struct SignUpStepperCard: View {
                             .foregroundStyle(password == confirmPassword ? Color.green : Color.red)
                     }
                     .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.18), value: password == confirmPassword)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.18), value: password == confirmPassword)
                 }
             }
         default:
@@ -1518,11 +1524,12 @@ private struct AMENIconMark: View {
 // MARK: - Auth Pill Button Style
 
 private struct AuthPillButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
             .opacity(configuration.isPressed ? 0.85 : 1.0)
-            .animation(.spring(response: 0.20, dampingFraction: 0.70), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.20, dampingFraction: 0.70), value: configuration.isPressed)
     }
 }
 

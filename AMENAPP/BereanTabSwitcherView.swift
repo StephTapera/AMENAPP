@@ -22,6 +22,8 @@ struct BereanTabSwitcherView: View {
     let onNewSession: () -> Void
     let onNewSessionWithPrompt: (String) -> Void   // chip tap: new session + auto-send
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // Featured card is whichever session is currently being previewed
     // (starts at the active session; mini-card tap promotes a different session)
     @State private var localFeaturedID: UUID
@@ -101,7 +103,7 @@ struct BereanTabSwitcherView: View {
                                 // Continue → activate + dismiss
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 onSelectSession(featured.id)
-                                withAnimation(spring) { isShowing = false }
+                                withAnimation(reduceMotion ? nil : spring) { isShowing = false }
                             } onClose: {
                                 removeCard(featured.id)
                             }
@@ -122,14 +124,14 @@ struct BereanTabSwitcherView: View {
                                     ) {
                                         // Promote to featured
                                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                        withAnimation(spring) { localFeaturedID = session.id }
+                                        withAnimation(reduceMotion ? nil : spring) { localFeaturedID = session.id }
                                     } onClose: {
                                         removeCard(session.id)
                                     }
                                 }
                             }
                             .padding(.horizontal, 16)
-                            .animation(spring, value: miniSessions.map(\.id))
+                            .animation(reduceMotion ? .none : spring, value: miniSessions.map(\.id))
                         }
 
                         // ── Topic chips ───────────────────────────────────
@@ -170,7 +172,7 @@ struct BereanTabSwitcherView: View {
             // "···" menu
             Menu {
                 Button(role: .destructive) {
-                    withAnimation(spring) {
+                    withAnimation(reduceMotion ? nil : spring) {
                         let others = sessionManager.sessions.filter { $0.id != localFeaturedID }
                         for s in others { sessionManager.delete(s.id) }
                     }
@@ -179,12 +181,12 @@ struct BereanTabSwitcherView: View {
                 }
 
                 Button(role: .destructive) {
-                    withAnimation(spring) {
+                    withAnimation(reduceMotion ? nil : spring) {
                         let ids = sessionManager.sessions.map(\.id)
                         ids.forEach { sessionManager.delete($0) }
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        withAnimation(spring) { isShowing = false }
+                        withAnimation(reduceMotion ? nil : spring) { isShowing = false }
                         onNewSession()
                     }
                 } label: {
@@ -260,15 +262,15 @@ struct BereanTabSwitcherView: View {
                         ) {
                             activeChip = chip
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(chipSpring.delay(0.15)) {
-                                withAnimation(spring) { isShowing = false }
+                            withAnimation(reduceMotion ? nil : chipSpring.delay(0.15)) {
+                                withAnimation(reduceMotion ? nil : spring) { isShowing = false }
                                 let msg = stripEmoji(chip)
                                 onNewSessionWithPrompt(msg)
                             }
                         }
                         .onAppear {
                             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.05) {
-                                withAnimation(.easeOut(duration: 0.3)) {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                     chipsVisible[chip] = true
                                 }
                             }
@@ -291,7 +293,7 @@ struct BereanTabSwitcherView: View {
 
             HStack(spacing: 0) {
                 toolbarButton(icon: "waveform") {
-                    withAnimation(spring) { isShowing = false }
+                    withAnimation(reduceMotion ? nil : spring) { isShowing = false }
                 }
 
                 Spacer()
@@ -303,7 +305,7 @@ struct BereanTabSwitcherView: View {
                 // Tab count — closes switcher
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(spring) { isShowing = false }
+                    withAnimation(reduceMotion ? nil : spring) { isShowing = false }
                 } label: {
                     ZStack {
                         RoundedRectangle(cornerRadius: 5)
@@ -324,7 +326,7 @@ struct BereanTabSwitcherView: View {
 
                 toolbarButton(icon: "square.on.square") {
                     if let s = featuredSession {
-                        withAnimation(spring) { sessionManager.duplicate(s.id) }
+                        withAnimation(reduceMotion ? nil : spring) { _ = sessionManager.duplicate(s.id) }
                     }
                 }
 
@@ -333,7 +335,7 @@ struct BereanTabSwitcherView: View {
                 // New chat
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    withAnimation(spring) { isShowing = false }
+                    withAnimation(reduceMotion ? nil : spring) { isShowing = false }
                     onNewSession()
                 } label: {
                     ZStack {
@@ -375,11 +377,11 @@ struct BereanTabSwitcherView: View {
 
     private func removeCard(_ id: UUID) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(spring) { removingIDs.insert(id) }
+        withAnimation(reduceMotion ? nil : spring) { _ = removingIDs.insert(id) }
         // If we're removing the featured session, promote the next available
         if id == localFeaturedID {
             let next = sessionManager.sessions.first(where: { $0.id != id })
-            if let next { withAnimation(spring) { localFeaturedID = next.id } }
+            if let next { withAnimation(reduceMotion ? nil : spring) { localFeaturedID = next.id } }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             sessionManager.delete(id)
@@ -442,6 +444,7 @@ private struct FeaturedChatCard: View {
     let onContinue: () -> Void
     let onClose: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dotScale: CGFloat = 1.0
     @State private var dotOpacity: Double = 1.0
 
@@ -457,7 +460,7 @@ private struct FeaturedChatCard: View {
                         .opacity(dotOpacity)
                         .onAppear {
                             withAnimation(
-                                .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
+                                reduceMotion ? nil : .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
                             ) {
                                 dotScale = 0.7
                                 dotOpacity = 0.5
@@ -622,6 +625,8 @@ private struct BereanTopicChip: View {
     let isVisible: Bool
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: onTap) {
             Text(label)
@@ -646,7 +651,7 @@ private struct BereanTopicChip: View {
         .buttonStyle(_ChipPress())
         .opacity(isVisible ? 1 : 0)
         .scaleEffect(isVisible ? 1 : 0.85)
-        .animation(isVisible ? .easeOut(duration: 0.3) : .none, value: isVisible)
+        .animation(reduceMotion ? .none : (isVisible ? .easeOut(duration: 0.3) : .none), value: isVisible)
     }
 }
 

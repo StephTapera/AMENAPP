@@ -79,10 +79,11 @@ struct BereanActionChip: View {
     let action: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: {
-            withAnimation(.amenEaseQuick) { }
+            withAnimation(reduceMotion ? nil : .amenEaseQuick) { }
             action()
         }) {
             HStack(spacing: 6) {
@@ -118,7 +119,7 @@ struct BereanActionChip: View {
             )
         }
         .buttonStyle(GlassPressStyle())
-        .animation(.amenEaseQuick, value: isActive)
+        .animation(reduceMotion ? .none : .amenEaseQuick, value: isActive)
     }
 }
 
@@ -128,10 +129,11 @@ struct BereanActionChip: View {
 struct BereanModePill: View {
     @Binding var selectedMode: BereanQuickMode
     @State private var showPicker = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
-            withAnimation(.amenSpringBouncy) {
+            withAnimation(reduceMotion ? nil : .amenSpringBouncy) {
                 showPicker.toggle()
             }
         } label: {
@@ -201,6 +203,7 @@ enum BereanQuickMode: String, CaseIterable, Identifiable {
 private struct BereanModePickerView: View {
     @Binding var selectedMode: BereanQuickMode
     @Binding var isPresented: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -213,7 +216,7 @@ private struct BereanModePickerView: View {
 
             ForEach(BereanQuickMode.allCases) { mode in
                 Button {
-                    withAnimation(.amenEaseQuick) {
+                    withAnimation(reduceMotion ? nil : .amenEaseQuick) {
                         selectedMode = mode
                         isPresented = false
                     }
@@ -258,6 +261,7 @@ struct BereanMicButton: View {
     @State private var ring2Scale: CGFloat = 0.6
     @State private var ring2Opacity: Double = 0.5
     @State private var coreScale: CGFloat = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -311,20 +315,20 @@ struct BereanMicButton: View {
 
     private func startPulse() {
         // Ring 1
-        withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
             ring1Scale = 1.6
             ring1Opacity = 0
         }
         // Ring 2 — delayed 0.5s
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             guard isRecording else { return }
-            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
                 ring2Scale = 1.6
                 ring2Opacity = 0
             }
         }
         // Core pulse
-        withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
             coreScale = 1.06
         }
     }
@@ -350,6 +354,7 @@ struct BereanTypingDots: View {
     @State private var dot1Opacity: Double = 0.3
     @State private var dot2Opacity: Double = 0.3
     @State private var dot3Opacity: Double = 0.3
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
@@ -370,29 +375,29 @@ struct BereanTypingDots: View {
 
     private func animateDots() {
         // Dot 1 — no delay
-        withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false).delay(0)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: false).delay(0)) {
             dot1Y = -3; dot1Opacity = 1
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: false)) {
                 dot1Y = 0; dot1Opacity = 0.3
             }
         }
         // Dot 2 — 0.2s delay
-        withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false).delay(0.2)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: false).delay(0.2)) {
             dot2Y = -3; dot2Opacity = 1
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: false)) {
                 dot2Y = 0; dot2Opacity = 0.3
             }
         }
         // Dot 3 — 0.4s delay
-        withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false).delay(0.4)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: false).delay(0.4)) {
             dot3Y = -3; dot3Opacity = 1
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: false)) {
                 dot3Y = 0; dot3Opacity = 0.3
             }
         }
@@ -403,10 +408,11 @@ struct BereanTypingDots: View {
 /// Reusable button press style that applies a quick scale-down on press.
 
 struct GlassPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.93 : 1.0)
-            .animation(.amenSpringBouncy, value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .amenSpringBouncy, value: configuration.isPressed)
     }
 }
 

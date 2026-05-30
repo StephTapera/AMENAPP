@@ -463,6 +463,7 @@ struct FruitOfSpiritBannerView: View {
     @State private var showSheet  = false
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Reuse the generator — don't instantiate on every tap
     private let tapHaptic = UIImpactFeedbackGenerator(style: .light)
@@ -493,7 +494,7 @@ struct FruitOfSpiritBannerView: View {
             .scaleEffect(appeared ? 1 : 0.97)
             .onAppear {
                 tapHaptic.prepare()
-                withAnimation(BannerTokens.fadeIn.delay(0.06)) { appeared = true }
+                withAnimation(reduceMotion ? nil : BannerTokens.fadeIn.delay(0.06)) { appeared = true }
             }
             .sheet(isPresented: $showSheet) {
                 FruitOfSpiritDetailSheet(initialFruit: fruit)
@@ -527,7 +528,7 @@ struct FruitOfSpiritBannerView: View {
             // Instant press response on finger-down: scale + opacity together
             .scaleEffect(isPressed ? 0.975 : 1.0)
             .opacity(isPressed ? 0.90 : 1.0)
-            .animation(.easeOut(duration: 0.10), value: isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.10), value: isPressed)
             ._onButtonGesture(
                 pressing: { pressing in
                     isPressed = pressing
@@ -535,7 +536,7 @@ struct FruitOfSpiritBannerView: View {
                 perform: {
                     let t0 = Date()
                     tapHaptic.impactOccurred()
-                    withAnimation(BannerTokens.expandSpring) { isExpanded.toggle() }
+                    withAnimation(reduceMotion ? nil : BannerTokens.expandSpring) { isExpanded.toggle() }
                     DispatchQueue.main.async {
                         let ms = Date().timeIntervalSince(t0) * 1000
                         dlog("🌿 [FruitBanner] Tap → expand=\(isExpanded) settled in \(String(format: "%.1f", ms))ms")
@@ -668,7 +669,7 @@ struct FruitOfSpiritBannerView: View {
             .font(.systemScaled(9, weight: .semibold))
             .foregroundStyle(primaryText.opacity(0.30))
             .rotationEffect(.degrees(isExpanded ? -180 : 0))
-            .animation(BannerTokens.expandSpring, value: isExpanded)
+            .animation(reduceMotion ? .none : BannerTokens.expandSpring, value: isExpanded)
     }
 
     // MARK: - Computed styling helpers
@@ -750,6 +751,7 @@ struct FruitOfSpiritDetailSheet: View {
     @State private var showBereanSheet = false
     @State private var bereanInitialQuery = ""
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private let hapticMedium = UIImpactFeedbackGenerator(style: .medium)
 
@@ -776,7 +778,7 @@ struct FruitOfSpiritDetailSheet: View {
                     VStack(spacing: 0) {
                         // ── Hero header ──────────────────────────────────────────
                         heroHeader
-                            .animation(FT.fruitAnim, value: selectedFruitIndex)
+                            .animation(reduceMotion ? .none : FT.fruitAnim, value: selectedFruitIndex)
 
                         // ── Tab bar ──────────────────────────────────────────────
                         editorialTabBar
@@ -796,7 +798,7 @@ struct FruitOfSpiritDetailSheet: View {
                             }
                         }
                         .transition(.opacity)
-                        .animation(FT.tabAnim, value: activeTab)
+                        .animation(reduceMotion ? .none : FT.tabAnim, value: activeTab)
                     }
                 }
             }
@@ -901,7 +903,7 @@ struct FruitOfSpiritDetailSheet: View {
             ForEach(DetailTab.allCases, id: \.self) { tab in
                 Button {
                     haptic.impactOccurred()
-                    withAnimation(FT.tabAnim) { activeTab = tab }
+                    withAnimation(reduceMotion ? nil : FT.tabAnim) { activeTab = tab }
                 } label: {
                     VStack(spacing: 6) {
                         Text(tab.rawValue.uppercased())
@@ -917,7 +919,7 @@ struct FruitOfSpiritDetailSheet: View {
                                 Color.clear.frame(height: 1.5)
                             }
                         }
-                        .animation(FT.tabAnim, value: activeTab)
+                        .animation(reduceMotion ? .none : FT.tabAnim, value: activeTab)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, 2)
@@ -988,8 +990,8 @@ struct FruitOfSpiritDetailSheet: View {
 
             Spacer(minLength: 48)
         }
-        .animation(FT.expandAnim, value: expandedSection)
-        .animation(FT.fruitAnim, value: selectedFruitIndex)
+        .animation(reduceMotion ? .none : FT.expandAnim, value: expandedSection)
+        .animation(reduceMotion ? .none : FT.fruitAnim, value: selectedFruitIndex)
     }
 
     // ── Ask Berean button ──
@@ -1073,7 +1075,7 @@ struct FruitOfSpiritDetailSheet: View {
         return VStack(spacing: 0) {
             Button {
                 haptic.impactOccurred()
-                withAnimation(FT.expandAnim) {
+                withAnimation(reduceMotion ? nil : FT.expandAnim) {
                     expandedSection = isOpen ? nil : key
                 }
             } label: {
@@ -1153,7 +1155,7 @@ struct FruitOfSpiritDetailSheet: View {
                                let matchIndex = allFruits.firstIndex(where: { $0.name == rel }) {
                                 Button {
                                     haptic.impactOccurred()
-                                    withAnimation(FT.fruitAnim) {
+                                    withAnimation(reduceMotion ? nil : FT.fruitAnim) {
                                         selectedFruitIndex = matchIndex
                                         expandedSection = nil
                                         activeTab = .learn
@@ -1229,7 +1231,7 @@ struct FruitOfSpiritDetailSheet: View {
         let isSelected = index == selectedFruitIndex
         return Button {
             haptic.impactOccurred()
-            withAnimation(FT.fruitAnim) {
+            withAnimation(reduceMotion ? nil : FT.fruitAnim) {
                 selectedFruitIndex = index
                 expandedSection = nil
                 activeTab = .learn
@@ -1336,7 +1338,7 @@ struct FruitOfSpiritDetailSheet: View {
                 selectedAnswerIndex = nil
                 answeredCorrectly = nil
                 score = 0
-                withAnimation(FT.expandAnim) { quizState = .active }
+                withAnimation(reduceMotion ? nil : FT.expandAnim) { quizState = .active }
             } label: {
                 HStack(spacing: 10) {
                     Text("BEGIN")
@@ -1385,7 +1387,7 @@ struct FruitOfSpiritDetailSheet: View {
                             width: geo.size.width * CGFloat(currentQuestionIndex + 1) / CGFloat(quizQuestions.count),
                             height: 1
                         )
-                        .animation(.easeInOut(duration: 0.35), value: currentQuestionIndex)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.35), value: currentQuestionIndex)
                 }
             }
             .frame(height: 1)
@@ -1474,7 +1476,7 @@ struct FruitOfSpiritDetailSheet: View {
 
                 Button {
                     haptic.impactOccurred()
-                    withAnimation(FT.expandAnim) {
+                    withAnimation(reduceMotion ? nil : FT.expandAnim) {
                         if currentQuestionIndex + 1 < quizQuestions.count {
                             currentQuestionIndex += 1
                             selectedAnswerIndex = nil
@@ -1504,7 +1506,7 @@ struct FruitOfSpiritDetailSheet: View {
                 .transition(.opacity)
             }
         }
-        .animation(FT.expandAnim, value: answeredCorrectly != nil)
+        .animation(reduceMotion ? .none : FT.expandAnim, value: answeredCorrectly != nil)
     }
 
     private func quizAnswerRow(text: String, index: Int, correctIndex: Int) -> some View {
@@ -1524,7 +1526,7 @@ struct FruitOfSpiritDetailSheet: View {
         return Button {
             guard selectedAnswerIndex == nil else { return }
             hapticMedium.impactOccurred()
-            withAnimation(FT.expandAnim) {
+            withAnimation(reduceMotion ? nil : FT.expandAnim) {
                 selectedAnswerIndex = index
                 answeredCorrectly = (index == correctIndex)
                 if index == correctIndex { score += 1 }
@@ -1562,7 +1564,7 @@ struct FruitOfSpiritDetailSheet: View {
         }
         .buttonStyle(.plain)
         .disabled(hasAnswered)
-        .animation(FT.expandAnim, value: selectedAnswerIndex)
+        .animation(reduceMotion ? .none : FT.expandAnim, value: selectedAnswerIndex)
     }
 
     // Quiz results
@@ -1606,7 +1608,7 @@ struct FruitOfSpiritDetailSheet: View {
                     FT.divider.frame(height: 1)
                     fruit.accentColor
                         .frame(width: geo.size.width * CGFloat(score) / CGFloat(quizQuestions.count), height: 1)
-                        .animation(.spring(response: 1.0, dampingFraction: 0.7).delay(0.15), value: score)
+                        .animation(reduceMotion ? .none : .spring(response: 1.0, dampingFraction: 0.7).delay(0.15), value: score)
                 }
             }
             .frame(height: 1)
@@ -1618,14 +1620,14 @@ struct FruitOfSpiritDetailSheet: View {
             // Actions
             VStack(spacing: 0) {
                 resultActionRow(label: "TRY AGAIN", icon: "arrow.counterclockwise") {
-                    withAnimation(FT.expandAnim) {
+                    withAnimation(reduceMotion ? nil : FT.expandAnim) {
                         currentQuestionIndex = 0; selectedAnswerIndex = nil
                         answeredCorrectly = nil; score = 0; quizState = .active
                     }
                 }
                 FT.divider.frame(height: 0.5).padding(.horizontal, 24)
                 resultActionRow(label: "BACK TO LEARNING", icon: "book") {
-                    withAnimation(FT.tabAnim) { activeTab = .learn; quizState = .idle }
+                    withAnimation(reduceMotion ? nil : FT.tabAnim) { activeTab = .learn; quizState = .idle }
                 }
             }
         }

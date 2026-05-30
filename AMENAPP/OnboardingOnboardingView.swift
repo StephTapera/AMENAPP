@@ -32,6 +32,7 @@ private enum AMENLinks {
 struct OnboardingView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
     @ObservedObject private var discoveryService = DiscoveryService.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // P1 FIX: Persist onboarding step so force-quit resumes correctly
     @AppStorage("onboardingStep") private var step: Int = 0
@@ -192,7 +193,7 @@ struct OnboardingView: View {
                 Spacer().frame(width: 36)
             }
         }
-        .animation(.easeInOut(duration: 0.22), value: step)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.22), value: step)
         .frame(height: 44)
     }
 
@@ -400,7 +401,7 @@ struct OnboardingView: View {
                     .foregroundStyle(ONB.inkTertiary)
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
-                    .animation(.easeInOut, value: selectedProfileImage == nil)
+                    .animation(reduceMotion ? .none : .easeInOut, value: selectedProfileImage == nil)
 
                 Spacer().frame(height: 28)
 
@@ -462,7 +463,7 @@ struct OnboardingView: View {
                                 }
                             }
                             .transition(.scale.combined(with: .opacity))
-                            .animation(.spring(response: 0.30), value: usernameAvailable)
+                            .animation(reduceMotion ? .none : .spring(response: 0.30), value: usernameAvailable)
                         }
 
                         if let avail = usernameAvailable {
@@ -470,7 +471,7 @@ struct OnboardingView: View {
                                 .font(.systemScaled(12, weight: .regular))
                                 .foregroundStyle(avail ? Color.green : Color.red)
                                 .transition(.opacity.combined(with: .move(edge: .top)))
-                                .animation(.easeInOut(duration: 0.2), value: avail)
+                                .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: avail)
                         }
 
                         // Username suggestions (P1-3)
@@ -498,7 +499,7 @@ struct OnboardingView: View {
                                 }
                             }
                             .transition(.opacity.combined(with: .move(edge: .top)))
-                            .animation(.easeInOut(duration: 0.22), value: usernameSuggestions.count)
+                            .animation(reduceMotion ? .none : .easeInOut(duration: 0.22), value: usernameSuggestions.count)
                         }
                     }
                 }
@@ -541,7 +542,7 @@ struct OnboardingView: View {
                                 Image(systemName: showDOBPicker ? "chevron.up" : "chevron.down")
                                     .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(ONB.inkTertiary)
-                                    .animation(.easeInOut(duration: 0.2), value: showDOBPicker)
+                                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: showDOBPicker)
                             }
                         }
                         .buttonStyle(.plain)
@@ -869,7 +870,7 @@ struct OnboardingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
-                            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: hasAgreedToTerms)
+                            .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.7), value: hasAgreedToTerms)
 
                             Group {
                                 Text("I agree to AMEN's ") +
@@ -1286,6 +1287,7 @@ struct ONBFirstPostSheet: View {
     @Binding var isPresented: Bool
     @State private var showComposer = false
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1313,7 +1315,7 @@ struct ONBFirstPostSheet: View {
                     }
                     .scaleEffect(appeared ? 1.0 : 0.5)
                     .opacity(appeared ? 1 : 0)
-                    .animation(.spring(response: 0.55, dampingFraction: 0.70).delay(0.1), value: appeared)
+                    .animation(reduceMotion ? .none : .spring(response: 0.55, dampingFraction: 0.70).delay(0.1), value: appeared)
 
                     Spacer().frame(height: 20)
 
@@ -1322,7 +1324,7 @@ struct ONBFirstPostSheet: View {
                         .foregroundStyle(.primary)
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 10)
-                        .animation(.spring(response: 0.45, dampingFraction: 0.78).delay(0.2), value: appeared)
+                        .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.78).delay(0.2), value: appeared)
 
                     Spacer().frame(height: 10)
 
@@ -1333,7 +1335,7 @@ struct ONBFirstPostSheet: View {
                         .lineSpacing(3)
                         .padding(.horizontal, 32)
                         .opacity(appeared ? 1 : 0)
-                        .animation(.easeOut(duration: 0.4).delay(0.3), value: appeared)
+                        .animation(reduceMotion ? .none : .easeOut(duration: 0.4).delay(0.3), value: appeared)
 
                     Spacer().frame(height: 36)
 
@@ -1352,7 +1354,7 @@ struct ONBFirstPostSheet: View {
                     .buttonStyle(PressableButtonStyle())
                     .padding(.horizontal, 28)
                     .opacity(appeared ? 1 : 0)
-                    .animation(.easeOut(duration: 0.35).delay(0.4), value: appeared)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.35).delay(0.4), value: appeared)
 
                     Spacer().frame(height: 14)
 
@@ -1366,7 +1368,7 @@ struct ONBFirstPostSheet: View {
                     }
                     .buttonStyle(.plain)
                     .opacity(appeared ? 1 : 0)
-                    .animation(.easeOut(duration: 0.3).delay(0.45), value: appeared)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.3).delay(0.45), value: appeared)
 
                     Spacer().frame(height: 48)
                 }
@@ -1389,6 +1391,7 @@ private struct ONBInterestChip: View {
     let color: Color
     let selected: Bool
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -1418,7 +1421,7 @@ private struct ONBInterestChip: View {
             )
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.28, dampingFraction: 0.70), value: selected)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.70), value: selected)
     }
 }
 
@@ -1426,6 +1429,7 @@ private struct ONBInterestChip: View {
 
 private struct ONBFollowSkeleton: View {
     @State private var opacity: Double = 0.4
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         HStack(spacing: 12) {
             Circle()
@@ -1450,7 +1454,7 @@ private struct ONBFollowSkeleton: View {
             .fill(Color(uiColor: .secondarySystemBackground)))
         .opacity(opacity)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                 opacity = 0.9
             }
         }
@@ -1460,10 +1464,11 @@ private struct ONBFollowSkeleton: View {
 // MARK: - Pressable Button Style (preserved for any callers)
 
 struct PressableButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .opacity(configuration.isPressed ? 0.85 : 1.0)
-            .animation(.spring(response: 0.20, dampingFraction: 0.65), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.20, dampingFraction: 0.65), value: configuration.isPressed)
     }
 }

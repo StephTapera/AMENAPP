@@ -1295,7 +1295,7 @@ struct BereanChatView: View {
                 )
             }
             .overlay(alignment: .top) { savedToNotesToast }
-            .animation(.easeInOut(duration: 0.25), value: showSavedToNotesToast)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.25), value: showSavedToNotesToast)
             // COPPA-FIX: Age gate — block users who haven't met the minimum age requirement.
             .alert("Age Requirement", isPresented: $showAgeLockedAlert) {
                 Button("OK", role: .cancel) { dismiss() }
@@ -1323,7 +1323,7 @@ struct BereanChatView: View {
                 cancellables.removeAll()
             }
             .onChange(of: vm.isThinking) { _, thinking in
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.82)) {
                     currentThinkingAction = thinking ? .drafting : .idle
                 }
                 if thinking {
@@ -1635,7 +1635,7 @@ struct BereanChatView: View {
 
     private var studyModeToggle: some View {
         Button {
-            withAnimation(BereanAnimationCoordinator.softSpring) {
+            withAnimation(reduceMotion ? nil : BereanAnimationCoordinator.softSpring) {
                 vm.setStudyModeEnabled(!vm.isStudyModeEnabled)
             }
         } label: {
@@ -1825,7 +1825,7 @@ struct BereanChatView: View {
                         }
                     }
                 )
-                .animation(.easeOut(duration: 0.2), value: vm.isThinking)
+                .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: vm.isThinking)
             }
             .coordinateSpace(name: "scroll")
             .background(
@@ -1858,7 +1858,7 @@ struct BereanChatView: View {
                     trayVisibleForId = nil
                 }
                 if scrollOffset > 50 && showHero {
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                         showHero = false
                     }
                 }
@@ -1875,7 +1875,7 @@ struct BereanChatView: View {
                 trayVisibleForId = nil
                 let shouldScroll = scrollCoordinator.shouldAutoScroll(isUserInitiated: pendingUserSend)
                 if shouldScroll {
-                    withAnimation(.easeOut(duration: 0.30)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.30)) {
                         proxy.scrollTo("bottom", anchor: .bottom)
                     }
                 }
@@ -1894,7 +1894,7 @@ struct BereanChatView: View {
             )
             .padding(.trailing, 4)
             .opacity(vm.messages.count >= 6 ? 1 : 0)
-            .animation(.spring(response: 0.36, dampingFraction: 0.76), value: vm.messages.count)
+            .animation(reduceMotion ? .none : .spring(response: 0.36, dampingFraction: 0.76), value: vm.messages.count)
             } // end ZStack(alignment: .trailing)
         }
     }
@@ -1988,7 +1988,7 @@ struct BereanChatView: View {
         vm.pendingComposerContext = submissionContext
         pendingUserSend = true
         sendSweep.toggle()
-        withAnimation(BereanAnimationCoordinator.compactSpring) {
+        withAnimation(reduceMotion ? nil : BereanAnimationCoordinator.compactSpring) {
             showHero = false
         }
         handleSendTap()
@@ -2640,9 +2640,9 @@ struct BereanChatView: View {
                         linkedVerses: BereanIntelligenceCoordinator.shared.grounding.extractVerseReferences(from: msg.content),
                         category: "insight"
                     )
-                    withAnimation { showSavedToNotesToast = true }
+                    withAnimation(reduceMotion ? nil : .default) { showSavedToNotesToast = true }
                     try? await Task.sleep(for: .seconds(2))
-                    withAnimation { showSavedToNotesToast = false }
+                    withAnimation(reduceMotion ? nil : .default) { showSavedToNotesToast = false }
                 }
             } label: {
                 Label("Save to Memory", systemImage: "brain")
@@ -2902,10 +2902,10 @@ struct BereanChatView: View {
             let service = ChurchNotesService()
             _ = try await service.createNote(note)
             await MainActor.run {
-                withAnimation { showSavedToNotesToast = true }
+                withAnimation(reduceMotion ? nil : .default) { showSavedToNotesToast = true }
                 Task {
                     try? await Task.sleep(nanoseconds: 2_500_000_000)
-                    withAnimation { showSavedToNotesToast = false }
+                    withAnimation(reduceMotion ? nil : .default) { showSavedToNotesToast = false }
                 }
             }
         } catch {
@@ -3012,7 +3012,7 @@ struct BereanChatView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             Button {
-                withAnimation(Motion.liquidSpring) {
+                withAnimation(reduceMotion ? nil : Motion.liquidSpring) {
                     vm.errorMessage = nil
                 }
             } label: {
@@ -3056,7 +3056,7 @@ struct BereanChatView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             Button {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.8)) {
                     vm.modelFallbackNotice = nil
                 }
             } label: {
@@ -3200,7 +3200,7 @@ struct BereanChatView: View {
                             .onLongPressGesture {
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 trayVisibleForId = message.id
-                                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.80)) {
                                     messageTrayVisible = true
                                 }
                             }
@@ -3537,7 +3537,7 @@ struct BereanChatView: View {
             }
             .chatGlassCapsule()
             .accessibilityLabel("Model: \(modelStore.selectedMode.title). Tap to change.")
-            .animation(.snappy(duration: 0.2), value: modelStore.selectedMode)
+            .animation(reduceMotion ? .none : .snappy(duration: 0.2), value: modelStore.selectedMode)
 
             Spacer()
 
@@ -3766,10 +3766,11 @@ struct BereanFollowUpFlowLayout: Layout {
 
 // Quick action press style
 struct QuickActionPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1.0)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
