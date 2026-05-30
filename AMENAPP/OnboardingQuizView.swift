@@ -157,6 +157,7 @@ final class OnboardingViewModel: ObservableObject {
 
 struct OnboardingQuizView: View {
     @StateObject private var vm = OnboardingViewModel()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -172,9 +173,9 @@ struct OnboardingQuizView: View {
                 quizFlow
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: vm.currentStep)
-        .animation(.easeInOut(duration: 0.4), value: vm.isLoading)
-        .animation(.easeInOut(duration: 0.4), value: vm.result != nil)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: vm.currentStep)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.4), value: vm.isLoading)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.4), value: vm.result != nil)
     }
 
     private var quizFlow: some View {
@@ -252,7 +253,7 @@ struct OnboardingQuizView: View {
                           : LinearGradient(colors: [Color.white.opacity(0.12), Color.white.opacity(0.12)],
                                            startPoint: .leading, endPoint: .trailing))
                     .frame(height: 3)
-                    .animation(.spring(response: 0.4), value: vm.currentStep)
+                    .animation(reduceMotion ? .none : .spring(response: 0.4), value: vm.currentStep)
             }
         }
         .padding(.horizontal, 20)
@@ -287,6 +288,8 @@ struct QuizOptionCard: View {
     let option: QuizOption
     let isSelected: Bool
     let action: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -323,7 +326,7 @@ struct QuizOptionCard: View {
             )
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.2, dampingFraction: 0.9), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.2, dampingFraction: 0.9), value: isSelected)
     }
 }
 
@@ -334,6 +337,7 @@ struct QuizPersonalizingView: View {
     let steps = ["Reading your answers...", "Finding your Scripture...", "Building your feed...", "Personalizing your experience..."]
     @State private var stepIndex = 0
     let timer = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 32) {
@@ -350,7 +354,7 @@ struct QuizPersonalizingView: View {
                 Text("✦").font(.systemScaled(28)).foregroundColor(.black)
             }
             .onAppear {
-                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                     pulseScale = 1.3
                 }
             }
@@ -362,7 +366,7 @@ struct QuizPersonalizingView: View {
                 Text(steps[stepIndex])
                     .font(.systemScaled(14))
                     .foregroundColor(Color.white.opacity(0.45))
-                    .animation(.easeInOut, value: stepIndex)
+                    .animation(reduceMotion ? .none : .easeInOut, value: stepIndex)
             }
             Spacer()
         }

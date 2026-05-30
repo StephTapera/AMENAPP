@@ -162,6 +162,7 @@ class LiquidGlassVerseSearchService: ObservableObject {
 
 struct LiquidGlassVerseMiniDrawerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var searchService = LiquidGlassVerseSearchService()
     @State private var selectedVerse: BibleVerse? = nil
     @FocusState private var searchFocused: Bool
@@ -306,11 +307,11 @@ struct LiquidGlassVerseMiniDrawerView: View {
                 )
                 .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
         )
-        .animation(.easeOut(duration: 0.2), value: searchFocused)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: searchFocused)
     }
-    
+
     // MARK: - Suggestion Chips
-    
+
     private var suggestionChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -398,15 +399,15 @@ struct LiquidGlassVerseMiniDrawerView: View {
                     .frame(width: 7, height: 7)
                     .scaleEffect(searchService.isLoading ? 1.2 : 1.0)
                     .animation(
-                        .easeInOut(duration: 0.5).repeatForever().delay(Double(i) * 0.15),
+                        reduceMotion ? .none : .easeInOut(duration: 0.5).repeatForever().delay(Double(i) * 0.15),
                         value: searchService.isLoading
                     )
             }
         }
     }
-    
+
     // MARK: - Empty Prompt
-    
+
     private var emptyPrompt: some View {
         VStack(spacing: 12) {
             Image(systemName: "book.closed")
@@ -499,10 +500,10 @@ struct LiquidGlassVerseMiniDrawerView: View {
             }
             .buttonStyle(SubtlePressStyle())
             .disabled(selectedVerse == nil)
-            .animation(.easeOut(duration: 0.2), value: selectedVerse != nil)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: selectedVerse != nil)
         }
     }
-    
+
     // MARK: - Liquid Glass Background
     
     private var liquidGlassBackground: some View {
@@ -530,7 +531,9 @@ struct LiquidGlassVerseResultCard: View {
     let verse: BibleVerse
     let isSelected: Bool
     let onTap: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
@@ -568,7 +571,7 @@ struct LiquidGlassVerseResultCard: View {
             )
         }
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.15), value: isSelected)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isSelected)
     }
 }
 
@@ -576,6 +579,7 @@ struct LiquidGlassVerseResultCard: View {
 
 struct LiquidGlassVerseFullDrawerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var searchService = LiquidGlassVerseSearchService()
     @State private var selectedVerse: BibleVerse? = nil
     @State private var selectedFilter: VerseFilter = .all
@@ -768,9 +772,9 @@ struct LiquidGlassVerseFullDrawerView: View {
                 )
                 .shadow(color: .black.opacity(0.04), radius: 10, y: 4)
         )
-        .animation(.easeOut(duration: 0.2), value: searchFocused)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: searchFocused)
     }
-    
+
     // MARK: - Translation Picker
     
     private var translationPicker: some View {
@@ -944,7 +948,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                         .frame(width: 8, height: 8)
                         .scaleEffect(searchService.isLoading ? 1.3 : 1.0)
                         .animation(
-                            .easeInOut(duration: 0.5).repeatForever().delay(Double(i) * 0.15),
+                            reduceMotion ? .none : .easeInOut(duration: 0.5).repeatForever().delay(Double(i) * 0.15),
                             value: searchService.isLoading
                         )
                 }
@@ -1071,7 +1075,9 @@ struct FullLiquidGlassVerseResultCard: View {
     let verse: BibleVerse
     let isSelected: Bool
     let onTap: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 10) {
@@ -1125,17 +1131,19 @@ struct FullLiquidGlassVerseResultCard: View {
             )
         }
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.15), value: isSelected)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isSelected)
     }
 }
 
 // MARK: - Subtle Press Style
 
 private struct SubtlePressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

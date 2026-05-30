@@ -32,6 +32,7 @@ private enum SD {
 
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var authViewModel: AuthenticationViewModel
 
     @State private var showSignOutConfirmation = false
@@ -55,7 +56,7 @@ struct SettingsView: View {
                         profileHeader
                             .opacity(groupsVisible ? 1 : 0)
                             .offset(y: groupsVisible ? 0 : 14)
-                            .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.04), value: groupsVisible)
+                            .animation(reduceMotion ? .none : .spring(response: 0.46, dampingFraction: 0.82).delay(0.04), value: groupsVisible)
 
                         // ── Settings Search Capsule ────────────────────────
                         AmenSmartCapsule(
@@ -75,7 +76,7 @@ struct SettingsView: View {
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 14)
-                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.06), value: groupsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.46, dampingFraction: 0.82).delay(0.06), value: groupsVisible)
 
                         // ── Search Results Overlay ─────────────────────────
                         if !searchEngine.results.isEmpty {
@@ -103,7 +104,7 @@ struct SettingsView: View {
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
-                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.08), value: groupsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.46, dampingFraction: 0.82).delay(0.08), value: groupsVisible)
 
                         // ── Group 2: Preferences ────────────────────────────
                         SDGroup {
@@ -131,7 +132,7 @@ struct SettingsView: View {
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
-                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.13), value: groupsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.46, dampingFraction: 0.82).delay(0.13), value: groupsVisible)
 
                         // ── Group 3: Tools & Data ───────────────────────────
                         SDGroup {
@@ -143,7 +144,7 @@ struct SettingsView: View {
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
-                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.17), value: groupsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.46, dampingFraction: 0.82).delay(0.17), value: groupsVisible)
 
                         // ── Group 4: Help & Legal ───────────────────────────
                         SDGroup {
@@ -155,7 +156,7 @@ struct SettingsView: View {
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
-                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.20), value: groupsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.46, dampingFraction: 0.82).delay(0.20), value: groupsVisible)
 
                         // ── Sign Out / Delete Account ───────────────────────
                         SDGroup {
@@ -175,7 +176,7 @@ struct SettingsView: View {
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
-                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.23), value: groupsVisible)
+                        .animation(reduceMotion ? .none : .spring(response: 0.46, dampingFraction: 0.82).delay(0.23), value: groupsVisible)
 
                         // ── App Version ─────────────────────────────────────
                         HStack {
@@ -187,7 +188,7 @@ struct SettingsView: View {
                         .padding(.top, 4)
                         .padding(.bottom, 32)
                         .opacity(groupsVisible ? 1 : 0)
-                        .animation(.easeIn(duration: 0.2).delay(0.28), value: groupsVisible)
+                        .animation(reduceMotion ? .none : .easeIn(duration: 0.2).delay(0.28), value: groupsVisible)
 
                         } // end else if settingsSearchText.isEmpty
                     }
@@ -244,7 +245,7 @@ struct SettingsView: View {
                 navigateToAccountSettings = true
             }
             .onAppear {
-                withAnimation { groupsVisible = true }
+                withAnimation(reduceMotion ? nil : .default) { groupsVisible = true }
             }
         }
     }
@@ -658,6 +659,8 @@ struct SDDivider: View {
 // MARK: - Press ButtonStyle
 
 struct SDPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
@@ -665,7 +668,7 @@ struct SDPressStyle: ButtonStyle {
                     ? SD.rowHover
                     : Color.clear
             )
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

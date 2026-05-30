@@ -348,6 +348,7 @@ class AttachVerseViewModel: ObservableObject {
 
 struct AttachVerseSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var vm = AttachVerseViewModel()
     var onAttach: (AttachedVerse) -> Void
 
@@ -412,8 +413,8 @@ struct AttachVerseSheet: View {
                         emptyPrompt
                     }
                 }
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: vm.results.count)
-                .animation(.easeInOut(duration: 0.2), value: vm.isLoading)
+                .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: vm.results.count)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: vm.isLoading)
 
                 Spacer(minLength: 0)
             }
@@ -461,7 +462,7 @@ struct AttachVerseSheet: View {
             }
             .buttonStyle(.plain)
             .disabled(vm.selectedVerse == nil)
-            .animation(.easeOut(duration: 0.15), value: vm.selectedVerse != nil)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: vm.selectedVerse != nil)
         }
     }
 
@@ -536,7 +537,7 @@ struct AttachVerseSheet: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(inputFocused ? accentBlue : textTertiary)
                     .font(.systemScaled(16, weight: .medium))
-                    .animation(.easeOut(duration: 0.15), value: inputFocused)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: inputFocused)
 
                 TextField("Try \"John 3:16\" or \"hope\"", text: $vm.searchText)
                     .font(.systemScaled(17))
@@ -579,7 +580,7 @@ struct AttachVerseSheet: View {
                     )
                     .shadow(color: .black.opacity(inputFocused ? 0.06 : 0.03), radius: 8, y: 4)
             )
-            .animation(.easeOut(duration: 0.15), value: inputFocused)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: inputFocused)
         }
     }
 
@@ -658,7 +659,7 @@ struct AttachVerseSheet: View {
                         .scaleEffect(vm.isLoading ? 1.3 : 1.0)
                         .opacity(vm.isLoading ? 1.0 : 0.3)
                         .animation(
-                            .easeInOut(duration: 0.6).repeatForever().delay(Double(i) * 0.2),
+                            reduceMotion ? .none : .easeInOut(duration: 0.6).repeatForever().delay(Double(i) * 0.2),
                             value: vm.isLoading
                         )
                 }
@@ -764,7 +765,7 @@ struct AttachVerseSheet: View {
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
-                .animation(.spring(response: 0.25), value: isSelected)
+                .animation(reduceMotion ? .none : .spring(response: 0.25), value: isSelected)
             }
             .padding(18)
             .background(
@@ -794,7 +795,7 @@ struct AttachVerseSheet: View {
             removal: .opacity
         ))
         .animation(
-            .spring(response: 0.38, dampingFraction: 0.78).delay(Double(index) * 0.04),
+            reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.78).delay(Double(index) * 0.04),
             value: vm.results.count
         )
     }

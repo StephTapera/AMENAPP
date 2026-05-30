@@ -13,6 +13,7 @@ import FirebaseAuth
 
 struct AMENConnectSignUpView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var store = AMENConnectMembershipStore.shared
     @State private var step = 0
     @State private var billingAnnual = false
@@ -58,7 +59,7 @@ struct AMENConnectSignUpView: View {
                         reviewStep.tag(2)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
-                    .animation(.easeInOut(duration: 0.28), value: step)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.28), value: step)
 
                     // Nav buttons
                     navRow
@@ -107,7 +108,7 @@ struct AMENConnectSignUpView: View {
                 Capsule()
                     .fill(i <= step ? ink : Color(.systemGray4))
                     .frame(width: i == step ? 22 : 7, height: 7)
-                    .animation(.easeOut(duration: 0.2), value: step)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: step)
             }
             Spacer()
             Text("\(step + 1) of \(totalSteps)")
@@ -273,7 +274,7 @@ struct AMENConnectSignUpView: View {
         HStack(spacing: 12) {
             if step > 0 {
                 Button {
-                    withAnimation(.easeOut(duration: 0.25)) { step -= 1 }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { step -= 1 }
                 } label: {
                     Image(systemName: "arrow.left")
                         .font(.systemScaled(15, weight: .semibold))
@@ -289,7 +290,7 @@ struct AMENConnectSignUpView: View {
 
             Button {
                 if step < totalSteps - 1 {
-                    withAnimation(.easeOut(duration: 0.25)) { step += 1 }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { step += 1 }
                 } else {
                     Task { await submitProfile() }
                 }
@@ -493,7 +494,7 @@ struct AMENConnectSignUpView: View {
                 )
                 .ambientGlow(.edgeLitCapsule, surface: .authentication, intensity: .whisper, isActive: isSelected, cornerRadius: 10)
         }
-        .animation(.easeOut(duration: 0.18), value: isSelected)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: isSelected)
     }
 }
 
@@ -505,6 +506,7 @@ private struct TierCard: View {
     let billingAnnual: Bool
     let onSelect: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let proGold = Color(red: 0.85, green: 0.58, blue: 0.10)
 
     var body: some View {
@@ -539,7 +541,7 @@ private struct TierCard: View {
                                 .frame(width: 14, height: 14)
                         }
                     }
-                    .animation(.easeOut(duration: 0.15), value: isSelected)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isSelected)
                 }
 
                 // Feature list
@@ -582,7 +584,7 @@ private struct TierCard: View {
             )
             .ambientGlow(.edgeLitCapsule, surface: .authentication, intensity: tier == .pro ? .subtle : .whisper, isActive: isSelected, cornerRadius: 18)
             .scaleEffect(isSelected ? 1.01 : 1.0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.8), value: isSelected)
+            .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.8), value: isSelected)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -595,6 +597,8 @@ struct FlowTagSelector: View {
     @Binding var selected: Set<String>
     let maxSelected: Int
     let accentColor: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         // Wrap tags into rows
@@ -617,7 +621,7 @@ struct FlowTagSelector: View {
                     )
             }
             .buttonStyle(PlainButtonStyle())
-            .animation(.easeOut(duration: 0.15), value: selected.contains(skill))
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: selected.contains(skill))
         }
     }
 }
@@ -628,6 +632,8 @@ struct FlowTabSelector: View {
     let options: [AMENConnectTab]
     @Binding var selected: Set<AMENConnectTab>
     let accentColor: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ConnectFlowLayout(options) { tab in
@@ -649,7 +655,7 @@ struct FlowTabSelector: View {
                     )
             }
             .buttonStyle(PlainButtonStyle())
-            .animation(.easeOut(duration: 0.15), value: selected.contains(tab))
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: selected.contains(tab))
         }
     }
 }

@@ -16,6 +16,7 @@ struct MentalHealthDetailView: View {
     @State private var selectedTab: WellnessTab = .tools
     @State private var appeared = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Wellness adaptive surface state
     @State private var selectedMood: WellnessMood = .other
@@ -90,7 +91,7 @@ struct MentalHealthDetailView: View {
         }
         .navigationBarHidden(true)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.5).delay(0.06)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.5).delay(0.06)) {
                 appeared = true
             }
         }

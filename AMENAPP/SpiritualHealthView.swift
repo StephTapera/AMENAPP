@@ -258,6 +258,7 @@ extension Calendar {
 // MARK: - Main View
 
 struct SpiritualHealthView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var store = SpiritualHealthStore.shared
     @State private var selectedTab: SHTab = .overview
     @State private var showCheckInSheet = false
@@ -711,7 +712,7 @@ struct SpiritualHealthView: View {
                             )
                         )
                         .frame(width: geo.size.width * CGFloat(checkIn.overallScore / 5.0), height: 8)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.75), value: checkIn.overallScore)
+                        .animation(reduceMotion ? .none : .spring(response: 0.6, dampingFraction: 0.75), value: checkIn.overallScore)
                 }
             }
             .frame(height: 8)
@@ -870,7 +871,7 @@ struct SpiritualHealthView: View {
                                 RoundedRectangle(cornerRadius: 3)
                                     .fill(color)
                                     .frame(width: geo.size.width * CGFloat(score) / 5.0, height: 6)
-                                    .animation(.spring(response: 0.5, dampingFraction: 0.75), value: score)
+                                    .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.75), value: score)
                             }
                         }
                         .frame(height: 6)
@@ -1053,7 +1054,7 @@ struct SpiritualHealthView: View {
         .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : 20)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
     }
 
     private func monthShort(_ d: Date) -> String {
@@ -1147,7 +1148,7 @@ struct SpiritualHealthView: View {
         .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 16)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
     }
 
     private func relativeDate(_ date: Date) -> String {
@@ -1235,7 +1236,7 @@ struct SpiritualHealthView: View {
         .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : -20)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
     }
 
     private func progressValue(_ m: GrowthMilestone) -> Int {
@@ -1254,6 +1255,7 @@ struct SpiritualHealthView: View {
 struct CheckInSheet: View {
     @ObservedObject var store: SpiritualHealthStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var scoreScripture: Int = 3
     @State private var scorePrayer: Int = 3
@@ -1288,7 +1290,7 @@ struct CheckInSheet: View {
                     navigationButtons
                 }
                 .padding(20)
-                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: currentStep)
+                .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: currentStep)
             }
             .navigationTitle("Weekly Check-In")
             .navigationBarTitleDisplayMode(.inline)
@@ -1306,7 +1308,7 @@ struct CheckInSheet: View {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(i <= currentStep ? Color(red: 0.42, green: 0.24, blue: 0.82) : Color(.systemGray5))
                     .frame(height: 5)
-                    .animation(.easeOut(duration: 0.2), value: currentStep)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: currentStep)
             }
         }
     }
