@@ -26,6 +26,7 @@ import MusicKit
 
 struct EnhancedChurchNoteEditor: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var notesService: ChurchNotesService
     
     // Edit mode (nil for new note, note for editing)
@@ -223,9 +224,9 @@ struct EnhancedChurchNoteEditor: View {
                         .opacity(focusMode ? 0.2 : 1.0)
                         .offset(y: titleSectionAppeared ? 0 : 12)
                         .opacity(titleSectionAppeared ? 1 : 0)
-                        .animation(.spring(response: 0.52, dampingFraction: 0.84).delay(0.05), value: titleSectionAppeared)
+                        .animation(reduceMotion ? .none : .spring(response: 0.52, dampingFraction: 0.84).delay(0.05), value: titleSectionAppeared)
                         .allowsHitTesting(!focusMode)
-                        .animation(.easeInOut(duration: 0.35), value: focusMode)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.35), value: focusMode)
 
                         // Main content editor
                         contentEditorSection
@@ -413,7 +414,7 @@ struct EnhancedChurchNoteEditor: View {
             }
             .disabled(!canSave || isSaving)
             .opacity(contextAllFilled ? 1.0 : (canSave ? 0.7 : 0.35))
-            .animation(.easeInOut(duration: 0.3), value: contextAllFilled)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: contextAllFilled)
 
             // Doctrine Check + Study Guide (shown when note has content)
             if !content.isEmpty {
@@ -479,7 +480,7 @@ struct EnhancedChurchNoteEditor: View {
                 }
             }
         }
-        .animation(.easeOut(duration: 0.2), value: showAcceptHint)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: showAcceptHint)
     }
     
     // MARK: - Sermon Context Section (collapsible)
@@ -737,7 +738,7 @@ struct EnhancedChurchNoteEditor: View {
                 Text("\(wordCount) words")
                     .font(.caption)
                     .foregroundStyle(wordCount > 0 ? Color.purple : Color.secondary)
-                    .animation(.easeInOut(duration: 0.2), value: wordCount > 0)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: wordCount > 0)
 
                 // Character count (debounced)
                 Text("\(characterCount) characters")
@@ -767,7 +768,7 @@ struct EnhancedChurchNoteEditor: View {
 
                 // Animation 3: Focus toggle
                 Button {
-                    withAnimation(.easeInOut(duration: 0.35)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) {
                         focusMode.toggle()
                     }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -803,7 +804,7 @@ struct EnhancedChurchNoteEditor: View {
                                             : (isContentFocused ? Color.black.opacity(0.14) : Color.black.opacity(0.07)),
                                         lineWidth: focusMode ? 1.5 : 1
                                     )
-                                    .animation(.easeInOut(duration: 0.22), value: focusMode)
+                                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.22), value: focusMode)
                             )
                     )
                     .shadow(color: .black.opacity(isContentFocused ? 0.06 : 0.03), radius: 8, y: 2)
@@ -1360,10 +1361,10 @@ struct EnhancedChurchNoteEditor: View {
                     $0.lowercased().hasPrefix(input.lowercased()) && input.count < $0.count
                 }) {
                     ghostSuggestion = String(match.dropFirst(input.count))
-                    withAnimation(.easeOut(duration: 0.2)) { showAcceptHint = true }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showAcceptHint = true }
                 } else {
                     ghostSuggestion = ""
-                    withAnimation(.easeOut(duration: 0.15)) { showAcceptHint = false }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { showAcceptHint = false }
                 }
             }
         }
@@ -1375,7 +1376,7 @@ struct EnhancedChurchNoteEditor: View {
         ghostSuggestion = ""
         showAcceptHint = false
         titleColor = .purple
-        withAnimation(.easeOut(duration: 0.45)) { titleColor = .primary }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.45)) { titleColor = .primary }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
@@ -1392,15 +1393,15 @@ struct EnhancedChurchNoteEditor: View {
                     style: StrokeStyle(lineWidth: 3, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
-                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: contextCompletionFraction)
-                .animation(.easeInOut(duration: 0.4), value: contextAllFilled)
+                .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7), value: contextCompletionFraction)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.4), value: contextAllFilled)
 
             if contextAllFilled {
                 Image(systemName: "checkmark")
                     .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.green)
                     .scaleEffect(contextAllFilled ? 1 : 0)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.6), value: contextAllFilled)
+                    .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.6), value: contextAllFilled)
             } else {
                 Text("\(contextFilledCount)/4")
                     .font(.systemScaled(9, weight: .bold))
@@ -1425,7 +1426,7 @@ struct EnhancedChurchNoteEditor: View {
                     .foregroundStyle(.white)
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.65), value: filled)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.65), value: filled)
     }
 
     // MARK: - Animation 3 Helpers: Focus Mode + Word Momentum
@@ -1438,22 +1439,22 @@ struct EnhancedChurchNoteEditor: View {
         milestoneLabelOpacity = 0
 
         // Ring expands and fades
-        withAnimation(.easeOut(duration: 0.7)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.7)) {
             milestoneRingScale = 1.8
             milestoneRingOpacity = 0
         }
-        withAnimation(.easeIn(duration: 0.1)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.1)) {
             milestoneRingOpacity = 0.8
         }
 
         // Label floats up and fades
-        withAnimation(.easeOut(duration: 0.4)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) {
             milestoneLabelOpacity = 1.0
         }
-        withAnimation(.easeOut(duration: 1.2).delay(0.15)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 1.2).delay(0.15)) {
             milestoneLabelOffset = -24
         }
-        withAnimation(.easeIn(duration: 0.5).delay(0.7)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.5).delay(0.7)) {
             milestoneLabelOpacity = 0
         }
 
@@ -1725,6 +1726,7 @@ private struct EditorMinimalTextField: View {
 
 private struct AnalyzingPulsingDot: View {
     @State private var scale: CGFloat = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -1732,7 +1734,7 @@ private struct AnalyzingPulsingDot: View {
             .frame(width: 7, height: 7)
             .scaleEffect(scale)
             .onAppear {
-                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
                     scale = 1.6
                 }
             }
@@ -1910,6 +1912,7 @@ struct SermonTranscriptionView: View {
     @StateObject private var mgr = SermonTranscriptionManager()
     let noteId: String
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationView {
@@ -1919,7 +1922,7 @@ struct SermonTranscriptionView: View {
                     Circle()
                         .fill(mgr.isRecording ? Color.red : Color.gray.opacity(0.4))
                         .frame(width: 10, height: 10)
-                        .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: mgr.isRecording)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: mgr.isRecording)
 
                     Text(mgr.isRecording ? mgr.timeString(mgr.elapsed) : "00:00")
                         .font(.system(.footnote, design: .monospaced))

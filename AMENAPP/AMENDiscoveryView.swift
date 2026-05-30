@@ -38,6 +38,7 @@ enum DiscoverMode: String, CaseIterable {
 
 struct AMENDiscoveryView: View {
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var service = DiscoveryService.shared
     @ObservedObject private var followService = FollowService.shared
     @StateObject private var trendingService = TrendingService.shared
@@ -342,7 +343,7 @@ struct AMENDiscoveryView: View {
                             showAISearchHint = true
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
-                            withAnimation(.easeOut(duration: 0.3)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                 showAISearchHint = false
                                 hasSeenAISearchHint = true
                             }
@@ -366,8 +367,8 @@ struct AMENDiscoveryView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSearchFocused)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isShowingSubpage)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: isSearchFocused)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: isShowingSubpage)
         .onChange(of: searchVM.searchScope) { _, _ in
             guard !searchText.isEmpty else { return }
             searchVM.scheduleSearch(query: searchText)
@@ -635,7 +636,7 @@ struct AMENDiscoveryView: View {
             Task { await feedService.loadAll() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .searchTabTapped)) { _ in
-            withAnimation(.easeOut(duration: 0.18)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                 discoverProxy.scrollTo("amenDiscoverTop", anchor: .top)
             }
         }
@@ -1694,6 +1695,7 @@ struct DiscoveryFollowCard: View {
     let onFollowTap: () -> Void
 
     @State private var isFollowInFlight = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .center, spacing: 10) {
@@ -1782,8 +1784,8 @@ struct DiscoveryFollowCard: View {
                     }
                 }
                 .font(AMENFont.semiBold(13))
-                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: suggestion.isFollowing)
-                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: suggestion.isRequested)
+                .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.7), value: suggestion.isFollowing)
+                .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.7), value: suggestion.isRequested)
             }
             .buttonStyle(.plain)
             .disabled(isFollowInFlight)
@@ -1860,13 +1862,14 @@ struct DiscoveryTopicGridCard: View {
 
 struct DiscoveryTrendSkeletonCard: View {
     @State private var opacity: Double = 0.4
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         RoundedRectangle(cornerRadius: 14)
             .fill(Color.primary.opacity(0.06))
             .frame(height: 80)
             .opacity(opacity)
             .onAppear {
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                     opacity = 0.9
                 }
             }
@@ -1875,13 +1878,14 @@ struct DiscoveryTrendSkeletonCard: View {
 
 struct FollowSuggestionSkeletonCard: View {
     @State private var opacity: Double = 0.4
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         RoundedRectangle(cornerRadius: 16)
             .fill(Color.primary.opacity(0.06))
             .frame(width: 140, height: 180)
             .opacity(opacity)
             .onAppear {
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                     opacity = 0.9
                 }
             }
@@ -1894,6 +1898,7 @@ struct VerseHeroCard: View {
     let verse: DiscoveryLandingDailyVerseData
     @State private var isSaved = false
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -2023,7 +2028,7 @@ struct VerseHeroCard: View {
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color(.separator).opacity(0.5), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
         .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
     }
 }
@@ -2033,6 +2038,7 @@ struct VerseHeroCard: View {
 struct DiscoveryLandingVideoCard: View {
     let video: YoutubeVideoItem
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -2118,7 +2124,7 @@ struct DiscoveryLandingVideoCard: View {
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color(.separator).opacity(0.5), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
         .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
         .frame(width: 220)
     }
@@ -2129,6 +2135,7 @@ struct DiscoveryLandingVideoCard: View {
 struct DiscoveryLandingNewsCard: View {
     let item: NewsItem
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -2171,7 +2178,7 @@ struct DiscoveryLandingNewsCard: View {
         .shadow(color: .black.opacity(0.07), radius: 12, x: 0, y: 4)
         .frame(width: 280, height: 100)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
         .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
     }
 }
@@ -2181,6 +2188,7 @@ struct DiscoveryLandingNewsCard: View {
 struct DiscoverBibleStudyCard: View {
     let study: BibleStudyItem
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 14) {
@@ -2244,7 +2252,7 @@ struct DiscoverBibleStudyCard: View {
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color(.separator).opacity(0.5), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
         .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
     }
 }
@@ -2640,6 +2648,7 @@ struct AmenHeroDiscoveryCard: View {
     let tagIcon: String
     let accentColor: Color
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -2719,7 +2728,7 @@ struct AmenHeroDiscoveryCard: View {
         )
         .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
         .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
     }
 }
@@ -2748,6 +2757,7 @@ struct AmenPremiumTopicGridCard: View {
     @State private var isBookmarked = false
     @State private var isLiked = false
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -2869,7 +2879,7 @@ struct AmenPremiumTopicGridCard: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
         .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
     }
 }

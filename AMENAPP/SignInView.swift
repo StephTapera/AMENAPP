@@ -26,6 +26,7 @@ private func isValidEmailFormat(_ email: String) -> Bool {
 struct SignInView: View {
     @EnvironmentObject var viewModel: AuthenticationViewModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isLogin = true
     @State private var email = ""
     @State private var password = ""
@@ -370,9 +371,9 @@ struct SignInView: View {
             passwordStrengthView
         }
         .padding(.horizontal, 32)
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isLogin)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.75), value: isLogin)
     }
-    
+
     @ViewBuilder
     private var errorMessageView: some View {
         if let errorMessage = viewModel.errorMessage, viewModel.showError {
@@ -468,7 +469,7 @@ struct SignInView: View {
                     .fill(.white)
                     .shadow(color: .white.opacity(0.2), radius: 8, y: 4)
             )
-            .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: viewModel.isLoading)
         }
         .disabled(viewModel.isLoading || !isFormValid)
         .opacity(isFormValid ? 1.0 : 0.65)
@@ -1702,14 +1703,15 @@ struct SignInLifecycleModifier: ViewModifier {
     let generateAppleNonce: () -> Void
     // Fix F: closure to clear any stuck loading state when app returns to foreground
     let resetLoadingState: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .onAppear {
-                withAnimation(.easeIn(duration: 0.6)) {
+                withAnimation(reduceMotion ? nil : .easeIn(duration: 0.6)) {
                     showAmenTitle = true
                 }
-                withAnimation(.easeIn(duration: 0.8).delay(0.2)) {
+                withAnimation(reduceMotion ? nil : .easeIn(duration: 0.8).delay(0.2)) {
                     amenTitleOpacity = 1.0
                 }
                 generateAppleNonce()
@@ -1766,6 +1768,7 @@ enum PasswordStrength {
 
 struct PasswordResetSheet: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var resetEmail: String
     @Binding var showSuccess: Bool
     let onSend: () -> Void
@@ -1869,7 +1872,7 @@ struct PasswordResetSheet: View {
                 .disabled(!canSend)
                 .padding(.horizontal, 32)
                 .padding(.top, 8)
-                .animation(.easeInOut(duration: 0.2), value: canSend)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: canSend)
 
                 Spacer()
             }
@@ -2028,6 +2031,7 @@ private struct DarkGlassmorphicTextField: View {
     var contentType: UITextContentType? = nil   // P2 FIX: expose content type for autofill
 
     @FocusState private var isFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 14) {
@@ -2053,10 +2057,9 @@ private struct DarkGlassmorphicTextField: View {
                         .stroke(Color.white.opacity(isFocused ? 0.25 : 0.15), lineWidth: 1)
                 )
         )
-        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
+        .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
     }
 }
-
 
 private struct DarkGlassmorphicPasswordField: View {
     let placeholder: String
@@ -2065,6 +2068,7 @@ private struct DarkGlassmorphicPasswordField: View {
     var onSubmit: (() -> Void)? = nil
 
     @FocusState private var isFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 14) {
@@ -2111,7 +2115,7 @@ private struct DarkGlassmorphicPasswordField: View {
                         .stroke(Color.white.opacity(isFocused ? 0.25 : 0.15), lineWidth: 1)
                 )
         )
-        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
+        .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
     }
 }
 
@@ -2121,6 +2125,7 @@ private struct DarkGlassmorphicUsernameField: View {
     @Binding var isAvailable: Bool?
 
     @FocusState private var isFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -2153,7 +2158,7 @@ private struct DarkGlassmorphicUsernameField: View {
                             .stroke(statusBorderColor, lineWidth: 1)
                     )
             )
-            .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
+            .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
 
             if !text.isEmpty, let available = isAvailable {
                 Text(available ? "✓ @\(text) is available" : "✗ @\(text) is taken")
@@ -2179,6 +2184,7 @@ private struct DarkGlassmorphicUsernameField: View {
 
 private struct DarkPasswordStrengthIndicator: View {
     let strength: PasswordStrength
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -2201,7 +2207,7 @@ private struct DarkPasswordStrengthIndicator: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(strength.color.opacity(0.9))
                         .frame(width: geometry.size.width * strength.progress, height: 3)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: strength.progress)
+                        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.75), value: strength.progress)
                 }
             }
             .frame(height: 3)
@@ -2213,10 +2219,11 @@ private struct DarkPasswordStrengthIndicator: View {
 // MARK: - Press Button Style
 
 private struct SubtlePressButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
@@ -2274,6 +2281,7 @@ struct OTPVerificationView: View {
     @FocusState private var isOTPFocused: Bool
     @EnvironmentObject var viewModel: AuthenticationViewModel
     @Environment(\.dismiss) private var dismiss  // P1: For change phone number
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         ZStack {
@@ -2388,10 +2396,10 @@ struct OTPVerificationView: View {
                 }
                 .disabled(otpCode.count != 6 || viewModel.isLoading)
                 .opacity(otpCode.count == 6 && !viewModel.isLoading ? 1.0 : 0.5)
-                .animation(.easeInOut(duration: 0.2), value: otpCode.count)
-                .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: otpCode.count)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: viewModel.isLoading)
                 .scaleEffect(otpCode.count == 6 && !viewModel.isLoading ? 1.0 : 0.98)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: otpCode.count)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: otpCode.count)
                 
                 // Resend Code
                 VStack(spacing: 8) {
@@ -2440,7 +2448,7 @@ struct OTPVerificationView: View {
         }
         .onAppear {
             // Auto-focus on OTP input with smooth transition
-            withAnimation(.easeInOut(duration: 0.3).delay(0.2)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3).delay(0.2)) {
                 isOTPFocused = true
             }
         }
@@ -2452,7 +2460,8 @@ struct OTPVerificationView: View {
 struct OTPDigitBox: View {
     let digit: String
     let isFocused: Bool
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
@@ -2468,9 +2477,9 @@ struct OTPDigitBox: View {
                 .foregroundStyle(.white)
                 .scaleEffect(digit.isEmpty ? 0.5 : 1.0)
                 .opacity(digit.isEmpty ? 0 : 1)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: digit.isEmpty)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: digit.isEmpty)
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
     }
 }
 

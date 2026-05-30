@@ -215,6 +215,7 @@ struct FindChurchView: View {
     @State private var showFirstVisitCompanion = false
     @State private var selectedChurchForVisit: VisitCompanionChurch?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var churchAssist = ChurchAssistViewModel.shared
     
     // AI Recommendations
@@ -1405,7 +1406,7 @@ struct FindChurchView: View {
                                         .transition(.asymmetric(
                                             insertion: .scale(scale: 0.95).combined(with: .opacity),
                                             removal: .opacity
-                                        ).animation(.easeOut(duration: 0.2)))
+                                        ).animation(reduceMotion ? nil : .easeOut(duration: 0.2)))
                                         .scrollTransition(.animated(.spring(response: 0.3, dampingFraction: 0.8))) { content, phase in
                                             content
                                                 .scaleEffect(phase.isIdentity ? 1.0 : 0.94)
@@ -1420,7 +1421,7 @@ struct FindChurchView: View {
                             .scrollTargetBehavior(.viewAligned)
                             .coordinateSpace(name: "churchScroll")
                             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                                withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
+                                withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
                                     scrollOffset = value
                                 }
                             }
@@ -2482,6 +2483,7 @@ struct FindChurchHeader: View {
     var onSearchSubmit: (() -> Void)? = nil
     @State private var isExpanded = false
     @FocusState private var isSearchFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(spacing: isCollapsed ? 8 : 16) {
@@ -2502,7 +2504,7 @@ struct FindChurchHeader: View {
                             )
                         )
                         .shadow(color: .white.opacity(0.5), radius: 1, x: 0, y: 1)
-                        .animation(.easeInOut(duration: 0.2), value: isCollapsed)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isCollapsed)
                     
                     if !isCollapsed {
                         Button {
@@ -2589,10 +2591,10 @@ struct FindChurchHeader: View {
                         )
                     }
                     .disabled(isSearching)
-                    .animation(.easeInOut(duration: 0.2), value: isCollapsed)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isCollapsed)
                 }
             }
-            
+
             // Expandable location details with glass design
             if isExpanded && !isCollapsed {
                 VStack(alignment: .leading, spacing: 8) {
@@ -2635,7 +2637,7 @@ struct FindChurchHeader: View {
                         .font(.systemScaled(isSearchFocused ? 16 : 14))
                         .foregroundStyle(isSearchFocused ? .blue : .gray.opacity(0.6))
                         .padding(.leading, 4)
-                        .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isSearchFocused)
                     
                     TextField("Search churches, addresses...", text: $searchText)
                         .font(.custom("OpenSans-Regular", size: isCollapsed ? 14 : 15))
@@ -2690,13 +2692,13 @@ struct FindChurchHeader: View {
                     .shadow(color: .black.opacity(isSearchFocused ? 0.15 : 0.12), radius: isSearchFocused ? 20 : 16, x: 0, y: 6)
                     .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
             )
-            .animation(.easeInOut(duration: 0.2), value: isCollapsed)
-            .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isSearchFocused)
+            .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isCollapsed)
+            .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.75), value: isSearchFocused)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, isCollapsed ? 8 : 12)
-        .animation(.easeInOut(duration: 0.2), value: isCollapsed)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isCollapsed)
     }
 }
 
@@ -2704,6 +2706,7 @@ struct FindChurchHeader: View {
 struct EnhancedLocationPermissionBanner: View {
     let onRequestLocation: () -> Void
     @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         HStack(spacing: 16) {
@@ -2723,7 +2726,7 @@ struct EnhancedLocationPermissionBanner: View {
                     .foregroundStyle(.white)
                     .scaleEffect(isAnimating ? 1.1 : 1.0)
                     .animation(
-                        Animation.easeInOut(duration: 1.5)
+                        reduceMotion ? .none : Animation.easeInOut(duration: 1.5)
                             .repeatForever(autoreverses: true),
                         value: isAnimating
                     )
@@ -3301,6 +3304,7 @@ struct EmptyChurchesView: View {
 // MARK: - Church Card Skeleton Loading State
 struct ChurchCardSkeleton: View {
     @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -3363,7 +3367,7 @@ struct ChurchCardSkeleton: View {
         .padding(.horizontal, 20)
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(
-            Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+            reduceMotion ? .none : Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true),
             value: isAnimating
         )
         .onAppear {
@@ -4564,11 +4568,12 @@ struct MinimalChurchCard: View {
 
 struct MinimalCardButtonStyle: ButtonStyle {
     @Binding var isPressed: Bool
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, newValue in
                 withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.75))) {
                     isPressed = newValue
@@ -5062,6 +5067,7 @@ struct EnhancedMinimalChurchCard: View {
     @State private var isPressed = false
     @State private var fitScore: Double?
     @State private var isVerified: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let liveRed = Color(red: 0.878, green: 0.227, blue: 0.227)
 
@@ -5134,7 +5140,7 @@ struct EnhancedMinimalChurchCard: View {
                                 .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color(.systemGray3))
                                 .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isExpanded)
+                                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isExpanded)
                         }
                     }
                     HStack(spacing: 16) {
@@ -5299,13 +5305,14 @@ struct EnhancedMinimalChurchCard: View {
 private struct LivePulsingDot: View {
     @State private var pulsing = false
     private let liveRed = Color(red: 0.878, green: 0.227, blue: 0.227)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         ZStack {
             Circle().fill(liveRed.opacity(0.3)).frame(width: 13, height: 13).scaleEffect(pulsing ? 1.4 : 1)
             Circle().fill(liveRed).frame(width: 7, height: 7)
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulsing = true }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulsing = true }
         }
     }
 }
@@ -6539,6 +6546,7 @@ struct ChurchCheckInSheet: View {
     @State private var thought = ""
     @State private var rippleScale: CGFloat = 0
     @State private var rippleOpacity: Double = 1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 20) {
@@ -6558,7 +6566,7 @@ struct ChurchCheckInSheet: View {
                     )
             }
             .onAppear {
-                withAnimation(.easeOut(duration: 0.6)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.6)) {
                     rippleScale = 1; rippleOpacity = 0
                 }
             }

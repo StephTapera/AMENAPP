@@ -444,6 +444,7 @@ struct LiquidGlassHeader: View {
     let onNewNote: () -> Void
     @State private var isSearchFocused = false
     @State private var headerScale: CGFloat = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(spacing: 16) {
@@ -453,8 +454,8 @@ struct LiquidGlassHeader: View {
                     Text("Church Notes")
                         .font(.custom("OpenSans-Bold", size: isScrolled ? 28 : 32))
                         .foregroundStyle(.white)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isScrolled)
-                    
+                        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.7), value: isScrolled)
+
                     if !isScrolled {
                         Text("Sermons, insights, & reflections")
                             .font(AMENFont.regular(14))
@@ -466,10 +467,10 @@ struct LiquidGlassHeader: View {
                     }
                 }
                 .scaleEffect(headerScale)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: headerScale)
-                
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: headerScale)
+
                 Spacer()
-                
+
                 Button {
                     // Bounce animation on tap
                     withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
@@ -528,7 +529,7 @@ struct LiquidGlassHeader: View {
                 }
                 .scaleEffect(headerScale == 1.0 ? 1.0 : 0.9)
                 .rotationEffect(.degrees(headerScale == 1.0 ? 0 : 90))
-                .animation(.spring(response: 0.5, dampingFraction: 0.6), value: headerScale)
+                .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.6), value: headerScale)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -561,7 +562,7 @@ struct LiquidGlassHeader: View {
                 }
                 .opacity(isSearchFocused ? 0 : 1)
                 .scaleEffect(isSearchFocused ? 0.8 : 1.0)
-                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isSearchFocused)
+                .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.7), value: isSearchFocused)
                 
                 // Search field
                 HStack(spacing: 10) {
@@ -696,7 +697,7 @@ struct LiquidGlassHeader: View {
             .padding(.horizontal, 16)
             .frame(height: 56)
             .scaleEffect(isSearchFocused ? 1.02 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSearchFocused)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSearchFocused)
             .padding(.horizontal, 20)
         }
         .padding(.bottom, 8)
@@ -710,6 +711,7 @@ struct FilterPill: View {
     let isSelected: Bool
     let namespace: Namespace.ID
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         Button(action: action) {
@@ -764,7 +766,7 @@ struct FilterPill: View {
             )
             .shadow(color: isSelected ? Color(hex: "A67C52").opacity(0.3) : Color.black.opacity(0.1), radius: isSelected ? 12 : 6, y: isSelected ? 6 : 3)
             .scaleEffect(isSelected ? 1.05 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
     }
 }
@@ -851,9 +853,9 @@ struct LoadingGlassView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             isAnimating = true
-            
+
             withAnimation(
-                .linear(duration: 3.0)
+                reduceMotion ? nil : .linear(duration: 3.0)
                     .repeatForever(autoreverses: false)
             ) {
                 rotationAngle = 360
@@ -1023,6 +1025,7 @@ struct NotesGridView: View {
     @ObservedObject var notesService: ChurchNotesService
     @Binding var scrollOffset: CGFloat
     let onNoteSelected: (ChurchNote) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         ScrollView {
@@ -1048,7 +1051,7 @@ struct NotesGridView: View {
                         removal: .opacity.combined(with: .scale(scale: 0.95))
                     ))
                     .animation(
-                        .spring(response: 0.6, dampingFraction: 0.8)
+                        reduceMotion ? .none : .spring(response: 0.6, dampingFraction: 0.8)
                             .delay(Double(index) * 0.05),
                         value: notes.count
                     )
@@ -1084,6 +1087,7 @@ struct LiquidGlassNoteCard: View {
     @State private var isSharing = false
     @State private var showCopiedToast = false
     @State private var showNoteContextActions = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
@@ -1190,7 +1194,7 @@ struct LiquidGlassNoteCard: View {
                                         )
                                 )
                                 .scaleEffect(note.isFavorite ? 1.1 : 1.0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: note.isFavorite)
+                                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.5), value: note.isFavorite)
                             
                             Circle()
                                 .strokeBorder(
@@ -1457,7 +1461,7 @@ struct LiquidGlassNoteCard: View {
             .shadow(color: Color(hex: "A67C52").opacity(0.1), radius: 30, x: 0, y: 15)
             .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
             .scaleEffect(cardScale)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: cardScale)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: cardScale)
         }
         .buttonStyle(PlainButtonStyle())
         .overlay(alignment: .topTrailing) {
@@ -1629,7 +1633,7 @@ struct LiquidGlassNoteCard: View {
         Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             await MainActor.run {
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                     showCopiedToast = false
                 }
             }
@@ -1654,8 +1658,9 @@ struct ChurchNoteCard: View {
 
 struct NewChurchNoteView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var notesService: ChurchNotesService
-    
+
     @State private var title = ""
     @State private var sermonTitle = ""
     @State private var churchName = ""
@@ -2033,7 +2038,7 @@ struct NewChurchNoteView: View {
                                 .foregroundStyle(.white)
                         }
                         .scaleEffect(saveConfirmationScale)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.1), value: saveConfirmationScale)
+                        .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.6).delay(0.1), value: saveConfirmationScale)
                         
                         VStack(spacing: 8) {
                             Text("Note Saved!")
@@ -2070,7 +2075,7 @@ struct NewChurchNoteView: View {
                     .scaleEffect(saveConfirmationScale)
                     .transition(.scale.combined(with: .opacity))
                 }
-                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showSaveConfirmation)
+                .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.7), value: showSaveConfirmation)
             }
         }
     }
@@ -2224,9 +2229,10 @@ private enum ChurchNoteDetailSheet: Identifiable {
 
 struct ChurchNoteDetailView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let note: ChurchNote
     @ObservedObject var notesService: ChurchNotesService
-    
+
     @State private var showDeleteConfirmation = false
     @State private var activeSheet: ChurchNoteDetailSheet?
     @State private var showCopiedToast = false
@@ -2491,13 +2497,13 @@ struct ChurchNoteDetailView: View {
                 PrayerFocusStore.shared.saveFocus(text: focusText, noteId: note.id)
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                     showPrayerSaved = true
                 }
                 Task {
                     try? await Task.sleep(nanoseconds: 1_400_000_000)
                     await MainActor.run {
-                        withAnimation(.easeOut(duration: 0.25)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                             showPrayerSaved = false
                         }
                     }
@@ -2597,20 +2603,20 @@ struct ChurchNoteDetailView: View {
         haptic.notificationOccurred(.success)
         
         dlog("✅ Note link copied: \(shareURL)")
-        
+
         // Hide toast after 2 seconds
         Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             await MainActor.run {
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                     showCopiedToast = false
                 }
             }
         }
     }
-    
+
     // MARK: - Share to OpenTable
-    
+
     private func shareToOpenTable() {
         activeSheet = .shareToOpenTable
     }
@@ -2652,6 +2658,7 @@ struct ThreadsStyleHeader: View {
     let onNewNote: () -> Void
     @State private var isSearchFocused = false
     @State private var glowPulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(spacing: isScrolled ? 12 : 20) {
@@ -2804,7 +2811,7 @@ struct ThreadsStyleHeader: View {
                 .scaleEffect(isSearchFocused ? 1.02 : 1.0)
                 .padding(.horizontal, 20)
                 .transition(.opacity)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSearchFocused)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSearchFocused)
             }
         }
         .padding(.top, 8)
@@ -2821,7 +2828,7 @@ struct ThreadsStyleHeader: View {
             )
             .ignoresSafeArea(edges: .top)
         )
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isScrolled)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isScrolled)
     }
 }
 
@@ -2831,6 +2838,7 @@ struct MonochromeFilterPill: View {
     let isSelected: Bool
     let action: () -> Void
     @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var accentColor: Color {
         switch filter {
@@ -2905,7 +2913,7 @@ struct MonochromeFilterPill: View {
             )
             .shadow(color: isSelected ? accentColor.opacity(0.3) : .black.opacity(0.1), radius: isSelected ? 12 : 8, y: isSelected ? 4 : 2)
             .scaleEffect(isSelected ? 1.05 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
         .buttonStyle(SpringButtonStyle())
     }
@@ -2953,6 +2961,7 @@ struct ThreadsStyleNoteCard: View {
     let onTap: () -> Void
     @State private var showDeleteConfirmation = false
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         Button(action: {
@@ -3071,7 +3080,7 @@ struct ThreadsStyleNoteCard: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
         .contextMenu {
             Button {
                 Task {
@@ -3247,6 +3256,7 @@ struct MonochromeEmptyState: View {
 // MARK: - Monochrome New Note View
 struct MonochromeNewNoteView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var notesService: ChurchNotesService
     
     @State private var title = ""
@@ -3387,7 +3397,7 @@ struct MonochromeNewNoteView: View {
                         .shadow(color: canSave ? .blue.opacity(0.25) : .black.opacity(0.08), radius: 8, y: 4)
                     }
                     .disabled(!canSave || isSaving)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: canSave)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: canSave)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
@@ -4020,6 +4030,7 @@ struct EnhancedTextField: View {
     var focusedField: FocusState<MonochromeNewNoteView.Field?>.Binding
     let field: MonochromeNewNoteView.Field
     var tintColor: Color = .blue
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     private var isFocused: Bool {
         focusedField.wrappedValue == field
@@ -4086,7 +4097,7 @@ struct EnhancedTextField: View {
                 )
         )
         .shadow(color: isFocused ? tintColor.opacity(0.2) : .black.opacity(0.08), radius: 8, y: 4)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
     }
 }
 
@@ -5437,6 +5448,7 @@ struct MinimalTypographyHeader: View {
     @State private var isSearching = false
     @State private var showSemanticSearch = false
     @Namespace private var filterNS
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -5446,7 +5458,7 @@ struct MinimalTypographyHeader: View {
                     .font(.systemScaled(isScrolled ? 22 : 34, weight: .semibold))
                     .foregroundStyle(.primary)
                     .tracking(-0.5)
-                    .animation(.spring(response: 0.36, dampingFraction: 0.82), value: isScrolled)
+                    .animation(reduceMotion ? .none : .spring(response: 0.36, dampingFraction: 0.82), value: isScrolled)
 
                 Spacer()
 
@@ -5610,7 +5622,7 @@ struct MinimalTypographyHeader: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityValue(isActive ? "Selected" : "")
-                        .animation(.spring(response: 0.28, dampingFraction: 0.76), value: isActive)
+                        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.76), value: isActive)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -5623,8 +5635,8 @@ struct MinimalTypographyHeader: View {
                 .frame(height: 0.5)
         }
         .background(.thinMaterial)
-        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isScrolled)
-        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isSearching)
+        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.82), value: isScrolled)
+        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.82), value: isSearching)
     }
 }
 
@@ -5708,6 +5720,7 @@ struct MinimalNoteRow: View {
     @State private var showDeleteConfirmation = false
     @State private var showShareSheet = false
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -5776,7 +5789,7 @@ struct MinimalNoteRow: View {
             .padding(.vertical, 16)
             .noteRowCard()
             .scaleEffect(isPressed ? 0.975 : 1.0)
-            .animation(.spring(response: 0.22, dampingFraction: 0.65), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.65), value: isPressed)
         }
         .buttonStyle(PlainButtonStyle())
         .simultaneousGesture(
@@ -5938,6 +5951,7 @@ struct MinimalEmptyState: View {
 // MARK: - Minimal New Note Sheet (Text Editor Style)
 struct MinimalNewNoteSheet: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var notesService: ChurchNotesService
     
     @State private var title = ""
@@ -6177,7 +6191,7 @@ struct MinimalNewNoteSheet: View {
                             )
                             .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                             .padding(.horizontal, 20)
-                            .animation(.easeInOut(duration: 0.18), value: isEditorFocused)
+                            .animation(reduceMotion ? .none : .easeInOut(duration: 0.18), value: isEditorFocused)
                         }
 
                         // Worship Music section
@@ -6275,7 +6289,7 @@ struct MinimalNewNoteSheet: View {
                 }
                 .coordinateSpace(name: "noteEditorScroll")
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                    withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
+                    withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
                         editorScrollOffset = value
                     }
                 }
@@ -6639,6 +6653,7 @@ struct MinimalTextField: View {
 // MARK: - Minimal Note Detail Sheet
 struct MinimalNoteDetailSheet: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let note: ChurchNote
     @ObservedObject var notesService: ChurchNotesService
     @State private var showDeleteConfirmation = false
@@ -6980,13 +6995,13 @@ struct MinimalNoteDetailSheet: View {
                 PrayerFocusStore.shared.saveFocus(text: focusText, noteId: note.id)
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                     showPrayerSaved = true
                 }
                 Task {
                     try? await Task.sleep(nanoseconds: 1_400_000_000)
                     await MainActor.run {
-                        withAnimation(.easeOut(duration: 0.25)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                             showPrayerSaved = false
                         }
                     }
@@ -7035,7 +7050,7 @@ struct MinimalNoteDetailSheet: View {
 
     private func generateShareText() -> String {
         var text = "📝 \(note.title)\n\n"
-        
+
         if let sermon = note.sermonTitle {
             text += "Sermon: \(sermon)\n"
         }
@@ -7048,50 +7063,50 @@ struct MinimalNoteDetailSheet: View {
         if let scripture = note.scripture {
             text += "Scripture: \(scripture)\n"
         }
-        
+
         text += "\n\(note.content)\n"
-        
+
         if !note.tags.isEmpty {
             text += "\n" + note.tags.map { "#\($0)" }.joined(separator: " ")
         }
-        
+
         return text
     }
-    
+
     // MARK: - Copy Note Share Link
-    
+
     private func copyNoteShareLink() {
         guard let linkId = note.shareLinkId else {
             dlog("❌ Note has no share link ID")
             return
         }
-        
+
         // Create shareable deep link
         let shareURL = "amenapp://note/\(linkId)"
         UIPasteboard.general.string = shareURL
-        
+
         // Show toast confirmation with animation
         withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             showCopiedToast = true
         }
-        
+
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        
+
         dlog("✅ Note link copied: \(shareURL)")
-        
+
         // Hide toast after 2 seconds
         Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             await MainActor.run {
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                     showCopiedToast = false
                 }
             }
         }
     }
-    
+
     // MARK: - AI Features
     
     private func generateSummary() {

@@ -228,14 +228,14 @@ struct AIBibleStudyView: View {
                             }
                         }
                         .onChange(of: messages.count) { _, _ in
-                            withAnimation(.easeOut(duration: 0.3)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                 scrollProxy.scrollTo("bottomSpacer", anchor: .bottom)
                             }
                         }
                         .onChange(of: isInputFocused) { _, focused in
                             if focused {
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    withAnimation(.easeOut(duration: 0.3)) {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                         scrollProxy.scrollTo("bottomSpacer", anchor: .bottom)
                                     }
                                 }
@@ -243,7 +243,7 @@ struct AIBibleStudyView: View {
                         }
                         .onChange(of: keyboardInset) { _, _ in
                             guard selectedTab == .chat else { return }
-                            withAnimation(.easeOut(duration: 0.25)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                                 scrollProxy.scrollTo("bottomSpacer", anchor: .bottom)
                             }
                         }
@@ -462,7 +462,7 @@ struct AIBibleStudyView: View {
             queue: .main
         ) { notification in
             guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-            withAnimation(.easeOut(duration: 0.3)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                 keyboardHeight = keyboardFrame.height
             }
         }
@@ -472,7 +472,7 @@ struct AIBibleStudyView: View {
             object: nil,
             queue: .main
         ) { _ in
-            withAnimation(.easeOut(duration: 0.3)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                 keyboardHeight = 0
             }
         }
@@ -662,6 +662,7 @@ struct LightChatContent: View {
     @Binding var messages: [AIStudyMessage]
     @Binding var isProcessing: Bool
     @Binding var savedMessages: [AIStudyMessage]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 4) {
@@ -700,7 +701,7 @@ struct LightChatContent: View {
                                 .frame(width: 7, height: 7)
                                 .scaleEffect(isProcessing ? 1.0 : 0.5)
                                 .animation(
-                                    .easeInOut(duration: 0.55)
+                                    reduceMotion ? .none : .easeInOut(duration: 0.55)
                                         .repeatForever()
                                         .delay(Double(index) * 0.18),
                                     value: isProcessing
@@ -846,6 +847,7 @@ struct LightGlassmorphicChatInput: View {
     let onSend: () -> Void
     let onClear: () -> Void
     let onMicTap: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -863,7 +865,7 @@ struct LightGlassmorphicChatInput: View {
                                 .frame(width: 46, height: 46)
                                 .scaleEffect(isListening ? 1.4 : 1.0)
                                 .opacity(isListening ? 0 : 1)
-                                .animation(.easeOut(duration: 1.1).repeatForever(autoreverses: false), value: isListening)
+                                .animation(reduceMotion ? .none : .easeOut(duration: 1.1).repeatForever(autoreverses: false), value: isListening)
                         }
 
                         Circle()
@@ -947,8 +949,8 @@ struct LightGlassmorphicChatInput: View {
                     radius: isInputFocused || isProcessing ? 14 : 6,
                     y: 3
                 )
-                .animation(.easeInOut(duration: 0.22), value: isInputFocused)
-                .animation(.easeInOut(duration: 0.22), value: isProcessing)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.22), value: isInputFocused)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.22), value: isProcessing)
 
                 // Send button
                 Button {
@@ -1003,7 +1005,7 @@ struct LightGlassmorphicChatInput: View {
             )
         }
         .padding(.bottom, keyboardHeight > 0 ? 8 : 0)
-        .animation(.easeOut(duration: 0.25), value: keyboardHeight)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: keyboardHeight)
     }
 }
 
@@ -1229,6 +1231,7 @@ struct DevotionalContent: View {
     @Binding var savedMessages: [AIStudyMessage]
     @State private var currentIndex: Int = DevotionalContent.todayIndex()
     @State private var noteSaved = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let devotionals: [(scripture: String, ref: String, title: String, reflection: String, prayer: String)] = [
         (
@@ -1308,7 +1311,7 @@ struct DevotionalContent: View {
                 // Day navigation
                 HStack(spacing: 8) {
                     Button {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             currentIndex = (currentIndex - 1 + DevotionalContent.devotionals.count) % DevotionalContent.devotionals.count
                             noteSaved = false
                         }
@@ -1320,7 +1323,7 @@ struct DevotionalContent: View {
                             .background(Circle().fill(Color.white).shadow(color: .black.opacity(0.06), radius: 4))
                     }
                     Button {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             currentIndex = (currentIndex + 1) % DevotionalContent.devotionals.count
                             noteSaved = false
                         }
@@ -1522,6 +1525,7 @@ private struct StudyPlanRowCard: View {
     let color: Color
     let description: String
     @State private var enrolled = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 14) {
@@ -1552,7 +1556,7 @@ private struct StudyPlanRowCard: View {
 
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.spring(response: 0.3)) { enrolled.toggle() }
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3)) { enrolled.toggle() }
             } label: {
                 Text(enrolled ? "Enrolled" : "Start")
                     .font(AMENFont.semiBold(12))
@@ -1580,6 +1584,7 @@ struct AnalysisContent: View {
     @State private var searchWord = ""
     @State private var selectedEntry: WordStudyEntry? = WordAnalysisData.entries.first
     @FocusState private var isSearchFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1638,7 +1643,7 @@ struct AnalysisContent: View {
                         HStack(spacing: 8) {
                             ForEach(WordAnalysisData.entries) { entry in
                                 Button {
-                                    withAnimation(.easeOut(duration: 0.2)) {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                                         selectedEntry = entry
                                         searchWord = entry.word
                                     }
@@ -1913,6 +1918,7 @@ struct MemorizeContent: View {
     @State private var isRevealed = false
     @State private var showMastered = false
     @State private var dragOffset: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let verses: [(ref: String, text: String, theme: String)] = [
         ("John 3:16",           "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.",                 "Salvation"),
@@ -2035,7 +2041,7 @@ struct MemorizeContent: View {
                     .padding(.horizontal, 16)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.75)) {
                             isRevealed.toggle()
                         }
                     }
@@ -2122,7 +2128,7 @@ struct MemorizeContent: View {
                             .padding(.vertical, 8)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                withAnimation(.easeOut(duration: 0.2)) {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                                     currentCardIndex = idx
                                     isRevealed = false
                                 }
@@ -2153,7 +2159,7 @@ struct MemorizeContent: View {
             set.insert(currentCardIndex % MemorizeContent.verses.count)
             masteredRaw = set.map(String.init).joined(separator: ",")
         }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.75)) {
             // Find next unmastered, or just advance
             let total = MemorizeContent.verses.count
             let next = ((currentCardIndex % total) + 1) % total
