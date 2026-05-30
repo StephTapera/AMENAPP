@@ -137,6 +137,7 @@ struct EnhancedDailyPrayerView: View {
 
 // MARK: - Today's Prayers Content
 struct TodayPrayersContent: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var completedPrayers: Set<String>
     
     let prayers = [
@@ -199,7 +200,7 @@ struct TodayPrayersContent: View {
                                 )
                             )
                             .frame(width: geometry.size.width * CGFloat(completedPrayers.count) / CGFloat(prayers.count), height: 8)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: completedPrayers.count)
+                            .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.7), value: completedPrayers.count)
                     }
                 }
                 .frame(height: 8)

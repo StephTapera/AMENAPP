@@ -65,11 +65,13 @@ enum DMFilter: String, CaseIterable {
 
 /// Subtle scale-down on press — gives filter pills premium tactile feedback.
 private struct PillPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
             .opacity(configuration.isPressed ? 0.85 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -127,6 +129,7 @@ struct MessagesView: View {
     // ✅ Tab bar visibility control (passed from ContentView)
     @Environment(\.tabBarVisible) private var tabBarVisible
     @Environment(\.mainTabSelection) private var mainTabSelection
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     enum MessageTab: Equatable {
         case messages
@@ -782,7 +785,7 @@ struct MessagesView: View {
                                 .opacity(rowsVisible ? 1 : 0)
                                 .offset(x: rowsVisible ? 0 : 20)
                                 .animation(
-                                    .spring(response: 0.45, dampingFraction: 0.78)
+                                    reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.78)
                                     .delay(Double(index) * 0.065),
                                     value: rowsVisible
                                 )
@@ -802,7 +805,7 @@ struct MessagesView: View {
             }
             .refreshable { await refreshConversations() }
             .onReceive(NotificationCenter.default.publisher(for: .messagesTabTapped)) { _ in
-                withAnimation(.easeOut(duration: 0.18)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                     inboxScrollProxy.scrollTo("amenInboxTop", anchor: .top)
                 }
             }
@@ -825,7 +828,7 @@ struct MessagesView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.easeInOut(duration: 0.18), value: activeInboxFilter)
+                    .animation(reduceMotion ? .none : .easeInOut(duration: 0.18), value: activeInboxFilter)
             }
 
             // ── "You" panel trigger button (top-trailing, faith-native) ──────
@@ -1067,7 +1070,7 @@ struct MessagesView: View {
                     .foregroundStyle(isActive
                         ? AMENInboxTokens.background        // white text on black
                         : AMENInboxTokens.secondaryText)
-                    .animation(.easeOut(duration: 0.2), value: isActive)
+                    .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: isActive)
 
                 // Inline badge count (requests only) with scale animation on first appearance
                 if let count = badge, count > 0 {
@@ -1098,11 +1101,11 @@ struct MessagesView: View {
                     }
                 }
             )
-            .animation(.spring(response: 0.35, dampingFraction: 0.72), value: selectedTab)
+            .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.72), value: selectedTab)
         }
         .buttonStyle(PillPressStyle())
         .accessibilityAddTraits(isActive ? .isSelected : [])
-        .animation(.spring(response: 0.26, dampingFraction: 0.78), value: selectedTab)
+        .animation(reduceMotion ? .none : .spring(response: 0.26, dampingFraction: 0.78), value: selectedTab)
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -1324,7 +1327,7 @@ struct MessagesView: View {
                     .shadow(color: .black.opacity(searchText.isEmpty ? 0.05 : 0.12),
                             radius: searchText.isEmpty ? 8 : 12, y: 2)
             )
-            .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: searchText.isEmpty)
 
             // Inline filter chips when searching
             if searchText.count >= 2 {
@@ -1405,7 +1408,7 @@ struct MessagesView: View {
                                     .padding(.bottom, 4)
                             }
                             .transition(.opacity.combined(with: .move(edge: .top)))
-                            .animation(.easeInOut(duration: 0.25), value: searchText.isEmpty)
+                            .animation(reduceMotion ? .none : .easeInOut(duration: 0.25), value: searchText.isEmpty)
                         }
 
                         // Search results header
@@ -1452,7 +1455,7 @@ struct MessagesView: View {
                             showSwipeHint = true
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                            withAnimation(.easeOut(duration: 0.3)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                                 showSwipeHint = false
                                 hasSeenSwipeHint = true
                             }
@@ -1685,7 +1688,7 @@ struct MessagesView: View {
     
     private func handleScrollOffset(_ offset: CGFloat) {
         // Update scroll offset for smooth animations
-        withAnimation(.interactiveSpring(response: 0.25, dampingFraction: 0.8)) {
+        withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.25, dampingFraction: 0.8)) {
             scrollOffset = offset
         }
         
@@ -1712,7 +1715,7 @@ struct MessagesView: View {
     // MARK: - Helper Functions
     
     private func openChat(_ conversation: ChatConversation) {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             activeSheet = .chat(conversation)
         }
         // haptic
@@ -1756,7 +1759,7 @@ struct MessagesView: View {
             // Single "Compose" button - industry standard (like iMessage, WhatsApp)
             Menu {
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         activeSheet = .newMessage
                     }
                     // haptic
@@ -1766,7 +1769,7 @@ struct MessagesView: View {
                 }
                 
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         activeSheet = .createGroup
                     }
                     // haptic
@@ -1776,7 +1779,7 @@ struct MessagesView: View {
                 }
                 
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         activeSheet = .createGroupLink
                     }
                     HapticManager.impact(style: .light)
@@ -1785,7 +1788,7 @@ struct MessagesView: View {
                 }
                 
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         activeSheet = .createGroupLinkWithPurpose(.prayer)
                     }
                     HapticManager.impact(style: .light)
@@ -1794,7 +1797,7 @@ struct MessagesView: View {
                 }
                 
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         activeSheet = .createGroupLinkWithPurpose(.church)
                     }
                     HapticManager.impact(style: .light)
@@ -1805,7 +1808,7 @@ struct MessagesView: View {
                 Divider()
                 
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         activeSheet = .settings
                     }
                     // haptic
@@ -1926,9 +1929,9 @@ struct MessagesView: View {
                 .tag(MessageTab.archived)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
     }
-    
+
     // MARK: - Content Views
     
     private var messagesContent: some View {
@@ -2370,7 +2373,7 @@ struct MessagesView: View {
 
             do {
                 // Animate removal
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     // Will be removed from list automatically via Firebase listener
                 }
 
@@ -2501,7 +2504,7 @@ struct MessagesView: View {
             
             do {
                 // Animate archiving
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     // Will move to archived tab automatically via listener
                 }
                 
@@ -2531,7 +2534,7 @@ struct MessagesView: View {
             
             do {
                 // Animate unarchiving
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     // Will move back to messages tab automatically via listener
                 }
                 
@@ -2769,7 +2772,7 @@ struct MessagesView: View {
                 // Optimistic UI update - remove request immediately for smoother UX
                 if action == .accept || action == .decline || action == .block {
                     await MainActor.run {
-                        withAnimation(.easeOut(duration: 0.25)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                             messageRequests.removeAll { $0.id == request.id }
                         }
                     }
@@ -3188,7 +3191,7 @@ struct MessagesView: View {
                     let isSelected = dmFilter == filter
                     Button {
                         HapticManager.impact(style: .light)
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78)) {
                             dmFilter = filter
                         }
                     } label: {
@@ -3214,7 +3217,7 @@ struct MessagesView: View {
                                             )
                                     )
                             )
-                            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
+                            .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
                     }
                     .buttonStyle(PillPressStyle())
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -3299,6 +3302,7 @@ struct MessagesView: View {
 struct NeumorphicMessagesSearchBar: View {
     @Binding var text: String
     @State private var isSearching = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         HStack(spacing: 12) {
@@ -3316,14 +3320,14 @@ struct NeumorphicMessagesSearchBar: View {
                 .submitLabel(.search)
                 .accessibilityLabel("Search conversations")
                 .onChange(of: text) { _, newValue in
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         isSearching = !newValue.isEmpty
                     }
                 }
-            
+
             if !text.isEmpty {
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         text = ""
                         isSearching = false
                     }
@@ -3374,7 +3378,7 @@ struct NeumorphicMessagesSearchBar: View {
             }
         )
         .shadow(color: isSearching ? .blue.opacity(0.2) : .black.opacity(0.08), radius: 12, y: 4)
-        .animation(.easeOut(duration: 0.2), value: isSearching)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: isSearching)
     }
 }
 
@@ -3385,8 +3389,9 @@ struct SmartGlassmorphicButton: View {
     var size: CGFloat = 44
     var iconSize: CGFloat = 18
     var isActive: Bool = false
-    
+
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         ZStack {
@@ -3447,8 +3452,8 @@ struct SmartGlassmorphicButton: View {
         }
         .shadow(color: isActive ? .blue.opacity(0.2) : .black.opacity(0.1), radius: 8, y: 4)
         .scaleEffect(isPressed ? 0.92 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isPressed)
-        .animation(.easeOut(duration: 0.2), value: isActive)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isPressed)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: isActive)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -3468,6 +3473,7 @@ struct SmartGlassmorphicButton: View {
 struct NeumorphicConversationRow: View {
     let conversation: ChatConversation
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         HStack(spacing: 14) {
@@ -3632,11 +3638,11 @@ struct NeumorphicConversationRow: View {
             y: 3
         )
         .scaleEffect(isPressed ? 0.98 : 1.0)
-        .animation(.easeOut(duration: 0.12), value: isPressed)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: conversation.unreadCount)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: conversation.isPinned)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: conversation.unreadCount)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: conversation.isPinned)
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.easeOut(duration: 0.12)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -3648,6 +3654,7 @@ struct NeumorphicConversationRow: View {
 struct ModernConversationRow: View {
     let conversation: ChatConversation
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         HStack(spacing: 14) {
@@ -3760,7 +3767,7 @@ struct ModernConversationRow: View {
         .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.easeOut(duration: 0.15)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -3910,6 +3917,7 @@ struct MessageRequestRow: View {
 
 struct CreateGroupView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var messagingService = FirebaseMessagingService.shared
     
     @State private var groupName = ""
@@ -4028,7 +4036,7 @@ struct CreateGroupView: View {
                         Color.green.opacity(0.7)
                     )
             }
-            .animation(.easeOut(duration: 0.2), value: groupName.isEmpty)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: groupName.isEmpty)
 
             // Group preview line
             HStack(spacing: 6) {
@@ -4051,7 +4059,7 @@ struct CreateGroupView: View {
                 }
                 .padding(.top, 4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
-                .animation(.easeOut(duration: 0.25), value: canCreate)
+                .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: canCreate)
             }
         }
         .padding()
@@ -4168,7 +4176,7 @@ struct CreateGroupView: View {
     }
     
     private func removeUser(_ user: ContactUser) {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             selectedUsers.removeAll { $0.id == user.id }
         }
         
@@ -4345,7 +4353,7 @@ struct CreateGroupView: View {
     }
     
     private func toggleUserSelection(_ user: ContactUser) {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             if let index = selectedUsers.firstIndex(where: { $0.id == user.id }) {
                 selectedUsers.remove(at: index)
             } else if selectedUsers.count < maxMembers {
@@ -4547,6 +4555,7 @@ struct LegacyMessageSettingsViewPlaceholder: View {
 
 struct ProductionMessagingUserSearchView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var searchText = ""
     @State private var searchResults: [SearchableUser] = []
     @State private var isSearching = false
@@ -4633,7 +4642,7 @@ struct ProductionMessagingUserSearchView: View {
             
             if !searchText.isEmpty {
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         searchText = ""
                         searchResults = []
                         errorMessage = nil
@@ -4906,6 +4915,7 @@ struct ProductionUserRow: View {
 
 struct GlobalMessageSearchView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var searchText = ""
     @State private var searchResults: [MessageSearchResult] = []
     @State private var isSearching = false
@@ -4973,7 +4983,7 @@ struct GlobalMessageSearchView: View {
             
             if !searchText.isEmpty {
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         searchText = ""
                         searchResults = []
                         searchTask?.cancel()
@@ -4983,7 +4993,7 @@ struct GlobalMessageSearchView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            
+
             if isSearching {
                 AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
             }
@@ -4997,13 +5007,13 @@ struct GlobalMessageSearchView: View {
             performSearch(query: newValue)
         }
     }
-    
+
     private var filterTabs: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(SearchFilter.allCases, id: \.self) { filter in
                     Button {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             selectedFilter = filter
                         }
                     } label: {
@@ -5255,6 +5265,7 @@ struct MessageSearchResultRow: View {
 struct SmartConversationRow: View {
     let conversation: ChatConversation
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         HStack(spacing: 12) {
@@ -5442,15 +5453,15 @@ struct SmartConversationRow: View {
         )
         .shadow(color: conversation.unreadCount > 0 ? .blue.opacity(0.15) : .black.opacity(0.08), radius: 12, y: 4)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isPressed)
-        .animation(.easeOut(duration: 0.2), value: conversation.unreadCount)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isPressed)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: conversation.unreadCount)
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.easeOut(duration: 0.15)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                 isPressed = pressing
             }
         }, perform: {})
     }
-    
+
     // Fallback avatar when no profile photo
     @ViewBuilder
     private var fallbackAvatar: some View {
@@ -5675,6 +5686,7 @@ struct DeleteConfirmationModifier: ViewModifier {
 }
 
 struct CoordinatorModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var messagingCoordinator: MessagingCoordinator
     let messagingService: FirebaseMessagingService
     let conversations: [ChatConversation]
@@ -5701,7 +5713,7 @@ struct CoordinatorModifier: ViewModifier {
             .onReceive(messagingCoordinator.$shouldOpenMessageRequests) { shouldOpen in
                 // Switch to requests tab when coordinator signals
                 if shouldOpen {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         selectedTab = .requests
                     }
                 }
@@ -5719,6 +5731,7 @@ struct CoordinatorModifier: ViewModifier {
 struct ModernConversationDetailView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.mainTabSelection) private var mainTabSelection
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let conversation: ChatConversation
     @ObservedObject private var supportDetectionService = SupportDetectionService.shared
     @ObservedObject private var supportActionExecutor = SupportActionExecutor.shared
@@ -5794,7 +5807,7 @@ struct ModernConversationDetailView: View {
                     }
                     .onReceive(Just(messages.count)) { _ in
                         if let lastMessage = messages.last {
-                            withAnimation {
+                            withAnimation(reduceMotion ? nil : .default) {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
                             }
                         }

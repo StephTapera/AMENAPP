@@ -43,6 +43,8 @@ struct SpaceDetailView: View {
     // CrossCommunityViewModel drives the real-time sharedWith stream + revoked banner.
     @StateObject private var crossCommunityVM = CrossCommunityViewModel()
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // MARK: Body
 
     var body: some View {
@@ -117,7 +119,7 @@ struct SpaceDetailView: View {
                 .presentationDragIndicator(.visible)
             }
         }
-        .animation(Motion.liquidSpring, value: isLocked)
+        .animation(reduceMotion ? .none : Motion.liquidSpring, value: isLocked)
         // Agent F: LinkInviteSheet — presented from the "Link a community" toolbar button.
         .sheet(isPresented: $showLinkInviteSheet) {
             if let spaceId = space.id {
