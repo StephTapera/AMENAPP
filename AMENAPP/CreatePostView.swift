@@ -109,6 +109,10 @@ struct CreatePostView: View {
     @State private var uploadCapsuleClientRequestId: String?
     @State private var uploadCapsuleIdempotencyKey: String?
     @State private var pendingPublishPostID: String?
+    /// Idempotency key scoped to the current publish attempt; cleared on success/failure.
+    /// Prevents duplicate Firestore documents if the user double-taps submit or if the
+    /// app retries after a transient network failure.
+    @State private var postIdempotencyKey: String? = nil
     @StateObject private var cameraCoordinator = CreatePostCameraCoordinator()
     @State private var mediaMetadataDraft = CreatePostMediaMetadataDraft()
     @State private var showMediaMetadataAuthoring = false
@@ -3917,6 +3921,13 @@ struct CreatePostView: View {
             return
         }
 
+        // CF-01 Part A: Generate or reuse an idempotency key for this publish attempt.
+        // Reusing the same key on retry ensures the backend (and the duplicate-check
+        // below) can detect and skip a write that already succeeded.
+        let idempotencyKey = postIdempotencyKey ?? UUID().uuidString
+        postIdempotencyKey = idempotencyKey
+        dlog("🔑 [CF-01] postIdempotencyKey: \(idempotencyKey)")
+
         dlog("🔵 publishPost() called")
         dlog("   isPublishing: \(isPublishing)")
         dlog("   canPost: \(canPost)")
@@ -4595,8 +4606,13 @@ struct CreatePostView: View {
         uploadState = .idle  // P1-1: reset button state on failure/cancel
         if markDraftFailed {
             draftVM.markFailed()
+            // CF-01: Clear idempotency key on hard/non-retryable failure so the
+            // next publish attempt gets a fresh key and cannot reuse a stale one.
+            postIdempotencyKey = nil
         } else {
             draftVM.cancelPublishing()
+            // CF-01: Preserve postIdempotencyKey on soft-cancel / transient error
+            // so that a subsequent retry uses the same key (idempotent re-submit).
         }
     }
 
@@ -5349,43 +5365,57 @@ struct CreatePostView: View {
                         setUploadCapsuleState(.finalizing, stageProgress: 0.2)
                     }
                 }
-                try await FirebaseManager.shared.firestore
+
+                // CF-01 Part B: Write the main post document first, then attempt all
+                // dependent subcollection writes.  If any dependent write throws, roll
+                // back by deleting the main document so the author does not end up with
+                // a partially-written post visible (or invisible) in Firestore.
+                let postRef = FirebaseManager.shared.firestore
                     .collection("posts")
                     .document(postId.uuidString)
-                    .setData(postData)
+                try await postRef.setData(postData)
 
-                // Best-effort: index post into community hub so the optimistic PostCard
-                // can show the Inline Object Hub pill as soon as the trusted backend
-                // preview is returned. Errors are swallowed by the service so posting
-                // still succeeds as a normal post.
-                if let smartAttachment, AMENFeatureFlags.shared.communityHubsEnabled {
-                    let preview = await AmenCommunityHubService.shared.attachHubPreview(
-                        postId: postId.uuidString,
-                        url: smartAttachment.canonicalUrl,
-                        objectType: smartAttachment.type.rawValue,
-                        title: smartAttachment.title
-                    )
-                    // Preview is now propagated via the Firestore real-time listener:
-                    // communityHubPreview is decoded by FirestorePost and flows through toPost().
-                    _ = preview
-                }
+                do {
+                    // Best-effort: index post into community hub so the optimistic PostCard
+                    // can show the Inline Object Hub pill as soon as the trusted backend
+                    // preview is returned. Errors are swallowed by the service so posting
+                    // still succeeds as a normal post.
+                    if let smartAttachment, AMENFeatureFlags.shared.communityHubsEnabled {
+                        let preview = await AmenCommunityHubService.shared.attachHubPreview(
+                            postId: postId.uuidString,
+                            url: smartAttachment.canonicalUrl,
+                            objectType: smartAttachment.type.rawValue,
+                            title: smartAttachment.title
+                        )
+                        // Preview is now propagated via the Firestore real-time listener:
+                        // communityHubPreview is decoded by FirestorePost and flows through toPost().
+                        _ = preview
+                    }
 
-                if let checkId = alignmentViewModel.result?.checkId {
-                    Task {
-                        try? await BiblicalAlignmentService.shared.attachSharedKnowledgeIntegrity(
-                            targetType: "post",
-                            targetId: postId.uuidString,
-                            checkId: checkId
+                    if let checkId = alignmentViewModel.result?.checkId {
+                        Task {
+                            try? await BiblicalAlignmentService.shared.attachSharedKnowledgeIntegrity(
+                                targetType: "post",
+                                targetId: postId.uuidString,
+                                checkId: checkId
+                            )
+                        }
+                    }
+
+                    if !structuredMediaItems.isEmpty {
+                        try await MediaMetadataPersistenceService.shared.persistMetadataMirror(
+                            postId: postId.uuidString,
+                            authorId: currentUser.uid,
+                            mediaItems: structuredMediaItems
                         )
                     }
-                }
-
-                if !structuredMediaItems.isEmpty {
-                    try await MediaMetadataPersistenceService.shared.persistMetadataMirror(
-                        postId: postId.uuidString,
-                        authorId: currentUser.uid,
-                        mediaItems: structuredMediaItems
-                    )
+                } catch {
+                    // CF-01 Part B rollback: a dependent write failed after the main post
+                    // document was already committed.  Delete the orphaned main document so
+                    // the author does not see a partially-written, unmoderated post.
+                    dlog("⚠️ [CF-01] Subcollection write failed after main post write — rolling back post \(postId.uuidString): \(error)")
+                    try? await postRef.delete()
+                    throw error  // re-throw so the outer catch surfaces the error to the user
                 }
                 
                 dlog("✅ Post saved to Firestore successfully!")
@@ -5513,6 +5543,9 @@ struct CreatePostView: View {
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                     shouldPersistDraftOnExit = false
                     clearPendingPublishSession()
+                    // CF-01 Part A: Publish succeeded — clear idempotency key so a future
+                    // post gets a fresh key rather than reusing this completed one.
+                    postIdempotencyKey = nil
 
                     // Show contextual success feedback
                     if hasAttachedMedia {
@@ -6267,14 +6300,18 @@ struct CreatePostView: View {
             }
             let segmentIds = await MainActor.run { pendingThreadSegmentIds }
 
+            // CF-01 Part B: Track successfully-written segment IDs so we can roll them
+            // back (delete) if a later segment write fails, preventing a partial thread.
+            var writtenSegmentIds: [String] = []
+
             for (index, postContent) in filledPosts.enumerated() {
                 dlog("🧵 [Thread DEBUG] Preparing post \(index + 1)/\(threadCount)...")
 
                 let postId = segmentIds[index]
                 let timestamp = Date().addingTimeInterval(Double(index) * 0.05)
-                
+
                 dlog("🧵 [Thread DEBUG] Post ID: \(postId), timestamp: \(timestamp)")
-                
+
                 var postData: [String: Any] = [
                     "authorId": currentUser.uid,
                     "authorName": currentUser.displayName ?? "User",
@@ -6294,9 +6331,12 @@ struct CreatePostView: View {
                     "isThreadHead": index == 0,
                     "threadPostCount": index == 0 ? threadCount : 0,
                     "moderationStatus": "pending",
-                    "clientSafetyVersion": 1
+                    "clientSafetyVersion": 1,
+                    // CF-01 Part A: segment document ID doubles as the idempotency key;
+                    // it is stable across retries (pendingThreadSegmentIds is preserved).
+                    "idempotencyKey": postId
                 ]
-                
+
                 dlog("🧵 [Thread DEBUG] Base postData created")
 
                 if let url = authorProfileImageURL {
@@ -6336,6 +6376,7 @@ struct CreatePostView: View {
                         .collection("posts")
                         .document(postId)
                         .setData(postData)
+                    writtenSegmentIds.append(postId)  // CF-01: record for rollback
                     dlog("✅ [Thread] Post \(index + 1)/\(threadCount) published successfully")
                     // Wire hub preview for the thread head post
                     if index == 0, let smartAttachment, AMENFeatureFlags.shared.communityHubsEnabled {
@@ -6349,6 +6390,15 @@ struct CreatePostView: View {
                 } catch {
                     dlog("❌ [Thread] Failed to publish post \(index + 1): \(error)")
                     dlog("❌ [Thread DEBUG] Error details: \(error.localizedDescription)")
+                    // CF-01 Part B rollback: delete all segments already written so the
+                    // author does not see an incomplete thread in their feed.
+                    if !writtenSegmentIds.isEmpty {
+                        dlog("🔄 [CF-01] Rolling back \(writtenSegmentIds.count) written thread segment(s)...")
+                        let db = FirebaseManager.shared.firestore
+                        for writtenId in writtenSegmentIds {
+                            try? await db.collection("posts").document(writtenId).delete()
+                        }
+                    }
                     await MainActor.run {
                         stopPublishAttempt(markDraftFailed: true)
                         errorMessage = "Thread post \(index + 1) failed to publish. Please try again."
@@ -6382,6 +6432,8 @@ struct CreatePostView: View {
                 shouldPersistDraftOnExit = false
                 cameraCoordinator.removeAttachedMedia()
                 mediaMetadataDraft = CreatePostMediaMetadataDraft()
+                // CF-01 Part A: Thread published successfully — clear idempotency key.
+                postIdempotencyKey = nil
                 withAnimation { showingSuccessNotice = true }
                 HapticManager.notification(type: .success)
                 // Record post for community guidelines eligibility tracking
