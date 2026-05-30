@@ -1003,9 +1003,10 @@ exports.translateText = translateText;
 
 // ============================================================================
 // SCHEDULED POSTS — publishes pending posts every 5 minutes
+// Disabled: canonical scheduled post publisher is in mlContentPipeline.js (scheduledPostPublisherML)
 // ============================================================================
 const {executeScheduledPosts} = require("./scheduledPostsFunctions");
-exports.executeScheduledPosts = executeScheduledPosts;
+// exports.executeScheduledPosts = executeScheduledPosts;
 
 // ============================================================================
 // GDPR DATA EXPORT — "Download My Data" callable (legacy, kept for BC)
@@ -1031,6 +1032,17 @@ exports.stripeCreateConnectedAccount = stripe.stripeCreateConnectedAccount;
 exports.stripeGetAccountStatus = stripe.stripeGetAccountStatus;
 exports.stripeCreatePaymentIntent = stripe.stripeCreatePaymentIntent;
 exports.stripeRequestPayout = stripe.stripeRequestPayout;
+
+// ============================================================================
+// 242 HUB — Acts 2:42 Resource Hub (Flock Intelligence, Sermon Memory,
+//            Prayer Wall Review, Values Verified, Kingdom Commerce)
+// ============================================================================
+const hub242 = require("./242hub");
+exports.flockIntelligence = hub242.flockIntelligence;
+exports.processSermonMemory = hub242.processSermonMemory;
+exports.reviewPrayerSubmission = hub242.reviewPrayerSubmission;
+exports.reviewCovenantApp = hub242.reviewCovenantApp;
+exports.matchKingdomCommerce = hub242.matchKingdomCommerce;
 
 // ============================================================================
 // ML CONTENT PIPELINE — Post ML analysis, virality, deletion cleanup
@@ -1193,8 +1205,9 @@ exports.prayerCheckin = engagementNotifs.prayerCheckin;
 // PROFILE PROPAGATION — syncs denormalized author fields on posts/comments
 // when a user changes their displayName, username, or profileImageURL.
 // ============================================================================
-const {onUserProfileUpdated} = require("./profilePropagation");
+const {onUserProfileUpdated, normalizePostAuthorOnCreate} = require("./profilePropagation");
 exports.onUserProfileUpdated = onUserProfileUpdated;
+exports.normalizePostAuthorOnCreate = normalizePostAuthorOnCreate;
 
 // ============================================================================
 // NOTIFICATION CLEANUP — daily scheduled job (3 AM UTC).
@@ -1295,9 +1308,9 @@ exports.generateCaptionSuggestions = generateCaptionSuggestions;
 exports.saveCreationDraft = saveCreationDraft;
 exports.trackTemplateUsage = trackTemplateUsage;
 
-// Scheduled post publisher
+// Scheduled post publisher — Disabled: canonical scheduled post publisher is in mlContentPipeline.js (scheduledPostPublisherML)
 const {publishScheduledPosts} = require("./scheduledPostPublisher");
-exports.publishScheduledPosts = publishScheduledPosts;
+// exports.publishScheduledPosts = publishScheduledPosts;
 
 // ============================================================================
 // ACTION THREADS — Support workflows attached to posts (System 8)
