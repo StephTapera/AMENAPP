@@ -179,7 +179,7 @@ private final class BereanAssistViewModel: ObservableObject {
 
     private static func parseConvictionJSON(_ raw: String) -> BereanConvictionResult {
         // Strip markdown code fences if present
-        var cleaned = raw
+        let cleaned = raw
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```",     with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)

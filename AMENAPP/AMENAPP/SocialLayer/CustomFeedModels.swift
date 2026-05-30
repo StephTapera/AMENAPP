@@ -29,8 +29,9 @@ enum DefaultFeedIcon {
 
 // MARK: - Topic picker option
 
-/// Static topic options presented in CreateFeedSheet.
-enum FeedTopic: String, CaseIterable, Identifiable {
+/// Static topic options presented in CreateFeedSheet (faith-community topics).
+/// Distinct from HeyFeedModels.FeedTopic which covers general-interest topics.
+enum CustomFeedTopic: String, CaseIterable, Identifiable {
     case scripture  = "Scripture"
     case prayer     = "Prayer"
     case worship    = "Worship"

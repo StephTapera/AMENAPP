@@ -222,7 +222,7 @@ final class CustomFeedService: ObservableObject {
     // MARK: - Encode / Decode helpers
 
     private static func encode(_ config: CustomFeedConfig, docId: String) -> [String: Any] {
-        var data: [String: Any] = [
+        let data: [String: Any] = [
             "id":              config.id.uuidString,
             "firestoreId":     docId,
             "name":            config.name,

@@ -56,13 +56,6 @@ final class ReplyThreadViewModel {
         self.rootPostId = rootPostId
     }
 
-    deinit {
-        // Swift concurrency cannot call stopListening() from a deinit on
-        // the MainActor directly, so we detach the removal.
-        let reg = listenerRegistration
-        Task { reg?.remove() }
-    }
-
     // MARK: - Firestore helpers
 
     private var commentsCollection: CollectionReference {

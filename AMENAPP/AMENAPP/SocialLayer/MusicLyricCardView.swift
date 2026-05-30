@@ -25,9 +25,9 @@
 
 import SwiftUI
 
-// MARK: - MusicLyricCardView
+// MARK: - FeedMusicLyricCard
 
-struct MusicLyricCardView: View {
+struct FeedMusicLyricCard: View {
     let track: MusicTrack
     var isCompact: Bool = false
     /// Parent feeds elapsed playback position in milliseconds; drives lyric highlight.

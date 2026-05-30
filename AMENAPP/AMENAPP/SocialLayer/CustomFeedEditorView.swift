@@ -118,7 +118,7 @@ struct CustomFeedEditorView: View {
         for index in indexSet {
             let feed = service.feeds[index]
             guard !feed.isBuiltIn else {
-                deleteError = ""\(feed.name)" is a built-in feed and cannot be deleted."
+                deleteError = "\"\(feed.name)\" is a built-in feed and cannot be deleted."
                 showDeleteErrorAlert = true
                 return
             }
@@ -191,7 +191,7 @@ struct CreateFeedSheet: View {
     @State private var name: String = ""
     @State private var description: String = ""
     @State private var isPublic: Bool = false
-    @State private var selectedTopics: Set<FeedTopic> = []
+    @State private var selectedTopics: Set<CustomFeedTopic> = []
     @State private var isSaving = false
     @State private var saveError: String? = nil
     @State private var showSaveErrorAlert = false
@@ -281,7 +281,7 @@ struct CreateFeedSheet: View {
     @ViewBuilder
     private var topicsSection: some View {
         Section {
-            ForEach(FeedTopic.allCases) { topic in
+            ForEach(CustomFeedTopic.allCases) { topic in
                 topicRow(topic)
             }
         } header: {
@@ -294,7 +294,7 @@ struct CreateFeedSheet: View {
     }
 
     @ViewBuilder
-    private func topicRow(_ topic: FeedTopic) -> some View {
+    private func topicRow(_ topic: CustomFeedTopic) -> some View {
         let isSelected = selectedTopics.contains(topic)
         Button {
             withAnimation(Motion.adaptive(Motion.popToggle)) {

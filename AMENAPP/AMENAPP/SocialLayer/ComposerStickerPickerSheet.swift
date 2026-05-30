@@ -100,13 +100,13 @@ struct ComposerStickerPickerSheet: View {
 
     private var filteredRecentAttachments: [ComposerStickerAttachment] {
         guard !searchText.isEmpty else { return recentsStore.recents }
-        return recentsStore.recents.filter {
+        return recentsStore.recents.filter { recent in
             // Match against the Faith sticker name when the packId is known
-            if $0.packId == "amen-faith-v1",
-               let sticker = AmenFaithStickerPack.stickers.first(where: { s in s.id == $0.stickerId }) {
+            if recent.packId == "amen-faith-v1",
+               let sticker = AmenFaithStickerPack.stickers.first(where: { s in s.id == recent.stickerId }) {
                 return sticker.name.localizedCaseInsensitiveContains(searchText)
             }
-            return $0.stickerId.localizedCaseInsensitiveContains(searchText)
+            return recent.stickerId.localizedCaseInsensitiveContains(searchText)
         }
     }
 

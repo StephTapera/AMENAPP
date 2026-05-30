@@ -134,6 +134,13 @@ struct CreatePostView: View {
     @State private var pollOptions: [String] = ["", ""]  // start with 2 blank options
     @State private var pollDuration: PollDuration = .oneDay
 
+    // MARK: - SocialLayer
+    @State private var richSpans: [ComposerRichSpan] = []
+    @State private var showingGIFPicker = false
+    @State private var showingStickerPicker = false
+    @State private var composerScriptureRefs: [ComposerScriptureRef] = []
+    @StateObject private var scriptureDetectService = ScriptureAutoDetectService()
+
     /// Unified publish pipeline state. Read this in UI code instead of checking
     /// `isPublishing`/`isUploadingImages` separately.
     enum PublishState: Equatable {
@@ -997,6 +1004,10 @@ struct CreatePostView: View {
 
                 Divider()
                     .opacity(0.35)
+                ScriptureAutoDetectRail(service: scriptureDetectService) { ref in
+                    composerScriptureRefs.append(ref)
+                }
+                .padding(.horizontal, 16)
                 // ── Bottom toolbar with schedule, tone check, etc. ────────────
                 threadsBottomBar
                     .padding(.bottom, 8)
@@ -1290,6 +1301,20 @@ struct CreatePostView: View {
                     hasVideo: cameraCoordinator.attachedWitnessMedia?.isVideo == true
                 )
                 .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingGIFPicker) {
+                ComposerGIFPickerSheet { _ in
+                    showingGIFPicker = false
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingStickerPicker) {
+                ComposerStickerPickerSheet { _ in
+                    showingStickerPicker = false
+                }
+                .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showDraftsSheet) {
@@ -2469,6 +2494,12 @@ struct CreatePostView: View {
             attachmentBarIcon("calendar", recommended: recommended, accessibilityLabel: "Schedule post") {
                 showingScheduleSheet = true
             }
+            attachmentBarIcon("photo.on.rectangle.angled", recommended: recommended, accessibilityLabel: "Add GIF") {
+                showingGIFPicker = true
+            }
+            attachmentBarIcon("face.smiling", recommended: recommended, accessibilityLabel: "Add sticker") {
+                showingStickerPicker = true
+            }
 
             Spacer()
         }
@@ -3023,13 +3054,15 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 12) {
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
-                    TextEditor(text: $postText)
-                        .font(AMENFont.regular(17))
-                        .focused($isTextFieldFocused)
-                        .scrollContentBackground(.hidden)
-                        .accessibilityLabel("Post content")
-                        .accessibilityHint("Write what you want to share with the community")
-                        .onChange(of: postText) { oldValue, newValue in
+                    ComposerRichTextEditor(
+                        text: $postText,
+                        richSpans: $richSpans,
+                        maxLength: 500
+                    )
+                    .focused($isTextFieldFocused)
+                    .frame(minHeight: 140)
+                    .accessibilityLabel("Post content")
+                    .onChange(of: postText) { oldValue, newValue in
                             // Defer side effects so they don't trigger a re-render mid-paste,
                             // which would interrupt the paste operation on SwiftUI TextEditor.
                             let addedLength = newValue.count - oldValue.count
@@ -3077,8 +3110,9 @@ struct CreatePostView: View {
                             } else {
                                 feedDirectionDetection = .empty
                             }
+                            Task { await scriptureDetectService.detect(in: snapshot) }
                         }
-                    
+
                     // Placeholder overlay
                     if postText.isEmpty {
                         EditorPlaceholderView(

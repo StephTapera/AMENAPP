@@ -359,7 +359,7 @@ struct ThreadedRepliesView: View {
 
             // Inline composer pinned at bottom when replying
             if replyingToNode != nil || viewModel.nodes.isEmpty {
-                InlineReplyComposer(
+                ThreadedReplyComposer(
                     replyingToNode: replyingToNode,
                     rootPostId: rootPostId,
                     onSend: { text, attachments in

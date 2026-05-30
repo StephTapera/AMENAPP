@@ -555,7 +555,7 @@ struct ComposerCommunityPickerView: View {
                 .font(.largeTitle)
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
 
-            Text("No results for "\(viewModel.searchQuery)"")
+            Text("No results for \"\(viewModel.searchQuery)\"")
                 .font(.callout)
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .multilineTextAlignment(.center)

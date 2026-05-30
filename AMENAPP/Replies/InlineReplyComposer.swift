@@ -303,13 +303,3 @@ struct InlineReplyComposer: View {
     }
 }
 
-// MARK: - AmenTheme color shorthands
-
-private extension AmenTheme.Colors {
-    static var amenGold: Color   { Color("amenGold",   bundle: .main) }
-    static var amenPurple: Color { Color("amenPurple", bundle: .main) }
-    static var amenBlue: Color   { Color("amenBlue",   bundle: .main) }
-}
-
-// MARK: - Motion.springRelease forward declaration guard
-// Motion.springRelease is defined in Motion.swift; used above for Post dismiss.

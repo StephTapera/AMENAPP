@@ -10,9 +10,9 @@
 import SwiftUI
 import FirebaseAuth
 
-// MARK: - InlineReplyComposer
+// MARK: - ThreadedReplyComposer
 
-struct InlineReplyComposer: View {
+struct ThreadedReplyComposer: View {
 
     /// The reply target.  nil = replying directly to the original post.
     let replyingToNode: ReplyNode?

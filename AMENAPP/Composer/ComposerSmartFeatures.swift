@@ -868,12 +868,6 @@ private struct ShimmerModifier: ViewModifier {
     }
 }
 
-private extension View {
-    func shimmerEffect() -> some View {
-        modifier(ShimmerModifier())
-    }
-}
-
 // MARK: ─────────────────────────────────────────────────────────────────────
 // FEATURE 6: Draft Autosave
 // ─────────────────────────────────────────────────────────────────────────

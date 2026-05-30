@@ -404,7 +404,7 @@ struct DiscoverTopic: Identifiable {
 
 // MARK: - Berean AI response types
 
-struct BereanRefineResult {
+struct BereanRefineResult: Equatable {
     var refined: String
     var diff: String
     var mode: BereanRefineMode
@@ -429,13 +429,13 @@ enum BereanRefineMode: String, Codable, CaseIterable {
     }
 }
 
-struct BereanConvictionResult {
+struct BereanConvictionResult: Equatable {
     var hasConcerns: Bool
     var suggestion: String?
     var tone: String
 }
 
-struct BereanTopicSuggestion: Identifiable {
+struct BereanTopicSuggestion: Identifiable, Equatable {
     var id: String
     var name: String
     var communityId: String?

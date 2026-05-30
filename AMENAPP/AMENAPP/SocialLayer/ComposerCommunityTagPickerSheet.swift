@@ -443,8 +443,8 @@ struct ComposerCommunityTagPickerSheet: View {
             .limit(to: 10)
 
         Task {
-            async let topicsDocs = try? topicsQuery.getDocuments().documents ?? []
-            async let spacesDocs = try? spacesQuery.getDocuments().documents ?? []
+            async let topicsDocs = try? topicsQuery.getDocuments().documents
+            async let spacesDocs = try? spacesQuery.getDocuments().documents
 
             let (topics, spaces) = await (topicsDocs, spacesDocs)
 

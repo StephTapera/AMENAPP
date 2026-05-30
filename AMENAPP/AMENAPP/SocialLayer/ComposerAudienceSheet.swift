@@ -39,9 +39,9 @@
 
 import SwiftUI
 
-// MARK: - ComposerAudienceSheet
+// MARK: - SocialComposerAudienceSheet
 
-struct ComposerAudienceSheet: View {
+struct SocialComposerAudienceSheet: View {
 
     @Binding var audience: ComposerAudience
     @Binding var replyPolicy: ComposerReplyPolicy
@@ -385,7 +385,7 @@ private struct ComingSoonBadge: View {
 // MARK: - Preview
 
 #if DEBUG
-#Preview("ComposerAudienceSheet") {
+#Preview("SocialComposerAudienceSheet") {
     @Previewable @State var audience: ComposerAudience = .everyone
     @Previewable @State var replyPolicy: ComposerReplyPolicy = .anyone
     @Previewable @State var reviewAndApprove = false
@@ -394,7 +394,7 @@ private struct ComingSoonBadge: View {
     Color(.systemBackground)
         .ignoresSafeArea()
         .sheet(isPresented: .constant(true)) {
-            ComposerAudienceSheet(
+            SocialComposerAudienceSheet(
                 audience: $audience,
                 replyPolicy: $replyPolicy,
                 reviewAndApprove: $reviewAndApprove,

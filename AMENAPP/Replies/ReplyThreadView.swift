@@ -164,10 +164,9 @@ struct ReplyThreadView: View {
         }
     }
 
-    @ViewBuilder
-    private func replyNodeView(node: ReplyNode, depth: Int, index: Int) -> some View {
-        // Max render depth = 2; deeper nodes are shown as a "View more" button
-        if depth <= 2 {
+    private func replyNodeView(node: ReplyNode, depth: Int, index: Int) -> AnyView {
+        guard depth <= 2 else { return AnyView(EmptyView()) }
+        return AnyView(
             VStack(alignment: .leading, spacing: 0) {
                 ReplyRowView(
                     node: node,
@@ -184,12 +183,10 @@ struct ReplyThreadView: View {
                 .padding(.leading, CGFloat(depth) * 28)
                 .staggeredReveal(index: index)
 
-                // Connector line before children
                 if !node.children.isEmpty {
                     connectorLine(leadingInset: CGFloat(depth) * 28 + 16 + 16)
                 }
 
-                // Recurse into children
                 ForEach(Array(node.children.enumerated()), id: \.element.id) { childIndex, child in
                     if depth + 1 <= 2 {
                         replyNodeView(node: child, depth: depth + 1, index: childIndex)
@@ -197,12 +194,12 @@ struct ReplyThreadView: View {
                         viewMoreRepliesButton(parentId: node.id)
                     }
                 }
-            }
 
-            Divider()
-                .padding(.leading, CGFloat(depth) * 28 + 16)
-                .padding(.trailing, 16)
-        }
+                Divider()
+                    .padding(.leading, CGFloat(depth) * 28 + 16)
+                    .padding(.trailing, 16)
+            }
+        )
     }
 
     private func connectorLine(leadingInset: CGFloat) -> some View {
@@ -517,10 +514,3 @@ struct ReplyRowView: View {
     }
 }
 
-// MARK: - AmenTheme color shorthands used above
-
-private extension AmenTheme.Colors {
-    static var amenGold: Color   { Color("amenGold",   bundle: .main) }
-    static var amenPurple: Color { Color("amenPurple", bundle: .main) }
-    static var amenBlue: Color   { Color("amenBlue",   bundle: .main) }
-}

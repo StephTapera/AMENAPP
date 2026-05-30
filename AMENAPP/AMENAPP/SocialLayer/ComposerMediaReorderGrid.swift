@@ -71,52 +71,7 @@ struct ComposerMediaReorderGrid: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 10) {
                     ForEach(Array(attachments.enumerated()), id: \.element.id) { index, attachment in
-                        AttachmentCell(
-                            attachment: attachment,
-                            index: index,
-                            totalCount: attachments.count,
-                            isDragging: draggingId == attachment.id,
-                            isDropTarget: dragTargetIndex == index && draggingId != attachment.id,
-                            isAltTextExpanded: expandedAltTextId == attachment.id,
-                            onRemove: {
-                                withAnimation(Motion.adaptive(Motion.springRelease)) {
-                                    onRemove(attachment.id)
-                                }
-                            },
-                            onToggleAltText: {
-                                withAnimation(Motion.adaptive(Motion.springPress)) {
-                                    if expandedAltTextId == attachment.id {
-                                        expandedAltTextId = nil
-                                    } else {
-                                        expandedAltTextId = attachment.id
-                                    }
-                                }
-                            },
-                            altTextBinding: altTextBinding(for: attachment.id)
-                        )
-                        .onDrag {
-                            draggingId = attachment.id
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            return NSItemProvider(object: attachment.id.uuidString as NSString)
-                        }
-                        .onDrop(
-                            of: [.text],
-                            delegate: ReorderDropDelegate(
-                                item: attachment,
-                                attachments: $attachments,
-                                draggingId: $draggingId,
-                                dragTargetIndex: $dragTargetIndex,
-                                currentIndex: index
-                            )
-                        )
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(accessibilityLabel(for: attachment, index: index))
-                        .accessibilityHint("Long press to drag and reorder")
-                        .accessibilityAction(named: "Remove") {
-                            withAnimation(Motion.adaptive(Motion.springRelease)) {
-                                onRemove(attachment.id)
-                            }
-                        }
+                        cellView(for: attachment, at: index)
                     }
 
                     // Add more button — hidden when max reached
@@ -167,6 +122,48 @@ struct ComposerMediaReorderGrid: View {
         guard seconds > 0 else { return "" }
         let s = Int(seconds)
         return String(format: "%d:%02d", s / 60, s % 60)
+    }
+
+    @ViewBuilder
+    private func cellView(for attachment: ComposerAttachment, at index: Int) -> some View {
+        let isThisDragging = draggingId == attachment.id
+        let isThisTarget = dragTargetIndex == index && draggingId != attachment.id
+        let isAltExpanded = expandedAltTextId == attachment.id
+        AttachmentCell(
+            attachment: attachment,
+            index: index,
+            totalCount: attachments.count,
+            isDragging: isThisDragging,
+            isDropTarget: isThisTarget,
+            isAltTextExpanded: isAltExpanded,
+            onRemove: {
+                withAnimation(Motion.adaptive(Motion.springRelease)) { onRemove(attachment.id) }
+            },
+            onToggleAltText: {
+                withAnimation(Motion.adaptive(Motion.springPress)) {
+                    expandedAltTextId = expandedAltTextId == attachment.id ? nil : attachment.id
+                }
+            },
+            altText: altTextBinding(for: attachment.id)
+        )
+        .onDrag {
+            draggingId = attachment.id
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            return NSItemProvider(object: attachment.id.uuidString as NSString)
+        }
+        .onDrop(of: [.text], delegate: ReorderDropDelegate(
+            item: attachment,
+            attachments: $attachments,
+            draggingId: $draggingId,
+            dragTargetIndex: $dragTargetIndex,
+            currentIndex: index
+        ))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel(for: attachment, index: index))
+        .accessibilityHint("Long press to drag and reorder")
+        .accessibilityAction(named: "Remove") {
+            withAnimation(Motion.adaptive(Motion.springRelease)) { onRemove(attachment.id) }
+        }
     }
 }
 
