@@ -90,7 +90,20 @@ struct FirestorePost: Codable, Identifiable {
     var stoneCount: Int?                // Total stones laid on the prayer post
     var intercessorUids: [String]?      // UIDs of users who prayed (stone layers)
     var bereanArcInsight: String?       // Cached Claude phrase ("God answered in 42 days…")
-    
+
+    // Community Hub preview — server-written via Admin SDK; nil until backend has indexed the post
+    var communityHubPreview: AmenPostCommunityHubPreview?
+
+    // Media attachments — music, video, article, scripture, etc.
+    // Additive field: old Firestore documents without this key decode as nil; no migration needed.
+    var mediaAttachments: [AmenMediaAttachment]? = nil
+
+    // Poll attachment — nil when the post has no poll
+    var poll: PostPoll?
+
+    // Who can comment — mirrors Post.commentPermission
+    var commentPermission: String?
+
     // Computed property for "time ago" display
     var timeAgo: String {
         FirestorePost.formatTimeAgo(from: createdAt)
@@ -136,6 +149,10 @@ struct FirestorePost: Codable, Identifiable {
         case intercessorUids
         case bereanArcInsight
         case normalizedTopicKeys, topicScoreMap, primaryTopicKey
+        case communityHubPreview
+        case mediaAttachments
+        case poll
+        case commentPermission
     }
     
     init(from decoder: Decoder) throws {
@@ -143,9 +160,11 @@ struct FirestorePost: Codable, Identifiable {
         
         id = try container.decodeIfPresent(String.self, forKey: .id)
         authorId = try container.decode(String.self, forKey: .authorId)
-        authorName = try container.decode(String.self, forKey: .authorName)
+        // Author display fields are written by normalizePostAuthorOnCreate CF;
+        // use decodeIfPresent + fallback so reads during the brief normalization window don't throw.
+        authorName = try container.decodeIfPresent(String.self, forKey: .authorName) ?? ""
         authorUsername = try container.decodeIfPresent(String.self, forKey: .authorUsername)
-        authorInitials = try container.decode(String.self, forKey: .authorInitials)
+        authorInitials = try container.decodeIfPresent(String.self, forKey: .authorInitials) ?? "?"
         authorProfileImageURL = try container.decodeIfPresent(String.self, forKey: .authorProfileImageURL)
         content = try container.decode(String.self, forKey: .content)
         category = try container.decode(String.self, forKey: .category)
@@ -194,8 +213,15 @@ struct FirestorePost: Codable, Identifiable {
         stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
         intercessorUids = try container.decodeIfPresent([String].self, forKey: .intercessorUids)
         bereanArcInsight = try container.decodeIfPresent(String.self, forKey: .bereanArcInsight)
+        communityHubPreview = try container.decodeIfPresent(AmenPostCommunityHubPreview.self, forKey: .communityHubPreview)
+        mediaAttachments = try container.decodeIfPresent([AmenMediaAttachment].self, forKey: .mediaAttachments)
+        normalizedTopicKeys = try container.decodeIfPresent([String].self, forKey: .normalizedTopicKeys)
+        topicScoreMap = try container.decodeIfPresent([String: Double].self, forKey: .topicScoreMap)
+        primaryTopicKey = try container.decodeIfPresent(String.self, forKey: .primaryTopicKey)
+        poll = try container.decodeIfPresent(PostPoll.self, forKey: .poll)
+        commentPermission = try container.decodeIfPresent(String.self, forKey: .commentPermission)
     }
-    
+
     init(
         id: String? = nil,
         authorId: String,
@@ -306,7 +332,8 @@ struct FirestorePost: Codable, Identifiable {
             switch visibility {
             case "everyone": return .everyone
             case "followers": return .followers
-            case "community": return .community
+            case "community", "community only": return .community
+            case "under_review": return .underReview
             default: return .everyone
             }
         }()
@@ -371,6 +398,10 @@ struct FirestorePost: Codable, Identifiable {
         post.normalizedTopicKeys = normalizedTopicKeys
         post.topicScoreMap = topicScoreMap
         post.primaryTopicKey = primaryTopicKey
+        post.communityHubPreview = communityHubPreview
+        post.mediaAttachments = mediaAttachments
+        post.poll = poll
+        post.commentPermission = commentPermission
         return post
     }
 
@@ -757,6 +788,7 @@ class FirebasePostService: ObservableObject {
             case .everyone: return "everyone"
             case .followers: return "followers"
             case .community: return "community"
+            case .underReview: return "under_review"
             }
         }()
         
@@ -811,6 +843,10 @@ class FirebasePostService: ObservableObject {
         }
         
         // 🚀 STEP 4: Save to Firestore in background (non-blocking)
+        // GUARDIAN PRE-GATE: Write with visibility="under_review" so the post is invisible
+        // to public feed queries (which filter visibility == "everyone") until the
+        // serverSidePostModeration Cloud Function approves it and promotes visibility
+        // to the author's requested value (stored in requestedVisibility).
         let firestorePost = FirestorePost(
             authorId: userId,
             authorName: displayName,
@@ -820,7 +856,7 @@ class FirebasePostService: ObservableObject {
             content: content,
             category: categoryString,
             topicTag: topicTag,
-            visibility: visibilityString,
+            visibility: "under_review",
             allowComments: allowComments,
             imageURLs: imageURLs,
             linkURL: linkURL,
@@ -843,14 +879,27 @@ class FirebasePostService: ObservableObject {
                 var postData = try Firestore.Encoder().encode(firestorePost)
                 // Remove legacy interaction arrays — interactions now live in subcollections
                 // (posts/{postId}/amens/{userId}, posts/{postId}/lightbulbs/{userId}).
-                // intercessorUids is tracked in RTDB prayerActivity/{postId}/prayingUsers/
                 // Keeping these arrays would create unbounded document growth at scale.
+                // NOTE: intercessorUids is intentionally NOT stripped here — the prayer arc
+                // Cloud Function reads it from the Firestore document to send intercessor
+                // notifications. Stripping it would silently break the prayer arc flow.
                 postData.removeValue(forKey: "amenUserIds")
                 postData.removeValue(forKey: "lightbulbUserIds")
-                postData.removeValue(forKey: "intercessorUids")
+                // P0-4 AUTHOR SPOOF PREVENTION: Strip author display fields before the
+                // Firestore write. The normalizePostAuthorOnCreate CF overwrites them with
+                // canonical values from /users/{authorId} (Admin SDK, bypasses rules).
+                // The Firestore allow-create rule blocks these fields at the client layer.
+                // Optimistic Post object (above) retains them for immediate local UI display.
+                postData.removeValue(forKey: "authorName")
+                postData.removeValue(forKey: "authorUsername")
+                postData.removeValue(forKey: "authorInitials")
+                postData.removeValue(forKey: "authorProfileImageURL")
                 // P0 IDEMPOTENCY: Embed the key so Cloud Functions / security rules can
                 // detect and reject replayed writes server-side.
                 postData["idempotencyKey"] = _idempotencyKey
+                // GUARDIAN PRE-GATE: record the author's intended visibility so the
+                // serverSidePostModeration CF knows what to promote to on approval.
+                postData["requestedVisibility"] = visibilityString
                 // Search tokens — lowercase unique words for contentTokens array-contains-any queries
                 let tokens = Set(content.lowercased()
                     .components(separatedBy: .whitespacesAndNewlines)
@@ -874,6 +923,11 @@ class FirebasePostService: ObservableObject {
                 for (key, value) in topicFields {
                     postData[key] = value
                 }
+
+                // P0-3: Override client-side Date() with authoritative server timestamp
+                // so createdAt reflects Firestore server time, not device clock skew.
+                postData["createdAt"] = FieldValue.serverTimestamp()
+                postData["updatedAt"] = FieldValue.serverTimestamp()
 
                 let _writeToken = PerfBegin("createPost_write")
                 let _traceToken = WriteOpTracer.begin("createPost", key: _idempotencyKey)
@@ -1045,12 +1099,24 @@ class FirebasePostService: ObservableObject {
             }
             
             var posts = firestorePosts.map { $0.toPost() }
-            
-            // ✅ Automatically enrich posts with profile images if missing
-            await enrichPostsWithProfileImages(&posts)
-            
+
+            // PERF FIX: Paint posts immediately from cache, then enrich profile images in background.
+            // Previously this awaited enrichPostsWithProfileImages() before publishing posts,
+            // blocking first paint by N Firestore user-document reads.
             self.posts = posts
             updateCategoryArrays()
+
+            // Enrich profile images off the critical path — the real-time listener snapshot
+            // will deliver the final enriched state moments later.
+            Task.detached(priority: .background) { [weak self] in
+                guard let self else { return }
+                await self.enrichPostsWithProfileImages(&posts)
+                let enriched = posts
+                await MainActor.run {
+                    self.posts = enriched
+                    self.updateCategoryArrays()
+                }
+            }
 
         } catch {
             self.error = error.localizedDescription
@@ -1139,7 +1205,7 @@ class FirebasePostService: ObservableObject {
                     let userDoc = try await db.collection(FirebaseManager.CollectionPath.users)
                         .document(userId)
                         .getDocument()
-                    
+
                     if let followingIds = userDoc.data()?["followingIds"] as? [String], !followingIds.isEmpty {
                         query = query.whereField("authorId", in: followingIds)
                             .order(by: "createdAt", descending: true)
@@ -1153,6 +1219,19 @@ class FirebasePostService: ObservableObject {
                     dlog("✅ User not authenticated, returning empty array")
                     return []
                 }
+            case "testimonies", "prayer":
+                // Category filter is applied via Firestore whereField above;
+                // these just need newest-first ordering.
+                query = query.order(by: "createdAt", descending: true)
+            case "chron", "chronological":
+                // Oldest-first chronological sort
+                query = query.order(by: "createdAt", descending: false)
+            case "newest":
+                query = query.order(by: "createdAt", descending: true)
+            case "personalized", "sabbath":
+                // These are feed-mode signals handled client-side by HomeFeedAlgorithm;
+                // the Firestore query just fetches newest-first and lets the ranker reorder.
+                query = query.order(by: "createdAt", descending: true)
             default:
                 query = query.order(by: "createdAt", descending: true)
             }
@@ -1174,7 +1253,17 @@ class FirebasePostService: ObservableObject {
 
             query = query.limit(to: limit)
 
-            let snapshot = try await query.getDocuments()
+            // PERF FIX: Stale-while-revalidate — try Firestore offline cache first so pull-to-refresh
+            // paints instantly from disk, then fall through to server if the cache is empty/cold.
+            var snapshot: QuerySnapshot
+            do {
+                snapshot = try await query.getDocuments(source: .cache)
+                if snapshot.documents.isEmpty {
+                    snapshot = try await query.getDocuments(source: .server)
+                }
+            } catch {
+                snapshot = try await query.getDocuments(source: .server)
+            }
 
             let firestorePosts = try snapshot.documents.compactMap { doc in
                 var firestorePost = try doc.data(as: FirestorePost.self)
@@ -1196,9 +1285,9 @@ class FirebasePostService: ObservableObject {
             if filter.lowercased() == "popular" {
                 posts.sort { ($0.amenCount + $0.commentCount) > ($1.amenCount + $1.commentCount) }
             }
-            
+
             dlog("✅ Fetched \(posts.count) \(category.rawValue) posts")
-            
+
             return posts
             
         } catch {
@@ -1382,16 +1471,21 @@ class FirebasePostService: ObservableObject {
             let metadata = snapshot.metadata
             if snapshot.documents.isEmpty && metadata.isFromCache { return }
 
-            // P1-2: Debounce rapid consecutive snapshot callbacks — coalesce into a single update
-            // Cancel any pending debounce task for this category before scheduling a new one
+            // P1-2: Debounce rapid consecutive snapshot callbacks — coalesce into a single update.
+            // PERF FIX: Cache snapshots (first delivery on warm start) bypass the debounce entirely
+            // so cached posts paint immediately without an extra 300ms delay.
+            let isFromCache = snapshot.metadata.isFromCache
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 self.listenerDebounceTasks[categoryKey]?.cancel()
                 let debounceTask = Task { @MainActor [weak self] in
                     guard let self = self else { return }
-                    // 300ms debounce window — absorbs burst writes (e.g. multiple users posting simultaneously)
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    guard !Task.isCancelled else { return }
+                    // Skip debounce for cache snapshots — they arrive once and paint instantly.
+                    // Apply 300ms debounce only for live server snapshots to absorb burst writes.
+                    if !isFromCache {
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        guard !Task.isCancelled else { return }
+                    }
 
                     let firestorePosts = snapshot.documents.compactMap { doc -> FirestorePost? in
                         var firestorePost = try? doc.data(as: FirestorePost.self)
@@ -1419,7 +1513,8 @@ class FirebasePostService: ObservableObject {
                         case .openTable:
                             self.openTablePosts = newPosts
                         case .tip, .funFact:
-                            break  // Tip and funFact posts stay in main feed only
+                            // P1-6: Merge tip/funFact posts into openTablePosts so they appear in the main feed
+                            self.openTablePosts = self.deduplicateAndSort(self.openTablePosts + newPosts)
                         }
 
                         // P0 FIX: Deduplicate and sort combined posts
@@ -1467,7 +1562,8 @@ class FirebasePostService: ObservableObject {
                                 case .openTable:
                                     self.openTablePosts = sortedPosts
                                 case .tip, .funFact:
-                                    break  // Tip and funFact posts stay in main feed only
+                                    // P1-6: Merge enriched tip/funFact posts into openTablePosts
+                                    self.openTablePosts = self.deduplicateAndSort(self.openTablePosts + sortedPosts)
                                 }
                                 // P0 FIX: Deduplicate combined posts
                                 let combined = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
@@ -1871,7 +1967,10 @@ class FirebasePostService: ObservableObject {
                 let profileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
                 
                 // Create repost
-                let repost = FirestorePost(
+                // GUARDIAN PRE-GATE: Reposts also enter "under_review" so the CF
+                // can run a content check (the original was approved but the act of
+                // reposting is itself a new signal the system should see).
+                var repost = FirestorePost(
                     authorId: userId,
                     authorName: displayName,
                     authorUsername: username,
@@ -1880,15 +1979,17 @@ class FirebasePostService: ObservableObject {
                     content: originalPost.content,
                     category: originalPost.category,
                     topicTag: originalPost.topicTag,
-                    visibility: "everyone",
+                    visibility: "under_review",
                     allowComments: true,
                     isRepost: true,
                     originalPostId: originalPostId,
                     originalAuthorId: originalPost.authorId,
                     originalAuthorName: originalPost.authorName
                 )
-                
-                _ = try _repostDb.collection(FirebaseManager.CollectionPath.posts).addDocument(from: repost)
+
+                var repostDoc = try Firestore.Encoder().encode(repost)
+                repostDoc["requestedVisibility"] = "everyone"
+                _ = try await _repostDb.collection(FirebaseManager.CollectionPath.posts).addDocument(data: repostDoc)
                 
                 // Increment repost count on original
                 try? await _repostDb.collection(FirebaseManager.CollectionPath.posts)

@@ -19,10 +19,12 @@
 //
 
 import SwiftUI
+import PhotosUI
 import FirebaseFirestore
 import FirebaseAuth
 import FirebaseDatabase
 import FirebaseFunctions
+import FirebaseStorage
 
 // MARK: - Profile Tab Enum
 
@@ -154,6 +156,7 @@ struct ProfileView: View {
     
     // NEW: Tab bar visibility on scroll
     @Environment(\.tabBarVisible) private var tabBarVisible
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var lastScrollOffset: CGFloat = 0
     @State private var scrollVelocity: CGFloat = 0
     
@@ -179,6 +182,9 @@ struct ProfileView: View {
     // Quick sign out
     @State private var showSignOutConfirmation = false
 
+    // Glass action sheet — replaces the toolbar Menu
+    @State private var showProfileGlassSheet = false
+
     // P0-2: Track pending post-creation refresh so rapid taps cancel the previous one
     @State private var refreshAfterCreationTask: Task<Void, Never>?
 
@@ -189,6 +195,7 @@ struct ProfileView: View {
         NavigationStack {
             profileRootView
         }
+        .accessibilityIdentifier("screen.profile")
     }
 
     private var profileRootView: some View {
@@ -296,6 +303,7 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { profileToolbarContent }
+            .toolbarBackground(.hidden, for: .navigationBar)
     }
 
     @ViewBuilder
@@ -347,6 +355,32 @@ struct ProfileView: View {
                 .amenSheet()
                 .presentationDetents([.large])
             }
+            // Glass action sheet — routes each action to existing state/methods
+            .sheet(isPresented: $showProfileGlassSheet) {
+                AmenProfileGlassActionSheet { action in
+                    switch action {
+                    case .editProfile:
+                        activeSheet = .editProfile
+                    case .sabbathMode:
+                        // TODO: wire to RestModeGate / SabbathMode feature toggle once endpoint is ready
+                        activeSheet = .settings
+                    case .prayerJournal:
+                        // TODO: wire to dedicated PrayerJournalView when available
+                        activeSheet = .settings
+                    case .myTestimonies:
+                        activeSheet = .settings
+                    case .bereanStudyNotes:
+                        activeSheet = .journey
+                    case .mySpaces:
+                        // TODO: wire to SpacesHubView once deep-link available
+                        activeSheet = .settings
+                    case .allSettings:
+                        activeSheet = .settings
+                    case .signOut:
+                        showSignOutConfirmation = true
+                    }
+                }
+            }
             // Legacy bool bindings: mirror them into activeSheet so old call sites still work
             .onChange(of: showSettings) { _, v in if v { activeSheet = .settings; showSettings = false } }
             .onChange(of: showEditProfile) { _, v in if v { activeSheet = .editProfile; showEditProfile = false } }
@@ -377,6 +411,7 @@ struct ProfileView: View {
             profileScrollContent
         }
         .coordinateSpace(name: "scroll")
+        .ignoresSafeArea(.container, edges: .top)
         .refreshable {
             await fastRefreshProfile()
         }
@@ -384,8 +419,9 @@ struct ProfileView: View {
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
             scrollOffset = value
             
-            // Pattern 1: compact header reveal uses bouncy spring for natural feel
-            let shouldShow = value < -200
+            // Compact header reveals when the profile info block is ~100pt past the
+            // top of the scroll container (i.e. well into the white body section).
+            let shouldShow = value < -100
             if showCompactHeader != shouldShow {
                 withAnimation(Motion.liquidSpringAdaptive) {
                     showCompactHeader = shouldShow
@@ -398,22 +434,29 @@ struct ProfileView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Color(white: 0.975))
+        .background(AmenTheme.Colors.backgroundPrimary)
         .overlay(refreshToastOverlay)
         .overlay(digestBrainBanner, alignment: .top)
-        .background(Color(white: 0.975).ignoresSafeArea())
+        .background(AmenTheme.Colors.backgroundPrimary.ignoresSafeArea())
     }
 
     @ViewBuilder
     private var profileScrollContent: some View {
         VStack(spacing: 0) {
-            // Pattern 4: Stretchy parallax header — avatar and name scale up on pull-down
+            // Edge-to-edge hero banner — extends under the status bar (y = 0)
+            profileHeroBannerView
+
+            // Stretchy parallax header — scale effect only activates during overscroll
+            // (offset > bannerHeight means the user is rubber-banding past the top)
             profileHeaderViewWithoutTabs
                 .scaleEffect(
-                    scrollOffset > 0 ? (1.0 + scrollOffset * 0.0012) : 1.0,
+                    {
+                        let overscroll = scrollOffset - AmenHero.profileBannerHeight
+                        return overscroll > 0 ? (1.0 + overscroll * 0.0012) : 1.0
+                    }(),
                     anchor: .top
                 )
-                .animation(scrollOffset > 0 ? .none : Motion.liquidSpring, value: scrollOffset)
+                .animation(scrollOffset > AmenHero.profileBannerHeight ? .none : Motion.liquidSpring, value: scrollOffset)
                 .background(
                     GeometryReader { geometry in
                         Color.clear
@@ -448,9 +491,9 @@ struct ProfileView: View {
 
     @ToolbarContentBuilder
     private var profileToolbarContent: some ToolbarContent {
-        // CENTER: Animated Username Title (without @)
+        // CENTER: Animated Username Title — only visible after scrolling past the hero
         ToolbarItem(placement: .principal) {
-            if !profileData.username.isEmpty {
+            if showCompactHeader && !profileData.username.isEmpty {
                 Text("@\(profileData.username)")
                     .font(AMENFont.bold(17))
                     .foregroundStyle(.primary)
@@ -484,6 +527,9 @@ struct ProfileView: View {
     /// P0 FIX: Extract toolbar buttons to reduce body complexity
     @ViewBuilder
     private var toolbarTrailingButtons: some View {
+        // White over hero, primary (black/dark) once white body is visible
+        let iconColor: Color = showCompactHeader ? Color.primary : .white
+
         HStack(spacing: 10) {
             // Follow requests button — always visible when there are pending requests
             let pendingFollowCount = followRequestsViewModel.requests.count
@@ -493,7 +539,7 @@ struct ProfileView: View {
             } label: {
                 Image(systemName: "person.badge.clock")
                     .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(iconColor)
                     .overlay(alignment: .topTrailing) {
                         if pendingFollowCount > 0 {
                             Text(pendingFollowCount < 100 ? "\(pendingFollowCount)" : "99+")
@@ -507,54 +553,18 @@ struct ProfileView: View {
                     }
             }
 
-            Menu {
-                Button {
-                    activeSheet = .journey
-                    HapticManager.impact(style: .light)
-                } label: {
-                    Label("My Journey", systemImage: "chart.line.uptrend.xyaxis")
-                }
-
-                Button {
-                    showLoginHistory = true
-                } label: {
-                    Label("Login History", systemImage: "clock.arrow.circlepath")
-                }
-
-                Button {
-                    showQRCode = true
-                } label: {
-                    Label("Profile QR", systemImage: "qrcode")
-                }
-
-                Button {
-                    shareProfile()
-                } label: {
-                    Label("Share Profile", systemImage: "square.and.arrow.up")
-                }
-
-                Button {
-                    showSettings = true
-                } label: {
-                    Label("Settings", systemImage: "line.3.horizontal")
-                }
-
-                Divider()
-
-                Button(role: .destructive) {
-                    showSignOutConfirmation = true
-                    HapticManager.impact(style: .light)
-                } label: {
-                    Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                }
+            Button {
+                HapticManager.impact(style: .light)
+                showProfileGlassSheet = true
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(iconColor)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Profile actions")
         }
     }
     
@@ -574,7 +584,7 @@ struct ProfileView: View {
                 .padding(.vertical, 10)
                 .background(
                     Capsule()
-                        .fill(Color.black.opacity(0.9))
+                        .fill(AmenTheme.Colors.amenBlack.opacity(0.9))
                 )
                 .shadow(radius: 8)
                 .padding(.top, 60)
@@ -890,11 +900,18 @@ struct ProfileView: View {
     // MARK: - Helper Functions
     
     private func formatCount(_ count: Int) -> String {
-        if count >= 1000 {
-            let thousands = Double(count) / 1000.0
-            return String(format: "%.1fK", thousands)
+        switch count {
+        case 0..<1_000:
+            return "\(count)"
+        case 1_000..<1_000_000:
+            let val = Double(count) / 1_000.0
+            return val.truncatingRemainder(dividingBy: 1) == 0
+                ? "\(Int(val))K" : String(format: "%.1fK", val)
+        default:
+            let val = Double(count) / 1_000_000.0
+            return val.truncatingRemainder(dividingBy: 1) == 0
+                ? "\(Int(val))M" : String(format: "%.1fM", val)
         }
-        return "\(count)"
     }
     
     private func formatTimeAgo(from date: Date) -> String {
@@ -1143,6 +1160,7 @@ struct ProfileView: View {
                 bioURL: bioURL,
                 initials: String(initials),
                 profileImageURL: profileImageURL,
+                bannerImageURL: data["bannerImageURL"] as? String,
                 interests: interests,
                 socialLinks: socialLinks,
                 profileTopics: profileTopics
@@ -1638,7 +1656,13 @@ struct ProfileView: View {
     private var avatarInitials: some View {
         ZStack(alignment: .bottomTrailing) {
             Circle()
-                .fill(Color.black)
+                .fill(
+                    LinearGradient(
+                        colors: [AmenTheme.Colors.amenPurple.opacity(0.85), AmenTheme.Colors.amenBlue.opacity(0.65)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .frame(width: 80, height: 80)
                 .overlay(
                     Text(profileData.initials)
@@ -1662,7 +1686,7 @@ struct ProfileView: View {
     private func avatarPlaceholder(showProgress: Bool) -> some View {
         ZStack {
             Circle()
-                .fill(Color.black.opacity(0.1))
+                .fill(Color.primary.opacity(0.08))
                 .frame(width: 80, height: 80)
             if showProgress {
                 ProgressView()
@@ -1684,7 +1708,7 @@ struct ProfileView: View {
                 } placeholder: {
                     ZStack {
                         Circle()
-                            .fill(Color.black.opacity(0.2))
+                            .fill(AmenTheme.Colors.amenBlack.opacity(0.2))
                             .frame(width: 32, height: 32)
                         ProgressView()
                             .scaleEffect(0.7)
@@ -1693,7 +1717,7 @@ struct ProfileView: View {
                 }
             } else {
                 Circle()
-                    .fill(Color.black)
+                    .fill(AmenTheme.Colors.amenBlack)
                     .frame(width: 32, height: 32)
                     .overlay(
                         Text(profileData.initials)
@@ -1703,57 +1727,57 @@ struct ProfileView: View {
             }
         }
     }
-    
+
     // MARK: - Segmented Glass Tab Rail
     private var stickyTabBar: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             ForEach(ProfileTab.allCases, id: \.self) { tab in
+                let isActive = selectedTab == tab
                 Button {
                     HapticManager.impact(style: .light)
-                    
-                    // Pattern 2: canonical bouncy spring for tab pill position change
-                    withAnimation(Motion.liquidSpringAdaptive) {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                         selectedTab = tab
                     }
-                    
-                    // Analytics tracking
                     dlog("📊 Tab switched to: \(tab.rawValue)")
                 } label: {
-                    VStack(spacing: 4) {
+                    HStack(spacing: isActive ? 5 : 0) {
                         Image(systemName: tab.icon)
-                            .font(.systemScaled(15, weight: selectedTab == tab ? .bold : .medium))
-                            .foregroundStyle(selectedTab == tab ? Color.primary : Color.primary.opacity(0.35))
+                            .font(.system(size: 13, weight: isActive ? .semibold : .medium))
+                            .foregroundStyle(isActive ? AmenTheme.Colors.amenGold : Color.primary.opacity(0.45))
 
-                        Text(tab.rawValue)
-                            .font(AMENFont.semiBold(11))
-                            .foregroundStyle(selectedTab == tab ? Color.primary : Color.primary.opacity(0.35))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(
-                        Group {
-                            if selectedTab == tab {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color(.systemBackground).opacity(0.90))
-                                    .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-                                    .matchedGeometryEffect(id: "tabBackground", in: tabNamespace)
-                            }
+                        if isActive {
+                            Text(tab.rawValue)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AmenTheme.Colors.amenGold)
+                                .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
                         }
+                    }
+                    .padding(.horizontal, isActive ? 12 : 0)
+                    .padding(.vertical, 8)
+                    .frame(width: isActive ? nil : 44)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                    .background(
+                        ZStack {
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                            Capsule()
+                                .fill(isActive ? Color.white.opacity(0.55) : Color.white.opacity(0.28))
+                            Capsule()
+                                .strokeBorder(isActive ? AmenTheme.Colors.amenGold.opacity(0.5) : Color.white.opacity(0.30), lineWidth: isActive ? 1.0 : 0.5)
+                        }
+                        .shadow(color: .black.opacity(isActive ? 0.10 : 0.04), radius: isActive ? 8 : 3, y: isActive ? 3 : 1)
                     )
-                    .accessibilityLabel(tab.rawValue)
-                    .accessibilityAddTraits(selectedTab == tab ? [.isSelected] : [])
+                    .matchedGeometryEffect(id: tab, in: tabNamespace, isSource: isActive)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel(tab.rawValue)
+                .accessibilityAddTraits(isActive ? [.isSelected] : [])
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.black.opacity(0.04))
-        )
         .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
+        .padding(.top, 12)
+        .padding(.bottom, 6)
     }
     
     private var isViewingOwnProfile: Bool {
@@ -1766,6 +1790,87 @@ struct ProfileView: View {
         return profileChurchVisibility != "private" || isViewingOwnProfile
     }
     
+    // MARK: - Edge-to-Edge Hero Banner
+
+    private var amenHeroFallbackGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                AmenTheme.Colors.amenBlack,
+                AmenTheme.Colors.amenPurple.opacity(0.55),
+                AmenTheme.Colors.amenBlack.opacity(0.72)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    /// Full-bleed hero that renders under the status bar (y = 0).
+    /// Priority: bannerImageURL → blurred profile photo → AMEN gradient.
+    /// The scrim at the bottom creates a seamless dissolve into the white body.
+    @ViewBuilder
+    private var profileHeroBannerView: some View {
+        ZStack(alignment: .bottom) {
+            // ── Background media ──────────────────────────────────────────────
+            Group {
+                if let bannerURL = profileData.bannerImageURL,
+                   !bannerURL.isEmpty,
+                   let url = URL(string: bannerURL) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        default:
+                            Color(uiColor: .secondarySystemBackground)
+                        }
+                    }
+                } else if let photoURL = profileData.profileImageURL,
+                          !photoURL.isEmpty,
+                          let url = URL(string: photoURL),
+                          !reduceTransparency {
+                    // Blurred profile photo — skipped when Reduce Transparency is on
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                                .blur(radius: 22, opaque: true)
+                                .saturation(1.15)
+                        default:
+                            Color(uiColor: .secondarySystemBackground)
+                        }
+                    }
+                } else {
+                    // AMEN gradient fallback
+                    amenHeroFallbackGradient
+                }
+            }
+            .frame(height: AmenHero.profileBannerHeight)
+            .frame(maxWidth: .infinity)
+            .clipped()
+            .ignoresSafeArea(.container, edges: .top)
+
+            // ── Top scrim — status-bar legibility ────────────────────────────
+            VStack {
+                LinearGradient(
+                    colors: [AmenTheme.Colors.amenBlack.opacity(AmenHero.scrimTopOpacity), .clear],
+                    startPoint: .top,
+                    endPoint: .center
+                )
+                .frame(height: 110)
+                .ignoresSafeArea(.container, edges: .top)
+                Spacer()
+            }
+
+            // ── Bottom scrim — dissolves into the white body below ───────────
+            LinearGradient(
+                colors: [.clear, AmenTheme.Colors.backgroundPrimary],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 72)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     // MARK: - Profile Header (Liquid Glass)
     private var profileHeaderViewWithoutTabs: some View {
         VStack(spacing: 10) {
@@ -1774,24 +1879,38 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     // Name with verified badge
                     HStack(spacing: 6) {
-                        Text(profileData.name)
-                            .font(AMENFont.bold(24))
-                            .foregroundStyle(.primary)
+                        if isLoading || profileData.name.isEmpty {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.primary.opacity(0.15))
+                                .frame(width: 160, height: 18)
+                                .amenSkeleton()
+                        } else {
+                            Text(profileData.name)
+                                .font(AMENFont.bold(24))
+                                .foregroundStyle(.primary)
 
-                        // Verified badge for specific user
-                        if let userId = Auth.auth().currentUser?.uid,
-                           VerifiedBadgeHelper.shared.isVerified(userId: userId) {
-                            VerifiedBadge(
-                                type: VerifiedBadgeHelper.shared.getVerificationType(userId: userId),
-                                size: 18
-                            )
+                            // Verified badge for specific user
+                            if let userId = Auth.auth().currentUser?.uid,
+                               VerifiedBadgeHelper.shared.isVerified(userId: userId) {
+                                VerifiedBadge(
+                                    type: VerifiedBadgeHelper.shared.getVerificationType(userId: userId),
+                                    size: 18
+                                )
+                            }
                         }
                     }
 
                     // Username directly under name
-                    Text("@\(profileData.username)")
-                        .font(AMENFont.regular(14))
-                        .foregroundStyle(.tertiary)
+                    if isLoading || profileData.username.isEmpty {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.primary.opacity(0.12))
+                            .frame(width: 120, height: 14)
+                            .amenSkeleton()
+                    } else {
+                        Text("@\(profileData.username)")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
                 
                 Spacer()
@@ -1820,7 +1939,7 @@ struct ProfileView: View {
                             Circle()
                                 .strokeBorder(
                                     LinearGradient(
-                                        colors: [Color.white.opacity(0.8), Color.white.opacity(0.3)],
+                                        colors: [AmenTheme.Colors.amenGold.opacity(0.75), AmenTheme.Colors.amenPurple.opacity(0.45)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     ),
@@ -1914,7 +2033,7 @@ struct ProfileView: View {
                                         .lineLimit(1)
                                 }
                                 .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
+                                .padding(.vertical, 10)
                                 .background(
                                     Capsule()
                                         .fill(Color.white.opacity(0.7))
@@ -2094,7 +2213,7 @@ struct ProfileQRCodeView: View {
                 // Profile Info
                 VStack(spacing: 12) {
                     Circle()
-                        .fill(Color.black)
+                        .fill(AmenTheme.Colors.amenBlack)
                         .frame(width: 80, height: 80)
                         .overlay(
                             Text(name.prefix(2).uppercased())
@@ -2156,7 +2275,7 @@ struct ProfileQRCodeView: View {
                     .padding(.vertical, 16)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.black)
+                            .fill(AmenTheme.Colors.amenBlack)
                     )
                 }
                 .padding(.horizontal, 20)
@@ -2794,11 +2913,11 @@ struct PostsContentView: View {
                         .font(.systemScaled(36))
                         .foregroundStyle(.tertiary)
                     
-                    Text("No posts yet")
+                    Text("Nothing shared yet")
                         .font(AMENFont.semiBold(16))
                         .foregroundStyle(.secondary)
-                    
-                    Text("Your posts will appear here")
+
+                    Text("Your reflections will appear here")
                         .font(AMENFont.regular(13))
                         .foregroundStyle(.tertiary)
                 }
@@ -2844,45 +2963,45 @@ struct RepliesContentView: View {
     var body: some View {
         VStack {
             if replies.isEmpty {
-            VStack(spacing: 12) {
-                Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.systemScaled(36))
-                    .foregroundStyle(.tertiary)
-                
-                Text("No replies yet")
-                    .font(AMENFont.semiBold(16))
-                    .foregroundStyle(.secondary)
-                
-                Text("Your replies to others will appear here")
-                    .font(AMENFont.regular(13))
-                    .foregroundStyle(.tertiary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 48)
-        } else {
-            LazyVStack(spacing: 0) {
-                ForEach(replies) { comment in
-                    ProfileReplyCard(
-                        comment: comment,
-                        onProfileTap: {
-                            selectedUserId = comment.authorId
-                            showUserProfile = true
-                        }
-                    )
-                    
-                    // Divider between replies
-                    Rectangle()
-                        .fill(Color.black.opacity(0.08))
-                        .frame(height: 0.5)
+                VStack(spacing: 12) {
+                    Image(systemName: "bubble.left")
+                        .font(.systemScaled(36))
+                        .foregroundStyle(.tertiary)
+
+                    Text("No conversations yet")
+                        .font(AMENFont.semiBold(16))
+                        .foregroundStyle(.secondary)
+
+                    Text("Join the dialogue — reply to a post")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 48)
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(replies) { comment in
+                        ProfileReplyCard(
+                            comment: comment,
+                            onProfileTap: {
+                                selectedUserId = comment.authorId
+                                showUserProfile = true
+                            }
+                        )
+
+                        // Divider between replies
+                        Rectangle()
+                            .fill(Color.black.opacity(0.08))
+                            .frame(height: 0.5)
+                    }
+                }
+                .padding(.top, 0)  // ✅ No gap - replies right under tabs
+                .sheet(isPresented: $showUserProfile) {
+                    if let userId = selectedUserId {
+                        UserProfileView(userId: userId)
+                    }
                 }
             }
-            .padding(.top, 0)  // ✅ No gap - replies right under tabs
-            .sheet(isPresented: $showUserProfile) {
-                if let userId = selectedUserId {
-                    UserProfileView(userId: userId)
-                }
-            }
-        }
         }
         .onAppear {
             dlog("🔍 RepliesContentView appeared - displaying \(replies.count) replies")
@@ -2904,11 +3023,11 @@ struct SavedContentView: View {
                     .font(.systemScaled(36))
                     .foregroundStyle(.tertiary)
                 
-                Text("No saved posts")
+                Text("No saved posts yet")
                     .font(AMENFont.semiBold(16))
                     .foregroundStyle(.secondary)
-                
-                Text("Posts you save will appear here")
+
+                Text("Bookmark posts to revisit them")
                     .font(AMENFont.regular(13))
                     .foregroundStyle(.tertiary)
             }
@@ -2938,11 +3057,11 @@ struct RepostsContentView: View {
                     .font(.systemScaled(36))
                     .foregroundStyle(.tertiary)
                 
-                Text("No reposts yet")
+                Text("Nothing amplified yet")
                     .font(AMENFont.semiBold(16))
                     .foregroundStyle(.secondary)
-                
-                Text("Posts you repost will appear here")
+
+                Text("Share what speaks to you")
                     .font(AMENFont.regular(13))
                     .foregroundStyle(.tertiary)
             }
@@ -3016,7 +3135,7 @@ struct ProfileReplyCard: View {
                             }
                         } else {
                             Circle()
-                                .fill(Color.black)
+                                .fill(AmenTheme.Colors.amenBlack)
                                 .frame(width: 32, height: 32)
                                 .overlay(
                                     Text(comment.authorInitials)
@@ -3121,11 +3240,17 @@ struct EditProfileView: View {
     @State private var showUnsavedChangesAlert = false
     @State private var showSaveConfirmationAlert = false
     
+    // Banner photo
+    @State private var bannerImageURL: String = ""
+    @State private var bannerPickerItem: PhotosPickerItem? = nil
+    @State private var isBannerUploading = false
+
     // Track original values to detect changes
     private let originalName: String
     private let originalBio: String
     private let originalBioURL: String
-    private let originalProfileImageURL: String? // ✅ NEW: Track original image
+    private let originalProfileImageURL: String?
+    private let originalBannerImageURL: String
     
     // Character limits
     private let nameCharacterLimit = 50
@@ -3147,11 +3272,14 @@ struct EditProfileView: View {
         _socialLinks = State(initialValue: profileData.wrappedValue.socialLinks)
         _profileTopics = State(initialValue: profileData.wrappedValue.profileTopics)
         
+        _bannerImageURL = State(initialValue: profileData.wrappedValue.bannerImageURL ?? "")
+
         // Store original values for change detection
         self.originalName = profileData.wrappedValue.name
         self.originalBio = profileData.wrappedValue.bio
         self.originalBioURL = profileData.wrappedValue.bioURL ?? ""
         self.originalProfileImageURL = profileData.wrappedValue.profileImageURL
+        self.originalBannerImageURL = profileData.wrappedValue.bannerImageURL ?? ""
         
         // Validate on init to ensure no errors blocking save
         dlog("📝 EditProfileView initialized")
@@ -3244,13 +3372,88 @@ struct EditProfileView: View {
     private var scrollContent: some View {
         ScrollView {
             VStack(spacing: 24) {
+                bannerSection
+
                 avatarSection
-                    .padding(.top, 20)
-                
+                    .padding(.top, 8)
+
                 profileFieldsSection
                     .padding(.horizontal, 20)
             }
             .padding(.bottom, 40)
+        }
+    }
+
+    // MARK: - Banner Section
+
+    private var amenHeroFallbackGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                AmenTheme.Colors.amenBlack,
+                AmenTheme.Colors.amenPurple.opacity(0.55),
+                AmenTheme.Colors.amenBlack.opacity(0.72)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var bannerSection: some View {
+        ZStack {
+            if !bannerImageURL.isEmpty, let url = URL(string: bannerImageURL) {
+                CachedAsyncImage(url: url, size: CGSize(width: 800, height: 400)) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color(.systemGray5)
+                }
+            } else {
+                amenHeroFallbackGradient
+            }
+
+            if isBannerUploading {
+                ProgressView().tint(.white)
+            } else {
+                PhotosPicker(selection: $bannerPickerItem, matching: .images) {
+                    Image(systemName: bannerImageURL.isEmpty ? "camera" : "pencil")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(.regularMaterial))
+                        .overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                }
+                .accessibilityLabel(bannerImageURL.isEmpty ? "Add profile banner" : "Change profile banner")
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: AmenHero.profileBannerHeight)
+        .clipped()
+        .onChange(of: bannerPickerItem) { _, newItem in
+            Task { await uploadBanner(item: newItem) }
+        }
+    }
+
+    private func uploadBanner(item: PhotosPickerItem?) async {
+        guard let item else { return }
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let image = UIImage(data: data),
+              let compressed = image.jpegData(compressionQuality: 0.82) else { return }
+        guard compressed.count <= 8 * 1024 * 1024 else { return }
+
+        isBannerUploading = true
+        defer { isBannerUploading = false }
+
+        do {
+            let ref = Storage.storage().reference().child("profileBanners/\(uid)/banner.jpg")
+            let meta = StorageMetadata()
+            meta.contentType = "image/jpeg"
+            _ = try await ref.putDataAsync(compressed, metadata: meta)
+            let url = try await ref.downloadURL()
+            bannerImageURL = url.absoluteString
+            profileData.bannerImageURL = url.absoluteString
+            hasChanges = true
+        } catch {
+            // Banner is optional; upload failure is non-fatal
         }
     }
     
@@ -3307,7 +3510,7 @@ struct EditProfileView: View {
                 } else {
                     Text("Done")
                         .font(AMENFont.bold(16))
-                        .foregroundStyle(hasValidationErrors ? .gray : .blue)
+                        .foregroundStyle(hasValidationErrors ? .gray : AmenTheme.Colors.amenGoldText)
                 }
             }
             .disabled(isSaving || hasValidationErrors)
@@ -3818,7 +4021,7 @@ struct EditProfileView: View {
     
     private var avatarCircle: some View {
         Circle()
-            .fill(Color.black)
+            .fill(AmenTheme.Colors.amenBlack)
             .frame(width: 100, height: 100)
             .overlay(
                 Text(profileData.initials)
@@ -3835,7 +4038,7 @@ struct EditProfileView: View {
                 .font(.systemScaled(14))
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
-                .background(Circle().fill(Color.black))
+                .background(Circle().fill(AmenTheme.Colors.amenBlack))
                 .overlay(
                     Circle()
                         .stroke(Color.white, lineWidth: 2)
@@ -3927,13 +4130,23 @@ struct EditProfileView: View {
                     "profileImageURL": profileData.profileImageURL ?? ""
                 ]
                 
-                // ✅ NEW: Include bioURL if not empty, otherwise remove it
+                // Include bioURL if not empty, otherwise remove it
                 if !bioURL.isEmpty && bioURLError == nil {
                     updateData["bioURL"] = bioURL
                 } else {
                     updateData["bioURL"] = FieldValue.delete()
                 }
-                
+
+                // Include bannerImageURL if set
+                if !bannerImageURL.isEmpty {
+                    updateData["bannerImageURL"] = bannerImageURL
+                } else if bannerImageURL.isEmpty && originalBannerImageURL.isEmpty {
+                    // No banner before and still none — omit
+                    _ = updateData.removeValue(forKey: "bannerImageURL")
+                } else {
+                    updateData["bannerImageURL"] = FieldValue.delete()
+                }
+
                 try await db.collection("users").document(userId).updateData(updateData)
                 
                 dlog("✅ Basic profile info saved")
@@ -3967,6 +4180,7 @@ struct EditProfileView: View {
                 profileData.username = username
                 profileData.bio = bio
                 profileData.bioURL = bioURL.isEmpty ? nil : bioURL
+                profileData.bannerImageURL = bannerImageURL.isEmpty ? nil : bannerImageURL
                 profileData.interests = interests
                 profileData.socialLinks = socialLinks
                 profileData.profileTopics = profileTopics
@@ -5051,12 +5265,12 @@ struct ProfilePhotoEditView: View {
                                 Text(currentImageURL != nil ? "Change Photo" : "Select Photo")
                                     .font(AMENFont.bold(16))
                             }
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AmenTheme.Colors.amenBlack)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue)
+                                    .fill(AmenTheme.Colors.amenGold)
                             )
                         }
                         .padding(.horizontal)
@@ -5097,12 +5311,12 @@ struct ProfilePhotoEditView: View {
                                     }
                                 }
                                 .font(AMENFont.bold(16))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(AmenTheme.Colors.amenBlack)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.green)
+                                        .fill(AmenTheme.Colors.amenGold)
                                 )
                             }
                             .disabled(isUploading)
@@ -5565,6 +5779,9 @@ struct UserProfileData {
     var bioURL: String? // ✅ NEW: Optional URL for bio link
     var initials: String
     var profileImageURL: String?
+    /// Optional full-width cover image that renders edge-to-edge above the avatar row.
+    /// If nil the profile photo is used as a blurred hero fallback.
+    var bannerImageURL: String?
     var interests: [String]
     var socialLinks: [SocialLinkUI]
     var profileTopics: [String] = []   // Feature 4 — topic chips shown below bio
@@ -6448,19 +6665,19 @@ struct BioLinkText: View {
         case .regular:
             Text(segment.text)
                 .font(AMENFont.regular(15))
-                .foregroundColor(.black)
-        
+                .foregroundStyle(.primary)
+
         case .url:
             Button {
                 openURL(segment.text)
             } label: {
                 Text(segment.text)
                     .font(AMENFont.regular(15))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
                     .underline()
             }
             .buttonStyle(.plain)
-        
+
         case .mention:
             Button {
                 let username = String(segment.text.dropFirst()) // Remove @
@@ -6470,7 +6687,7 @@ struct BioLinkText: View {
             } label: {
                 Text(segment.text)
                     .font(AMENFont.semiBold(15))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
             }
             .buttonStyle(.plain)
 
@@ -6483,7 +6700,7 @@ struct BioLinkText: View {
             } label: {
                 Text(segment.text)
                     .font(AMENFont.semiBold(15))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
             }
             .buttonStyle(.plain)
         }

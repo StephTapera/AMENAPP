@@ -69,12 +69,13 @@ struct ChurchNotesView: View {
         case .forYou:
             // Personalized "For You" feed with ranking algorithm
             let userFollowing = followService.following
-            return discoveryService.getForYouFeed(
+            let forYouResult = discoveryService.getForYouFeed(
                 from: filtered,
                 userFollowing: userFollowing,
                 userChurch: userChurchName,
                 userTags: userChurchTags
             )
+            return forYouResult.isEmpty ? discoveryService.getRecentFeed(from: filtered) : forYouResult
 
         case .recent:
             // Chronological feed - all recent notes
@@ -83,10 +84,11 @@ struct ChurchNotesView: View {
         case .following:
             // Notes from followed users only
             let userFollowing = followService.following
-            return discoveryService.getFollowingFeed(
+            let followingResult = discoveryService.getFollowingFeed(
                 from: filtered,
                 userFollowing: userFollowing
             )
+            return followingResult.isEmpty ? filtered.sorted { $0.date > $1.date } : followingResult
 
         case .sharedWithMe:
             // Filter notes shared with current user
@@ -163,11 +165,22 @@ struct ChurchNotesView: View {
                 // Content with minimal list design or community feed
                 Group {
                     if selectedFilter == .community {
-                        // Show community church notes from OpenTable
-                        ElegantChurchNotesFeedForChurchNotesView(
-                            posts: postsManager.openTablePosts.filter { $0.churchNoteId != nil }
-                        )
-                        .transition(.opacity)
+                        if AMENFeatureFlags.shared.communityNotesEnabled {
+                            if #available(iOS 26.0, *) {
+                                CommunityNotesBrowseView()
+                                    .transition(.opacity)
+                            } else {
+                                ElegantChurchNotesFeedForChurchNotesView(
+                                    posts: postsManager.openTablePosts.filter { $0.churchNoteId != nil }
+                                )
+                                .transition(.opacity)
+                            }
+                        } else {
+                            ElegantChurchNotesFeedForChurchNotesView(
+                                posts: postsManager.openTablePosts.filter { $0.churchNoteId != nil }
+                            )
+                            .transition(.opacity)
+                        }
                     } else if notesService.isLoading {
                         MinimalLoadingView()
                             .transition(.opacity)
@@ -265,9 +278,11 @@ struct ChurchNotesView: View {
             // Start follow service listener for discovery algorithm
             followService.startListening()
 
-            // Show onboarding on first open
+            // Show onboarding on first open — re-check inside the closure so a
+            // second onAppear (e.g. sheet dismiss) can't race and show it again.
             if !hasSeenOnboarding {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    guard !hasSeenOnboarding else { return }
                     showOnboarding = true
                 }
             }
@@ -1491,24 +1506,27 @@ struct LiquidGlassNoteCard: View {
                 Label("Delete", systemImage: "trash")
             }
         }
-        .alert("Share to #OPENTABLE", isPresented: $showShareToOpenTable) {
-            Button("Cancel", role: .cancel) { }
-            Button("Share") {
+        .amenAlert(isPresented: $showShareToOpenTable, config: LiquidGlassAlertConfig(
+            title: "Share to #OpenTable",
+            message: "Your church note will appear in the main feed.",
+            icon: "text.book.closed.fill",
+            primaryButton: LiquidGlassAlertButton("Share", tone: .spiritual) {
                 Task {
                     await shareNoteToOpenTable()
                 }
-            }
-        } message: {
-            Text("Share this church note to your #OPENTABLE feed? Your followers will be able to see it.")
-        }
-        .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+            },
+            secondaryButton: .cancel()
+        ))
+        .amenAlert(isPresented: $showDeleteConfirmation, config: LiquidGlassAlertConfig(
+            title: "Delete Note?",
+            icon: "trash",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 Task {
                     try? await notesService.deleteNote(note)
                 }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
+            },
+            secondaryButton: .cancel()
+        ))
         .sheet(isPresented: $showShareSheet) {
             ChurchNoteShareOptionsSheet(note: note)
         }
@@ -2415,15 +2433,17 @@ struct ChurchNoteDetailView: View {
             }
         }
         .onAppear { localWorshipSongs = note.worshipSongs }
-        .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .amenAlert(isPresented: $showDeleteConfirmation, config: LiquidGlassAlertConfig(
+            title: "Delete Note?",
+            icon: "trash",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 Task {
                     try? await notesService.deleteNote(note)
                     dismiss()
                 }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
+            },
+            secondaryButton: .cancel()
+        ))
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .shareOptions:
@@ -3068,13 +3088,16 @@ struct ThreadsStyleNoteCard: View {
                 Label("Delete", systemImage: "trash")
             }
         }
-        .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .amenAlert(isPresented: $showDeleteConfirmation, config: LiquidGlassAlertConfig(
+            title: "Delete Note?",
+            icon: "trash",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 Task {
                     try? await notesService.deleteNote(note)
                 }
-            }
-        }
+            },
+            secondaryButton: .cancel()
+        ))
     }
 }
 
@@ -3957,14 +3980,17 @@ struct MonochromeNoteDetailView: View {
                 }
             }
         }
-        .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .amenAlert(isPresented: $showDeleteConfirmation, config: LiquidGlassAlertConfig(
+            title: "Delete Note?",
+            icon: "trash",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 Task {
                     try? await notesService.deleteNote(note)
                     dismiss()
                 }
-            }
-        }
+            },
+            secondaryButton: .cancel()
+        ))
     }
 }
 
@@ -5574,14 +5600,16 @@ struct MinimalTypographyHeader: View {
                                                 .matchedGeometryEffect(id: "filterActive", in: filterNS)
                                         } else {
                                             Capsule()
-                                                .fill(Color.black.opacity(0.05))
-                                                .overlay(Capsule().strokeBorder(Color.black.opacity(0.04), lineWidth: 0.75))
+                                                .fill(.ultraThinMaterial)
+                                                .overlay(Capsule().fill(Color.white.opacity(0.30)))
+                                                .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.75))
                                         }
                                     }
                                 )
                                 .scaleEffect(isActive ? 1.02 : 1.0)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityValue(isActive ? "Selected" : "")
                         .animation(.spring(response: 0.28, dampingFraction: 0.76), value: isActive)
                     }
                 }
@@ -5647,6 +5675,13 @@ struct MinimalNotesList: View {
                         notesService: notesService,
                         onTap: { onNoteSelected(note) }
                     )
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            Task { try? await notesService.deleteNote(note) }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                     .scrollTransition(.animated(.spring(response: 0.3, dampingFraction: 0.8))) { content, phase in
                         content
                             .scaleEffect(phase.isIdentity ? 1.0 : 0.96)
@@ -5774,11 +5809,14 @@ struct MinimalNoteRow: View {
         .sheet(isPresented: $showShareSheet) {
             ChurchNoteShareOptionsSheet(note: note)
         }
-        .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .amenAlert(isPresented: $showDeleteConfirmation, config: LiquidGlassAlertConfig(
+            title: "Delete Note?",
+            icon: "trash",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 Task { try? await notesService.deleteNote(note) }
-            }
-        }
+            },
+            secondaryButton: .cancel()
+        ))
     }
 }
 
@@ -5846,7 +5884,7 @@ struct MinimalEmptyState: View {
                 Button(action: onCreateNote) {
                     Text("Create First Note")
                         .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color.amenGoldText)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 14)
                         .background(
@@ -6612,7 +6650,7 @@ struct MinimalNoteDetailSheet: View {
     // AI Features
     @State private var noteSummary: NoteSummary?
     @State private var isGeneratingSummary = false
-    @State private var scriptureReferences: [ScriptureReference] = []
+    @State private var scriptureReferences: [AIScriptureRef] = []
     @State private var isLoadingScripture = false
     @State private var showAISection = false
     
@@ -6919,14 +6957,17 @@ struct MinimalNoteDetailSheet: View {
             }
         }
         .onAppear { localWorshipSongs = note.worshipSongs }
-        .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .amenAlert(isPresented: $showDeleteConfirmation, config: LiquidGlassAlertConfig(
+            title: "Delete Note?",
+            icon: "trash",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 Task {
                     try? await notesService.deleteNote(note)
                     dismiss()
                 }
-            }
-        }
+            },
+            secondaryButton: .cancel()
+        ))
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [generateShareText()])
         }

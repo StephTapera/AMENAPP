@@ -11,7 +11,7 @@
  */
 
 const admin = require("firebase-admin");
-const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {onDocumentUpdated, onDocumentCreated} = require("firebase-functions/v2/firestore");
 
 const REGION = "us-central1";
 
@@ -147,5 +147,56 @@ exports.onUserProfileUpdated = onDocumentUpdated(
       }
 
       console.log(`[profilePropagation] Done. Total Firestore posts updated: ${totalUpdated}`);
+    },
+);
+
+/**
+ * normalizePostAuthorOnCreate
+ *
+ * Triggered when a new post document is created. Overwrites the client-supplied
+ * author display fields with canonical values from /users/{authorId} so a
+ * compromised or spoofed client cannot impersonate another user's display name,
+ * username, or profile image.
+ *
+ * The post is written with visibility="under_review" and the GUARDIAN moderation
+ * CF runs shortly after. Author normalization happens first so the moderation
+ * pipeline always sees canonical author metadata.
+ */
+exports.normalizePostAuthorOnCreate = onDocumentCreated(
+    {
+      document: "posts/{postId}",
+      region: REGION,
+    },
+    async (event) => {
+      const postData = event.data.data();
+      const postId = event.params.postId;
+      const authorId = postData.authorId;
+
+      if (!authorId) {
+        console.warn(`[normalizePostAuthorOnCreate] postId=${postId} has no authorId — skipping`);
+        return;
+      }
+
+      const db = admin.firestore();
+      const userSnap = await db.doc(`users/${authorId}`).get();
+      if (!userSnap.exists) {
+        console.warn(`[normalizePostAuthorOnCreate] postId=${postId} author user/${authorId} not found`);
+        return;
+      }
+
+      const userData = userSnap.data();
+      const displayName = userData.displayName ?? "";
+      const username = userData.username ?? "";
+      const profileImageURL = userData.profileImageURL ?? null;
+      const initials = makeInitials(displayName);
+
+      await db.doc(`posts/${postId}`).update({
+        authorName: displayName,
+        authorUsername: username,
+        authorInitials: initials,
+        authorProfileImageURL: profileImageURL,
+      });
+
+      console.log(`[normalizePostAuthorOnCreate] Normalized author fields for postId=${postId} authorId=${authorId}`);
     },
 );
