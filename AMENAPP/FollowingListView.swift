@@ -284,14 +284,18 @@ struct FollowingRow: View {
             }
         }
         .padding(.vertical, 8)
-        .alert("Unfollow \(user.displayName)?", isPresented: $showUnfollowAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Unfollow", role: .destructive) {
-                onUnfollow()
-            }
-        } message: {
-            Text("You can always follow them again later.")
-        }
+        .amenAlert(
+            isPresented: $showUnfollowAlert,
+            config: LiquidGlassAlertConfig(
+                title: "Unfollow \(user.displayName)?",
+                message: nil,
+                icon: "person.badge.minus",
+                primaryButton: LiquidGlassAlertButton("Unfollow", tone: .destructive) {
+                    onUnfollow()
+                },
+                secondaryButton: .cancel()
+            )
+        )
         .task {
             // Check if this user follows back
             if isCurrentUser {

@@ -15,13 +15,26 @@ struct AmenDiscoverTopicRail: View {
                     } label: {
                         Text(filter)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(selected == filter ? .black : .black.opacity(0.72))
+                            .foregroundStyle(selected == filter ? Color(.label) : Color(.secondaryLabel))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(AmenLiquidGlassPill(intensity: selected == filter ? .prominent : .light) { Color.clear })
+                            .background(
+                                selected == filter
+                                    ? AnyView(
+                                        Capsule(style: .continuous)
+                                            .fill(Color(.systemBackground))
+                                            .overlay(
+                                                Capsule(style: .continuous)
+                                                    .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
+                                            )
+                                            .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+                                      )
+                                    : AnyView(AmenLiquidGlassPill(intensity: .light) { Color.clear })
+                            )
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Filter \(filter)")
+                    .accessibilityAddTraits(selected == filter ? .isSelected : [])
                 }
             }
             .padding(.horizontal, 16)

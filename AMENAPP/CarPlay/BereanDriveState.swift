@@ -306,3 +306,14 @@ enum BereanDriveResponsePolicy {
         return String(truncated[...lastSentence.lowerBound])
     }
 }
+
+// MARK: - Cloud Function Callable Name Constants
+// Canonical callable names for all Berean Drive Cloud Functions.
+// Used by BereanDriveSessionService and BereanCarPlayTests.
+enum BereanDriveCallableNames {
+    static let respond              = "bereanDriveRespond"
+    static let summarize            = "bereanDriveSummarize"
+    static let prayerSession        = "bereanDrivePrayerSession"
+    static let churchSearch         = "bereanDriveChurchSearch"
+    static let messageSafetyReview  = "bereanDriveMessageSafetyReview"
+}

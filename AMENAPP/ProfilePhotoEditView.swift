@@ -36,182 +36,110 @@ struct ProfilePhotoEditView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
-                
+                AmenLiquidWhiteBackdrop()
+
                 ScrollView {
-                    VStack(spacing: 32) {
-                        // Current/Selected Photo
-                        VStack(spacing: 16) {
-                            if let selectedImage = selectedImage {
-                                // Newly selected photo
-                                Image(uiImage: selectedImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 200, height: 200)
-                                    .clipShape(Circle())
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.black.opacity(0.1), lineWidth: 4)
-                                    )
-                                    .shadow(color: .black.opacity(0.15), radius: 20, y: 10)
-                                
-                                Text("New Photo")
-                                    .font(AMENFont.semiBold(14))
-                                    .foregroundStyle(.secondary)
-                                
-                            } else if let currentImageURL = currentImageURL,
-                                      let url = URL(string: currentImageURL) {
-                                // Current photo from server
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 200, height: 200)
-                                            .clipShape(Circle())
-                                            .overlay(
-                                                Circle()
-                                                    .stroke(Color.black.opacity(0.1), lineWidth: 4)
-                                            )
-                                            .shadow(color: .black.opacity(0.15), radius: 20, y: 10)
-                                    case .empty, .failure:
-                                        placeholderImage
-                                    @unknown default:
-                                        placeholderImage
-                                    }
-                                }
-                                
-                                Text("Current Photo")
-                                    .font(AMENFont.semiBold(14))
-                                    .foregroundStyle(.secondary)
-                                
-                            } else {
-                                // No photo
-                                placeholderImage
-                                
-                                Text("No Photo")
-                                    .font(AMENFont.semiBold(14))
-                                    .foregroundStyle(.secondary)
-                            }
+                    VStack(spacing: 28) {
+                        VStack(spacing: 14) {
+                            Text(selectedImage == nil && currentImageURL == nil ? "Add an Image" : "Profile Image")
+                                .font(.system(size: 34, weight: .bold))
+                                .foregroundStyle(.black)
+                                .multilineTextAlignment(.center)
+
+                            Text("Choose a clear photo that stays readable across Amen.")
+                                .font(AMENFont.regular(16))
+                                .foregroundStyle(.black.opacity(0.56))
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(2)
                         }
-                        .padding(.top, 40)
-                        
-                        // Action Buttons
-                        VStack(spacing: 16) {
-                            // Choose from Library
-                            Button {
-                                requestPhotoLibraryPermission()
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "photo.on.rectangle")
-                                        .font(.systemScaled(20, weight: .semibold))
-                                    
-                                    Text("Choose from Library")
-                                        .font(AMENFont.bold(16))
+                        .padding(.top, 42)
+                        .padding(.horizontal, 28)
+
+                        VStack(spacing: 18) {
+                            currentPhotoView
+
+                            Text(photoStatusText)
+                                .font(AMENFont.semiBold(14))
+                                .foregroundStyle(.black.opacity(0.58))
+                        }
+
+                        AmenLiquidWhiteSurface(cornerRadius: 32, shadow: .floating) {
+                            VStack(spacing: 14) {
+                                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                                    AmenLiquidWhiteButtonLabel(
+                                        title: selectedImage == nil ? "Choose from Library" : "Choose Different Photo",
+                                        systemImage: "photo.on.rectangle"
+                                    )
                                 }
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.black)
-                                        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
-                                )
-                            }
-                            
-                            // Take Photo (Camera)
-                            Button {
-                                requestCameraPermission()
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "camera.fill")
-                                        .font(.systemScaled(20, weight: .semibold))
-                                    
-                                    Text("Take Photo")
-                                        .font(AMENFont.bold(16))
-                                }
-                                .foregroundStyle(.primary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color(.systemGray6))
-                                )
-                            }
-                            
-                            // Delete Current Photo (if exists)
-                            if currentImageURL != nil && selectedImage == nil {
+                                .buttonStyle(AmenLiquidWhiteButtonStyle(kind: .primary))
+                                .disabled(isUploading)
+
                                 Button {
-                                    showDeleteConfirmation = true
+                                    requestCameraPermission()
                                 } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "trash")
-                                            .font(.systemScaled(20, weight: .semibold))
-                                        
-                                        Text("Remove Photo")
-                                            .font(AMENFont.bold(16))
+                                    AmenLiquidWhiteButtonLabel(title: "Take Photo", systemImage: "camera.fill")
+                                }
+                                .buttonStyle(AmenLiquidWhiteButtonStyle(kind: .secondary))
+                                .disabled(isUploading)
+
+                                if currentImageURL != nil && selectedImage == nil {
+                                    Button {
+                                        showDeleteConfirmation = true
+                                    } label: {
+                                        AmenLiquidWhiteButtonLabel(title: "Remove Photo", systemImage: "trash")
                                     }
-                                    .foregroundStyle(.red)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.red.opacity(0.1))
-                                    )
+                                    .buttonStyle(AmenLiquidWhiteButtonStyle(kind: .destructive))
+                                    .disabled(isUploading)
                                 }
                             }
+                            .padding(18)
                         }
-                        .padding(.horizontal, 20)
-                        
-                        // Tips
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "lightbulb.fill")
-                                    .font(.systemScaled(16))
-                                    .foregroundStyle(.orange)
-                                
-                                Text("Photo Tips")
-                                    .font(AMENFont.bold(16))
+                        .padding(.horizontal, 18)
+
+                        AmenLiquidWhiteSurface(cornerRadius: 28, shadow: .soft) {
+                            VStack(alignment: .leading, spacing: 14) {
+                                HStack(spacing: 9) {
+                                    Image(systemName: "sparkles")
+                                        .font(.systemScaled(15, weight: .semibold))
+                                        .foregroundStyle(.black.opacity(0.68))
+
+                                    Text("Photo Tips")
+                                        .font(AMENFont.bold(16))
+                                        .foregroundStyle(.black)
+                                }
+
+                                tipRow(icon: "checkmark.circle.fill", text: "Use a clear, recent photo of yourself", color: .green)
+                                tipRow(icon: "checkmark.circle.fill", text: "Face should be clearly visible", color: .green)
+                                tipRow(icon: "checkmark.circle.fill", text: "Good lighting works best", color: .green)
+                                tipRow(icon: "xmark.circle.fill", text: "Avoid group photos", color: .red)
                             }
-                            
-                            tipRow(icon: "checkmark.circle.fill", text: "Use a clear, recent photo of yourself", color: .green)
-                            tipRow(icon: "checkmark.circle.fill", text: "Face should be clearly visible", color: .green)
-                            tipRow(icon: "checkmark.circle.fill", text: "Good lighting works best", color: .green)
-                            tipRow(icon: "xmark.circle.fill", text: "Avoid group photos", color: .red)
+                            .padding(20)
                         }
-                        .padding(20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(.systemBackground))
-                        )
-                        .padding(.horizontal, 20)
-                        
+                        .padding(.horizontal, 18)
+
                         Spacer(minLength: 40)
                     }
                 }
+                .scrollIndicators(.hidden)
                 
                 // Success Message Overlay
                 if showSuccessMessage {
                     VStack {
                         Spacer()
                         
-                        HStack(spacing: 12) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.systemScaled(20))
-                                .foregroundStyle(.green)
-                            
-                            Text("Profile photo updated!")
-                                .font(AMENFont.semiBold(15))
+                        AmenLiquidWhiteSurface(cornerRadius: 999, shadow: .floating) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.systemScaled(20))
+                                    .foregroundStyle(.green)
+
+                                Text("Profile photo updated")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.black)
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 16)
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 16)
-                        .background(
-                            Capsule()
-                                .fill(Color(.systemBackground))
-                                .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
-                        )
                         .padding(.bottom, 100)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -256,11 +184,6 @@ struct ProfilePhotoEditView: View {
                             showCropView = false
                         }
                     )
-                }
-            }
-            .sheet(isPresented: $showPhotoPermissionAlert) {
-                PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    EmptyView()
                 }
             }
             .alert("Photo Library Access Required", isPresented: $photoPermissionDenied) {
@@ -398,38 +321,110 @@ struct ProfilePhotoEditView: View {
     }
     
     // MARK: - UI Components
+
+    private var photoStatusText: String {
+        if selectedImage != nil { return "New Photo" }
+        if currentImageURL != nil { return "Current Photo" }
+        return "No Photo"
+    }
+
+    @ViewBuilder
+    private var currentPhotoView: some View {
+        if let selectedImage {
+            profilePhotoImage(Image(uiImage: selectedImage))
+        } else if let currentImageURL, let url = URL(string: currentImageURL) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    profilePhotoImage(image)
+                case .empty, .failure:
+                    placeholderImage
+                @unknown default:
+                    placeholderImage
+                }
+            }
+        } else {
+            placeholderImage
+        }
+    }
+
+    private func profilePhotoImage(_ image: Image) -> some View {
+        image
+            .resizable()
+            .scaledToFill()
+            .frame(width: 214, height: 214)
+            .clipShape(Circle())
+            .overlay {
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.9), lineWidth: 1.2)
+            }
+            .overlay(alignment: .topLeading) {
+                Circle()
+                    .fill(Color.white.opacity(0.55))
+                    .frame(width: 72, height: 72)
+                    .blur(radius: 18)
+                    .offset(x: 20, y: 18)
+            }
+            .shadow(color: .black.opacity(0.12), radius: 34, x: 0, y: 18)
+            .background {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 238, height: 238)
+                    .overlay {
+                        Circle()
+                            .strokeBorder(Color.white.opacity(0.94), lineWidth: 1)
+                    }
+                    .shadow(color: .black.opacity(0.08), radius: 40, y: 18)
+            }
+    }
     
     private var placeholderImage: some View {
         Circle()
-            .fill(Color(.systemGray5))
-            .frame(width: 200, height: 200)
-            .overlay(
+            .fill(.ultraThinMaterial)
+            .frame(width: 214, height: 214)
+            .overlay {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.96),
+                                Color.white.opacity(0.62),
+                                Color.black.opacity(0.035)
+                            ],
+                            center: UnitPoint(x: 0.38, y: 0.24),
+                            startRadius: 4,
+                            endRadius: 118
+                        )
+                    )
+            }
+            .overlay {
                 VStack(spacing: 12) {
                     Image(systemName: "person.fill")
-                        .font(.systemScaled(60))
-                        .foregroundStyle(.secondary)
+                        .font(.systemScaled(58, weight: .semibold))
+                        .foregroundStyle(.black.opacity(0.14))
                     
                     Text("No Photo")
                         .font(AMENFont.semiBold(14))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.black.opacity(0.38))
                 }
-            )
-            .overlay(
+            }
+            .overlay {
                 Circle()
-                    .stroke(Color.black.opacity(0.1), lineWidth: 4)
-            )
+                    .strokeBorder(Color.white.opacity(0.95), lineWidth: 1.2)
+            }
+            .shadow(color: .black.opacity(0.09), radius: 34, x: 0, y: 16)
     }
     
     private func tipRow(icon: String, text: String, color: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
                 .font(.systemScaled(14))
-                .foregroundStyle(color)
+                .foregroundStyle(color.opacity(0.82))
                 .frame(width: 20)
             
             Text(text)
                 .font(AMENFont.regular(14))
-                .foregroundStyle(.primary)
+                .foregroundStyle(.black.opacity(0.72))
         }
     }
     

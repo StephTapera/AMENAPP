@@ -51,6 +51,16 @@ enum MessageSheetType: Identifiable, Equatable {
     }
 }
 
+// MARK: - DM Filter (Slack-style inbox pills)
+
+/// Slack-style filter for the DM avatar rail and pill row.
+enum DMFilter: String, CaseIterable {
+    case all      = "All"
+    case prayer   = "Prayer 🙏"
+    case unreads  = "Unreads"
+    case external = "External"
+}
+
 // MARK: - Pill Press Style
 
 /// Subtle scale-down on press — gives filter pills premium tactile feedback.
@@ -110,11 +120,15 @@ struct MessagesView: View {
     @State private var selectedMinistrySpace: AMENSpace?
     @State private var showMinistrySpaceBridge = false
     
+    // MARK: - Inbox Filter
+    @State private var showInboxFilter = false
+    @State private var inboxSelectionMap: [String: String] = ["main": "all", "Sort": "newest"]
+
     // ✅ Tab bar visibility control (passed from ContentView)
     @Environment(\.tabBarVisible) private var tabBarVisible
     @Environment(\.mainTabSelection) private var mainTabSelection
     
-    enum MessageTab {
+    enum MessageTab: Equatable {
         case messages
         case requests
         case archived
@@ -178,6 +192,30 @@ struct MessagesView: View {
     // Filtered conversations — served from cache, populated by recomputeConversationCache().
     var filteredConversations: [ChatConversation] { cachedFilteredConversations }
 
+    /// Applies the Slack-style `dmFilter` pill on top of the existing filtered list.
+    /// Only active on the Messages tab (the pills are hidden on other tabs).
+    private var dmFilteredConversations: [ChatConversation] {
+        guard selectedTab == .messages else { return filteredConversations }
+        switch dmFilter {
+        case .all:
+            return filteredConversations
+        case .prayer:
+            return filteredConversations.filter {
+                $0.source == .fromPrayer ||
+                $0.lastMessage.localizedCaseInsensitiveContains("prayer") ||
+                $0.lastMessage.contains("🙏")
+            }
+        case .unreads:
+            return filteredConversations.filter { $0.unreadCount > 0 }
+        case .external:
+            // "External" = conversations originating from outside the AMEN community
+            // (fromOpportunity / fromChurch are the closest match without a dedicated flag).
+            return filteredConversations.filter {
+                $0.source == .fromOpportunity || $0.source == .fromChurch
+            }
+        }
+    }
+
     private func computeFilteredConversations() -> [ChatConversation] {
         var conversations = messagingService.conversations
         let currentUserId = Auth.auth().currentUser?.uid ?? ""
@@ -234,6 +272,25 @@ struct MessagesView: View {
            selectedTab == .messages {
             let metadata = MessagingInboxFilterAvailability.metadataAdapter()
             conversations = activeInboxFilter.apply(to: conversations, metadata: metadata)
+        }
+
+        // Glass filter dropdown — client-side secondary filter applied on top of System 36.
+        // "all" is a no-op; other IDs narrow the results further without touching fetch logic.
+        let inboxContentFilter = inboxSelectionMap["main", default: "all"]
+        let inboxSortOrder = inboxSelectionMap["Sort", default: "newest"]
+        if selectedTab == .messages && inboxContentFilter != "all" {
+            switch inboxContentFilter {
+            case "unread":
+                conversations = conversations.filter { $0.unreadCount > 0 }
+            case "prayer":
+                conversations = conversations.filter { $0.source == .fromPrayer }
+            case "groups":
+                conversations = conversations.filter { $0.isGroup }
+            default: break
+            }
+        }
+        if selectedTab == .messages && inboxSortOrder == "oldest" {
+            conversations = conversations.sorted { lhs, rhs in lhs.timestamp < rhs.timestamp }
         }
 
         // Deduplicate by document ID first (guard against Firestore listener duplicates)
@@ -297,109 +354,135 @@ struct MessagesView: View {
     // AI summary service — inbox-level, request summaries lazily
     @ObservedObject private var aiSummaryService = InboxAISummaryService.shared
 
+    private var swipeAlertMessage: Text { Text(swipeErrorMessage) }
+
+    @ViewBuilder
+    private var ministrySpaceBridgeSheet: some View {
+        if let selectedMinistrySpace {
+            AmenMinistrySpaceBridgeSheet(
+                space: selectedMinistrySpace,
+                spacesViewModel: ministrySpacesViewModel,
+                onOpenMessages: { selectedTab = .messages }
+            )
+            .presentationDragIndicator(.visible)
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            amenInboxBody
-                .safeAreaInset(edge: .bottom) {
-                    messagesCommandLayerInset
-                }
-                .navigationBarHidden(true)
-                .onAppear {
+            inboxWithModifiers
+        }
+        .accessibilityIdentifier("screen.messages")
+    }
+
+    // MARK: - Inbox + all modifiers (extracted to prevent type-checker timeout)
+
+    private var inboxWithModifiers: some View {
+        amenInboxBody
+            .safeAreaInset(edge: .bottom) { messagesCommandLayerInset }
+            .navigationBarHidden(true)
+            .onAppear {
+                // Guard: only hide the tab bar when Messages is actually the active tab.
+                // keepMountedTab renders all tabs simultaneously so onAppear fires even
+                // when the user is on a different tab — without this guard the tab bar
+                // disappears on every cold launch.
+                if mainTabSelection.wrappedValue == 2 {
                     tabBarVisible.wrappedValue = false
-                    BadgeCountManager.shared.clearMessages()
-                    // Trigger staggered row entrance
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        rowsVisible = true
-                    }
                 }
-                .onDisappear {
+                BadgeCountManager.shared.clearMessages()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    rowsVisible = true
+                }
+            }
+            .onChange(of: mainTabSelection.wrappedValue) { _, newTab in
+                // React when user switches tabs: show/hide tab bar accordingly.
+                if newTab == 2 {
+                    tabBarVisible.wrappedValue = false
+                } else {
                     tabBarVisible.wrappedValue = true
                 }
-                .sheet(item: $activeSheet) { sheetType in
-                    sheetContent(for: sheetType)
-                        .presentationDragIndicator(.visible)
-                }
-                .sheet(item: $selectedConversationForActions) { conv in
-                    MessageActionSheet(
-                        conversationName: conv.name,
-                        onReply: { openChat(conv) },
-                        onForward: {},
-                        onStar: {},
-                        onCopy: {
-                            UIPasteboard.general.string = conv.lastMessage
-                        },
-                        onDelete: {
-                            conversationToDelete = conv
-                            showDeleteConfirmation = true
-                        }
-                    )
-                }
-                .sheet(isPresented: $showCommandLayerCreateSheet, onDismiss: {
-                    AMENAnalyticsService.shared.track(.commandLayerDismissed(surface: AmenCommandLayerSurface.messages.rawValue))
-                }) {
-                    AmenCreateActionSheet(
-                        surface: .messages,
-                        actions: AmenCommandLayerCatalog.actions(for: .messages),
-                        onAction: handleMessagesCommandLayerAction
-                    )
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-                }
-                .sheet(isPresented: $showCommandLayerModePicker) {
-                    AmenComposerModePicker(surface: .messages, onSelectAction: handleMessagesCommandLayerAction)
-                        .presentationDetents([.medium])
-                        .presentationDragIndicator(.visible)
-                }
-                .onAppear {
-                    recomputeConversationCache()
-                    refreshSmartInboxObserver()
-                    ministrySpacesViewModel.load()
-                }
-                .onChange(of: messagingService.conversations) { _, _ in
-                    recomputeConversationCache()
-                    refreshSmartInboxObserver()
-                }
-                .onChange(of: messagingService.archivedConversations) { _, _ in recomputeConversationCache() }
-                .onChange(of: selectedTab) { _, _ in recomputeConversationCache() }
-                .onChange(of: searchText) { _, _ in recomputeConversationCache() }
-                .onChange(of: activeInboxFilter) { _, _ in recomputeConversationCache() }
-                .onChange(of: amenFeatureFlags.messagingSmartInboxCountsEnabled) { _, _ in
-                    refreshSmartInboxObserver()
-                }
-                .modifier(LifecycleModifier(
-                    messagingService: messagingService,
-                    loadMessageRequests: loadMessageRequests,
-                    startListeningToMessageRequests: startListeningToMessageRequests,
-                    stopListeningToMessageRequests: stopListeningToMessageRequests
-                ))
-                .modifier(DeleteConfirmationModifier(
-                    showDeleteConfirmation: $showDeleteConfirmation,
-                    conversationToDelete: $conversationToDelete,
-                    deleteConversation: deleteConversation
-                ))
-                .alert("Action Failed", isPresented: $showSwipeErrorAlert) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text(swipeErrorMessage)
-                }
-                .sheet(isPresented: $showMinistrySpaceBridge) {
-                    if let selectedMinistrySpace {
-                        AmenMinistrySpaceBridgeSheet(
-                            space: selectedMinistrySpace,
-                            spacesViewModel: ministrySpacesViewModel,
-                            onOpenMessages: { selectedTab = .messages }
-                        )
-                        .presentationDragIndicator(.visible)
+            }
+            .onDisappear { tabBarVisible.wrappedValue = true }
+            .sheet(item: $activeSheet) { sheetType in
+                sheetContent(for: sheetType).presentationDragIndicator(.visible)
+            }
+            .sheet(item: $selectedConversationForActions) { conv in
+                MessageActionSheet(
+                    conversationName: conv.name,
+                    onReply: { openChat(conv) },
+                    onForward: {},
+                    onStar: {},
+                    onCopy: { UIPasteboard.general.string = conv.lastMessage },
+                    onDelete: {
+                        conversationToDelete = conv
+                        showDeleteConfirmation = true
                     }
-                }
-                .modifier(CoordinatorModifier(
-                    messagingCoordinator: messagingCoordinator,
-                    messagingService: messagingService,
-                    conversations: conversations,
-                    activeSheet: $activeSheet,
-                    selectedTab: $selectedTab
-                ))
-        }
+                )
+            }
+            .sheet(isPresented: $showCommandLayerCreateSheet, onDismiss: {
+                AMENAnalyticsService.shared.track(.commandLayerDismissed(surface: AmenCommandLayerSurface.messages.rawValue))
+            }) {
+                AmenCreateActionSheet(
+                    surface: .messages,
+                    actions: AmenCommandLayerCatalog.actions(for: .messages),
+                    onAction: handleMessagesCommandLayerAction
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showCommandLayerModePicker) {
+                AmenComposerModePicker(surface: .messages, onSelectAction: handleMessagesCommandLayerAction)
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            }
+            .modifier(inboxObserversModifier)
+            .modifier(LifecycleModifier(
+                messagingService: messagingService,
+                loadMessageRequests: loadMessageRequests,
+                startListeningToMessageRequests: startListeningToMessageRequests,
+                stopListeningToMessageRequests: stopListeningToMessageRequests
+            ))
+            .modifier(DeleteConfirmationModifier(
+                showDeleteConfirmation: $showDeleteConfirmation,
+                conversationToDelete: $conversationToDelete,
+                deleteConversation: deleteConversation
+            ))
+            .alert("Action Failed", isPresented: $showSwipeErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                swipeAlertMessage
+            }
+            .sheet(isPresented: $showMinistrySpaceBridge) { ministrySpaceBridgeSheet }
+            .sheet(isPresented: $showYouPanel) {
+                AmenYouPanelView(
+                    onDismiss:           { showYouPanel = false },
+                    onViewProfile:       { showYouPanel = false },
+                    onPreferencesTapped: { showYouPanel = false }
+                )
+            }
+            .modifier(CoordinatorModifier(
+                messagingCoordinator: messagingCoordinator,
+                messagingService: messagingService,
+                conversations: conversations,
+                activeSheet: $activeSheet,
+                selectedTab: $selectedTab
+            ))
+            // Recompute conversation cache when the glass filter dropdown selection changes
+            .onChange(of: inboxSelectionMap) { _, _ in recomputeConversationCache() }
+    }
+
+    private var inboxObserversModifier: InboxObserversModifier {
+        InboxObserversModifier(
+            recomputeCache: recomputeConversationCache,
+            refreshObserver: refreshSmartInboxObserver,
+            loadSpaces: { ministrySpacesViewModel.load() },
+            conversations: messagingService.conversations,
+            archivedConversations: messagingService.archivedConversations,
+            selectedTab: selectedTab,
+            searchText: searchText,
+            activeInboxFilter: activeInboxFilter,
+            smartInboxCountsEnabled: amenFeatureFlags.messagingSmartInboxCountsEnabled
+        )
     }
 
     private var isMessagesCommandLayerEnabled: Bool {
@@ -491,9 +574,11 @@ struct MessagesView: View {
             selectedTab = .messages
             trackMessagesCommandLayerRoute(.openCommandPalette, routeId: "messages_current")
         case "calendar":
-            routeUnavailableFromMessagesCommandLayer(actionId: .rsvpEvent, reason: "Calendar navigation is owned by the Events surface integration.")
+            mainTabSelection.wrappedValue = AMENTab.gatherings.rawValue
+            trackMessagesCommandLayerRoute(.rsvpEvent, routeId: "gatherings_tab")
         case "notes":
-            routeUnavailableFromMessagesCommandLayer(actionId: .churchNote, reason: "Notes routing is owned by Church Notes and is not rerouted from Messages yet.")
+            mainTabSelection.wrappedValue = AMENTab.communityNotes.rawValue
+            trackMessagesCommandLayerRoute(.churchNote, routeId: "community_notes_tab")
         case "spaces":
             activeSheet = .createGroup
             trackMessagesCommandLayerRoute(.startSpace, routeId: "create_group")
@@ -563,7 +648,7 @@ struct MessagesView: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 0, pinnedViews: []) {
                     Color.clear.frame(height: 0).id("amenInboxTop")
-                        .amenTabBarScrollTracking(in: "amenInboxScroll")
+                        .amenTabBarScrollTracking()
                     // Zero-height scroll offset reader for top blur
                     GeometryReader { geo in
                         Color.clear.preference(
@@ -581,13 +666,26 @@ struct MessagesView: View {
                         onSettings: { activeSheet = .settings },
                         onRequests: { selectedTab = .requests },
                         requestCount: unreadRequestsCount,
-                        searchText: $searchText
+                        searchText: $searchText,
+                        showFilter: $showInboxFilter,
+                        selectionMap: $inboxSelectionMap
                     )
 
                     // ── TAB SELECTOR ─────────────────────────────────────────
                     amenTabSelector
                         .padding(.horizontal, AMENInboxTokens.hPad)
                         .padding(.bottom, 8)
+
+                    // ── AVATAR RAIL (Slack-style DM quick-access) ────────────
+                    if selectedTab == .messages && searchText.isEmpty {
+                        avatarRail
+                    }
+
+                    // ── FILTER PILLS (All | Prayer | Unreads | External) ─────
+                    if selectedTab == .messages && searchText.isEmpty {
+                        filterPillRow
+                            .padding(.bottom, 4)
+                    }
 
                     // ── MINISTRY OS BRIDGE (Spaces + group messages) ─────────
                     if selectedTab == .messages && searchText.isEmpty {
@@ -644,27 +742,30 @@ struct MessagesView: View {
                         BereanCommunicationHubView(
                             onOpenThread: { cid in
                                 activeSheet = .bereanConversation(cid)
-                            },
-                            onResumeLastConversation: {
-                                activeSheet = .bereanConversation(UUID().uuidString)
-                            },
-                            onCatchUp: {
-                                activeSheet = .bereanConversation(UUID().uuidString)
-                            },
-                            onSummarizePrayerRooms: {
-                                activeSheet = .bereanConversation(UUID().uuidString)
                             }
                         )
-                    } else if filteredConversations.isEmpty {
-                        if searchText.isEmpty {
-                            InboxEmptyState(mode: .noMessages)
+                    } else if dmFilteredConversations.isEmpty {
+                        switch selectedTab {
+                        case .requests:
+                            requestsEmptyStateView
                                 .padding(.top, 60)
-                        } else {
-                            InboxEmptyState(mode: .noResults(searchText))
+                        case .archived:
+                            archivedEmptyStateView
                                 .padding(.top, 60)
+                        default:
+                            if searchText.isEmpty {
+                                InboxEmptyState(
+                                    mode: .noMessages,
+                                    onStartConversation: { activeSheet = .newMessage }
+                                )
+                                .padding(.top, 60)
+                            } else {
+                                InboxEmptyState(mode: .noResults(searchText))
+                                    .padding(.top, 60)
+                            }
                         }
                     } else {
-                        ForEach(Array(filteredConversations.enumerated()), id: \.element.id) { index, conv in
+                        ForEach(Array(dmFilteredConversations.enumerated()), id: \.element.id) { index, conv in
                             amenThreadRow(conv)
                                 .contextMenu { conversationContextMenu(for: conv) }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -724,6 +825,57 @@ struct MessagesView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .animation(.easeInOut(duration: 0.18), value: activeInboxFilter)
             }
+
+            // ── "You" panel trigger button (top-trailing, faith-native) ──────
+            youPanelTrigger
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(.top, 14)
+                .padding(.trailing, AMENInboxTokens.hPad)
+        }
+    }
+
+    // MARK: – "You" panel trigger button
+
+    @ViewBuilder
+    private var youPanelTrigger: some View {
+        Button {
+            HapticManager.impact(style: .light)
+            showYouPanel = true
+        } label: {
+            ZStack {
+                if let photoURLStr = userService.currentUser?.profileImageURL,
+                   let url = URL(string: photoURLStr) {
+                    CachedAsyncImage(
+                        url: url,
+                        content: { img in
+                            img.resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 34, height: 34)
+                                .clipShape(Circle())
+                        },
+                        placeholder: {
+                            youPanelFallbackAvatar
+                        }
+                    )
+                } else {
+                    youPanelFallbackAvatar
+                }
+            }
+            .overlay(Circle().strokeBorder(AmenTheme.Colors.amenGold.opacity(0.6), lineWidth: 1.5))
+            .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Your profile — tap to open the You panel")
+    }
+
+    private var youPanelFallbackAvatar: some View {
+        ZStack {
+            Circle()
+                .fill(AmenTheme.Colors.amenPurple.opacity(0.85))
+                .frame(width: 34, height: 34)
+            Image(systemName: "person.circle.fill")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.white.opacity(0.9))
         }
     }
 
@@ -2758,6 +2910,10 @@ struct MessagesView: View {
     
     // MARK: - Real-time Message Request Listening
     
+    // MARK: - Slack-style DM filter + "You" panel
+    @State private var dmFilter: DMFilter = .all
+    @State private var showYouPanel = false
+
     @State private var messageRequestsListener: (() -> Void)?
     
     private func startListeningToMessageRequests() {
@@ -2871,8 +3027,206 @@ struct MessagesView: View {
         }
     }
     
+    // MARK: - Avatar Rail (Slack-style DM quick-access row)
+
+    /// Horizontally scrollable row of recent conversation avatars.
+    /// First item is always the current user ("Add" invite shortcut).
+    /// Shows 3 skeleton placeholders when no conversations are available yet.
+    private var avatarRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                // ── "Add" item: current user avatar with "+" badge ─────────────
+                Button {
+                    HapticManager.impact(style: .light)
+                    activeSheet = .newMessage
+                } label: {
+                    VStack(spacing: 4) {
+                        ZStack(alignment: .bottomTrailing) {
+                            if let photoURLStr = userService.currentUser?.profileImageURL,
+                               let url = URL(string: photoURLStr) {
+                                CachedAsyncImage(
+                                    url: url,
+                                    content: { img in
+                                        img.resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: 40, height: 40)
+                                            .clipShape(Circle())
+                                    },
+                                    placeholder: {
+                                        railAvatarPlaceholder(initial: String(firstName.prefix(1)), uid: Auth.auth().currentUser?.uid ?? "you")
+                                    }
+                                )
+                            } else {
+                                railAvatarPlaceholder(initial: String(firstName.prefix(1)), uid: Auth.auth().currentUser?.uid ?? "you")
+                            }
+                            // "+" badge
+                            ZStack {
+                                Circle()
+                                    .fill(AmenTheme.Colors.amenGold)
+                                    .frame(width: 16, height: 16)
+                                Image(systemName: "plus")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.black)
+                            }
+                            .offset(x: 2, y: 2)
+                        }
+                        Text("Add")
+                            .font(AMENFont.semiBold(10))
+                            .foregroundStyle(AmenTheme.Colors.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add — start a new conversation")
+
+                // ── Recent accepted conversations ──────────────────────────────
+                let recentAccepted = conversations
+                    .filter { $0.status == "accepted" }
+                    .prefix(12)
+
+                if recentAccepted.isEmpty {
+                    // Skeleton placeholders while data loads
+                    ForEach(0..<3, id: \.self) { _ in
+                        VStack(spacing: 4) {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .frame(width: 40, height: 40)
+                                .opacity(0.6)
+                            Rectangle()
+                                .fill(.ultraThinMaterial)
+                                .frame(width: 32, height: 8)
+                                .clipShape(Capsule())
+                                .opacity(0.6)
+                        }
+                    }
+                } else {
+                    ForEach(recentAccepted) { conv in
+                        Button {
+                            HapticManager.impact(style: .light)
+                            openChat(conv)
+                        } label: {
+                            VStack(spacing: 4) {
+                                ZStack(alignment: .bottomTrailing) {
+                                    if let photoURL = conv.profilePhotoURL,
+                                       !photoURL.isEmpty,
+                                       let url = URL(string: photoURL) {
+                                        CachedAsyncImage(
+                                            url: url,
+                                            content: { img in
+                                                img.resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                                    .frame(width: 40, height: 40)
+                                                    .clipShape(Circle())
+                                            },
+                                            placeholder: {
+                                                railAvatarPlaceholder(initial: String(conv.name.prefix(1)), uid: conv.otherParticipantId ?? conv.id)
+                                            }
+                                        )
+                                    } else {
+                                        railAvatarPlaceholder(initial: String(conv.name.prefix(1)), uid: conv.otherParticipantId ?? conv.id)
+                                    }
+                                    // Unread indicator dot
+                                    if conv.unreadCount > 0 {
+                                        Circle()
+                                            .fill(AmenTheme.Colors.amenGold)
+                                            .frame(width: 10, height: 10)
+                                            .overlay(Circle().strokeBorder(Color(.systemBackground), lineWidth: 1.5))
+                                            .offset(x: 2, y: 2)
+                                    }
+                                }
+                                Text(conv.name.components(separatedBy: " ").first ?? conv.name)
+                                    .font(AMENFont.semiBold(10))
+                                    .foregroundStyle(conv.unreadCount > 0
+                                        ? AmenTheme.Colors.textPrimary
+                                        : AmenTheme.Colors.textSecondary)
+                                    .lineLimit(1)
+                                    .frame(width: 44)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(conv.name)\(conv.unreadCount > 0 ? ", \(conv.unreadCount) unread" : "")")
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .scrollClipDisabled()
+    }
+
+    /// Deterministic avatar background color derived from a stable UID hash.
+    private func railAvatarColor(uid: String) -> Color {
+        let palette: [Color] = [
+            AmenTheme.Colors.amenGold,
+            AmenTheme.Colors.amenPurple,
+            AmenTheme.Colors.amenBlue
+        ]
+        let index = abs(uid.hashValue) % palette.count
+        return palette[index]
+    }
+
+    private func railAvatarPlaceholder(initial: String, uid: String) -> some View {
+        ZStack {
+            Circle()
+                .fill(railAvatarColor(uid: uid).opacity(0.85))
+                .frame(width: 40, height: 40)
+            Text(initial.uppercased())
+                .font(AMENFont.semiBold(16))
+                .foregroundStyle(.white)
+        }
+    }
+
+    // MARK: - Filter Pill Row (Slack-style)
+
+    /// Horizontally scrollable pill filter row: All | Prayer 🙏 | Unreads | External.
+    private var filterPillRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(DMFilter.allCases, id: \.self) { filter in
+                    let isSelected = dmFilter == filter
+                    Button {
+                        HapticManager.impact(style: .light)
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                            dmFilter = filter
+                        }
+                    } label: {
+                        Text(filter.rawValue)
+                            .font(AMENFont.semiBold(13))
+                            .foregroundStyle(isSelected
+                                ? AmenTheme.Colors.textPrimary
+                                : AmenTheme.Colors.textSecondary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule()
+                                    .fill(isSelected
+                                        ? AnyShapeStyle(.ultraThinMaterial)
+                                        : AnyShapeStyle(Color.white.opacity(0.2)))
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(
+                                                isSelected
+                                                    ? Color.white.opacity(0.5)
+                                                    : Color.white.opacity(0.2),
+                                                lineWidth: 1
+                                            )
+                                    )
+                            )
+                            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
+                    }
+                    .buttonStyle(PillPressStyle())
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityLabel("Filter: \(filter.rawValue)\(isSelected ? ", selected" : "")")
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+        .scrollClipDisabled()
+    }
+
     // MARK: - Empty State
-    
+
     private var emptyStateView: some View {
         VStack(spacing: 24) {
             Spacer()
@@ -4003,9 +4357,14 @@ struct CreateGroupView: View {
     
     private func createGroup() {
         guard canCreate else { return }
-        
+        guard Auth.auth().currentUser != nil else {
+            errorMessage = "You must be signed in to create a group."
+            showError = true
+            return
+        }
+
         isCreating = true
-        
+
         Task {
             do {
                 let trimmedName = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -5224,6 +5583,36 @@ extension Date {
 // MARK: - END TEMPORARY STUBS
 
 // MARK: - View Modifiers to Break Down Complexity
+
+struct InboxObserversModifier: ViewModifier {
+    let recomputeCache: () -> Void
+    let refreshObserver: () -> Void
+    let loadSpaces: () -> Void
+    let conversations: [ChatConversation]
+    let archivedConversations: [ChatConversation]
+    let selectedTab: MessagesView.MessageTab
+    let searchText: String
+    let activeInboxFilter: MessagingInboxFilter
+    let smartInboxCountsEnabled: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                recomputeCache()
+                refreshObserver()
+                loadSpaces()
+            }
+            .onChange(of: conversations) { _, _ in
+                recomputeCache()
+                refreshObserver()
+            }
+            .onChange(of: archivedConversations) { _, _ in recomputeCache() }
+            .onChange(of: selectedTab) { _, _ in recomputeCache() }
+            .onChange(of: searchText) { _, _ in recomputeCache() }
+            .onChange(of: activeInboxFilter) { _, _ in recomputeCache() }
+            .onChange(of: smartInboxCountsEnabled) { _, _ in refreshObserver() }
+    }
+}
 
 struct LifecycleModifier: ViewModifier {
     let messagingService: FirebaseMessagingService

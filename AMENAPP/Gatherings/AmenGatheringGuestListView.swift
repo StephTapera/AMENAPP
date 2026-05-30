@@ -175,7 +175,7 @@ private struct GuestRow: View {
 
     private var placeholderAvatar: some View {
         ZStack {
-            Circle().fill(Color(.systemGray5))
+            Circle().fill(AmenTheme.Colors.backgroundSecondary)
             Text(rsvp.displayName?.prefix(1).uppercased() ?? "?")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -240,13 +240,13 @@ private struct GuestTabChip: View {
                     .font(.caption2.weight(.bold))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(isSelected ? Color.white.opacity(0.3) : Color(.systemGray5))
+                    .background(isSelected ? AmenTheme.Colors.amenGold.opacity(0.25) : AmenTheme.Colors.backgroundSecondary)
                     .clipShape(Capsule(style: .continuous))
             }
-            .foregroundStyle(isSelected ? .white : .primary)
+            .foregroundStyle(isSelected ? Color.black : .primary)
             .padding(.horizontal, 12)
             .frame(minHeight: 34)
-            .background(isSelected ? Color.primary : Color(.systemGray6))
+            .background(isSelected ? AmenTheme.Colors.amenGold : AmenTheme.Colors.backgroundSecondary)
             .clipShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)

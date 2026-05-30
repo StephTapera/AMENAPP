@@ -313,6 +313,12 @@ struct ChurchNoteSemanticEditorView: View {
     @State private var dismissedJobIds   = Set<String>()
     @StateObject private var collaborationService = ChurchNotesCollaborationService()
     @StateObject private var commentsService = ChurchNotesCommentsService()
+    @StateObject private var contextViewModel = ChurchNotesContextViewModel()
+
+    // MARK: - Command Bar State
+    @State private var showCommandBar = false
+    @State private var commandBarQuery = ""
+    @State private var commandBarSourceBlockId: String? = nil
 
     init(note: ChurchNoteV2? = nil) {
         _vm = StateObject(wrappedValue: ChurchNoteSemanticEditorViewModel(note: note))
@@ -372,6 +378,14 @@ struct ChurchNoteSemanticEditorView: View {
                         vm.bridge = loaded
                     }
                     vm.computeIntelligence()
+                    // Seed initial auto-analysis once blocks are ready
+                    let fullText = blockRepo.activeBlocks.map(\.text).joined(separator: "\n")
+                    contextViewModel.scheduleAutoAnalysis(noteText: fullText, noteHistory: [])
+                }
+                .onChange(of: blockRepo.activeBlocks) { _, _ in
+                    // Re-analyse on every block content change (debounced inside viewModel)
+                    let fullText = blockRepo.activeBlocks.map(\.text).joined(separator: "\n")
+                    contextViewModel.scheduleAutoAnalysis(noteText: fullText, noteHistory: [])
                 }
 
                 // Review strip — appears above floating toolbar when user presses Done
@@ -545,13 +559,71 @@ struct ChurchNoteSemanticEditorView: View {
                 .presentationDetents([.medium])
             }
             .sheet(item: $vm.editingBlock) { block in
-                BlockEditSheet(block: block) { updated in
-                    vm.updateBlock(updated)
+                BlockEditSheet(block: block, onTextChange: { newText in
+                    handleBlockTextChange(blockId: block.id, text: newText)
+                }) { updated in
+                    // Clear the "/" placeholder text if user never typed beyond it
+                    var finalBlock = updated
+                    if finalBlock.text == "/" {
+                        finalBlock = ChurchNoteBlockV2(
+                            id: finalBlock.id, sortOrder: finalBlock.sortOrder,
+                            type: finalBlock.type, semanticType: finalBlock.semanticType,
+                            visibility: finalBlock.visibility, pinnedState: finalBlock.pinnedState,
+                            text: "", richSpans: finalBlock.richSpans,
+                            versePayload: finalBlock.versePayload,
+                            calloutPayload: finalBlock.calloutPayload,
+                            sectionPayload: finalBlock.sectionPayload,
+                            checklistPayload: finalBlock.checklistPayload,
+                            createdAt: finalBlock.createdAt, updatedAt: Date()
+                        )
+                    }
+                    vm.updateBlock(finalBlock)
                 }
                 .presentationDetents([.medium, .large])
             }
+            // Command Bar — triggered by "/" at the start of a new block
+            .sheet(isPresented: $showCommandBar, onDismiss: {
+                // If the block still has bare "/" text after dismissal, clear it
+                if let sourceId = commandBarSourceBlockId,
+                   let block = vm.blocks.first(where: { $0.id == sourceId }),
+                   block.text == "/" {
+                    let cleared = ChurchNoteBlockV2(
+                        id: block.id, sortOrder: block.sortOrder,
+                        type: block.type, semanticType: block.semanticType,
+                        visibility: block.visibility, pinnedState: block.pinnedState,
+                        text: "", richSpans: block.richSpans,
+                        versePayload: block.versePayload,
+                        calloutPayload: block.calloutPayload,
+                        sectionPayload: block.sectionPayload,
+                        checklistPayload: block.checklistPayload,
+                        createdAt: block.createdAt, updatedAt: Date()
+                    )
+                    vm.updateBlock(cleared)
+                }
+                commandBarSourceBlockId = nil
+                commandBarQuery = ""
+            }) {
+                let noteText = vm.blocks.map(\.text).joined(separator: "\n")
+                ChurchNoteCommandBarSheet(
+                    query: $commandBarQuery,
+                    onSelect: { command in
+                        showCommandBar = false
+                        Task {
+                            await contextViewModel.handleCommand(command, noteText: noteText)
+                        }
+                        // Dismiss the block editor sheet as well so result can be inserted
+                        vm.editingBlock = nil
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+            }
             .sheet(isPresented: $vm.showSelah) {
                 ChurchNoteSelahRenderView(noteId: vm.note.id)
+            }
+            // Berean Context Panel — full intelligence breakdown (themes, scripture, prayer, etc.)
+            .sheet(isPresented: $contextViewModel.isBereanPanelPresented) {
+                BereanContextPanelView(viewModel: contextViewModel)
             }
             // Opens a linked/connected note from the connections section
             .sheet(item: $linkedNoteToOpen) { note in
@@ -773,7 +845,7 @@ struct ChurchNoteSemanticEditorView: View {
 
     private var intelligenceSection: some View {
         VStack(spacing: 10) {
-            // Connections section
+            // Connections section — enhanced with live-detected recurring themes
             if !vm.connections.isEmpty {
                 ChurchNoteConnectionsSection(
                     connections: vm.connections,
@@ -800,6 +872,14 @@ struct ChurchNoteSemanticEditorView: View {
                 .padding(.horizontal, 16)
             }
 
+            // Live context pills — shown as soon as auto-analysis fires (>50 chars, 1.5 s debounce)
+            if let liveContext = contextViewModel.liveContext,
+               !liveContext.detectedThemes.isEmpty || !liveContext.relatedScriptures.isEmpty {
+                liveContextPillsStrip(liveContext: liveContext)
+                    .padding(.horizontal, 16)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
             // Berean AI Scripture Insight
             if vm.isFetchingBereanInsight || vm.bereanPassageInsight != nil {
                 BereanChurchNoteInsightCard(
@@ -811,6 +891,74 @@ struct ChurchNoteSemanticEditorView: View {
                 )
                 .padding(.horizontal, 16)
             }
+        }
+    }
+
+    // MARK: - Live Context Pills Strip
+
+    /// Compact horizontal pill row summarising live-detected themes and scripture refs.
+    /// Recurring themes (matching any connection's shared themes) get an "↩" badge and orange tint.
+    /// A trailing "All context" pill opens the full BereanContextPanelView.
+    private func liveContextPillsStrip(liveContext: CNContextResult) -> some View {
+        // Build the set of theme labels that appear in cross-note connections so we can badge them.
+        let recurringThemeLabels: Set<String> = Set(
+            vm.connections.flatMap { $0.sharedThemes.map { $0.lowercased() } }
+        )
+
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // Theme pills (up to 4)
+                ForEach(liveContext.detectedThemes.prefix(4)) { theme in
+                    let isRecurring = theme.isRecurring
+                        || recurringThemeLabels.contains(theme.theme.lowercased())
+                    Label(
+                        isRecurring ? "↩ \(theme.theme)" : theme.theme,
+                        systemImage: "tag.fill"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(isRecurring ? Color.orange : Color(hex: "6B48FF"))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .accessibilityLabel(isRecurring ? "Recurring theme: \(theme.theme)" : "Theme: \(theme.theme)")
+                }
+
+                // Scripture reference pills (up to 3)
+                ForEach(liveContext.relatedScriptures.prefix(3)) { ref in
+                    Label(ref.reference, systemImage: "book.closed.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color(hex: "1A73E8"))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .accessibilityLabel("Scripture reference: \(ref.reference)")
+                }
+
+                // "All context" pill — opens the full Berean Context Panel
+                Button {
+                    // Promote liveContext into contextResult so the panel has data to display
+                    Task { @MainActor in
+                        await contextViewModel.loadContext(
+                            noteId: vm.note.id,
+                            noteText: blockRepo.activeBlocks.map(\.text).joined(separator: "\n"),
+                            noteHistory: []
+                        )
+                        contextViewModel.isBereanPanelPresented = true
+                    }
+                } label: {
+                    Label("All context", systemImage: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .overlay(
+                            Capsule().strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 0.75)
+                        )
+                }
+                .accessibilityLabel("Open full context panel")
+            }
+            .padding(.horizontal, 16)
         }
     }
 
@@ -863,6 +1011,39 @@ struct ChurchNoteSemanticEditorView: View {
                 text:         paragraph
             )
             vm.addBlock(block)
+        }
+    }
+
+    // MARK: - Command Bar Trigger
+
+    /// Called from BlockEditSheet on every text change.
+    /// Detects "/" at the start of a fresh block and fires the command bar.
+    /// Also feeds the live text into the debounced auto-analysis pipeline.
+    private func handleBlockTextChange(blockId: String, text: String) {
+        // Live auto-analysis: merge the in-progress block text with all saved blocks
+        // so the engine sees the most current content while the edit sheet is open.
+        let savedBlocks = blockRepo.activeBlocks
+        let mergedText = savedBlocks.map { block in
+            block.id == blockId ? text : block.text
+        }.joined(separator: "\n")
+        contextViewModel.scheduleAutoAnalysis(noteText: mergedText, noteHistory: [])
+
+        if text == "/" {
+            // Exact "/" — show command bar with no filter
+            commandBarSourceBlockId = blockId
+            commandBarQuery = ""
+            showCommandBar = true
+        } else if text.hasPrefix("/"), !text.contains(" ") {
+            // "/sum", "/pra", etc. — pass the suffix as the search query
+            let suffix = String(text.dropFirst())
+            // Only update query if the command bar is already presented for this block
+            if commandBarSourceBlockId == blockId, showCommandBar {
+                commandBarQuery = suffix
+            } else if commandBarSourceBlockId == nil {
+                commandBarSourceBlockId = blockId
+                commandBarQuery = suffix
+                showCommandBar = true
+            }
         }
     }
 
@@ -1461,11 +1642,15 @@ struct BlockFactorySheet: View {
 
 struct BlockEditSheet: View {
     @State private var block: ChurchNoteBlockV2
+    let onTextChange: ((String) -> Void)?
     let onSave: (ChurchNoteBlockV2) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    init(block: ChurchNoteBlockV2, onSave: @escaping (ChurchNoteBlockV2) -> Void) {
+    init(block: ChurchNoteBlockV2,
+         onTextChange: ((String) -> Void)? = nil,
+         onSave: @escaping (ChurchNoteBlockV2) -> Void) {
         _block = State(initialValue: block)
+        self.onTextChange = onTextChange
         self.onSave = onSave
     }
 
@@ -1486,6 +1671,9 @@ struct BlockEditSheet: View {
                             .padding(10)
                             .background(Color(.secondarySystemGroupedBackground))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .onChange(of: block.text) { _, newText in
+                                onTextChange?(newText)
+                            }
                     }
 
                     // Semantic type picker
@@ -1791,5 +1979,104 @@ private struct BereanChurchNoteInsightCard: View {
                         )
                 )
         )
+    }
+}
+
+// MARK: - Command Bar Sheet
+
+/// Presented as a `.medium` sheet when the user types "/" at the start of a block.
+/// Filters commands as the user types "/sum", "/pra", etc.
+struct ChurchNoteCommandBarSheet: View {
+
+    @Binding var query: String
+    let onSelect: (CNCommandBarCommand) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var filteredCommands: [CNCommandBarCommand] {
+        let q = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return CNCommandBarCommand.allCases }
+        return CNCommandBarCommand.allCases.filter {
+            // Match on rawValue (e.g. "/summarize") or display name suffix
+            $0.rawValue.dropFirst().lowercased().hasPrefix(q) ||
+            $0.displayName.lowercased().hasPrefix(q) ||
+            $0.description.lowercased().contains(q)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Live search field
+                HStack(spacing: 8) {
+                    Text("/")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .accessibilityHidden(true)
+                    TextField("Filter commands…", text: $query)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .accessibilityLabel("Filter commands")
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color(.secondarySystemGroupedBackground))
+
+                Divider()
+
+                if filteredCommands.isEmpty {
+                    ContentUnavailableView(
+                        "No matching commands",
+                        systemImage: "magnifyingglass",
+                        description: Text("Try clearing your filter.")
+                    )
+                    .padding(.top, 24)
+                } else {
+                    List {
+                        ForEach(filteredCommands) { command in
+                            Button {
+                                onSelect(command)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: command.sfSymbol)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(Color.accentColor)
+                                        .frame(width: 30, height: 30)
+                                        .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                                        .accessibilityHidden(true)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(command.displayName)
+                                            .font(.subheadline.weight(.medium))
+                                            .foregroundStyle(.primary)
+                                        Text(command.description)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "arrow.forward")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                        .accessibilityHidden(true)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(command.displayName): \(command.description)")
+                        }
+                    }
+                    .listStyle(.plain)
+                    .animation(reduceMotion ? nil : .default, value: filteredCommands.map(\.id))
+                }
+            }
+            .navigationTitle("Command")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                        .accessibilityLabel("Cancel command bar")
+                }
+            }
+        }
     }
 }

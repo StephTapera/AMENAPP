@@ -16,7 +16,10 @@
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {defineSecret} = require("firebase-functions/params");
 const {checkRateLimit} = require("./rateLimiter");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const db = () => admin.firestore();
 
@@ -26,7 +29,7 @@ function getAnthropic() {
   if (!_anthropic) {
     const Anthropic = require("@anthropic-ai/sdk");
     _anthropic = new Anthropic.default({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey: ANTHROPIC_API_KEY.value(),
     });
   }
   return _anthropic;
@@ -107,7 +110,7 @@ async function callClaude(systemPrompt, userMessage) {
 // ── studioGenerateContent ────────────────────────────────────────────────────
 
 exports.studioGenerateContent = onCall(
-    {region: "us-central1", timeoutSeconds: 60},
+    {region: "us-central1", timeoutSeconds: 60, secrets: [ANTHROPIC_API_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -165,7 +168,7 @@ Guidelines:
 - This is private and never shared publicly. Be real with them.`;
 
 exports.studioJournalPrompt = onCall(
-    {region: "us-central1", timeoutSeconds: 45},
+    {region: "us-central1", timeoutSeconds: 45, secrets: [ANTHROPIC_API_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");

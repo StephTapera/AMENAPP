@@ -123,7 +123,7 @@ export async function transcribeAudioBuffer(
             Authorization: `Bearer ${apiKey}`,
             ...formData.getHeaders(),
         },
-        body: formData as unknown as BodyInit,
+        body: formData as unknown as RequestInit["body"],
     });
 
     if (!response.ok) {

@@ -282,6 +282,14 @@ class DeepLinkRouter: ObservableObject {
     func popToRoot() {
         navigationPath.removeAll()
     }
+
+    /// Reset all routing state on sign-out so pending routes from the previous
+    /// user's session cannot navigate into the next user's session.
+    func reset() {
+        activeRoute = nil
+        navigationPath.removeAll()
+        dlog("🔄 DeepLinkRouter reset for sign-out")
+    }
 }
 
 // MARK: - SwiftUI Modifier

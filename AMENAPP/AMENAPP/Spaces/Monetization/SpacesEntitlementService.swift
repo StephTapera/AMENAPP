@@ -110,6 +110,11 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
             throw SpacesEntitlementError.invalidServerResponse
         }
 
+        // B-24: Gate — createSpaceCheckoutSession CF is not yet deployed.
+        guard AMENFeatureFlags.shared.paymentsEnabled else {
+            throw SpacesEntitlementError.spaceNotPurchasable
+        }
+
         let payload: [String: Any] = ["spaceId": spaceId]
         let result: HTTPSCallableResult
         do {

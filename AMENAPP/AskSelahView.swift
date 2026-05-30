@@ -94,7 +94,7 @@ struct AskSelahView: View {
                     sourcePill(
                         icon: "note.text",
                         label: "\(sourceBundle.notes.count) Notes",
-                        color: .orange
+                        color: .amenBlue
                     )
                 }
                 if !sourceBundle.prayers.isEmpty {

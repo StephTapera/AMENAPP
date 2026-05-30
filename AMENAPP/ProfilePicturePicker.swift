@@ -26,135 +26,169 @@ struct ProfilePicturePicker: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(red: 0.08, green: 0.08, blue: 0.08)
-                    .ignoresSafeArea()
+                AmenLiquidWhiteBackdrop()
                 
-                VStack(spacing: 32) {
+                VStack(spacing: 28) {
+                    HStack {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.systemScaled(16, weight: .bold))
+                                .frame(width: 46, height: 46)
+                        }
+                        .buttonStyle(AmenLiquidWhiteCircleButtonStyle())
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 14)
+
                     if let selectedImage {
                         // Preview
-                        Image(uiImage: selectedImage)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 280, height: 280)
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        LinearGradient(
-                                            colors: [Color.orange, Color(red: 1.0, green: 0.6, blue: 0.2)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 4
-                                    )
-                            )
-                            .shadow(color: .orange.opacity(0.3), radius: 20, y: 10)
+                        VStack(spacing: 18) {
+                            Image(uiImage: selectedImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 238, height: 238)
+                                .clipShape(Circle())
+                                .overlay {
+                                    Circle()
+                                        .strokeBorder(Color.white.opacity(0.92), lineWidth: 1.2)
+                                }
+                                .overlay(alignment: .topLeading) {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.56))
+                                        .frame(width: 78, height: 78)
+                                        .blur(radius: 20)
+                                        .offset(x: 22, y: 20)
+                                }
+                                .shadow(color: .black.opacity(0.13), radius: 34, x: 0, y: 18)
+                                .background {
+                                    Circle()
+                                        .fill(.ultraThinMaterial)
+                                        .frame(width: 266, height: 266)
+                                        .overlay {
+                                            Circle()
+                                                .strokeBorder(Color.white.opacity(0.94), lineWidth: 1)
+                                        }
+                                        .shadow(color: .black.opacity(0.08), radius: 40, y: 18)
+                                }
+
+                            Text("Preview")
+                                .font(AMENFont.semiBold(14))
+                                .foregroundStyle(.black.opacity(0.58))
+                        }
                         
                         // Upload Button
-                        Button {
-                            uploadImage()
-                        } label: {
-                            HStack(spacing: 12) {
-                                if isUploading {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                } else {
-                                    Image(systemName: "arrow.up.circle.fill")
-                                        .font(.systemScaled(20))
+                        AmenLiquidWhiteSurface(cornerRadius: 32, shadow: .floating) {
+                            VStack(spacing: 14) {
+                                Button {
+                                    uploadImage()
+                                } label: {
+                                    if isUploading {
+                                        HStack(spacing: 12) {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+
+                                            Text("Uploading...")
+                                                .font(AMENFont.bold(16))
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 58)
+                                    } else {
+                                        AmenLiquidWhiteButtonLabel(title: "Upload Photo", systemImage: "arrow.up.circle.fill")
+                                    }
                                 }
-                                
-                                Text(isUploading ? "Uploading..." : "Upload Photo")
-                                    .font(AMENFont.bold(16))
+                                .buttonStyle(AmenLiquidWhiteButtonStyle(kind: .primary))
+                                .disabled(isUploading)
+
+                                PhotosPicker(selection: $selectedItem, matching: .images) {
+                                    AmenLiquidWhiteButtonLabel(title: "Choose Different Photo", systemImage: "photo.on.rectangle")
+                                }
+                                .buttonStyle(AmenLiquidWhiteButtonStyle(kind: .secondary))
+                                .disabled(isUploading)
                             }
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(
-                                RoundedRectangle(cornerRadius: 28)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.orange, Color(red: 1.0, green: 0.6, blue: 0.2)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .shadow(color: .orange.opacity(0.5), radius: 15, y: 8)
-                            )
+                            .padding(18)
                         }
-                        .disabled(isUploading)
-                        .padding(.horizontal, 40)
-                        
-                        // Change Photo Button
-                        PhotosPicker(selection: $selectedItem, matching: .images) {
-                            Text("Choose Different Photo")
-                                .font(AMENFont.semiBold(15))
-                                .foregroundStyle(.white.opacity(0.7))
-                        }
+                        .padding(.horizontal, 18)
                         
                     } else {
                         // Photo Picker
-                        VStack(spacing: 24) {
-                            Image(systemName: "person.crop.circle.fill.badge.plus")
-                                .font(.systemScaled(100))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [Color.orange, Color(red: 1.0, green: 0.6, blue: 0.2)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            
+                        VStack(spacing: 26) {
+                            ZStack(alignment: .bottomTrailing) {
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .frame(width: 222, height: 222)
+                                    .overlay {
+                                        Circle()
+                                            .fill(
+                                                RadialGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.96),
+                                                        Color.white.opacity(0.58),
+                                                        Color.black.opacity(0.035)
+                                                    ],
+                                                    center: UnitPoint(x: 0.38, y: 0.24),
+                                                    startRadius: 4,
+                                                    endRadius: 118
+                                                )
+                                            )
+                                    }
+                                    .overlay {
+                                        Image(systemName: "person.fill")
+                                            .font(.systemScaled(62, weight: .semibold))
+                                            .foregroundStyle(.black.opacity(0.14))
+                                    }
+                                    .overlay {
+                                        Circle()
+                                            .strokeBorder(Color.white.opacity(0.95), lineWidth: 1.1)
+                                    }
+                                    .shadow(color: .black.opacity(0.09), radius: 34, x: 0, y: 16)
+
+                                Image(systemName: "plus")
+                                    .font(.systemScaled(25, weight: .semibold))
+                                    .foregroundStyle(.black)
+                                    .frame(width: 64, height: 64)
+                                    .background {
+                                        Circle()
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                Circle()
+                                                    .strokeBorder(Color.white.opacity(0.95), lineWidth: 1)
+                                            }
+                                            .shadow(color: .black.opacity(0.12), radius: 22, y: 12)
+                                    }
+                                    .offset(x: -12, y: -10)
+                            }
+
                             VStack(spacing: 12) {
                                 Text("Add Profile Photo")
-                                    .font(AMENFont.bold(24))
-                                    .foregroundStyle(.white)
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundStyle(.black)
                                 
                                 Text("Choose a photo that represents you")
                                     .font(AMENFont.regular(15))
-                                    .foregroundStyle(.white.opacity(0.7))
+                                    .foregroundStyle(.black.opacity(0.56))
                                     .multilineTextAlignment(.center)
                             }
                             
-                            PhotosPicker(selection: $selectedItem, matching: .images) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "photo.on.rectangle")
-                                        .font(.systemScaled(18))
-                                    
-                                    Text("Choose Photo")
-                                        .font(AMENFont.bold(16))
+                            AmenLiquidWhiteSurface(cornerRadius: 32, shadow: .floating) {
+                                PhotosPicker(selection: $selectedItem, matching: .images) {
+                                    AmenLiquidWhiteButtonLabel(title: "Choose Photo", systemImage: "photo.on.rectangle")
                                 }
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 18)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 28)
-                                        .fill(Color.white.opacity(0.15))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 28)
-                                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                        )
-                                )
+                                .buttonStyle(AmenLiquidWhiteButtonStyle(kind: .primary))
+                                .padding(18)
                             }
-                            .padding(.horizontal, 40)
+                            .padding(.horizontal, 18)
                         }
                     }
                     
                     Spacer()
                 }
-                .padding(.top, 60)
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.systemScaled(28))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .onChange(of: selectedItem) { _, newItem in
                 Task {
                     guard let item = newItem else { return }

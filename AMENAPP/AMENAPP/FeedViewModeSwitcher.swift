@@ -61,7 +61,7 @@ struct FeedViewModeSwitcher: View {
             Text(mode.rawValue)
                 .font(.system(size: 13, weight: isActive ? .bold : .medium))
         }
-        .foregroundColor(isActive ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
+        .foregroundColor(isActive ? AmenTheme.Colors.amenGold : AmenTheme.Colors.iconSecondary)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(pillBackground(isActive: isActive))
@@ -74,9 +74,9 @@ struct FeedViewModeSwitcher: View {
                 .fill(AmenTheme.Colors.surfaceCard)
                 .overlay(
                     Capsule()
-                        .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+                        .strokeBorder(AmenTheme.Colors.amenGold.opacity(0.55), lineWidth: 1.0)
                 )
-                .shadow(color: AmenTheme.Colors.shadowCard, radius: 8, y: 3)
+                .shadow(color: AmenTheme.Colors.amenGold.opacity(0.12), radius: 6, y: 2)
         }
     }
 

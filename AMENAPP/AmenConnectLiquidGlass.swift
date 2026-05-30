@@ -145,31 +145,158 @@ struct AmenConnectGlassPill: View {
                     .font(.systemScaled(13, weight: isSelected ? .semibold : .medium))
                     .lineLimit(1)
             }
-            .foregroundStyle(Color.primary.opacity(isSelected ? 0.96 : 0.66))
+            .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.66))
             .padding(.horizontal, 13)
             .padding(.vertical, 9)
         }
+        // Solid amenPurple fill for the active state, layered over the glass surface.
+        // The RoundedRectangle corner radius matches AmenConnectGlassButton's surface (18).
+        .background(
+            Group {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(AmenTheme.Colors.amenPurple)
+                }
+            }
+        )
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
 struct AmenConnectSearchCapsule: View {
     var placeholder: String
     @Binding var text: String
+    var onBereanAI: (String) -> Void = { _ in }
+    var onFindChurch: () -> Void = {}
+
+    // MARK: Private state
+    @State private var showDisambig = false
+    @FocusState private var fieldFocused: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // MARK: Modes
+
+    private let modes: [AmenSearchMode] = [
+        AmenSearchMode(
+            id: "connect.spaces",
+            icon: "person.2.fill",
+            iconColor: Color.primary,
+            label: "Search Spaces & Members",
+            subtitle: "Find people, channels & communities"
+        ),
+        AmenSearchMode(
+            id: "connect.berean",
+            icon: "sparkles",
+            iconColor: AmenTheme.Colors.amenGold,
+            label: "Ask Berean AI",
+            subtitle: "Ask about this community"
+        ),
+        AmenSearchMode(
+            id: "connect.church",
+            icon: "building.columns.fill",
+            iconColor: AmenTheme.Colors.amenBlue,
+            label: "Find a Church",
+            subtitle: "Discover local ministries"
+        )
+    ]
+
+    // MARK: Body
 
     var body: some View {
-        AmenConnectLiquidGlassSurface(cornerRadius: 22, intensity: .light, tintOpacity: 0.13, borderOpacity: 0.30) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField(placeholder, text: $text)
-                    .font(.systemScaled(15))
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
+        VStack(alignment: .leading, spacing: 6) {
+            // Search bar
+            Button {
+                if fieldFocused {
+                    dismiss()
+                } else if !showDisambig {
+                    withAnimation(reduceMotion ? .none : .amenSpring) {
+                        showDisambig = true
+                    }
+                }
+            } label: {
+                AmenConnectLiquidGlassSurface(cornerRadius: 22, intensity: .light, tintOpacity: 0.13, borderOpacity: 0.30) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        if fieldFocused || !text.isEmpty {
+                            TextField(placeholder, text: $text)
+                                .font(.systemScaled(15))
+                                .textInputAutocapitalization(.never)
+                                .disableAutocorrection(true)
+                                .focused($fieldFocused)
+                        } else {
+                            Text(placeholder)
+                                .font(.systemScaled(15))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        if !text.isEmpty && fieldFocused {
+                            Button {
+                                text = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 15)
+                    .frame(height: 46)
+                }
             }
-            .padding(.horizontal, 15)
-            .frame(height: 46)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Search Amen Connect — tap to choose a search mode")
+
+            // Disambiguation popup
+            if showDisambig {
+                AmenSearchDisambiguationPopup(
+                    modes: modes,
+                    onSelect: { mode in
+                        handleSelection(mode)
+                    },
+                    onDismiss: { dismiss() }
+                )
+                .animation(reduceMotion ? .none : .amenSpring, value: showDisambig)
+            }
         }
-        .accessibilityLabel("Search Amen Connect")
+        // Dismiss on outside tap when popup is open
+        .background(
+            Group {
+                if showDisambig {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { dismiss() }
+                }
+            }
+        )
+    }
+
+    // MARK: - Helpers
+
+    private func dismiss() {
+        withAnimation(reduceMotion ? .none : .amenSpring) {
+            showDisambig = false
+        }
+    }
+
+    @MainActor
+    private func handleSelection(_ mode: AmenSearchMode) {
+        withAnimation(reduceMotion ? .none : .amenSnappy) {
+            showDisambig = false
+        }
+        switch mode.id {
+        case "connect.spaces":
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                fieldFocused = true
+            }
+        case "connect.berean":
+            onBereanAI(text)
+        case "connect.church":
+            onFindChurch()
+        default:
+            break
+        }
     }
 }
 
@@ -209,15 +336,33 @@ struct AmenConnectGlassHeader: View {
     var onCatchUp: () -> Void
     var onProfile: () -> Void
 
+    @AppStorage("currentUserProfileImageURL") private var profileImageURL: String = ""
+
     var body: some View {
         AmenConnectLiquidGlassSurface(cornerRadius: 30, intensity: .light, tintOpacity: 0.13, borderOpacity: 0.32, scrollOpacity: scrollOpacity) {
             HStack(spacing: 12) {
                 Button(action: onProfile) {
                     ZStack(alignment: .bottomTrailing) {
-                        Circle()
-                            .fill(Color(.systemGray6))
-                            .frame(width: 44, height: 44)
-                            .overlay(Image(systemName: "person.fill").foregroundStyle(.primary.opacity(0.7)))
+                        if let url = URL(string: profileImageURL), !profileImageURL.isEmpty {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image.resizable().scaledToFill()
+                                        .frame(width: 44, height: 44)
+                                        .clipShape(Circle())
+                                default:
+                                    Circle()
+                                        .fill(Color(.systemGray5))
+                                        .frame(width: 44, height: 44)
+                                        .overlay(Image(systemName: "person.fill").foregroundStyle(.secondary))
+                                }
+                            }
+                        } else {
+                            Circle()
+                                .fill(Color(.systemGray5))
+                                .frame(width: 44, height: 44)
+                                .overlay(Image(systemName: "person.fill").foregroundStyle(.secondary))
+                        }
                         Circle()
                             .fill(Color.green)
                             .frame(width: 10, height: 10)

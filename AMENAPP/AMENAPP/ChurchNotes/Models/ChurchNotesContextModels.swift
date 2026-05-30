@@ -317,12 +317,21 @@ enum CNCommandBarCommand: String, CaseIterable, Identifiable {
     case study          = "/study"
     case translate      = "/translate"
     case actionItems    = "/action-items"
+    case recap          = "/recap"
     case smallGroup     = "/small-group"
     case askBerean      = "/ask-berean"
     case shareWithGroup = "/share-with-group"
 
     var id: String { rawValue }
-    var displayName: String { rawValue }
+
+    /// Title-cased display name (strip leading slash, capitalise each word).
+    var displayName: String {
+        rawValue
+            .dropFirst()                        // remove leading "/"
+            .split(separator: "-")
+            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            .joined(separator: " ")
+    }
 
     var description: String {
         switch self {
@@ -331,6 +340,7 @@ enum CNCommandBarCommand: String, CaseIterable, Identifiable {
         case .study:          return "Create a study guide"
         case .translate:      return "Translate content"
         case .actionItems:    return "Extract action items"
+        case .recap:          return "Smart recap for this week"
         case .smallGroup:     return "Generate small group questions"
         case .askBerean:      return "Ask Berean about this note"
         case .shareWithGroup: return "Prepare to share with group"
@@ -339,13 +349,14 @@ enum CNCommandBarCommand: String, CaseIterable, Identifiable {
 
     var sfSymbol: String {
         switch self {
-        case .summarize:      return "text.quote"
+        case .summarize:      return "doc.text.magnifyingglass"
         case .prayer:         return "hands.sparkles.fill"
-        case .study:          return "graduationcap.fill"
+        case .study:          return "book.closed.fill"
         case .translate:      return "character.bubble.fill"
-        case .actionItems:    return "checklist"
+        case .actionItems:    return "checkmark.circle.fill"
+        case .recap:          return "sparkles.rectangle.stack.fill"
         case .smallGroup:     return "person.3.fill"
-        case .askBerean:      return "sparkles"
+        case .askBerean:      return "sparkle"
         case .shareWithGroup: return "square.and.arrow.up"
         }
     }

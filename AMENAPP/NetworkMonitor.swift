@@ -79,10 +79,11 @@ struct NetworkStatusBanner: ViewModifier {
         HStack(spacing: 8) {
             Image(systemName: "wifi.slash")
                 .font(.systemScaled(14, weight: .semibold))
-            
+                .accessibilityHidden(true)
+
             Text("No internet connection")
                 .font(.custom("OpenSans-SemiBold", size: 13))
-            
+
             Spacer()
         }
         .foregroundStyle(.white)
@@ -90,6 +91,8 @@ struct NetworkStatusBanner: ViewModifier {
         .padding(.vertical, 12)
         .background(Color.red)
         .animation(.spring(response: 0.3), value: monitor.isConnected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No internet connection. Your device is offline.")
     }
 }
 

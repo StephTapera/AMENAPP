@@ -1,5 +1,6 @@
 import {
     AmenInternalResult,
+    SmartCommunityAction,
     SmartCommunityRankedResult,
     SmartCommunitySearchIntent,
     SmartSearchActionType,
@@ -40,7 +41,7 @@ function actionLabel(type: SmartSearchActionType): string {
 }
 
 function actionsForAmen(result: AmenInternalResult) {
-    const actions = [
+    const actions: SmartCommunityAction[] = [
         { type: "view" as SmartSearchActionType, label: actionLabel("view"), payload: { sourcePath: result.sourcePath } },
         { type: "save" as SmartSearchActionType, label: actionLabel("save"), payload: { sourcePath: result.sourcePath } },
         { type: "askBerean" as SmartSearchActionType, label: actionLabel("askBerean"), payload: { sourcePath: result.sourcePath } },

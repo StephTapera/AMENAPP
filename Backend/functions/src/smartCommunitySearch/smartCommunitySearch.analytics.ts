@@ -119,7 +119,7 @@ export async function recordSmartSearchAnalytics(input: {
     searchId?: string;
     uid: string;
     surface: string;
-    intent?: Pick<SmartCommunitySearchIntent, "communityType">;
+    intent?: SmartCommunitySearchIntent;
     queryCategory?: string;
     resultCount: number;
     latencyMs: number;

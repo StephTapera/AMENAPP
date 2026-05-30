@@ -49,6 +49,18 @@ struct AccountSetupProgress {
                 (key: "category", label: "Choose your category"),
                 (key: "mission", label: "Write your mission statement")
             ]
+        case .school:
+            return [
+                (key: "school_name", label: "Confirm school name"),
+                (key: "location", label: "Add your address"),
+                (key: "grade_levels", label: "Set your grade levels")
+            ]
+        case .university:
+            return [
+                (key: "university_name", label: "Confirm university name"),
+                (key: "location", label: "Add your campus location"),
+                (key: "campus_ministry", label: "Name your campus ministry")
+            ]
         }
     }
 
@@ -71,6 +83,18 @@ struct AccountSetupProgress {
                 (key: "logo", label: "Upload your logo"),
                 (key: "website", label: "Add website URL"),
                 (key: "featured_offering", label: "Add a featured offering")
+            ]
+        case .school:
+            return [
+                (key: "profile_photo", label: "Upload a school photo"),
+                (key: "mission", label: "Add your school mission"),
+                (key: "calendar_link", label: "Add a school calendar")
+            ]
+        case .university:
+            return [
+                (key: "profile_photo", label: "Upload a campus photo"),
+                (key: "mission", label: "Write your ministry mission"),
+                (key: "chapel_schedule", label: "Add chapel schedule")
             ]
         }
     }
@@ -142,6 +166,24 @@ private func setupItems(for type: AMENAccountType) -> [SetupItem] {
             SetupItem(id: "website", label: "Add website URL", description: "Drive traffic from your AMEN profile.", icon: "globe", isRequired: false),
             SetupItem(id: "featured_offering", label: "Add a featured offering", description: "Highlight your best resource or service.", icon: "star.fill", isRequired: false)
         ]
+    case .school:
+        return [
+            SetupItem(id: "school_name", label: "Confirm school name", description: "Make sure students and families can find you.", icon: "graduationcap.fill", isRequired: true),
+            SetupItem(id: "location", label: "Add your address", description: "Enable directions and local discovery.", icon: "mappin.circle.fill", isRequired: true),
+            SetupItem(id: "grade_levels", label: "Set your grade levels", description: "Help families find the right community.", icon: "list.number", isRequired: true),
+            SetupItem(id: "profile_photo", label: "Upload a school photo", description: "A welcoming image builds community trust.", icon: "photo.fill", isRequired: false),
+            SetupItem(id: "mission", label: "Add your school mission", description: "Share the values that guide your community.", icon: "text.alignleft", isRequired: false),
+            SetupItem(id: "calendar_link", label: "Add a school calendar", description: "Help parents and students stay connected.", icon: "calendar", isRequired: false)
+        ]
+    case .university:
+        return [
+            SetupItem(id: "university_name", label: "Confirm university name", description: "Make sure students can find your campus community.", icon: "building.columns.fill", isRequired: true),
+            SetupItem(id: "location", label: "Add your campus location", description: "Enable directions and campus discovery.", icon: "mappin.circle.fill", isRequired: true),
+            SetupItem(id: "campus_ministry", label: "Name your campus ministry", description: "Your ministry identity within the university.", icon: "person.3.fill", isRequired: true),
+            SetupItem(id: "profile_photo", label: "Upload a campus photo", description: "Help students picture their community.", icon: "photo.fill", isRequired: false),
+            SetupItem(id: "mission", label: "Write your ministry mission", description: "What is God calling your campus to?", icon: "text.alignleft", isRequired: false),
+            SetupItem(id: "chapel_schedule", label: "Add chapel schedule", description: "Help students plan their worship rhythm.", icon: "clock.fill", isRequired: false)
+        ]
     }
 }
 
@@ -162,9 +204,11 @@ struct AccountSetupChecklistView: View {
 
     private var subtitle: String {
         switch accountType {
-        case .personal: return "A few quick steps to make your profile shine."
-        case .church:   return "Help your congregation and visitors find you."
-        case .business: return "Set up your organization for discovery and impact."
+        case .personal:   return "A few quick steps to make your profile shine."
+        case .church:     return "Help your congregation and visitors find you."
+        case .business:   return "Set up your organization for discovery and impact."
+        case .school:     return "Set up your school community for spiritual connection."
+        case .university: return "Connect your campus community in faith."
         }
     }
 
@@ -401,6 +445,10 @@ struct SetupCompletionCard: View {
             return "Your church is set up and ready to welcome your community on AMEN."
         case .business:
             return "Your organization is ready to reach and serve the faith community."
+        case .school:
+            return "Your school community is ready to grow in faith together."
+        case .university:
+            return "Your campus community is ready. Go build something meaningful."
         }
     }
 
@@ -549,6 +597,10 @@ struct ComposerPresetChipRow: View {
             return ["Announcement", "Sermon Recap", "Event", "Devotional", "Prayer Update", "Milestone", "Community"]
         case .business:
             return ["Resource Share", "Announcement", "Tip", "Behind the Scenes", "Collaboration", "Testimony", "Event"]
+        case .school:
+            return ["Announcement", "Devotional", "Event", "Prayer Update", "Scripture", "Study Resource", "Community"]
+        case .university:
+            return ["Chapel Recap", "Study Group", "Announcement", "Resource Share", "Prayer Request", "Event", "Testimony"]
         }
     }
 

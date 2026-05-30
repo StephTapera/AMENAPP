@@ -1,14 +1,16 @@
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onCall } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import vision from "@google-cloud/vision";
 import axios from "axios";
 
+const csamHashLookupToken = defineSecret("CSAM_HASH_LOOKUP_TOKEN");
+const perspectiveApiKey   = defineSecret("PERSPECTIVE_API_KEY");
+
 const visionClient = new vision.ImageAnnotatorClient();
 const REQUIRE_MEDIA_MODERATION_PROVIDERS = process.env.REQUIRE_MEDIA_MODERATION_PROVIDERS === "true";
 const CSAM_HASH_LOOKUP_URL = process.env.CSAM_HASH_LOOKUP_URL ?? "";
-const CSAM_HASH_LOOKUP_TOKEN = process.env.CSAM_HASH_LOOKUP_TOKEN ?? "";
-const PERSPECTIVE_API_KEY = process.env.PERSPECTIVE_API_KEY ?? "";
 const PERSPECTIVE_API_URL = process.env.PERSPECTIVE_API_URL ??
   "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze";
 
@@ -106,7 +108,7 @@ function requireAppCheckAndAuth(context: { app?: unknown; auth?: { uid?: string 
 // In production: query a NCMEC PhotoDNA or PDQ hash database.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runHashCheck(mediaUrl: string): Promise<HashCheckResult> {
+async function runHashCheck(mediaUrl: string, csamToken: string): Promise<HashCheckResult> {
   if (!CSAM_HASH_LOOKUP_URL) {
     if (REQUIRE_MEDIA_MODERATION_PROVIDERS) {
       throw new Error("CSAM hash lookup provider is not configured.");
@@ -119,8 +121,8 @@ async function runHashCheck(mediaUrl: string): Promise<HashCheckResult> {
     { mediaUrl },
     {
       timeout: 10_000,
-      headers: CSAM_HASH_LOOKUP_TOKEN
-        ? { Authorization: `Bearer ${CSAM_HASH_LOOKUP_TOKEN}` }
+      headers: csamToken
+        ? { Authorization: `Bearer ${csamToken}` }
         : undefined,
     }
   );
@@ -186,7 +188,7 @@ async function runOCR(mediaUrl: string): Promise<string> {
 // Moderator on the OCR output.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runTextSafety(extractedText: string): Promise<TextSafetyScore> {
+async function runTextSafety(extractedText: string, perspectiveKey: string): Promise<TextSafetyScore> {
   if (!extractedText.trim()) {
     return {
       toxicity: 0, harassment: 0, hateSpeech: 0, spam: 0, selfHarm: 0,
@@ -194,9 +196,9 @@ async function runTextSafety(extractedText: string): Promise<TextSafetyScore> {
     };
   }
 
-  if (PERSPECTIVE_API_KEY) {
+  if (perspectiveKey) {
     const response = await axios.post(
-      `${PERSPECTIVE_API_URL}?key=${encodeURIComponent(PERSPECTIVE_API_KEY)}`,
+      `${PERSPECTIVE_API_URL}?key=${encodeURIComponent(perspectiveKey)}`,
       {
         comment: { text: extractedText },
         languages: ["en"],
@@ -431,7 +433,9 @@ async function runModerationPipeline(
   userId: string,
   mediaUrl: string,
   mediaType: "image" | "video",
-  mediaIndex: number
+  mediaIndex: number,
+  csamToken: string,
+  perspectiveKey: string
 ): Promise<PipelineResult> {
   const db = admin.firestore();
   const mediaId = `${postId}_${mediaIndex}`;
@@ -459,13 +463,13 @@ async function runModerationPipeline(
   try {
     // Run all 4 analysis layers in parallel for speed
     const [hashCheck, imageSafety, extractedText, accountRiskMultiplier] = await Promise.all([
-      runHashCheck(mediaUrl),
+      runHashCheck(mediaUrl, csamToken),
       runImageSafety(mediaUrl, mediaType),
       runOCR(mediaUrl),
       getAccountRiskMultiplier(userId),
     ]);
 
-    const textSafety = await runTextSafety(extractedText);
+    const textSafety = await runTextSafety(extractedText, perspectiveKey);
     const fusion = runMultimodalFusion(imageSafety, textSafety, hashCheck);
     const { action, status, priority } = runActionEngine(fusion, accountRiskMultiplier, hashCheck.matched);
 
@@ -541,7 +545,7 @@ async function applyPostMediaGate(postId: string, results: PipelineResult[]): Pr
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const onPostCreatedRunMediaModeration = onDocumentCreated(
-  "posts/{postId}",
+  { document: "posts/{postId}", secrets: [csamHashLookupToken, perspectiveApiKey] },
   async (event) => {
     const post = event.data?.data();
     if (!post) return;
@@ -551,12 +555,14 @@ export const onPostCreatedRunMediaModeration = onDocumentCreated(
 
     const userId: string = post.userId ?? post.authorId ?? "";
     const postId = event.params.postId;
+    const csamToken    = csamHashLookupToken.value();
+    const perspectiveKey = perspectiveApiKey.value();
 
     const results = await Promise.all(
       mediaItems.map((item, index) => {
         const url = item.url ?? "";
         const type = item.type === "video" ? "video" : "image";
-        return runModerationPipeline(postId, userId, url, type, index);
+        return runModerationPipeline(postId, userId, url, type, index, csamToken, perspectiveKey);
       })
     );
     await applyPostMediaGate(postId, results);
@@ -568,7 +574,7 @@ export const onPostCreatedRunMediaModeration = onDocumentCreated(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const onPostMediaUpdatedRunModeration = onDocumentUpdated(
-  "posts/{postId}",
+  { document: "posts/{postId}", secrets: [csamHashLookupToken, perspectiveApiKey] },
   async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
@@ -583,12 +589,14 @@ export const onPostMediaUpdatedRunModeration = onDocumentUpdated(
 
     const userId: string = after.userId ?? after.authorId ?? "";
     const postId = event.params.postId;
+    const csamToken      = csamHashLookupToken.value();
+    const perspectiveKey = perspectiveApiKey.value();
 
     const results = await Promise.all(
       mediaItems.map((item, index) => {
         const url = item.url ?? "";
         const type = item.type === "video" ? "video" : "image";
-        return runModerationPipeline(postId, userId, url, type, index);
+        return runModerationPipeline(postId, userId, url, type, index, csamToken, perspectiveKey);
       })
     );
     await applyPostMediaGate(postId, results);
@@ -745,20 +753,26 @@ export const getAccountMediaRiskScore = onCall({ enforceAppCheck: true }, async 
 // Callable: Manual media moderation trigger (admin re-queue)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const triggerMediaModeration = onCall({ enforceAppCheck: true }, async (request) => {
-  requireAppCheckAndAuth(request);
+export const triggerMediaModeration = onCall(
+  { enforceAppCheck: true, secrets: [csamHashLookupToken, perspectiveApiKey] },
+  async (request) => {
+    requireAppCheckAndAuth(request);
 
-  const adminToken = request.auth!.token;
-  if (!adminToken.admin) throw new Error("Admin role required.");
+    const adminToken = request.auth!.token;
+    if (!adminToken.admin) throw new Error("Admin role required.");
 
-  const { postId, mediaUrl, mediaType, mediaIndex, userId } = request.data as {
-    postId: string;
-    mediaUrl: string;
-    mediaType: "image" | "video";
-    mediaIndex: number;
-    userId: string;
-  };
+    const { postId, mediaUrl, mediaType, mediaIndex, userId } = request.data as {
+      postId: string;
+      mediaUrl: string;
+      mediaType: "image" | "video";
+      mediaIndex: number;
+      userId: string;
+    };
 
-  await runModerationPipeline(postId, userId, mediaUrl, mediaType, mediaIndex ?? 0);
-  return { success: true };
-});
+    await runModerationPipeline(
+      postId, userId, mediaUrl, mediaType, mediaIndex ?? 0,
+      csamHashLookupToken.value(), perspectiveApiKey.value()
+    );
+    return { success: true };
+  }
+);

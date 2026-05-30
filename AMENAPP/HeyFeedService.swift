@@ -165,6 +165,10 @@ class HeyFeedService: ObservableObject {
         dlog("[HeyFeedService] All listeners removed")
     }
 
+    deinit {
+        listeners.forEach { $0.remove() }
+    }
+
     // MARK: Private Listener Helpers
 
     private func attachActiveRequestsListener() {

@@ -70,7 +70,7 @@ struct AmenGatheringHostConsoleView: View {
             if gathering.access.requiresApproval {
                 statsRow(label: "Pending Requests", count: gathering.counts.pendingRequests, icon: "hourglass", color: .purple)
             }
-            statsRow(label: "Checked In", count: gathering.counts.checkedIn, icon: "qrcode.viewfinder", color: .primary)
+            statsRow(label: "Checked In", count: gathering.counts.checkedIn, icon: "qrcode.viewfinder", color: AmenTheme.Colors.amenGold)
 
             Button {
                 showGuestList = true
@@ -90,7 +90,7 @@ struct AmenGatheringHostConsoleView: View {
             Spacer()
             Text("\(count)")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(count > 0 ? .primary : .secondary)
+                .foregroundStyle(count > 0 ? AmenTheme.Colors.textPrimary : AmenTheme.Colors.textSecondary)
         }
         .accessibilityLabel("\(label): \(count)")
     }
@@ -201,7 +201,7 @@ private struct SendGatheringUpdateSheet: View {
                 Section {
                     Text("This will send a notification to all RSVPed attendees.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AmenTheme.Colors.textSecondary)
                 }
             }
             .navigationTitle("Send Update")

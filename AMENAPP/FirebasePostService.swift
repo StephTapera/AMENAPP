@@ -104,6 +104,10 @@ struct FirestorePost: Codable, Identifiable {
     // Who can comment — mirrors Post.commentPermission
     var commentPermission: String?
 
+    // Moderation metadata — mirrors Post.removed / Post.flaggedForReview (set by server-side trigger)
+    var removed: Bool = false
+    var flaggedForReview: Bool = false
+
     // Computed property for "time ago" display
     var timeAgo: String {
         FirestorePost.formatTimeAgo(from: createdAt)
@@ -153,8 +157,9 @@ struct FirestorePost: Codable, Identifiable {
         case mediaAttachments
         case poll
         case commentPermission
+        case removed, flaggedForReview
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
@@ -220,6 +225,8 @@ struct FirestorePost: Codable, Identifiable {
         primaryTopicKey = try container.decodeIfPresent(String.self, forKey: .primaryTopicKey)
         poll = try container.decodeIfPresent(PostPoll.self, forKey: .poll)
         commentPermission = try container.decodeIfPresent(String.self, forKey: .commentPermission)
+        removed = try container.decodeIfPresent(Bool.self, forKey: .removed) ?? false
+        flaggedForReview = try container.decodeIfPresent(Bool.self, forKey: .flaggedForReview) ?? false
     }
 
     init(
@@ -402,6 +409,9 @@ struct FirestorePost: Codable, Identifiable {
         post.mediaAttachments = mediaAttachments
         post.poll = poll
         post.commentPermission = commentPermission
+        // S3-5: Propagate moderation flags so isEligibleForFeedDisplay works correctly.
+        post.removed = removed
+        post.flaggedForReview = flaggedForReview
         return post
     }
 
@@ -1418,6 +1428,8 @@ class FirebasePostService: ObservableObject {
                     firestorePost?.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
                     return firestorePost
                 }.map { $0.toPost() }
+                // S3-5: Exclude soft-deleted posts from the cache warm-load as well.
+                .filter { $0.isEligibleForFeedDisplay }
                 
                 if !cachedPosts.isEmpty {
                     if let category = category {
@@ -1498,7 +1510,9 @@ class FirebasePostService: ObservableObject {
                         self.lastDocuments[categoryKey] = lastDoc
                     }
 
+                    // S3-5: Strip soft-deleted / under-review posts before they enter the feed.
                     var newPosts = firestorePosts.map { $0.toPost() }
+                        .filter { $0.isEligibleForFeedDisplay }
 
                     // P0 FIX: Deduplicate and sort posts
                     newPosts = self.deduplicateAndSort(newPosts)
@@ -1970,7 +1984,7 @@ class FirebasePostService: ObservableObject {
                 // GUARDIAN PRE-GATE: Reposts also enter "under_review" so the CF
                 // can run a content check (the original was approved but the act of
                 // reposting is itself a new signal the system should see).
-                var repost = FirestorePost(
+                let repost = FirestorePost(
                     authorId: userId,
                     authorName: displayName,
                     authorUsername: username,

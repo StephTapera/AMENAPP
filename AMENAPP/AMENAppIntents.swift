@@ -84,36 +84,6 @@ struct CreatePostIntent: AppIntent {
     }
 }
 
-// MARK: - Prayer Focus Filter
-
-struct PrayerFocusFilter: SetFocusFilterIntent {
-    static var title: LocalizedStringResource = "AMEN Prayer Focus"
-    static var description: IntentDescription? = IntentDescription("Configure AMEN behavior during Prayer focus")
-
-    @Parameter(title: "Silence Social Features")
-    var silenceSocial: Bool?
-
-    @Parameter(title: "Show Only Prayer Content")
-    var prayerOnly: Bool?
-
-    var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(
-            title: "Prayer Focus",
-            subtitle: "Quiet social features for focused prayer time"
-        )
-    }
-
-    func perform() async throws -> some IntentResult {
-        await MainActor.run {
-            if silenceSocial == true {
-                ShabbatModeService.shared.setEnabled(true)
-            }
-            UserDefaults.standard.set(prayerOnly == true, forKey: "focusFilterPrayerOnly")
-        }
-        return .result()
-    }
-}
-
 // MARK: - Shortcuts Provider
 
 struct AMENShortcutsProvider: AppShortcutsProvider {
@@ -285,7 +255,7 @@ struct RSVPEventIntent: AppIntent {
         if let name = eventName {
             await MainActor.run { UserDefaults.standard.set(name, forKey: "siri_pending_rsvp_event") }
         }
-        NotificationCenter.default.post(name: .amenOpenEvents, object: eventName)
+        await MainActor.run { AppNavigationRouter.shared.navigate(to: .gatherings) }
         let msg = eventName.map { "Opening RSVP for \"\($0)\" 📅" } ?? "Opening Events in AMEN 📅"
         return .result(dialog: IntentDialog(stringLiteral: msg))
     }

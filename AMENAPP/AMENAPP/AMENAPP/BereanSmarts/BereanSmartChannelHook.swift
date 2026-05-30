@@ -79,7 +79,11 @@ final class BereanSmartChannelHook: ObservableObject {
             .whereField("status", isEqualTo: PrayerStatus.open.rawValue)
             .order(by: "createdAt", descending: true)
             .limit(to: 50)
-            .addSnapshotListener { snap, _ in
+            .addSnapshotListener { snap, error in
+                if let error = error {
+                    print("[BereanSmartChannelHook] listenChannelPrayerRequests error: \(error.localizedDescription)")
+                    return
+                }
                 handler(snap?.documents.compactMap { try? $0.data(as: ChannelPrayerRequest.self) } ?? [])
             }
     }

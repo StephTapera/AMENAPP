@@ -22,7 +22,9 @@ final class CompanionPrivacyManager: ObservableObject {
                 .collection("companion_privacy").document("main").getDocument()
             guard let data = snap.data() else { return }
             preferences = try Firestore.Decoder().decode(CompanionPrivacyPreferences.self, from: data)
-        } catch {}
+        } catch {
+            print("[ERROR] CompanionPrivacyManager.load: \(error)")
+        }
     }
 
     func update(_ updated: CompanionPrivacyPreferences) async throws {

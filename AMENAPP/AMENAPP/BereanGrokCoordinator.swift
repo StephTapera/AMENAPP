@@ -176,6 +176,21 @@ final class BereanGrokCoordinator: ObservableObject {
         )
     }
 
+    // MARK: - Provenance flags
+
+    private var helperUsedFlag = false
+    private var externalUsedFlag = false
+
+    func markHelperUsed() { helperUsedFlag = true }
+    func markExternalUsed() { externalUsedFlag = true }
+
+    /// Consumes and resets both flags, returning their values.
+    func consumePendingFlags() -> (helperUsed: Bool, externalUsed: Bool) {
+        let h = helperUsedFlag; let e = externalUsedFlag
+        helperUsedFlag = false; externalUsedFlag = false
+        return (h, e)
+    }
+
     // MARK: - Clear
 
     func clearPills() {

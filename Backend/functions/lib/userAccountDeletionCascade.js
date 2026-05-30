@@ -110,9 +110,15 @@ exports.userAccountDeletionCascade = functions
     await cleanupConversations(userId);
     // ── Phase 6: Remove from Algolia ─────────────────────────────────────
     await removeUserFromAlgolia(userId);
+    // ── Phase 6.5: Erase Berean AI history (top-level collections) ───────
+    // berean_messages must be deleted before conversations (need conv IDs).
+    await deleteBereanTopLevelData(userId);
     // ── Phase 7: Delete user subcollections ──────────────────────────────
     await deleteUserSubcollections(userId);
     // ── Phase 8: Delete Firebase Auth account ────────────────────────────
+    // Revoke refresh tokens first so active sessions cannot mint new ID tokens
+    // during the window between cascade start and Auth deletion.
+    await admin.auth().revokeRefreshTokens(userId).catch(() => { });
     try {
         await admin.auth().deleteUser(userId);
     }
@@ -247,6 +253,8 @@ async function deleteUserSubcollections(userId) {
         "churchInteractions",
         "churchFollowUps",
         "bereanSessions",
+        "bereanMemory",
+        "bereanInsights",
         "prayerRequests",
         "churchNotes",
         "deviceTokens",
@@ -265,5 +273,58 @@ async function deleteSubcollection(userId, subcollection) {
         if (snap.size < 500)
             break;
     }
+}
+/**
+ * Deletes the user's Berean AI history from top-level Firestore collections:
+ *   /berean_conversations (userId == uid)
+ *   /berean_messages      (conversationId in user's conversation set)
+ *
+ * berean_messages have no direct userId field — they are linked through
+ * conversationId, so we collect conversation IDs first.
+ */
+async function deleteBereanTopLevelData(userId) {
+    // 1. Collect all conversation IDs owned by this user.
+    const convSnap = await db
+        .collection("berean_conversations")
+        .where("userId", "==", userId)
+        .select()
+        .get();
+    // 2. Delete messages for each conversation (Firestore `in` max 30 per clause).
+    if (!convSnap.empty) {
+        const convIds = convSnap.docs.map((d) => d.id);
+        for (let i = 0; i < convIds.length; i += 30) {
+            const chunk = convIds.slice(i, i + 30);
+            while (true) {
+                const msgSnap = await db
+                    .collection("berean_messages")
+                    .where("conversationId", "in", chunk)
+                    .limit(500)
+                    .get();
+                if (msgSnap.empty)
+                    break;
+                const batch = db.batch();
+                msgSnap.docs.forEach((d) => batch.delete(d.ref));
+                await batch.commit();
+                if (msgSnap.size < 500)
+                    break;
+            }
+        }
+    }
+    // 3. Delete the conversation documents themselves.
+    while (true) {
+        const snap = await db
+            .collection("berean_conversations")
+            .where("userId", "==", userId)
+            .limit(500)
+            .get();
+        if (snap.empty)
+            break;
+        const batch = db.batch();
+        snap.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+        if (snap.size < 500)
+            break;
+    }
+    functions.logger.info(`[deleteBereanTopLevelData] Erased berean history for user ${userId}`);
 }
 //# sourceMappingURL=userAccountDeletionCascade.js.map

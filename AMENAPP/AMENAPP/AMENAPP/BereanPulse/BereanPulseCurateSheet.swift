@@ -4,6 +4,9 @@ struct BereanPulseCurateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State var preference: BereanPulsePreference
+    @State private var nlText = ""
+    @State private var isApplyingNL = false
+    @State private var nlApplyError: String?
     let permissionManager: BereanPulsePermissionManager
     let onSave: (BereanPulsePreference) -> Void
     let onReset: () -> Void
@@ -19,6 +22,7 @@ struct BereanPulseCurateSheet: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
+                        nlInputSection
                         header
                         savedPreferencesSection
                         focusSection
@@ -47,6 +51,76 @@ struct BereanPulseCurateSheet: View {
             }
         }
         .presentationDetents([.large])
+    }
+
+    private var nlInputSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
+                AmenGlass3DIcon(
+                    systemName: "sparkles.rectangle.stack",
+                    tint: AmenTheme.Colors.amenPurple,
+                    size: 52
+                )
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "Dear Berean, shape my cards"))
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(String(localized: "Type what you want to see more or less of — Berean will update your card feed."))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            TextField(
+                String(localized: "e.g. more sermons, less news..."),
+                text: $nlText,
+                axis: .vertical
+            )
+            .font(.subheadline)
+            .lineLimit(3...6)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
+                    .fill(LiquidGlassTokens.blurThin)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
+                            .fill(Color.white.opacity(0.12))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
+                            .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.6)
+                    )
+                    .shadow(color: .black.opacity(0.08), radius: 18, y: 8)
+            )
+            .accessibilityLabel(Text("Natural language preference input"))
+
+            if let err = nlApplyError {
+                Text(err)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            AmenLiquidGlassPillButton(
+                title: String(localized: "Apply"),
+                systemImage: "checkmark",
+                isLoading: isApplyingNL,
+                isDisabled: nlText.isEmpty || isApplyingNL,
+                action: applyNLIntent
+            )
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(surfaceBackground, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.75))
     }
 
     private var header: some View {
@@ -238,6 +312,30 @@ struct BereanPulseCurateSheet: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(Color.black.opacity(0.05), in: Capsule(style: .continuous))
+    }
+
+    private func applyNLIntent() {
+        let trimmed = nlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isApplyingNL = true
+        nlApplyError = nil
+        Task {
+            do {
+                let intent = HeyFeedNLParser.shared.parse(trimmed)
+                guard !intent.targets.isEmpty else {
+                    nlApplyError = String(localized: "Berean couldn't understand that — try rephrasing.")
+                    isApplyingNL = false
+                    return
+                }
+                try await HeyFeedNLPreferencesService.shared.applyIntent(intent, source: "berean_pulse_curate")
+                isApplyingNL = false
+                nlText = ""
+                dismiss()
+            } catch {
+                nlApplyError = error.localizedDescription
+                isApplyingNL = false
+            }
+        }
     }
 
     private var surfaceBackground: AnyShapeStyle {

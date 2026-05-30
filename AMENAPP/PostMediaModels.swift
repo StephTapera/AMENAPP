@@ -16,6 +16,26 @@ enum PostMediaType: String, Codable {
     case video
 }
 
+// MARK: - Published Media Caption Moderation
+
+/// Server-derived moderation result stored on each media item.
+/// Clients must never write this field — the server derives it from caption inspection.
+struct PublishedMediaCaptionModeration: Codable, Equatable, Hashable {
+    /// Server-computed status. Defaults to .notRequired for legacy docs without this field.
+    var status: MediaCaptionModerationState
+    /// Safe summary from the moderation provider. Raw model output is never included.
+    var reason: String?
+    /// ISO8601 date the moderation ran. Nil for legacy docs.
+    var checkedAt: Date?
+
+    init(status: MediaCaptionModerationState = .notRequired, reason: String? = nil, checkedAt: Date? = nil) {
+        self.status = status
+        self.reason = reason
+        self.checkedAt = checkedAt
+    }
+}
+
+
 // MARK: - Post Media Item
 
 struct PostMediaItem: Identifiable, Codable, Equatable, Hashable {
@@ -55,6 +75,18 @@ struct PostMediaItem: Identifiable, Codable, Equatable, Hashable {
     let generationStatus: MediaGenerationStatus
     let userEditedMetadata: Bool?
 
+    // MARK: Per-media caption fields (System 24 — feature-flagged via perMediaCaptionsEnabled)
+    /// User-authored caption for this specific media item. Distinct from captionTrack (auto-subtitles).
+    let perMediaCaption: String?
+    /// Accessibility alt text for this media item.
+    let altText: String?
+    /// Server-derived moderation result. Never written by clients.
+    let captionModeration: PublishedMediaCaptionModeration?
+    /// Scripture references linked to this caption.
+    let scriptureRefs: [String]
+    /// Faith reflection prompt authored alongside the caption.
+    let reflectionPrompt: String?
+
     init(
         id: String = UUID().uuidString,
         type: PostMediaType,
@@ -76,7 +108,12 @@ struct PostMediaItem: Identifiable, Codable, Equatable, Hashable {
         previewURL: String? = nil,
         originalURL: String? = nil,
         processingStatus: MediaGenerationStatus = .default,
-        userEditedMetadata: Bool? = nil
+        userEditedMetadata: Bool? = nil,
+        perMediaCaption: String? = nil,
+        altText: String? = nil,
+        captionModeration: PublishedMediaCaptionModeration? = nil,
+        scriptureRefs: [String] = [],
+        reflectionPrompt: String? = nil
     ) {
         self.id = id
         self.type = type
@@ -99,6 +136,11 @@ struct PostMediaItem: Identifiable, Codable, Equatable, Hashable {
         self.originalURL = originalURL
         self.generationStatus = processingStatus
         self.userEditedMetadata = userEditedMetadata
+        self.perMediaCaption = perMediaCaption
+        self.altText = altText
+        self.captionModeration = captionModeration
+        self.scriptureRefs = scriptureRefs
+        self.reflectionPrompt = reflectionPrompt
     }
 
     var resolvedKeyMoments: [MediaKeyMoment] { keyMoments }

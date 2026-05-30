@@ -117,17 +117,19 @@ struct ConnectConverseView: View {
     private func topicRow(_ topic: ConversationTopic) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                AsyncImage(url: URL(string: topic.authorPhotoURL)) { phase in
-                    switch phase {
-                    case .success(let img): img.resizable().scaledToFill()
-                    default:
-                        Circle().fill(accentTeal.opacity(0.15))
-                            .overlay(
-                                Text(String(topic.authorName.prefix(1)).uppercased())
-                                    .font(.systemScaled(12, weight: .bold))
-                                    .foregroundStyle(accentTeal)
-                            )
-                    }
+                // PERF: CachedAsyncImage uses ImageCache so avatars aren't re-downloaded on scroll
+                CachedAsyncImage(
+                    url: URL(string: topic.authorPhotoURL),
+                    size: CGSize(width: 64, height: 64)
+                ) { img in
+                    img.resizable().scaledToFill()
+                } placeholder: {
+                    Circle().fill(accentTeal.opacity(0.15))
+                        .overlay(
+                            Text(String(topic.authorName.prefix(1)).uppercased())
+                                .font(.systemScaled(12, weight: .bold))
+                                .foregroundStyle(accentTeal)
+                        )
                 }
                 .frame(width: 32, height: 32)
                 .clipShape(Circle())

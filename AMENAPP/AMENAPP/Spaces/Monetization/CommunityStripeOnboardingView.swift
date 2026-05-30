@@ -366,6 +366,10 @@ private final class StripeOnboardingCoordinator: NSObject, ObservableObject {
     private var authSession: ASWebAuthenticationSession?
 
     func createConnectAccount(communityId: String) async throws -> StripeConnectAccountResult {
+        // B-24: Gate — createStripeConnectAccount CF is not yet deployed.
+        guard AMENFeatureFlags.shared.paymentsEnabled else {
+            throw StripeOnboardingError.canceled
+        }
         let payload: [String: Any] = ["communityId": communityId]
         let result: HTTPSCallableResult
         do {

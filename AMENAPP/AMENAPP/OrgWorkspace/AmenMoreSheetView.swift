@@ -7,6 +7,7 @@
 // Tab destination — NOT a sheet. Present inside a NavigationStack or as a tab root.
 
 import SwiftUI
+import UIKit
 
 // MARK: - AmenCreateType
 
@@ -112,8 +113,7 @@ struct AmenMoreSheetView: View {
 
     // MARK: State
     @StateObject private var viewModel = AmenMoreViewModel()
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    private var reduceTransparency: Bool { UIAccessibility.isReduceTransparencyEnabled }
 
     // MARK: Body
 

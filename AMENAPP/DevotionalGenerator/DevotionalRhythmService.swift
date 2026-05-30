@@ -67,7 +67,9 @@ final class DevotionalRhythmService: ObservableObject {
             try await db
                 .collection("users/\(userId)/devotionalRhythm")
                 .addDocument(data: data)
-        } catch {}
+        } catch {
+            print("[ERROR] DevotionalRhythmService.recordCompletion: failed to persist rhythm entry — \(error)")
+        }
     }
 
     // MARK: - Snapshot Computation

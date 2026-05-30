@@ -31,7 +31,7 @@ const PINECONE_API_KEY  = defineSecret("PINECONE_API_KEY");
 const OPENAI_API_KEY    = defineSecret("OPENAI_API_KEY");
 
 const ALGOLIA_INDEX       = "community_notes";
-const PINECONE_INDEX_HOST = process.env.PINECONE_INDEX_HOST ?? "";
+const PINECONE_INDEX_HOST = process.env.PINECONE_NOTES_INDEX_HOST ?? "";
 const PINECONE_NAMESPACE  = "community_notes";
 const EMBEDDING_MODEL     = "text-embedding-3-small";
 
@@ -103,7 +103,7 @@ export const onLikeDeleted = onDocumentDeleted(
 
 // ─── Counter triggers — comments ──────────────────────────────────────────────
 
-export const onCommentCreated = onDocumentCreated(
+export const onNoteCommentCreated = onDocumentCreated(
   "communityNotes/{noteId}/comments/{commentId}",
   async (event) => {
     const { noteId } = event.params;
@@ -113,7 +113,7 @@ export const onCommentCreated = onDocumentCreated(
   }
 );
 
-export const onCommentDeleted = onDocumentDeleted(
+export const onNoteCommentDeleted = onDocumentDeleted(
   "communityNotes/{noteId}/comments/{commentId}",
   async (event) => {
     const { noteId } = event.params;
@@ -125,7 +125,7 @@ export const onCommentDeleted = onDocumentDeleted(
 
 // ─── Counter triggers — amen reactions on comments ───────────────────────────
 
-export const onAmenCreated = onDocumentCreated(
+export const onNoteAmenCreated = onDocumentCreated(
   "comments/{cid}/amenReactions/{amenId}",
   async (event) => {
     const { cid } = event.params;
@@ -135,7 +135,7 @@ export const onAmenCreated = onDocumentCreated(
   }
 );
 
-export const onAmenDeleted = onDocumentDeleted(
+export const onNoteAmenDeleted = onDocumentDeleted(
   "comments/{cid}/amenReactions/{amenId}",
   async (event) => {
     const { cid } = event.params;

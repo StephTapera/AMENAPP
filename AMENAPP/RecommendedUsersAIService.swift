@@ -21,7 +21,27 @@ class RecommendedUsersAIService: ObservableObject {
     private lazy var db = Firestore.firestore()
     private var lastFetchDate: Date?
 
-    private init() {}
+    private init() {
+        NotificationCenter.default.addObserver(
+            forName: .feedSuggestionsPersonalized,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.invalidateCache()
+        }
+        // Also invalidate when user follows anyone
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("userDidFollowSomeone"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.invalidateCache()
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     struct UserRecommendation: Identifiable {
         let id: String // userId
@@ -32,6 +52,9 @@ class RecommendedUsersAIService: ObservableObject {
         let matchReason: String // "3 mutual friends · Same church"
         let mutualFriendCount: Int
         let sharedInterests: [String]
+        /// Whether the target account requires a follow request (isPrivate = true).
+        /// Used by SuggestedUserRow to show "Requested" state after tapping Follow.
+        var isPrivate: Bool? = false
     }
 
     /// Fetch personalized user recommendations.
@@ -90,6 +113,7 @@ class RecommendedUsersAIService: ObservableObject {
                 let username = data["username"] as? String ?? ""
                 let photo = data["profileImageURL"] as? String
                 let candidateInterests = data["interests"] as? [String] ?? []
+                let isPrivate = data["isPrivate"] as? Bool ?? false
                 let shared = candidateInterests.filter { userTopics.contains($0.lowercased()) }
 
                 var totalScore = scoring.score
@@ -108,7 +132,8 @@ class RecommendedUsersAIService: ObservableObject {
                     matchScore: min(100, totalScore),
                     matchReason: reasonParts.joined(separator: " · "),
                     mutualFriendCount: scoring.mutuals,
-                    sharedInterests: shared
+                    sharedInterests: shared,
+                    isPrivate: isPrivate
                 ))
             }
 
@@ -119,5 +144,10 @@ class RecommendedUsersAIService: ObservableObject {
         } catch {
             dlog("Recommended users fetch failed: \(error)")
         }
+    }
+
+    /// Call this after the user follows someone to ensure fresh recommendations.
+    func invalidateCache() {
+        lastFetchDate = nil
     }
 }

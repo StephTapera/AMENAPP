@@ -103,6 +103,10 @@ final class FellowshipService: ObservableObject {
         listener = nil
     }
 
+    deinit {
+        listener?.remove()
+    }
+
     // MARK: - Actions
 
     /// Mark a suggestion as viewed (idempotent).

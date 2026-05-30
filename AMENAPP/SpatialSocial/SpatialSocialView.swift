@@ -9,32 +9,42 @@ struct SpatialSocialView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Ambient signal banner
-                    if let signal = vm.topAmbientSignal {
-                        AmbientSignalBanner(signal: signal) {
-                            vm.dismissAmbientSignal(signal)
+                    if vm.isInitializing {
+                        ProgressView("Looking for nearby activity...")
+                            .padding(.top, 60)
+                    } else if vm.currentEnvironment.type == .unknown &&
+                              vm.nearbyGatherings.isEmpty &&
+                              vm.activeEphemeralSpaces.isEmpty &&
+                              vm.smartIntroductions.isEmpty {
+                        nearbyEmptyState
+                    } else {
+                        // Ambient signal banner
+                        if let signal = vm.topAmbientSignal {
+                            AmbientSignalBanner(signal: signal) {
+                                vm.dismissAmbientSignal(signal)
+                            }
+                            .transition(.move(edge: .top).combined(with: .opacity))
                         }
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                    }
 
-                    // Environment context card
-                    if vm.currentEnvironment.type != .unknown {
-                        EnvironmentContextCard(environment: vm.currentEnvironment)
-                    }
+                        // Environment context card
+                        if vm.currentEnvironment.type != .unknown {
+                            EnvironmentContextCard(environment: vm.currentEnvironment)
+                        }
 
-                    // Active ephemeral spaces
-                    if !vm.activeEphemeralSpaces.isEmpty {
-                        ephemeralSpacesSection
-                    }
+                        // Active ephemeral spaces
+                        if !vm.activeEphemeralSpaces.isEmpty {
+                            ephemeralSpacesSection
+                        }
 
-                    // Nearby gatherings
-                    if !vm.nearbyGatherings.isEmpty {
-                        nearbyGatheringsSection
-                    }
+                        // Nearby gatherings
+                        if !vm.nearbyGatherings.isEmpty {
+                            nearbyGatheringsSection
+                        }
 
-                    // Smart introductions
-                    if !vm.smartIntroductions.isEmpty {
-                        smartIntroductionsSection
+                        // Smart introductions
+                        if !vm.smartIntroductions.isEmpty {
+                            smartIntroductionsSection
+                        }
                     }
                 }
                 .padding()
@@ -43,6 +53,34 @@ struct SpatialSocialView: View {
             .navigationBarTitleDisplayMode(.large)
             .task { await vm.initialize() }
         }
+    }
+
+    private var nearbyEmptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "location.slash.circle")
+                .font(.system(size: 52))
+                .foregroundStyle(.secondary)
+                .padding(.top, 40)
+            Text("Nothing nearby yet")
+                .font(.title3.weight(.semibold))
+            Text("Enable location access to see live gatherings, faith community signals, and introductions in your area.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Button {
+                Task { await vm.initialize() }
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Ephemeral Spaces Section

@@ -36,10 +36,10 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.shouldSkipPostPreviewUpdate = exports.shouldRefreshPreviewAvatars = exports.denormalizePreviewCandidates = exports.passesPreviewModeration = exports.generateBereanInsightCandidate = exports.countVisibleCommunityMatches = exports.selectFollowedReplyFromRelationships = exports.hasStrongRelationship = exports.selectFollowedReplyCandidate = exports.detectCommunityPulse = exports.scheduledReplyPreviewRefresh = exports.refreshDynamicReplyPreviews = exports.onUserProfileImageUpdatedRefreshPreviews = exports.onBlockRelationshipUpdatedRefreshPreviewsTrigger = exports.onBlockRelationshipUpdatedRefreshPreviews = exports.onPostDeletedClearPreviewsTrigger = exports.onPostDeletedClearPreviews = exports.onPostPreviewDirtyRebuild = exports.onPostUpdatedUpdatePreviewsTrigger = exports.onPostUpdatedUpdatePreviews = exports.onCommentUpdatedUpdatePreviewsTrigger = exports.onCommentUpdatedUpdatePreviews = exports.onCommentDeletedUpdatePreviews = exports.onCommentCreatedUpdatePreviews = exports.attachCommunityHubPreviewToPost = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = exports.scheduledSmartMessageVectorBackfill = exports.getSmartMessageVectorIndexStatus = exports.backfillSmartMessageVectorIndex = exports.indexSmartPrayerRequest = exports.buildKnowledgeGraphMemory = exports.transcribeVoiceMessage = exports.startSmartStudyMode = exports.semanticSearchAmenSpace = exports.extractDiscussionTopics = exports.getContextualBereanActions = exports.summarizeDiscussion = exports.detectPrayerRequest = exports.detectSmartDateEvents = exports.detectScriptureReferences = exports.analyzeSmartMessage = exports.perspectiveApiKey = exports.anthropicApiKey = void 0;
-exports.onPostCreatedRunMediaModeration = exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.updateChurchLiveSignals = exports.syncYouTubeChurchStreams = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.dailyAgeTierPromotion = exports.onUserWrite = exports.setDateOfBirth = exports.resolvePermissionsCallable = exports.confirmGuardianConsent = exports.requestGuardianConsent = exports.initiateDM = exports.setMode = exports.seedChurchData = exports.rebuildReplyPreviewsOnDirty = exports.rebuildReplyPreviews = exports.onReplyCreate = exports.recordPreviewImpression = void 0;
-exports.issueChurchVerificationCode = exports.requestChurchVerification = exports.getMyMentorships = exports.endMentorship = exports.approveMentorship = exports.requestMentorship = exports.scanCoordinatedHarassment = exports.scanGroomingVelocity = exports.initializeModeForNewUser = exports.enforcePostModeConstraints = exports.getInteractionMode = exports.setInteractionMode = exports.initializeNewAccount = exports.adminGrantTrustEvent = exports.getTrustProfile = exports.getMyReports = exports.reportAbuse = exports.getAuditSummary = exports.queryAuditLog = exports.searchEvidenceByUser = exports.markEvidenceProvided = exports.getEvidenceRecord = exports.preserveEvidenceCallable = exports.checkQueueSLABreaches = exports.getReviewQueue = exports.resolveReviewItem = exports.claimReviewItem = exports.autoIssueStrikeOnBlock = exports.adminGetTrustProfile = exports.adminIssueStrike = exports.forwardYouthAlertToGuardians = exports.approveContactForMinor = exports.revokeGuardianConnection = exports.approveGuardianConnection = exports.requestGuardianConnection = exports.enforceYouthAccountDefaults = exports.updateYouthSettings = exports.checkYouthSafetyCallable = exports.checkLinkSafetyCallable = exports.moderateAudioCallable = exports.moderateVideoCallable = exports.moderateImageCallable = exports.moderateTextCallable = exports.registerMediaProvenance = exports.validateMediaCaptions = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = void 0;
-exports.generateAltText = exports.publishPostWithMedia = exports.moderateMediaCaption = exports.queryTrustSafetyAuditLog = exports.resolveAppeal = exports.submitAppeal = exports.getEnforcementProfile = exports.issueEnforcementStrike = exports.escalateAbuseReport = exports.resolveAbuseReport = exports.getMyAbuseReports = exports.submitAbuseReport = exports.markContentTrendIneligible = exports.computeRankingScore = exports.updateCreatorTrustDeclaration = exports.flagSuspectedImpersonation = exports.setChurchVerificationStatus = exports.getIdentityTrustProfile = exports.getBotProfile = exports.evaluateBotScore = exports.getMediaProvenance = exports.runAudioPreflight = exports.runVideoPreflight = exports.runImagePreflight = exports.runTextPreflight = exports.getChurchVerificationStatus = void 0;
+exports.submitChurchProfileUpdate = exports.dailyAgeTierPromotion = exports.onUserWrite = exports.setDateOfBirth = exports.resolvePermissionsCallable = exports.confirmGuardianConsent = exports.requestGuardianConsent = exports.initiateDM = exports.setMode = exports.seedChurchData = exports.rebuildReplyPreviewsOnDirty = exports.rebuildReplyPreviews = exports.onReplyCreate = exports.shouldRefreshPreviewAvatars = exports.denormalizePreviewCandidates = exports.passesPreviewModeration = exports.generateBereanInsightCandidate = exports.countVisibleCommunityMatches = exports.selectFollowedReplyCandidate = exports.detectCommunityPulse = exports.scheduledReplyPreviewRefresh = exports.refreshDynamicReplyPreviews = exports.onUserProfileImageUpdatedRefreshPreviews = exports.onCommentDeletedUpdatePreviews = exports.onCommentCreatedUpdatePreviews = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = exports.scheduledSmartMessageVectorBackfill = exports.getSmartMessageVectorIndexStatus = exports.backfillSmartMessageVectorIndex = exports.indexSmartPrayerRequest = exports.buildKnowledgeGraphMemory = exports.transcribeVoiceMessage = exports.startSmartStudyMode = exports.semanticSearchAmenSpace = exports.extractDiscussionTopics = exports.getContextualBereanActions = exports.summarizeDiscussion = exports.detectPrayerRequest = exports.detectSmartDateEvents = exports.detectScriptureReferences = exports.analyzeSmartMessage = exports.perspectiveApiKey = exports.anthropicApiKey = void 0;
+exports.checkLinkSafetyCallable = exports.moderateAudioCallable = exports.moderateVideoCallable = exports.moderateImageCallable = exports.moderateTextCallable = exports.getMediaTrustContext = exports.registerMediaProvenance = exports.analyzeChurchNoteMemory = exports.validateMediaCaptions = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.updateChurchLiveSignals = exports.syncYouTubeChurchStreams = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = void 0;
+exports.updateCreatorTrustDeclaration = exports.flagSuspectedImpersonation = exports.setChurchVerificationStatus = exports.getIdentityTrustProfile = exports.getBotProfile = exports.evaluateBotScore = exports.getMediaProvenance = exports.runAudioPreflight = exports.runVideoPreflight = exports.runImagePreflight = exports.runTextPreflight = exports.getChurchVerificationStatus = exports.issueChurchVerificationCode = exports.requestChurchVerification = exports.getMyMentorships = exports.endMentorship = exports.approveMentorship = exports.requestMentorship = exports.scanCoordinatedHarassment = exports.scanGroomingVelocity = exports.initializeModeForNewUser = exports.enforcePostModeConstraints = exports.getInteractionMode = exports.setInteractionMode = exports.initializeNewAccount = exports.adminGrantTrustEvent = exports.getTrustProfile = exports.getMyReports = exports.reportAbuse = exports.getAuditSummary = exports.queryAuditLog = exports.searchEvidenceByUser = exports.markEvidenceProvided = exports.getEvidenceRecord = exports.preserveEvidenceCallable = exports.checkQueueSLABreaches = exports.getReviewQueue = exports.resolveReviewItem = exports.claimReviewItem = exports.autoIssueStrikeOnBlock = exports.adminGetTrustProfile = exports.adminIssueStrike = exports.forwardYouthAlertToGuardians = exports.approveContactForMinor = exports.revokeGuardianConnection = exports.approveGuardianConnection = exports.requestGuardianConnection = exports.enforceYouthAccountDefaults = exports.updateYouthSettings = exports.checkYouthSafetyCallable = void 0;
+exports.monitorFailedAuthSpike = exports.monitorAISpend = exports.monitorInjectionSpikes = exports.requireRecentAuth = exports.reportAccountCompromise = exports.revokeAllSessions = exports.requestUserDataExport = exports.deleteBereanHistory = exports.algolia_syncOrg = exports.deduplicateOrgs = exports.importIRSBMF = exports.importIPEDS = exports.importNcesPSS = exports.importNcesCCD = exports.searchCommunityNotes = exports.onFollowDeleted = exports.onFollowCreated = exports.onSaveDeleted = exports.onSaveCreated = exports.onNoteAmenDeleted = exports.onNoteAmenCreated = exports.onNoteCommentDeleted = exports.onNoteCommentCreated = exports.onLikeDeleted = exports.onLikeCreated = exports.onCommunityNoteWritten = exports.resolveAnonymousPost = exports.createAnonymousPost = exports.generateAltText = exports.publishPostWithMedia = exports.moderateMediaCaption = exports.queryTrustSafetyAuditLog = exports.resolveAppeal = exports.submitAppeal = exports.getEnforcementProfile = exports.issueEnforcementStrike = exports.escalateAbuseReport = exports.resolveAbuseReport = exports.getMyAbuseReports = exports.submitAbuseReport = exports.markContentTrendIneligible = exports.computeRankingScore = void 0;
 const admin = __importStar(require("firebase-admin"));
 const params_1 = require("firebase-functions/params");
 if (!admin.apps.length) {
@@ -117,7 +117,6 @@ Object.defineProperty(exports, "recordObjectInteraction", { enumerable: true, ge
 Object.defineProperty(exports, "muteObjectHub", { enumerable: true, get: function () { return communityHubs_1.muteObjectHub; } });
 Object.defineProperty(exports, "reportHubContent", { enumerable: true, get: function () { return communityHubs_1.reportHubContent; } });
 Object.defineProperty(exports, "indexPostIntoHub", { enumerable: true, get: function () { return communityHubs_1.indexPostIntoHub; } });
-Object.defineProperty(exports, "attachCommunityHubPreviewToPost", { enumerable: true, get: function () { return communityHubs_1.attachCommunityHubPreviewToPost; } });
 // Accessibility Intelligence Layer
 __exportStar(require("./refineTranslation"), exports);
 __exportStar(require("./transformContent"), exports);
@@ -126,6 +125,8 @@ __exportStar(require("./groupLinks"), exports);
 __exportStar(require("./resolveOrCreateConversation"), exports);
 // Suggested Accounts Rail
 __exportStar(require("./suggestedAccounts"), exports);
+// Find People to Follow — getSuggestedFollows + registerDiscoveryLocation
+__exportStar(require("./discovery"), exports);
 // UserProfileMini context callable
 __exportStar(require("./profileMini/getUserProfileMiniContext"), exports);
 // Creator Spaces — trusted media, provenance, daily portion, and memory graph callables
@@ -158,29 +159,16 @@ __exportStar(require("./bereanPulse"), exports);
 var generateDynamicReplyPreviews_1 = require("./generateDynamicReplyPreviews");
 Object.defineProperty(exports, "onCommentCreatedUpdatePreviews", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onCommentCreatedUpdatePreviews; } });
 Object.defineProperty(exports, "onCommentDeletedUpdatePreviews", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onCommentDeletedUpdatePreviews; } });
-Object.defineProperty(exports, "onCommentUpdatedUpdatePreviews", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onCommentUpdatedUpdatePreviews; } });
-Object.defineProperty(exports, "onCommentUpdatedUpdatePreviewsTrigger", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onCommentUpdatedUpdatePreviewsTrigger; } });
-Object.defineProperty(exports, "onPostUpdatedUpdatePreviews", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onPostUpdatedUpdatePreviews; } });
-Object.defineProperty(exports, "onPostUpdatedUpdatePreviewsTrigger", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onPostUpdatedUpdatePreviewsTrigger; } });
-Object.defineProperty(exports, "onPostPreviewDirtyRebuild", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onPostPreviewDirtyRebuild; } });
-Object.defineProperty(exports, "onPostDeletedClearPreviews", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onPostDeletedClearPreviews; } });
-Object.defineProperty(exports, "onPostDeletedClearPreviewsTrigger", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onPostDeletedClearPreviewsTrigger; } });
-Object.defineProperty(exports, "onBlockRelationshipUpdatedRefreshPreviews", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onBlockRelationshipUpdatedRefreshPreviews; } });
-Object.defineProperty(exports, "onBlockRelationshipUpdatedRefreshPreviewsTrigger", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onBlockRelationshipUpdatedRefreshPreviewsTrigger; } });
 Object.defineProperty(exports, "onUserProfileImageUpdatedRefreshPreviews", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.onUserProfileImageUpdatedRefreshPreviews; } });
 Object.defineProperty(exports, "refreshDynamicReplyPreviews", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.refreshDynamicReplyPreviews; } });
 Object.defineProperty(exports, "scheduledReplyPreviewRefresh", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.scheduledReplyPreviewRefresh; } });
 Object.defineProperty(exports, "detectCommunityPulse", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.detectCommunityPulse; } });
 Object.defineProperty(exports, "selectFollowedReplyCandidate", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.selectFollowedReplyCandidate; } });
-Object.defineProperty(exports, "hasStrongRelationship", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.hasStrongRelationship; } });
-Object.defineProperty(exports, "selectFollowedReplyFromRelationships", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.selectFollowedReplyFromRelationships; } });
 Object.defineProperty(exports, "countVisibleCommunityMatches", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.countVisibleCommunityMatches; } });
 Object.defineProperty(exports, "generateBereanInsightCandidate", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.generateBereanInsightCandidate; } });
 Object.defineProperty(exports, "passesPreviewModeration", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.passesPreviewModeration; } });
 Object.defineProperty(exports, "denormalizePreviewCandidates", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.denormalizePreviewCandidates; } });
 Object.defineProperty(exports, "shouldRefreshPreviewAvatars", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.shouldRefreshPreviewAvatars; } });
-Object.defineProperty(exports, "shouldSkipPostPreviewUpdate", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.shouldSkipPostPreviewUpdate; } });
-Object.defineProperty(exports, "recordPreviewImpression", { enumerable: true, get: function () { return generateDynamicReplyPreviews_1.recordPreviewImpression; } });
 // CONTRACT.md §12 — authoritative onReplyCreate + rebuildReplyPreviews
 // Implements resolver ladder (§13), scoring formula (§15), dirty thresholds (§16).
 var replyPreview_1 = require("./replyPreview");
@@ -209,6 +197,14 @@ __exportStar(require("./antiHarassmentEnforcement"), exports);
 __exportStar(require("./accountSuspension"), exports);
 __exportStar(require("./twoFactorAuth"), exports);
 __exportStar(require("./accountLifecycle"), exports);
+// Just-In-Time (JIT) Admin Access — Trust OS requirement.
+// Moderator roles are time-limited, not permanent. Moderators request a
+// short-lived elevation session (max 8 hours); the scheduled cleanup revokes
+// claims automatically when the window closes.
+// Callables: requestTemporaryElevation, revokeElevation
+// Scheduled: cleanupExpiredJitSessions (every 30 minutes)
+// Audit:     trustAuditLog (jit_session_created | jit_session_revoked | jit_session_expired)
+__exportStar(require("./jitAccess"), exports);
 // Safety Reporting — server-side report creation with validation
 // HIGH-3: submitReport callable validates reason, verifies evidence, computes
 // escalationTier and priority server-side. Direct client writes to userReports
@@ -408,6 +404,15 @@ __exportStar(require("./covenant/publishScheduledCovenantContent"), exports);
 __exportStar(require("./covenant/submitCovenantReport"), exports);
 __exportStar(require("./covenant/indexCovenantSearchDocument"), exports);
 __exportStar(require("./covenant/stripeCovenantWebhook"), exports);
+// Org Subscription OS — Stripe-based billing for organization Plus/Pro tiers
+// Callables: createOrgSubscriptionCheckout (opens Stripe-hosted checkout for claimed org owners)
+//            getOrgBillingPortalURL (opens Stripe Customer Portal for billing management)
+// Webhook:   stripeOrgWebhook (HTTPS) — writes organizations/{orgId}/billing/subscription
+//            and updates org.modules[] after Stripe confirms payment
+// Idempotency: deduplicates by Stripe event ID in stripeEvents/{eventId}
+__exportStar(require("./orgSubscription/createOrgSubscriptionCheckout"), exports);
+__exportStar(require("./orgSubscription/getOrgBillingPortalURL"), exports);
+__exportStar(require("./orgSubscription/stripeOrgWebhook"), exports);
 // Berean Extended Intelligence — memory, threads, translation comparison, follow-ups,
 //   context linking, safety classification, preference sync
 // Callables: saveBereanInsight, updateBereanMemory, deleteBereanMemory,
@@ -586,14 +591,30 @@ __exportStar(require("./churchNotes/churchNotesContentGeneration"), exports);
 __exportStar(require("./churchNotes/churchNotesDraftApproval"), exports);
 __exportStar(require("./churchNotes/churchNotesExtendedCallables"), exports);
 __exportStar(require("./churchNotes/churchNotesPrivacyAudit"), exports);
-// Social OS — Media Provenance and Authenticity
-// createMediaSession, completeMediaSession, saveToMediaQueue, updateMediaProgress,
-// reportMedia, and getMediaTrustContext are owned by the default codebase (healthyImmersiveMedia.js).
+var churchNotesMemory_1 = require("./churchNotes/churchNotesMemory");
+Object.defineProperty(exports, "analyzeChurchNoteMemory", { enumerable: true, get: function () { return churchNotesMemory_1.analyzeChurchNoteMemory; } });
+// Social OS — Healthy Media Sessions, Provenance and Authenticity
+__exportStar(require("./media/createMediaSession"), exports);
 var registerMediaProvenance_1 = require("./media/registerMediaProvenance");
 Object.defineProperty(exports, "registerMediaProvenance", { enumerable: true, get: function () { return registerMediaProvenance_1.registerMediaProvenance; } });
+Object.defineProperty(exports, "getMediaTrustContext", { enumerable: true, get: function () { return registerMediaProvenance_1.getMediaTrustContext; } });
 // In-App Giving — server-side Stripe charge (Apple Pay + card tokenization)
 __exportStar(require("./giving/processGivingCharge"), exports);
 __exportStar(require("./giving/analyzePostTrustLogoMatch"), exports);
+// Organization Identity Verification — Trust OS (C-04)
+// submitOrgVerificationRequest: org owner/admin submits EIN/domain details for review
+// approveOrgVerification:       platform admin sets identityVerified: true + audit log
+// rejectOrgVerification:        platform admin rejects with reason + audit log
+// Prerequisite: processGivingCharge.ts already enforces nonprofit.identityVerified before
+// any donation transfer is processed; these callables complete that pipeline.
+__exportStar(require("./orgVerification"), exports);
+// Organization Claim System — search, submit, approve, reject, create stub
+// Callables: requestOrgClaim, approveClaim, rejectClaim, createOrgStub
+// Security: Auth + App Check. claimStatus / source / sourceId are server-only.
+// Rate limit: 5 claim submissions per hour, max 3 simultaneous pending claims.
+// Guardian check on every submission. Domain-match → auto-verify path.
+// Google Places: placeId stored ONLY — no name/address/phone persisted from Places.
+__exportStar(require("./orgClaim"), exports);
 // Calm Control OS — privacy settings, feed controls, notification eligibility, inactivity management
 // Callables: updatePrivacySettings, updateFeedControls, updateNotificationSettings,
 //            evaluateNotificationEligibility, restoreUserAfterInactivity
@@ -759,4 +780,86 @@ var mediaCaptions_1 = require("./mediaCaptions");
 Object.defineProperty(exports, "moderateMediaCaption", { enumerable: true, get: function () { return mediaCaptions_1.moderateMediaCaption; } });
 Object.defineProperty(exports, "publishPostWithMedia", { enumerable: true, get: function () { return mediaCaptions_1.publishPostWithMedia; } });
 Object.defineProperty(exports, "generateAltText", { enumerable: true, get: function () { return mediaCaptions_1.generateAltText; } });
+// Anonymous-Accountable Mode — Trust OS requirement.
+// createAnonymousPost:  authenticated user posts pseudonymously.
+//   - stable anonId derived server-side via HMAC(uid, ANON_SALT)
+//   - anonIdMappings/{anonId} mapping stored server-only (Firestore rules: allow read, write: if false)
+//   - rate limited: 3 anon posts per 24-hour rolling window
+// resolveAnonymousPost: admin-only de-anonymization. Every call is written to trustAuditLog.
+// Prerequisites: deploy ANON_SALT secret before enabling the anonModeEnabled feature flag.
+var anonPost_1 = require("./anonPost");
+Object.defineProperty(exports, "createAnonymousPost", { enumerable: true, get: function () { return anonPost_1.createAnonymousPost; } });
+Object.defineProperty(exports, "resolveAnonymousPost", { enumerable: true, get: function () { return anonPost_1.resolveAnonymousPost; } });
+// ─── Community Notes ──────────────────────────────────────────────────────────
+// scriptureParser: parse + index Scripture refs from note text (server-side only)
+// communityNotesWriter: Gen2 Firestore trigger — Algolia + Pinecone sync on write/delete
+// engagement: counter triggers (likes, comments, amen, saves, follows) + hybrid search callable
+var communityNotesWriter_1 = require("./communityNotes/communityNotesWriter");
+Object.defineProperty(exports, "onCommunityNoteWritten", { enumerable: true, get: function () { return communityNotesWriter_1.onCommunityNoteWritten; } });
+var engagement_1 = require("./communityNotes/engagement");
+Object.defineProperty(exports, "onLikeCreated", { enumerable: true, get: function () { return engagement_1.onLikeCreated; } });
+Object.defineProperty(exports, "onLikeDeleted", { enumerable: true, get: function () { return engagement_1.onLikeDeleted; } });
+Object.defineProperty(exports, "onNoteCommentCreated", { enumerable: true, get: function () { return engagement_1.onNoteCommentCreated; } });
+Object.defineProperty(exports, "onNoteCommentDeleted", { enumerable: true, get: function () { return engagement_1.onNoteCommentDeleted; } });
+Object.defineProperty(exports, "onNoteAmenCreated", { enumerable: true, get: function () { return engagement_1.onNoteAmenCreated; } });
+Object.defineProperty(exports, "onNoteAmenDeleted", { enumerable: true, get: function () { return engagement_1.onNoteAmenDeleted; } });
+Object.defineProperty(exports, "onSaveCreated", { enumerable: true, get: function () { return engagement_1.onSaveCreated; } });
+Object.defineProperty(exports, "onSaveDeleted", { enumerable: true, get: function () { return engagement_1.onSaveDeleted; } });
+Object.defineProperty(exports, "onFollowCreated", { enumerable: true, get: function () { return engagement_1.onFollowCreated; } });
+Object.defineProperty(exports, "onFollowDeleted", { enumerable: true, get: function () { return engagement_1.onFollowDeleted; } });
+Object.defineProperty(exports, "searchCommunityNotes", { enumerable: true, get: function () { return engagement_1.searchCommunityNotes; } });
+// Multi-Tenant Contextual Experience System
+__exportStar(require("./contextualExperiences"), exports);
+// Organization Seed Pipeline — admin-only bulk import of NCES / IPEDS / IRS BMF data.
+// All callables require admin custom claim (admin: true). Feature-flagged behind
+// config/featureFlags.orgSeedEnabled. Never touches Google Places data (policy enforced
+// inside batchUpsert). Dry-run support on all import functions.
+//   importNcesCCD      — K-12 public schools (~100k records from NCES CCD CSV)
+//   importNcesPSS      — K-12 private schools (~33k records from NCES PSS CSV)
+//   importIPEDS        — postsecondary institutions (~6k from IPEDS CSV)
+//   importIRSBMF       — exempt religious orgs/churches (~1.5M filtered to X-series NTEE)
+//   deduplicateOrgs    — finds same-name/proximity pairs and merges by source priority
+//   algolia_syncOrg    — single or bulk sync of org stubs to Algolia `organizations` index
+var ncesCCDImport_1 = require("./orgSeed/ncesCCDImport");
+Object.defineProperty(exports, "importNcesCCD", { enumerable: true, get: function () { return ncesCCDImport_1.importNcesCCD; } });
+var ncesPSSImport_1 = require("./orgSeed/ncesPSSImport");
+Object.defineProperty(exports, "importNcesPSS", { enumerable: true, get: function () { return ncesPSSImport_1.importNcesPSS; } });
+var ipedsImport_1 = require("./orgSeed/ipedsImport");
+Object.defineProperty(exports, "importIPEDS", { enumerable: true, get: function () { return ipedsImport_1.importIPEDS; } });
+var irsBMFImport_1 = require("./orgSeed/irsBMFImport");
+Object.defineProperty(exports, "importIRSBMF", { enumerable: true, get: function () { return irsBMFImport_1.importIRSBMF; } });
+var orgDeduplication_1 = require("./orgSeed/orgDeduplication");
+Object.defineProperty(exports, "deduplicateOrgs", { enumerable: true, get: function () { return orgDeduplication_1.deduplicateOrgs; } });
+var orgAlgoliaSync_1 = require("./orgSeed/orgAlgoliaSync");
+Object.defineProperty(exports, "algolia_syncOrg", { enumerable: true, get: function () { return orgAlgoliaSync_1.algolia_syncOrg; } });
+// ─── Security Hardening OS — Auth, Privacy, Anomaly Detection ────────────────
+//
+// Privacy / GDPR-CCPA:
+//   deleteBereanHistory      — erases all Berean conversation data for a user (right to erasure)
+//   requestUserDataExport    — packages all user data to a signed-URL JSON (right to portability)
+//
+// Auth & Account-Takeover Hardening:
+//   revokeAllSessions        — revokes all refresh tokens for the calling user
+//   reportAccountCompromise  — user-initiated compromise report → revoke + securityIncidents
+//   requireRecentAuth        — issues single-use grant for sensitive actions (delete, email change…)
+//
+// Anomaly Monitoring (scheduled):
+//   monitorInjectionSpikes   — alerts on >10 injection blocks per 15 min
+//   monitorAISpend           — warns at 80% / critical at 100% of daily AI token cap
+//   monitorFailedAuthSpike   — alerts on >20 failed auth attempts per uid per 30 min
+//
+// All callables: App Check + Auth enforced.
+var deleteBereanHistory_1 = require("./privacy/deleteBereanHistory");
+Object.defineProperty(exports, "deleteBereanHistory", { enumerable: true, get: function () { return deleteBereanHistory_1.deleteBereanHistory; } });
+var userDataExport_1 = require("./privacy/userDataExport");
+Object.defineProperty(exports, "requestUserDataExport", { enumerable: true, get: function () { return userDataExport_1.requestUserDataExport; } });
+var sessionRevocation_1 = require("./auth/sessionRevocation");
+Object.defineProperty(exports, "revokeAllSessions", { enumerable: true, get: function () { return sessionRevocation_1.revokeAllSessions; } });
+Object.defineProperty(exports, "reportAccountCompromise", { enumerable: true, get: function () { return sessionRevocation_1.reportAccountCompromise; } });
+var sensitiveActionGate_1 = require("./auth/sensitiveActionGate");
+Object.defineProperty(exports, "requireRecentAuth", { enumerable: true, get: function () { return sensitiveActionGate_1.requireRecentAuth; } });
+var anomalyMonitor_1 = require("./monitoring/anomalyMonitor");
+Object.defineProperty(exports, "monitorInjectionSpikes", { enumerable: true, get: function () { return anomalyMonitor_1.monitorInjectionSpikes; } });
+Object.defineProperty(exports, "monitorAISpend", { enumerable: true, get: function () { return anomalyMonitor_1.monitorAISpend; } });
+Object.defineProperty(exports, "monitorFailedAuthSpike", { enumerable: true, get: function () { return anomalyMonitor_1.monitorFailedAuthSpike; } });
 //# sourceMappingURL=index.js.map

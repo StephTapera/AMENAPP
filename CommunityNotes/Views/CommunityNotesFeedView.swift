@@ -182,7 +182,7 @@ struct CommunityNotesFeedView: View {
                         title: "Continue Reading",
                         items: Array(topNotes.dropFirst())
                     ) { note in
-                        NavigationLink(destination: CommunityNoteDetailPlaceholder(note: note)) {
+                        NavigationLink(destination: CommunityNoteDetailView(note: note)) {
                             AMENGlassCard(width: 200, height: 140, tintColor: note.category.tint) {
                                 railCardContent(note: note)
                             }
@@ -205,7 +205,7 @@ struct CommunityNotesFeedView: View {
 
                 LazyVStack(spacing: 12) {
                     ForEach(Array(recentNotes.enumerated()), id: \.element.id) { index, note in
-                        NavigationLink(destination: CommunityNoteDetailPlaceholder(note: note)) {
+                        NavigationLink(destination: CommunityNoteDetailView(note: note)) {
                             CommunityNoteCardView(note: note)
                                 .padding(.horizontal, 20)
                         }
@@ -223,7 +223,7 @@ struct CommunityNotesFeedView: View {
     // MARK: - Hero Card
 
     private func heroCard(note: CommunityNote) -> some View {
-        NavigationLink(destination: CommunityNoteDetailPlaceholder(note: note)) {
+        NavigationLink(destination: CommunityNoteDetailView(note: note)) {
             AMENGlassCard(
                 width: UIScreen.main.bounds.width - 40,
                 height: 180,
@@ -455,29 +455,309 @@ struct CommunityNotesFeedView: View {
     }
 }
 
-// MARK: - Detail Placeholder
-// Temporary destination so NavigationLinks compile.
-// Replace with the real CommunityNoteDetailView once built.
+// MARK: - Community Note Detail View
 
-private struct CommunityNoteDetailPlaceholder: View {
+struct CommunityNoteDetailView: View {
     let note: CommunityNote
+
+    @StateObject private var service = CommunityNotesService.shared
+    @State private var isLiked = false
+    @State private var isSaved = false
+    @State private var likeCount: Int
+    @State private var saveCount: Int
+    @State private var isWorking = false
+
+    init(note: CommunityNote) {
+        self.note = note
+        _likeCount = State(initialValue: note.likeCount)
+        _saveCount = State(initialValue: note.saveCount)
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(note.title)
-                    .font(.title2.bold())
-                    .foregroundStyle(AmenTheme.Colors.textPrimary)
+            VStack(alignment: .leading, spacing: 0) {
+                heroBanner
+                    .padding(.bottom, 20)
+
+                contentSection
                     .padding(.horizontal, 20)
-                Text(note.body)
-                    .font(.body)
-                    .foregroundStyle(AmenTheme.Colors.textPrimary)
-                    .padding(.horizontal, 20)
+
+                if !note.scriptureRefStrings.isEmpty {
+                    scriptureSection
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                }
+
+                if !note.tags.isEmpty {
+                    tagsSection
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+                }
+
+                Spacer(minLength: 100)
             }
-            .padding(.top, 20)
         }
         .navigationTitle(note.category.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .background(AmenTheme.Colors.backgroundPrimary.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            actionBar
+        }
+    }
+
+    // MARK: - Hero Banner
+
+    private var heroBanner: some View {
+        ZStack(alignment: .bottomLeading) {
+            note.category.tint
+                .opacity(0.18)
+                .frame(maxWidth: .infinity)
+                .frame(height: 140)
+
+            LinearGradient(
+                colors: [.clear, AmenTheme.Colors.backgroundPrimary],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 60)
+            .frame(maxWidth: .infinity, alignment: .bottom)
+            .padding(.bottom, 0)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: note.category.icon)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(note.category.tint)
+                    Text(note.category.displayName.uppercased())
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.2)
+                        .foregroundStyle(note.category.tint)
+                }
+                .padding(.horizontal, 20)
+
+                Text(note.title)
+                    .font(.title2.bold())
+                    .foregroundStyle(AmenTheme.Colors.textPrimary)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Author + Body
+
+    private var contentSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            authorRow
+
+            Divider()
+                .opacity(0.3)
+
+            Text(note.body)
+                .font(.body)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var authorRow: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(note.authorSwiftUIColor.opacity(0.2))
+                    .frame(width: 36, height: 36)
+                Text(note.authorInitial)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(note.authorSwiftUIColor)
+            }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(note.authorName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AmenTheme.Colors.textPrimary)
+                Text("@\(note.authorHandle)")
+                    .font(.caption)
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
+            }
+
+            Spacer()
+
+            Text(note.createdAt, style: .date)
+                .font(.caption)
+                .foregroundStyle(AmenTheme.Colors.textTertiary)
+        }
+    }
+
+    // MARK: - Scripture References
+
+    private var scriptureSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Scripture References")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
+                .textCase(.uppercase)
+                .tracking(0.8)
+
+            FlowLayout(spacing: 8) {
+                ForEach(note.scriptureRefStrings, id: \.self) { ref in
+                    HStack(spacing: 4) {
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(ref)
+                            .font(.footnote.weight(.medium))
+                    }
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(AmenTheme.Colors.amenBlue.opacity(0.10))
+                    .clipShape(Capsule(style: .continuous))
+                }
+            }
+        }
+    }
+
+    // MARK: - Tags
+
+    private var tagsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Tags")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
+                .textCase(.uppercase)
+                .tracking(0.8)
+
+            FlowLayout(spacing: 8) {
+                ForEach(note.tags, id: \.self) { tag in
+                    Text("#\(tag)")
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(AmenTheme.Colors.textSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.primary.opacity(0.06))
+                        .clipShape(Capsule(style: .continuous))
+                }
+            }
+        }
+    }
+
+    // MARK: - Action Bar
+
+    private var actionBar: some View {
+        HStack(spacing: 0) {
+            actionButton(
+                icon: isLiked ? "heart.fill" : "heart",
+                label: "\(likeCount)",
+                tint: isLiked ? AmenTheme.Colors.statusError : AmenTheme.Colors.textSecondary
+            ) {
+                guard !isWorking else { return }
+                isWorking = true
+                let toggling = !isLiked
+                isLiked = toggling
+                likeCount += toggling ? 1 : -1
+                Task {
+                    try? await service.toggleLike(noteId: note.id, isLiked: toggling)
+                    isWorking = false
+                }
+            }
+
+            Divider().frame(height: 24).padding(.horizontal, 8)
+
+            actionButton(
+                icon: isSaved ? "bookmark.fill" : "bookmark",
+                label: "\(saveCount)",
+                tint: isSaved ? AmenTheme.Colors.amenGold : AmenTheme.Colors.textSecondary
+            ) {
+                guard !isWorking else { return }
+                isWorking = true
+                let saving = !isSaved
+                isSaved = saving
+                saveCount += saving ? 1 : -1
+                Task {
+                    if saving {
+                        try? await service.saveNote(note)
+                    } else {
+                        try? await service.unsaveNote(noteId: note.id)
+                    }
+                    isWorking = false
+                }
+            }
+
+            Spacer()
+
+            ShareLink(item: note.title) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
+                    .frame(width: 44, height: 44)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 56)
+        .background(.regularMaterial)
+        .overlay(alignment: .top) {
+            Divider().opacity(0.4)
+        }
+    }
+
+    private func actionButton(icon: String, label: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .medium))
+                Text(label)
+                    .font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(tint)
+            .frame(height: 44)
+            .padding(.horizontal, 8)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - FlowLayout (wrapping HStack for chips)
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var height: CGFloat = 0
+        var x: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > width && x > 0 {
+                height += rowHeight + spacing
+                x = 0
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        height += rowHeight
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX && x > bounds.minX {
+                y += rowHeight + spacing
+                x = bounds.minX
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
 

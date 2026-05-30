@@ -89,6 +89,38 @@ final class AccountDeletionService: ObservableObject {
             )
         }
 
+        // 3a. Delete subcollections under user-authored posts
+        //     Firestore does NOT auto-delete subcollections when a parent document is deleted.
+        try await deleteSubcollectionsForUserDocs(
+            collection: "posts",
+            field: "userId",
+            userId: userId,
+            subcollections: ["comments", "likes", "reactions"]
+        )
+        // Also cover the authorId variant
+        try await deleteSubcollectionsForUserDocs(
+            collection: "posts",
+            field: "authorId",
+            userId: userId,
+            subcollections: ["comments", "likes", "reactions"]
+        )
+
+        // 3b. Delete subcollections under user prayer requests
+        try await deleteSubcollectionsForUserDocs(
+            collection: "prayerRequests",
+            field: "userId",
+            userId: userId,
+            subcollections: ["prayedBy", "intercessors"]
+        )
+
+        // 3c. Delete subcollections under church notes
+        try await deleteSubcollectionsForUserDocs(
+            collection: "churchNotes",
+            field: "userId",
+            userId: userId,
+            subcollections: ["attachments"]
+        )
+
         // 4. Mark conversations as deleted for this user (don't delete shared history)
         try await leaveAllConversations(userId: userId)
 
@@ -169,14 +201,54 @@ final class AccountDeletionService: ObservableObject {
     private func deleteDocumentsWhereField(
         collection: String, field: String, equalTo value: String
     ) async throws {
-        let snap = try await db.collection(collection)
-            .whereField(field, isEqualTo: value)
-            .limit(to: 200)
-            .getDocuments()
-        guard !snap.documents.isEmpty else { return }
-        let batch = db.batch()
-        snap.documents.forEach { batch.deleteDocument($0.reference) }
-        try await batch.commit()
+        let batchSize = 200
+        var lastDoc: DocumentSnapshot? = nil
+        repeat {
+            var query = db.collection(collection)
+                .whereField(field, isEqualTo: value)
+                .limit(to: batchSize)
+            if let last = lastDoc {
+                query = query.start(afterDocument: last)
+            }
+            let snap = try await query.getDocuments()
+            guard !snap.documents.isEmpty else { break }
+            let writeBatch = db.batch()
+            snap.documents.forEach { writeBatch.deleteDocument($0.reference) }
+            try await writeBatch.commit()
+            // If the batch was full, there may be more documents — continue paginating.
+            lastDoc = snap.documents.count == batchSize ? snap.documents.last : nil
+        } while lastDoc != nil
+    }
+
+    /// Enumerates all documents in `collection` where `field == userId`, then
+    /// deletes each listed `subcollection` name under those documents using the
+    /// same paginated batch approach as `deleteCollectionBatch`.
+    private func deleteSubcollectionsForUserDocs(
+        collection: String,
+        field: String,
+        userId: String,
+        subcollections: [String]
+    ) async throws {
+        let batchSize = 200
+        var lastDoc: DocumentSnapshot? = nil
+        repeat {
+            var query = db.collection(collection)
+                .whereField(field, isEqualTo: userId)
+                .limit(to: batchSize)
+            if let last = lastDoc {
+                query = query.start(afterDocument: last)
+            }
+            let snap = try await query.getDocuments()
+            guard !snap.documents.isEmpty else { break }
+            for parentDoc in snap.documents {
+                for sub in subcollections {
+                    try await deleteCollectionBatch(
+                        path: "\(collection)/\(parentDoc.documentID)/\(sub)"
+                    )
+                }
+            }
+            lastDoc = snap.documents.count == batchSize ? snap.documents.last : nil
+        } while lastDoc != nil
     }
 
     private func leaveAllConversations(userId: String) async throws {
@@ -271,9 +343,16 @@ final class AccountDeletionService: ObservableObject {
     }
 
     private func clearLocalState() {
+        // Clear all UserDefaults for this app
         if let bundleId = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleId)
         }
-        // Clear keychain if needed (add SecItemDelete calls here)
+        // Clear all generic password Keychain items (FCM token, auth token,
+        // emailForSignIn, biometricEnabled flag, session tokens, etc.)
+        let genericQuery: [String: Any] = [kSecClass as String: kSecClassGenericPassword]
+        SecItemDelete(genericQuery as CFDictionary)
+        // Clear all internet password Keychain items
+        let internetQuery: [String: Any] = [kSecClass as String: kSecClassInternetPassword]
+        SecItemDelete(internetQuery as CFDictionary)
     }
 }

@@ -172,15 +172,18 @@ struct VictimShieldControlsView: View {
         }
     }
 
+    @ViewBuilder
     private func crisisLink(title: String, subtitle: String, url: String) -> some View {
-        Link(destination: URL(string: url)!) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.body)
-                    .foregroundStyle(Color.accentColor)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        if let safeURL = URL(string: url) {
+            Link(destination: safeURL) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.body)
+                        .foregroundStyle(Color.accentColor)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

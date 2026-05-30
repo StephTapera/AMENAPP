@@ -44,7 +44,7 @@ enum MediaKeyMomentKind: String, Codable, CaseIterable {
     }
 }
 
-enum MediaCaptionModerationState: String, Codable, Equatable {
+enum MediaCaptionModerationState: String, Codable, Equatable, Hashable {
     case notRequired = "not_required"
     case pending     = "pending"
     case approved    = "approved"

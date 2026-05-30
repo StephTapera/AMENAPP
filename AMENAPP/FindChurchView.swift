@@ -1081,10 +1081,9 @@ struct FindChurchView: View {
     }
     
     private var shouldShowEmptyState: Bool {
-        !churchSearchService.isSearching && 
-        churchSearchService.searchResults.isEmpty && 
-        locationManager.isAuthorized &&
-        hasSearchedOnce
+        !churchSearchService.isSearching &&
+        churchSearchService.searchResults.isEmpty &&
+        locationManager.isAuthorized
     }
     
     private var shouldShowSmartSuggestions: Bool {
@@ -1186,9 +1185,13 @@ struct FindChurchView: View {
                             )
                         } else if shouldShowEmptyState {
                             FindChurchEmptyState(
-                                icon: "building.2",
-                                title: "No Churches Found",
-                                subtitle: filteredChurches.isEmpty && hasChurchData ? "Try different filters" : "Search to discover churches"
+                                icon: hasSearchedOnce ? "building.2" : "location.circle",
+                                title: hasSearchedOnce ? "No Churches Found" : "Finding churches near you",
+                                subtitle: hasChurchData && filteredChurches.isEmpty
+                                    ? "Try different filters"
+                                    : hasSearchedOnce
+                                        ? "Try searching by name or denomination"
+                                        : "Tap the search bar or wait for your location"
                             )
                         } else if !locationManager.isAuthorized {
                             FindChurchEmptyState(
@@ -4269,7 +4272,7 @@ struct MinimalChurchHeader: View {
                 )
                 .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
         )
-        .glassEffect(.regular.tint(.white.opacity(0.06)), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .amenGlassEffect(.white.opacity(0.06), cornerRadius: 28)
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 8)

@@ -1,8 +1,12 @@
 import * as admin from "firebase-admin";
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
-import Stripe from "stripe";
+import { defineSecret } from "firebase-functions/params";
+import Stripe = require("stripe");
+import type { StripeEvent, StripeSubscription, StripePaymentIntent, StripeSubscriptionStatus } from "../stripeHelper";
 
+const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
+const stripeEntitlementWebhookSecret = defineSecret("STRIPE_ENTITLEMENT_WEBHOOK_SECRET");
 const db = admin.firestore();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -21,10 +25,9 @@ async function assertSpaceAdminOrOwner(spaceId: string, uid: string): Promise<vo
     }
 }
 
-function stripeClient(): Stripe {
-    const key = process.env.STRIPE_SECRET_KEY;
+function stripeClient(key: string) {
     if (!key) throw new HttpsError("internal", "Stripe secret key not configured.");
-    return new Stripe(key, { apiVersion: "2024-06-20" });
+    return new Stripe(key, { apiVersion: "2026-05-27.dahlia" });
 }
 
 // ── grantAccess ───────────────────────────────────────────────────────────────
@@ -116,10 +119,10 @@ export const revokeAccess = onCall(async (request) => {
 // All writes are status flips — never deletes entitlement docs.
 
 export const stripeWebhookEntitlementHandler = onRequest(
-    { invoker: "public" },
+    { invoker: "public", secrets: [stripeSecretKey, stripeEntitlementWebhookSecret] },
     async (req, res) => {
         const sig = req.headers["stripe-signature"];
-        const webhookSecret = process.env.STRIPE_ENTITLEMENT_WEBHOOK_SECRET;
+        const webhookSecret = stripeEntitlementWebhookSecret.value();
 
         if (!sig || !webhookSecret) {
             logger.error("[stripeWebhookEntitlementHandler] Missing signature or webhook secret.");
@@ -127,9 +130,9 @@ export const stripeWebhookEntitlementHandler = onRequest(
             return;
         }
 
-        let event: Stripe.Event;
+        let event: StripeEvent;
         try {
-            event = stripeClient().webhooks.constructEvent(
+            event = stripeClient(stripeSecretKey.value()).webhooks.constructEvent(
                 (req as unknown as { rawBody: Buffer }).rawBody,
                 sig,
                 webhookSecret
@@ -150,13 +153,13 @@ export const stripeWebhookEntitlementHandler = onRequest(
     }
 );
 
-async function dispatchStripeEvent(event: Stripe.Event): Promise<void> {
+async function dispatchStripeEvent(event: StripeEvent): Promise<void> {
     const now = admin.firestore.FieldValue.serverTimestamp();
 
     switch (event.type) {
 
         case "payment_intent.succeeded": {
-            const pi = event.data.object as Stripe.PaymentIntent;
+            const pi = event.data.object as StripePaymentIntent;
             const spaceId = pi.metadata?.spaceId;
             const userId  = pi.metadata?.userId ?? pi.metadata?.uid;
             if (!spaceId || !userId) {
@@ -180,7 +183,7 @@ async function dispatchStripeEvent(event: Stripe.Event): Promise<void> {
         }
 
         case "customer.subscription.updated": {
-            const sub = event.data.object as Stripe.Subscription;
+            const sub = event.data.object as StripeSubscription;
             const spaceId = sub.metadata?.spaceId;
             const userId  = sub.metadata?.userId ?? sub.metadata?.uid;
             if (!spaceId || !userId) {
@@ -205,7 +208,7 @@ async function dispatchStripeEvent(event: Stripe.Event): Promise<void> {
         }
 
         case "customer.subscription.deleted": {
-            const sub = event.data.object as Stripe.Subscription;
+            const sub = event.data.object as StripeSubscription;
             const spaceId = sub.metadata?.spaceId;
             const userId  = sub.metadata?.userId ?? sub.metadata?.uid;
             if (!spaceId || !userId) return;
@@ -225,7 +228,7 @@ async function dispatchStripeEvent(event: Stripe.Event): Promise<void> {
 }
 
 function entitlementStatusFromStripe(
-    stripeStatus: Stripe.Subscription.Status
+    stripeStatus: StripeSubscriptionStatus
 ): "active" | "grace" | "expired" {
     switch (stripeStatus) {
         case "active":

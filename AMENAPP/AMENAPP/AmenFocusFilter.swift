@@ -73,6 +73,8 @@ struct AmenFocusFilter: SetFocusFilterIntent {
             // Restore all calm mode settings to their defaults
             await MainActor.run {
                 CalmModeManager.shared.reset()
+                ShabbatModeService.shared.setEnabled(false)
+                UserDefaults.standard.set(false, forKey: "focusFilterPrayerOnly")
             }
             dlog("AmenFocusFilter: general mode — defaults restored")
 
@@ -89,12 +91,14 @@ struct AmenFocusFilter: SetFocusFilterIntent {
             dlog("AmenFocusFilter: church mode — active mode, calm off")
 
         case .prayer:
-            // Prayer time calls for calm, reduced distraction.
+            // Prayer time calls for calm, reduced distraction, and silenced social features.
             await MainActor.run {
                 CalmModeManager.shared.isEnabled = true
                 CalmModeManager.shared.reducedAnimations = true
+                ShabbatModeService.shared.setEnabled(true)
+                UserDefaults.standard.set(true, forKey: "focusFilterPrayerOnly")
             }
-            dlog("AmenFocusFilter: prayer mode — calm on, reduced animations")
+            dlog("AmenFocusFilter: prayer mode — calm on, reduced animations, social silenced")
 
         case .study:
             // Bible study — route to Berean, leave calm mode state untouched.

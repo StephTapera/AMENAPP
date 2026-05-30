@@ -153,6 +153,25 @@ final class ClaudeService: ObservableObject {
         return sendMessage(prompt, conversationHistory: [], mode: mode)
     }
 
+    // MARK: - Berean Chat Message (v2 streaming API used by BereanChatView)
+
+    func sendBereanChatMessage(
+        _ text: String,
+        conversationId: String,
+        conversationHistory: [OpenAIChatMessage],
+        mode: BereanPersonalityMode,
+        selectedMode: String,
+        memoryScope: BereanMemoryScope,
+        postContext: BereanPostContext?,
+        systemPromptSuffix: String?,
+        composerContext: BereanComposerSubmissionContext?,
+        onPreflight: ((BereanPreflightResult) -> Void)? = nil,
+        onModeAuthority: ((BereanModeAuthority) -> Void)? = nil
+    ) -> AsyncThrowingStream<String, Error> {
+        return sendMessage(text, conversationHistory: conversationHistory,
+                           mode: mode, systemPromptSuffix: systemPromptSuffix)
+    }
+
     // MARK: - Sync Completion
 
     func sendMessageSync(
@@ -337,6 +356,9 @@ final class ClaudeService: ObservableObject {
         case .prayerCompanion:  prompt += "\n\nMode: Prayer Companion. Be gentle, prayerful, and spiritually attentive."
         case .deepStudy:        prompt += "\n\nMode: Deep Study. Provide rigorous theological depth with historical and exegetical context."
         case .discernment:      prompt += "\n\nMode: Discernment. Help the user weigh competing options or convictions with scriptural grounding and measured wisdom."
+        case .mediaInsight:     prompt += "\n\nMode: Media Insight. Summarize and evaluate media content for scriptural accuracy and spiritual value."
+        case .workLifeWisdom:   prompt += "\n\nMode: Work/Life Wisdom. Offer biblical wisdom for workplace and life challenges."
+        case .safetyReview:     prompt += "\n\nMode: Safety Review. Review content for shame, manipulation, or harmful spiritual counsel."
         }
 
         if let suffix, !suffix.isEmpty {
@@ -461,4 +483,45 @@ final class ClaudeService: ObservableObject {
         let now = Date()
         responseCache = responseCache.filter { now.timeIntervalSince($0.value.timestamp) <= cacheTTL }
     }
+
+    // MARK: - Client-Side Safety Sanitization
+
+    /// Applies client-side safety regex to an assembled Berean response.
+    /// The backend already validates; this is a belt-and-suspenders check for
+    /// anything that slipped through on a bad connection or edge case.
+    /// Returns the input unchanged when no patterns match.
+    func sanitizeResponse(_ response: String) -> String {
+        // Strip any accidental API key leakage patterns (sk-...).
+        var result = response
+        let patterns: [String] = [
+            #"sk-[A-Za-z0-9]{20,}"#,          // Anthropic / OpenAI key pattern
+            #"AIza[A-Za-z0-9_\-]{35}"#,        // Google API key pattern
+            #"ya29\.[A-Za-z0-9_\-]+"#           // OAuth bearer token
+        ]
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern) {
+                let range = NSRange(result.startIndex..., in: result)
+                result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "[REDACTED]")
+            }
+        }
+        return result
+    }
+}
+
+// MARK: - Berean Chat v2 Callback Types
+
+struct BereanPreflightResult {
+    var shortCircuitResponse: String? = nil
+    var requiresPastoralCare: Bool = false
+    var crisisDetected: Bool = false
+}
+
+struct BereanModeAuthority {
+    var wasDowngraded: Bool = false
+    var acceptedMode: String? = nil
+    var deepCreditsRemaining: Int? = nil
+    var quotaExceeded: Bool? = nil
+    var entitlementRequired: Bool? = nil
+    var fallbackReason: String? = nil
+    var fallbackMode: String? = nil
 }

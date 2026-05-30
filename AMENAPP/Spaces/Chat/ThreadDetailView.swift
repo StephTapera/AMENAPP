@@ -339,10 +339,21 @@ struct ThreadDetailView: View {
             .accessibilityHint("Opens the purchase sheet to unlock access")
             Spacer()
         }
-        // sheet placeholder — downstream agent wires actual purchase view
+        // H-16 / B-24: Replaced placeholder with ContentUnavailableView until
+        // SpacesPurchaseSheet is wired and paymentsEnabled flag is on.
         .sheet(isPresented: $showPurchaseSheet) {
-            Text("Purchase sheet coming in Agent E.")
-                .padding()
+            NavigationStack {
+                ContentUnavailableView(
+                    "Coming Soon",
+                    systemImage: "lock.fill",
+                    description: Text("Paid Space access is coming soon.")
+                )
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Close") { showPurchaseSheet = false }
+                    }
+                }
+            }
         }
         .accessibilityElement(children: .contain)
     }

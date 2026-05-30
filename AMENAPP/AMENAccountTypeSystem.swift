@@ -126,9 +126,11 @@ enum AccountTypeConfigurationFactory {
 
     static func configuration(for type: AMENAccountType) -> AccountTypeConfiguration {
         switch type {
-        case .personal: return personal
-        case .church:   return church
-        case .business: return business
+        case .personal:   return personal
+        case .church:     return church
+        case .business:   return business
+        case .school:     return school
+        case .university: return university
         }
     }
 
@@ -320,6 +322,126 @@ enum AccountTypeConfigurationFactory {
             ]
         )
     }
+
+    // MARK: School
+
+    static var school: AccountTypeConfiguration {
+        AccountTypeConfiguration(
+            accountType: .school,
+            profileModules: [
+                .churchAffiliation,
+                .faithJourney,
+                .serviceTimes,
+                .locationDirections,
+                .ministriesAnnouncements,
+                .churchAdminTools
+            ],
+            profileActions: [
+                .planVisit,
+                .messageChurch,
+                .viewEvents,
+                .prayerRequest
+            ],
+            composerPresets: [
+                .announcement,
+                .ministryUpdate,
+                .eventInvite,
+                .congregationPrayer
+            ],
+            setupChecklist: [
+                .addServiceTimes,
+                .addLocation,
+                .uploadLogo,
+                .createFirstAnnouncement,
+                .assignStaffRoles
+            ],
+            capabilities: AccountCapabilities(
+                canPostAsOrganization:   true,
+                canManageMembers:        true,
+                canCreateEvents:         true,
+                canArchiveSermons:       false,
+                canGoLive:               false,
+                canViewAnalytics:        true,
+                canManageAdmins:         true,
+                canAddServiceTimes:      true,
+                hasVerificationFlow:     true,
+                canFeatureOfferings:     false,
+                canAddBusinessLinks:     false,
+                hasAIModeration:         true,
+                canAddChurchAffiliation: false,
+                hasPrivacyControls:      true
+            ),
+            composerPlaceholder: "Share an announcement, devotional, event, or prayer update...",
+            discoveryTags: ["school", "faith-based education", "chapel", "K-12", "community"],
+            settingsSectionLabels: [
+                "School Details",
+                "Admin & Staff Roles",
+                "Calendar & Events",
+                "Moderation"
+            ]
+        )
+    }
+
+    // MARK: University
+
+    static var university: AccountTypeConfiguration {
+        AccountTypeConfiguration(
+            accountType: .university,
+            profileModules: [
+                .churchAffiliation,
+                .faithJourney,
+                .serviceTimes,
+                .locationDirections,
+                .ministriesAnnouncements,
+                .churchAdminTools
+            ],
+            profileActions: [
+                .planVisit,
+                .messageChurch,
+                .viewEvents,
+                .prayerRequest
+            ],
+            composerPresets: [
+                .announcement,
+                .ministryUpdate,
+                .eventInvite,
+                .congregationPrayer,
+                .reflection
+            ],
+            setupChecklist: [
+                .addLocation,
+                .uploadLogo,
+                .createFirstAnnouncement,
+                .assignStaffRoles,
+                .addSermonSource
+            ],
+            capabilities: AccountCapabilities(
+                canPostAsOrganization:   true,
+                canManageMembers:        true,
+                canCreateEvents:         true,
+                canArchiveSermons:       true,
+                canGoLive:               true,
+                canViewAnalytics:        true,
+                canManageAdmins:         true,
+                canAddServiceTimes:      true,
+                hasVerificationFlow:     true,
+                canFeatureOfferings:     false,
+                canAddBusinessLinks:     false,
+                hasAIModeration:         true,
+                canAddChurchAffiliation: false,
+                hasPrivacyControls:      true
+            ),
+            composerPlaceholder: "Share a chapel recap, study group, announcement, or prayer request...",
+            discoveryTags: ["university", "campus ministry", "chapel", "college faith", "student community"],
+            settingsSectionLabels: [
+                "University Details",
+                "Ministry Admin Roles",
+                "Chapel & Events",
+                "Analytics",
+                "Moderation"
+            ]
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -415,9 +537,11 @@ struct AccountTypeBadgeView: View {
     // The secondary label shown after the bullet (e.g., "Verification required")
     private var subtitle: String? {
         switch type {
-        case .personal: return nil
-        case .church:   return "Verification required"
-        case .business: return "Organization"
+        case .personal:   return nil
+        case .church:     return "Verification required"
+        case .business:   return "Organization"
+        case .school:     return "School account"
+        case .university: return "Campus account"
         }
     }
 

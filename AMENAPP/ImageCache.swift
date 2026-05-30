@@ -25,13 +25,26 @@ class ImageCache {
     // Background queue for image resizing
     private let resizeQueue = DispatchQueue(label: "com.amen.imageResize", qos: .userInitiated)
 
+    // Stored token for the memory-warning observer so it can be removed in deinit
+    private var memoryWarningObserver: NSObjectProtocol?
+
+    // URLSession that uses URLCache.shared (configured in AMENAPPApp with 64MB RAM + 256MB disk).
+    // This allows profile images and post images to be served from disk on warm starts without
+    // a network round-trip. Previously URLSession.shared ignored URLCache.shared.
+    private let cachingSession: URLSession = {
+        let cfg = URLSessionConfiguration.default
+        cfg.urlCache = URLCache.shared
+        cfg.requestCachePolicy = .returnCacheDataElseLoad
+        return URLSession(configuration: cfg)
+    }()
+
     private init() {
         // Configure cache limits
         cache.countLimit = 150  // Cache up to 150 images
         cache.totalCostLimit = 75 * 1024 * 1024  // 75MB memory limit
 
-        // Clear cache on memory warning
-        NotificationCenter.default.addObserver(
+        // Clear cache on memory warning — store token so deinit can remove it
+        memoryWarningObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification,
             object: nil,
             queue: .main
@@ -41,6 +54,12 @@ class ImageCache {
             Task { @MainActor [weak self] in
                 self?.cache.removeAllObjects()
             }
+        }
+    }
+
+    deinit {
+        if let token = memoryWarningObserver {
+            NotificationCenter.default.removeObserver(token)
         }
     }
 
@@ -70,8 +89,9 @@ class ImageCache {
             guard let imageURL = URL(string: url) else { return nil }
 
             do {
-                // Download image data
-                let (data, _) = try await URLSession.shared.data(from: imageURL)
+                // Use cachingSession (backed by URLCache.shared) so disk-cached images
+                // are served instantly on warm starts without a network round-trip.
+                let (data, _) = try await self.cachingSession.data(from: imageURL)
                 guard let image = UIImage(data: data) else { return nil }
 
                 // Resize on background thread to avoid blocking main thread

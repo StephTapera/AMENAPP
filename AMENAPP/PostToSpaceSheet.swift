@@ -14,8 +14,18 @@ struct PostToSpaceSheet: View {
     @State private var isPosting     = false
     @State private var errorMessage: String? = nil
 
-    // Simulated confidence score (static for now; could be wired to an AI call)
-    private let confidenceScore: Int = 94
+    // Confidence score derived from post content — no remote dependency needed.
+    private var confidenceScore: Int {
+        let text = postText.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return 0 }
+        guard text.count >= 20 else { return 50 }
+        // Check for common scripture reference patterns (e.g. "John 3:16", "Psalm 23", "1 Cor 13:4")
+        let scripturePattern = #"(\d\s)?(Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|Samuel|Kings|Chronicles|Ezra|Nehemiah|Esther|Job|Psalm|Psalms|Proverbs|Ecclesiastes|Song|Isaiah|Jeremiah|Lamentations|Ezekiel|Daniel|Hosea|Joel|Amos|Obadiah|Jonah|Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|Matthew|Mark|Luke|John|Acts|Romans|Corinthians|Galatians|Ephesians|Philippians|Colossians|Thessalonians|Timothy|Titus|Philemon|Hebrews|James|Peter|Jude|Revelation|Gen|Ex|Lev|Num|Deut|Josh|Judg|Ps|Prov|Isa|Jer|Ezek|Dan|Matt|Rom|Cor|Gal|Eph|Phil|Col|Thess|Tim|Rev)\s*\d+:\d+"#
+        if let _ = text.range(of: scripturePattern, options: [.regularExpression, .caseInsensitive]) {
+            return 95
+        }
+        return min(70 + text.count / 5, 95)
+    }
 
     private let background    = Color(red: 0.039, green: 0.039, blue: 0.059)
     private let accentPurple  = Color(red: 0.6,   green: 0.35,  blue: 1.0)

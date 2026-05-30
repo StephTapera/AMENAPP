@@ -446,6 +446,7 @@ struct SelahView: View {
                 .presentationDragIndicator(.visible)
             }
         }
+        .tint(Color.amenBlue)
     }
 
     // MARK: - Top Bar (Liquid Glass)
@@ -1000,7 +1001,9 @@ struct SelahView: View {
                     toastMessage = "\(output.type.rawValue) saved to Church Notes"
                     showToast()
                 }
-            } catch {}
+            } catch {
+                print("[ERROR] SelahView: failed to save note to Church Notes — \(error)")
+            }
         }
     }
 
@@ -1254,7 +1257,7 @@ struct HighlightedTextView: View {
                 guard let foundRange = result[searchRange].range(of: phrase, options: .caseInsensitive) else {
                     break
                 }
-                result[foundRange].backgroundColor = Color.yellow.opacity(0.35)
+                result[foundRange].backgroundColor = Color.amenBlue.opacity(0.15)
                 // Advance past this match
                 let after = foundRange.upperBound
                 if after >= result.endIndex { break }

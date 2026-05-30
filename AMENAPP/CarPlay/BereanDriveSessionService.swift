@@ -90,6 +90,10 @@ final class BereanDriveSessionService: ObservableObject {
     // MARK: - Berean Drive Q&A
 
     func askBerean(question: String, preferences: BereanDrivePreferences) async -> BereanDriveResponse {
+        // B-23: Gate — bereanDriveRespond CF is not yet deployed.
+        guard AMENFeatureFlags.shared.bereanDriveEnabled else {
+            return errorResponse("Berean Drive is coming soon. Please check back after the next update.")
+        }
         guard isWithinRateLimit() else {
             return rateLimitedResponse()
         }
@@ -106,7 +110,7 @@ final class BereanDriveSessionService: ObservableObject {
         ]
 
         do {
-            let result = try await functions.httpsCallable("bereanDriveRespond").call(payload)
+            let result = try await functions.httpsCallable(BereanDriveCallableNames.respond).call(payload)
             guard let data = result.data as? [String: Any] else {
                 return errorResponse("Unable to get a response right now.")
             }
@@ -121,6 +125,10 @@ final class BereanDriveSessionService: ObservableObject {
     // MARK: - Driving-Safe Summarizer
 
     func summarizeForDriving(longText: String, preferences: BereanDrivePreferences) async -> BereanDriveResponse {
+        // B-23: Gate — bereanDriveSummarize CF is not yet deployed.
+        guard AMENFeatureFlags.shared.bereanDriveEnabled else {
+            return errorResponse("Berean Drive is coming soon.")
+        }
         guard isWithinRateLimit() else { return rateLimitedResponse() }
         recordRequest()
         isLoading = true
@@ -133,7 +141,7 @@ final class BereanDriveSessionService: ObservableObject {
         ]
 
         do {
-            let result = try await functions.httpsCallable("bereanDriveSummarize").call(payload)
+            let result = try await functions.httpsCallable(BereanDriveCallableNames.summarize).call(payload)
             guard let data = result.data as? [String: Any] else { return errorResponse("Summary unavailable.") }
             let response = parseDriveResponse(data)
             return safetyGate.validateDriveResponse(response, youthSafetyEnabled: preferences.youthSafetyEnabled)
@@ -146,6 +154,10 @@ final class BereanDriveSessionService: ObservableObject {
     // MARK: - Prayer Session
 
     func startPrayerSession(mode: BereanPrayerMode, preferences: BereanDrivePreferences) async -> BereanDriveResponse {
+        // B-23: Gate — bereanDrivePrayerSession CF is not yet deployed.
+        guard AMENFeatureFlags.shared.bereanDriveEnabled else {
+            return localPrayerFallback(mode: mode)
+        }
         guard isWithinRateLimit() else { return rateLimitedResponse() }
         recordRequest()
         isLoading = true
@@ -162,7 +174,7 @@ final class BereanDriveSessionService: ObservableObject {
         ]
 
         do {
-            let result = try await functions.httpsCallable("bereanDrivePrayerSession").call(payload)
+            let result = try await functions.httpsCallable(BereanDriveCallableNames.prayerSession).call(payload)
             guard let data = result.data as? [String: Any] else {
                 return localPrayerFallback(mode: mode)
             }
@@ -181,6 +193,8 @@ final class BereanDriveSessionService: ObservableObject {
         longitude: Double,
         preferences: BereanDrivePreferences
     ) async -> [BereanDriveChurchResult] {
+        // B-23: Gate — bereanDriveChurchSearch CF is not yet deployed.
+        guard AMENFeatureFlags.shared.bereanDriveEnabled else { return [] }
         guard isWithinRateLimit() else { return [] }
         recordRequest()
         isLoading = true
@@ -198,7 +212,7 @@ final class BereanDriveSessionService: ObservableObject {
         ]
 
         do {
-            let result = try await functions.httpsCallable("bereanDriveChurchSearch").call(payload)
+            let result = try await functions.httpsCallable(BereanDriveCallableNames.churchSearch).call(payload)
             guard let data = result.data as? [String: Any],
                   let churches = data["churches"] as? [[String: Any]] else { return [] }
             return churches.compactMap { parseChurchResult($0) }
@@ -222,6 +236,10 @@ final class BereanDriveSessionService: ObservableObject {
         )
         guard localResult.isSafe else { return localResult }
 
+        // B-23: Gate — bereanDriveMessageSafetyReview CF is not yet deployed.
+        // Return local result when flag is off (fail-safe: already passed local screen above).
+        guard AMENFeatureFlags.shared.bereanDriveEnabled else { return localResult }
+
         // Server review for borderline content
         let payload: [String: Any] = [
             "messageText": messageText,
@@ -231,7 +249,7 @@ final class BereanDriveSessionService: ObservableObject {
         ]
 
         do {
-            let result = try await functions.httpsCallable("bereanDriveMessageSafetyReview").call(payload)
+            let result = try await functions.httpsCallable(BereanDriveCallableNames.messageSafetyReview).call(payload)
             guard let data = result.data as? [String: Any] else { return localResult }
             let isSafe = data["isSafe"] as? Bool ?? false
             let category = data["blockedCategory"] as? String ?? ""

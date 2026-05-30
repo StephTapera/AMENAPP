@@ -409,7 +409,7 @@ function buildProjectCandidate(intent: PulseIntent, signals: BereanPulseSignal[]
     expandedBody: buildExpandedBody(signals),
     recommendedActionTitle: lead.entityId ? "Open project brief" : "Action unavailable",
     actionType: "openProjectBrief",
-    actionPayload,
+    actionPayload: actionPayload as Record<string, string>,
     primaryIntent: intent,
     sourceSignals: signals,
     permissionRequirements: ["workProjectContext"],
@@ -574,7 +574,7 @@ function buildOpenLoopCandidate(signals: BereanPulseSignal[]): CandidateCard {
     expandedBody: buildExpandedBody(signals),
     recommendedActionTitle: Object.keys(payload).length > 0 ? "Resolve open loop" : "Explain in chat",
     actionType,
-    actionPayload: Object.keys(payload).length > 0 ? payload : { prompt: lead.summary, mode: "strategist" },
+    actionPayload: (Object.keys(payload).length > 0 ? payload : { prompt: lead.summary, mode: "strategist" }) as Record<string, string>,
     primaryIntent: "openLoopResolution",
     sourceSignals: signals,
     permissionRequirements: [lead.source],
@@ -639,7 +639,7 @@ function finalizeCandidate(
   }
 
   if (candidate.recommendedActionTitle.startsWith("Action unavailable") ||
-      candidate.recommendedActionTitle.contains("unavailable")) {
+      candidate.recommendedActionTitle.includes("unavailable")) {
     matchScore = Math.min(matchScore, 0.45);
   }
 

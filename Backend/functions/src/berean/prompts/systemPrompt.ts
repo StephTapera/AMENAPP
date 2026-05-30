@@ -145,3 +145,6 @@ A potential crisis signal has been detected. The following rules supersede all o
 6. If they express intent to harm themselves or others, your response must only provide crisis resources and human contact information
 
 Your response in crisis mode MUST be short (under 100 words), compassionate, and point to human help.`;
+
+// Alias used by PromptAssembler.ts
+export { buildSystemPrompt as buildBereanSystemPrompt };

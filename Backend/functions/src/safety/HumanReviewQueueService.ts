@@ -67,6 +67,7 @@ export interface QueueItem {
   harmCategoryId?: string;
   policyVersion: string;
   createdAt: admin.firestore.Timestamp;
+  dualApprovalRequired?: boolean;
 }
 
 // ─── Enqueue ──────────────────────────────────────────────────────────────────

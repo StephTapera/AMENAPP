@@ -24,7 +24,7 @@ struct AMENAccount: Identifiable, Codable, Equatable {
     var username: String
     var email: String
     var profileImageURL: String?
-    var accountType: String // "Personal", "Church", "Business"
+    var accountType: String // "Personal", "Church", "Business", "School", "University"
     var isVerified: Bool
     var lastAccessedAt: Date
     

@@ -157,7 +157,7 @@ async function applyEntitlement(uid, tier, source, metadata = {}) {
   return entitlement;
 }
 
-exports.getPremiumEntitlement = onCall({region: REGION}, async (request) => {
+exports.getPremiumEntitlement = onCall({enforceAppCheck: true, region: REGION}, async (request) => {
   const uid = requireAuth(request);
   const tier = await getUserTier(uid);
   return {
@@ -168,10 +168,24 @@ exports.getPremiumEntitlement = onCall({region: REGION}, async (request) => {
   };
 });
 
-exports.syncPremiumEntitlement = onCall({region: REGION}, async (request) => {
+exports.syncPremiumEntitlement = onCall({enforceAppCheck: true, region: REGION}, async (request) => {
   const uid = requireAuth(request);
   const {signedTransactionInfo, productId: fallbackProductId} = request.data || {};
-  const payload = decodeJwsPayload(signedTransactionInfo);
+
+  let payload = null;
+  if (signedTransactionInfo) {
+    if (hasAppStoreServerCredentials()) {
+      try {
+        payload = await getSignedDataVerifier().verifyAndDecodeTransaction(signedTransactionInfo);
+      } catch (err) {
+        throw new HttpsError("invalid-argument", "Invalid App Store transaction: signature verification failed");
+      }
+    } else {
+      console.warn("[syncPremiumEntitlement] App Store credentials not configured — using unverified JWS decode");
+      payload = decodeJwsPayload(signedTransactionInfo);
+    }
+  }
+
   const productId = payload?.productId || fallbackProductId;
   const validation = validateDecodedTransactionPayload(payload, fallbackProductId);
   const tier = tierForProduct(productId);
@@ -364,7 +378,7 @@ exports.recordAIUsageAndCheckLimit = onCall({region: REGION}, async (request) =>
   });
 });
 
-exports.requirePremiumFeature = onCall({region: REGION}, async (request) => {
+exports.requirePremiumFeature = onCall({enforceAppCheck: true, region: REGION}, async (request) => {
   const uid = requireAuth(request);
   const requiredTier = normalizeTier(request.data?.requiredTier || "plus");
   const tier = await getUserTier(uid);

@@ -164,7 +164,7 @@ const onPostCreatedML = onDocumentCreated(
 
       // Virality baseline
       try {
-        const authorDoc = await db.collection("users").document(authorId).get();
+        const authorDoc = await db.collection("users").doc(authorId).get();
         const followerCount = authorDoc.data()?.followerCount || 0;
         const postsSnap = await db.collection("posts")
           .where("authorId", "==", authorId)

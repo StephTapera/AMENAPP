@@ -313,9 +313,9 @@ struct BereanStudySheetView: View {
                     SectionSubheading("Prayer Seed")
                     Text(prayerSeed)
                         .font(.body.italic())
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.amenBlue)
                         .padding(12)
-                        .background(Color.amenGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                        .background(Color.amenBlue.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
                 }
             }
             .padding(.vertical, 12)

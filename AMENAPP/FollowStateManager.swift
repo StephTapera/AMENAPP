@@ -28,7 +28,7 @@ final class FollowStateManager: ObservableObject {
     
     private init() {
         dlog("🔰 FollowStateManager initialized")
-        
+
         // Listen for follow state changes from other parts of the app
         NotificationCenter.default.addObserver(
             self,
@@ -36,6 +36,10 @@ final class FollowStateManager: ObservableObject {
             name: .followStateDidChange,
             object: nil
         )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - Follow State Enum
@@ -61,11 +65,11 @@ final class FollowStateManager: ObservableObject {
         var buttonColor: Color {
             switch self {
             case .notFollowing, .followsYou:
-                return .blue
+                return Color.amenGold
             case .requested:
-                return .gray
+                return Color(.systemGray4)
             case .following, .mutualFollow:
-                return .green
+                return Color(.systemGray4)
             }
         }
         

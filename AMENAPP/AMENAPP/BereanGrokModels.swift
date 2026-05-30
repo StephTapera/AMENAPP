@@ -69,6 +69,7 @@ struct BereanProvenanceRecord: Equatable {
     var bereanVerified: BereanProvenanceVerdict = .passed
     var requiresPastoralCare: Bool = false
     var sensitiveTopicDetected: Bool = false
+    var sources: [BereanProvenanceSource] = []
 }
 
 // MARK: - Link Analysis (Flow 3)

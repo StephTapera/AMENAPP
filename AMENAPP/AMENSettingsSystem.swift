@@ -13,12 +13,12 @@ import Combine
 // MARK: - Design Tokens
 
 private enum ST {
-    static let bg             = Color.white
-    static let glassFill      = Color.white.opacity(0.55)
-    static let hairline       = Color(white: 0.88).opacity(0.5)
-    static let primary        = Color.black
-    static let secondary      = Color(white: 0.45)
-    static let tertiary       = Color(white: 0.65)
+    static let bg             = Color(.systemBackground)
+    static let glassFill      = Color(.systemBackground).opacity(0.55)
+    static let hairline       = Color(uiColor: .separator).opacity(0.5)
+    static let primary        = Color.primary
+    static let secondary      = Color.secondary
+    static let tertiary       = Color(.tertiaryLabel)
     static let shadow         = Color.black.opacity(0.05)
     static let danger         = Color(red: 0.92, green: 0.18, blue: 0.18)
     static let radius: CGFloat = 16
@@ -300,6 +300,7 @@ struct SettingsToggleRow: View {
                 .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(ST.secondary)
                 .frame(width: 22, alignment: .center)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -316,11 +317,14 @@ struct SettingsToggleRow: View {
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .tint(Color(red: 0.20, green: 0.42, blue: 0.98))
+                .tint(AmenTheme.Colors.amenBlue)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, subtitle != nil ? 11 : 13)
         .contentShape(Rectangle())
+        .accessibilityLabel(title)
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityHint("Double tap to toggle")
     }
 }
 
@@ -338,6 +342,7 @@ struct SettingsNavigationRow: View {
                     .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(ST.secondary)
                     .frame(width: 22, alignment: .center)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -358,18 +363,22 @@ struct SettingsNavigationRow: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(Color(red: 0.20, green: 0.42, blue: 0.98)))
+                        .background(Capsule().fill(AmenTheme.Colors.amenBlue))
+                        .accessibilityHidden(true)
                 }
 
                 Image(systemName: "chevron.right")
                     .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(ST.tertiary)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, subtitle != nil ? 11 : 13)
             .contentShape(Rectangle())
         }
         .buttonStyle(STPressStyle())
+        .accessibilityLabel(title)
+        .accessibilityHint("Opens \(title) settings")
     }
 }
 
@@ -435,7 +444,7 @@ struct STDivider: View {
 struct STPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .background(configuration.isPressed ? Color.black.opacity(0.04) : Color.clear)
+            .background(configuration.isPressed ? Color.primary.opacity(0.04) : Color.clear)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
@@ -659,9 +668,10 @@ struct AccountTypePill: View {
 // MARK: - Main Settings View
 
 struct AMENSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var searchService = SettingsSearchService()
     @State private var searchText: String = ""
-    @State private var isSuggestedDismissed: Bool = false
+    @AppStorage("dismissedSuggestionsSettings") private var isSuggestedDismissed: Bool = false
     @State private var selectedSection: AMENSettingsSection? = nil
     @State private var appeared: Bool = false
 
@@ -727,6 +737,17 @@ struct AMENSettingsView: View {
                     Text("Settings")
                         .font(AMENFont.semiBold(17))
                         .foregroundStyle(ST.primary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(ST.tertiary)
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                    .accessibilityLabel("Close Settings")
                 }
             }
             .navigationDestination(item: $selectedSection) { section in
@@ -936,12 +957,13 @@ struct AccountSettingsViewNew: View {
                 .padding(.horizontal, 4)
                 .padding(.top, 8)
         }
-        .alert("Delete Account", isPresented: $showDeleteConfirm) {
-            Button("Delete in 30 days", role: .destructive) {}
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Your account will be scheduled for deletion. You have 30 days to cancel. All data will be permanently removed.")
-        }
+        .amenAlert(isPresented: $showDeleteConfirm, config: LiquidGlassAlertConfig(
+            title: "Delete Account",
+            message: "Your account will be scheduled for deletion. You have 30 days to cancel. All data will be permanently removed.",
+            icon: "trash.fill",
+            primaryButton: LiquidGlassAlertButton("Delete Account", tone: .destructive) {},
+            secondaryButton: .cancel()
+        ))
     }
 }
 

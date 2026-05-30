@@ -128,6 +128,8 @@ struct UserAgeProfile: Codable {
             return tier == .adult
         case .liveStreaming:
             return tier == .adult
+        case .bereanAI:
+            return tier != .underMinimum
         }
     }
     
@@ -169,7 +171,8 @@ enum AgeRestrictedFeature {
     case publicProfile       // Public profiles: 13+
     case sensitiveContent    // Sensitive content: 18+
     case commerce            // In-app purchases, marketplace: 18+
-    case liveStreaming       // Live video: 18+
+    case liveStreaming        // Live video: 18+
+    case bereanAI            // Berean AI chat: 13+ (COPPA compliance)
 }
 
 // MARK: - Age Verification Event

@@ -39,7 +39,10 @@ export const processVideoProxy = functions.https.onCall(async (data, context) =>
     try {
         await createProxyVideo(localInput, localOutput);
         await uploadFromTmp(localOutput, outputStoragePath);
-        const proxyURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({ action: "read", expires: "03-01-2500" }))[0];
+        // SECURITY (H-04): 7-day TTL. The previous "03-01-2500" value produced a
+        // ~475-year signed URL persisted to Firestore, surviving file/account deletion.
+        const sevenDaysMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+        const proxyURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({ action: "read", expires: sevenDaysMs }))[0];
         await jobRef.set(
             { status: "completed", progress: 1, outputRefs: [proxyURL], outputStoragePath: outputStoragePath },
             { merge: true }

@@ -188,12 +188,17 @@ export const requestTemporaryElevation = onCall(
         const grantedBySessionId = crypto.randomBytes(24).toString("hex");
 
         // ── 5. Write session record ──────────────────────────────────────────
+        // revokedAt and expiredAt are written as explicit null so that the
+        // cleanup query (`where("revokedAt", "==", null)`) matches this doc.
+        // Firestore does not index missing fields the same way as null values.
         await db.collection("jitAccessSessions").doc(uid).set({
             uid,
             role,
             grantedAt,
             expiresAt,
             grantedBySessionId,
+            revokedAt: null,
+            expiredAt: null,
         });
 
         // ── 6. Set custom claims ─────────────────────────────────────────────
@@ -275,10 +280,14 @@ export const cleanupExpiredJitSessions = onSchedule(
 
         // Query sessions that have passed their expiry and have NOT been
         // explicitly revoked or already marked expired.
+        // Both revokedAt and expiredAt are stored as explicit null at creation
+        // time so these equality filters match correctly (Firestore does not
+        // treat a missing field the same as null in where clauses).
         const expiredSnap = await db
             .collection("jitAccessSessions")
             .where("expiresAt", "<=", now)
             .where("revokedAt", "==", null)
+            .where("expiredAt", "==", null)
             .get();
 
         if (expiredSnap.empty) {

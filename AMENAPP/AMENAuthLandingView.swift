@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 import AuthenticationServices
 import CryptoKit
+import FirebaseAuth
 
 struct AMENAuthLandingView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
@@ -91,6 +92,11 @@ struct AMENAuthLandingView: View {
                         signInLink
                             .opacity(linkOpacity)
                             .padding(.top, 4)
+
+                        #if targetEnvironment(simulator)
+                        simulatorBypassButton
+                            .padding(.top, 8)
+                        #endif
                     }
                     .frame(maxWidth: 375)
                     .padding(.horizontal, 28)
@@ -109,6 +115,23 @@ struct AMENAuthLandingView: View {
         }
         .onAppear { runEntryAnimation() }
     }
+
+    // MARK: - Simulator bypass (debug only)
+
+    #if targetEnvironment(simulator)
+    private var simulatorBypassButton: some View {
+        Button {
+            authViewModel.simulatorBypass()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "wrench.and.screwdriver")
+                Text("Skip login (Simulator only)")
+                    .font(.caption)
+            }
+            .foregroundStyle(.secondary)
+        }
+    }
+    #endif
 
     // MARK: - Apple button
 
@@ -219,7 +242,7 @@ struct AMENAuthLandingView: View {
             } label: {
                 Text("Sign in")
                     .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.amenBlue)
             }
             .buttonStyle(.plain)
         }

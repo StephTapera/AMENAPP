@@ -12,11 +12,13 @@
 //                  + shadow black 0.06 radius 12
 //  - Typography: AMENFont
 //
-//  Pure SwiftUI + Foundation — NO Firebase imports.
+//  Firebase writes go through FirebaseFirestore and FirebaseAuth.
 //
 
 import SwiftUI
 import Foundation
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - ChurchEditProfileView
 
@@ -59,6 +61,29 @@ struct ChurchEditProfileView: View {
     @State private var newServiceTime: String = ""
     @State private var newServiceLabel: String = ""
     @State private var isAddingServiceTime: Bool = false
+
+    // MARK: Save state
+
+    @State private var isSaving: Bool = false
+    @State private var saveError: String? = nil
+    @State private var showSaveErrorAlert: Bool = false
+
+    // MARK: School/University-specific state
+
+    @State private var schoolDisplayName: String = ""
+    @State private var schoolBio: String = ""
+    @State private var schoolWebsiteURL: String = ""
+    @State private var schoolPhone: String = ""
+    @State private var schoolEmail: String = ""
+    @State private var schoolAddressStreet: String = ""
+    @State private var schoolAddressCity: String = ""
+    @State private var schoolAddressState: String = ""
+    @State private var schoolAddressZip: String = ""
+    @State private var schoolGradeRange: SchoolGradeRange = .other
+    @State private var schoolEnrollmentCount: String = ""
+    @State private var schoolIsAccredited: Bool = false
+    @State private var schoolDenomination: String = ""
+    @State private var universityDegreeProgramsText: String = ""
 
     // MARK: Business-specific state
 
@@ -110,6 +135,10 @@ struct ChurchEditProfileView: View {
                         businessSections
                     case .personal:
                         EmptyView()
+                    case .school:
+                        schoolSections
+                    case .university:
+                        universitySections
                     }
 
                 }
@@ -119,6 +148,11 @@ struct ChurchEditProfileView: View {
             .background(Color.white.ignoresSafeArea())
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
+            .alert("Save Failed", isPresented: $showSaveErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(saveError ?? "An unexpected error occurred. Please try again.")
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
@@ -126,9 +160,15 @@ struct ChurchEditProfileView: View {
                         .foregroundColor(.black.opacity(0.7))
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { handleSave() }
-                        .font(AMENFont.semiBold(15))
-                        .foregroundColor(.black)
+                    if isSaving {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Button("Save") { handleSave() }
+                            .font(AMENFont.semiBold(15))
+                            .foregroundColor(.black)
+                            .disabled(isSaving)
+                    }
                 }
             }
         }
@@ -350,6 +390,110 @@ struct ChurchEditProfileView: View {
             }
             .tint(.black)
             .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: - School Sections
+
+    @ViewBuilder
+    private var schoolSections: some View {
+
+        // Display Name
+        sectionCard(header: "School Name") {
+            labeledTextField("School name", text: $schoolDisplayName)
+        }
+
+        // Bio
+        sectionCard(header: "Bio") {
+            bioEditor($schoolBio, placeholder: "Describe your school community...")
+        }
+
+        // Online Presence
+        sectionCard(header: "Website") {
+            labeledTextField("Website URL", text: $schoolWebsiteURL)
+        }
+
+        // Contact
+        sectionCard(header: "Contact") {
+            VStack(spacing: 0) {
+                labeledTextField("Phone", text: $schoolPhone)
+                    .keyboardType(.phonePad)
+                fieldDivider
+                labeledTextField("Email", text: $schoolEmail)
+                    .keyboardType(.emailAddress)
+            }
+        }
+
+        // Address
+        sectionCard(header: "Address") {
+            VStack(spacing: 0) {
+                labeledTextField("Street", text: $schoolAddressStreet)
+                fieldDivider
+                labeledTextField("City", text: $schoolAddressCity)
+                fieldDivider
+                labeledTextField("State", text: $schoolAddressState)
+                fieldDivider
+                labeledTextField("ZIP Code", text: $schoolAddressZip)
+                    .keyboardType(.numbersAndPunctuation)
+            }
+        }
+
+        // Grade Range
+        sectionCard(header: "Grade Range") {
+            Picker("Grade Range", selection: $schoolGradeRange) {
+                ForEach(SchoolGradeRange.allCases) { range in
+                    Text(range.displayName).tag(range)
+                }
+            }
+            .pickerStyle(.menu)
+            .font(AMENFont.regular(15))
+            .foregroundColor(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
+        }
+
+        // Enrollment
+        sectionCard(header: "Enrollment Count") {
+            labeledTextField("Number of students", text: $schoolEnrollmentCount)
+                .keyboardType(.numberPad)
+        }
+
+        // Accreditation
+        sectionCard(header: "Accreditation") {
+            Toggle(isOn: $schoolIsAccredited) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Accredited Institution")
+                        .font(AMENFont.semiBold(15))
+                        .foregroundStyle(Color.primary)
+                    Text("Toggle on if your school holds a recognized accreditation.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(Color.secondary)
+                }
+            }
+            .tint(Color.primary)
+            .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: - University Sections
+
+    @ViewBuilder
+    private var universitySections: some View {
+
+        // Shared school fields
+        schoolSections
+
+        // Faith affiliation / Denomination
+        sectionCard(header: "Denomination / Affiliation") {
+            labeledTextField("e.g. Baptist, Catholic, Non-denominational", text: $schoolDenomination)
+        }
+
+        // Degree Programs
+        sectionCard(header: "Degree Programs") {
+            bioEditor(
+                $universityDegreeProgramsText,
+                placeholder: "e.g. Theology, Biblical Studies, Ministry Leadership, Education..."
+            )
         }
     }
 
@@ -581,9 +725,113 @@ struct ChurchEditProfileView: View {
     }
 
     private func handleSave() {
-        // TODO: Persist changes to service layer
-        dismiss()
+        guard !isSaving else { return }
+        isSaving = true
+
+        Task { @MainActor in
+            defer { isSaving = false }
+
+            guard let uid = Auth.auth().currentUser?.uid else {
+                saveError = "You must be signed in to save changes."
+                showSaveErrorAlert = true
+                return
+            }
+
+            let db = Firestore.firestore()
+            let ref = db.collection("users").document(uid)
+
+            // Build update dictionary from edited fields (skip empty optional strings)
+            var data: [String: Any] = [
+                "username": username.trimmingCharacters(in: .whitespaces)
+            ]
+
+            switch accountType {
+            case .church:
+                data["displayName"]     = churchDisplayName.trimmingCharacters(in: .whitespaces)
+                data["bio"]             = churchBio.trimmingCharacters(in: .whitespaces)
+                data["websiteURL"]      = churchWebsiteURL.trimmingCharacters(in: .whitespaces)
+                data["livestreamURL"]   = churchLivestreamURL.trimmingCharacters(in: .whitespaces)
+                data["givingURL"]       = churchGivingURL.trimmingCharacters(in: .whitespaces)
+                data["phone"]           = churchPhone.trimmingCharacters(in: .whitespaces)
+                data["email"]           = churchEmail.trimmingCharacters(in: .whitespaces)
+                data["denomination"]    = churchDenomination.trimmingCharacters(in: .whitespaces)
+                data["addressStreet"]   = addressStreet.trimmingCharacters(in: .whitespaces)
+                data["addressCity"]     = addressCity.trimmingCharacters(in: .whitespaces)
+                data["addressState"]    = addressState.trimmingCharacters(in: .whitespaces)
+                data["addressZip"]      = addressZip.trimmingCharacters(in: .whitespaces)
+                // Encode serviceTimes as an array of maps
+                data["serviceTimes"]    = serviceTimes.map { t -> [String: Any] in
+                    var entry: [String: Any] = [
+                        "dayOfWeek": t.dayOfWeek,
+                        "startTime": t.startTime
+                    ]
+                    if let label = t.label { entry["label"] = label }
+                    return entry
+                }
+            case .business:
+                data["displayName"]       = businessDisplayName.trimmingCharacters(in: .whitespaces)
+                data["bio"]               = businessBio.trimmingCharacters(in: .whitespaces)
+                data["websiteURL"]        = businessWebsiteURL.trimmingCharacters(in: .whitespaces)
+                data["contactEmail"]      = businessContactEmail.trimmingCharacters(in: .whitespaces)
+                data["businessCategory"]  = businessCategory.trimmingCharacters(in: .whitespaces)
+                data["missionStatement"]  = businessMissionStatement.trimmingCharacters(in: .whitespaces)
+                data["businessLinks"]     = businessLinks
+                data["analyticsEnabled"]  = analyticsEnabled
+            case .personal:
+                break
+            case .school:
+                data["displayName"]       = schoolDisplayName.trimmingCharacters(in: .whitespaces)
+                data["bio"]               = schoolBio.trimmingCharacters(in: .whitespaces)
+                data["websiteURL"]        = schoolWebsiteURL.trimmingCharacters(in: .whitespaces)
+                data["phone"]             = schoolPhone.trimmingCharacters(in: .whitespaces)
+                data["email"]             = schoolEmail.trimmingCharacters(in: .whitespaces)
+                data["addressStreet"]     = schoolAddressStreet.trimmingCharacters(in: .whitespaces)
+                data["addressCity"]       = schoolAddressCity.trimmingCharacters(in: .whitespaces)
+                data["addressState"]      = schoolAddressState.trimmingCharacters(in: .whitespaces)
+                data["addressZip"]        = schoolAddressZip.trimmingCharacters(in: .whitespaces)
+                data["gradeRange"]        = schoolGradeRange.rawValue
+                data["enrollmentCount"]   = Int(schoolEnrollmentCount.trimmingCharacters(in: .whitespaces)) as Any
+                data["isAccredited"]      = schoolIsAccredited
+            case .university:
+                data["displayName"]       = schoolDisplayName.trimmingCharacters(in: .whitespaces)
+                data["bio"]               = schoolBio.trimmingCharacters(in: .whitespaces)
+                data["websiteURL"]        = schoolWebsiteURL.trimmingCharacters(in: .whitespaces)
+                data["phone"]             = schoolPhone.trimmingCharacters(in: .whitespaces)
+                data["email"]             = schoolEmail.trimmingCharacters(in: .whitespaces)
+                data["addressStreet"]     = schoolAddressStreet.trimmingCharacters(in: .whitespaces)
+                data["addressCity"]       = schoolAddressCity.trimmingCharacters(in: .whitespaces)
+                data["addressState"]      = schoolAddressState.trimmingCharacters(in: .whitespaces)
+                data["addressZip"]        = schoolAddressZip.trimmingCharacters(in: .whitespaces)
+                data["gradeRange"]        = schoolGradeRange.rawValue
+                data["enrollmentCount"]   = Int(schoolEnrollmentCount.trimmingCharacters(in: .whitespaces)) as Any
+                data["isAccredited"]      = schoolIsAccredited
+                data["denomination"]      = schoolDenomination.trimmingCharacters(in: .whitespaces)
+                data["degreePrograms"]    = universityDegreeProgramsText.trimmingCharacters(in: .whitespaces)
+            }
+
+            do {
+                try await ref.updateData(data)
+                dismiss()
+            } catch {
+                saveError = error.localizedDescription
+                showSaveErrorAlert = true
+            }
+        }
     }
+}
+
+// MARK: - School Grade Range
+
+enum SchoolGradeRange: String, CaseIterable, Identifiable {
+    case k5   = "K-5"
+    case k8   = "6-8"
+    case hs   = "9-12"
+    case k12  = "K-12"
+    case other = "Other"
+
+    var id: String { rawValue }
+
+    var displayName: String { rawValue }
 }
 
 // MARK: - Preview
@@ -596,6 +844,12 @@ struct ChurchEditProfileView_Previews: PreviewProvider {
 
             ChurchEditProfileView(accountType: .business)
                 .previewDisplayName("Business Account")
+
+            ChurchEditProfileView(accountType: .school)
+                .previewDisplayName("School Account")
+
+            ChurchEditProfileView(accountType: .university)
+                .previewDisplayName("University Account")
         }
         .preferredColorScheme(.light)
     }

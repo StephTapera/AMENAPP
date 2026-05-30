@@ -603,6 +603,7 @@ enum SpacesCallable: String {
     case grantAccess                  = "grantAccess"             // Agent E uses (admin comp)
     case revokeAccess                 = "revokeAccess"            // Agent E uses
     case stripeWebhookEntitlement     = "stripeWebhookEntitlement" // backend only, documents intent
+    case reviewSpace                  = "reviewSpace"               // admin: approve/reject pendingReview spaces
 }
 
 // MARK: - Space Body Renderer Protocol

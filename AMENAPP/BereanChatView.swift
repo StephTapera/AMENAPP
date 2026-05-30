@@ -144,6 +144,9 @@ final class BereanChatViewModel: ObservableObject {
     var isAtLimit: Bool { !isProUser && messageCount >= freeMsgLimit }
     let sessionId: String
     @Published var crisisEscalationDetected: Bool = false
+    // DEBOUNCE-FIX: prevents concurrent Firestore fetches when the user taps
+    // "Load earlier messages" rapidly or the button is re-rendered mid-load.
+    private var isLoadingOlderMessages: Bool = false
 
     // MARK: - System 27: Grok Helper Coordinator
     let grokCoordinator = BereanGrokCoordinator()
@@ -160,6 +163,61 @@ final class BereanChatViewModel: ObservableObject {
     }
     var preSendInstruction: String?
     var pendingComposerContext: BereanComposerSubmissionContext?
+
+    // MARK: - Local message cache (perf: warm-start shows history immediately)
+    // Stores the last 50 messages for the session so the view paints with
+    // cached content before the Firestore round-trip completes.
+    // Uses a lightweight Codable projection to avoid coupling to the full model graph.
+    private static let maxCachedMessages = 50
+    private func messageCacheKey(for sid: String) -> String { "berean_msg_cache_\(sid)" }
+
+    /// Minimal Codable projection of BereanChatMsg for local cache storage.
+    private struct BereanMsgCacheEntry: Codable {
+        let id: UUID
+        let role: String      // "user" | "assistant"
+        let content: String
+        let timestamp: Date
+
+        init(caching msg: BereanChatMsg) {
+            self.id = msg.id
+            self.role = msg.role.rawValue
+            self.content = msg.content
+            self.timestamp = msg.timestamp
+        }
+
+        func toMsg() -> BereanChatMsg {
+            BereanChatMsg(
+                id: id,
+                role: role == "user" ? .user : .assistant,
+                content: content,
+                timestamp: timestamp,
+                streamingState: .completed
+            )
+        }
+    }
+
+    /// Persist the current message list to UserDefaults (called after every exchange).
+    func persistLocalCache() {
+        let tail = messages.suffix(Self.maxCachedMessages)
+            .filter { $0.streamingState == .completed || $0.streamingState == .idle }
+            .map { BereanMsgCacheEntry(caching: $0) }
+        if let data = try? JSONEncoder().encode(tail) {
+            UserDefaults.standard.set(data, forKey: messageCacheKey(for: sessionId))
+        }
+    }
+
+    /// Load messages synchronously from UserDefaults. Returns empty array if no cache.
+    func loadLocalCache() -> [BereanChatMsg] {
+        guard let data = UserDefaults.standard.data(forKey: messageCacheKey(for: sessionId)),
+              let cached = try? JSONDecoder().decode([BereanMsgCacheEntry].self, from: data)
+        else { return [] }
+        return cached.map { $0.toMsg() }
+    }
+
+    /// Evict cache for a session (call on clearConversationHistory).
+    private func evictLocalCache() {
+        UserDefaults.standard.removeObject(forKey: messageCacheKey(for: sessionId))
+    }
 
     init(
         mode: BereanPersonalityMode = .askBerean,
@@ -178,7 +236,20 @@ final class BereanChatViewModel: ObservableObject {
         } else {
             self.activePostContext = nil
         }
-        if existingSessionId == nil {
+
+        // PERF: Warm start — seed messages from local cache so the view paints
+        // immediately. loadExistingSession() will merge/replace in the background.
+        // Read UserDefaults inline to avoid calling instance methods before init completes.
+        if let sid = existingSessionId {
+            let cacheKey = "berean_msg_cache_\(sid)"
+            if let data = UserDefaults.standard.data(forKey: cacheKey),
+               let entries = try? JSONDecoder().decode([BereanMsgCacheEntry].self, from: data),
+               !entries.isEmpty {
+                messages = entries.map { $0.toMsg() }
+            }
+        }
+
+        if existingSessionId == nil && messages.isEmpty {
             messages.append(BereanChatMsg(
                 role: .assistant,
                 content: "Hey — I'm Berean. Ask me anything. Scripture, life, business, whatever's on your mind.",
@@ -204,6 +275,8 @@ final class BereanChatViewModel: ObservableObject {
 
     func loadExistingSession() async {
         guard !userId.isEmpty else { return }
+        // PERF: If we already have cached messages visible, we can show them
+        // immediately (done in init). Firestore fetch runs here to merge/refresh.
         do {
             let convRef = db.collection("users").document(userId)
                 .collection("bereanConversations").document(sessionId)
@@ -225,7 +298,11 @@ final class BereanChatViewModel: ObservableObject {
                     let ts = (d.data()["createdAt"] as? Timestamp)?.dateValue() ?? Date()
                     return BereanChatMsg(role: role, content: content, timestamp: ts)
                 }
-                if !loaded.isEmpty { messages = loaded }
+                if !loaded.isEmpty {
+                    messages = loaded
+                    // Keep local cache in sync with what Firestore returned
+                    persistLocalCache()
+                }
             } else if let msgsData = data["messages"] as? [[String: Any]] {
                 // Legacy: messages embedded in the conversation document
                 let loaded = msgsData.compactMap { m -> BereanChatMsg? in
@@ -235,7 +312,10 @@ final class BereanChatViewModel: ObservableObject {
                     let ts = (m["timestamp"] as? Timestamp)?.dateValue() ?? Date()
                     return BereanChatMsg(role: role, content: content, timestamp: ts)
                 }
-                if !loaded.isEmpty { messages = loaded }
+                if !loaded.isEmpty {
+                    messages = loaded
+                    persistLocalCache()
+                }
             }
         } catch {
             dlog("BereanChatViewModel.loadExistingSession error: \(error)")
@@ -245,9 +325,17 @@ final class BereanChatViewModel: ObservableObject {
     // MARK: All-Berean cross-session history (memory scope: allBerean)
 
     private func buildAllBereanHistory(snapshot: [BereanChatMsg]) async -> [OpenAIChatMessage] {
-        // Current session tail — last 6 messages
-        let currentMsgs = snapshot.dropLast(2).suffix(6)
-            .map { OpenAIChatMessage(content: $0.content, isFromUser: $0.role == .user) }
+        // Current session tail — last 6 messages.
+        // CRASH-1 FIX: dropLast(2) on an empty array is safe, but guard anyway to
+        // make the intent explicit and avoid future regressions.
+        let currentMsgs: [OpenAIChatMessage]
+        if snapshot.count > 2 {
+            currentMsgs = snapshot.dropLast(2).suffix(6)
+                .map { OpenAIChatMessage(content: $0.content, isFromUser: $0.role == .user) }
+        } else {
+            currentMsgs = snapshot
+                .map { OpenAIChatMessage(content: $0.content, isFromUser: $0.role == .user) }
+        }
 
         guard !userId.isEmpty else { return currentMsgs }
         do {
@@ -460,25 +548,52 @@ final class BereanChatViewModel: ObservableObject {
                         }
                     }
                 )
-                // Debounce buffer: accumulate chunks and flush every 80ms (~12 diffs/s)
-                // rather than publishing on every token character (~50 diffs/s).
-                var streamBuffer = ""
-                var lastFlush = Date()
-                for try await chunk in stream {
-                    try Task.checkCancellation()
-                    streamBuffer += chunk
-                    let elapsed = Date().timeIntervalSince(lastFlush)
-                    if elapsed >= 0.08 {
-                        messages[assistantIndex].content += streamBuffer
-                        streamBuffer = ""
-                        lastFlush = Date()
+                // CRASH-1 FIX: Wrap the entire streaming loop in a 60-second timeout
+                // Task so a stalled SSE connection can’t leave the UI frozen indefinitely.
+                // withThrowingTaskGroup lets us race the stream against the deadline.
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        // Debounce buffer: accumulate chunks and flush every 80ms (~12 diffs/s)
+                        // rather than publishing on every token character (~50 diffs/s).
+                        var streamBuffer = ""
+                        var lastFlush = Date()
+                        for try await chunk in stream {
+                            try Task.checkCancellation()
+                            streamBuffer += chunk
+                            let elapsed = Date().timeIntervalSince(lastFlush)
+                            if elapsed >= 0.08 {
+                                // Cross to MainActor for the bounds check + mutation together
+                                // so the check and write are atomic and no isolation violation occurs.
+                                let buffer = streamBuffer
+                                let keepGoing = await MainActor.run {
+                                    guard assistantIndex < self.messages.count else { return false }
+                                    self.messages[assistantIndex].content += buffer
+                                    return true
+                                }
+                                guard keepGoing else { return }
+                                streamBuffer = ""
+                                lastFlush = Date()
+                            }
+                        }
+                        // Flush any remaining buffered content after stream ends
+                        if !streamBuffer.isEmpty {
+                            let buffer = streamBuffer
+                            await MainActor.run {
+                                guard assistantIndex < self.messages.count else { return }
+                                self.messages[assistantIndex].content += buffer
+                            }
+                        }
                     }
+                    // Timeout sentinel: cancel the group if the stream takes >60 seconds.
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: 60_000_000_000)
+                        throw CancellationError()
+                    }
+                    // First finished task wins; cancel the other.
+                    try await group.next()
+                    group.cancelAll()
                 }
-                // Flush any remaining buffered content after stream ends
-                if !streamBuffer.isEmpty {
-                    messages[assistantIndex].content += streamBuffer
-                    streamBuffer = ""
-                }
+
                 // Crisis short-circuit responses are pre-approved human text (988 Lifeline,
                 // Crisis Text Line). Skip sanitization and alignment overrides entirely —
                 // a false-positive .blocked result would erase life-saving contact numbers.
@@ -486,6 +601,7 @@ final class BereanChatViewModel: ObservableObject {
                     // Belt-and-suspenders: run the client-side safety regex on the fully
                     // assembled response. The backend already validates, but this catches
                     // anything that slipped through on a bad connection or edge case.
+                    guard assistantIndex < messages.count else { return }
                     let assembled = messages[assistantIndex].content
                     let safe = ClaudeService.shared.sanitizeResponse(assembled)
                     if safe != assembled {
@@ -494,7 +610,10 @@ final class BereanChatViewModel: ObservableObject {
                     let capturedIdx = assistantIndex
                     let capturedContent = messages[assistantIndex].content
                     let capturedSimpleMode = simpleModeEnabled
-                    Task {
+                    // CRASH-2 FIX: [weak self] prevents the ViewModel being kept alive by
+                    // this nested Task after the parent Task (and the view) are deallocated.
+                    Task { [weak self] in
+                        guard let self else { return }
                         guard let alignmentResult = try? await BiblicalAlignmentService.shared.checkBiblicalAlignment(
                             text: capturedContent,
                             targetType: "berean_response",
@@ -519,6 +638,7 @@ final class BereanChatViewModel: ObservableObject {
                         }
                     }
                 }
+                guard assistantIndex < messages.count else { return }
                 messages[assistantIndex].streamingState = .completed
                 messages[assistantIndex].provenance = capturedProvenance
                 if isStudyModeEnabled {
@@ -536,6 +656,7 @@ final class BereanChatViewModel: ObservableObject {
                 await persistExchange(userText: text, assistantText: completedAssistantText, composerContext: composerContext)
                 trimToWindow()
             } catch is CancellationError {
+                guard assistantIndex < messages.count else { return }
                 messages[assistantIndex].streamingState = .cancelled
                 if isStudyModeEnabled {
                     resolveReasoning()
@@ -544,6 +665,7 @@ final class BereanChatViewModel: ObservableObject {
                     messages[assistantIndex].content = "Cancelled."
                 }
             } catch {
+                guard assistantIndex < messages.count else { return }
                 messages[assistantIndex].streamingState = .failed
                 if isStudyModeEnabled {
                     resolveReasoning()
@@ -654,9 +776,14 @@ final class BereanChatViewModel: ObservableObject {
     ///
     /// Legacy sessions that were stored with an embedded `messages` array are still readable
     /// (via the fallback path in `loadExistingSession` / `buildAllBereanHistory`).
+    ///
+    // Canonical path — backend CFs (ConversationRepository.ts) need separate migration to match
     private func persistExchange(userText: String, assistantText: String, composerContext: BereanComposerSubmissionContext? = nil) async {
+        // PERF: Write local cache first — zero-latency, survives restarts.
+        persistLocalCache()
         guard !userId.isEmpty else { return }
         let memoryScope = BereanMemoryScopeStore.shared.scope
+        // Canonical path: users/{uid}/bereanConversations/{sessionId}/messages
         let convRef = db.collection("users").document(userId)
             .collection("bereanConversations").document(sessionId)
         if memoryScope == .off {
@@ -722,6 +849,8 @@ final class BereanChatViewModel: ObservableObject {
         messageCount = 0
         errorMessage = nil
         crisisEscalationDetected = false
+        // PERF: Evict local cache so the cleared state persists across restarts.
+        evictLocalCache()
         guard !userId.isEmpty else { return }
         let convRef = db.collection("users").document(userId)
             .collection("bereanConversations")
@@ -729,12 +858,40 @@ final class BereanChatViewModel: ObservableObject {
         Task { await deleteConversation(at: convRef) }
     }
 
+    // UserDefaults keys for the 60-second TTL cache
+    private var msgCountCacheKey: String { "bereanMsgCount_\(userId)" }
+    private var msgCountTimeKey: String { "bereanMsgCountTime_\(userId)" }
+    private let msgCountCacheTTL: TimeInterval = 60
+
     private func loadMessageCount() {
         guard !userId.isEmpty else { return }
+
+        // ✅ PERF: 60-second TTL cache — skip Firestore if count was fetched recently.
+        let defaults = UserDefaults.standard
+        if let cachedValue = defaults.object(forKey: msgCountCacheKey) as? Int,
+           let cachedTime = defaults.object(forKey: msgCountTimeKey) as? Date,
+           Date().timeIntervalSince(cachedTime) < msgCountCacheTTL {
+            messageCount = cachedValue
+            dlog("📊 Berean message count from cache: \(cachedValue)")
+            return
+        }
+
+        // Capture key strings before entering the @Sendable Firestore callback
+        // to avoid accessing MainActor-isolated computed properties from a non-isolated context.
+        let countKey = msgCountCacheKey
+        let timeKey = msgCountTimeKey
+
+        // Cache stale or missing — fetch from Firestore
         db.collection("users").document(userId)
             .getDocument { [weak self] doc, _ in
+                guard let self else { return }
+                let count = doc?.data()?["chatMessageCount"] as? Int ?? 0
                 DispatchQueue.main.async {
-                    self?.messageCount = doc?.data()?["chatMessageCount"] as? Int ?? 0
+                    self.messageCount = count
+                    // Write fresh value + timestamp into cache
+                    UserDefaults.standard.set(count, forKey: countKey)
+                    UserDefaults.standard.set(Date(), forKey: timeKey)
+                    dlog("📊 Berean message count fetched from Firestore: \(count)")
                 }
             }
     }
@@ -746,7 +903,11 @@ final class BereanChatViewModel: ObservableObject {
     }
 
     func loadOlderMessages() async {
-        guard hasOlderMessages, !userId.isEmpty else { return }
+        // DEBOUNCE-FIX: guard against concurrent loads (rapid taps or duplicate calls).
+        guard !isLoadingOlderMessages, hasOlderMessages, !userId.isEmpty else { return }
+        isLoadingOlderMessages = true
+        defer { isLoadingOlderMessages = false }
+
         let convRef = db.collection("users").document(userId)
             .collection("bereanConversations").document(sessionId)
         guard let oldest = messages.first?.timestamp else { return }
@@ -822,6 +983,13 @@ struct BereanChatView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("berean_show_provenance_labels") private var showProvenanceLabels: Bool = true
 
+    // MEMORY-LEAK FIX: Store NotificationCenter subscriptions as AnyCancellable so they
+    // are released when the view disappears instead of living until process termination.
+    @State private var cancellables = Set<AnyCancellable>()
+
+    // COPPA-FIX: Age gate for Berean AI chat (Fix 6).
+    @State private var showAgeLockedAlert: Bool = false
+
     // MARK: - Addition 1: Context Memory rail
     @State private var selectedContextSources: Set<BereanContextSource> = [.thisChat]
 
@@ -844,6 +1012,11 @@ struct BereanChatView: View {
     // dlog-only stub. See BereanVoiceInputSheet.swift.
     @State private var showVoiceInputSheet = false
 
+    // bereanVoiceEnabled: present the full BereanLiveVoiceView session.
+    @State private var showLiveVoiceSheet = false
+    // bereanDriveEnabled: present BereanDriveSetupView companion screen.
+    @State private var showBereanDriveSheet = false
+
     // Phase H3 / App Review Guideline 1.2: "Report this response"
     // affordance on Berean assistant messages.
     @State private var reportingMessageId: String?
@@ -851,6 +1024,9 @@ struct BereanChatView: View {
 
     // MARK: - Intelligence layer
     @ObservedObject private var intelligence = BereanIntelligenceCoordinator.shared
+
+    // MARK: - Model store (observed so floating chrome bar re-renders on mode change)
+    @ObservedObject private var modelStore = BereanModelStore.shared
 
     // MARK: - Context memory (D-02)
     @ObservedObject private var memoryService = BereanContextMemoryService.shared
@@ -983,151 +1159,37 @@ struct BereanChatView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            // proxy.safeAreaInsets.top is 59pt on Dynamic Island devices,
-            // 47pt on TrueDepth notch devices, ≤24pt on SE/older.
-            // proxy.safeAreaInsets.bottom is ~34pt on Face ID phones (home indicator),
-            // 0 on devices with a physical Home button.
             let metrics = BereanLayoutMetrics(size: proxy.size,
                                               topSafeAreaInset: proxy.safeAreaInsets.top,
                                               bottomSafeAreaInset: proxy.safeAreaInsets.bottom)
+            mainContent(metrics: metrics, proxy: proxy)
+        }
+        .userActivity(AmenHandoff.BereanChat.activityType) { activity in
+            let a = AmenHandoff.BereanChat.makeActivity(
+                sessionId: vm.sessionId,
+                lastQuery: vm.inputText.isEmpty ? nil : vm.inputText
+            )
+            activity.title = a.title
+            activity.isEligibleForHandoff = true
+            activity.isEligibleForSearch = true
+            activity.isEligibleForPrediction = true
+            if let info = a.userInfo { activity.addUserInfoEntries(from: info) }
+        }
+        .accessibilityIdentifier("screen.berean")
+    }
 
-            ZStack(alignment: .bottom) {
-                BereanChatCleanBackground()
-                    .ignoresSafeArea()
-                wallpaperManager.wallpaperView()
-                    .opacity(0.08)
-                    .ignoresSafeArea()
-                Color.white.opacity(0.50)
-                    .ignoresSafeArea()
+    // MARK: - Main Content (extracted to avoid type-checker timeout)
 
-                VStack(spacing: 0) {
-                    smartBlurHeader(metrics: metrics)
-                    // Liquid Glass v1: morphing thread capsule below nav header
-                    BereanThreadCapsule(
-                        threadTitle: conversationTitle ?? "Berean",
-                        mode: vm.currentMode,
-                        verseCount: vm.messages.filter { $0.provenance != nil }.count,
-                        docCount: 0,
-                        memoryOn: true,
-                        theologicalLens: nil,
-                        scrollOffset: $threadScrollOffset,
-                        onBackTapped: { dismiss() }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 4)
-                    // Liquid Glass v1: live action verb strip below capsule
-                    BereanThinkingStrip(action: $currentThinkingAction)
-                    contentScrollView(metrics: metrics)
-                }
-
-                VStack(spacing: 0) {
-                    if let errMsg = vm.errorMessage {
-                        bereanErrorBanner(errMsg)
-                            .padding(.horizontal, metrics.contentHorizontalPadding)
-                            .padding(.bottom, 6)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
-                    if let notice = vm.modelFallbackNotice {
-                        modeFallbackBanner(notice)
-                            .padding(.horizontal, metrics.contentHorizontalPadding)
-                            .padding(.bottom, 6)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
-                    if vm.isAtLimit {
-                        paywallBanner
-                            .padding(.horizontal, metrics.contentHorizontalPadding)
-                            .padding(.bottom, 8)
-                    }
-                    if let banner = intelligence.safetyBanner, !vm.isThinking {
-                        intelligenceSafetyBanner(banner)
-                            .padding(.horizontal, metrics.contentHorizontalPadding)
-                            .padding(.bottom, 6)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
-                    if !intelligence.followUpSuggestions.isEmpty && !vm.isThinking {
-                        intelligenceFollowUpRow
-                            .padding(.bottom, 6)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
-                    // Only show static suggestion chips when the AI hasn't produced
-                    // follow-up suggestions yet — avoids duplicate actions and keeps
-                    // the overlay height in check.
-                    if shouldShowSuggestionRow && intelligence.followUpSuggestions.isEmpty {
-                        focusedSuggestionRow
-                            .padding(.bottom, shouldShowContextRail ? 8 : 6)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
-                    if shouldShowContextRail {
-                        compactContextRail
-                            .padding(.horizontal, metrics.contentHorizontalPadding)
-                            .padding(.bottom, 6)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
-                    // System 27: Thinking step banner (cycles during inference)
-                    if vm.isThinking && AMENFeatureFlags.shared.bereanHelperModelEnabled {
-                        BereanThinkingStateBanner(
-                            step: BereanGrokService.shared.thinkingStep(for: vm.grokCoordinator.thinkingStepIndex)
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
-                    // System 27: Grok helper pill row + sheet presentations
-                    BereanGrokOverlay(coordinator: vm.grokCoordinator, currentText: vm.inputText)
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-
-                    // Context lens — floats above mode bar when thinking or manually pinned
-                    if vm.isThinking || showContextLens {
-                        BereanContextLensView.fromConversationState(
-                            mode: bereanInteractionMode,
-                            isThinking: vm.isThinking,
-                            messageCount: vm.messages.count
-                        )
-                        .padding(.horizontal, metrics.contentHorizontalPadding)
-                        .padding(.bottom, 6)
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                        .onTapGesture { showContextLens = false }
-                    }
-
-                    HStack(spacing: 8) {
-                        selectedComposerModeChip
-                        // Liquid Glass v1: memory chip — active when thinking, entries wired from BereanContextMemoryService (D-02)
-                        BereanMemoryChip(
-                            isActive: vm.isThinking,
-                            entries: memoryChipEntries,
-                            onOpenSettings: { showSpiritualMemorySheet = true }
-                        )
-                    }
-                    .padding(.horizontal, metrics.contentHorizontalPadding)
-                    .padding(.bottom, 6)
-
-                    adaptiveComposer(metrics: metrics, containerWidth: proxy.size.width)
-                }
-                .background(
-                    // Scrim gradient fades up from the bottom so content under the composer
-                    // stays legible without a heavy white plate. Kept subtle so the glass
-                    // capsule reads as floating rather than sitting on a card tray.
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0),
-                            Color.white.opacity(contrastStyle.scrimOpacity + 0.12)
-                        ],
-                        startPoint: .top,
-                        endPoint: UnitPoint(x: 0.5, y: 0.72)
-                    )
-                    .ignoresSafeArea(edges: .bottom)
-                )
-            }
+    @ViewBuilder
+    private func mainContent(metrics: BereanLayoutMetrics, proxy: GeometryProxy) -> some View {
+        mainZStack(metrics: metrics, proxy: proxy)
             .navigationBarHidden(true)
             .bereanSelahMode(bereanSurfaceTab == .selah)
             .onChange(of: bereanInteractionMode) { _, newMode in
                 vm.currentMode = newMode.personalityMode
             }
-            .sheet(isPresented: $showModeSheet) {
-                BereanModesSheet()
-            }
-            .sheet(isPresented: $showModeDrawer) {
-                BereanModeDrawer(selectedMode: $vm.currentMode)
-            }
+            .sheet(isPresented: $showModeSheet) { BereanModesSheet() }
+            .sheet(isPresented: $showModeDrawer) { BereanModeDrawer(selectedMode: $vm.currentMode) }
             .confirmationDialog("Berean mode", isPresented: $showCompactModePicker, titleVisibility: .visible) {
                 Button("Scripture") { setCompactMode(.scriptureStudy) }
                 Button("Prayer") { setCompactMode(.prayerCompanion) }
@@ -1161,36 +1223,31 @@ struct BereanChatView: View {
                     inputFocused = true
                 }
             }
-            // CG-2 fix: "Attachments unavailable" alert removed — it was unreachable
-            // (showAttachmentsComingSoon was never set to true). The working path is the
-            // .sheet(isPresented: $showAttachmentPicker) above, already wired to
-            // BereanAttachmentPickerSheet via handleQuickAction. Removed 2026-05-28.
             .amenAlert(isPresented: $showVoiceDisabledAlert, config: LiquidGlassAlertConfig(
                 title: "Voice input is off",
                 message: "Turn on Allow voice input in Berean AI settings before using the microphone.",
                 icon: "mic.slash",
                 primaryButton: LiquidGlassAlertButton("OK", tone: .dismiss, action: {})
             ))
-            // Phase 5 / P0-2: real voice input. User must review/edit and
-            // explicitly tap Send — no auto-submit from the sheet itself.
             .sheet(isPresented: $showVoiceInputSheet) {
                 BereanVoiceInputSheet(
                     onAccept: { transcript in
                         vm.inputText = transcript
                         inputFocused = true
                     },
-                    onCancel: { /* nothing — sheet dismisses itself */ }
+                    onCancel: { }
                 )
             }
-            // Phase H3 / App Review Guideline 1.2: "Report this AI
-            // response" sheet. Bound to the assistant-message context
-            // menu via `reportingMessageId`.
+            .sheet(isPresented: $showLiveVoiceSheet) {
+                BereanLiveVoiceView(mode: .conversation)
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showBereanDriveSheet) {
+                BereanDriveSetupView()
+                    .presentationDragIndicator(.visible)
+            }
             .sheet(item: Binding<ReportingTarget?>(
-                get: {
-                    reportingMessageId.map {
-                        ReportingTarget(messageId: $0, conversationId: vm.sessionId)
-                    }
-                },
+                get: { reportingMessageId.map { ReportingTarget(messageId: $0, conversationId: vm.sessionId) } },
                 set: { newValue in reportingMessageId = newValue?.messageId }
             )) { target in
                 ReportUnsafeAIResponseSheet(
@@ -1217,44 +1274,8 @@ struct BereanChatView: View {
                 }
                 .presentationDragIndicator(.visible)
             }
-            .sheet(item: $selectedReasoningNode) { node in
-                BereanReasoningSummarySheet(node: node)
-            }
-            .sheet(item: $correctionTargetMessage) { message in
-                CorrectTheAIView(
-                    originalText: message.content,
-                    onSave: { lens, correction, remember in
-                        Task {
-                            _ = try? await BiblicalAlignmentService.shared.saveAICorrection(
-                                targetType: "berean_response",
-                                targetId: nil,
-                                originalText: message.content,
-                                correctionText: correction,
-                                selectedLens: lens,
-                                correctionIntent: "tone",
-                                savedToProfile: remember
-                            )
-                            correctionTargetMessage = nil
-                        }
-                    },
-                    onApplyRewrite: { lens in
-                        Task {
-                            let rewrite = try? await BiblicalAlignmentService.shared.suggestBiblicalRewrite(
-                                originalText: message.content,
-                                lens: lens,
-                                targetType: "berean_response"
-                            )
-                            if let rewritten = rewrite?.rewrittenText {
-                                vm.updateAssistantMessage(id: message.id, content: rewritten)
-                            }
-                            correctionTargetMessage = nil
-                        }
-                    },
-                    onCancel: {
-                        correctionTargetMessage = nil
-                    }
-                )
-            }
+            .sheet(item: $selectedReasoningNode) { node in BereanReasoningSummarySheet(node: node) }
+            .sheet(item: $correctionTargetMessage) { message in correctionSheet(for: message) }
             .sheet(item: Binding<DiscernmentPromptSheet?>(
                 get: { discernmentPrompt.map { DiscernmentPromptSheet(prompt: $0) } },
                 set: { _ in discernmentPrompt = nil }
@@ -1273,76 +1294,35 @@ struct BereanChatView: View {
                     }
                 )
             }
-            // Addition 2: Scripture chip sheet
-            // Addition 3: Saved-to-Notes toast
-            .overlay(alignment: .top) {
-                if showSavedToNotesToast {
-                    Text("Saved to Church Notes")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 9)
-                        .background(
-                            Capsule()
-                                .fill(Color.black.opacity(0.82))
-                                .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
-                        )
-                        .padding(.top, 56)
-                        .transition(.opacity.combined(with: .offset(y: -8)))
-                }
-            }
+            .overlay(alignment: .top) { savedToNotesToast }
             .animation(.easeInOut(duration: 0.25), value: showSavedToNotesToast)
-            .onDisappear {
-                BereanIntelligenceCoordinator.shared.onSessionEnd()
+            // COPPA-FIX: Age gate — block users who haven't met the minimum age requirement.
+            .alert("Age Requirement", isPresented: $showAgeLockedAlert) {
+                Button("OK", role: .cancel) { dismiss() }
+            } message: {
+                Text("Berean AI is only available for users \(AppConfig.Legal.minimumAge) and older. Please update your age information in Settings.")
             }
-            .task {
-                guard !hasPreparedInitialPrompt else { return }
-                hasPreparedInitialPrompt = true
-                // D-02: start memory listener so memoryChipEntries stays live
-                memoryService.startListening()
-                if !hasTrackedSessionStart {
-                    hasTrackedSessionStart = true
-                    AMENAnalyticsService.shared.track(.bereanSessionStarted)
-                    BereanIntelligenceCoordinator.shared.onSessionStart(sessionId: vm.sessionId)
-                    await AmenJourneyContinuityEngine.shared.bereanSessionOpened()
-                }
-                if existingSessionId != nil {
-                    await vm.loadExistingSession()
-                    showHero = false
-                }
-                if let postContext {
-                    dlog("📖 [BereanLiveActivity] BereanChatView entry for post \(postContext.postId)")
-                    CrashlyticsIntegration.logAction("berean_live_activity_chat_entry")
-                    CrashlyticsIntegration.setAppState(key: "berean_chat_post_id", value: postContext.postId)
-                    await validatePostContextAvailability(postContext)
-                }
-
-                let resolvedInitialQuery = initialQuery?.isEmpty == false
-                    ? initialQuery
-                    : validatedPostContext?.initialPrompt
-
-                if let query = resolvedInitialQuery, !query.isEmpty {
-                    vm.inputText = query
-                    showHero = false
-                    // Short settling delay so the sheet present animation completes before
-                    // the streaming spinner appears, preventing a jarring mid-animation flicker.
-                    pendingUserSend = true
-                    initialSendTask?.cancel()
-                    initialSendTask = Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(120))
-                        guard !Task.isCancelled else { return }
-                        await prepareAndSendMessage()
+            .onDisappear { BereanIntelligenceCoordinator.shared.onSessionEnd() }
+            .task { await initialSetupTask() }
+            // MEMORY-LEAK FIX: Use AnyCancellable-backed subscriptions so the observers
+            // are torn down on disappear rather than accumulating for the process lifetime.
+            // Previously these were .onReceive which creates a permanent Combine subscriber.
+            .onAppear {
+                NotificationCenter.default.publisher(for: .postEdited)
+                    .sink { notification in
+                        Task { await handlePostContextNotification(notification) }
                     }
-                }
+                    .store(in: &cancellables)
+                NotificationCenter.default.publisher(for: .postDeleted)
+                    .sink { notification in
+                        Task { await handlePostContextNotification(notification) }
+                    }
+                    .store(in: &cancellables)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .postEdited)) { notification in
-                Task { await handlePostContextNotification(notification) }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .postDeleted)) { notification in
-                Task { await handlePostContextNotification(notification) }
+            .onDisappear {
+                cancellables.removeAll()
             }
             .onChange(of: vm.isThinking) { _, thinking in
-                // Liquid Glass v1: drive BereanThinkingStrip from isThinking transitions
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
                     currentThinkingAction = thinking ? .drafting : .idle
                 }
@@ -1350,9 +1330,7 @@ struct BereanChatView: View {
                     composerVM.setState(.streaming)
                     vm.grokCoordinator.startThinkingCycle()
                 } else {
-                    if composerVM.state == .streaming {
-                        composerVM.setState(.idle)
-                    }
+                    if composerVM.state == .streaming { composerVM.setState(.idle) }
                     vm.grokCoordinator.stopThinkingCycle()
                     streamingAutoScrollTimer?.invalidate()
                     streamingAutoScrollTimer = nil
@@ -1366,17 +1344,132 @@ struct BereanChatView: View {
                 streamingAutoScrollTimer?.invalidate()
                 streamingAutoScrollTimer = nil
             }
+    }
+
+    private func mainZStack(metrics: BereanLayoutMetrics, proxy: GeometryProxy) -> some View {
+        ZStack(alignment: .bottom) {
+            BereanChatCleanBackground().ignoresSafeArea()
+            wallpaperManager.wallpaperView().opacity(0.08).ignoresSafeArea()
+            Color.white.opacity(0.50).ignoresSafeArea()
+            VStack(spacing: 0) {
+                smartBlurHeader(metrics: metrics)
+                BereanThreadCapsule(
+                    threadTitle: conversationTitle ?? "Berean",
+                    mode: vm.currentMode,
+                    verseCount: vm.messages.filter { $0.provenance != nil }.count,
+                    docCount: 0,
+                    memoryOn: true,
+                    theologicalLens: nil,
+                    scrollOffset: $threadScrollOffset,
+                    onBackTapped: { dismiss() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 4)
+                BereanThinkingStrip(action: $currentThinkingAction)
+                contentScrollView(metrics: metrics)
+                    .overlay(alignment: .top) { floatingChatChromeBar }
+            }
+            composerOverlay(metrics: metrics, containerWidth: proxy.size.width)
         }
-        .userActivity(AmenHandoff.BereanChat.activityType) { activity in
-            let a = AmenHandoff.BereanChat.makeActivity(
-                sessionId: vm.sessionId,
-                lastQuery: vm.inputText.isEmpty ? nil : vm.inputText
-            )
-            activity.title = a.title
-            activity.isEligibleForHandoff = true
-            activity.isEligibleForSearch = true
-            activity.isEligibleForPrediction = true
-            if let info = a.userInfo { activity.addUserInfoEntries(from: info) }
+    }
+
+    @ViewBuilder
+    private var savedToNotesToast: some View {
+        if showSavedToNotesToast {
+            Text("Saved to Church Notes")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.82))
+                        .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                )
+                .padding(.top, 56)
+                .transition(.opacity.combined(with: .offset(y: -8)))
+        }
+    }
+
+    @ViewBuilder
+    private func correctionSheet(for message: BereanChatMsg) -> some View {
+        CorrectTheAIView(
+            originalText: message.content,
+            onSave: { lens, correction, remember in
+                Task {
+                    _ = try? await BiblicalAlignmentService.shared.saveAICorrection(
+                        targetType: "berean_response",
+                        targetId: nil,
+                        originalText: message.content,
+                        correctionText: correction,
+                        selectedLens: lens,
+                        correctionIntent: "tone",
+                        savedToProfile: remember
+                    )
+                    correctionTargetMessage = nil
+                }
+            },
+            onApplyRewrite: { lens in
+                Task {
+                    let rewrite = try? await BiblicalAlignmentService.shared.suggestBiblicalRewrite(
+                        originalText: message.content,
+                        lens: lens,
+                        targetType: "berean_response"
+                    )
+                    if let rewritten = rewrite?.rewrittenText {
+                        vm.updateAssistantMessage(id: message.id, content: rewritten)
+                    }
+                    correctionTargetMessage = nil
+                }
+            },
+            onCancel: { correctionTargetMessage = nil }
+        )
+    }
+
+    private func initialSetupTask() async {
+        guard !hasPreparedInitialPrompt else { return }
+        hasPreparedInitialPrompt = true
+
+        // COPPA-FIX: Check age gate before doing any setup or showing AI features.
+        // AgeAssuranceService.shared is @MainActor-isolated; canAccess is async.
+        let ageAllowed = await AgeAssuranceService.shared.canAccess(feature: .bereanAI)
+        if !ageAllowed {
+            showAgeLockedAlert = true
+            return
+        }
+
+        if existingSessionId != nil {
+            await vm.loadExistingSession()
+            showHero = false
+        }
+        await Task.yield()
+        memoryService.startListening()
+        if !hasTrackedSessionStart {
+            hasTrackedSessionStart = true
+            AMENAnalyticsService.shared.track(.bereanSessionStarted)
+            BereanIntelligenceCoordinator.shared.onSessionStart(sessionId: vm.sessionId)
+            Task { await AmenJourneyContinuityEngine.shared.bereanSessionOpened() }
+        }
+        if let postContext {
+            dlog("📖 [BereanLiveActivity] BereanChatView entry for post \(postContext.postId)")
+            CrashlyticsIntegration.logAction("berean_live_activity_chat_entry")
+            CrashlyticsIntegration.setAppState(key: "berean_chat_post_id", value: postContext.postId)
+            await validatePostContextAvailability(postContext)
+        }
+        let resolvedInitialQuery = initialQuery?.isEmpty == false
+            ? initialQuery
+            : validatedPostContext?.initialPrompt
+        if let query = resolvedInitialQuery, !query.isEmpty {
+            vm.inputText = query
+            showHero = false
+            pendingUserSend = true
+            initialSendTask?.cancel()
+            initialSendTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                guard !Task.isCancelled else { return }
+                await prepareAndSendMessage()
+            }
         }
     }
 
@@ -1575,6 +1668,21 @@ struct BereanChatView: View {
                 showModeDrawer = true
             }
             Button("Wallpaper") { showWallpaperPicker = true }
+            if AMENFeatureFlags.shared.bereanVoiceEnabled {
+                Divider()
+                Button {
+                    showLiveVoiceSheet = true
+                } label: {
+                    Label("Live Voice", systemImage: "waveform.and.mic")
+                }
+            }
+            if AMENFeatureFlags.shared.bereanDriveEnabled {
+                Button {
+                    showBereanDriveSheet = true
+                } label: {
+                    Label("Berean Drive", systemImage: "car.fill")
+                }
+            }
         } label: {
             Image(systemName: "ellipsis")
                 .font(.systemScaled(17, weight: .semibold))
@@ -2021,16 +2129,6 @@ struct BereanChatView: View {
         default:
             return "sparkles"
         }
-    }
-
-    private var composerFollowUpChips: [String] {
-        guard let latestAssistantMessage = vm.messages.last(where: { $0.role == .assistant }) else { return [] }
-        return latestAssistantMessage.structure?.followUpActions.map(\.title) ?? []
-    }
-
-    private func handleComposerFollowUp(_ chip: String) {
-        vm.inputText = chip
-        handleSend()
     }
 
     // MARK: - Hero Section
@@ -2853,9 +2951,7 @@ struct BereanChatView: View {
             onAction: handleQuickAction,
             onTools: { showCompactModePicker = true },
             onStop: vm.cancelStreaming,
-            isVoiceEnabled: BereanAISettingsStore.voiceInputEnabled,
-            followUpChips: composerFollowUpChips,
-            onChipTap: handleComposerFollowUp
+            isVoiceEnabled: BereanAISettingsStore.voiceInputEnabled
         )
         .disabled(vm.isAtLimit)
     }
@@ -2989,6 +3085,92 @@ struct BereanChatView: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Mode notice: \(message)")
+    }
+
+    // MARK: - Composer Overlay (bottom pinned: error banners + composer)
+
+    private func composerOverlay(metrics: BereanLayoutMetrics, containerWidth: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            if let errMsg = vm.errorMessage {
+                bereanErrorBanner(errMsg)
+                    .padding(.horizontal, metrics.contentHorizontalPadding)
+                    .padding(.bottom, 6)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+            if let notice = vm.modelFallbackNotice {
+                modeFallbackBanner(notice)
+                    .padding(.horizontal, metrics.contentHorizontalPadding)
+                    .padding(.bottom, 6)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+            composerBanners(metrics: metrics)
+            adaptiveComposer(metrics: metrics, containerWidth: containerWidth)
+        }
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0),
+                    Color.white.opacity(contrastStyle.scrimOpacity + 0.12)
+                ],
+                startPoint: .top,
+                endPoint: UnitPoint(x: 0.5, y: 0.72)
+            )
+            .ignoresSafeArea(edges: .bottom)
+        )
+    }
+
+    // MARK: - Composer Banners (paywall, safety, suggestions, context rail)
+
+    @ViewBuilder
+    private func composerBanners(metrics: BereanLayoutMetrics) -> some View {
+        // Paywall banner
+        if vm.isAtLimit {
+            paywallBanner
+                .padding(.horizontal, metrics.contentHorizontalPadding)
+                .padding(.bottom, 6)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+
+        // Safety notice banner from intelligence coordinator
+        if let safetyMsg = intelligence.safetyBanner {
+            intelligenceSafetyBanner(safetyMsg)
+                .padding(.horizontal, metrics.contentHorizontalPadding)
+                .padding(.bottom, 6)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+
+        // AI-generated follow-up suggestion chips
+        if !intelligence.followUpSuggestions.isEmpty {
+            intelligenceFollowUpRow
+                .padding(.bottom, 4)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+
+        // Focused suggestion row when input is empty
+        if vm.inputText.isEmpty && vm.messages.isEmpty {
+            focusedSuggestionRow
+                .padding(.bottom, 4)
+                .transition(.opacity)
+        }
+
+        // Compact context / memory rail
+        if !vm.messages.isEmpty {
+            compactContextRail
+                .padding(.horizontal, metrics.contentHorizontalPadding)
+                .padding(.bottom, 4)
+        }
+
+        // Mode chip + memory chip row
+        HStack(spacing: 8) {
+            selectedComposerModeChip
+                .padding(.leading, metrics.contentHorizontalPadding)
+            BereanMemoryChip(
+                isActive: intelligence.followUpSuggestions.isEmpty == false,
+                entries: memoryChipEntries
+            )
+            Spacer(minLength: 0)
+        }
+        .padding(.bottom, 4)
     }
 
     // MARK: - Structured Message View
@@ -3326,6 +3508,82 @@ struct BereanChatView: View {
             Spacer(minLength: 60)
         }
     }
+
+    // MARK: - Floating Chrome Bar (Liquid Glass)
+
+    /// Three-pill floating chrome bar — left: hamburger, center: model name, right: new chat + overflow.
+    /// Sits as an overlay at the top of the scroll content area, 8pt below the existing header.
+    private var floatingChatChromeBar: some View {
+        HStack(spacing: 8) {
+            // Left pill: back to conversation list
+            Button { dismiss() } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 36)
+            }
+            .chatGlassCapsule()
+            .accessibilityLabel("Back to conversations")
+
+            Spacer()
+
+            // Center pill: current model — tapping opens the mode drawer
+            Button { showModeDrawer = true } label: {
+                Text(modelStore.selectedMode.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+            }
+            .chatGlassCapsule()
+            .accessibilityLabel("Model: \(modelStore.selectedMode.title). Tap to change.")
+            .animation(.snappy(duration: 0.2), value: modelStore.selectedMode)
+
+            Spacer()
+
+            // Right pill: new chat + overflow
+            HStack(spacing: 0) {
+                Button {
+                    // new chat: dismiss back to Berean home so caller can open a fresh session
+                    dismiss()
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .frame(width: 38, height: 36)
+                }
+                .accessibilityLabel("New chat")
+
+                Button { showModeDrawer = true } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .frame(width: 38, height: 36)
+                }
+                .accessibilityLabel("More options")
+            }
+            .chatGlassCapsule()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+}
+
+// MARK: - Glass Capsule Surface (BereanChatView)
+
+private extension View {
+    /// Liquid Glass capsule surface used by the floating chrome bar in BereanChatView.
+    func chatGlassCapsule() -> some View {
+        self
+            .background {
+                Capsule(style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay { Capsule(style: .continuous).fill(Color.white.opacity(0.12)) }
+                    .overlay { Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5) }
+                    .overlay { Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.6) }
+                    .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 8)
+            }
+    }
 }
 
 // MARK: - Addition 1: BereanContextSource enum
@@ -3372,7 +3630,7 @@ struct BereanVersePreviewSheet: View {
                         Image(systemName: "book.closed.fill")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Color(red: 0.788, green: 0.659, blue: 0.298))
-                        Text(verse.reference)
+                        Text(verse.reference.displayString)
                             .font(.system(size: 20, weight: .bold, design: .serif))
                             .foregroundStyle(.primary)
                         Spacer()
@@ -3434,8 +3692,8 @@ struct BereanVersePreviewSheet: View {
 
                         Button {
                             UIPasteboard.general.string = verse.text.isEmpty
-                                ? verse.reference
-                                : "\(verse.reference) — \(verse.text)"
+                                ? verse.reference.displayString
+                                : "\(verse.reference.displayString) — \(verse.text)"
                         } label: {
                             Label("Copy", systemImage: "doc.on.doc")
                                 .font(.system(size: 14, weight: .medium))
@@ -3640,6 +3898,44 @@ struct BereanMarkdownText: View {
             return Text(attributed)
         }
         return Text(string)
+    }
+}
+
+// MARK: - Berean Brand Badge (inline avatar used in chat bubbles)
+
+struct BereanBrandBadge: View {
+    var size: CGFloat = 28
+    var fontSize: CGFloat = 7.5
+    var tracking: CGFloat = 1.2
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.black)
+                .frame(width: size, height: size)
+            Text("B")
+                .font(.system(size: fontSize, weight: .bold, design: .serif))
+                .tracking(tracking)
+                .foregroundStyle(.white)
+        }
+        .accessibilityLabel("Berean AI")
+    }
+}
+
+// MARK: - Berean AI Response Disclosure Row
+
+struct BereanAIResponseDisclosureRow: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+            Text("AI-generated · Verify with Scripture")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 6)
     }
 }
 

@@ -72,7 +72,7 @@ struct ImageCropEditor: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
-                        // In a real implementation, crop the image here
+                        // TODO: Apply crop transform before dismissing (stub — ImageCropEditor is not yet implemented)
                         dismiss()
                     }
                     .foregroundStyle(.white)
@@ -152,7 +152,7 @@ struct SaveTemplateSheet: View {
                     .font(.custom("OpenSans-SemiBold", size: 16))
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(templateName.isEmpty ? Color.gray.opacity(0.3) : Color.blue)
+                    .background(templateName.isEmpty ? Color(.tertiarySystemFill) : AmenTheme.Colors.amenBlue)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
                     .padding(.horizontal)
@@ -199,7 +199,7 @@ struct PostThreadComposerView: View {
                     } label: {
                         Image(systemName: "chevron.left.circle.fill")
                             .font(.systemScaled(20))
-                            .foregroundStyle(currentIndex > 0 ? .blue : .gray.opacity(0.3))
+                            .foregroundStyle(currentIndex > 0 ? AmenTheme.Colors.amenBlue : Color(.tertiarySystemFill))
                     }
                     .disabled(currentIndex == 0)
                     
@@ -211,7 +211,7 @@ struct PostThreadComposerView: View {
                     } label: {
                         Image(systemName: "chevron.right.circle.fill")
                             .font(.systemScaled(20))
-                            .foregroundStyle(currentIndex < threadPosts.count - 1 ? .blue : .gray.opacity(0.3))
+                            .foregroundStyle(currentIndex < threadPosts.count - 1 ? AmenTheme.Colors.amenBlue : Color(.tertiarySystemFill))
                     }
                     .disabled(currentIndex == threadPosts.count - 1)
                     
@@ -223,7 +223,7 @@ struct PostThreadComposerView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.systemScaled(20))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color(.systemGreen))
                     }
                 }
             }
@@ -297,7 +297,7 @@ struct ThreadPostPreviewCard: View {
         .frame(width: 140)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isActive ? Color.blue : Color(.systemGray5))
+                .fill(isActive ? AmenTheme.Colors.amenBlue : Color(.systemGray5))
         )
         .onTapGesture {
             onTap()

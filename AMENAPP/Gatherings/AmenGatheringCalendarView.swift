@@ -69,11 +69,11 @@ struct AmenGatheringCalendarView: View {
         Button(action: action) {
             Label(label, systemImage: icon)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(active ? .white : .primary)
+                .foregroundStyle(active ? Color.black : .primary)
                 .padding(.horizontal, 16)
                 .frame(minHeight: 36)
                 .frame(maxWidth: .infinity)
-                .background(active ? Color.primary : Color(.systemGray6))
+                .background(active ? AmenTheme.Colors.amenGold : AmenTheme.Colors.backgroundSecondary)
                 .clipShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
@@ -154,19 +154,19 @@ struct AmenGatheringCalendarView: View {
             VStack(spacing: 3) {
                 Text(Calendar.current.component(.day, from: date).description)
                     .font(.subheadline.weight(isToday || isSelected ? .bold : .regular))
-                    .foregroundStyle(isSelected ? .white : (isToday ? .primary : .primary))
+                    .foregroundStyle(isSelected ? Color.black : (isToday ? .primary : .primary))
                     .frame(width: 32, height: 32)
                     .background {
                         if isSelected {
-                            Circle().fill(Color.primary)
+                            Circle().fill(AmenTheme.Colors.amenGold)
                         } else if isToday {
-                            Circle().strokeBorder(Color.primary, lineWidth: 1.5)
+                            Circle().strokeBorder(AmenTheme.Colors.amenGold, lineWidth: 1.5)
                         }
                     }
 
                 if hasEvent {
                     Circle()
-                        .fill(isSelected ? Color.white : Color.primary)
+                        .fill(isSelected ? Color.black : AmenTheme.Colors.amenGold)
                         .frame(width: 4, height: 4)
                 }
             }
@@ -216,10 +216,10 @@ struct AmenGatheringCalendarView: View {
                 } label: {
                     Label("Create Gathering", systemImage: "plus.circle.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.black)
                         .padding(.horizontal, 20)
                         .frame(minHeight: 44)
-                        .background(Color.primary)
+                        .background(AmenTheme.Colors.amenGold)
                         .clipShape(Capsule(style: .continuous))
                 }
                 .accessibilityLabel("Create a gathering")
@@ -249,10 +249,10 @@ struct AmenGatheringCalendarView: View {
                         vm.selectedListTab = tab
                     }
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(vm.selectedListTab == tab ? .white : .primary)
+                    .foregroundStyle(vm.selectedListTab == tab ? Color.black : .primary)
                     .padding(.horizontal, 14)
                     .frame(minHeight: 32)
-                    .background(vm.selectedListTab == tab ? Color.primary : Color(.systemGray6))
+                    .background(vm.selectedListTab == tab ? AmenTheme.Colors.amenGold : AmenTheme.Colors.backgroundSecondary)
                     .clipShape(Capsule(style: .continuous))
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(tab) gatherings")

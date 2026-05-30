@@ -51,7 +51,7 @@ struct AmenGatheringHeroCard: View {
 
     private var gradientFallback: some View {
         ZStack {
-            Color(.systemGray6)
+            AmenTheme.Colors.backgroundSecondary
             LinearGradient(
                 colors: gradientColors,
                 startPoint: .topLeading,
@@ -131,8 +131,12 @@ struct AmenGatheringHeroCard: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Color.black.opacity(0.5))
+            .background(.ultraThinMaterial)
             .clipShape(Capsule(style: .continuous))
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
+            )
     }
 
     private var rsvpCountLabel: some View {
@@ -217,7 +221,7 @@ struct AmenGatheringCompactCard: View {
                             .foregroundStyle(.primary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
-                            .background(Color(.systemGray6))
+                            .background(AmenTheme.Colors.backgroundSecondary)
                             .clipShape(Capsule(style: .continuous))
                     }
                     rsvpIndicator
@@ -242,7 +246,7 @@ struct AmenGatheringCompactCard: View {
     private var typeIconTile: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.systemGray6))
+                .fill(AmenTheme.Colors.backgroundSecondary)
                 .frame(width: 52, height: 52)
             Image(systemName: card.type.systemImage)
                 .font(.system(size: 22, weight: .medium))
@@ -255,11 +259,11 @@ struct AmenGatheringCompactCard: View {
         if let status = card.userRsvpStatus {
             Image(systemName: status.systemImage)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(status == .going ? .green : .secondary)
+                .foregroundStyle(status == .going ? AmenTheme.Colors.amenGold : AmenTheme.Colors.textSecondary)
         } else if card.rsvpCount > 0 {
             Text("\(card.rsvpCount)")
                 .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
         }
     }
 }
@@ -296,7 +300,7 @@ struct AmenGatheringSkeletonCard: View {
         RoundedRectangle(cornerRadius: 24, style: .continuous)
             .fill(
                 LinearGradient(
-                    colors: [Color(.systemGray5), Color(.systemGray6), Color(.systemGray5)],
+                    colors: [AmenTheme.Colors.shimmerBase, AmenTheme.Colors.shimmerHighlight, AmenTheme.Colors.shimmerBase],
                     startPoint: UnitPoint(x: phase - 0.5, y: 0),
                     endPoint: UnitPoint(x: phase + 0.5, y: 0)
                 )

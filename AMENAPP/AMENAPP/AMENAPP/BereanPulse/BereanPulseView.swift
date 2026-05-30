@@ -7,6 +7,7 @@ struct BereanPulseView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scrollOffset: CGFloat = 0
+    @State private var showOverflowMenu = false
 
     init(viewModel: BereanPulseViewModel? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel ?? BereanPulseViewModel())
@@ -25,9 +26,8 @@ struct BereanPulseView: View {
                         }
                         .frame(height: 0)
 
-                        topBar
-                            .padding(.horizontal, 18)
-                            .padding(.top, 14)
+                        floatingChromeBar
+                            .padding(.top, 8)
 
                         BereanPulseHeaderView(
                             titleDate: Self.dateFormatter.string(from: Date()),
@@ -139,37 +139,77 @@ struct BereanPulseView: View {
         .bereanGlass(.contextual)
     }
 
-    private var topBar: some View {
-        HStack {
-            Button(action: { dismiss() }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 44, height: 44)
+    // MARK: - Floating Chrome Bar (Liquid Glass)
+
+    private var floatingChromeBar: some View {
+        HStack(spacing: 8) {
+            // Left pill: back navigation (sidebar/menu action — TODO: wire sidebar when added)
+            Button { dismiss() } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 36)
             }
-            .buttonStyle(BereanPulseGlassIconButtonStyle())
-            .accessibilityLabel(Text("Back"))
+            .glassCapsule()
+            .accessibilityLabel("Back")
 
             Spacer()
 
-            Text(String(localized: "Berean"))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+            // Center pill: active mode label — tapping opens the Curate sheet
+            Button { viewModel.openCurate() } label: {
+                Text(viewModel.preferences.preferredModes.first.map { $0.rawValue.capitalized } ?? "Curate")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+            }
+            .glassCapsule()
+            .accessibilityLabel("Mode: \(viewModel.preferences.preferredModes.first?.rawValue.capitalized ?? "Curate"). Tap to curate.")
 
             Spacer()
 
-            Button(action: { viewModel.openCurate() }) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 44, height: 44)
+            // Right pill: curate (edit) + overflow
+            HStack(spacing: 0) {
+                Button { viewModel.openCurate() } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .frame(width: 38, height: 36)
+                }
+                .accessibilityLabel("Curate Berean Pulse")
+
+                // overflow menu
+                Button { showOverflowMenu = true } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .frame(width: 38, height: 36)
+                }
+                .accessibilityLabel("More options")
+                .confirmationDialog("Berean Pulse", isPresented: $showOverflowMenu, titleVisibility: .visible) {
+                    Button("Refresh Pulse") {
+                        softHaptic()
+                        Task { await viewModel.refresh() }
+                    }
+                    Button("Curate Preferences") {
+                        softHaptic()
+                        viewModel.openCurate()
+                    }
+                    Button("Share") {
+                        let cardCount = viewModel.filteredCards.count
+                        let signalCount = visibleSignalCount
+                        viewModel.actionRouter.shareText = "Berean Pulse — \(cardCount) active card\(cardCount == 1 ? "" : "s"), \(signalCount) visible signal\(signalCount == 1 ? "" : "s")"
+                    }
+                    Button("Clear All Cards", role: .destructive) {
+                        softHaptic()
+                        for card in viewModel.filteredCards { viewModel.hide(card) }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
             }
-            .buttonStyle(BereanPulseGlassIconButtonStyle())
-            .accessibilityLabel(Text("Curate Berean Pulse"))
+            .glassCapsule()
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        // Pattern 1: material solidifies as user scrolls down
-        .scrollMaterialReveal(scrollOffset: scrollOffset, revealRange: 48)
-        .liquidGlassPanel(glassBehavior, cornerRadius: 28, elevated: false)
+        .padding(.horizontal, 16)
     }
 
     @ViewBuilder
@@ -432,6 +472,23 @@ struct BereanPulseView: View {
         formatter.dateFormat = "MMMM d"
         return formatter
     }()
+}
+
+// MARK: - Glass Capsule Surface
+
+private extension View {
+    /// Liquid Glass capsule surface: ultraThinMaterial + white highlight + dual stroke + float shadow.
+    func glassCapsule() -> some View {
+        self
+            .background {
+                Capsule(style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay { Capsule(style: .continuous).fill(Color.white.opacity(0.12)) }
+                    .overlay { Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5) }
+                    .overlay { Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.6) }
+                    .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 8)
+            }
+    }
 }
 
 private struct BereanPulseScrollOffsetKey: PreferenceKey {

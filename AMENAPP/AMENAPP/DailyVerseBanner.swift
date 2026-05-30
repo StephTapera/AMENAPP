@@ -297,8 +297,13 @@ struct DailyVerseBanner: View {
             isLoading: verseService.isGenerating,
             onLoad: { Task { await verseService.generatePersonalizedDailyVerse() } }
         )
+        // PERF FIX: DailyVerseGenkitService.init() already pre-loads today's cached verse
+        // synchronously, so there is no need for a redundant UserDefaults read here.
+        // Only kick off a network generation when the service has no verse at all
+        // (true cold-first-install with empty cache).
         .task {
-            await loadCachedVerseIfNeeded()
+            guard verseService.todayVerse == nil, !verseService.isGenerating else { return }
+            _ = await verseService.generatePersonalizedDailyVerse()
         }
         // OFFLINE FIX: When the app moves to active and the verse is a curated fallback
         // (isPersonalized == false), attempt a fresh Cloud Function call now that the
@@ -310,20 +315,6 @@ struct DailyVerseBanner: View {
                !verseService.isGenerating {
                 Task { _ = await verseService.generatePersonalizedDailyVerse(forceRefresh: true) }
             }
-        }
-    }
-
-    private func loadCachedVerseIfNeeded() async {
-        guard verseService.todayVerse == nil else { return }
-        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.cachedDailyVerse),
-           let date = UserDefaults.standard.object(forKey: UserDefaultsKeys.cachedVerseDate) as? Date,
-           Calendar.current.isDate(date, inSameDayAs: Date()),
-           let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
-            await MainActor.run {
-                verseService.todayVerse = verse
-            }
-        } else {
-            _ = await verseService.generatePersonalizedDailyVerse()
         }
     }
 }

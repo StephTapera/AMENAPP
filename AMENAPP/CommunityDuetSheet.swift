@@ -83,14 +83,14 @@ struct CommunityDuetSheet: View {
         .presentationBackground(.ultraThinMaterial)
         .presentationCornerRadius(28)
         .presentationDetents([.medium, .large])
-        .onAppear { viewModel.loadCommunityNotes() }
+        .onAppear { viewModel.loadDuetCommunityNotes() }
     }
 }
 
 // MARK: - CommunityNoteCard
 
 private struct CommunityNoteCard: View {
-    let note: CommunityNote
+    let note: DuetCommunityNote
     let onStitch: () -> Void
 
     @State private var stitchScale: CGFloat = 1.0

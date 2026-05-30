@@ -113,11 +113,15 @@ struct BereanCaptionChunk: Identifiable, Equatable {
     }
 }
 
-struct BereanScriptureReference: Identifiable, Equatable {
+struct BereanResolvedScriptureRef: Identifiable, Equatable {
     let id: String
     let reference: String
     let normalizedReference: String
     let confidence: Double
+
+    var displayString: String {
+        normalizedReference.isEmpty ? reference : normalizedReference
+    }
 
     init(id: String, data: [String: Any]) {
         self.id = id

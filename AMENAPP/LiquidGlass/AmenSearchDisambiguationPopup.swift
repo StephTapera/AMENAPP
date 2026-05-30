@@ -35,14 +35,15 @@ struct AmenSearchDisambiguationPopup: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(Array(modes.enumerated()), id: \.element.id) { index, mode in
+            let modeArr: [AmenSearchMode] = modes
+            ForEach(modeArr, id: \.id) { (mode: AmenSearchMode) in
                 ModeRow(mode: mode) {
                     onSelect(mode)
                 }
-                if index < modes.count - 1 {
+                if mode.id != modes.last?.id {
                     Divider()
                         .frame(height: 0.5)
-                        .background(Color.separator.opacity(0.4))
+                        .background(Color(uiColor: .separator).opacity(0.4))
                         .padding(.leading, 52)
                 }
             }
@@ -138,7 +139,7 @@ private struct ModeRow: View {
     private var rowPressBackground: some View {
         if isPressed {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AmenTheme.Colors.amenGold.opacity(0.08))
+                .fill(AmenTheme.Colors.amenBlue.opacity(0.08))
         } else {
             Color.clear
         }

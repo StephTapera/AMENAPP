@@ -230,14 +230,15 @@ struct SettingsView: View {
             } message: {
                 Text("Are you sure you want to sign out?")
             }
-            .alert("Delete Account", isPresented: $showDeleteAccountConfirmation) {
-                Button("Delete Account", role: .destructive) {
+            .amenAlert(isPresented: $showDeleteAccountConfirmation, config: LiquidGlassAlertConfig(
+                title: "Delete Account",
+                message: "This action is permanent and cannot be undone.",
+                icon: "exclamationmark.triangle.fill",
+                primaryButton: LiquidGlassAlertButton("Delete Account", tone: .destructive) {
                     // Navigate to DeleteAccountView for full flow with re-auth
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This action is permanent and cannot be undone.")
-            }
+                },
+                secondaryButton: .cancel()
+            ))
             .onReceive(NotificationCenter.default.publisher(for: .navigateToAccountSettings)) { _ in
                 navigateToAccountSettings = true
             }

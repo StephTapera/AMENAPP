@@ -83,6 +83,15 @@ export function snapshotFromDoc(uid: string, data: FirebaseFirestore.DocumentDat
   };
 }
 
+// ─── ageInYears ───────────────────────────────────────────────────────────────
+
+export function ageInYears(dob: Date, now: Date): number {
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+  return age;
+}
+
 // ─── writeResolvedPermissions ─────────────────────────────────────────────────
 
 /**

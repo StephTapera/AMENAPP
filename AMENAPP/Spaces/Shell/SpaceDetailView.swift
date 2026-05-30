@@ -143,13 +143,15 @@ struct SpaceDetailView: View {
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .lineLimit(3)
 
-                    SpaceFaithMetadataRow(
-                        spaceType: space.type,
-                        memberCount: members.count,
-                        bibleVersion: space.type == .bibleStudy ? "KJV" : nil,
-                        liturgicalSeason: nil,
-                        churchBadge: nil
-                    )
+                    if #available(iOS 26.0, *) {
+                        SpaceFaithMetadataRow(
+                            spaceType: space.type,
+                            memberCount: members.count,
+                            bibleVersion: space.type == .bibleStudy ? "KJV" : nil,
+                            liturgicalSeason: nil,
+                            churchBadge: nil
+                        )
+                    }
                 }
             }
             .padding(.horizontal, 20)
@@ -313,22 +315,22 @@ struct SpaceDetailView: View {
             ThreadListView(spaceId: space.id ?? "", space: space)
 
         case .bibleStudy:
-            // TODO(Agent D): Replace with StudyBlocksView(space: space)
-            Text("Study coming from Agent D")
-                .font(.body)
-                .foregroundStyle(AmenTheme.Colors.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 40)
-                .padding(.horizontal, 16)
+            // H-16: Placeholder replaced with ContentUnavailableView until StudyBlocksView ships.
+            ContentUnavailableView(
+                "Bible Study Coming Soon",
+                systemImage: "book.closed.fill",
+                description: Text("Interactive Bible study content for this Space is being built.")
+            )
+            .padding(.top, 16)
 
         case .announcement:
-            // TODO(Agent D): Replace with AnnouncementFeedView(space: space)
-            Text("Announcements")
-                .font(.body)
-                .foregroundStyle(AmenTheme.Colors.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 40)
-                .padding(.horizontal, 16)
+            // H-16: Placeholder replaced with ContentUnavailableView until AnnouncementFeedView ships.
+            ContentUnavailableView(
+                "Announcements Coming Soon",
+                systemImage: "megaphone.fill",
+                description: Text("Space announcements will appear here in an upcoming update.")
+            )
+            .padding(.top, 16)
         }
     }
 
@@ -337,10 +339,16 @@ struct SpaceDetailView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
-            // Manage button — Admin/Owner only; Agent D wires settings destination.
+            // H-16: Manage Space — replaced EmptyView() with ContentUnavailableView stub
+            // until SpaceSettingsView is built.
             NavigationLink {
-                // TODO(Agent D): Replace EmptyView with Space settings wizard.
-                EmptyView()
+                ContentUnavailableView(
+                    "Coming Soon",
+                    systemImage: "hammer.fill",
+                    description: Text("Space management is being built.")
+                )
+                .navigationTitle("Manage Space")
+                .navigationBarTitleDisplayMode(.inline)
             } label: {
                 Image(systemName: "gearshape")
                     .foregroundStyle(AmenTheme.Colors.textSecondary)

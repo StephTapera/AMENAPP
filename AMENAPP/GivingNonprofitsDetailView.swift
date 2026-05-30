@@ -703,6 +703,8 @@ private struct NonprofitEditorialCard: View {
     let ink: Color
     let inkSecondary: Color
 
+    @State private var showInAppGiving = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
@@ -844,11 +846,15 @@ private struct NonprofitEditorialCard: View {
                 }
                 .buttonStyle(SquishButtonStyle())
 
-                if let donateURL = nonprofit.donateURL {
+                if nonprofit.donateURL != nil || AMENFeatureFlags.shared.paymentsEnabled {
                     Button {
-                        let donateNormalized = donateURL.hasPrefix("http://") || donateURL.hasPrefix("https://") ? donateURL : "https://\(donateURL)"
-                        if let url = URL(string: donateNormalized) {
-                            UIApplication.shared.open(url)
+                        if AMENFeatureFlags.shared.paymentsEnabled {
+                            showInAppGiving = true
+                        } else if let donateURL = nonprofit.donateURL {
+                            let normalized = donateURL.hasPrefix("http://") || donateURL.hasPrefix("https://") ? donateURL : "https://\(donateURL)"
+                            if let url = URL(string: normalized) {
+                                UIApplication.shared.open(url)
+                            }
                         }
                     } label: {
                         HStack(spacing: 6) {
@@ -870,6 +876,9 @@ private struct NonprofitEditorialCard: View {
                         )
                     }
                     .buttonStyle(SquishButtonStyle())
+                    .sheet(isPresented: $showInAppGiving) {
+                        GivingInAppSheet(nonprofit: nonprofit)
+                    }
                 }
             }
             .padding(.horizontal, 16)

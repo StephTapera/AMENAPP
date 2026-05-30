@@ -155,6 +155,21 @@ final class GrowthLoopEngine: ObservableObject {
         listenerRegistration?.remove()
     }
 
+    // MARK: - Reset (call on sign-out to prevent cross-user data leakage)
+
+    /// Stops the Firestore listener and clears all per-user published state.
+    /// Leaves the singleton in the same state it would be in after first init.
+    func reset() {
+        listenerRegistration?.remove()
+        listenerRegistration = nil
+        activeLoops.removeAll()
+        completedLoops.removeAll()
+        metrics = GrowthMetrics()
+        pendingCheckIn = nil
+        isLoading = false
+        dlog("🧹 GrowthLoopEngine: user state cleared on sign-out")
+    }
+
     // MARK: - Create Loop
 
     /// Call this whenever significant content is created (note, sermon, Berean answer).

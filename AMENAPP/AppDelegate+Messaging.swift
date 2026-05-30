@@ -44,9 +44,14 @@ extension AppDelegate {
     }
     
     /// Handle failed APNS token registration
-    func application(_ application: UIApplication, 
+    func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        #if targetEnvironment(simulator)
+        // Simulator has no APNS hardware — registration always fails here.
+        dlog("⚠️ Remote notification registration unavailable on simulator (expected): \(error.localizedDescription)")
+        #else
         dlog("❌ Failed to register for remote notifications: \(error)")
+        #endif
     }
 }
 

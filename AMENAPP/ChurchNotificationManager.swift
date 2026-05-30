@@ -28,7 +28,7 @@ class ChurchNotificationManager: NSObject, ObservableObject {
         }
     }
     
-    func setupNotificationCategories() {
+    @MainActor func setupNotificationCategories() {
         // Define notification actions
         let getDirectionsAction = UNNotificationAction(
             identifier: "GET_DIRECTIONS",
@@ -76,14 +76,16 @@ class ChurchNotificationManager: NSObject, ObservableObject {
             options: []
         )
         
-        // Register all categories
-        UNUserNotificationCenter.current().setNotificationCategories([
+        // H-14 FIX: Route through NotificationCategoryRegistrar instead of calling
+        // setNotificationCategories directly, which would wipe categories registered by
+        // other services. The registrar merges all categories and applies the union.
+        NotificationCategoryRegistrar.shared.register([
             serviceReminderCategory,
             morningReminderCategory,
             arrivalCategory
         ])
-        
-        dlog("✅ Church notification categories registered")
+
+        dlog("✅ Church notification categories registered via NotificationCategoryRegistrar")
     }
     
     func checkAuthorizationStatus() async -> Bool {

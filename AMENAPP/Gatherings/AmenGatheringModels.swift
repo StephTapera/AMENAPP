@@ -479,7 +479,7 @@ struct AmenGatheringFeedCard: Codable, Identifiable {
 
 // MARK: - Create Input
 
-struct AmenCreateGatheringInput {
+struct AmenCreateGatheringInput: Codable {
     var title: String
     var type: AmenGatheringType
     var hostType: AmenGatheringHostType
@@ -549,7 +549,7 @@ struct AmenCreateGatheringInput {
     }
 }
 
-struct AmenCreateQuestionInput {
+struct AmenCreateQuestionInput: Codable {
     var prompt: String
     var type: AmenGatheringQuestionType
     var options: [String]

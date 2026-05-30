@@ -14,9 +14,17 @@ struct AmenFilterOption: Identifiable, Equatable {
     }
 }
 
-struct AmenFilterSection {
+struct AmenFilterSection: Identifiable {
+    let id = UUID()
     let header: String? // nil = no section header
+    let sectionKey: String   // stable key for multi-dimension selection map
     let options: [AmenFilterOption]
+
+    init(header: String?, options: [AmenFilterOption]) {
+        self.header = header
+        self.sectionKey = header ?? "main"
+        self.options = options
+    }
 }
 
 // MARK: - AmenGlassFilterDropdown
@@ -27,7 +35,7 @@ struct AmenFilterSection {
 
 struct AmenGlassFilterDropdown: View {
     let sections: [AmenFilterSection]
-    @Binding var selectedId: String
+    @Binding var selectionMap: [String: String]
     @Binding var isShowing: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -50,6 +58,8 @@ struct AmenGlassFilterDropdown: View {
                     .onTapGesture {
                         withAnimation(entranceAnimation) { isShowing = false }
                     }
+                    .accessibilityLabel("Dismiss filter menu")
+                    .accessibilityHint("Double-tap to close")
             }
 
             // The card itself
@@ -72,11 +82,14 @@ struct AmenGlassFilterDropdown: View {
 
     private var dropdownCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(sections.enumerated()), id: \.offset) { sectionIdx, section in
+            let sectionArr: [AmenFilterSection] = sections
+            ForEach(sectionArr, id: \.id) { (section: AmenFilterSection) in
+                let isFirst: Bool = sectionArr.first.map { $0.id == section.id } ?? false
+                let isLast: Bool  = sectionArr.last.map  { $0.id == section.id } ?? false
                 // Section divider (between sections only, not before the first)
-                if sectionIdx > 0 {
+                if !isFirst {
                     Rectangle()
-                        .fill(Color.separator.opacity(0.4))
+                        .fill(Color(uiColor: .separator).opacity(0.4))
                         .frame(height: 0.5)
                         .padding(.horizontal, 12)
                 }
@@ -87,17 +100,17 @@ struct AmenGlassFilterDropdown: View {
                         .font(AMENFont.semiBold(12))
                         .foregroundStyle(Color.secondary)
                         .padding(.horizontal, 16)
-                        .padding(.top, sectionIdx == 0 ? 12 : 10)
+                        .padding(.top, isFirst ? 12 : 10)
                         .padding(.bottom, 2)
                 }
 
                 // Options
                 ForEach(section.options) { option in
-                    optionRow(option, isFirstInSection: section.header == nil && option.id == section.options.first?.id && sectionIdx == 0)
+                    optionRow(option, section: section, isFirstInSection: section.header == nil && option.id == section.options.first?.id && isFirst)
                 }
 
                 // Bottom padding on last section
-                if sectionIdx == sections.count - 1 {
+                if isLast {
                     Spacer().frame(height: 6)
                 }
             }
@@ -111,12 +124,12 @@ struct AmenGlassFilterDropdown: View {
 
     // MARK: - Option Row
 
-    private func optionRow(_ option: AmenFilterOption, isFirstInSection: Bool) -> some View {
-        let isSelected = option.id == selectedId
+    private func optionRow(_ option: AmenFilterOption, section: AmenFilterSection, isFirstInSection: Bool) -> some View {
+        let isSelected = selectionMap[section.sectionKey] == option.id
 
         return Button {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
-                selectedId = option.id
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.22, dampingFraction: 0.82)) {
+                selectionMap[section.sectionKey] = option.id
             }
             // Short delay so the selection flash is visible before dismiss
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
@@ -180,7 +193,7 @@ struct AmenGlassFilterDropdown: View {
                 .amenGlassEffect(Color(.systemBackground).opacity(0.3), cornerRadius: 18)
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.6)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.6)
                 }
         }
     }
@@ -205,7 +218,7 @@ struct AmenFilterButton: View {
         } label: {
             Image(systemName: "line.3.horizontal.decrease.circle")
                 .font(.system(size: 20, weight: .medium))
-                .foregroundStyle(Color.secondary)
+                .foregroundStyle(AmenTheme.Colors.amenGold)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
@@ -214,6 +227,8 @@ struct AmenFilterButton: View {
         .gesture(DragGesture(minimumDistance: 0).updating($isPressed) { _, s, _ in s = true })
         .animation(.spring(response: 0.22, dampingFraction: 0.82), value: isPressed)
         .accessibilityLabel("Filter feed")
+        .accessibilityValue(isShowing ? "open" : "closed")
+        .accessibilityHint(isShowing ? "Double-tap to close" : "Double-tap to filter")
         .accessibilityAddTraits(.isButton)
     }
 }

@@ -10,7 +10,7 @@ function requireAuth(context: functions.https.CallableContext) {
     return context.auth.uid;
 }
 
-function requireAppCheck(context: functions.https.CallableContext) {
+export function requireAppCheck(context: functions.https.CallableContext) {
     if (context.app == undefined) {
         throw new functions.https.HttpsError(
             "failed-precondition",

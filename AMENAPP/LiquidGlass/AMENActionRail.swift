@@ -109,7 +109,7 @@ struct AMENActionRail: View {
         } else if #available(iOS 26.0, *) {
             Circle()
                 .fill(Color.clear)
-                .glassEffect(.regular, in: Circle())
+                .glassEffect(Glass.regular.interactive(), in: Circle())
                 .overlay(Circle().fill(Color.white.opacity(AMENGlassMediaTokens.idleFrostOpacity)))
                 .overlay(Circle().strokeBorder(Color.white.opacity(AMENGlassMediaTokens.strokeOpacity), lineWidth: 0.8))
         } else {

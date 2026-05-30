@@ -511,7 +511,7 @@ struct PinnedPostGlassContainer<Content: View>: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.68))
                             .frame(width: 38, height: 38)
-                            .glassEffect(.regular.tint(.white.opacity(0.16)), in: Circle())
+                            .amenGlassEffect(.white.opacity(0.16), in: Circle())
                     }
                     .buttonStyle(.plain)
                     .padding(.top, 10)
@@ -605,7 +605,7 @@ struct PinnedPostGlassContainer<Content: View>: View {
                     .foregroundStyle(.black.opacity(0.78))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
-                    .glassEffect(.regular.tint(.white.opacity(0.16)), in: Capsule())
+                    .amenGlassEffect(.white.opacity(0.16), in: Capsule())
             }
             .buttonStyle(.plain)
             .padding(.top, 14)

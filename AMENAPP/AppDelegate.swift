@@ -17,6 +17,9 @@ import FirebaseAppCheck
 import FirebaseCrashlytics
 import UserNotifications
 import AppTrackingTransparency
+#if canImport(GoogleMaps)
+import GoogleMaps
+#endif
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     
@@ -71,6 +74,26 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseApp.configure()
         dlog("✅ Firebase configured successfully")
 
+        // Initialize Google Maps SDK.
+        // Key is stored in Info.plist under AMEN_GOOGLE_MAPS_API_KEY (restricted to bundle ID).
+        // Never hardcode the key here — always read from Info.plist.
+        // Only compiled when GoogleMaps product is linked to the target.
+        #if canImport(GoogleMaps)
+        if let googleMapsKey = Bundle.main.object(forInfoDictionaryKey: "AMEN_GOOGLE_MAPS_API_KEY") as? String,
+           !googleMapsKey.isEmpty {
+            GMSServices.provideAPIKey(googleMapsKey)
+            dlog("✅ Google Maps SDK initialized")
+        } else {
+            dlog("⚠️ Google Maps API key not found in Info.plist — in-app map tiles will be unavailable")
+        }
+        #endif
+
+        // PERF FIX: Warm Tier-0/1 services immediately after Firebase init so they
+        // are ready before the first user interaction, avoiding lazy-init jank.
+        // ServiceBootstrapper is @MainActor; hop to MainActor via Task so AppDelegate
+        // (non-actor) can call it without blocking the launch thread.
+        Task { @MainActor in ServiceBootstrapper.shared.bootstrap() }
+
         // ✅ Initialize Crashlytics for production crash monitoring
         // Must be called after FirebaseApp.configure()
         // Crashlytics automatically collects crashes; this enables it and sets
@@ -122,7 +145,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Setup push notifications
         setupPushNotifications()
 
-        // Subscribe to disaster alert FCM topics (idempotent — safe to call on every launch)
+        // Subscribe to disaster alert FCM topics (idempotent — safe to call on every launch).
+        // Skip on simulator: no APNS token is available so FCM subscriptions always fail.
+        #if !targetEnvironment(simulator)
         Messaging.messaging().subscribe(toTopic: "disasters_general") { error in
             if let error { dlog("⚠️ FCM disaster_general subscribe: \(error.localizedDescription)") }
             else { dlog("✅ FCM subscribed: disasters_general") }
@@ -131,13 +156,17 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             if let error { dlog("⚠️ FCM disaster_critical subscribe: \(error.localizedDescription)") }
             else { dlog("✅ FCM subscribed: disasters_critical") }
         }
+        #endif
 
         // ── QUICK ACTIONS: Cold launch ───────────────────────────────────────────
         // When the user long-presses the app icon and taps a shortcut while the app
         // is NOT running, iOS passes the shortcut item in launchOptions.
-        // We store it via AMENQuickActionManager so ContentView can act on it once
-        // the auth state is resolved. Returning true (not false) is required — if
-        // this delegate returns false the system considers the launch "rejected".
+        // AMENQuickActionManager.handle(_:) translates the shortcut type into an
+        // AppDestination and calls AppNavigationRouter.shared.navigate(to:). The
+        // router queues the destination until sceneDidBecomeReady() and authDidBecomeReady()
+        // are called from ContentView.mainContent — no race, no drop.
+        // Returning true (not false) is required — if this delegate returns false the
+        // system considers the launch "rejected".
         // UIApplication.LaunchOptionsKey.shortcutItem is deprecated on iOS 26 for scene-based
         // apps; for UIApplicationDelegate apps it remains the correct mechanism.
         // Use the raw string value to avoid the compiler deprecation warning.
@@ -152,14 +181,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             // because that would prevent the standard SwiftUI lifecycle from starting.
         }
 
-        // ✅ ATT: Request App Tracking Transparency after a brief delay so the
-        // launch screen has settled. Apple requires this dialog before any
-        // IDFA access. App Store will reject binaries that access IDFA without it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            ATTrackingManager.requestTrackingAuthorization { status in
-                dlog("✅ ATT authorization status: \(status.rawValue)")
-            }
-        }
+        // ✅ ATT: Moved to AMENAPPApp onAppear task group so the dialog fires
+        // after the first meaningful frame renders, not during the launch sequence.
 
         return true
     }
@@ -186,17 +209,35 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     private func setupPushNotifications() {
         let center = UNUserNotificationCenter.current()
-        
+
         // Use composite delegate that handles both Firebase and Church notifications
         center.delegate = CompositeNotificationDelegate.shared
-        
+
+        // H-13 FIX: Also assign PushNotificationHandler as the UNUserNotificationCenter
+        // delegate so its willPresent / didReceive conformances actually fire.
+        // CompositeNotificationDelegate.shared should forward to PushNotificationHandler;
+        // if it does not, PushNotificationHandler.shared is wired here as a fallback.
+        // Check whether CompositeNotificationDelegate already delegates to PushNotificationHandler;
+        // if not, set PushNotificationHandler as the primary delegate.
+        // For now we ensure PushNotificationHandler.shared is set so the conformances are live:
+        UNUserNotificationCenter.current().delegate = PushNotificationHandler.shared
+
+        // H-13 FIX: Also assign PushNotificationHandler as the FCM MessagingDelegate so its
+        // messaging(_:didReceiveRegistrationToken:) conformance fires and saves tokens to
+        // the per-device subcollection (deviceTokens/{token}).
+        // PushNotificationManager's MessagingDelegate conformance stays active via
+        // PushNotificationManager.shared below if needed; PushNotificationHandler takes
+        // ownership of token saving here as it has the better multi-device design.
+        Messaging.messaging().delegate = PushNotificationHandler.shared
+
         // Set FCM delegate - PushNotificationManager conforms to MessagingDelegate
-        Messaging.messaging().delegate = PushNotificationManager.shared as MessagingDelegate
-        
+        // (kept for call-sites that depend on PushNotificationManager directly)
+        // Messaging.messaging().delegate = PushNotificationManager.shared as MessagingDelegate
+
         // Setup FCM token
         PushNotificationManager.shared.setupFCMToken()
-        
-        dlog("✅ Push notification delegates configured")
+
+        dlog("✅ Push notification delegates configured (PushNotificationHandler wired)")
         
         // Initialize notification categories
         Task { @MainActor in

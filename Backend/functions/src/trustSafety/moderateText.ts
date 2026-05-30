@@ -16,9 +16,12 @@
  */
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import axios from "axios";
+
+const perspectiveApiKey = defineSecret("PERSPECTIVE_API_KEY");
 
 import {
   SafetyDecision,
@@ -35,7 +38,6 @@ const db = admin.firestore();
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
-const PERSPECTIVE_API_KEY = process.env.PERSPECTIVE_API_KEY ?? "";
 const PERSPECTIVE_URL =
   "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze";
 
@@ -104,7 +106,8 @@ async function runTextPreflightInternal(
   contentType: ContentSurface,
   authorUid: string,
   contentId: string | undefined,
-  isMinor: boolean
+  isMinor: boolean,
+  perspectiveKey: string
 ): Promise<SafetyDecision> {
   const categories: Partial<Record<RiskCategory, number>> = {};
   let outcome: SafetyDecisionOutcome = "allow";
@@ -127,10 +130,10 @@ async function runTextPreflightInternal(
   }
 
   // Layer 1 — Perspective API (only if layer 0 didn't already hard-block)
-  if (outcome === "allow" && PERSPECTIVE_API_KEY) {
+  if (outcome === "allow" && perspectiveKey) {
     try {
       const perspResp = await axios.post(
-        `${PERSPECTIVE_URL}?key=${PERSPECTIVE_API_KEY}`,
+        `${PERSPECTIVE_URL}?key=${perspectiveKey}`,
         {
           comment: { text },
           languages: ["en"],
@@ -208,7 +211,7 @@ function outcomeMessage(outcome: SafetyDecisionOutcome, cat: RiskCategory): stri
 // ─── Exported callable ───────────────────────────────────────────────────
 
 export const runTextPreflight = onCall(
-  { enforceAppCheck: true, cors: false },
+  { enforceAppCheck: true, cors: false, secrets: [perspectiveApiKey] },
   async (request): Promise<TextPreflightResponse> => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
 
@@ -219,7 +222,9 @@ export const runTextPreflight = onCall(
     const uid = request.auth.uid;
     const minor = isMinor === true;
 
-    const decision = await runTextPreflightInternal(text, contentType ?? "post", uid, contentId, minor);
+    const decision = await runTextPreflightInternal(
+      text, contentType ?? "post", uid, contentId, minor, perspectiveApiKey.value()
+    );
 
     if (decision.decision !== "allow") {
       await writeSafetyAuditEvent({

@@ -76,6 +76,7 @@ struct CreatePostAudienceHintRow: View {
             Image(systemName: hint.icon)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.primary)
+                .accessibilityHidden(true)
 
             Text(hint.label)
                 .font(AMENFont.semiBold(12))
@@ -94,8 +95,12 @@ struct CreatePostAudienceHintRow: View {
                     .foregroundStyle(.secondary)
                     .padding(5)
                     .background(Circle().fill(Color(.systemGray5)))
+                    .accessibilityHidden(true)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Remove audience hint")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Removes the selected audience hint")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -121,6 +126,7 @@ private struct AudienceHintPill: View {
             HStack(spacing: 5) {
                 Image(systemName: hint.icon)
                     .font(.system(size: 11, weight: .medium))
+                    .accessibilityHidden(true)
                 Text(hint.label)
                     .font(AMENFont.semiBold(12))
             }
@@ -137,5 +143,8 @@ private struct AudienceHintPill: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(hint.label)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Selects \(hint.label) as the audience for your post")
     }
 }

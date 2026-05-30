@@ -119,19 +119,62 @@ final class LocalPostDraft {
         set { phaseRawValue = newValue.rawValue; updatedAt = Date() }
     }
 
+    // MARK: - Decoded caches (transient — not persisted, invalidated when JSON backing string changes)
+    // Note: cache key names deliberately avoid the underscore+propertyName pattern
+    // that SwiftData's @Model macro uses for its own backing storage (_pollOptionsJSON etc.).
+
+    @Transient private var cachedPollOptions: [String]?
+    @Transient private var cachedPollOptionsKey: String = ""
+
+    @Transient private var cachedThreadPosts: [String]?
+    @Transient private var cachedThreadPostsKey: String = ""
+
+    @Transient private var cachedImageAltTexts: [String]?
+    @Transient private var cachedImageAltTextsKey: String = ""
+
     var pollOptions: [String] {
-        get { (try? JSONDecoder().decode([String].self, from: Data(pollOptionsJSON.utf8))) ?? ["", ""] }
-        set { pollOptionsJSON = (try? JSONEncoder().encode(newValue)).flatMap { String(data: $0, encoding: .utf8) } ?? "[\"\",\"\"]" }
+        get {
+            if cachedPollOptionsKey != pollOptionsJSON { cachedPollOptions = nil; cachedPollOptionsKey = pollOptionsJSON }
+            if let cached = cachedPollOptions { return cached }
+            let decoded = (try? JSONDecoder().decode([String].self, from: Data(pollOptionsJSON.utf8))) ?? ["", ""]
+            cachedPollOptions = decoded
+            return decoded
+        }
+        set {
+            pollOptionsJSON = (try? JSONEncoder().encode(newValue)).flatMap { String(data: $0, encoding: .utf8) } ?? "[\"\",\"\"]"
+            cachedPollOptions = newValue
+            cachedPollOptionsKey = pollOptionsJSON
+        }
     }
 
     var threadPosts: [String] {
-        get { (try? JSONDecoder().decode([String].self, from: Data(threadPostsJSON.utf8))) ?? [""] }
-        set { threadPostsJSON = (try? JSONEncoder().encode(newValue)).flatMap { String(data: $0, encoding: .utf8) } ?? "[\"\"]" }
+        get {
+            if cachedThreadPostsKey != threadPostsJSON { cachedThreadPosts = nil; cachedThreadPostsKey = threadPostsJSON }
+            if let cached = cachedThreadPosts { return cached }
+            let decoded = (try? JSONDecoder().decode([String].self, from: Data(threadPostsJSON.utf8))) ?? [""]
+            cachedThreadPosts = decoded
+            return decoded
+        }
+        set {
+            threadPostsJSON = (try? JSONEncoder().encode(newValue)).flatMap { String(data: $0, encoding: .utf8) } ?? "[\"\"]"
+            cachedThreadPosts = newValue
+            cachedThreadPostsKey = threadPostsJSON
+        }
     }
 
     var imageAltTexts: [String] {
-        get { (try? JSONDecoder().decode([String].self, from: Data(imageAltTextsJSON.utf8))) ?? [] }
-        set { imageAltTextsJSON = (try? JSONEncoder().encode(newValue)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]" }
+        get {
+            if cachedImageAltTextsKey != imageAltTextsJSON { cachedImageAltTexts = nil; cachedImageAltTextsKey = imageAltTextsJSON }
+            if let cached = cachedImageAltTexts { return cached }
+            let decoded = (try? JSONDecoder().decode([String].self, from: Data(imageAltTextsJSON.utf8))) ?? []
+            cachedImageAltTexts = decoded
+            return decoded
+        }
+        set {
+            imageAltTextsJSON = (try? JSONEncoder().encode(newValue)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+            cachedImageAltTexts = newValue
+            cachedImageAltTextsKey = imageAltTextsJSON
+        }
     }
 
     var hasContent: Bool {
@@ -139,6 +182,10 @@ final class LocalPostDraft {
             || showingPoll
             || isThreadMode
             || witnessAttachmentJSON != nil
+            || imageCount > 0
+            // P1-12: link-only and verse-only posts are valid draft content.
+            || !linkURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !attachedVerseReference.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
@@ -159,7 +206,12 @@ final class CreatePostDraftStore {
         do {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
-            fatalError("CreatePostDraftStore: failed to initialize ModelContainer: \(error)")
+            let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            do {
+                container = try ModelContainer(for: schema, configurations: fallback)
+            } catch {
+                fatalError("CreatePostDraftStore: in-memory ModelContainer also failed: \(error)")
+            }
         }
     }
 

@@ -13,9 +13,13 @@ final class BereanRealtimeSessionManager: ObservableObject {
 
     private let db = Firestore.firestore()
     private let functions = Functions.functions()
-    private var listener: ListenerRegistration?
+    private var listenersBySessionId: [String: ListenerRegistration] = [:]
 
     private init() {}
+
+    deinit {
+        listenersBySessionId.values.forEach { $0.remove() }
+    }
 
     func createSession(
         type: BereanRealtimeSessionType,
@@ -87,14 +91,14 @@ final class BereanRealtimeSessionManager: ObservableObject {
         } catch {
             lastError = error.localizedDescription
         }
-        listener?.remove()
-        listener = nil
+        listenersBySessionId[sessionId]?.remove()
+        listenersBySessionId.removeValue(forKey: sessionId)
         currentSession = nil
     }
 
     func listen(to sessionId: String) {
-        listener?.remove()
-        listener = db.collection("realtimeSessions").document(sessionId).addSnapshotListener { [weak self] snapshot, error in
+        listenersBySessionId[sessionId]?.remove()
+        listenersBySessionId[sessionId] = db.collection("realtimeSessions").document(sessionId).addSnapshotListener { [weak self] snapshot, error in
             Task { @MainActor in
                 if let error {
                     self?.lastError = error.localizedDescription

@@ -2215,6 +2215,16 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
     }
+    // Account lifecycle events — server-written on deactivate/reactivate; owner may read audit trail
+    match /users/{userId}/accountEvents/{eventId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['type', 'timestamp'])
+        && request.resource.data.type in ['deactivated', 'reactivated']
+        && request.resource.data.keys().hasOnly(['type', 'timestamp', 'reason']);
+      allow update, delete: if false;  // immutable audit log
+    }
+
     match /users/{userId}/bereanSessions/{sessionId} {
       allow read, write: if isOwner(userId);
       match /messages/{messageId} {
@@ -4563,6 +4573,204 @@ service cloud.firestore {
     //   - Client cannot write entitlements (allow write: if false above)
     //   - Stripe webhook Cloud Function writes via Admin SDK (bypasses rules)
     //   - grantSpaceAccess callable writes via Admin SDK (bypasses rules)
+
+    // ─── Community Notes (public/searchable church notes) ────────────────────
+    // Private notes live here too but are invisible to other users via rules.
+    // Indexing to Algolia/Pinecone is gated: only public + approved notes.
+
+    match /communityNotes/{noteId} {
+
+      function communityNoteServerFields() {
+        return ['excerpt', 'scriptureRefs', 'scriptureRefStrings', 'scriptureKeys',
+                'likeCount', 'commentCount', 'saveCount', 'indexedToAlgolia',
+                'indexedToPinecone', 'embeddingModel', 'searchSyncedAt',
+                'moderationStatus', 'publishedAt'];
+      }
+
+      function noServerFields() {
+        return !request.resource.data.keys().hasAny(communityNoteServerFields());
+      }
+
+      function isNoteAuthor() {
+        return request.auth != null && resource.data.authorId == request.auth.uid;
+      }
+
+      function isPublicApproved() {
+        return resource.data.visibility == 'public'
+            && resource.data.moderationStatus == 'approved';
+      }
+
+      function isConfirmedFollower() {
+        return exists(/databases/$(database)/documents/users/$(resource.data.authorId)/followers/$(request.auth.uid));
+      }
+
+      allow read: if request.auth != null && (
+        isNoteAuthor() ||
+        isPublicApproved() ||
+        (resource.data.visibility == 'followers' && isConfirmedFollower())
+      );
+
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && noServerFields()
+        && request.resource.data.title.size() <= 140
+        && request.resource.data.body.size() <= 20000
+        && request.resource.data.visibility in ['public', 'followers', 'private'];
+
+      allow update: if request.auth != null
+        && resource.data.authorId == request.auth.uid
+        && noServerFields()
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.title.size() <= 140
+        && request.resource.data.body.size() <= 20000;
+
+      allow delete: if isNoteAuthor();
+
+      match /likes/{uid} {
+        allow read: if request.auth != null;
+        allow create, delete: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null && (
+          isNoteAuthor() || isPublicApproved()
+        );
+        allow create: if request.auth != null
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.text.size() <= 2000
+          && !request.resource.data.keys().hasAny(['amenCount', 'moderationStatus']);
+        allow update: if request.auth != null
+          && resource.data.authorId == request.auth.uid
+          && !request.resource.data.keys().hasAny(['amenCount', 'moderationStatus']);
+        allow delete: if request.auth != null
+          && resource.data.authorId == request.auth.uid;
+
+        match /amens/{uid} {
+          allow read: if request.auth != null;
+          allow create, delete: if request.auth != null && request.auth.uid == uid;
+        }
+      }
+    }
+
+    // Saved notes — user's private bookmarks
+    match /users/{uid}/savedNotes/{noteId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    // ─── End Community Notes ─────────────────────────────────────────────────
+
+    // ─── Multi-Tenant Contextual Experience System ────────────────────────────────
+
+    // Helper: check org membership
+    function isMember(orgId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    // Helper: get org role
+    function orgRole(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)/roles/$(request.auth.uid)).data.role;
+    }
+
+    function isOrgAdmin(orgId) {
+      return orgRole(orgId) in ["owner", "admin", "pastor"];
+    }
+
+    function isOrgModerator(orgId) {
+      return orgRole(orgId) in ["owner", "admin", "pastor", "moderator", "comms_lead"];
+    }
+
+    // Organizations
+    match /organizations/{orgId} {
+      allow read: if request.auth != null && (
+        resource.data.isPublic == true || isMember(orgId)
+      );
+      allow create: if request.auth != null
+        && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.keys().hasAll(["name", "type", "ownerUserId", "isPublic"]);
+      allow update: if request.auth != null && isOrgAdmin(orgId);
+      allow delete: if false; // soft-delete only via CF
+
+      match /members/{userId} {
+        allow read: if request.auth != null && isMember(orgId);
+        allow write: if false; // CF only
+      }
+
+      match /roles/{userId} {
+        allow read: if request.auth != null && isMember(orgId);
+        allow write: if false; // CF only
+      }
+    }
+
+    // Contextual Experiences
+    match /contextualExperiences/{expId} {
+      // Visibility-gated read
+      allow read: if request.auth != null && (
+        resource.data.visibility == "global" ||
+        resource.data.visibility == "regional" ||
+        (resource.data.visibility == "organization" && isMember(resource.data.organizationId)) ||
+        (resource.data.visibility == "campus" && isMember(resource.data.organizationId)) ||
+        resource.data.createdBy == request.auth.uid
+      );
+      allow create: if false; // CF only
+      allow update: if false; // CF only
+      allow delete: if false; // CF only
+
+      match /modules/{moduleId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /events/{eventId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /prayers/{promptId} {
+        // Prayer prompts readable by participants; anonymous prayer content NEVER readable by non-admins
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /discussions/{discussionId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /memories/{memoryId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /traditions/{traditionId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /participants/{userId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      match /moderationQueue/{itemId} {
+        // Only moderators can read the moderation queue
+        allow read: if request.auth != null && isOrgModerator(get(/databases/$(database)/documents/contextualExperiences/$(expId)).data.organizationId);
+        allow write: if false;
+      }
+
+      match /auditLog/{logId} {
+        allow read: if request.auth != null && isOrgAdmin(get(/databases/$(database)/documents/contextualExperiences/$(expId)).data.organizationId);
+        allow write: if false; // immutable, CF only
+      }
+
+      match /notificationPrefs/{userId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Experience Analytics — admin-only read, CF-only write
+    match /experienceAnalytics/{expId} {
+      allow read: if request.auth != null && isOrgAdmin(get(/databases/$(database)/documents/contextualExperiences/$(expId)).data.organizationId);
+      allow write: if false;
+    }
 
   }
 }

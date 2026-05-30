@@ -137,34 +137,32 @@ private struct BDHeroSection: View {
             // Atmospheric background — blurred cover image
             if let urlStr = book.highResThumbnailURL ?? book.thumbnailURL,
                let url = URL(string: urlStr) {
-                AsyncImage(url: url) { phase in
-                    if case .success(let img) = phase {
-                        img.resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 320)
-                            .clipped()
-                            .blur(radius: 28)
-                            .saturation(0.9)
-                            .overlay {
-                                // Gradient veil
-                                LinearGradient(
-                                    colors: [
-                                        book.coverColor.opacity(colorScheme == .dark ? 0.55 : 0.35),
-                                        BDToken.bg.opacity(0.0),
-                                        BDToken.bg
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            }
-                    } else {
-                        // Fallback gradient atmosphere
-                        LinearGradient(
-                            colors: [book.coverColor.opacity(0.22), BDToken.bg],
-                            startPoint: .top, endPoint: .bottom
-                        )
+                CachedAsyncImage(url: url, size: CGSize(width: 600, height: 320)) { img in
+                    img.resizable()
+                        .aspectRatio(contentMode: .fill)
                         .frame(height: 320)
-                    }
+                        .clipped()
+                        .blur(radius: 28)
+                        .saturation(0.9)
+                        .overlay {
+                            // Gradient veil
+                            LinearGradient(
+                                colors: [
+                                    book.coverColor.opacity(colorScheme == .dark ? 0.55 : 0.35),
+                                    BDToken.bg.opacity(0.0),
+                                    BDToken.bg
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        }
+                } placeholder: {
+                    // Fallback gradient atmosphere
+                    LinearGradient(
+                        colors: [book.coverColor.opacity(0.22), BDToken.bg],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .frame(height: 320)
                 }
             } else {
                 LinearGradient(
@@ -177,20 +175,18 @@ private struct BDHeroSection: View {
             // Foreground cover image centered + elevated
             VStack(spacing: 0) {
                 if let urlStr = book.thumbnailURL, let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let img) = phase {
-                            img.resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxHeight: 210)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .shadow(color: .black.opacity(0.35), radius: 20, x: 0, y: 10)
-                                .onAppear { heroLoaded = true }
-                        } else {
-                            WLBookCoverPlaceholder(book: book)
-                                .frame(width: 140, height: 210)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .shadow(color: .black.opacity(0.25), radius: 14, x: 0, y: 7)
-                        }
+                    CachedAsyncImage(url: url, size: CGSize(width: 280, height: 420)) { img in
+                        img.resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxHeight: 210)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .shadow(color: .black.opacity(0.35), radius: 20, x: 0, y: 10)
+                            .onAppear { heroLoaded = true }
+                    } placeholder: {
+                        WLBookCoverPlaceholder(book: book)
+                            .frame(width: 140, height: 210)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .shadow(color: .black.opacity(0.25), radius: 14, x: 0, y: 7)
                     }
                 } else {
                     WLBookCoverPlaceholder(book: book)
@@ -534,17 +530,15 @@ struct WLBereanBookPromptView: View {
                     // Book pill header
                     HStack(spacing: 12) {
                         if let urlStr = book.thumbnailURL, let url = URL(string: urlStr) {
-                            AsyncImage(url: url) { phase in
-                                if case .success(let img) = phase {
-                                    img.resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                        .frame(width: 44, height: 64)
-                                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                                } else {
-                                    WLBookCoverPlaceholder(book: book)
-                                        .frame(width: 44, height: 64)
-                                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                                }
+                            CachedAsyncImage(url: url, size: CGSize(width: 88, height: 128)) { img in
+                                img.resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 44, height: 64)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            } placeholder: {
+                                WLBookCoverPlaceholder(book: book)
+                                    .frame(width: 44, height: 64)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
                             }
                         } else {
                             WLBookCoverPlaceholder(book: book)

@@ -161,24 +161,22 @@ struct MinimalAuthenticationView: View {
                 isLoading = false
             }
         }
-        .alert("Reset Password", isPresented: $showPasswordResetAlert) {
-            TextField("Email address", text: $resetEmail)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Button("Send Reset Link") {
+        .amenAlert(isPresented: $showPasswordResetAlert, config: LiquidGlassAlertConfig(
+            title: "Reset Password",
+            message: "Enter your email address and we'll send you a link to reset your password.",
+            icon: "envelope.fill",
+            primaryButton: LiquidGlassAlertButton("Send Reset Link", tone: .primary) {
                 guard !resetEmail.trimmingCharacters(in: .whitespaces).isEmpty else { return }
                 handlePasswordReset()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Enter your email address and we'll send you a link to reset your password.")
-        }
-        .alert("Email Sent", isPresented: $showResetConfirmation) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("A password reset link has been sent to \(resetEmail). Please check your inbox.")
-        }
+            },
+            secondaryButton: .cancel { }
+        ))
+        .amenAlert(isPresented: $showResetConfirmation, config: LiquidGlassAlertConfig(
+            title: "Email Sent",
+            message: "A password reset link has been sent to \(resetEmail). Please check your inbox.",
+            icon: "checkmark.circle.fill",
+            primaryButton: LiquidGlassAlertButton("OK", tone: .spiritual) { }
+        ))
     }
 
     // MARK: - Landing Card

@@ -10,8 +10,13 @@ struct BereanAlignmentSettingsView: View {
     @AppStorage("berean_explicit_protection") private var explicitProtectionEnabled = true
     @AppStorage("berean_exploitation_protection") private var exploitationProtectionEnabled = true
     @AppStorage("berean_preferred_tone") private var preferredTone = "pastoral"
+    @AppStorage("church_denomination_profile") private var denominationRaw = DenominationProfile.nonDenominational.rawValue
 
     @State private var isSaving = false
+
+    private var denominationProfile: DenominationProfile {
+        DenominationProfile(rawValue: denominationRaw) ?? .nonDenominational
+    }
 
     private var defaultLens: AlignmentLens {
         get { AlignmentLens(rawValue: defaultLensRaw) ?? .balancedBiblical }
@@ -69,6 +74,23 @@ struct BereanAlignmentSettingsView: View {
                     Text("Concise").tag("concise")
                     Text("Study").tag("study")
                 }
+            }
+
+            Section {
+                Picker("Church Tradition", selection: $denominationRaw) {
+                    ForEach(DenominationProfile.allCases, id: \.rawValue) { profile in
+                        Text(profile.displayName).tag(profile.rawValue)
+                    }
+                }
+                .onChange(of: denominationRaw) { _, _ in
+                    // Bust the calendar cache so the next verse call uses the new tradition
+                    LiturgicalCalendarEngine.shared.invalidateCache()
+                }
+            } header: {
+                Text("Church Calendar")
+            } footer: {
+                Text("Used to tailor your Daily Verse and Berean responses to your tradition's observances and liturgical calendar.")
+                    .font(.footnote)
             }
         }
         .navigationTitle("AI Alignment")

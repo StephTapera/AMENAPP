@@ -46,6 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.spiritualStateEngine = void 0;
 exports.classifySpiritualState = classifySpiritualState;
 exports.detectSensitivityFlags = detectSensitivityFlags;
 const admin = __importStar(require("firebase-admin"));
@@ -226,4 +227,19 @@ async function storeSessionRecord(userId, classification, sessionId) {
         sessionStartedAt: classification.classifiedAt,
     });
 }
+// ---------------------------------------------------------------------------
+// Singleton class adapter — used by evaluateAuthorityEscalation controller
+// ---------------------------------------------------------------------------
+class SpiritualStateEngineClass {
+    classify(message) {
+        const lower = message.toLowerCase();
+        const signals = extractSignals(lower);
+        const primaryState = determinePrimaryState(signals, lower);
+        const selectedResponseMode = selectResponseMode(primaryState, signals);
+        const escalationTriggered = signals.crisisSignalDetected || primaryState === "crisis";
+        const flags = escalationTriggered ? ["crisis_escalation"] : [];
+        return { sensitivityFlags: flags, primaryState, selectedResponseMode, escalationTriggered, signals };
+    }
+}
+exports.spiritualStateEngine = new SpiritualStateEngineClass();
 //# sourceMappingURL=SpiritualStateEngine.js.map

@@ -964,13 +964,10 @@ private struct AmenSpaceBannerCard: View {
     @ViewBuilder
     private var media: some View {
         if let imageURL = item.imageURL, let url = URL(string: imageURL) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    placeholder
-                }
+            CachedAsyncImage(url: url, size: CGSize(width: 600, height: 360)) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                placeholder
             }
             .transaction { t in t.animation = nil } // prevent flicker in horizontal carousel
         } else {
@@ -995,11 +992,10 @@ private struct AmenSpaceBannerCard: View {
     private var icon: some View {
         Group {
             if let iconURL = item.iconURL, let url = URL(string: iconURL) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image): image.resizable().scaledToFill()
-                    default: Image(systemName: item.type.systemImage).foregroundStyle(.white)
-                    }
+                CachedAsyncImage(url: url, size: CGSize(width: 68, height: 68)) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Image(systemName: item.type.systemImage).foregroundStyle(.white)
                 }
                 .transaction { t in t.animation = nil } // prevent flicker in horizontal carousel
             } else {

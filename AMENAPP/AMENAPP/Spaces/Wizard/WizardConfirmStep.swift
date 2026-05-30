@@ -285,7 +285,7 @@ struct WizardConfirmStep: View {
                 .foregroundStyle(AmenTheme.Colors.statusError)
                 .font(.system(size: 16))
                 .accessibilityHidden(true)
-            Text(error.localizedDescription)
+            Text(error.userFriendlyMessage)
                 .font(.subheadline)
                 .foregroundStyle(AmenTheme.Colors.statusError)
                 .fixedSize(horizontal: false, vertical: true)

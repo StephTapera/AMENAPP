@@ -54,7 +54,7 @@ async function callClaude(apiKey, systemPrompt, userContent, maxTokens = 800, te
 // Returns: { embedding: [number] }
 
 exports.bereanEmbedProxy = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], timeoutSeconds: 30},
+    {enforceAppCheck: true, region: REGION, secrets: [OPENAI_API_KEY], timeoutSeconds: 30},
     async (request) => {
       requireAuth(request);
       const {text} = request.data;

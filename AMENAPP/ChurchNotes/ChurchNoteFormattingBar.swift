@@ -23,9 +23,9 @@ struct ChurchNoteFormattingBar: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
                 // Section 1: Text formatting
-                formatButton(icon: "bold", isActive: activeFormats.isBold, action: onBold)
-                formatButton(icon: "italic", isActive: activeFormats.isItalic, action: onItalic)
-                formatButton(icon: "underline", isActive: activeFormats.isUnderline, action: onUnderline)
+                formatButton(icon: "bold", label: "Bold", isActive: activeFormats.isBold, action: onBold)
+                formatButton(icon: "italic", label: "Italic", isActive: activeFormats.isItalic, action: onItalic)
+                formatButton(icon: "underline", label: "Underline", isActive: activeFormats.isUnderline, action: onUnderline)
 
                 sectionDivider
 
@@ -48,9 +48,9 @@ struct ChurchNoteFormattingBar: View {
                     } label: {
                         HStack(spacing: 3) {
                             Image(systemName: type.icon)
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10, weight: .regular))
                             Text(type.displayName)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                         }
                         .foregroundStyle(hasSelection ? Color.secondary : Color.secondary.opacity(0.3))
                         .padding(.horizontal, 8)
@@ -80,18 +80,20 @@ struct ChurchNoteFormattingBar: View {
 
     // MARK: - Helpers
 
-    private func formatButton(icon: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+    private func formatButton(icon: String, label: String = "", isActive: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(isActive ? Color.primary : Color.secondary)
+                .font(.systemScaled(16, weight: .medium))
+                .foregroundStyle(isActive ? Color.amenPurple : Color.secondary)
                 .frame(width: 40, height: 36)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(isActive ? Color.primary.opacity(0.1) : Color.clear)
+                        .fill(isActive ? Color.amenPurple.opacity(0.12) : Color.clear)
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label.isEmpty ? icon : label)
+        .accessibilityValue(isActive ? "Active" : "Inactive")
     }
 
     private var sectionDivider: some View {

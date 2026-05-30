@@ -82,7 +82,7 @@ export class PromptAssembler {
 
     // ── System Prompt ──────────────────────────────────────────────────────────
     const systemParts: string[] = [
-      buildBereanSystemPrompt(),
+      buildBereanSystemPrompt(classification.selectedResponseMode ?? "balanced"),
       buildResponseModeInstructions(classification.selectedResponseMode),
     ];
 

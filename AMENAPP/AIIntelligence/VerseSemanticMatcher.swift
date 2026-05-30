@@ -15,7 +15,7 @@ final class VerseSemanticMatcher {
         language: BereanSupportedLanguage,
         minimumConfidence: Double = 0.5,
         sessionId: String? = nil
-    ) async throws -> [BereanScriptureReference] {
+    ) async throws -> [BereanResolvedScriptureRef] {
         let references = try await contextResolver.contextualReferences(
             for: text,
             language: language,

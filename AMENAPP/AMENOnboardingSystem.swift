@@ -116,26 +116,32 @@ struct AmenOnboardingHeroIcon: View {
 
     var body: some View {
         ZStack {
+            // Outer ambient glow
+            Circle()
+                .fill(Color.white)
+                .blur(radius: 18)
+                .opacity(0.55)
+                .frame(width: size + 28, height: size + 28)
+
             Circle()
                 .fill(.thinMaterial)
-                .overlay(Circle().fill(Color.white.opacity(0.85)))
+                .overlay(Circle().fill(Color.white.opacity(0.88)))
                 .overlay(
-                    // Top-edge highlight
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.60), Color.clear],
-                                startPoint: .top,
-                                endPoint: .center
-                            )
+                    Circle().fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.70), Color.clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
+                    )
                 )
-                .overlay(Circle().strokeBorder(ONB.glassBorder, lineWidth: 1))
-                .shadow(color: ONB.glassShadow, radius: 16, y: 4)
-                .shadow(color: ONB.glassShadow.opacity(0.4), radius: 4, y: 2)
+                .overlay(Circle().strokeBorder(Color.black.opacity(0.07), lineWidth: 1))
+                .shadow(color: .black.opacity(0.08), radius: 20, y: 6)
+                .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+
             Image(systemName: systemName)
                 .font(.systemScaled(size * iconScale, weight: .semibold))
-                .foregroundStyle(accent)
+                .foregroundStyle(ONB.inkPrimary)
         }
         .frame(width: size, height: size)
     }
@@ -211,7 +217,7 @@ struct ONBPrimaryButton: View {
         }) {
             ZStack {
                 if isLoading {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(ONB.inkPrimary)
                 } else {
                     HStack(spacing: 8) {
                         Text(title)
@@ -221,15 +227,27 @@ struct ONBPrimaryButton: View {
                                 .font(.systemScaled(13, weight: .semibold))
                         }
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ONB.inkPrimary)
                 }
             }
             .frame(maxWidth: .infinity)
             // HIGH FIX: minHeight so button grows with Dynamic Type at AX sizes
             .frame(minHeight: 56)
             .background(
-                RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
-                    .fill(isEnabled ? ONB.inkPrimary : ONB.inkTertiary)
+                Capsule(style: .continuous)
+                    .fill(.regularMaterial)
+                    .overlay(Capsule(style: .continuous).fill(Color.black.opacity(0.05)))
+                    .overlay(Capsule(style: .continuous).fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.60), Color.white.opacity(0.10)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    ))
+                    .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.55), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.10), radius: 18, y: 6)
+                    .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                    .opacity(isEnabled ? 1.0 : 0.45)
                     .animation(.easeInOut(duration: 0.2), value: isEnabled)
             )
         }
@@ -263,8 +281,11 @@ struct ONBSecondaryButton: View {
                 // HIGH FIX: minHeight so secondary button grows with Dynamic Type
                 .frame(minHeight: 48)
                 .background(
-                    RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
-                        .strokeBorder(ONB.inkRule, lineWidth: 1.5)
+                    Capsule(style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(Capsule(style: .continuous).fill(Color.white.opacity(0.50)))
+                        .overlay(Capsule(style: .continuous).stroke(Color.black.opacity(0.06), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
                 )
         }
         .buttonStyle(.plain)

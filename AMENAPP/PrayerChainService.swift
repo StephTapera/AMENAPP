@@ -165,38 +165,75 @@ class PrayerChainService: ObservableObject {
     func completeTurn(chainId: String, note: String?) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw PrayerChainError.notAuthenticated }
 
-        let ref = db.collection("prayerChains").document(chainId)
-        let doc = try await ref.getDocument()
-        guard var chain = try? doc.data(as: PrayerChain.self) else { return }
+        let docRef = db.collection("prayerChains").document(chainId)
 
-        // Mark current participant as completed
-        if let idx = chain.participants.firstIndex(where: { $0.id == uid && $0.status == .active }) {
-            chain.participants[idx].status = .completed
-            chain.participants[idx].prayedAt = Date()
-            chain.participants[idx].prayerNote = note
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            Firestore.firestore().runTransaction({ transaction, errorPointer in
+                let document: DocumentSnapshot
+                do {
+                    document = try transaction.getDocument(docRef)
+                } catch let fetchError as NSError {
+                    errorPointer?.pointee = fetchError
+                    return nil
+                }
+
+                guard var chain = try? document.data(as: PrayerChain.self) else {
+                    return nil
+                }
+
+                // Mark current participant as completed
+                if let idx = chain.participants.firstIndex(where: { $0.id == uid && $0.status == .active }) {
+                    chain.participants[idx].status = .completed
+                    chain.participants[idx].prayedAt = Date()
+                    chain.participants[idx].prayerNote = note
+                }
+
+                // Advance to next participant
+                let nextIndex = chain.currentIndex + 1
+                var updateFields: [String: Any]
+
+                if nextIndex < chain.participants.count {
+                    chain.participants[nextIndex].status = .active
+                    chain.currentIndex = nextIndex
+                    chain.status = .active
+                    updateFields = [
+                        "currentIndex": nextIndex,
+                        "status": PrayerChain.ChainStatus.active.rawValue,
+                        "lastCompletedAt": FieldValue.serverTimestamp()
+                    ]
+                } else {
+                    // Chain complete
+                    chain.status = .completed
+                    updateFields = [
+                        "status": PrayerChain.ChainStatus.completed.rawValue,
+                        "completedAt": FieldValue.serverTimestamp(),
+                        "lastCompletedAt": FieldValue.serverTimestamp()
+                    ]
+                }
+
+                // Encode updated participants array
+                if let participantsData = try? JSONEncoder().encode(chain.participants),
+                   let participantsArray = try? JSONSerialization.jsonObject(with: participantsData) as? [[String: Any]] {
+                    updateFields["participants"] = participantsArray
+                }
+
+                transaction.updateData(updateFields, forDocument: docRef)
+                return nil
+            }) { _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
         }
-
-        // Advance to next participant
-        let nextIndex = chain.currentIndex + 1
-        if nextIndex < chain.participants.count {
-            chain.participants[nextIndex].status = .active
-            chain.currentIndex = nextIndex
-            chain.status = .active
-        } else {
-            // Chain complete
-            chain.status = .completed
-            chain.completedAt = Date()
-        }
-
-        let data = try JSONEncoder().encode(chain)
-        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
-        try await ref.setData(dict, merge: true)
     }
 
     // MARK: - Listen
 
     func startListening() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
+        listener?.remove()
         isLoading = true
 
         listener = db.collection("prayerChains")
@@ -218,6 +255,10 @@ class PrayerChainService: ObservableObject {
     func stopListening() {
         listener?.remove()
         listener = nil
+    }
+
+    deinit {
+        listener?.remove()
     }
 
     enum PrayerChainError: Error {

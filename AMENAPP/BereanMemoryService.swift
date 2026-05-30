@@ -58,6 +58,10 @@ final class BereanMemoryService: ObservableObject {
         listener = nil
     }
 
+    deinit {
+        listener?.remove()
+    }
+
     // MARK: Write
 
     func saveInsight(

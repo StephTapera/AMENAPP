@@ -476,19 +476,17 @@ struct ThreadsStyleUserCard: View {
                     .frame(width: 48, height: 48)
                 
                 if let photoURL = user.profileImageURL, !photoURL.isEmpty {
-                    AsyncImage(url: URL(string: photoURL)) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 48, height: 48)
-                                .clipShape(Circle())
-                        default:
-                            Text(user.initials)
-                                .font(.custom("OpenSans-Bold", size: 18))
-                                .foregroundStyle(.primary)
-                        }
+                    // PERF: CachedAsyncImage uses ImageCache (memory + URLCache disk)
+                    CachedAsyncImage(url: URL(string: photoURL)) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 48, height: 48)
+                            .clipShape(Circle())
+                    } placeholder: {
+                        Text(user.initials)
+                            .font(.custom("OpenSans-Bold", size: 18))
+                            .foregroundStyle(.primary)
                     }
                 } else {
                     Text(user.initials)
@@ -579,59 +577,142 @@ struct ThreadsFollowButton: View {
     let userId: String
     @ObservedObject private var followService = FollowService.shared
     @State private var isProcessing = false
-    
+    // P1 FIX: track "Requested" state for private accounts
+    @State private var isRequested = false
+
     var body: some View {
         Button {
             guard !isProcessing else { return }
-            handleFollowToggle()
+            if isRequested {
+                cancelRequest()
+            } else {
+                handleFollowToggle()
+            }
         } label: {
-            Text(isFollowing ? "Following" : "Follow")
-                .font(.custom("OpenSans-Bold", size: 13))
-                .foregroundStyle(isFollowing ? Color.primary : Color.white)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(isFollowing ? Color.clear : Color.primary)
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(Color.primary.opacity(isFollowing ? 0.3 : 0), lineWidth: 1)
-                )
-                .opacity(isProcessing ? 0.6 : 1.0)
+            Group {
+                if isProcessing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(isFollowing ? .primary : .white)
+                        .frame(width: 80, height: 32)
+                } else if isRequested {
+                    Text("Requested")
+                        .font(.custom("OpenSans-Bold", size: 13))
+                        .foregroundStyle(Color.primary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule().fill(Color(.systemFill))
+                                .overlay(Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1))
+                        )
+                } else if isFollowing {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Following")
+                            .font(.custom("OpenSans-Bold", size: 13))
+                    }
+                    .foregroundStyle(Color.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule().strokeBorder(Color.secondary.opacity(0.4), lineWidth: 1.5)
+                    )
+                } else {
+                    // P1 FIX: AMEN gold capsule
+                    Text("Follow")
+                        .font(.custom("OpenSans-Bold", size: 13))
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.amenGold))
+                }
+            }
+            .opacity(isProcessing ? 0.7 : 1.0)
         }
         .disabled(isProcessing)
         .buttonStyle(PlainButtonStyle())
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRequested)
+        .task {
+            // Hydrate "Requested" state from FollowStateManager on appear
+            let state = await FollowStateManager.shared.getState(for: userId)
+            isRequested = (state == .requested)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .followStateDidChange)) { notification in
+            guard let info = notification.userInfo,
+                  let uid = info["userId"] as? String, uid == userId,
+                  let state = info["state"] as? FollowStateManager.FollowState else { return }
+            isRequested = (state == .requested)
+            isFollowing = state.isFollowing
+        }
     }
-    
+
     private func handleFollowToggle() {
         isProcessing = true
-        
+
         Task {
             do {
                 if isFollowing {
                     try await followService.unfollowUser(userId: userId)
+                    FollowStateManager.shared.updateState(for: userId, state: .notFollowing)
+                    await MainActor.run {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                            isFollowing = false
+                        }
+                    }
                 } else {
                     try await followService.followUser(userId: userId)
-                }
-                
-                await MainActor.run {
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                        isFollowing.toggle()
+                    // Check if we ended up in "requested" state (private account)
+                    let newState = await FollowStateManager.shared.getState(for: userId)
+                    FollowStateManager.shared.updateState(for: userId, state: newState)
+                    await MainActor.run {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                            if newState == .requested {
+                                isRequested = true
+                            } else {
+                                isFollowing = true
+                            }
+                        }
                     }
-                    
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
-                    
+                }
+
+                await MainActor.run {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     isProcessing = false
                 }
-                
+
             } catch {
                 dlog("❌ Follow error: \(error)")
+                await MainActor.run { isProcessing = false }
+            }
+        }
+    }
+
+    private func cancelRequest() {
+        isProcessing = true
+        Task {
+            guard let currentUID = Auth.auth().currentUser?.uid else {
+                await MainActor.run { isProcessing = false }
+                return
+            }
+            do {
+                let snap = try await Firestore.firestore()
+                    .collection("followRequests")
+                    .whereField("fromUserId", isEqualTo: currentUID)
+                    .whereField("toUserId", isEqualTo: userId)
+                    .whereField("status", isEqualTo: "pending")
+                    .limit(to: 1)
+                    .getDocuments()
+                for doc in snap.documents { try await doc.reference.delete() }
+                FollowStateManager.shared.updateState(for: userId, state: .notFollowing)
                 await MainActor.run {
+                    withAnimation { isRequested = false }
                     isProcessing = false
                 }
+            } catch {
+                dlog("❌ Cancel request error: \(error)")
+                await MainActor.run { isProcessing = false }
             }
         }
     }
@@ -787,19 +868,17 @@ struct CompactUserCard: View {
                         .frame(width: 64, height: 64)
                     
                     if let photoURL = user.profileImageURL, !photoURL.isEmpty {
-                        AsyncImage(url: URL(string: photoURL)) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 64, height: 64)
-                                    .clipShape(Circle())
-                            default:
-                                Text(user.initials)
-                                    .font(.custom("OpenSans-Bold", size: 22))
-                                    .foregroundStyle(.primary)
-                            }
+                        // PERF: CachedAsyncImage uses ImageCache (memory + URLCache disk)
+                        CachedAsyncImage(url: URL(string: photoURL)) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 64, height: 64)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Text(user.initials)
+                                .font(.custom("OpenSans-Bold", size: 22))
+                                .foregroundStyle(.primary)
                         }
                     } else {
                         Text(user.initials)

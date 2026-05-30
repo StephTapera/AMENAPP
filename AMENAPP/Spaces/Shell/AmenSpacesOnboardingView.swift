@@ -23,6 +23,7 @@ struct AmenSpacesOnboardingView: View {
 
     @State private var currentPage = 0
     @State private var orbsVisible = false
+    @State private var orbsSettled = false
     @State private var orbsBurst = false
 
     // Entrance animation state per page 1 element
@@ -53,7 +54,7 @@ struct AmenSpacesOnboardingView: View {
                     .padding(.bottom, 48)
             }
         }
-        .onChange(of: currentPage) { newPage in
+        .onChange(of: currentPage) { _, newPage in
             if newPage == 1 {
                 triggerOrbEntrance()
             }
@@ -72,10 +73,11 @@ struct AmenSpacesOnboardingView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Hero "A" glyph
-                Text("A")
-                    .font(.system(size: 120, weight: .black))
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                // Hero Spaces logo
+                Image("AmenSpacesLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 120, height: 120)
                     .opacity(logoVisible ? 1 : 0)
                     .scaleEffect(reduceMotion ? 1 : (logoVisible ? 1 : 0.7))
                     .padding(.bottom, 28)
@@ -126,7 +128,7 @@ struct AmenSpacesOnboardingView: View {
                 Spacer()
 
                 // Orb cluster — centered ZStack with explicit offsets
-                _SpacesOrbCluster(orbsVisible: orbsVisible)
+                _SpacesOrbCluster(orbsVisible: orbsVisible, orbsSettled: orbsSettled)
                     .frame(height: 300)
                     .padding(.bottom, 36)
 
@@ -155,9 +157,18 @@ struct AmenSpacesOnboardingView: View {
 
     private var page3: some View {
         ZStack {
-            // Iridescent full-bleed gradient background
-            _SpacesIridescentBackground()
-                .ignoresSafeArea()
+            // White background with subtle radial gold tint — consistent with page 2
+            Color(.systemBackground).ignoresSafeArea()
+            RadialGradient(
+                colors: [
+                    AmenTheme.Colors.amenGold.opacity(0.10),
+                    .clear
+                ],
+                center: .bottom,
+                startRadius: 0,
+                endRadius: 320
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -169,33 +180,38 @@ struct AmenSpacesOnboardingView: View {
                 // Headline
                 Text("Your church awaits.")
                     .font(AMENFont.bold(34))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color(.label))
                     .multilineTextAlignment(.center)
                     .padding(.bottom, 12)
 
                 // Subheadline
                 Text("Berean AI, Bible Studies, Prayer groups,\nand your entire church family.")
                     .font(AMENFont.regular(16))
-                    .foregroundStyle(Color.white.opacity(0.75))
+                    .foregroundStyle(Color(.secondaryLabel))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 36)
                     .padding(.bottom, 40)
 
-                // Gold CTA button
+                // Liquid Glass primary CTA
                 Button { onComplete() } label: {
                     Text("Join your Space")
                         .font(AMENFont.semiBold(16))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(Color(.label))
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(Color(red: 0.83, green: 0.69, blue: 0.22))
-                                .shadow(
-                                    color: Color(red: 0.83, green: 0.69, blue: 0.22).opacity(0.4),
-                                    radius: 20,
-                                    y: 8
+                                .fill(.regularMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .fill(AmenTheme.Colors.amenGold.opacity(0.20))
                                 )
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .stroke(Color.white.opacity(0.45), lineWidth: 1)
+                                )
+                                .shadow(color: AmenTheme.Colors.amenGold.opacity(0.22), radius: 18, y: 7)
+                                .shadow(color: .black.opacity(0.07), radius: 8, y: 4)
                         )
                 }
                 .buttonStyle(.plain)
@@ -205,7 +221,7 @@ struct AmenSpacesOnboardingView: View {
                 // Skip / already-member link
                 Button("I already have a Space") { onComplete() }
                     .font(.system(size: 13))
-                    .foregroundStyle(Color.white.opacity(0.6))
+                    .foregroundStyle(Color(.secondaryLabel))
                     .padding(.bottom, 52)
             }
         }
@@ -215,7 +231,7 @@ struct AmenSpacesOnboardingView: View {
     // MARK: - Page dots + swipe hint
 
     private var pageDotsAndHint: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             // Dot indicators
             HStack(spacing: 8) {
                 ForEach(0..<3) { index in
@@ -229,11 +245,32 @@ struct AmenSpacesOnboardingView: View {
                 }
             }
 
-            // Swipe hint chevron
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.3))
-                .modifier(_PulsingOpacityModifier(reduceMotion: reduceMotion))
+            // Liquid Glass Continue pill
+            Button {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+                    currentPage += 1
+                }
+            } label: {
+                HStack(spacing: 7) {
+                    Text("Continue")
+                        .font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .foregroundStyle(Color(.label))
+                .padding(.horizontal, 28)
+                .padding(.vertical, 13)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.10), radius: 14, y: 5)
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -264,10 +301,19 @@ struct AmenSpacesOnboardingView: View {
         guard !orbsVisible else { return }
         if reduceMotion {
             orbsVisible = true
+            orbsSettled = true
             return
         }
-        withAnimation(.spring(response: 0.7, dampingFraction: 0.6)) {
+        // Phase 1: All orbs appear near center (orbit cluster)
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.65)) {
             orbsVisible = true
+        }
+        // Phase 2: Orbs fly outward to their final positions (orbit → settle)
+        Task {
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.55)) {
+                orbsSettled = true
+            }
         }
     }
 
@@ -316,6 +362,7 @@ private struct _SpacesOrb: View {
                     .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
 
                 Image(systemName: icon)
+                    .symbolRenderingMode(.monochrome)
                     .font(.system(size: size * 0.38, weight: .medium))
                     .foregroundStyle(accentColor)
             }
@@ -334,6 +381,7 @@ private struct _SpacesOrb: View {
 
 private struct _SpacesOrbCluster: View {
     let orbsVisible: Bool
+    let orbsSettled: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -366,6 +414,13 @@ private struct _SpacesOrbCluster: View {
     var body: some View {
         ZStack {
             ForEach(Array(specs.enumerated()), id: \.element.label) { index, spec in
+                // Orbs appear near center, then orbit out to final positions
+                let fraction: CGFloat = orbsSettled ? 1.0 : 0.08
+                let currentOffset = CGSize(
+                    width: spec.offset.width * fraction,
+                    height: spec.offset.height * fraction
+                )
+
                 _SpacesOrb(
                     icon: spec.icon,
                     label: spec.label,
@@ -373,13 +428,20 @@ private struct _SpacesOrbCluster: View {
                     accentColor: spec.color,
                     isVisible: orbsVisible
                 )
-                .offset(spec.offset)
+                .offset(currentOffset)
                 .animation(
                     reduceMotion
                         ? .easeOut(duration: 0.2)
-                        : .spring(response: 0.7, dampingFraction: 0.6)
-                              .delay(Double(index) * 0.12),
+                        : .spring(response: 0.5, dampingFraction: 0.65)
+                              .delay(Double(index) * 0.06),
                     value: orbsVisible
+                )
+                .animation(
+                    reduceMotion
+                        ? .easeOut(duration: 0.2)
+                        : .spring(response: 0.65, dampingFraction: 0.52)
+                              .delay(Double(index) * 0.08),
+                    value: orbsSettled
                 )
             }
         }
@@ -448,38 +510,6 @@ private struct _SpacesBurstOrbs: View {
             }
         }
         .clipped()
-    }
-}
-
-// MARK: - _SpacesIridescentBackground (page 3 full-bleed hero)
-
-private struct _SpacesIridescentBackground: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.05, blue: 0.18),
-                    Color(red: 0.25, green: 0.10, blue: 0.45),
-                    Color(red: 0.52, green: 0.30, blue: 0.08),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            // Gold shimmer blob — top-left
-            Circle()
-                .fill(Color(red: 0.83, green: 0.69, blue: 0.22).opacity(0.35))
-                .blur(radius: 80)
-                .frame(width: 300, height: 300)
-                .offset(x: -80, y: -120)
-
-            // Purple shimmer blob — bottom-right
-            Circle()
-                .fill(Color(red: 0.52, green: 0.18, blue: 0.80).opacity(0.40))
-                .blur(radius: 100)
-                .frame(width: 350, height: 350)
-                .offset(x: 100, y: 80)
-        }
     }
 }
 

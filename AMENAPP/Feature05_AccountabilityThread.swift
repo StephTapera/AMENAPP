@@ -114,9 +114,9 @@ final class AccountabilityThreadManager: ObservableObject {
 
         let listener = db.collection("accountabilityThreads").document(threadId)
             .addSnapshotListener { [weak self] snap, _ in
-                guard let self, let d = snap?.data() else { return }
+                guard let self, let snap, let d = snap.data() else { return }
                 let thread = AccountabilityThread(
-                    id:              snap!.documentID,
+                    id:              snap.documentID,
                     members:         d["members"]         as? [String] ?? [],
                     goalTitle:       d["goalTitle"]       as? String   ?? "",
                     goalDescription: d["goalDescription"] as? String   ?? "",
@@ -136,6 +136,11 @@ final class AccountabilityThreadManager: ObservableObject {
     func stopListening(threadId: String) {
         listeners[threadId]?.remove()
         listeners.removeValue(forKey: threadId)
+    }
+
+    deinit {
+        listeners.values.forEach { $0.remove() }
+        listeners.removeAll()
     }
 
     // MARK: - Fetch weekly prompt

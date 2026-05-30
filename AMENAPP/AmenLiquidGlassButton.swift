@@ -63,9 +63,10 @@ struct AmenLiquidGlassButton: View {
                 Image(systemName: icon)
                     .font(.system(size: size * 0.38, weight: .medium))
                 Text(label)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(AMENFont.medium(14))
             }
             .foregroundStyle(.primary)
+            .frame(minHeight: 44)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         } else {

@@ -45,7 +45,7 @@ export const bereanShareAssist = onCall(
         const postId = data.postId.trim();
 
         // Rate limit: 10 calls/user/minute
-        await enforceRateLimit(uid, SHARE_PER_MINUTE);
+        await enforceRateLimit(uid, [SHARE_PER_MINUTE]);
 
         const db = admin.firestore();
         const start = Date.now();

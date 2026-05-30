@@ -27,6 +27,11 @@ final class SuggestedRailViewModel: ObservableObject {
     private var lastLoadDate: Date?
     private let staleDuration: TimeInterval = 15 * 60 // 15 min
 
+    // Track follows from suggestions to fire "feed personalised" toast at 3+.
+    // Uses UserDefaults so the toast fires once per session across all surfaces.
+    private static let suggestionFollowCountKey = "amen_suggestion_follow_session_count"
+    private static let suggestionPersonalizedFiredKey = "amen_suggestion_personalized_fired"
+
     private static let dismissedKey = "amen_dismissed_suggestions"
     private static let impressionKey = "amen_suggestion_impressions"
 
@@ -138,6 +143,21 @@ final class SuggestedRailViewModel: ObservableObject {
             loadingFollowIds.remove(id)
 
             AMENAnalyticsService.shared.track(.suggestionFollowSuccess(suggestedUserId: id))
+
+            // Track follows-from-suggestions. At the 3rd follow, fire the
+            // "Your feed is being personalized" toast once per session.
+            if !isPrivate {
+                let defaults = UserDefaults.standard
+                let alreadyFired = defaults.bool(forKey: Self.suggestionPersonalizedFiredKey)
+                if !alreadyFired {
+                    let newCount = defaults.integer(forKey: Self.suggestionFollowCountKey) + 1
+                    defaults.set(newCount, forKey: Self.suggestionFollowCountKey)
+                    if newCount >= 3 {
+                        defaults.set(true, forKey: Self.suggestionPersonalizedFiredKey)
+                        NotificationCenter.default.post(name: .feedSuggestionsPersonalized, object: nil)
+                    }
+                }
+            }
 
             // Animate out after user sees the state change
             if !isPrivate {

@@ -897,8 +897,12 @@ struct AMENAPPApp: App {
         if pathComponents.count >= 2 && pathComponents[0] == "notes" {
             let shareLinkId = pathComponents[1]
             dlog("📖 Opening church note with share link: \(shareLinkId)")
-            
-            // Post notification to open the note
+
+            // Route via canonical router so cold-launch queuing and auth gating apply.
+            AppNavigationRouter.shared.navigate(to: .churchNote(noteId: shareLinkId))
+
+            // Fallback: also post the legacy NC notification so any warm in-app
+            // observer that registered before the router wired up is still notified.
             NotificationCenter.default.post(
                 name: NSNotification.Name("OpenChurchNoteFromDeepLink"),
                 object: nil,

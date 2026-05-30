@@ -156,6 +156,8 @@ struct ProfileBannerView: View {
     let collapseProgress: CGFloat
     var onEdit: (() -> Void)?
 
+    private let bannerCardRadius: CGFloat = 26
+
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var bannerHeight: CGFloat = 138
@@ -173,18 +175,24 @@ struct ProfileBannerView: View {
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.primary)
                             .frame(width: 36, height: 36)
-                            .background(liquidGlassCapsule)
+                            .background(
+                                Capsule()
+                                    .fill(.regularMaterial)
+                                    .amenGlassEffect(AmenTheme.Colors.amenGold.opacity(0.08), in: Capsule())
+                            )
                             .accessibilityHidden(true)
                     }
                     .buttonStyle(.plain)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                     .accessibilityLabel(banner == nil ? "Add optional profile banner" : "Edit profile banner")
                     .padding(10)
                 }
             }
             .frame(height: max(116, bannerHeight - collapseProgress * 28))
-            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: bannerCardRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                RoundedRectangle(cornerRadius: bannerCardRadius, style: .continuous)
                     .strokeBorder(Color.white.opacity(reduceTransparency ? 0.2 : 0.65), lineWidth: 0.8)
             )
             .shadow(color: Color.black.opacity(0.07), radius: 18, y: 8)
@@ -217,10 +225,21 @@ struct ProfileBannerView: View {
             }
             .overlay(alignment: .bottomLeading) {
                 if banner?.status == .pending, viewerOwnsProfile {
-                    statusChip("Pending review", systemImage: "clock")
+                    statusChip("Pending review", systemImage: "clock", tone: .warning)
                         .padding(12)
                 }
             }
+        } else if banner?.status == .rejected, viewerOwnsProfile {
+            cleanFallback(label: "Banner not approved — tap to replace")
+                .overlay(alignment: .bottomLeading) {
+                    Label("Not approved", systemImage: "xmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AmenTheme.Colors.statusError)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(12)
+                }
         } else {
             cleanFallback(label: viewerOwnsProfile ? "Optional banner" : "")
         }
@@ -228,7 +247,7 @@ struct ProfileBannerView: View {
 
     private var readabilityOverlay: some View {
         LinearGradient(
-            colors: [Color.black.opacity(0.04), Color.black.opacity(0.14), Color.white.opacity(0.46)],
+            colors: [Color.black.opacity(0.04), Color.black.opacity(0.14), .clear],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -236,9 +255,9 @@ struct ProfileBannerView: View {
 
     private func cleanFallback(label: String) -> some View {
         ZStack(alignment: .bottomLeading) {
-            Color.white
+            AmenTheme.Colors.backgroundSecondary
             LinearGradient(
-                colors: [Color(red: 0.93, green: 0.96, blue: 1.0).opacity(0.95), .white, Color(red: 1.0, green: 0.94, blue: 0.89).opacity(0.7)],
+                colors: [AmenTheme.Colors.amenBlue.opacity(0.06), AmenTheme.Colors.backgroundSecondary, AmenTheme.Colors.amenGold.opacity(0.06)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -251,35 +270,26 @@ struct ProfileBannerView: View {
         }
     }
 
-    private func statusChip(_ text: String, systemImage: String) -> some View {
-        Label(text, systemImage: systemImage)
+    private enum ChipTone { case info, warning, error }
+
+    private func statusChip(_ text: String, systemImage: String, tone: ChipTone = .info) -> some View {
+        let toneColor: Color = {
+            switch tone {
+            case .info: return .primary
+            case .warning: return AmenTheme.Colors.statusWarning
+            case .error: return AmenTheme.Colors.statusError
+            }
+        }()
+        return Label(text, systemImage: systemImage)
             .font(.caption.weight(.semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(toneColor)
             .padding(.horizontal, 11)
             .padding(.vertical, 7)
-            .background(liquidGlassCapsule)
-    }
-
-    private var liquidGlassCapsule: some View {
-        Capsule()
-            .fill(reduceTransparency ? Color.white : Color.white.opacity(0.42))
             .background(
                 Capsule()
-                    .fill(.ultraThinMaterial)
-                    .opacity(reduceTransparency ? 0 : 1)
+                    .fill(.regularMaterial)
+                    .amenGlassEffect(AmenTheme.Colors.amenGold.opacity(0.08), in: Capsule())
             )
-            .overlay(
-                Capsule()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.82), Color.white.opacity(0.26), Color.black.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.8
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.11), radius: 12, y: 5)
     }
 }
 
@@ -314,8 +324,8 @@ struct SmartProfileBannerPicker: View {
                         .font(AMENFont.bold(13))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.82)))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.7))
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.regularMaterial))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.7))
                 }
                 .buttonStyle(.plain)
                 .disabled(isUploading)
@@ -327,8 +337,8 @@ struct SmartProfileBannerPicker: View {
                         Image(systemName: "trash")
                             .font(.system(size: 15, weight: .bold))
                             .frame(width: 42, height: 42)
-                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.82)))
-                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.7))
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.regularMaterial))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.7))
                     }
                     .buttonStyle(.plain)
                     .disabled(isUploading)
@@ -338,7 +348,7 @@ struct SmartProfileBannerPicker: View {
 
             Text(helperText)
                 .font(AMENFont.regular(12))
-                .foregroundStyle(errorMessage == nil ? Color.secondary : Color.red)
+                .foregroundStyle(errorMessage == nil ? Color.secondary : AmenTheme.Colors.statusError)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .onChange(of: selectedItem) { _, newItem in

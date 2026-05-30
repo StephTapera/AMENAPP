@@ -80,7 +80,7 @@ struct AmenGatheringDetailView: View {
 
     private var gradientCover: some View {
         ZStack {
-            Color(.systemGray5)
+            AmenTheme.Colors.backgroundSecondary
             Image(systemName: gathering.type.systemImage)
                 .font(.system(size: 64, weight: .ultraLight))
                 .foregroundStyle(.secondary)
@@ -206,15 +206,19 @@ struct AmenGatheringDetailView: View {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(isSelected ? .white : .primary)
+            .foregroundStyle(isSelected ? Color.black : .primary)
             .padding(.horizontal, 14)
             .frame(minHeight: 44)
             .frame(maxWidth: .infinity)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(AmenTheme.Colors.amenGold)
                 } else {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(.systemGray6))
+                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(AmenTheme.Colors.surfaceCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+                        )
                 }
             }
         }
@@ -235,7 +239,7 @@ struct AmenGatheringDetailView: View {
             .foregroundStyle(.primary)
             .frame(minWidth: 60, minHeight: 44)
             .frame(maxWidth: .infinity)
-            .background(Color(.systemGray6))
+            .background(AmenTheme.Colors.backgroundSecondary)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -382,7 +386,11 @@ struct AmenGatheringDetailView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(Color(.systemGray6))
+                        .background(AmenTheme.Colors.surfaceCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -425,7 +433,11 @@ struct AmenGatheringDetailView: View {
                         .foregroundStyle(.tertiary)
                 }
                 .padding(12)
-                .background(Color(.systemGray6))
+                .background(AmenTheme.Colors.surfaceCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
@@ -568,7 +580,11 @@ struct AmenGatheringPrayerRequestView: View {
                     TextEditor(text: $prayerText)
                         .frame(minHeight: 120)
                         .padding(10)
-                        .background(Color(.systemGray6))
+                        .background(AmenTheme.Colors.surfaceCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
@@ -591,7 +607,11 @@ struct AmenGatheringPrayerRequestView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(12)
-                .background(Color(.systemGray6))
+                .background(AmenTheme.Colors.surfaceCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                 Button {
@@ -606,9 +626,10 @@ struct AmenGatheringPrayerRequestView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(prayerText.trimmingCharacters(in: .whitespaces).isEmpty ? Color(.systemGray4) : Color.primary)
-                    .foregroundStyle(.white)
+                    .background(prayerText.trimmingCharacters(in: .whitespaces).isEmpty ? Color(.systemGray4) : AmenTheme.Colors.amenGold)
+                    .foregroundStyle(Color.black)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .opacity(prayerText.trimmingCharacters(in: .whitespaces).isEmpty ? 0.65 : 1)
                 }
                 .buttonStyle(.plain)
                 .disabled(prayerText.trimmingCharacters(in: .whitespaces).isEmpty || isSubmitting)

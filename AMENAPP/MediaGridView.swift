@@ -29,6 +29,7 @@ struct MediaGridView: View {
     @State private var selectedMedia: PostMediaContainer?
     @State private var selectedIndex: Int = 0
     @State private var showViewer = false
+    @ObservedObject private var flags = AMENFeatureFlags.shared
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
 
@@ -85,7 +86,11 @@ struct MediaGridView: View {
             .padding(.bottom, 20)
             .fullScreenCover(isPresented: $showViewer) {
                 if let media = selectedMedia {
-                    FullscreenMediaViewer(media: media, startIndex: selectedIndex)
+                    if flags.liquidGlassMediaViewer {
+                        AMENImmersiveMediaViewer(media: media, startIndex: selectedIndex)
+                    } else {
+                        FullscreenMediaViewer(media: media, startIndex: selectedIndex)
+                    }
                 }
             }
         }
@@ -108,14 +113,14 @@ struct MediaGridView: View {
                     .scaledToFill()
             } placeholder: {
                 Rectangle()
-                    .fill(Color.black.opacity(0.04))
+                    .fill(Color(.systemGray5))
                     .overlay(
                         Image(systemName: "photo")
                             .font(.systemScaled(20))
                             .foregroundStyle(Color(white: 0.55))
                     )
             }
-            .frame(minHeight: 120)
+            .aspectRatio(1, contentMode: .fill)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             .contentShape(Rectangle())

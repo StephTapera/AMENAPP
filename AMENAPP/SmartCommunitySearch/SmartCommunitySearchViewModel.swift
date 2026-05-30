@@ -89,7 +89,7 @@ final class SmartCommunitySearchViewModel: ObservableObject {
     // MARK: - Actions
 
     func handleAction(_ action: SmartCommunityAction, result: SmartCommunityRankedResult) {
-        Task { await service.logInteraction(event: action.type.rawValue, result: result) }
+        service.logInteraction(event: action.type.rawValue, result: result)
 
         switch action.type {
         case .directions:
@@ -110,7 +110,7 @@ final class SmartCommunitySearchViewModel: ObservableObject {
     }
 
     func saveResult(_ result: SmartCommunityRankedResult) {
-        Task { await service.logInteraction(event: "save", result: result) }
+        service.logInteraction(event: "save", result: result)
     }
 
     // MARK: - Private

@@ -564,7 +564,7 @@ struct NotificationsView: View {
     @ViewBuilder
     private func alertMessage() -> some View {
         if let error = notificationService.error {
-            Text(error.localizedDescription)
+            Text(error.userFriendlyMessage)
         }
     }
     
@@ -983,34 +983,19 @@ struct NotificationsView: View {
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Spacer()
-            
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 120, height: 120)
-                    .shadow(color: .black.opacity(0.05), radius: 20, y: 10)
-                
-                Image(systemName: "bell.slash.fill")
-                    .font(.systemScaled(48))
-                    .foregroundStyle(.secondary.opacity(0.5))
-            }
-            
+
+            AmenGlass3DIcon(systemName: "bell.slash.fill", tint: AmenTheme.Colors.amenPurple, size: 72)
+
             VStack(spacing: 8) {
                 Text("No notifications")
                     .font(AMENFont.bold(22))
                     .foregroundStyle(.primary)
-                
+
                 Text("You're all caught up!")
                     .font(AMENFont.regular(15))
                     .foregroundStyle(.secondary)
             }
-            
+
             Spacer()
         }
     }

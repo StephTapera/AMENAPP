@@ -80,7 +80,7 @@ struct AmenLiquidGlassPillButton: View {
                 Text(title).lineLimit(1)
             }
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .frame(minHeight: 44)
             .amenLiquidGlassCapsuleSurface(isPressed: isPressed, isSelected: !isDisabled && !isLoading)
@@ -117,6 +117,92 @@ struct AmenLiquidGlassControlDock<Content: View>: View {
     }
 }
 
+/// Canonical Liquid Glass tab/filter pill row.
+/// Drop `AmenLiquidGlassFilterPillRow(selection: $selectedTab)` wherever you need
+/// a segmented control that uses the project's glass surface system.
+struct AmenLiquidGlassFilterPillRow<Tab: Hashable & CaseIterable & RawRepresentable>: View
+    where Tab.AllCases: RandomAccessCollection, Tab.RawValue == String {
+
+    @Binding var selection: Tab
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(Tab.allCases), id: \.self) { tab in
+                _PillTab(
+                    title: tab.rawValue,
+                    isSelected: selection == tab,
+                    reduceMotion: reduceMotion
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.3, dampingFraction: 0.7)) {
+                        selection = tab
+                    }
+                }
+            }
+        }
+        .padding(6)
+        .background {
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color(.systemBackground))
+            } else {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(Color.white.opacity(0.10))
+                    }
+            }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.30), lineWidth: 0.5)
+                .blur(radius: 0.2)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.8)
+        }
+        .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+    }
+}
+
+private struct _PillTab: View {
+    let title: String
+    let isSelected: Bool
+    let reduceMotion: Bool
+    let action: () -> Void
+
+    @GestureState private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(AMENFont.semiBold(14))
+                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .frame(minHeight: 36)
+                .amenLiquidGlassCapsuleSurface(isPressed: isPressed, isSelected: isSelected)
+        }
+        .buttonStyle(.plain)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in state = true }
+        )
+        .animation(
+            reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.3, dampingFraction: 0.7),
+            value: isPressed
+        )
+        .animation(.easeOut(duration: 0.12), value: isSelected)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
 struct AmenLiquidGlassBottomSheet<Content: View, Footer: View>: View {
     let title: String
     let subtitle: String?
@@ -129,9 +215,9 @@ struct AmenLiquidGlassBottomSheet<Content: View, Footer: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.headline).foregroundStyle(.black)
+                Text(title).font(.headline).foregroundStyle(Color(.label))
                 if let subtitle {
-                    Text(subtitle).font(.subheadline).foregroundStyle(.black.opacity(0.8))
+                    Text(subtitle).font(.subheadline).foregroundStyle(Color(.label).opacity(0.8))
                 }
                 if let aiDisclosure {
                     AmenAIUsageLabel(text: aiDisclosure)
@@ -142,7 +228,7 @@ struct AmenLiquidGlassBottomSheet<Content: View, Footer: View>: View {
             .background(sheetChromeBackground)
 
             ScrollView { content().padding() }
-                .background(reduceTransparency ? Color(.systemBackground) : Color.white.opacity(0.92))
+                .background(reduceTransparency ? Color(.systemBackground) : Color(.systemBackground))
 
             footer()
                 .padding(.horizontal)

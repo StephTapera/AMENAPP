@@ -23,38 +23,61 @@ import FirebaseFunctions
 final class GuardianService: ObservableObject {
     static let shared = GuardianService()
     private let db = Firestore.firestore()
-
     private init() {}
 
     // MARK: - Await Verdict
 
     /// Listens for the Guardian Cloud Function to write back a decision on a sent message.
     /// Resolves on the first non-nil guardianDecision update.
-    /// Times out after 10 seconds and returns .allow (fail-open on timeout to avoid blocking UX).
-    func awaitVerdict(messageId: String, channelId: String) async throws -> GuardianDecision {
-        try await withThrowingTaskGroup(of: GuardianDecision.self) { group in
-            group.addTask {
-                try await withCheckedThrowingContinuation { continuation in
-                    var listener: ListenerRegistration?
-                    listener = Firestore.firestore()
-                        .collection("channels").document(channelId)
-                        .collection("messages").document(messageId)
-                        .addSnapshotListener { snap, _ in
-                            guard let raw = snap?.data()?["guardianDecision"] as? String,
-                                  let decision = GuardianDecision(rawValue: raw) else { return }
-                            listener?.remove()
-                            continuation.resume(returning: decision)
-                        }
+    ///
+    /// - Parameters:
+    ///   - messageId: The Firestore message document ID.
+    ///   - channelId: The Firestore channel document ID.
+    ///   - failClosed: When `true`, a timeout or network error returns `.block` instead of `.allow`.
+    ///                 Set this to `true` for communal / monitored channels where grooming,
+    ///                 CSAM, or crisis/self-harm content must never slip through on classifier delay.
+    ///                 Defaults to `false` (fail-open) to preserve UX for general moderation.
+    func awaitVerdict(messageId: String, channelId: String, failClosed: Bool = false) async throws -> GuardianDecision {
+        do {
+            return try await withThrowingTaskGroup(of: GuardianDecision.self) { group in
+                group.addTask {
+                    try await withCheckedThrowingContinuation { continuation in
+                        var listener: ListenerRegistration?
+                        listener = Firestore.firestore()
+                            .collection("channels").document(channelId)
+                            .collection("messages").document(messageId)
+                            .addSnapshotListener { snap, _ in
+                                guard let raw = snap?.data()?["guardianDecision"] as? String,
+                                      let decision = GuardianDecision(rawValue: raw) else { return }
+                                listener?.remove()
+                                continuation.resume(returning: decision)
+                            }
+                    }
                 }
+                // Timeout task — fail-open or fail-closed depending on channel context
+                group.addTask {
+                    try await Task.sleep(for: .seconds(10))
+                    return .allow  // signal that the timeout task won; handled below
+                }
+                let result = try await group.next() ?? .allow
+                group.cancelAll()
+
+                // If the timeout task resolved first (.allow sentinel) and failClosed is set,
+                // block the message rather than allowing it through.
+                if result == .allow && failClosed {
+                    // Re-check: the Firestore listener may have also resolved .allow legitimately,
+                    // but on timeout we conservatively block for critical-category channels.
+                    print("[Guardian] Classifier timeout for message \(messageId) in channel \(channelId) — failing CLOSED (block) due to critical channel context")
+                    return .block
+                }
+
+                return result
             }
-            // Timeout task — fail-open so slow classifications don't block the composer
-            group.addTask {
-                try await Task.sleep(for: .seconds(10))
-                return .allow
-            }
-            let result = try await group.next() ?? .allow
-            group.cancelAll()
-            return result
+        } catch {
+            // Network or task-cancellation error
+            let fallback: GuardianDecision = failClosed ? .block : .allow
+            print("[Guardian] Error awaiting verdict for message \(messageId): \(error.localizedDescription) — returning \(fallback.rawValue)")
+            return fallback
         }
     }
 

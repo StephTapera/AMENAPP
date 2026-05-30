@@ -85,6 +85,37 @@ service firebase.storage {
       allow delete: if isOwner(uid);
     }
 
+    // ── Data-Export Import Pipeline ───────────────────────────────────────────
+    // Path: imports/{uid}/{jobId}/archive.zip   — raw user-supplied archive
+    //       imports/{uid}/{jobId}/media/{filename} — extracted media (kept for committed posts)
+    //
+    // Security contract:
+    //   - Only the owning user may upload their archive or read their extracted media.
+    //   - Archive write is limited to 600 MB (v1 cap). Larger archives should be
+    //     handled by contacting support or using the desktop flow.
+    //   - After parsing the server deletes archive.zip; client cannot read it back.
+    //   - Media reads are owner-only (posts reference Storage URLs directly).
+    //   - Server (Admin SDK signed URLs) bypasses these rules for the parse worker.
+
+    function withinArchiveLimit() {
+      return request.resource.size <= 600 * 1024 * 1024;
+    }
+
+    match /imports/{uid}/{jobId}/archive.zip {
+      // Owner writes once; server reads via signed URL (bypasses rules).
+      allow write: if isOwner(uid) && withinArchiveLimit();
+      // No client read of the raw archive — data minimization.
+      allow read: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    match /imports/{uid}/{jobId}/media/{filename} {
+      allow read:   if isOwner(uid);
+      // Media is written by the server; client cannot upload here directly.
+      allow write:  if false;
+      allow delete: if isOwner(uid);
+    }
+
     // ── Default deny ──────────────────────────────────────────────────────────
 
     match /{allPaths=**} {

@@ -5,10 +5,12 @@ struct BereanPulseEmptyStateView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Image(systemName: "sparkles.rectangle.stack")
-                .font(.system(size: 32, weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.62))
-                .accessibilityHidden(true)
+            AmenGlass3DIcon(
+                systemName: "sparkles.rectangle.stack",
+                tint: AmenTheme.Colors.amenPurple,
+                size: 72
+            )
+            .accessibilityHidden(true)
 
             Text(String(localized: "No Pulse cards are ready yet"))
                 .font(.title3.weight(.semibold))

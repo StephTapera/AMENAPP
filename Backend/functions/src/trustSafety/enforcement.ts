@@ -17,7 +17,8 @@
  * Expiry: minor=90d, moderate=180d, severe/critical=never
  */
 
-import { onCall, HttpsError, onDocumentCreated } from "firebase-functions/v2/https";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 

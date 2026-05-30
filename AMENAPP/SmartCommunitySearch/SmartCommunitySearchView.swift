@@ -41,6 +41,11 @@ struct SmartCommunitySearchView: View {
         .sheet(isPresented: $viewModel.isShowingManualLocationEntry) {
             manualLocationSheet
         }
+        .onAppear {
+            if AMENFeatureFlags.shared.discussionFindThenAddEnabled {
+                DiscussionGroupLibraryService.shared.startListening()
+            }
+        }
     }
 
     // MARK: - Search bar with Liquid Glass background

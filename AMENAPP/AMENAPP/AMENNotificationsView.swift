@@ -58,9 +58,19 @@ final class AMENNotificationsViewModel: ObservableObject {
 
     // MARK: Init
 
+    /// Notification types that belong in the Messages tab, not the Activity feed.
+    private static let messageTypes: Set<AppNotification.NotificationType> = [
+        .message, .messageRequest, .messageRequestAccepted
+    ]
+
     init() {
         NotificationService.shared.$notifications
-            .map { notes in notes.filter { $0.actorId != Auth.auth().currentUser?.uid } }
+            .map { notes in
+                notes.filter {
+                    $0.actorId != Auth.auth().currentUser?.uid &&
+                    !Self.messageTypes.contains($0.type)
+                }
+            }
             .sink { [weak self] in self?.rawNotifications = $0 }
             .store(in: &cancellables)
     }
@@ -595,17 +605,7 @@ private struct FocusModePill: View {
 private struct ActivityEmptyState: View {
     var body: some View {
         VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(Circle().fill(AmenTheme.Colors.glassFill))
-                    .overlay(Circle().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
-                    .frame(width: 72, height: 72)
-                    .shadow(color: AmenTheme.Colors.shadowCard, radius: 16, x: 0, y: 4)
-                Image(systemName: "bell.fill")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(AmenTheme.Colors.iconSecondary)
-            }
+            AmenGlass3DIcon(systemName: "bell.fill", tint: AmenTheme.Colors.amenPurple, size: 72)
             VStack(spacing: 6) {
                 Text("You're all caught up")
                     .font(AMENFont.semiBold(17))
@@ -660,6 +660,7 @@ struct AMENNotificationsView: View {
                 Task { await NotificationService.shared.recordInboxOpened() }
             }
         }
+        .accessibilityIdentifier("screen.activity")
     }
 
     // MARK: - Empty Content

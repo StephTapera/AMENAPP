@@ -96,6 +96,12 @@ export const markNotificationsSeen = functions.https.onCall(
                 "Must be signed in"
             );
         }
+        if (context.app == undefined) {
+            throw new functions.https.HttpsError(
+                "failed-precondition",
+                "The function must be called from an App Check verified app."
+            );
+        }
 
         const userId = context.auth.uid;
         const notificationIds: string[] = data.notificationIds;
@@ -179,6 +185,12 @@ export const markNotificationOpened = functions.https.onCall(
             throw new functions.https.HttpsError(
                 "unauthenticated",
                 "Must be signed in"
+            );
+        }
+        if (context.app == undefined) {
+            throw new functions.https.HttpsError(
+                "failed-precondition",
+                "The function must be called from an App Check verified app."
             );
         }
 
@@ -271,6 +283,12 @@ export const markNotificationDismissed = functions.https.onCall(
                 "Must be signed in"
             );
         }
+        if (context.app == undefined) {
+            throw new functions.https.HttpsError(
+                "failed-precondition",
+                "The function must be called from an App Check verified app."
+            );
+        }
 
         const userId = context.auth.uid;
         const notificationId: string = data.notificationId;
@@ -329,6 +347,12 @@ export const reconcileNotificationCount = functions.https.onCall(
             throw new functions.https.HttpsError(
                 "unauthenticated",
                 "Must be signed in"
+            );
+        }
+        if (context.app == undefined) {
+            throw new functions.https.HttpsError(
+                "failed-precondition",
+                "The function must be called from an App Check verified app."
             );
         }
 

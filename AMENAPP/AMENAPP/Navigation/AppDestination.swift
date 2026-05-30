@@ -25,6 +25,9 @@ enum AppDestination: Hashable, Sendable {
     case resources                          // Resources tab (Church Notes, Prayer, Find Church)
     case activity                           // Notifications tab
     case profile
+    case gatherings                         // Gatherings tab (tab 6)
+    case spaces                             // Spaces tab (tab 7)
+    case communityNotes                     // Community Notes tab (tab 8)
 
     // ── Composer sheets ───────────────────────────────────────────────────
     case newPost
@@ -64,6 +67,7 @@ enum AppDestination: Hashable, Sendable {
         switch (lhs, rhs) {
         case (.home, .home), (.discovery, .discovery), (.messages, .messages),
              (.resources, .resources), (.activity, .activity), (.profile, .profile),
+             (.gatherings, .gatherings), (.spaces, .spaces), (.communityNotes, .communityNotes),
              (.newPost, .newPost), (.continueDraft, .continueDraft),
              (.testimony, .testimony), (.prayerNew, .prayerNew),
              (.findChurch, .findChurch), (.churchNotes, .churchNotes),
@@ -150,6 +154,9 @@ extension AppDestination {
         switch host {
 
         // ── Content ───────────────────────────────────────────────────────
+        case "post" where path.first == "new":
+            self = .newPost
+
         case "post":
             guard let id = path.first, Self.isValidId(id) else { return nil }
             self = .post(id: id, highlightCommentId: q("comment") ?? q("commentId"))
@@ -254,7 +261,8 @@ extension AppDestination {
              .askBerean, .findChurch, .churchNotes, .reflection,
              .prayer, .churchNote, .conversation, .groupJoinLink,
              .userProfile, .post, .church,
-             .bereanWithVerse, .bereanWithSession, .activity, .profile, .resources:
+             .bereanWithVerse, .bereanWithSession, .activity, .profile, .resources,
+             .gatherings, .spaces, .communityNotes:
             return true
         case .home, .discovery, .search, .settings, .verseOfDay:
             return false
@@ -280,6 +288,12 @@ extension AppDestination {
             return 4
         case .profile, .settings:
             return 5
+        case .gatherings:
+            return 6
+        case .spaces:
+            return 7
+        case .communityNotes:
+            return 8
         case .askBerean, .bereanWithVerse, .bereanWithSession:
             return 0
         }
@@ -313,6 +327,9 @@ extension AppDestination {
         case .groupJoinLink(let token):         return "groupJoinLink/\(token.prefix(8))"
         case .search(let q):                    return "search/\(q ?? "")"
         case .settings(let s):                  return "settings/\(s ?? "root")"
+        case .gatherings:                       return "gatherings"
+        case .spaces:                           return "spaces"
+        case .communityNotes:                   return "communityNotes"
         case .bereanWithVerse(let ref):         return "bereanVerse/\(ref)"
         case .bereanWithSession(let id):        return "bereanSession/\(id)"
         }

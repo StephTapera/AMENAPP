@@ -74,6 +74,10 @@ struct ProfileAdaptiveModulesView: View {
                 churchModules
             case .business:
                 businessModules
+            case .school:
+                churchModules
+            case .university:
+                churchModules
             }
         }
     }
@@ -872,6 +876,18 @@ struct ProfileActionBarView: View {
                 ("Contact", true),
                 ("Collaborate", false),
                 ("Visit Site", false)
+            ]
+        case .school:
+            return [
+                ("Connect", true),
+                ("Message", false),
+                ("Events", false)
+            ]
+        case .university:
+            return [
+                ("Connect", true),
+                ("Message", false),
+                ("Chapel", false)
             ]
         }
     }

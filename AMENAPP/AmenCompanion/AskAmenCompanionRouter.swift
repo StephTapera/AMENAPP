@@ -51,6 +51,11 @@ final class AskAmenCompanionRouter: ObservableObject {
         await ask("I'm planning to visit \(churchName) on \(serviceDay). What should I know before going?")
     }
 
+    func clearResponse() {
+        lastResponse = nil
+        errorMessage = nil
+    }
+
     private func buildContext() -> [String: Any] {
         let locationContext = LocationContextService.shared.currentContext
         let savedChurches = ChurchCompanionService.shared.savedChurches.prefix(3).map { $0.name }

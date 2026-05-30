@@ -98,14 +98,14 @@ final class NotificationDeepLinkRouter: ObservableObject {
         
         switch type {
         case "follow", "followRequestAccepted":
-            if let actorId = userInfo["actorId"] as? String {
+            if let actorId = userInfo["actorId"] as? String, Self.isValidDocumentId(actorId) {
                 destination = .profile(userId: actorId)
             } else {
                 destination = .notifications
             }
-            
+
         case "comment":
-            if let postId = userInfo["postId"] as? String {
+            if let postId = userInfo["postId"] as? String, Self.isValidDocumentId(postId) {
                 let commentId = userInfo["commentId"] as? String
                 // Pre-load comment focus so PostDetailView scrolls to target on appear
                 if let commentId {
@@ -117,7 +117,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
             }
 
         case "reply":
-            if let postId = userInfo["postId"] as? String {
+            if let postId = userInfo["postId"] as? String, Self.isValidDocumentId(postId) {
                 let replyId = userInfo["commentId"] as? String
                 let parentId = userInfo["parentCommentId"] as? String
                 if let replyId {
@@ -133,7 +133,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
             }
 
         case "mention":
-            if let postId = userInfo["postId"] as? String {
+            if let postId = userInfo["postId"] as? String, Self.isValidDocumentId(postId) {
                 let commentId = userInfo["commentId"] as? String
                 if let commentId {
                     CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
@@ -142,43 +142,43 @@ final class NotificationDeepLinkRouter: ObservableObject {
             } else {
                 destination = .notifications
             }
-            
+
         case "amen", "repost":
-            if let postId = userInfo["postId"] as? String {
+            if let postId = userInfo["postId"] as? String, Self.isValidDocumentId(postId) {
                 destination = .post(postId: postId)
             } else {
                 destination = .notifications
             }
-            
+
         case "message", "messageRequest":
-            if let conversationId = userInfo["conversationId"] as? String {
+            if let conversationId = userInfo["conversationId"] as? String, Self.isValidDocumentId(conversationId) {
                 let messageId = userInfo["messageId"] as? String
                 destination = .conversation(conversationId: conversationId, messageId: messageId)
             } else {
                 destination = .messages
             }
-            
+
         case "messageRequestAccepted":
-            if let conversationId = userInfo["conversationId"] as? String {
+            if let conversationId = userInfo["conversationId"] as? String, Self.isValidDocumentId(conversationId) {
                 destination = .conversation(conversationId: conversationId)
             } else {
                 destination = .messages
             }
-            
+
         case "prayerReminder", "prayerAnswered":
-            if let prayerId = userInfo["prayerId"] as? String {
+            if let prayerId = userInfo["prayerId"] as? String, Self.isValidDocumentId(prayerId) {
                 destination = .prayer(prayerId: prayerId)
             } else {
                 destination = .notifications
             }
-            
+
         case "churchNoteShared":
-            if let noteId = userInfo["noteId"] as? String {
+            if let noteId = userInfo["noteId"] as? String, Self.isValidDocumentId(noteId) {
                 destination = .churchNote(noteId: noteId)
             } else {
                 destination = .notifications
             }
-            
+
         default:
             destination = .notifications
         }
@@ -381,9 +381,26 @@ final class NotificationDeepLinkRouter: ObservableObject {
         appReady = true
         appDidBecomeReady()
     }
+
+    /// Reset all navigation state on sign-out so queued deep links from the
+    /// previous user's session cannot fire into the next user's session.
+    func reset() {
+        activeDestination = nil
+        pendingNavigation = nil
+        appReady = false
+        lastNavigationTime = .distantPast
+        dlog("🔄 NotificationDeepLinkRouter reset for sign-out")
+    }
     
     // MARK: - URL Scheme Support (for external deep links)
     
+    /// Validates that a document ID extracted from a deep link contains only safe characters.
+    /// Prevents path-traversal / injection via crafted notification payloads.
+    private static func isValidDocumentId(_ id: String) -> Bool {
+        let pattern = "^[a-zA-Z0-9_-]{1,128}$"
+        return id.range(of: pattern, options: .regularExpression) != nil
+    }
+
     /// Handle deep link URL (e.g., amenapp://post/abc123 or https://amenapp.com/group/join?token=...)
     func handleURL(_ url: URL) {
         // Support universal links (https://amenapp.com/...) alongside custom scheme
@@ -417,28 +434,31 @@ final class NotificationDeepLinkRouter: ObservableObject {
         
         switch host {
         case "post":
-            if let postId = pathComponents.first {
+            if let postId = pathComponents.first, Self.isValidDocumentId(postId) {
                 let commentId = url.queryParameters["commentId"]
                 destination = .post(postId: postId, scrollToCommentId: commentId)
             } else {
+                dlog("⚠️ NotificationDeepLinkRouter: invalid or missing postId in deep link")
                 destination = .notifications
             }
-            
+
         case "profile":
-            if let userId = pathComponents.first {
+            if let userId = pathComponents.first, Self.isValidDocumentId(userId) {
                 destination = .profile(userId: userId)
             } else {
+                dlog("⚠️ NotificationDeepLinkRouter: invalid or missing userId in deep link")
                 destination = .notifications
             }
-            
+
         case "conversation":
-            if let conversationId = pathComponents.first {
+            if let conversationId = pathComponents.first, Self.isValidDocumentId(conversationId) {
                 let messageId = url.queryParameters["messageId"]
                 destination = .conversation(conversationId: conversationId, messageId: messageId)
             } else {
+                dlog("⚠️ NotificationDeepLinkRouter: invalid or missing conversationId in deep link")
                 destination = .messages
             }
-            
+
         case "group":
             // Handle group invite links: amenapp://group/join?token=...
             if pathComponents.first == "join", let token = url.queryParameters["token"], !token.isEmpty {
@@ -446,27 +466,29 @@ final class NotificationDeepLinkRouter: ObservableObject {
             } else {
                 destination = .messages
             }
-            
+
         case "notifications":
             destination = .notifications
-            
+
         case "messages":
             destination = .messages
-            
+
         case "prayer":
-            if let prayerId = pathComponents.first {
+            if let prayerId = pathComponents.first, Self.isValidDocumentId(prayerId) {
                 destination = .prayer(prayerId: prayerId)
             } else {
+                dlog("⚠️ NotificationDeepLinkRouter: invalid or missing prayerId in deep link")
                 destination = .notifications
             }
-            
+
         case "church-note":
-            if let noteId = pathComponents.first {
+            if let noteId = pathComponents.first, Self.isValidDocumentId(noteId) {
                 destination = .churchNote(noteId: noteId)
             } else {
+                dlog("⚠️ NotificationDeepLinkRouter: invalid or missing noteId in deep link")
                 destination = .notifications
             }
-            
+
         default:
             dlog("⚠️ Unknown deep link host: \(host)")
             destination = .notifications

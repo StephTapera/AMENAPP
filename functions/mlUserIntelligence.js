@@ -8,7 +8,7 @@
 
 const admin = require("firebase-admin");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const {
   hfInference, pineconeUpsert, pineconeQuery,
   logFunction, checkRateLimit, sleep,
@@ -356,12 +356,30 @@ const predictCreationPropensity = onSchedule(
 const computeSessionIntent = onCall(
   { region: "us-central1" },
   async (request) => {
+    // P0-8: Auth check — only the authenticated user can update their own session state
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Authentication required.");
+    }
+    const callerUid = request.auth.uid;
+    const requestedUserId = request.data.userId;
+    if (callerUid !== requestedUserId) {
+      throw new HttpsError("permission-denied", "Cannot update session state for another user.");
+    }
+
     const { userId, timeOfDay, dayOfWeek, lastSessionBehavior } = request.data;
 
-    if (!userId) throw new Error("userId required");
+    // Input validation for timeOfDay and dayOfWeek
+    if (typeof timeOfDay !== "number" || timeOfDay < 0 || timeOfDay > 23) {
+      throw new HttpsError("invalid-argument", "timeOfDay must be 0-23.");
+    }
+    if (typeof dayOfWeek !== "number" || dayOfWeek < 0 || dayOfWeek > 6) {
+      throw new HttpsError("invalid-argument", "dayOfWeek must be 0-6.");
+    }
+
+    if (!userId) throw new HttpsError("invalid-argument", "userId required.");
 
     const allowed = await checkRateLimit(userId, "sessionIntent", 5);
-    if (!allowed) throw new Error("Rate limited");
+    if (!allowed) throw new HttpsError("resource-exhausted", "Rate limited.");
 
     const startMs = Date.now();
 

@@ -80,7 +80,7 @@ struct GrowthDataPoint: Identifiable, Codable {
 
 // MARK: - Community Notes
 
-struct CommunityNote: Identifiable, Codable {
+struct DuetCommunityNote: Identifiable, Codable {
     var id: UUID
     var authorName: String
     var authorInitials: String

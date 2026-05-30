@@ -17,9 +17,11 @@ final class ChurchSearchViewModel: ObservableObject {
     @Published var displayMode: DisplayMode = .list
     @Published private(set) var results: [SmartChurchSearchItem] = []
     @Published private(set) var isLoading = false
+    @Published private(set) var isNearbySearch = false
     @Published var errorMessage: String?
     @Published var selectedResult: SmartChurchSearchItem?
     @Published var mapCamera: MapCameraPosition = .automatic
+    @Published var showLocationPrompt = false
 
     private let service: SmartChurchSearchService
     private let locationProvider: ChurchSearchLocationProviding
@@ -34,6 +36,7 @@ final class ChurchSearchViewModel: ObservableObject {
     }
 
     func search() {
+        isNearbySearch = false
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             errorMessage = "Describe the church you're looking for."
@@ -71,6 +74,41 @@ final class ChurchSearchViewModel: ObservableObject {
         }
     }
 
+    func loadNearby() {
+        guard results.isEmpty, !isLoading else { return }
+        isNearbySearch = true
+        query = ""
+        searchTask?.cancel()
+        isLoading = true
+        errorMessage = nil
+        searchTask = Task { [service, locationProvider, radiusMiles] in
+            do {
+                let location = try await locationProvider.currentCoordinate()
+                let items = try await service.search(query: "church near me", userLocation: location, radiusMiles: radiusMiles)
+                try Task.checkCancellation()
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                        self.results = items
+                        self.selectedResult = items.first
+                        self.updateMapCamera()
+                    }
+                    self.isLoading = false
+                }
+            } catch is CancellationError {
+                await MainActor.run { self.isLoading = false }
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
+                    if error is ChurchSearchLocationError {
+                        self.showLocationPrompt = true
+                    } else {
+                        self.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+        }
+    }
+
     func select(_ result: SmartChurchSearchItem) {
         selectedResult = result
         mapCamera = .region(MKCoordinateRegion(
@@ -94,6 +132,20 @@ final class ChurchSearchViewModel: ObservableObject {
             span: MKCoordinateSpan(latitudeDelta: max(0.04, (maxLat - minLat) * 1.6), longitudeDelta: max(0.04, (maxLng - minLng) * 1.6))
         ))
     }
+}
+
+extension ChurchSearchViewModel {
+    static let quickIntents: [QuickChurchIntent] = [
+        .init(label: "Young Adults",   icon: "person.2.fill",        query: "church with a strong young adults community near me"),
+        .init(label: "Families",       icon: "house.fill",            query: "family-friendly church with kids ministry near me"),
+        .init(label: "Bible Teaching", icon: "book.fill",             query: "church with strong expository Bible teaching near me"),
+        .init(label: "Small Groups",   icon: "person.3.fill",         query: "church with active small groups and community near me"),
+        .init(label: "Worship Night",  icon: "music.note",            query: "church with contemporary worship nights near me"),
+        .init(label: "Recovery",       icon: "heart.fill",            query: "church with recovery ministry near me"),
+        .init(label: "Traditional",    icon: "building.columns.fill", query: "traditional liturgical church near me"),
+        .init(label: "New Believers",  icon: "sparkles",              query: "church welcoming for new Christians near me"),
+        .init(label: "Prayer",         icon: "hands.sparkles.fill",   query: "church known for intercessory prayer near me"),
+    ]
 }
 
 protocol ChurchSearchLocationProviding {

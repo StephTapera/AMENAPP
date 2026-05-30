@@ -7,16 +7,24 @@
 //  Staggered entrance animation driven by `index`.
 //  Integrates with FollowBurstCoordinator for friction UX.
 //
+//  Consumes DisplaySuggestion (unified bridge type that works for both
+//  SuggestedFollowsService smart-ranked results and RecommendedUsersAIService
+//  fallback results).
+//
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 struct SuggestedUserRow: View {
-    let recommendation: RecommendedUsersAIService.UserRecommendation
+    let recommendation: DisplaySuggestion
     let index: Int
     let onFollowed: (() -> Void)?
     let onDismissed: (() -> Void)?
 
-    @State private var isFollowing = false
+    // P1 FIX: Use FollowStateManager for single source of truth so state is
+    // consistent across all surfaces (discovery, feed, profile, suggestions).
+    @State private var followState: FollowStateManager.FollowState = .notFollowing
     @State private var isInProgress = false
     @State private var appeared = false
     @State private var showFrictionConfirm = false
@@ -25,6 +33,9 @@ struct SuggestedUserRow: View {
 
     // Stagger delay: each row appears 60ms after the previous
     private var staggerDelay: Double { Double(index) * 0.06 }
+
+    // Convenience shim — keeps follow guard readable
+    private var isFollowing: Bool { followState.isFollowing }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -41,7 +52,23 @@ struct SuggestedUserRow: View {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.82).delay(staggerDelay)) {
                 appeared = true
             }
-            isFollowing = FollowService.shared.following.contains(recommendation.id)
+            // Seed from FollowStateManager cache instantly (no Firestore round-trip)
+            followState = FollowStateManager.shared.followStates[recommendation.id] ?? .notFollowing
+        }
+        .task {
+            // Async-fetch authoritative state — handles "requested" for private accounts
+            let state = await FollowStateManager.shared.getState(for: recommendation.id)
+            withAnimation { followState = state }
+        }
+        // Listen for cross-surface follow state changes (follow from profile, feed, etc.)
+        .onReceive(
+            NotificationCenter.default.publisher(for: .followStateDidChange)
+        ) { notification in
+            guard let info = notification.userInfo,
+                  let userId = info["userId"] as? String,
+                  userId == recommendation.id,
+                  let state = info["state"] as? FollowStateManager.FollowState else { return }
+            withAnimation { followState = state }
         }
         // Friction confirmation alert
         .alert("Follow this account?", isPresented: $showFrictionConfirm) {
@@ -93,33 +120,41 @@ struct SuggestedUserRow: View {
                     .lineLimit(1)
             }
 
-            // Reason pills — up to 2
-            if !reasonPills.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(reasonPills.prefix(2), id: \.self) { pill in
-                        ReasonPillView(label: pill)
-                    }
-                }
+            // Reason pills — primary reason always shown, up to 1 secondary
+            reasonPillsView
                 .padding(.top, 2)
+        }
+    }
+
+    @ViewBuilder
+    private var reasonPillsView: some View {
+        let pills = buildPills()
+        if !pills.isEmpty {
+            HStack(spacing: 4) {
+                ForEach(pills.prefix(2), id: \.self) { pill in
+                    ReasonPillView(label: pill)
+                }
             }
         }
     }
 
-    /// Derive up to 2 user-facing reason labels from the recommendation.
-    private var reasonPills: [String] {
+    /// Returns primary reason + up to 1 secondary pill.
+    private func buildPills() -> [String] {
         var pills: [String] = []
 
-        if recommendation.mutualFriendCount > 0 {
+        // Primary reason from the ranking engine
+        if !recommendation.primaryReason.isEmpty {
+            pills.append(recommendation.primaryReason)
+        }
+
+        // One secondary pill (first secondary reason or mutual count)
+        if let first = recommendation.secondaryReasons.first, !first.isEmpty {
+            pills.append(first)
+        } else if recommendation.mutualFriendCount > 0, pills.count < 2 {
             let label = recommendation.mutualFriendCount == 1
                 ? "1 mutual"
                 : "\(recommendation.mutualFriendCount) mutuals"
             pills.append(label)
-        }
-
-        if let first = recommendation.sharedInterests.first {
-            pills.append(first)
-        } else if !recommendation.matchReason.isEmpty {
-            pills.append(recommendation.matchReason)
         }
 
         return pills
@@ -134,8 +169,15 @@ struct SuggestedUserRow: View {
         }
     }
 
+    // MARK: - Follow Button (three-state: Follow / Requested / Following)
+
     private var followButton: some View {
         Button {
+            // Tapping "Requested" cancels the pending request
+            if followState == .requested {
+                cancelRequest()
+                return
+            }
             guard !isInProgress, !isFollowing else { return }
             isInProgress = true
 
@@ -143,13 +185,10 @@ struct SuggestedUserRow: View {
 
             switch friction {
             case .cooldown:
-                // Blocked — show message via frictionState, no action
                 isInProgress = false
             case .confirm:
-                // Ask for explicit confirmation before proceeding
                 showFrictionConfirm = true
             case .nudge, .clear:
-                // Optional short delay for nudge state
                 let delay: TimeInterval = friction == .nudge ? FollowSafetyThresholds.shared.frictionDelaySeconds : 0
                 if delay > 0 {
                     Task {
@@ -165,6 +204,7 @@ struct SuggestedUserRow: View {
                 if isInProgress && !showFrictionConfirm {
                     ProgressView()
                         .controlSize(.small)
+                        .tint(followState == .notFollowing ? .white : .primary)
                         .frame(width: 60, height: 30)
                 } else if burstCoordinator.frictionState == .cooldown && !isFollowing {
                     // Show locked state visually during cooldown
@@ -173,24 +213,62 @@ struct SuggestedUserRow: View {
                         .foregroundStyle(.orange)
                         .frame(width: 60, height: 30)
                 } else {
-                    Text(isFollowing ? "Following" : "Follow")
-                        .font(.systemScaled(13, weight: .semibold))
-                        .frame(width: 72, height: 30)
+                    // P1 FIX: Three-state label — Follow / Requested / Following
+                    HStack(spacing: 4) {
+                        if followState == .following || followState == .mutualFollow {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        Text(followState.buttonTitle)
+                            .font(.systemScaled(13, weight: .semibold))
+                    }
+                    .frame(minWidth: 72, maxWidth: 90, minHeight: 30, maxHeight: 30)
                 }
             }
-            .foregroundColor(isFollowing ? .secondary : .white)
-            .background(
-                Capsule()
-                    .fill(isFollowing
-                          ? Color.gray.opacity(0.15)
-                          : burstCoordinator.frictionState == .cooldown && !isFollowing
-                            ? Color.orange.opacity(0.12)
-                            : Color.accentColor)
-            )
+            .foregroundStyle(followButtonForeground)
+            .padding(.horizontal, 4)
+            .background { followButtonBackground }
         }
-        .disabled(isFollowing || isInProgress || burstCoordinator.frictionState == .cooldown)
-        .animation(.easeInOut(duration: 0.2), value: isFollowing)
+        .disabled(isInProgress || burstCoordinator.frictionState == .cooldown)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: followState)
         .animation(.easeInOut(duration: 0.2), value: burstCoordinator.frictionState)
+        .accessibilityLabel(followState.buttonTitle)
+        .accessibilityHint(
+            followState == .requested
+                ? "Tap to cancel follow request"
+                : isFollowing ? "Tap to unfollow" : "Tap to follow"
+        )
+    }
+
+    private var followButtonForeground: Color {
+        switch followState {
+        case .notFollowing, .followsYou:
+            return .white
+        case .requested, .following, .mutualFollow:
+            return .primary
+        }
+    }
+
+    @ViewBuilder
+    private var followButtonBackground: some View {
+        switch followState {
+        case .notFollowing, .followsYou:
+            if burstCoordinator.frictionState == .cooldown {
+                Capsule().fill(Color.orange.opacity(0.12))
+            } else {
+                // P1 FIX: AMEN gold capsule per design spec
+                Capsule().fill(Color.amenGold)
+            }
+        case .requested:
+            // Gray outlined capsule — pending request
+            Capsule()
+                .fill(Color(.systemFill))
+                .overlay(Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1))
+        case .following, .mutualFollow:
+            // Outlined ghost capsule — already following
+            Capsule()
+                .strokeBorder(Color.secondary.opacity(0.4), lineWidth: 1.5)
+        }
     }
 
     private var dismissButton: some View {
@@ -212,14 +290,45 @@ struct SuggestedUserRow: View {
         Task {
             do {
                 try await FollowService.shared.followUser(userId: recommendation.id)
-                isFollowing = true
-                // Record in burst coordinator
+
+                // P1 FIX: push authoritative state to FollowStateManager (single source of truth)
+                let newState: FollowStateManager.FollowState = recommendation.isPrivate ? .requested : .following
+                FollowStateManager.shared.updateState(for: recommendation.id, state: newState)
+                withAnimation { followState = newState }
+
                 burstCoordinator.recordFollow(targetUserId: recommendation.id)
-                onFollowed?()
+                if !recommendation.isPrivate { onFollowed?() }
             } catch {
                 dlog("SuggestedUserRow follow failed: \(error)")
             }
             isInProgress = false
+        }
+    }
+
+    // MARK: - Cancel Pending Request
+
+    private func cancelRequest() {
+        Task {
+            // Optimistic revert
+            withAnimation { followState = .notFollowing }
+            FollowStateManager.shared.updateState(for: recommendation.id, state: .notFollowing)
+
+            guard let currentUID = Auth.auth().currentUser?.uid else { return }
+            do {
+                let snap = try await Firestore.firestore()
+                    .collection("followRequests")
+                    .whereField("fromUserId", isEqualTo: currentUID)
+                    .whereField("toUserId", isEqualTo: recommendation.id)
+                    .whereField("status", isEqualTo: "pending")
+                    .limit(to: 1)
+                    .getDocuments()
+                for doc in snap.documents { try await doc.reference.delete() }
+            } catch {
+                // Revert on failure
+                withAnimation { followState = .requested }
+                FollowStateManager.shared.updateState(for: recommendation.id, state: .requested)
+                dlog("SuggestedUserRow cancel request failed: \(error)")
+            }
         }
     }
 }

@@ -9,9 +9,11 @@
 // Step 6: Publish (preview, share, QR)
 
 import SwiftUI
+import FirebaseAuth
 
 struct AmenGatheringCreateFlow: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var vm = AmenGatheringCreateViewModel()
 
     var body: some View {
@@ -30,7 +32,7 @@ struct AmenGatheringCreateFlow: View {
                     GatheringCreateStep6(vm: vm).tag(6)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.easeInOut, value: vm.step)
+                .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: vm.step)
 
                 navigationButtons
                     .padding(.horizontal, 20)
@@ -56,10 +58,10 @@ struct AmenGatheringCreateFlow: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule(style: .continuous)
-                    .fill(Color(.systemGray5))
+                    .fill(AmenTheme.Colors.backgroundSecondary)
                     .frame(height: 4)
                 Capsule(style: .continuous)
-                    .fill(Color.primary)
+                    .fill(AmenTheme.Colors.amenGold)
                     .frame(width: geo.size.width * CGFloat(vm.step) / 6.0, height: 4)
                     .animation(.easeInOut, value: vm.step)
             }
@@ -70,42 +72,61 @@ struct AmenGatheringCreateFlow: View {
     }
 
     private var navigationButtons: some View {
-        HStack(spacing: 12) {
-            if vm.step > 1 {
-                Button("Back") { vm.back() }
-                    .font(.subheadline.weight(.medium))
+        VStack(spacing: 6) {
+            HStack(spacing: 12) {
+                if vm.step > 1 {
+                    Button("Back") { vm.back() }
+                        .font(.subheadline.weight(.medium))
+                        .frame(minHeight: 48)
+                        .frame(maxWidth: .infinity)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                        )
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Go to previous step")
+                }
+
+                Button {
+                    if vm.step < 6 {
+                        vm.next()
+                    } else {
+                        vm.publish()
+                    }
+                } label: {
+                    Group {
+                        if vm.isPublishing {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text(vm.step < 6 ? "Continue" : "Publish Gathering")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                    }
                     .frame(minHeight: 48)
                     .frame(maxWidth: .infinity)
-                    .background(Color(.systemGray6))
+                    .background(vm.canAdvance ? AmenTheme.Colors.amenGold : Color(.systemGray4))
+                    .foregroundStyle(vm.canAdvance ? Color.black : AmenTheme.Colors.textSecondary)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Go to previous step")
+                    .opacity(vm.canAdvance ? 1.0 : 0.65)
+                    .animation(.easeInOut(duration: 0.2), value: vm.canAdvance)
+                }
+                .buttonStyle(.plain)
+                .disabled(!vm.canAdvance || vm.isPublishing)
+                .accessibilityLabel(vm.step < 6 ? "Continue to next step" : "Publish gathering")
             }
 
-            Button {
-                if vm.step < 6 {
-                    vm.next()
-                } else {
-                    vm.publish()
-                }
-            } label: {
-                Group {
-                    if vm.isPublishing {
-                        ProgressView().tint(.white)
-                    } else {
-                        Text(vm.step < 6 ? "Continue" : "Publish Gathering")
-                            .font(.subheadline.weight(.semibold))
-                    }
-                }
-                .frame(minHeight: 48)
-                .frame(maxWidth: .infinity)
-                .background(vm.canAdvance ? Color.primary : Color(.systemGray4))
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            if !vm.canAdvance {
+                Text(vm.validationMessage)
+                    .font(.caption)
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.2), value: vm.canAdvance)
             }
-            .buttonStyle(.plain)
-            .disabled(!vm.canAdvance || vm.isPublishing)
-            .accessibilityLabel(vm.step < 6 ? "Continue to next step" : "Publish gathering")
         }
     }
 
@@ -126,6 +147,7 @@ struct AmenGatheringCreateFlow: View {
 
 private struct GatheringCreateStep1: View {
     @ObservedObject var vm: AmenGatheringCreateViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -133,7 +155,15 @@ private struct GatheringCreateStep1: View {
                 VStack(alignment: .leading, spacing: 8) {
                     stepLabel("Gathering Name")
                     TextField("e.g. Friday Night Prayer", text: $vm.input.title)
-                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(AmenTheme.Colors.surfaceInput)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                        )
                         .submitLabel(.next)
                         .accessibilityLabel("Gathering name")
                 }
@@ -167,16 +197,28 @@ private struct GatheringCreateStep1: View {
             VStack(spacing: 8) {
                 Image(systemName: type.systemImage)
                     .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(isSelected ? .white : .primary)
                 Text(type.displayName)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(isSelected ? .white : .primary)
                     .multilineTextAlignment(.center)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.8))
+                }
             }
+            .foregroundStyle(isSelected ? Color.white : AmenTheme.Colors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 80)
-            .background(isSelected ? Color.primary : Color(.systemGray6))
+            .background(isSelected ? AmenTheme.Colors.amenGold : AmenTheme.Colors.surfaceCard)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? AmenTheme.Colors.amenGold.opacity(0.4) : AmenTheme.Colors.borderSoft,
+                        lineWidth: 0.8
+                    )
+            )
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(type.displayName)
@@ -191,18 +233,22 @@ private struct GatheringCreateStep1: View {
             HStack {
                 Text(hostType.displayName)
                     .font(.subheadline.weight(.medium))
+                    .foregroundStyle(AmenTheme.Colors.textPrimary)
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AmenTheme.Colors.amenGold)
                 }
             }
             .padding(14)
-            .background(isSelected ? Color.primary.opacity(0.08) : Color(.systemGray6))
+            .background(isSelected ? AmenTheme.Colors.surfaceCard : AmenTheme.Colors.backgroundSecondary)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isSelected ? Color.primary : .clear, lineWidth: 1.5)
+                    .strokeBorder(
+                        isSelected ? AmenTheme.Colors.amenGold.opacity(0.35) : AmenTheme.Colors.borderSoft,
+                        lineWidth: 1.5
+                    )
             }
         }
         .buttonStyle(.plain)
@@ -225,7 +271,15 @@ private struct GatheringCreateStep2: View {
                         get: { vm.input.theme.scriptureReference ?? "" },
                         set: { vm.input.theme.scriptureReference = $0.isEmpty ? nil : $0 }
                     ))
-                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(AmenTheme.Colors.surfaceInput)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                    )
                     .accessibilityLabel("Scripture reference")
                 }
 
@@ -236,7 +290,15 @@ private struct GatheringCreateStep2: View {
                         set: { vm.input.spiritual.prayerFocus = $0.isEmpty ? nil : $0 }
                     ), axis: .vertical)
                     .lineLimit(3...6)
-                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(AmenTheme.Colors.surfaceInput)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                    )
                     .accessibilityLabel("Prayer focus description")
                 }
 
@@ -279,6 +341,25 @@ private struct GatheringCreateStep3: View {
                     }
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
+
+                    Picker("Timezone", selection: Binding(
+                        get: { vm.input.timezone ?? TimeZone.current.identifier },
+                        set: { vm.input.timezone = $0 }
+                    )) {
+                        ForEach(TimeZone.knownTimeZoneIdentifiers.filter {
+                            ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+                             "America/Anchorage", "Pacific/Honolulu", "Europe/London", "Europe/Paris",
+                             "Asia/Tokyo", "Asia/Shanghai", "Australia/Sydney"].contains($0)
+                        }, id: \.self) { id in
+                            Text(TimeZone(identifier: id)?.localizedName(for: .standard, locale: .current) ?? id)
+                                .tag(id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .padding(12)
+                    .background(AmenTheme.Colors.surfaceInput)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityLabel("Event timezone")
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -296,21 +377,45 @@ private struct GatheringCreateStep3: View {
                             get: { vm.input.location.name ?? "" },
                             set: { vm.input.location.name = $0.isEmpty ? nil : $0 }
                         ))
-                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(AmenTheme.Colors.surfaceInput)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                        )
                         .accessibilityLabel("Venue name")
 
                         TextField("Address", text: Binding(
                             get: { vm.input.location.address ?? "" },
                             set: { vm.input.location.address = $0.isEmpty ? nil : $0 }
                         ))
-                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(AmenTheme.Colors.surfaceInput)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                        )
                         .accessibilityLabel("Address")
 
                         TextField("City", text: Binding(
                             get: { vm.input.location.city ?? "" },
                             set: { vm.input.location.city = $0.isEmpty ? nil : $0 }
                         ))
-                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(AmenTheme.Colors.surfaceInput)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                        )
                         .accessibilityLabel("City")
                     }
 
@@ -319,7 +424,15 @@ private struct GatheringCreateStep3: View {
                             get: { vm.input.location.onlineUrl ?? "" },
                             set: { vm.input.location.onlineUrl = $0.isEmpty ? nil : $0 }
                         ))
-                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(AmenTheme.Colors.surfaceInput)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                        )
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .accessibilityLabel("Online meeting link")
@@ -333,7 +446,15 @@ private struct GatheringCreateStep3: View {
                         set: { vm.input.description = $0.isEmpty ? nil : $0 }
                     ), axis: .vertical)
                     .lineLimit(4...8)
-                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(AmenTheme.Colors.surfaceInput)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                    )
                     .accessibilityLabel("Gathering description")
                 }
 
@@ -343,21 +464,45 @@ private struct GatheringCreateStep3: View {
                         get: { vm.input.details.speaker ?? "" },
                         set: { vm.input.details.speaker = $0.isEmpty ? nil : $0 }
                     ))
-                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(AmenTheme.Colors.surfaceInput)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                    )
                     .accessibilityLabel("Speaker or leader name")
 
                     TextField("What to bring", text: Binding(
                         get: { vm.input.details.whatToBring ?? "" },
                         set: { vm.input.details.whatToBring = $0.isEmpty ? nil : $0 }
                     ))
-                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(AmenTheme.Colors.surfaceInput)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                    )
                     .accessibilityLabel("What to bring")
 
                     TextField("Childcare", text: Binding(
                         get: { vm.input.details.childcare ?? "" },
                         set: { vm.input.details.childcare = $0.isEmpty ? nil : $0 }
                     ))
-                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(AmenTheme.Colors.surfaceInput)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                    )
                     .accessibilityLabel("Childcare information")
                 }
             }
@@ -442,22 +587,26 @@ private struct GatheringCreateStep4: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(mode.displayName)
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AmenTheme.Colors.textPrimary)
                     Text(mode.accessStatusLabel)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AmenTheme.Colors.textSecondary)
                 }
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AmenTheme.Colors.amenGold)
                 }
             }
             .padding(14)
-            .background(isSelected ? Color.primary.opacity(0.08) : Color(.systemGray6))
+            .background(isSelected ? AmenTheme.Colors.surfaceCard : AmenTheme.Colors.backgroundSecondary)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isSelected ? Color.primary : .clear, lineWidth: 1.5)
+                    .strokeBorder(
+                        isSelected ? AmenTheme.Colors.amenGold.opacity(0.35) : AmenTheme.Colors.borderSoft,
+                        lineWidth: 1.5
+                    )
             }
         }
         .buttonStyle(.plain)
@@ -539,11 +688,11 @@ private struct GatheringCreateStep5: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
             }
-            .foregroundStyle(alreadyAdded ? .white : .primary)
+            .foregroundStyle(alreadyAdded ? Color.black : AmenTheme.Colors.textPrimary)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(alreadyAdded ? Color.primary : Color(.systemGray6))
+            .background(alreadyAdded ? AmenTheme.Colors.amenGold : AmenTheme.Colors.backgroundSecondary)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -555,22 +704,27 @@ private struct GatheringCreateStep5: View {
     private func questionRow(index: Int) -> some View {
         HStack {
             Image(systemName: "text.bubble")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .accessibilityHidden(true)
             Text(vm.input.questions[index].prompt)
                 .font(.subheadline)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
             Spacer()
             Button {
                 vm.input.questions.remove(at: index)
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
             }
             .accessibilityLabel("Remove question: \(vm.input.questions[index].prompt)")
         }
         .padding(12)
-        .background(Color(.systemGray6))
+        .background(AmenTheme.Colors.backgroundSecondary)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+        )
     }
 }
 
@@ -578,6 +732,7 @@ private struct GatheringCreateStep5: View {
 
 private struct GatheringCreateStep6: View {
     @ObservedObject var vm: AmenGatheringCreateViewModel
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
@@ -617,50 +772,57 @@ private struct GatheringCreateStep6: View {
         VStack(alignment: .leading, spacing: 10) {
             Label(vm.input.type.displayName, systemImage: vm.input.type.systemImage)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
 
             Text(vm.input.title)
                 .font(.headline.weight(.bold))
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
 
             Label(vm.input.startAt.formatted(date: .long, time: .shortened),
                   systemImage: "calendar")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
 
             Label(vm.input.location.displaySummary,
                   systemImage: vm.input.location.type.systemImage)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
 
             Label(vm.input.access.mode.displayName, systemImage: "person.badge.key.fill")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemGray6))
+        .background(AmenTheme.Colors.surfaceCard)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+        )
+        .shadow(color: AmenTheme.Colors.shadowCard, radius: 8, x: 0, y: 2)
     }
 
     private func publishedState(_ response: AmenCreateGatheringResponse) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 52))
-                .foregroundStyle(.green)
+                .foregroundStyle(AmenTheme.Colors.statusSuccess)
                 .accessibilityHidden(true)
 
             Text("Gathering Published!")
                 .font(.title3.weight(.bold))
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
 
             if let shareLink = response.shareLink {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Share Link")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AmenTheme.Colors.textSecondary)
                     HStack {
                         Text(shareLink)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AmenTheme.Colors.textSecondary)
                             .lineLimit(1)
                         Spacer()
                         Button {
@@ -672,12 +834,35 @@ private struct GatheringCreateStep6: View {
                         .accessibilityLabel("Copy share link")
                     }
                     .padding(12)
-                    .background(Color(.systemGray6))
+                    .background(AmenTheme.Colors.backgroundSecondary)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                    )
                 }
             }
+
+            Button {
+                dismiss()
+            } label: {
+                Text("Done")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.black)
+                    .frame(minHeight: 48)
+                    .frame(maxWidth: .infinity)
+                    .background(AmenTheme.Colors.amenGold)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Done — close this sheet")
         }
         .frame(maxWidth: .infinity)
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                dismiss()
+            }
+        }
     }
 }
 
@@ -701,6 +886,13 @@ final class AmenGatheringCreateViewModel: ObservableObject {
     @Published var errorMessage = ""
     @Published var publishedResponse: AmenCreateGatheringResponse?
 
+    init() {
+        if let saved = loadDraft() {
+            input = saved
+        }
+        input.hostId = Auth.auth().currentUser?.uid ?? ""
+    }
+
     var canAdvance: Bool {
         switch step {
         case 1: return !input.title.trimmingCharacters(in: .whitespaces).isEmpty
@@ -713,8 +905,39 @@ final class AmenGatheringCreateViewModel: ObservableObject {
         }
     }
 
+    var validationMessage: String {
+        switch step {
+        case 1: return input.title.trimmingCharacters(in: .whitespaces).isEmpty ? "Enter a gathering name to continue" : ""
+        case 3:
+            if input.location.type == .physical {
+                return "Add a venue name or city to continue"
+            }
+            return ""
+        default: return ""
+        }
+    }
+
+    private let draftKey = "amen_gathering_draft"
+
+    func saveDraft() {
+        guard let data = try? JSONEncoder().encode(input) else { return }
+        UserDefaults.standard.set(data, forKey: draftKey)
+    }
+
+    func loadDraft() -> AmenCreateGatheringInput? {
+        guard let data = UserDefaults.standard.data(forKey: draftKey),
+              let saved = try? JSONDecoder().decode(AmenCreateGatheringInput.self, from: data)
+        else { return nil }
+        return saved
+    }
+
+    func clearDraft() {
+        UserDefaults.standard.removeObject(forKey: draftKey)
+    }
+
     func next() {
         guard step < 6 else { return }
+        saveDraft()
         withAnimation { step += 1 }
     }
 
@@ -731,6 +954,7 @@ final class AmenGatheringCreateViewModel: ObservableObject {
             do {
                 let response = try await AmenGatheringService.shared.createGathering(input)
                 publishedResponse = response
+                clearDraft()
             } catch let e as AmenGatheringError {
                 errorMessage = e.localizedDescription
                 showError = true

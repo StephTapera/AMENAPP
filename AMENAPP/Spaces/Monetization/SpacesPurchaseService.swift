@@ -78,6 +78,14 @@ final class SpacesPurchaseService: ObservableObject {
     /// After this returns successfully, observe `pendingClientSecret` and present
     /// the Stripe payment sheet. Entitlement will arrive via `observeEntitlement` stream.
     func purchaseSpace(_ space: AmenSpaceExtended, userId: String) async throws {
+        // B-24: Gate — purchaseSpaceAccess CF is not yet deployed.
+        guard AMENFeatureFlags.shared.paymentsEnabled else {
+            purchaseError = "Paid Space access is coming soon."
+            throw SpacesPurchaseError.networkError(
+                NSError(domain: "AMENPayments", code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Paid Space access is coming soon."])
+            )
+        }
         guard !userId.isEmpty else {
             purchaseError = SpacesPurchaseError.userNotAuthenticated.localizedDescription
             throw SpacesPurchaseError.userNotAuthenticated

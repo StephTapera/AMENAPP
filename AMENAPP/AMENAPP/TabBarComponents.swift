@@ -215,7 +215,7 @@ struct CompactTabBar: View {
 
     private var glassmorphicBackground: some View {
         Capsule()
-            .fill(Color(white: 0.92))
+            .fill(Color(.systemBackground))
             .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
     }
 
@@ -289,11 +289,12 @@ struct CompactTabBar: View {
                 // ── Sliding active pill — matchedGeometryEffect moves it between tabs ──
                 if isSelected {
                     Capsule()
-                        .fill(Color(white: 0.24, opacity: 0.95))
+                        .fill(Color(.systemBackground))
                         .overlay(
-                            Capsule()
-                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+                            Capsule(style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
                         )
+                        .shadow(color: .black.opacity(0.10), radius: 8, y: 3)
                         .matchedGeometryEffect(id: "activePill", in: pillNS)
                 }
 
@@ -454,7 +455,7 @@ struct CompactTabBar: View {
     private var createButton: some View {
         ZStack {
             Circle()
-                .fill(Color(white: 0.92))
+                .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
                 .frame(width: 54, height: 54)
 

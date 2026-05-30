@@ -15,8 +15,11 @@
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const Anthropic = require("@anthropic-ai/sdk");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -31,9 +34,9 @@ const REGION = "us-central1";
 function getAnthropicClient() {
   // Key stored via: firebase functions:config:set anthropic.key="sk-ant-..."
   // Or via Secret Manager (recommended for production).
-  const key = process.env.ANTHROPIC_API_KEY
+  const key = ANTHROPIC_API_KEY.value()
     || (process.env.FUNCTIONS_EMULATOR ? process.env.ANTHROPIC_API_KEY_LOCAL : null);
-  if (!key) throw new Error("ANTHROPIC_API_KEY environment variable not set");
+  if (!key) throw new Error("ANTHROPIC_API_KEY not set");
   return new Anthropic.default({ apiKey: key });
 }
 
@@ -234,7 +237,7 @@ async function runFellowshipMatcher() {
  * Scheduled: runs every 12 hours.
  */
 exports.fellowshipMatcher = onSchedule(
-  { schedule: "every 12 hours", region: REGION, timeoutSeconds: 540 },
+  { schedule: "every 12 hours", region: REGION, timeoutSeconds: 540, secrets: [ANTHROPIC_API_KEY] },
   async () => {
     await runFellowshipMatcher();
   }
@@ -245,7 +248,7 @@ exports.fellowshipMatcher = onSchedule(
  * Debounce effect: we skip pairs that already have a recent suggestion.
  */
 exports.onNewPrayerFellowshipCheck = onDocumentCreated(
-  { document: "prayers/{docId}", region: REGION },
+  { document: "prayers/{docId}", region: REGION, secrets: [ANTHROPIC_API_KEY] },
   async (event) => {
     const data = event.data?.data();
     if (!data?.userId || !data?.content) return;

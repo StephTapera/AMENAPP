@@ -26,23 +26,20 @@ struct BlockUserButton: View {
         } label: {
             Label("Block @\(username)", systemImage: "hand.raised.fill")
         }
-        .confirmationDialog(
-            "Block @\(username)?",
+        .amenAlert(
             isPresented: $showBlockConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Block", role: .destructive) {
-                blockUser()
-            }
-            
-            Button("Block and Report") {
-                showReportOptions = true
-            }
-            
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("They won't be able to follow you or see your posts. You can unblock them anytime from Settings.")
-        }
+            config: LiquidGlassAlertConfig(
+                title: "Block @\(username)?",
+                message: "They won't be able to see your posts or interact with you.",
+                icon: "hand.raised.fill",
+                primaryButton: LiquidGlassAlertButton("Block", tone: .destructive) {
+                    blockUser()
+                },
+                secondaryButton: LiquidGlassAlertButton("Block & Report", tone: .spiritual) {
+                    showReportOptions = true
+                }
+            )
+        )
         .sheet(isPresented: $showReportOptions) {
             ReportAndBlockSheet(userId: userId, username: username)
         }

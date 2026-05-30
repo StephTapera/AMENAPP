@@ -37,7 +37,7 @@ const PLATFORM_FEE_PERCENT = 5;
 // ─── Create Connected Account ────────────────────────────────────────────────
 
 const stripeCreateConnectedAccount = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {enforceAppCheck: true, region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -94,7 +94,7 @@ const stripeCreateConnectedAccount = onCall(
 // ─── Get Account Status ──────────────────────────────────────────────────────
 
 const stripeGetAccountStatus = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {enforceAppCheck: true, region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -137,7 +137,7 @@ const stripeGetAccountStatus = onCall(
 // ─── Create Payment Intent ───────────────────────────────────────────────────
 
 const stripeCreatePaymentIntent = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {enforceAppCheck: true, region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -193,7 +193,7 @@ const stripeCreatePaymentIntent = onCall(
 // ─── Request Payout ──────────────────────────────────────────────────────────
 
 const stripeRequestPayout = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {enforceAppCheck: true, region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");

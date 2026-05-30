@@ -42,19 +42,20 @@ struct BiometricSettingRow: View {
                 }
             }
             .tint(.green)
-            .alert("Enable \(biometricService.biometricType.displayName)?", isPresented: $showBiometricSetup) {
-                Button("Cancel", role: .cancel) { }
-                Button("Enable") {
+            .amenAlert(isPresented: $showBiometricSetup, config: LiquidGlassAlertConfig(
+                title: "Enable \(biometricService.biometricType.displayName)?",
+                message: "You'll be able to sign in quickly using \(biometricService.biometricType.displayName) instead of entering your password.",
+                icon: "faceid",
+                primaryButton: LiquidGlassAlertButton("Enable", tone: .spiritual) {
                     Task {
                         let success = await biometricService.authenticate(reason: "Enable \(biometricService.biometricType.displayName) for AMEN")
                         if success {
                             biometricService.enableBiometric()
                         }
                     }
-                }
-            } message: {
-                Text("You'll be able to sign in quickly using \(biometricService.biometricType.displayName) instead of entering your password.")
-            }
+                },
+                secondaryButton: .cancel()
+            ))
         }
     }
 }
@@ -125,6 +126,7 @@ struct SundayChurchFocusSettingRow: View {
 
 struct AccountSettingsView: View {
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject private var authViewModel: AuthenticationViewModel
     @StateObject private var userService = UserService()
     
     @State private var showChangeUsername = false
@@ -1287,20 +1289,15 @@ struct AccountSettingsView: View {
             .sheet(isPresented: $showPrivacyDashboard) {
                 PrivacyDashboardView()
             }
-            .alert("Sign Out?", isPresented: $showSignOutConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Sign Out", role: .destructive) {
-                    Task {
-                        do {
-                            try Auth.auth().signOut()
-                        } catch {
-                            print("Error signing out: \(error.localizedDescription)")
-                        }
-                    }
-                }
-            } message: {
-                Text("You'll need to sign in again to access your account.")
-            }
+            .amenAlert(isPresented: $showSignOutConfirmation, config: LiquidGlassAlertConfig(
+                title: "Sign Out?",
+                message: "You'll need to sign in again to access your account.",
+                icon: "rectangle.portrait.and.arrow.right",
+                primaryButton: LiquidGlassAlertButton("Sign Out", tone: .destructive) {
+                    authViewModel.signOut()
+                },
+                secondaryButton: .cancel()
+            ))
             .onAppear {
                 Task {
                     await userService.fetchCurrentUser()

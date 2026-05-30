@@ -173,10 +173,7 @@ struct PostDetailView: View {
     }
 
     private var legacyDetailView: some View {
-        VStack(spacing: 0) {
-            // ── Top nav bar ─────────────────────────────────────────
-            topNavBar
-
+        ZStack(alignment: .top) {
             ScrollViewReader { scrollProxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
@@ -286,6 +283,20 @@ struct PostDetailView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 16)
+
+                    // Media attachments — expanded in detail view (isCompact: false)
+                    // Only renders when the post has media attachments; old posts are unaffected.
+                    if let attachments = post.mediaAttachments, !attachments.isEmpty {
+                        AmenPostMediaRenderer(
+                            attachments: attachments,
+                            isCompact: false,
+                            onAskBerean: { _ in
+                                // TODO: open Berean with attachment context
+                            }
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+                    }
 
                     Divider()
 
@@ -428,6 +439,7 @@ struct PostDetailView: View {
                     Color.clear.frame(height: 20)
                     }
                 }
+                .ignoresSafeArea(.container, edges: .top)
                 .scrollDismissesKeyboard(.interactively)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     commentInputBar
@@ -440,6 +452,8 @@ struct PostDetailView: View {
                     commentScrollTarget = nil
                 }
             } // end ScrollViewReader
+
+            topNavBar
         }
         .background(Color(.systemBackground).ignoresSafeArea())
         .sheet(isPresented: $showAnsweredComposer) {
@@ -692,8 +706,17 @@ struct PostDetailView: View {
         }
         .padding(.horizontal, 16)
         .frame(height: 52)
-        .background(.regularMaterial)
-        .overlay(alignment: .bottom) { Divider() }
+        .background(
+            LinearGradient(
+                colors: [.black.opacity(0.45), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 100)
+            .allowsHitTesting(false)
+            .ignoresSafeArea(.container, edges: .top)
+        )
+        .colorScheme(.dark)
     }
 
     // MARK: - Media Carousel (Threads-style, AMEN liquid glass)

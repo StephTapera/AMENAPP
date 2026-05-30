@@ -109,6 +109,9 @@ exports.markNotificationsSeen = functions.https.onCall(async (data, context) => 
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
     }
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    }
     const userId = context.auth.uid;
     const notificationIds = data.notificationIds;
     if (!Array.isArray(notificationIds) ||
@@ -169,6 +172,9 @@ exports.markNotificationOpened = functions.https.onCall(async (data, context) =>
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
     }
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    }
     const userId = context.auth.uid;
     const notificationId = data.notificationId;
     if (!notificationId || typeof notificationId !== "string") {
@@ -225,6 +231,9 @@ exports.markNotificationDismissed = functions.https.onCall(async (data, context)
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
     }
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    }
     const userId = context.auth.uid;
     const notificationId = data.notificationId;
     if (!notificationId || typeof notificationId !== "string") {
@@ -261,6 +270,9 @@ exports.markNotificationDismissed = functions.https.onCall(async (data, context)
 exports.reconcileNotificationCount = functions.https.onCall(async (_data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+    }
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     const userId = context.auth.uid;
     // Get the current stored count

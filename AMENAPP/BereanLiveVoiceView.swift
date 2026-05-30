@@ -35,6 +35,12 @@ struct BereanLiveVoiceView: View {
     /// Active mode selection — may be changed in-session via the chip row.
     @State private var selectedMode: BereanVoiceMode
 
+    // Voice settings sheet
+    @State private var showVoiceSettings = false
+    @AppStorage("berean.voice.voiceIndex") private var selectedVoiceIndex = 0
+    @AppStorage("berean.voice.personality") private var selectedPersonality = 1
+    @AppStorage("berean.voice.speechSpeed") private var speechSpeed: Double = 1.0
+
     init(mode: BereanVoiceMode = .conversation) {
         self.mode = mode
         _selectedMode = State(initialValue: mode)
@@ -60,6 +66,13 @@ struct BereanLiveVoiceView: View {
                 }
             }
             .navigationBarHidden(true)
+        }
+        .sheet(isPresented: $showVoiceSettings) {
+            VoiceSettingsSheet(
+                selectedVoiceIndex: $selectedVoiceIndex,
+                selectedPersonality: $selectedPersonality,
+                speechSpeed: $speechSpeed
+            )
         }
         .onAppear {
             if BereanVoiceFeatureFlags.bereanVoiceEnabled {
@@ -121,8 +134,19 @@ struct BereanLiveVoiceView: View {
         HStack {
             modePill
             Spacer()
+            gearButton
             dismissButton
         }
+    }
+
+    private var gearButton: some View {
+        Button { showVoiceSettings = true } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+        }
+        .accessibilityLabel("Voice Settings")
     }
 
     private var modePill: some View {
@@ -389,6 +413,169 @@ struct BereanLiveVoiceView: View {
                     .shadow(color: .black.opacity(0.08), radius: 24, y: 8)
             )
             .padding(.horizontal, 32)
+        }
+    }
+}
+
+// MARK: - VoiceSettingsSheet
+
+private struct VoiceSettingsSheet: View {
+    @Binding var selectedVoiceIndex: Int
+    @Binding var selectedPersonality: Int
+    @Binding var speechSpeed: Double
+    @Environment(\.dismiss) private var dismiss
+
+    private let voices = [
+        ("Aria", "Warm & Clear"),
+        ("Samuel", "Resonant Male"),
+        ("Grace", "Gentle Female"),
+    ]
+    private let personalities = [
+        ("plus", "Custom"),
+        ("face.smiling", "Assistant"),
+        ("cross", "Pastoral"),
+        ("heart", "Counselor"),
+        ("book", "Teacher"),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    voiceSection
+                    Divider()
+                    personalitySection
+                    Divider()
+                    speedSection
+                }
+                .padding(20)
+            }
+            .navigationTitle("Voice Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
+        .presentationBackground(.ultraThinMaterial)
+    }
+
+    private var voiceSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Voice")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(voices.indices, id: \.self) { i in
+                        let isSelected = selectedVoiceIndex == i
+                        Button { selectedVoiceIndex = i } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(voices[i].0)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(isSelected ? .white : .primary)
+                                Text(voices[i].1)
+                                    .font(.caption)
+                                    .foregroundStyle(isSelected ? AnyShapeStyle(Color.white.opacity(0.8)) : AnyShapeStyle(Color.secondary))
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(isSelected ? AnyShapeStyle(AmenTheme.Colors.amenPurple) : AnyShapeStyle(.ultraThinMaterial))
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(Color.white.opacity(isSelected ? 0 : 0.12))
+                                    }
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.6)
+                                    }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+                    }
+                }
+            }
+        }
+    }
+
+    private var personalitySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Personality")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(personalities.indices, id: \.self) { i in
+                        let isSelected = selectedPersonality == i
+                        Button { selectedPersonality = i } label: {
+                            VStack(spacing: 6) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isSelected ? AnyShapeStyle(AmenTheme.Colors.amenPurple) : AnyShapeStyle(Material.ultraThinMaterial))
+                                        .overlay {
+                                            Circle()
+                                                .fill(Color.white.opacity(isSelected ? 0 : 0.12))
+                                        }
+                                        .overlay {
+                                            Circle()
+                                                .strokeBorder(Color.black.opacity(isSelected ? 0.16 : 0.08),
+                                                              lineWidth: isSelected ? 0.0 : 0.6)
+                                        }
+                                        .frame(width: 60, height: 60)
+                                        .shadow(color: isSelected
+                                                    ? AmenTheme.Colors.amenPurple.opacity(0.3)
+                                                    : Color.black.opacity(0.06),
+                                                radius: 8, y: 4)
+                                    Image(systemName: personalities[i].0)
+                                        .font(.system(size: i == 0 ? 18 : 20, weight: .medium))
+                                        .foregroundStyle(isSelected ? .white : .primary)
+                                }
+                                Text(personalities[i].1)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+                    }
+                }
+            }
+        }
+    }
+
+    private var speedSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Speed")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Text("\(speechSpeed, specifier: "%.1f")×")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .frame(width: 36)
+                Slider(value: $speechSpeed, in: 0.5...2.0, step: 0.1)
+                    .tint(AmenTheme.Colors.amenPurple)
+            }
+            .padding(14)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.12))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.6)
+                    }
+            }
         }
     }
 }

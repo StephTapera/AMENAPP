@@ -13,7 +13,7 @@ protocol FeatureFlagServicing: AnyObject, Sendable {
 final class DefaultFeatureFlagService: FeatureFlagServicing, @unchecked Sendable {
     private let flags: SupportIntelligenceFlags
 
-    init(flags: SupportIntelligenceFlags = .phase1) {
+    init(flags: SupportIntelligenceFlags = .allEnabled) {
         self.flags = flags
     }
 

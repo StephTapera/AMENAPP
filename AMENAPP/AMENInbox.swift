@@ -460,43 +460,183 @@ struct InboxSeparator: View {
 struct InboxEmptyState: View {
     enum Mode { case noMessages, noResults(String) }
     let mode: Mode
+    /// Called when the user taps the primary CTA (only shown in .noMessages mode).
+    var onStartConversation: (() -> Void)? = nil
+
+    // MARK: - Animation state
+    @State private var appeared = false
+    @State private var iconPulse = false
+
+    // MARK: - Brand colors (inline — AMENInbox.swift is self-contained)
+    private let amenGold   = Color(red: 0.83, green: 0.69, blue: 0.22)
+    private let amenPurple = Color(red: 0.44, green: 0.26, blue: 0.80)
 
     var body: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: icon)
-                .font(.systemScaled(48, weight: .ultraLight))
-                .foregroundStyle(AMENInboxTokens.tertiaryText)
-            Text(headline)
-                .font(.systemScaled(17, weight: .semibold))
-                .foregroundStyle(AMENInboxTokens.primaryText)
-            Text(subhead)
-                .font(.systemScaled(14, weight: .regular))
-                .foregroundStyle(AMENInboxTokens.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
+        VStack(spacing: 0) {
+            Spacer(minLength: 20)
+            contentStack
+            Spacer(minLength: 20)
         }
         .frame(maxWidth: .infinity)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 18)
+        .onAppear {
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.78).delay(0.05)) {
+                appeared = true
+            }
+            // Subtle breathing pulse on icon (noMessages only)
+            if case .noMessages = mode {
+                withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true).delay(0.6)) {
+                    iconPulse = true
+                }
+            }
+        }
     }
 
-    private var icon: String {
-        switch mode {
-        case .noMessages: return "bubble.left.and.bubble.right"
-        case .noResults: return "magnifyingglass"
+    // MARK: - Content stack
+
+    private var contentStack: some View {
+        VStack(spacing: 24) {
+            iconBadge
+            copyBlock
+            if case .noMessages = mode, let action = onStartConversation {
+                ctaButton(action: action)
+            }
+        }
+        .padding(.horizontal, 32)
+    }
+
+    // MARK: - Icon badge
+
+    private var iconBadge: some View {
+        ZStack {
+            // Outer glow ring
+            Circle()
+                .fill(glowGradient)
+                .frame(width: 96, height: 96)
+                .scaleEffect(iconPulse ? 1.08 : 1.0)
+                .opacity(iconPulse ? 0.55 : 0.35)
+                .blur(radius: 12)
+
+            // Glass disc
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 80, height: 80)
+                .overlay(
+                    Circle()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [amenGold.opacity(0.55), amenPurple.opacity(0.25), .clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: amenGold.opacity(0.18), radius: 10, x: 0, y: 4)
+
+            // Icon
+            Image(systemName: iconName)
+                .font(.system(size: iconSize, weight: .light))
+                .foregroundStyle(iconGradient)
+                .scaleEffect(iconPulse ? 1.05 : 1.0)
         }
     }
+
+    // MARK: - Copy block
+
+    private var copyBlock: some View {
+        VStack(spacing: 8) {
+            Text(headline)
+                .font(.system(size: 20, weight: .semibold, design: .default))
+                .foregroundStyle(AMENInboxTokens.primaryText)
+                .multilineTextAlignment(.center)
+
+            Text(subhead)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(AMENInboxTokens.secondaryText)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+                .padding(.horizontal, 8)
+        }
+    }
+
+    // MARK: - CTA button
+
+    private func ctaButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Start a conversation")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 13)
+            .background(ctaGradient, in: Capsule())
+            .shadow(color: amenGold.opacity(0.30), radius: 10, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Start a new conversation")
+        .accessibilityHint("Opens the new message composer")
+    }
+
+    // MARK: - Helpers
+
+    private var iconName: String {
+        switch mode {
+        case .noMessages: return "bubble.left.and.bubble.right.fill"
+        case .noResults:  return "magnifyingglass"
+        }
+    }
+
+    private var iconSize: CGFloat {
+        switch mode {
+        case .noMessages: return 30
+        case .noResults:  return 26
+        }
+    }
+
     private var headline: String {
         switch mode {
-        case .noMessages: return "No messages yet"
-        case .noResults: return "No results"
+        case .noMessages:         return "Start a conversation"
+        case .noResults:          return "No results found"
         }
     }
+
     private var subhead: String {
         switch mode {
-        case .noMessages: return "Start a conversation to connect with others in faith."
-        case .noResults(let q): return "Nothing matched \"\(q)\". Try a different name or phrase."
+        case .noMessages:
+            return "Connect with fellow believers in faith.\nReach out and begin a new message."
+        case .noResults(let q):
+            return "Nothing matched \u{201C}\(q)\u{201D}.\nTry a different name or phrase."
         }
+    }
+
+    private var glowGradient: RadialGradient {
+        RadialGradient(
+            colors: [amenGold.opacity(0.6), amenPurple.opacity(0.3), .clear],
+            center: .center,
+            startRadius: 0,
+            endRadius: 48
+        )
+    }
+
+    private var iconGradient: LinearGradient {
+        LinearGradient(
+            colors: [amenGold, amenGold.opacity(0.65)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var ctaGradient: LinearGradient {
+        LinearGradient(
+            colors: [amenGold, Color(red: 0.72, green: 0.50, blue: 0.10)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }
 
@@ -519,6 +659,8 @@ struct InboxHeroHeader: View {
     let onRequests: () -> Void
     var requestCount: Int = 0
     @Binding var searchText: String
+    @Binding var showFilter: Bool
+    @Binding var selectionMap: [String: String]
 
     // Tracks how far the content has scrolled — fed from parent — so the
     // header can compress when the user scrolls away.
@@ -526,6 +668,21 @@ struct InboxHeroHeader: View {
 
     // Overflow menu
     @State private var showOverflow = false
+
+    private var inboxFilterSections: [AmenFilterSection] {
+        [
+            AmenFilterSection(header: nil, options: [
+                AmenFilterOption(id: "all",    label: "All Messages",    icon: "tray"),
+                AmenFilterOption(id: "unread", label: "Unread",          icon: "envelope.badge"),
+                AmenFilterOption(id: "prayer", label: "Prayer Requests", icon: "hands.sparkles"),
+                AmenFilterOption(id: "groups", label: "Groups",          icon: "person.3"),
+            ]),
+            AmenFilterSection(header: "Sort", options: [
+                AmenFilterOption(id: "newest", label: "Newest First",    icon: "arrow.down.circle"),
+                AmenFilterOption(id: "oldest", label: "Oldest First",    icon: "arrow.up.circle"),
+            ]),
+        ]
+    }
 
     // Avatar image for the current user (optional — falls back to initials)
     @ObservedObject private var userService = UserService.shared
@@ -597,6 +754,9 @@ struct InboxHeroHeader: View {
                 }
                 .accessibilityLabel("More options")
 
+                // Filter button
+                AmenFilterButton(isShowing: $showFilter)
+
                 // Compose new message
                 Button(action: onCompose) {
                     Image(systemName: "square.and.pencil")
@@ -665,6 +825,17 @@ struct InboxHeroHeader: View {
                 .padding(.bottom, 12)
         }
         .background(AMENInboxTokens.background)
+        // Inbox filter dropdown — anchored top-trailing below the button row
+        .overlay(alignment: .topTrailing) {
+            AmenGlassFilterDropdown(
+                sections: inboxFilterSections,
+                selectionMap: $selectionMap,
+                isShowing: $showFilter
+            )
+            // Offset below the top button row (~60pt)
+            .padding(.top, 60)
+            .padding(.trailing, AMENInboxTokens.hPad)
+        }
     }
 
     // Small initials circle — fallback when no profile photo

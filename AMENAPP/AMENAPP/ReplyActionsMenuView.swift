@@ -201,7 +201,8 @@ struct ReplyActionsMenuView: View {
 
     /// ShareLink with the canonical Amen deep link. Present natively; no custom code required.
     private func shareRow(post: Post) -> some View {
-        let shareURL = URL(string: "https://amenapp.page.link/post/\(target.postId)") ?? URL(string: "https://amenapp.page.link")!
+        let encodedId = target.postId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? target.postId
+        let shareURL = URL(string: "https://amenapp.page.link/post/\(encodedId)") ?? URL(string: "https://amenapp.page.link") ?? URL(string: "https://")!
         return ShareLink(item: shareURL) {
             Label("Share", systemImage: "square.and.arrow.up")
         }

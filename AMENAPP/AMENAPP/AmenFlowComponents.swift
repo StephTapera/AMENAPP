@@ -37,7 +37,7 @@ struct AmenFlowGatewayView: View {
 
                 LazyVGrid(columns: cardColumns, spacing: 10) {
                     NavigationLink {
-                        FindChurchView()
+                        ChurchSearchView()
                     } label: {
                         AmenFlowRouteCard(
                             title: "Find a Church",

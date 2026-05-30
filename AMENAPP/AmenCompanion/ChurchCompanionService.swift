@@ -101,7 +101,9 @@ final class ChurchCompanionService: ObservableObject {
                 }
             }
             savedChurches = fetched
-        } catch {}
+        } catch {
+            dlog("[ChurchCompanion] loadSavedChurches failed: \(error.localizedDescription)")
+        }
     }
 
     func isSaved(_ churchId: String) -> Bool {

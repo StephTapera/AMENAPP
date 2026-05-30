@@ -11,10 +11,20 @@ final class AmenDiscoverViewModel: ObservableObject {
     @Published var selectedItem: AmenDiscoverItem?
     @Published var reasonText: String = ""
 
+    /// Set to true by the view when the "Near Me" filter chip is tapped.
+    /// The view observes this to present `NearbyPeopleView` as a sheet.
+    @Published var showNearbyPeopleSheet = false
+
     private(set) var sessionId: String = UUID().uuidString
     private var nextCursor: String?
 
-    let filters = ["For You", "Churches", "Prayer", "Testimonies", "Sermons", "Scripture", "Selah", "Creators", "Near Me"]
+    var filters: [String] {
+        var base = ["For You", "Churches", "Prayer", "Testimonies", "Sermons", "Scripture", "Selah", "Creators"]
+        if AMENFeatureFlags.shared.nearbyPeopleDiscoveryEnabled {
+            base.append("Near Me")
+        }
+        return base
+    }
 
     func loadInitial() async {
         isLoading = true
@@ -51,6 +61,14 @@ final class AmenDiscoverViewModel: ObservableObject {
 
     func applyFilter(_ filter: String) async {
         guard filter != selectedFilter else { return }
+        // "Near Me" is a surface-level shortcut — it opens NearbyPeopleView
+        // rather than a backend feed. Do not change selectedFilter so the
+        // previous filter chip stays visually selected.
+        if filter == "Near Me" {
+            showNearbyPeopleSheet = true
+            AMENAnalyticsService.shared.track(.discoverFilterChanged(filter: filter))
+            return
+        }
         selectedFilter = filter
         AMENAnalyticsService.shared.track(.discoverFilterChanged(filter: filter))
         await loadInitial()

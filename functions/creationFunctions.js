@@ -5,7 +5,10 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { defineSecret } = require("firebase-functions/params");
 const Anthropic = require("@anthropic-ai/sdk");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const db = getFirestore();
 
@@ -14,7 +17,7 @@ const db = getFirestore();
 // ---------------------------------------------------------------------------
 
 function getAnthropicClient() {
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = ANTHROPIC_API_KEY.value();
   if (!key) throw new HttpsError("internal", "AI service not configured");
   return new Anthropic.default({ apiKey: key });
 }
@@ -42,7 +45,7 @@ function safeJSON(str) {
 // generateScenePlan
 // ---------------------------------------------------------------------------
 
-exports.generateScenePlan = onCall({ maxInstances: 10 }, async (request) => {
+exports.generateScenePlan = onCall({ maxInstances: 10, secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Auth required");
 
@@ -156,7 +159,7 @@ Return this exact JSON structure:
 // refineScenePlan
 // ---------------------------------------------------------------------------
 
-exports.refineScenePlan = onCall({ maxInstances: 10 }, async (request) => {
+exports.refineScenePlan = onCall({ maxInstances: 10, secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Auth required");
 
@@ -253,7 +256,7 @@ Apply the refinement and return updated segments:
 // runCreationSafetyCheck
 // ---------------------------------------------------------------------------
 
-exports.runCreationSafetyCheck = onCall({ maxInstances: 10 }, async (request) => {
+exports.runCreationSafetyCheck = onCall({ maxInstances: 10, secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Auth required");
 
@@ -363,7 +366,7 @@ exports.applyTemplateToAssets = onCall({ maxInstances: 10 }, async (request) => 
 // generateCaptionSuggestions
 // ---------------------------------------------------------------------------
 
-exports.generateCaptionSuggestions = onCall({ maxInstances: 10 }, async (request) => {
+exports.generateCaptionSuggestions = onCall({ maxInstances: 10, secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Auth required");
 

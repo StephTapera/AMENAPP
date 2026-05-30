@@ -5,10 +5,13 @@
 //  System 13: Suggested Follows
 //  Manages the suggestion list for the SuggestedFollowsSheet.
 //  Responsibilities:
-//    - Fetch recommendations from RecommendedUsersAIService
-//    - Apply FollowSafetyFilter exclusions
-//    - Track dismissed user IDs so they don't re-appear within the session
-//    - Support "load more" to surface additional candidates
+//    - When `suggestedFollowsSmartRankingEnabled` is ON, fetch from
+//      SuggestedFollowsService (church/mutual/city/translation/recency signals).
+//    - Fall back to RecommendedUsersAIService when flag is OFF.
+//    - Unify both paths into [DisplaySuggestion] so the sheet renders identically.
+//    - Apply FollowSafetyFilter exclusions on the fallback path.
+//    - Track dismissed user IDs so they don't re-appear within the session.
+//    - Support "load more" to surface additional candidates.
 //
 
 import Foundation
@@ -16,10 +19,55 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+// MARK: - Unified display model
+
+/// Single display type consumed by SuggestedFollowsSheet / SuggestedUserRow,
+/// regardless of which backend pipeline produced the result.
+struct DisplaySuggestion: Identifiable {
+    let id: String              // userId
+    let name: String
+    let username: String
+    let profileImageURL: String?
+    let matchScore: Int         // 0-100 normalised
+    let primaryReason: String   // "Goes to your church"
+    let secondaryReasons: [String] // Up to 2 extra pills
+    let mutualFriendCount: Int
+    /// true when the target account requires a follow request (isPrivate = true)
+    var isPrivate: Bool = false
+
+    // Convenience bridge from RecommendedUsersAIService.UserRecommendation
+    init(from rec: RecommendedUsersAIService.UserRecommendation) {
+        self.id = rec.id
+        self.name = rec.name
+        self.username = rec.username
+        self.profileImageURL = rec.profileImageURL
+        self.matchScore = rec.matchScore
+        self.primaryReason = rec.sharedInterests.first ?? rec.matchReason
+        self.secondaryReasons = Array(rec.sharedInterests.dropFirst().prefix(2))
+        self.mutualFriendCount = rec.mutualFriendCount
+        self.isPrivate = rec.isPrivate ?? false
+    }
+
+    // Convenience bridge from SuggestedFollowsService.SuggestedUser
+    init(from smart: SuggestedUser) {
+        self.id = smart.id
+        self.name = smart.displayName
+        self.username = smart.username
+        self.profileImageURL = smart.profileImageURL
+        self.matchScore = smart.score
+        self.primaryReason = smart.reason
+        self.secondaryReasons = smart.secondaryReasons
+        self.mutualFriendCount = smart.mutualCount
+        self.isPrivate = smart.isPrivate
+    }
+}
+
+// MARK: - ViewModel
+
 @MainActor
 final class SuggestedFollowsViewModel: ObservableObject {
 
-    @Published var suggestions: [RecommendedUsersAIService.UserRecommendation] = []
+    @Published var suggestions: [DisplaySuggestion] = []
     @Published var isLoading = false
     @Published var isLoadingMore = false
     @Published var hasLoaded = false
@@ -28,7 +76,6 @@ final class SuggestedFollowsViewModel: ObservableObject {
     let profileUserId: String
 
     /// Set of user IDs the current user dismissed this session.
-    /// Persisted for the session; not written to Firestore (low-stakes dismissal).
     private var dismissedUserIds: Set<String> = []
 
     /// Page size for each load batch
@@ -45,11 +92,19 @@ final class SuggestedFollowsViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        // Trigger fetch (internally cached for 6 hours)
-        await RecommendedUsersAIService.shared.fetchRecommendations()
+        if AMENFeatureFlags.shared.suggestedFollowsSmartRankingEnabled {
+            let smartResults = await SuggestedFollowsService.shared.fetchSuggestions()
+            suggestions = smartResults
+                .filter { !dismissedUserIds.contains($0.id) }
+                .prefix(pageSize)
+                .map { DisplaySuggestion(from: $0) }
+        } else {
+            await RecommendedUsersAIService.shared.fetchRecommendations()
+            let raw = RecommendedUsersAIService.shared.recommendations
+            suggestions = applyLegacyFilters(raw, limit: pageSize)
+                .map { DisplaySuggestion(from: $0) }
+        }
 
-        let raw = RecommendedUsersAIService.shared.recommendations
-        suggestions = applyFilters(raw, limit: pageSize)
         hasLoaded = true
     }
 
@@ -60,39 +115,43 @@ final class SuggestedFollowsViewModel: ObservableObject {
         isLoadingMore = true
         defer { isLoadingMore = false }
 
-        // Force a fresh fetch to get extended candidates
-        await RecommendedUsersAIService.shared.fetchRecommendations()
-
-        let raw = RecommendedUsersAIService.shared.recommendations
-        let currentIds = Set(suggestions.map { $0.id })
-
-        // Filter the full set, remove already-shown, apply safety rules, append
-        let newCandidates = applyFilters(raw, limit: pageSize + 8)
-            .filter { !currentIds.contains($0.id) }
-            .prefix(pageSize)
-
-        suggestions.append(contentsOf: newCandidates)
+        if AMENFeatureFlags.shared.suggestedFollowsSmartRankingEnabled {
+            // Force-refresh to get fresh candidates
+            let smartResults = await SuggestedFollowsService.shared.fetchSuggestions(forceRefresh: true)
+            let currentIds = Set(suggestions.map { $0.id })
+            let newCandidates = smartResults
+                .filter { !currentIds.contains($0.id) && !dismissedUserIds.contains($0.id) }
+                .prefix(pageSize)
+                .map { DisplaySuggestion(from: $0) }
+            suggestions.append(contentsOf: newCandidates)
+        } else {
+            await RecommendedUsersAIService.shared.fetchRecommendations()
+            let raw = RecommendedUsersAIService.shared.recommendations
+            let currentIds = Set(suggestions.map { $0.id })
+            let newCandidates = applyLegacyFilters(raw, limit: pageSize + 8)
+                .filter { !currentIds.contains($0.id) }
+                .prefix(pageSize)
+                .map { DisplaySuggestion(from: $0) }
+            suggestions.append(contentsOf: newCandidates)
+        }
     }
 
     // MARK: - Remove Followed
 
-    /// Call when a user taps Follow — removes them from the visible list.
     func removeFollowed(userId: String) {
         withAnimation(.easeOut(duration: 0.25)) {
             suggestions.removeAll { $0.id == userId }
         }
+        SuggestedFollowsService.shared.invalidateCache()
     }
 
     // MARK: - Dismiss (Not relevant)
 
-    /// Call when a user taps "Not now" on a row.
-    /// Records dismissal in session memory and removes the row.
     func dismiss(userId: String) {
         dismissedUserIds.insert(userId)
         withAnimation(.easeOut(duration: 0.25)) {
             suggestions.removeAll { $0.id == userId }
         }
-        // Optionally persist dismiss to Firestore so it survives app restarts
         Task.detached {
             await self.writeDismissal(userId: userId)
         }
@@ -100,22 +159,17 @@ final class SuggestedFollowsViewModel: ObservableObject {
 
     // MARK: - Private Helpers
 
-    private func applyFilters(
+    private func applyLegacyFilters(
         _ raw: [RecommendedUsersAIService.UserRecommendation],
         limit: Int
     ) -> [RecommendedUsersAIService.UserRecommendation] {
-        // First apply the safety filter (blocked, following, restricted, trust score)
         let safetyFiltered = FollowSafetyFilter.shared.filter(raw, limit: limit + 20)
-
-        // Then remove session-dismissed users
         return safetyFiltered
             .filter { !dismissedUserIds.contains($0.id) }
             .prefix(limit)
             .map { $0 }
     }
 
-    /// Write a lightweight dismissal record so future recommendation batches
-    /// can exclude recently dismissed users on the backend.
     private func writeDismissal(userId: String) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         lazy var db = Firestore.firestore()

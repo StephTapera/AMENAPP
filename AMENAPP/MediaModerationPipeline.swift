@@ -30,6 +30,7 @@ import FirebaseAuth
 import FirebaseStorage
 import Vision
 import UIKit
+import CryptoKit
 
 // MARK: - Media Moderation Status
 
@@ -381,12 +382,8 @@ final class MediaModerationPipeline {
     // MARK: - SHA-256 Hash (privacy-preserving content fingerprint)
 
     private func sha256Hex(_ data: Data) -> String {
-        var hash: UInt64 = 14695981039346656037
-        for byte in data {
-            hash ^= UInt64(byte)
-            hash = hash &* 1099511628211
-        }
-        return String(hash, radix: 16, uppercase: false)
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Errors

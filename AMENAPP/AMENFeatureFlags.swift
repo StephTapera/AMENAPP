@@ -35,6 +35,12 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var moderationAppealsEnabled: Bool = true
     @Published private(set) var trustScoringEnabled: Bool = true
 
+    // MARK: - Payments / Stripe / Giving (B-01, B-02, B-24)
+    @Published private(set) var paymentsEnabled: Bool = true
+
+    // MARK: - Berean Drive / CarPlay (B-23)
+    @Published private(set) var bereanDriveEnabled: Bool = true
+
     // MARK: - System 2: Berean RAG
     @Published private(set) var bereanRAGEnabled: Bool = true
     @Published private(set) var bereanConversationMemoryEnabled: Bool = true
@@ -58,6 +64,10 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var feedSessionPacingEnabled: Bool = true
     @Published private(set) var feedReflectionPromptsEnabled: Bool = true
     @Published private(set) var feedQualityMetricsEnabled: Bool = true
+
+    // MARK: - Nearby People Discovery (privacy-gated, opt-in)
+    /// Kill switch for "Find People Nearby". Defaults OFF so it can be enabled gradually.
+    @Published private(set) var nearbyPeopleDiscoveryEnabled: Bool = true
 
     // MARK: - System 5: Church Discovery
     @Published private(set) var churchDiscoverySmartRankingEnabled: Bool = true
@@ -125,6 +135,10 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var suggestedRailCardLimit: Int = 12
     @Published private(set) var suggestedRailCooldownHours: Int = 24
     @Published private(set) var suggestedRailDismissCooldownDays: Int = 7
+    /// Enables the multi-signal smart ranking pipeline in SuggestedFollowsService
+    /// (church match 40pt, mutual follows 30pt, city 15pt, scripture translation 10pt, recency 5pt).
+    /// Default ON. Set false via Remote Config to fall back to RecommendedUsersAIService.
+    @Published private(set) var suggestedFollowsSmartRankingEnabled: Bool = true
 
     // MARK: - System 14: Social Context & UX Enhancements
     @Published private(set) var mutualContextRowEnabled: Bool = true
@@ -172,6 +186,23 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var guidedDiscipleshipEnabled: Bool = true
     @Published private(set) var scriptureImmersionEnabled: Bool = true
     @Published private(set) var authorityAlignmentEnabled: Bool = true
+
+    // MARK: - Wellness & Mental Health System
+    // All default OFF — new surface, roll out gradually via Remote Config audiences.
+    /// Master switch for the adaptive wellness surface (mood check-in, smart tools, Care mode).
+    @Published private(set) var wellnessAdaptiveSurfaceEnabled: Bool = true
+    /// Mood-driven verse and tool reordering.
+    @Published private(set) var wellnessMoodCheckInEnabled: Bool = true
+    /// Berean Care mode — presence-first branching inside the wellness surface.
+    @Published private(set) var wellnessBereanCareModeEnabled: Bool = true
+    /// On-device only pattern insights. Never uploads data.
+    @Published private(set) var wellnessLocalInsightEnabled: Bool = true
+    /// Time-of-day and liturgical season tool reordering.
+    @Published private(set) var wellnessRhythmContextEnabled: Bool = true
+    /// 3-question peer support group intake matching.
+    @Published private(set) var wellnessGroupsIntakeEnabled: Bool = true
+    /// Contemplative practice cards (Examen, Lectio, Centering Prayer, Compline) in Faith tab.
+    @Published private(set) var wellnessContemplativePracticesEnabled: Bool = true
 
     // MARK: - System 17: Resources Intelligence
     @Published private(set) var resourcesIntelligenceEnabled: Bool = true
@@ -400,7 +431,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var smartRepliesEnabled: Bool = true
     @Published private(set) var multiPaneCommunicationEnabled: Bool = true
     @Published private(set) var liquidGlassCommunicationUIEnabled: Bool = true
-    @Published private(set) var replyPreviewRotationEnabled: Bool = true  // FLIP TO false BEFORE SHIPPING
+    @Published private(set) var replyPreviewRotationEnabled: Bool = false  // FLIP TO false BEFORE SHIPPING
 
     // MARK: - Conversation OS Intelligence Layer (extends System 32)
     /// Master kill switch for all Conversation OS intelligence surfaces.
@@ -584,6 +615,12 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var composerPresenceActionsEnabled: Bool = true
     /// Enables the Liquid Glass bottom bar (replaces solid bar when true).
     @Published private(set) var bottomBarLiquidGlassEnabled: Bool = true
+    /// Replaces the center capsule of AMENTabBar with AMENPillNav (amenGold active tint, icon-only).
+    @Published private(set) var liquidGlassPillNav: Bool = true
+    /// Presents AMENImmersiveMediaViewer (with action rail + action sheet) instead of FullscreenMediaViewer.
+    @Published private(set) var liquidGlassMediaViewer: Bool = true
+    /// Shows AMENCategoryChips in media and profile filter contexts.
+    @Published private(set) var liquidGlassCategoryChips: Bool = true
 
     // MARK: - Cross-cutting
     @Published private(set) var analyticsEnabled: Bool = true
@@ -652,6 +689,25 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var amenGraphicGenerationKillSwitch: Bool = false
     @Published private(set) var amenAgentWorkflowKillSwitch: Bool = false
     @Published private(set) var amenExplainKillSwitch: Bool = false
+
+    // MARK: - System 33: Berean Multimodal Intelligence (Voice + Vision)
+    /// Master gate: enables all Berean multimodal features (transcription, vision, voice companion).
+    @Published private(set) var bereanMultimodalEnabled: Bool = true
+    /// Gates Visual Scripture Intelligence (camera OCR + Berean context cards).
+    @Published private(set) var bereanVisualScriptureEnabled: Bool = true
+    /// When true, transcription uses Apple on-device Speech (SFSpeechRecognizer, no audio upload).
+    /// Set false only for languages unsupported on-device — falls back to server-side STT.
+    @Published private(set) var bereanOnDeviceTranscriptionEnabled: Bool = true
+    /// Gates the voice-first Bible Companion mode (speak → transcript → Berean answer).
+    @Published private(set) var bereanVoiceCompanionEnabled: Bool = true
+    /// Gates Selah quiet mode — witness-only, Berean never responds.
+    @Published private(set) var bereanSelahModeEnabled: Bool = true
+    /// Gates the Testimony Integrity Assist flow (grammar/clarity refinements + audience controls).
+    @Published private(set) var bereanTestimonyAssistEnabled: Bool = true
+    /// Gates the Prayer Safety escalation layer (care tags + resource surfacing + pastoral opt-in).
+    @Published private(set) var bereanPrayerSafetyEnabled: Bool = true
+    /// Kill switch for all multimodal features — set true to disable everything instantly.
+    @Published private(set) var bereanMultimodalKillSwitch: Bool = false
     @Published private(set) var amenImproveKillSwitch: Bool = false
     @Published private(set) var amenSummarizeKillSwitch: Bool = false
 
@@ -828,6 +884,8 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var verificationCenterEnabled: Bool = true
     @Published private(set) var identityVerificationEnabled: Bool = true
     @Published private(set) var organizationVerificationEnabled: Bool = true
+    /// Organization identity verification submission UI (EIN/domain flow).
+    @Published private(set) var orgVerificationEnabled: Bool = true
     @Published private(set) var roleVerificationEnabled: Bool = true
     @Published private(set) var creatorVerificationEnabled: Bool = true
     @Published private(set) var publicTrustBadgesEnabled: Bool = true
@@ -1031,6 +1089,33 @@ final class AMENFeatureFlags: ObservableObject {
     /// Berean AI verse recommendations (Phase 3).
     @Published private(set) var bereanVerseRecommendationsEnabled: Bool = true
 
+    // MARK: - Community Notes
+    @Published private(set) var communityNotesEnabled: Bool = true
+
+    // MARK: - Anonymous-Accountable Mode
+    @Published private(set) var anonModeEnabled: Bool = true
+
+    // MARK: - System 47: Discussion Groups — Album-style UI
+    /// Master gate for the Apple Music-style group detail + discovery redesign.
+    /// Default OFF — Remote Config activates per rollout stage.
+    @Published private(set) var discussionAlbumUIEnabled: Bool = true
+    /// Gates the "More from this org / category" shelf on the group detail page.
+    @Published private(set) var discussionMoreFromOrgShelfEnabled: Bool = true
+    /// Gates the discovery home carousel ("Top Picks for You").
+    @Published private(set) var discussionDiscoveryHomeEnabled: Bool = true
+    /// Gates the find-then-add (save without joining) flow in SmartCommunitySearch.
+    @Published private(set) var discussionFindThenAddEnabled: Bool = true
+
+    // MARK: - System — Org Platform
+    /// Master gate for the organization identity platform (school/university/nonprofit listings, claim flow).
+    @Published private(set) var orgPlatformEnabled: Bool = true
+    /// Gates bulk seed import jobs (NCES CCD, IRS BMF, IPEDS).
+    @Published private(set) var orgSeedEnabled: Bool = true
+    /// Gates the organization claim flow UI and submitOrgClaim Cloud Function.
+    @Published private(set) var orgClaimFlowEnabled: Bool = true
+    /// Gates org subscription / billing surfaces (Stripe checkout, plan picker).
+    @Published private(set) var orgSubscriptionsEnabled: Bool = true
+
     private init() {
         applyUITestOverrides()
         let config = RemoteConfig.remoteConfig()
@@ -1100,6 +1185,13 @@ final class AMENFeatureFlags: ObservableObject {
             "berean_adaptive_mode_enabled": true as NSObject,
             "berean_deep_enabled": true as NSObject,
             "berean_entitlement_enforcement_enabled": true as NSObject,
+            "berean_multimodal_enabled": true as NSObject,
+            "berean_visual_scripture_enabled": true as NSObject,
+            "berean_on_device_transcription_enabled": true as NSObject,
+            "berean_voice_companion_enabled": true as NSObject,
+            "berean_selah_mode_enabled": true as NSObject,
+            "berean_testimony_assist_enabled": true as NSObject,
+            "berean_prayer_safety_enabled": true as NSObject,
 
             // Check-in
             "spiritual_check_in_enabled": true as NSObject,
@@ -1128,9 +1220,9 @@ final class AMENFeatureFlags: ObservableObject {
             "studio_monetization_enabled": true as NSObject,
             "studio_job_board_enabled": true as NSObject,
             "studio_ai_tagging_enabled": true as NSObject,
-            "creator_spaces_enabled": false as NSObject,
-            "presence_posts_enabled": false as NSObject,
-            "media_authenticity_enabled": false as NSObject,
+            "creator_spaces_enabled": true as NSObject,
+            "presence_posts_enabled": true as NSObject,
+            "media_authenticity_enabled": true as NSObject,
 
             // Knowledge Graph
             "knowledge_graph_enabled": true as NSObject,
@@ -1594,19 +1686,22 @@ final class AMENFeatureFlags: ObservableObject {
             "amen_integrations_kill_switch": false as NSObject,
 
             // System 40: Multi-Tenant Contextual Experiences
-            "contextual_experiences_enabled": true as NSObject,
-            "organization_experiences_enabled": true as NSObject,
-            "experience_liquid_glass_enabled": true as NSObject,
-            "experience_admin_tools_enabled": true as NSObject,
-            "experience_analytics_enabled": true as NSObject,
-            "experience_memories_enabled": true as NSObject,
-            "experience_prayer_campaigns_enabled": true as NSObject,
-            "experience_spaces_integration_enabled": true as NSObject,
+            "contextual_experiences_enabled": false as NSObject,
+            "organization_experiences_enabled": false as NSObject,
+            "experience_liquid_glass_enabled": false as NSObject,
+            "experience_admin_tools_enabled": false as NSObject,
+            "experience_analytics_enabled": false as NSObject,
+            "experience_memories_enabled": false as NSObject,
+            "experience_prayer_campaigns_enabled": false as NSObject,
+            "experience_spaces_integration_enabled": false as NSObject,
 
             // System 39: Verification & Trust
             "verification_center_enabled": true as NSObject,
             "identity_verification_enabled": true as NSObject,
             "organization_verification_enabled": true as NSObject,
+            // org_verification_enabled gates the EIN/domain submission UI.
+            // Default OFF until submitOrgVerificationRequest CF is deployed.
+            "org_verification_enabled": false as NSObject,
             "role_verification_enabled": true as NSObject,
             "creator_verification_enabled": true as NSObject,
             "public_trust_badges_enabled": true as NSObject,
@@ -1655,6 +1750,7 @@ final class AMENFeatureFlags: ObservableObject {
             "prayer_spiritual_callables_enabled": true as NSObject,
             "social_graph_callables_enabled": true as NSObject,
             "church_discovery_callables_enabled": true as NSObject,
+            "nearby_people_discovery_enabled": false as NSObject,  // Off by default — privacy gate
             "study_guide_callables_enabled": true as NSObject,
             "media_moderation_callables_enabled": true as NSObject,
             "post_analysis_callables_enabled": true as NSObject,
@@ -1728,6 +1824,25 @@ final class AMENFeatureFlags: ObservableObject {
             "audience_layers_enabled": false as NSObject,
             "anonymous_reflections_enabled": false as NSObject,
             "berean_verse_recommendations_enabled": false as NSObject,
+
+            // Community Notes — ON (Tab 8 uses ChurchNotesView)
+            "community_notes_enabled": true as NSObject,
+
+            // Anonymous-Accountable Mode — OFF until anonPost.ts CF + ANON_SALT secret deploy
+            "anon_mode_enabled": false as NSObject,
+
+            // Org Platform — all OFF; Remote Config + backend deploy required
+            "org_platform_enabled": false as NSObject,
+            "org_seed_enabled": false as NSObject,
+            "org_claim_flow_enabled": false as NSObject,
+            "org_subscriptions_enabled": false as NSObject,
+
+            // Payments / Stripe / Giving (B-01, B-02, B-24) — OFF until backend is ready
+            "payments_enabled": false as NSObject,
+
+            // Berean Drive / CarPlay CFs (B-23) — OFF until 5 drive CFs are deployed
+            "berean_drive_enabled": false as NSObject,
+
         ]
     }
 
@@ -1804,6 +1919,7 @@ final class AMENFeatureFlags: ObservableObject {
         suggestedRailCardLimit = config["suggested_rail_card_limit"].numberValue.intValue
         suggestedRailCooldownHours = config["suggested_rail_cooldown_hours"].numberValue.intValue
         suggestedRailDismissCooldownDays = config["suggested_rail_dismiss_cooldown_days"].numberValue.intValue
+        suggestedFollowsSmartRankingEnabled = config["suggested_follows_smart_ranking_enabled"].boolValue
 
         mutualContextRowEnabled = config["mutual_context_row_enabled"].boolValue
         presenceIntelligenceEnabled = config["presence_intelligence_enabled"].boolValue
@@ -2197,6 +2313,17 @@ final class AMENFeatureFlags: ObservableObject {
         amenDiscoverSelahEnabled              = config["amen_discover_selah_enabled"].boolValue
         amenDiscoverSafetyFeedbackEnabled     = config["amen_discover_safety_feedback_enabled"].boolValue
 
+        // System 33: Berean Multimodal Intelligence
+        let multimodalMaster = !config["berean_multimodal_kill_switch"].boolValue
+        bereanMultimodalKillSwitch           = config["berean_multimodal_kill_switch"].boolValue
+        bereanMultimodalEnabled              = multimodalMaster && config["berean_multimodal_enabled"].boolValue
+        bereanVisualScriptureEnabled         = multimodalMaster && config["berean_visual_scripture_enabled"].boolValue
+        bereanOnDeviceTranscriptionEnabled   = config["berean_on_device_transcription_enabled"].boolValue
+        bereanVoiceCompanionEnabled          = multimodalMaster && config["berean_voice_companion_enabled"].boolValue
+        bereanSelahModeEnabled               = multimodalMaster && config["berean_selah_mode_enabled"].boolValue
+        bereanTestimonyAssistEnabled         = multimodalMaster && config["berean_testimony_assist_enabled"].boolValue
+        bereanPrayerSafetyEnabled            = multimodalMaster && config["berean_prayer_safety_enabled"].boolValue
+
         // System 31: Voice Prayer & Testimony Comments
         voicePrayerCommentsEnabled                    = config["voice_prayer_comments_enabled"].boolValue
         voiceTestimonyCommentsEnabled                 = config["voice_testimony_comments_enabled"].boolValue
@@ -2354,6 +2481,7 @@ final class AMENFeatureFlags: ObservableObject {
         verificationCenterEnabled       = config["verification_center_enabled"].boolValue
         identityVerificationEnabled     = config["identity_verification_enabled"].boolValue
         organizationVerificationEnabled = config["organization_verification_enabled"].boolValue
+        orgVerificationEnabled          = config["org_verification_enabled"].boolValue
         roleVerificationEnabled         = config["role_verification_enabled"].boolValue
         creatorVerificationEnabled      = config["creator_verification_enabled"].boolValue
         publicTrustBadgesEnabled        = config["public_trust_badges_enabled"].boolValue
@@ -2401,6 +2529,7 @@ final class AMENFeatureFlags: ObservableObject {
         prayerSpiritualCallablesEnabled             = config["prayer_spiritual_callables_enabled"].boolValue
         socialGraphCallablesEnabled                 = config["social_graph_callables_enabled"].boolValue
         churchDiscoveryCallablesEnabled             = config["church_discovery_callables_enabled"].boolValue
+        nearbyPeopleDiscoveryEnabled                = config["nearby_people_discovery_enabled"].boolValue
         studyGuideCallablesEnabled                  = config["study_guide_callables_enabled"].boolValue
         mediaModerationCallablesEnabled             = config["media_moderation_callables_enabled"].boolValue
         postAnalysisCallablesEnabled                = config["post_analysis_callables_enabled"].boolValue
@@ -2493,6 +2622,24 @@ final class AMENFeatureFlags: ObservableObject {
         inactivityPausePolicyEnabled    = config["inactivity_pause_policy_enabled"].boolValue
         audienceLayersEnabled           = config["audience_layers_enabled"].boolValue
         bereanVerseRecommendationsEnabled = config["berean_verse_recommendations_enabled"].boolValue
+
+        // Community Notes
+        communityNotesEnabled = config["community_notes_enabled"].boolValue
+
+        // Anonymous-Accountable Mode
+        anonModeEnabled = config["anon_mode_enabled"].boolValue
+
+        // Org Platform
+        orgPlatformEnabled      = config["org_platform_enabled"].boolValue
+        orgSeedEnabled          = config["org_seed_enabled"].boolValue
+        orgClaimFlowEnabled     = config["org_claim_flow_enabled"].boolValue
+        orgSubscriptionsEnabled = config["org_subscriptions_enabled"].boolValue
+
+        // Payments / Stripe / Giving (B-01, B-02, B-24)
+        paymentsEnabled = config["payments_enabled"].boolValue
+
+        // Berean Drive / CarPlay CFs (B-23)
+        bereanDriveEnabled = config["berean_drive_enabled"].boolValue
     }
 
     private func applyUITestOverrides() {

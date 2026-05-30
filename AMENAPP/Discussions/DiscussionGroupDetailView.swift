@@ -320,7 +320,9 @@ struct DiscussionGroupDetailView: View {
             try await libraryService.addGroup(group)
             try await libraryService.markJoined(groupId: group.id)
             await AmenHapticEngine.shared.play(.connectionMade)
-        } catch {}
+        } catch {
+            dlog("[DiscussionGroup] joinGroup failed: \(error.localizedDescription)")
+        }
     }
 
     private func leaveGroup() async {

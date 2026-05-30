@@ -50,6 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.authorityGuardrailEngine = void 0;
 exports.auditResponse = auditResponse;
 exports.createLeadershipReferral = createLeadershipReferral;
 exports.buildEscalationContextSummary = buildEscalationContextSummary;
@@ -173,4 +174,27 @@ function buildEscalationContextSummary(primaryTopic, sensitivityFlag) {
     };
     return descriptions[sensitivityFlag] ?? `A pastoral follow-up is recommended for "${primaryTopic}".`;
 }
+class AuthorityGuardrailEngineClass {
+    evaluate(_messageText, flags) {
+        const flagSet = new Set(flags);
+        const escalationRequired = flagSet.has("crisis_escalation") ||
+            flagSet.has("pastoral_escalation") ||
+            flagSet.has("self_harm") ||
+            flagSet.has("suicidal_language");
+        let topicClass = "general";
+        if (flagSet.has("crisis_escalation") || flagSet.has("self_harm") || flagSet.has("suicidal_language")) {
+            topicClass = "crisis";
+        }
+        else if (flagSet.has("controversial_doctrine") || flagSet.has("doctrinal_conflict") || flagSet.has("scripture_contradiction")) {
+            topicClass = "doctrine";
+        }
+        else if (flagSet.has("pastoral_escalation") || flagSet.has("scrupulosity_risk")) {
+            topicClass = "pastoral_care";
+        }
+        const escalationTargets = escalationRequired ? ["pastor", "counselor"] : undefined;
+        const safeResponsePolicy = escalationRequired ? "crisis_safe" : undefined;
+        return { topicClass, escalationRequired, detectedFlags: flags, escalationTargets, safeResponsePolicy };
+    }
+}
+exports.authorityGuardrailEngine = new AuthorityGuardrailEngineClass();
 //# sourceMappingURL=AuthorityGuardrailEngine.js.map

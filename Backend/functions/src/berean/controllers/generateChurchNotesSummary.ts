@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import Anthropic from "@anthropic-ai/sdk";
 
 import { analyticsService } from "../services/AnalyticsService";
 
@@ -69,7 +70,6 @@ export const bereanGenerateChurchNotesSummary = onCall(
       `church-notes-summary-${Date.now()}`
     );
 
-    const callable = admin.app().functions().httpsCallable("bereanChatProxy");
     const systemPrompt = [
       "You summarize private church notes for the note owner inside AMEN.",
       "These notes are private. Never claim divine certainty. Speak reflectively and cautiously.",
@@ -93,17 +93,19 @@ export const bereanGenerateChurchNotesSummary = onCall(
     let parsed: LLMNotesSummary | null = null;
 
     try {
-      const result = await callable({
-        message: userPrompt,
-        systemPromptSuffix: systemPrompt,
-        maxTokens: 1200,
-        modelId: "claude-sonnet-4-5",
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+      const anthropic = new Anthropic({ apiKey });
+      const response = await anthropic.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 1200,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
       });
-      const data = result.data as Record<string, unknown>;
-      const raw = String(data.response ?? data.text ?? "");
+      const raw = response.content[0].type === "text" ? response.content[0].text : "";
       parsed = parseSummaryJSON(raw);
     } catch (error) {
-      console.error("[bereanGenerateChurchNotesSummary] proxy call failed:", error);
+      console.error("[bereanGenerateChurchNotesSummary] LLM call failed:", error);
     }
 
     const nowSeconds = Math.floor(Date.now() / 1000);

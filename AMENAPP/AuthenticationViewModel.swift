@@ -303,10 +303,14 @@ class AuthenticationViewModel: ObservableObject {
             dlog("🚦 [LAUNCH] checkOnboardingStatus: cache hit → needsOnboarding=false (fast path)")
         }
 
-        // PERFORMANCE: Check if we have a recent cached user document from sign-in
+        // PERFORMANCE: Check if we have a recent cached user document from sign-in.
+        // Skip this fast path if the cached doc shows isDeactivated — deactivation must
+        // always be re-verified on the server so a just-deactivated account cannot bypass
+        // the gate by having the in-memory cache serve stale "active" data.
         if let cached = cachedUserData,
            cached.userId == userId,
-           Date().timeIntervalSince(cached.timestamp) < userDataCacheDuration {
+           Date().timeIntervalSince(cached.timestamp) < userDataCacheDuration,
+           !(cached.data["isDeactivated"] as? Bool ?? false) {
             dlog("🚦 [LAUNCH] checkOnboardingStatus: using cached userData from sign-in (fast path)")
             let hasCompletedOnboarding = cached.data["hasCompletedOnboarding"] as? Bool ?? false
             
@@ -347,11 +351,16 @@ class AuthenticationViewModel: ObservableObject {
             //      happens server-side (Firestore rules / Cloud Functions), making it
             //      impossible to bypass without a valid Firebase token.
             //
-            // CLIENT-SIDE DEFENCE (implemented now): Force-refresh the token so any
-            // deactivation claim set by the backend is picked up immediately. If the
-            // claim is present, it takes precedence over the Firestore field.
+            // CLIENT-SIDE DEFENCE: Use the Firestore field as a fast-path check.
+            // Only force-refresh the ID token when the Firestore doc already says
+            // deactivated — this avoids a network round-trip on every cold launch for
+            // the 99.9 % of users who are not deactivated.
+            // PERF FIX: `forcingRefresh: true` was unconditionally called on the critical
+            // launch path (every cold start), adding 200–500 ms of auth-server latency.
+            // It is now deferred until the Firestore field triggers the deactivation branch.
             var accountIsDeactivated = userData["isDeactivated"] as? Bool ?? false
-            if let firebaseUser = Auth.auth().currentUser {
+            if accountIsDeactivated, let firebaseUser = Auth.auth().currentUser {
+                // Only now do we pay the cost of a forced token refresh.
                 if let tokenResult = try? await firebaseUser.getIDTokenResult(forcingRefresh: true),
                    let claimDeactivated = tokenResult.claims["deactivated"] as? Bool {
                     // Custom claim is authoritative — cannot be forged on the client.
@@ -415,8 +424,60 @@ class AuthenticationViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Simulator bypass (anonymous Firebase auth so Firestore rules pass)
+
+    #if targetEnvironment(simulator)
+    func simulatorBypass() {
+        needsOnboarding = false
+        needsUsernameSelection = false
+        needsEmailVerification = false
+        isDeactivated = false
+        needs2FAVerification = false
+        FTUEManager.shared.hasCompletedFTUE = true
+        FTUEManager.shared.shouldShowCoachMarks = false
+
+        // Sign in anonymously so request.auth is non-nil in Firestore rules,
+        // allowing the simulator to load real feed data.
+        //
+        // Retry logic: the simulator keychain (SecItemCopyMatching) is sometimes
+        // unavailable for ~1 s on a fresh install. Three attempts with 600 ms
+        // back-off clears the error without delaying a warm launch noticeably.
+        Task {
+            let delays: [UInt64] = [0, 600_000_000, 1_200_000_000] // 0, 0.6 s, 1.2 s
+            var signedIn = false
+            for (attempt, delay) in delays.enumerated() {
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: delay)
+                }
+                do {
+                    let result = try await Auth.auth().signInAnonymously()
+                    dlog("🔧 [Simulator] Anonymous Firebase sign-in succeeded on attempt \(attempt + 1) (uid: \(result.user.uid))")
+                    signedIn = true
+                    break
+                } catch {
+                    dlog("🔧 [Simulator] Anonymous sign-in attempt \(attempt + 1) failed: \(error.localizedDescription)")
+                }
+            }
+            if !signedIn {
+                dlog("🔧 [Simulator] All anonymous sign-in attempts failed — running without Firebase auth (Firestore reads will return 403)")
+            }
+            await MainActor.run {
+                isAuthenticated = true
+                dlog("🔧 [Simulator] Auth bypass complete — home screen shown\(signedIn ? " with Firebase anonymous session" : " (no auth)")")
+                // onChange(isAuthenticated) fires signalSignIn() on the next view update cycle.
+                // Wait long enough for that cycle to complete, then clear the loading screen
+                // so the simulator bypass doesn't sit behind a 3-second feed-ready wait.
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 150_000_000) // 150 ms — after onChange fires
+                    AppReadyStateManager.shared.signalReady()
+                }
+            }
+        }
+    }
+    #endif
+
     // MARK: - Sign In
-    
+
     func signIn(email: String, password: String) async {
         // Prevent concurrent auth requests
         guard !isAuthenticating else {
@@ -2111,7 +2172,21 @@ class AuthenticationViewModel: ObservableObject {
     
     private func handleAuthError(_ error: Error) -> String {
         let nsError = error as NSError
-        
+
+        // Token revocation and account disabling are equivalent to a 401 — force sign-out
+        // immediately so the user cannot continue operating with an invalid session.
+        let revocationCodes: Set<Int> = [
+            AuthErrorCode.userTokenExpired.rawValue,
+            AuthErrorCode.userDisabled.rawValue,
+            AuthErrorCode.invalidUserToken.rawValue,
+        ]
+        if revocationCodes.contains(nsError.code), isAuthenticated {
+            Task { @MainActor [weak self] in
+                self?.signOut()
+            }
+            return "Your session has expired. Please sign in again."
+        }
+
         switch nsError.code {
         case AuthErrorCode.invalidEmail.rawValue:
             return "Please enter a valid email address"

@@ -34,10 +34,10 @@ struct EnhancedDailyPrayerView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Daily Prayer")
-                            .font(.custom("OpenSans-Bold", size: 32))
-                        
+                            .font(AMENFont.bold(32))
+
                         Text("Strengthen your faith daily")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     
@@ -64,7 +64,7 @@ struct EnhancedDailyPrayerView: View {
                                 
                                 if selectedTab == tab {
                                     Text(tab.rawValue)
-                                        .font(.custom("OpenSans-Bold", size: 15))
+                                        .font(AMENFont.bold(15))
                                         .foregroundStyle(.white)
                                         .transition(.scale.combined(with: .opacity))
                                 }
@@ -125,7 +125,7 @@ struct EnhancedDailyPrayerView: View {
                             Image(systemName: "chevron.left")
                                 .font(.systemScaled(16, weight: .semibold))
                             Text("Back")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                         }
                         .foregroundStyle(.primary)
                     }
@@ -175,13 +175,13 @@ struct TodayPrayersContent: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Today's Progress")
-                        .font(.custom("OpenSans-Bold", size: 18))
-                    
+                        .font(AMENFont.bold(18))
+
                     Spacer()
-                    
+
                     Text("\(completedPrayers.count)/\(prayers.count)")
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.purple)
+                        .font(AMENFont.bold(16))
+                        .foregroundStyle(Color(red: 0.44, green: 0.26, blue: 0.80))
                 }
                 
                 GeometryReader { geometry in
@@ -254,7 +254,8 @@ struct PrayerCard: View {
                                 )
                             )
                             .frame(width: 60, height: 60)
-                        
+                            .accessibilityHidden(true)
+
                         Image(systemName: prayer.category.icon)
                             .font(.systemScaled(26))
                             .foregroundStyle(prayer.category.color)
@@ -263,7 +264,7 @@ struct PrayerCard: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text(prayer.title)
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                                 .foregroundStyle(.primary)
                             
                             if isCompleted {
@@ -277,14 +278,14 @@ struct PrayerCard: View {
                                 Image(systemName: "clock")
                                     .font(.systemScaled(12))
                                 Text(prayer.time)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                             }
-                            
+
                             HStack(spacing: 4) {
                                 Image(systemName: "timer")
                                     .font(.systemScaled(12))
                                 Text(prayer.duration)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                             }
                         }
                         .foregroundStyle(.secondary)
@@ -299,11 +300,11 @@ struct PrayerCard: View {
                 // Scripture preview
                 VStack(alignment: .leading, spacing: 6) {
                     Text(prayer.scripture)
-                        .font(.custom("OpenSans-Bold", size: 13))
+                        .font(AMENFont.bold(13))
                         .foregroundStyle(.blue)
-                    
+
                     Text(prayer.content)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .lineSpacing(4)
@@ -351,7 +352,8 @@ struct DailyPrayerDetailView: View {
                                 )
                             )
                             .frame(width: 100, height: 100)
-                        
+                            .accessibilityHidden(true)
+
                         Image(systemName: prayer.category.icon)
                             .font(.systemScaled(48))
                             .foregroundStyle(prayer.category.color)
@@ -362,7 +364,7 @@ struct DailyPrayerDetailView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         // Title
                         Text(prayer.title)
-                            .font(.custom("OpenSans-Bold", size: 28))
+                            .font(AMENFont.bold(28))
                         
                         // Meta info
                         HStack(spacing: 20) {
@@ -376,17 +378,17 @@ struct DailyPrayerDetailView: View {
                                 Text(prayer.duration)
                             }
                         }
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
-                        
+
                         // Scripture
                         VStack(alignment: .leading, spacing: 12) {
                             Text(prayer.scripture)
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.blue)
-                            
+
                             Text(prayer.content)
-                                .font(.custom("OpenSans-Regular", size: 16))
+                                .font(AMENFont.regular(16))
                                 .lineSpacing(6)
                         }
                         .padding()
@@ -398,10 +400,10 @@ struct DailyPrayerDetailView: View {
                         // Prayer guide
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Prayer Guide")
-                                .font(.custom("OpenSans-Bold", size: 18))
-                            
+                                .font(AMENFont.bold(18))
+
                             Text(prayer.guide)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .lineSpacing(6)
                         }
                         .padding()
@@ -412,27 +414,38 @@ struct DailyPrayerDetailView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Complete button
+                    // Complete button — Liquid Glass pill
                     Button {
                         onComplete()
                         dismiss()
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
                             Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                                .font(.systemScaled(20))
-                            
+                                .font(.systemScaled(16, weight: .semibold))
                             Text(isCompleted ? "Completed" : "Mark as Complete")
-                                .font(.custom("OpenSans-Bold", size: 17))
+                                .font(AMENFont.bold(15))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(isCompleted ? Color(red: 0.20, green: 0.70, blue: 0.40) : .primary)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 13)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
                         .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(isCompleted ? Color.green : Color.black)
-                                .shadow(color: (isCompleted ? Color.green : Color.black).opacity(0.3), radius: 12, y: 4)
+                            ZStack {
+                                Capsule(style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                                Capsule(style: .continuous)
+                                    .fill(
+                                        isCompleted
+                                            ? Color(red: 0.20, green: 0.70, blue: 0.40).opacity(0.12)
+                                            : Color.white.opacity(0.10)
+                                    )
+                                Capsule(style: .continuous)
+                                    .stroke(Color.white.opacity(0.35), lineWidth: 0.5)
+                            }
                         )
+                        .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
                     }
+                    .buttonStyle(.plain)
                     .padding(.horizontal)
                     .padding(.bottom, 32)
                 }
@@ -447,6 +460,7 @@ struct DailyPrayerDetailView: View {
                             .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Close")
                 }
             }
         }
@@ -470,11 +484,12 @@ struct WeekPrayersContent: View {
                     } label: {
                         VStack(spacing: 8) {
                             Text(weekDays[index])
-                                .font(.custom("OpenSans-Bold", size: 13))
-                            
+                                .font(AMENFont.bold(13))
+
                             Circle()
                                 .fill(selectedDay == index ? Color.black : Color.gray.opacity(0.2))
                                 .frame(width: 8, height: 8)
+                                .accessibilityHidden(true)
                         }
                         .foregroundStyle(selectedDay == index ? .black : .secondary)
                         .frame(maxWidth: .infinity)
@@ -489,7 +504,7 @@ struct WeekPrayersContent: View {
             .padding(.horizontal)
             
             Text("Weekly prayer themes coming soon")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .padding(.top, 40)
         }
@@ -505,10 +520,10 @@ struct SavedPrayersContent: View {
                 .foregroundStyle(.blue)
             
             Text("Saved Prayers")
-                .font(.custom("OpenSans-Bold", size: 24))
-            
+                .font(AMENFont.bold(24))
+
             Text("Save your favorite prayers and access them anytime")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)

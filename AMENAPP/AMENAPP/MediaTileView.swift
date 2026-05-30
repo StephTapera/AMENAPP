@@ -61,7 +61,7 @@ struct MediaTileView: View {
                         .foregroundStyle(AmenTheme.Colors.iconSecondary)
                 )
         }
-        .frame(minHeight: 120)
+        .aspectRatio(1, contentMode: .fill)
         .clipped()
     }
 

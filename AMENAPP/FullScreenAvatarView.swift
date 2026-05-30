@@ -75,22 +75,13 @@ struct FullScreenAvatarView: View {
     @ViewBuilder
     private var avatarContent: some View {
         if let imageURL = profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .failure:
-                    avatarPlaceholder
-                case .empty:
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .tint(.white)
-                @unknown default:
-                    avatarPlaceholder
-                }
+            CachedAsyncImage(url: url, size: CGSize(width: 600, height: 600)) { image in
+                image
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } placeholder: {
+                avatarPlaceholder
             }
         } else {
             avatarPlaceholder

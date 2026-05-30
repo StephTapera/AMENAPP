@@ -263,8 +263,9 @@ final class BereanCarPlayCoordinator: NSObject, ObservableObject {
         guard let lat = church.latitude, let lon = church.longitude else { return }
         analytics.track(.churchNavigationStarted)
         // HandOff navigation to Apple Maps — no navigation entitlement required
-        let url = URL(string: "maps://?daddr=\(lat),\(lon)&dirflg=d")!
-        UIApplication.shared.open(url)
+        if let url = URL(string: "maps://?daddr=\(lat),\(lon)&dirflg=d") {
+            UIApplication.shared.open(url)
+        }
         dlog("🗺️ [BereanDrive] Navigation handoff to Maps: \(church.name)")
     }
 

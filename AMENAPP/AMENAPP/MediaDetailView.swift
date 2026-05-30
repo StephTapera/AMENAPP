@@ -22,6 +22,16 @@ struct MediaDetailView: View {
     @State private var dragDismissOffset: CGFloat = 0
     @State private var showFullCaption = false
 
+    // MARK: - Engagement Rail State
+    @ObservedObject private var interactions = PostInteractionsService.shared
+    @State private var isLiked = false
+    @State private var amenCount = 0
+    @State private var commentCount = 0
+    @State private var shareCount = 0
+    @State private var showComments = false
+    @State private var showShareSheet = false
+    @State private var fetchedPost: Post? = nil
+
     init(item: EnrichedMediaGridItem, onViewFullPost: ((String) -> Void)? = nil) {
         self.item = item
         self.onViewFullPost = onViewFullPost
@@ -42,6 +52,7 @@ struct MediaDetailView: View {
             mediaPager
                 .offset(y: dragDismissOffset)
                 .gesture(dismissDragGesture)
+                .onTapGesture { toggleChrome() }
 
             if showChrome {
                 VStack(spacing: 0) {
@@ -50,10 +61,158 @@ struct MediaDetailView: View {
                     bottomPanel
                 }
                 .transition(.opacity)
+
+                engagementRail
+                    .transition(.opacity)
             }
         }
         .statusBarHidden()
-        .onTapGesture { toggleChrome() }
+        .onAppear { seedEngagementCounts() }
+        .onChange(of: interactions.postAmens[item.postId]) { newVal in
+            amenCount = newVal ?? amenCount
+        }
+        .onChange(of: interactions.postComments[item.postId]) { newVal in
+            commentCount = newVal ?? commentCount
+        }
+        .onChange(of: interactions.postReposts[item.postId]) { newVal in
+            shareCount = newVal ?? shareCount
+        }
+        .onChange(of: interactions.userAmenedPosts) { newSet in
+            isLiked = newSet.contains(item.postId)
+        }
+        .sheet(isPresented: $showComments) {
+            if let post = fetchedPost {
+                CommentsView(post: post)
+            } else {
+                // Navigate to full post while we don't have the Post object yet
+                ProgressView("Loading...")
+                    .onAppear { fetchPost() }
+            }
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(items: [buildShareText()])
+        }
+    }
+
+    // MARK: - Engagement Rail
+
+    private var engagementRail: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            // Amen / Like
+            VStack(spacing: 4) {
+                Button {
+                    Task { await toggleAmen() }
+                } label: {
+                    Image(systemName: isLiked ? "hands.clap.fill" : "hands.clap")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(isLiked ? Color(red: 0.85, green: 0.65, blue: 0.13) : Color.white)
+                        .shadow(color: .black.opacity(0.3), radius: 4)
+                }
+                .accessibilityLabel(isLiked ? "Remove Amen" : "Amen")
+                Text(formatCount(amenCount))
+                    .font(AMENFont.semiBold(11))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 2)
+            }
+
+            // Comments
+            VStack(spacing: 4) {
+                Button { showComments = true } label: {
+                    Image(systemName: "bubble.right")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .shadow(color: .black.opacity(0.3), radius: 4)
+                }
+                .accessibilityLabel("Comments")
+                Text(formatCount(commentCount))
+                    .font(AMENFont.semiBold(11))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 2)
+            }
+
+            // Share
+            VStack(spacing: 4) {
+                Button { showShareSheet = true } label: {
+                    Image(systemName: "arrowshape.turn.up.right")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .shadow(color: .black.opacity(0.3), radius: 4)
+                }
+                .accessibilityLabel("Share")
+                Text(formatCount(shareCount))
+                    .font(AMENFont.semiBold(11))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 2)
+            }
+        }
+        .padding(.bottom, 80) // clear the bottom panel
+        .padding(.trailing, 16)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .colorScheme(.dark)
+    }
+
+    // MARK: - Engagement Helpers
+
+    private func seedEngagementCounts() {
+        let svc = PostInteractionsService.shared
+        amenCount = svc.postAmens[item.postId] ?? 0
+        commentCount = svc.postComments[item.postId] ?? 0
+        shareCount = svc.postReposts[item.postId] ?? 0
+        isLiked = svc.userAmenedPosts.contains(item.postId)
+        svc.observePostInteractions(postId: item.postId)
+        fetchPost()
+    }
+
+    private func fetchPost() {
+        guard fetchedPost == nil else { return }
+        Task {
+            let post = try? await FirebasePostService.shared.fetchPostById(postId: item.postId)
+            await MainActor.run { self.fetchedPost = post }
+        }
+    }
+
+    private func toggleAmen() async {
+        // Optimistic update
+        isLiked.toggle()
+        if isLiked {
+            amenCount += 1
+        } else {
+            amenCount = max(0, amenCount - 1)
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        do {
+            try await PostInteractionsService.shared.toggleAmen(postId: item.postId)
+        } catch {
+            // Revert on failure
+            isLiked.toggle()
+            if isLiked {
+                amenCount += 1
+            } else {
+                amenCount = max(0, amenCount - 1)
+            }
+        }
+    }
+
+    private func formatCount(_ n: Int) -> String {
+        switch n {
+        case 1_000_000...: return String(format: "%.1fM", Double(n) / 1_000_000.0)
+        case 1_000...: return String(format: "%.1fK", Double(n) / 1_000.0)
+        default: return n > 0 ? "\(n)" : ""
+        }
+    }
+
+    private func buildShareText() -> String {
+        var text = item.postContent
+        if let verse = item.verseReference, !verse.isEmpty {
+            text += "\n\n\(verse)"
+        }
+        if let author = item.authorName {
+            text += "\n\n— \(author)"
+        }
+        text += "\n\nShared from AMEN App"
+        return text
     }
 
     // MARK: - Media Pager

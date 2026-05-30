@@ -2253,10 +2253,10 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
         }
         // Last resort: attach to first available window scene
         dlog("⚠️ Apple Sign-In: no window found, using fallback UIWindow")
-        let anyWindowScene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first
-        return UIWindow(windowScene: anyWindowScene!)
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first else { return UIWindow() }
+        return UIWindow(windowScene: scene)
     }
 }
 

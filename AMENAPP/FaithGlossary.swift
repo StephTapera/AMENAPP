@@ -17,7 +17,12 @@ final class FaithGlossary {
     private var isLoaded = false
 
     private init() {
-        loadGlossary()
+        // PERF FIX: defer the synchronous Data(contentsOf:) + JSONDecoder
+        // off the main thread. The class is @MainActor, so we hop to a
+        // background task and write results back via MainActor.run.
+        Task.detached(priority: .utility) {
+            await self.loadGlossaryAsync()
+        }
     }
 
     // MARK: - Public API
@@ -66,7 +71,9 @@ final class FaithGlossary {
 
     // MARK: - Loading
 
-    private func loadGlossary() {
+    /// Loads the glossary JSON on a background task to avoid blocking the main thread.
+    /// Results are written back on MainActor once parsing completes.
+    private func loadGlossaryAsync() async {
         guard let url = Bundle.main.url(forResource: "FaithGlossaryData", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let entries = try? JSONDecoder().decode([FaithTermEntry].self, from: data) else {
@@ -74,14 +81,21 @@ final class FaithGlossary {
             return
         }
 
-        allTerms = entries
+        // Build lookup tables on the background thread before touching @MainActor state.
+        var builtTerms: [String: FaithTermEntry] = [:]
         for entry in entries {
-            terms[entry.term.lowercased()] = entry
+            builtTerms[entry.term.lowercased()] = entry
             for alias in entry.aliases {
-                terms[alias.lowercased()] = entry
+                builtTerms[alias.lowercased()] = entry
             }
         }
-        isLoaded = true
-        dlog("[FaithGlossary] Loaded \(entries.count) terms")
+
+        // Write back on MainActor (satisfies @MainActor isolation).
+        await MainActor.run {
+            self.allTerms = entries
+            self.terms = builtTerms
+            self.isLoaded = true
+            dlog("[FaithGlossary] Loaded \(entries.count) terms (background)")
+        }
     }
 }

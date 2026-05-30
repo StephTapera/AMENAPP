@@ -4,7 +4,12 @@
 
 const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 const db = admin.firestore();
+
+function sha256(text) {
+  return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+}
 
 // ============================================================================
 // SAFETY CLASSIFIERS
@@ -675,12 +680,14 @@ exports.safeMessageGateway = onCall(async (request) => {
         // CRITICAL RISK - Block immediately
         if (finalRisk > 0.9 || hateSpeechScore > 0.7 || groomingScore > 0.7) {
             // Log the incident
+            // Full content stored here for legal evidence (law enforcement, grooming cases).
             await db.collection('moderationIncidents').add({
                 type: 'message_blocked',
                 senderId: senderId,
                 recipientId: recipientId,
                 conversationId: conversationId,
                 content: messageContent,
+                contentHash: sha256(messageContent),
                 riskScore: finalRisk,
                 primaryThreat: primaryThreat,
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
@@ -703,12 +710,15 @@ exports.safeMessageGateway = onCall(async (request) => {
         // HIGH RISK - Hold for human review
         if (finalRisk > 0.7 || (recipientVulnerable > 0.5 && finalRisk > 0.5)) {
             // Add to moderation queue
+            // Store hash + snippet only; full content omitted to limit plaintext at rest.
+            // Moderators can retrieve full message via conversationId + message timestamp.
             await db.collection('moderationQueue').add({
                 type: 'message_review',
                 senderId: senderId,
                 recipientId: recipientId,
                 conversationId: conversationId,
-                content: messageContent,
+                contentHash: sha256(messageContent),
+                contentSnippet: messageContent.slice(0, 80),
                 riskScore: finalRisk,
                 primaryThreat: primaryThreat,
                 senderTrust: senderTrust,

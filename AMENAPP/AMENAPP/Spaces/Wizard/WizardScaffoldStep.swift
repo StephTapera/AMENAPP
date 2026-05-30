@@ -267,7 +267,7 @@ struct WizardScaffoldStep: View {
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .multilineTextAlignment(.center)
 
-            Text(error.localizedDescription)
+            Text(error.userFriendlyMessage)
                 .font(.caption)
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .multilineTextAlignment(.center)

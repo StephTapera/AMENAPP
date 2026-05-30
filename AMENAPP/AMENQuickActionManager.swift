@@ -12,25 +12,28 @@
 //  │  ↓                                                               │
 //  │  AppDelegate.application(_:performActionFor:completionHandler:)  │
 //  │  ↓                                                               │
-//  │  AMENQuickActionManager.handle(_:) → stores pendingRoute         │
+//  │  AMENQuickActionManager.handle(_:)                               │
 //  │  ↓                                                               │
-//  │  ContentView reads pendingRoute once auth resolves               │
-//  │  ↓                                                               │
-//  │  Navigates to correct tab / sheet / screen                       │
+//  │  AppNavigationRouter.shared.navigate(to: AppDestination)         │
+//  │  (router handles cold-launch queuing, auth gating, tab routing)  │
 //  └─────────────────────────────────────────────────────────────────┘
 //
 // Cold launch path:
-//   AppDelegate.didFinishLaunchingWithOptions receives the shortcut item
-//   in launchOptions[.shortcutItem]. It stores it via AMENQuickActionManager.
-//   ContentView picks it up as soon as auth resolves.
+//   AppDelegate.didFinishLaunchingWithOptions receives the shortcut item in
+//   launchOptions[.shortcutItem]. It calls AMENQuickActionManager.handle().
+//   AppNavigationRouter queues the destination until sceneDidBecomeReady() +
+//   authDidBecomeReady() are both called from ContentView.mainContent.
 //
 // Warm/foreground path:
 //   AppDelegate.application(_:performActionFor:completionHandler:) fires.
-//   AMENQuickActionManager stores the route. ContentView acts immediately
-//   because it's already displayed and watching pendingRoute.
+//   AMENQuickActionManager calls AppNavigationRouter directly; if the scene is
+//   already ready the router navigates immediately.
+//
+// "Require Face ID" special case:
+//   This action is a SETTINGS TOGGLE, not a navigation destination. Tapping it
+//   flips the app-lock preference via BiometricAuthService without navigating.
 
 import UIKit
-import Combine
 import FirebaseAuth
 
 // MARK: - Quick Action Type Strings
@@ -39,24 +42,26 @@ import FirebaseAuth
 // Keep them stable — changing them breaks existing shortcuts on user devices.
 
 enum AMENQuickActionType: String, CaseIterable {
-    case newPost      = "com.amen.app.quickaction.newpost"
-    case messages     = "com.amen.app.quickaction.messages"
-    case search       = "com.amen.app.quickaction.search"
-    case activity     = "com.amen.app.quickaction.activity"
-    case bereanAI     = "com.amen.app.quickaction.berean"
-    case prayer       = "com.amen.app.quickaction.prayer"
-    case myProfile    = "com.amen.app.quickaction.profile"
+    case newPost        = "com.amen.app.quickaction.newpost"
+    case messages       = "com.amen.app.quickaction.messages"
+    case search         = "com.amen.app.quickaction.search"
+    case activity       = "com.amen.app.quickaction.activity"
+    case bereanAI       = "com.amen.app.quickaction.berean"
+    case prayer         = "com.amen.app.quickaction.prayer"
+    case myProfile      = "com.amen.app.quickaction.profile"
+    case requireFaceID  = "com.amen.app.quickaction.requirefaceid"
 
     // Human-readable title shown in the long-press menu
     var title: String {
         switch self {
-        case .newPost:   return "New Post"
-        case .messages:  return "Messages"
-        case .search:    return "Search"
-        case .activity:  return "Activity"
-        case .bereanAI:  return "Ask Berean"
-        case .prayer:    return "Prayer"
-        case .myProfile: return "My Profile"
+        case .newPost:        return "New Post"
+        case .messages:       return "Messages"
+        case .search:         return "Search"
+        case .activity:       return "Activity"
+        case .bereanAI:       return "Ask Berean"
+        case .prayer:         return "Prayer"
+        case .myProfile:      return "My Profile"
+        case .requireFaceID:  return "Require Face ID"
         }
     }
 
@@ -64,62 +69,58 @@ enum AMENQuickActionType: String, CaseIterable {
     // iOS maps these system names automatically — no custom assets needed.
     var shortcutIcon: UIApplicationShortcutIcon {
         switch self {
-        case .newPost:   return UIApplicationShortcutIcon(systemImageName: "plus.circle.fill")
-        case .messages:  return UIApplicationShortcutIcon(systemImageName: "bubble.left.and.bubble.right.fill")
-        case .search:    return UIApplicationShortcutIcon(systemImageName: "magnifyingglass")
-        case .activity:  return UIApplicationShortcutIcon(systemImageName: "bell.fill")
-        case .bereanAI:  return UIApplicationShortcutIcon(systemImageName: "book.closed.fill")
-        case .prayer:    return UIApplicationShortcutIcon(systemImageName: "hands.sparkles.fill")
-        case .myProfile: return UIApplicationShortcutIcon(systemImageName: "person.crop.circle.fill")
+        case .newPost:        return UIApplicationShortcutIcon(systemImageName: "plus.circle.fill")
+        case .messages:       return UIApplicationShortcutIcon(systemImageName: "bubble.left.and.bubble.right.fill")
+        case .search:         return UIApplicationShortcutIcon(systemImageName: "magnifyingglass")
+        case .activity:       return UIApplicationShortcutIcon(systemImageName: "bell.fill")
+        case .bereanAI:       return UIApplicationShortcutIcon(systemImageName: "book.closed.fill")
+        case .prayer:         return UIApplicationShortcutIcon(systemImageName: "hands.sparkles.fill")
+        case .myProfile:      return UIApplicationShortcutIcon(systemImageName: "person.crop.circle.fill")
+        case .requireFaceID:  return UIApplicationShortcutIcon(systemImageName: "faceid")
         }
     }
 }
 
-// MARK: - App Route
-// Describes where the app should navigate after a quick action fires.
-// Designed to be extended — add new cases here as the app grows.
-
-enum AMENAppRoute: Equatable {
-    case newPost                        // Open the create-post composer
-    case messages                       // Switch to messages tab
-    case search                         // Switch to discovery/search tab
-    case activity                       // Switch to notifications tab
-    case bereanAI                       // Open Berean AI assistant sheet
-    case prayer                         // Switch to prayer tab (or prayer within home)
-    case myProfile                      // Switch to profile tab
-}
-
 // MARK: - Quick Action Manager
 
-/// Singleton that bridges UIApplicationShortcutItem events into SwiftUI navigation.
-/// Stores a pending route when the app cannot navigate immediately (cold launch,
-/// auth not yet resolved, onboarding in progress) and publishes it once ready.
+/// Singleton that bridges UIApplicationShortcutItem events into canonical navigation
+/// via AppNavigationRouter. All routing decisions (tab, sheet, cold-launch queueing,
+/// auth gating) are delegated to AppNavigationRouter — this class only translates the
+/// UIKit shortcut type string into an AppDestination.
 @MainActor
-final class AMENQuickActionManager: ObservableObject {
+final class AMENQuickActionManager {
 
     static let shared = AMENQuickActionManager()
     private init() {}
 
-    // Published so ContentView can react with .onChange(of: pendingRoute)
-    @Published private(set) var pendingRoute: AMENAppRoute? = nil
-
     // MARK: - Handle a shortcut item (call from AppDelegate)
 
-    /// Convert a UIApplicationShortcutItem into an AMENAppRoute and store it.
-    /// ContentView will consume it once the user is authenticated and the UI is ready.
+    /// Convert a UIApplicationShortcutItem into an AppDestination and route it.
+    ///
+    /// For navigation destinations this calls `AppNavigationRouter.shared.navigate(to:)`.
+    /// For the "Require Face ID" settings toggle this flips the biometric preference
+    /// and does NOT navigate anywhere.
+    ///
+    /// Cold launch: the router queues the destination until sceneDidBecomeReady() is called.
+    /// Warm launch: the router resolves immediately if the scene and auth are ready.
     func handle(_ shortcutItem: UIApplicationShortcutItem) {
         guard let actionType = AMENQuickActionType(rawValue: shortcutItem.type) else {
             dlog("⚠️ [QuickAction] Unknown shortcut type: \(shortcutItem.type)")
             return
         }
         dlog("✅ [QuickAction] Received: \(actionType.title)")
-        pendingRoute = route(for: actionType)
-    }
 
-    /// Call this after ContentView has successfully navigated to the destination.
-    /// Clears the pending route so it doesn't fire again on the next re-appear.
-    func consumePendingRoute() {
-        pendingRoute = nil
+        // Special case: "Require Face ID" is a toggle, not a navigation destination.
+        if actionType == .requireFaceID {
+            handleRequireFaceIDToggle()
+            return
+        }
+
+        // "Continue Draft" reuses the newPost type string with source="draft" in userInfo.
+        let source = shortcutItem.userInfo?["source"] as? String
+        let destination = destination(for: actionType, source: source)
+
+        AppNavigationRouter.shared.navigate(to: destination)
     }
 
     // MARK: - Install dynamic shortcuts
@@ -181,7 +182,6 @@ final class AMENQuickActionManager: ObservableObject {
     /// Remove all dynamic shortcuts (e.g. on sign-out)
     func clearShortcuts() {
         UIApplication.shared.shortcutItems = []
-        pendingRoute = nil
     }
 
     // MARK: - Private helpers
@@ -196,15 +196,41 @@ final class AMENQuickActionManager: ObservableObject {
         )
     }
 
-    private func route(for type: AMENQuickActionType) -> AMENAppRoute {
+    /// Map a quick-action type (plus optional source metadata) to an AppDestination.
+    private func destination(for type: AMENQuickActionType, source: String?) -> AppDestination {
         switch type {
-        case .newPost:   return .newPost
-        case .messages:  return .messages
-        case .search:    return .search
-        case .activity:  return .activity
-        case .bereanAI:  return .bereanAI
-        case .prayer:    return .prayer
-        case .myProfile: return .myProfile
+        case .newPost:
+            // "Continue Draft" reuses the newPost type with source="draft"
+            return source == "draft" ? .continueDraft : .newPost
+        case .messages:
+            return .messages
+        case .search:
+            return .search()
+        case .activity:
+            return .activity
+        case .bereanAI:
+            return .askBerean()
+        case .prayer:
+            // Open the prayer composer directly instead of switching to the Resources tab.
+            return .prayerNew
+        case .myProfile:
+            return .profile
+        case .requireFaceID:
+            // Never reached here — handled separately in handle(_:) above
+            return .settings()
+        }
+    }
+
+    /// Toggle the app-wide Face ID / biometric lock preference.
+    /// This is a settings mutation, not a navigation action.
+    private func handleRequireFaceIDToggle() {
+        let service = BiometricAuthService.shared
+        if service.isBiometricEnabled {
+            service.disableBiometric()
+            dlog("🔓 [QuickAction] Require Face ID → disabled")
+        } else {
+            service.enableBiometric()
+            dlog("🔒 [QuickAction] Require Face ID → enabled")
         }
     }
 }

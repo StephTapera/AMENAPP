@@ -178,6 +178,27 @@ class BadgeCountManager: ObservableObject {
         await performBadgeUpdate()
     }
     
+    /// Full reset — stops listeners, zeroes all counts, and clears every cache.
+    /// Call on sign-out so no badge data from the previous user leaks to the next session.
+    func reset() {
+        stopRealtimeUpdates()
+        resetRetryCounters()
+        // Zero all published counts
+        totalBadgeCount = 0
+        unreadMessages = 0
+        unreadNotifications = 0
+        // Clear in-memory caches
+        cachedBadgeCount = nil
+        cacheTimestamp = nil
+        notificationsClearTime = nil
+        // Clear persisted fallback count so the next user's badge starts at 0
+        UserDefaults.standard.removeObject(forKey: "badgeLastKnownTotal")
+        // Zero the app icon badge and widget
+        UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+        syncToWidget()
+        dlog("🧹 BadgeCountManager: full reset on sign-out")
+    }
+
     /// Clear badge (sets to 0)
     func clearBadge() {
         totalBadgeCount = 0
@@ -197,6 +218,7 @@ class BadgeCountManager: ObservableObject {
         totalBadgeCount = unreadNotifications
         cachedBadgeCount = unreadNotifications
         cacheTimestamp = Date()
+        notificationsClearTime = Date()
         applyBadgeCount(unreadNotifications)
         dlog("🧹 Messages badge cleared")
 

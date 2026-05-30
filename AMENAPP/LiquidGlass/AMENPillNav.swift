@@ -42,7 +42,9 @@ struct AMENPillNav: View {
 
     @ViewBuilder
     private func pillButton(_ tab: AMENTab) -> some View {
-        let isSelected = selectedTab == tab.rawValue
+        // Discover (tab 1) is a sub-destination of Home — keep Home highlighted while on it.
+        let visibleTab = selectedTab == AMENTab.search.rawValue ? AMENTab.home.rawValue : selectedTab
+        let isSelected = visibleTab == tab.rawValue
         let badgeCount = badges.count(for: tab)
 
         Button { onTabTap(tab) } label: {

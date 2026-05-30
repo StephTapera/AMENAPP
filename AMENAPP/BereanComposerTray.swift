@@ -152,37 +152,78 @@ struct BereanComposerTray: View {
 
     @ViewBuilder
     private var intentRow: some View {
-        HStack(spacing: 8) {
-            // Left: contextual chips / suggestions
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    switch draftIntent {
-                    case .empty:
-                        quickStartChips
-                    case .scriptureRef(let ref):
-                        scriptureDetectedChip(ref: ref)
-                        otherQuickStartChips(excluding: .scriptureStudy)
-                    case .question:
-                        reasoningReadyChip
-                        activeModePill
-                    case .prayer:
-                        prayerReadyChip
-                        activeModePill
-                    case .modeKeyword(let mode):
-                        modeKeywordChips(highlightedMode: mode)
+        if draftIntent == .empty {
+            // Focus-trigger: vertical glass rows matching the disambiguation card pattern
+            quickStartFocusRows
+        } else {
+            HStack(spacing: 8) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        switch draftIntent {
+                        case .empty:
+                            EmptyView()
+                        case .scriptureRef(let ref):
+                            scriptureDetectedChip(ref: ref)
+                            otherQuickStartChips(excluding: .scriptureStudy)
+                        case .question:
+                            reasoningReadyChip
+                            activeModePill
+                        case .prayer:
+                            prayerReadyChip
+                            activeModePill
+                        case .modeKeyword(let mode):
+                            modeKeywordChips(highlightedMode: mode)
+                        }
                     }
+                    .padding(.vertical, 2)
                 }
-                .padding(.vertical, 2)
-            }
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
 
-            // Right: "···" capabilities toggle + mode picker toggle
-            HStack(spacing: 6) {
-                capabilitiesToggleButton
-                modePickerToggleButton
+                HStack(spacing: 6) {
+                    capabilitiesToggleButton
+                    modePickerToggleButton
+                }
             }
         }
+    }
+
+    // MARK: - Focus Trigger Rows (empty state)
+
+    private var quickStartFocusRows: some View {
+        VStack(spacing: 0) {
+            focusRow(icon: "sparkles",       text: "Ask a question",   hint: "Get scripture-grounded answers") { onChipTap("Ask a question") }
+            Divider().padding(.leading, 50)
+            focusRow(icon: "book.pages.fill", text: "Study scripture",  hint: "Look up any verse or passage")   { onChipTap("Study scripture") }
+            Divider().padding(.leading, 50)
+            focusRow(icon: "hands.sparkles",  text: "Pray together",    hint: "Guided prayer and reflection")   { onChipTap("Pray together") }
+        }
+    }
+
+    private func focusRow(icon: String, text: String, hint: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
+                    .frame(width: 26, height: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(text)
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(BereanColor.textPrimary)
+                    Text(hint)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(BereanColor.textSecondary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            .frame(height: 52)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(text)
+        .accessibilityHint(hint)
     }
 
     // MARK: Quick-start chips (empty state)
@@ -421,10 +462,10 @@ struct BereanComposerTray: View {
             .background(
                 Capsule()
                     .fill(isActive
-                          ? Color.amenGold
+                          ? AnyShapeStyle(Color.amenGold)
                           : (reduceTransparency
-                             ? Color(uiColor: .secondarySystemBackground)
-                             : .ultraThinMaterial))
+                             ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground))
+                             : AnyShapeStyle(Material.ultraThinMaterial)))
                     .overlay(
                         Capsule()
                             .fill(isActive ? Color.clear : BereanColor.glassFill)
@@ -586,8 +627,8 @@ struct BereanComposerTray: View {
             .background(
                 Capsule()
                     .fill(reduceTransparency
-                          ? Color(uiColor: .secondarySystemBackground)
-                          : .ultraThinMaterial)
+                          ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground))
+                          : AnyShapeStyle(Material.ultraThinMaterial))
                     .overlay(
                         Capsule().fill(BereanColor.glassFill)
                     )

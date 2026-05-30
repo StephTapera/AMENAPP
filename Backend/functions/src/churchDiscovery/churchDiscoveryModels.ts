@@ -56,6 +56,7 @@ export interface GooglePlaceChurchCandidate {
     photos: Array<{ name: string; widthPx?: number; heightPx?: number }>;
     googleMapsUri: string | null;
     businessStatus: string | null;
+    semanticSimilarity?: number;
 }
 
 export interface AmenChurchProfileCandidate {
@@ -83,6 +84,7 @@ export interface AmenChurchProfileCandidate {
     safetyStatus: string | null;
     sourceAttribution: string[];
     completeness: number;
+    semanticSimilarity?: number;
 }
 
 export interface ChurchMatchScore {
@@ -139,6 +141,21 @@ export interface ChurchDiscoveryAuditEvent {
     googlePlaceId?: string | null;
     queryCategory?: string;
     createdAt?: FirebaseFirestore.FieldValue;
+}
+
+export interface ChurchDiscoveryFilters {
+    denomination?: string[];
+    tradition?: string[];
+    worshipStyle?: string[];
+    teachingStyle?: string[];
+    groupNeed?: string[];
+    accessibilityNeed?: string[];
+    language?: string[];
+    serviceTime?: string[];
+    distanceMiles?: number;
+    distancePreference?: DistancePreference;
+    mustHave?: string[];
+    avoid?: string[];
 }
 
 export const EMPTY_INTENT: ChurchSearchIntent = {

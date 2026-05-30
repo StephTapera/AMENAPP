@@ -236,8 +236,11 @@ class BreakTimeNotificationManager: ObservableObject {
             options: .customDismissAction
         )
         
-        center.setNotificationCategories([category])
-        dlog("✅ Daily inspiration notification categories configured")
+        // H-14 FIX: Route through NotificationCategoryRegistrar instead of calling
+        // setNotificationCategories directly, which would wipe categories registered by
+        // other services. The registrar merges all categories and applies the union.
+        NotificationCategoryRegistrar.shared.register([category])
+        dlog("✅ Daily inspiration notification categories configured via NotificationCategoryRegistrar")
     }
     
     // MARK: - Reminder Actions

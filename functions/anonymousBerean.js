@@ -6,10 +6,13 @@
 "use strict";
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const https = require("https");
 const admin = require("firebase-admin");
 const { logger } = require("firebase-functions");
 const { checkGlobalCircuitBreaker } = require("./globalCircuitBreaker");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const SYSTEM_PROMPT =
   "You are Berean, a knowledgeable biblical assistant. " +
@@ -23,7 +26,7 @@ const BUSY_ANSWER =
   "or sign in to the AMEN app for a dedicated Berean session.";
 
 const anonymousBereanQuery = onCall(
-  { maxInstances: 10, enforceAppCheck: true },
+  { maxInstances: 10, enforceAppCheck: true, secrets: [ANTHROPIC_API_KEY] },
   async (request) => {
     const { question } = request.data;
 
@@ -94,7 +97,7 @@ const anonymousBereanQuery = onCall(
       throw cbErr;
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = ANTHROPIC_API_KEY.value();
     if (!apiKey) {
       throw new HttpsError("unavailable", "AI service is not configured");
     }

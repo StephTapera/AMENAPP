@@ -479,6 +479,9 @@ class OpenAIService: ObservableObject {
         case .prayerCompanion: prompt += "\n\nMode: Prayer Companion. Be gentle, prayerful, devotional, and pastorally safe."
         case .deepStudy:   prompt += "\n\nMode: Deep Study. Be thorough, cite context, separate fact from interpretation, and flag uncertainty."
         case .discernment: prompt += "\n\nMode: Discernment. Offer balanced, wisdom-focused guidance; acknowledge complexity; help users weigh options carefully."
+        case .mediaInsight:     prompt += "\n\nMode: Media Insight. Summarize and evaluate media content for scriptural accuracy and spiritual value."
+        case .workLifeWisdom:   prompt += "\n\nMode: Work/Life Wisdom. Offer biblical wisdom for workplace and life challenges."
+        case .safetyReview:     prompt += "\n\nMode: Safety Review. Review content for shame, manipulation, or harmful spiritual counsel."
         }
 
         if let suffix, !suffix.isEmpty {

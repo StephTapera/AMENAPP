@@ -19,6 +19,30 @@ struct AmenPostCommunityHubPreview: Codable, Equatable, Identifiable {
     let privacyStateRaw: String
     let iconKind: String?
     let canonicalUrl: String?
+
+    // Maps Swift "Raw" suffix properties to the Firestore field names written by Admin SDK.
+    enum CodingKeys: String, CodingKey {
+        case hubId
+        case canonicalObjectId
+        case objectTypeRaw         = "objectType"
+        case title
+        case aggregateText
+        case actionText
+        case safetyStateRaw        = "safetyState"
+        case explicitContentStateRaw = "explicitContentState"
+        case privacyStateRaw       = "privacyState"
+        case iconKind
+        case canonicalUrl
+    }
+
+    /// True when PostCard should show the inline hub pill.
+    var isVisiblePreview: Bool {
+        safetyStateRaw != "blocked" &&
+        explicitContentStateRaw != "blocked" &&
+        privacyStateRaw == "public" &&
+        !hubId.isEmpty &&
+        !canonicalObjectId.isEmpty
+    }
 }
 
 /// Wires the post-publish community hub indexing path.

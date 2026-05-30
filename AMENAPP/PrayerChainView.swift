@@ -8,9 +8,13 @@
 import SwiftUI
 
 struct PrayerChainView: View {
+    // P0-11: prayerChains write rule is 'allow write: if false' — enable this flag when rules are deployed
+    @AppStorage("prayerChainsEnabled") private var prayerChainsEnabled: Bool = false
+
     @ObservedObject private var service = PrayerChainService.shared
     @State private var showCreateSheet = false
     @State private var selectedChain: PrayerChain?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -34,10 +38,12 @@ struct PrayerChainView: View {
                             .font(.systemScaled(18, weight: .bold))
                             .padding(.horizontal, 20)
 
-                        ForEach(service.myChains) { chain in
-                            PrayerChainCard(chain: chain)
-                                .onTapGesture { selectedChain = chain }
-                                .padding(.horizontal, 20)
+                        ForEach(service.myChains, id: \.id) { chain in
+                            Button(action: { selectedChain = chain }) {
+                                PrayerChainCard(chain: chain)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 20)
                         }
                     }
                 }
@@ -49,10 +55,12 @@ struct PrayerChainView: View {
                             .font(.systemScaled(18, weight: .bold))
                             .padding(.horizontal, 20)
 
-                        ForEach(service.activeChains.filter { !service.myChains.map(\.id).contains($0.id) }) { chain in
-                            PrayerChainCard(chain: chain)
-                                .onTapGesture { selectedChain = chain }
-                                .padding(.horizontal, 20)
+                        ForEach(service.activeChains.filter { !service.myChains.map(\.id).contains($0.id) }, id: \.id) { chain in
+                            Button(action: { selectedChain = chain }) {
+                                PrayerChainCard(chain: chain)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 20)
                         }
                     }
                 }
@@ -61,7 +69,7 @@ struct PrayerChainView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "link.circle.fill")
                             .font(.systemScaled(48))
-                            .foregroundStyle(.purple.opacity(0.5))
+                            .foregroundStyle(AmenTheme.Colors.amenPurple.opacity(0.5))
                         Text("No active prayer chains")
                             .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.secondary)
@@ -77,21 +85,24 @@ struct PrayerChainView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Button {
-                showCreateSheet = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                    Text("Start Prayer Chain")
+            // P0-11: gate write actions until prayerChains Firestore rules permit client writes
+            if prayerChainsEnabled {
+                Button {
+                    showCreateSheet = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                        Text("Start Prayer Chain")
+                    }
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(Capsule().fill(AmenTheme.Colors.amenPurple))
+                    .shadow(color: AmenTheme.Colors.amenPurple.opacity(0.3), radius: 8, y: 4)
                 }
-                .font(.systemScaled(16, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 14)
-                .background(Capsule().fill(Color.purple))
-                .shadow(color: .purple.opacity(0.3), radius: 8, y: 4)
+                .padding(.bottom, 20)
             }
-            .padding(.bottom, 20)
         }
         .onAppear { service.startListening() }
         .onDisappear { service.stopListening() }
@@ -116,7 +127,7 @@ struct PrayerChainCard: View {
             HStack(spacing: 10) {
                 Image(systemName: chain.category.icon)
                     .font(.systemScaled(16))
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(AmenTheme.Colors.amenPurple)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(chain.title)
@@ -142,7 +153,7 @@ struct PrayerChainCard: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color(.systemGray5))
-                        Capsule().fill(Color.purple)
+                        Capsule().fill(AmenTheme.Colors.amenPurple)
                             .frame(width: geo.size.width * progress)
                     }
                 }
@@ -155,9 +166,9 @@ struct PrayerChainCard: View {
 
             // Participant avatars
             HStack(spacing: -6) {
-                ForEach(chain.participants.prefix(5)) { participant in
+                ForEach(chain.participants.prefix(5), id: \.id) { participant in
                     Circle()
-                        .fill(participant.status == .completed ? Color.purple : Color(.systemGray4))
+                        .fill(participant.status == .completed ? AmenTheme.Colors.amenPurple : Color(.systemGray4))
                         .frame(width: 28, height: 28)
                         .overlay(
                             Text(String(participant.name.prefix(1)))
@@ -280,7 +291,7 @@ struct PrayerChainDetailSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Label(chain.category.rawValue, systemImage: chain.category.icon)
                             .font(.systemScaled(14, weight: .medium))
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(AmenTheme.Colors.amenPurple)
 
                         Text(chain.title)
                             .font(.systemScaled(24, weight: .bold))
@@ -305,7 +316,7 @@ struct PrayerChainDetailSheet: View {
                                 VStack(spacing: 0) {
                                     if index > 0 {
                                         Rectangle()
-                                            .fill(participant.status == .completed ? Color.purple : Color(.systemGray4))
+                                            .fill(participant.status == .completed ? AmenTheme.Colors.amenPurple : Color(.systemGray4))
                                             .frame(width: 2, height: 16)
                                     }
                                     Circle()
@@ -348,7 +359,7 @@ struct PrayerChainDetailSheet: View {
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(Capsule().fill(Color.purple))
+                                .background(Capsule().fill(AmenTheme.Colors.amenPurple))
                         }
                         .padding(.horizontal, 20)
                     }
@@ -368,7 +379,7 @@ struct PrayerChainDetailSheet: View {
 
     private func statusColor(_ status: ChainParticipant.ParticipantStatus) -> Color {
         switch status {
-        case .completed: return .purple
+        case .completed: return AmenTheme.Colors.amenPurple
         case .active: return .green
         case .waiting: return Color(.systemGray4)
         case .skipped: return .orange

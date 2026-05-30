@@ -138,7 +138,12 @@ final class SelahLocalStore {
         do {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
-            fatalError("SelahLocalStore: failed to initialize ModelContainer: \(error)")
+            let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            do {
+                container = try ModelContainer(for: schema, configurations: fallback)
+            } catch {
+                fatalError("SelahLocalStore: in-memory ModelContainer also failed: \(error)")
+            }
         }
     }
 

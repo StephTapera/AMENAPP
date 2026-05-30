@@ -20,8 +20,10 @@ async function getUserNotificationPreference(uid, key) {
  * Notifies all intercessors when a prayer is answered.
  */
 exports.onPrayerAnswered = onCall(async (request) => {
-  const { prayerPostId, testimonyPostId, authorId } = request.data;
-  if (!prayerPostId || !testimonyPostId || !authorId) {
+  if (!request.auth) throw new Error("Must be signed in");
+  const { prayerPostId, testimonyPostId } = request.data;
+  const authorId = request.auth.uid;
+  if (!prayerPostId || !testimonyPostId) {
     throw new Error("Missing required fields");
   }
 

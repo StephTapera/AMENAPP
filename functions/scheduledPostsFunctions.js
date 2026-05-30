@@ -97,4 +97,6 @@ const executeScheduledPosts = onSchedule(
     },
 );
 
-module.exports = {executeScheduledPosts};
+// Disabled: canonical scheduled post publisher is in mlContentPipeline.js (scheduledPostPublisherML)
+// module.exports = {executeScheduledPosts};
+module.exports = {};

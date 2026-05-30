@@ -15,11 +15,24 @@ enum BereanAttachmentPickerMode {
         case .camera: return "Capture Photo"
         }
     }
+
+    var analyticsName: String {
+        switch self {
+        case .file:   return "file"
+        case .photo:  return "photo"
+        case .camera: return "camera"
+        }
+    }
 }
 
 struct BereanAttachmentResult: Equatable {
     var displayName: String
     var promptPrefix: String
+    var contextText: String? = nil
+    var contentType: String? = nil
+    var byteCount: Int? = nil
+    var storagePath: String? = nil
+    var downloadURL: String? = nil
 }
 
 struct BereanAttachmentPickerSheet: View {

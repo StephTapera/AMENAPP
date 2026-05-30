@@ -14,6 +14,8 @@ import Combine
 enum VerificationType: String, Codable {
     case church         // Verified church/ministry (purple badge)
     case business       // Verified faith-based business/creator (orange badge)
+    case school         // Verified K-12 faith school (graduation cap badge)
+    case university     // Verified faith-based university/college (columns badge)
     case none           // Not verified or personal account
 }
 
@@ -113,16 +115,24 @@ struct VerifiedBadge: View {
     private var badgeColor: Color {
         switch type {
         case .church:
-            return Color.black // Black for churches
+            return Color.black
         case .business:
-            return Color(red: 0.85, green: 0.15, blue: 0.15) // Red for businesses
+            return Color(red: 0.85, green: 0.15, blue: 0.15)
+        case .school:
+            return Color(red: 0.20, green: 0.50, blue: 0.90)
+        case .university:
+            return Color(red: 0.28, green: 0.36, blue: 0.78)
         case .none:
-            return Color.black // Black (fallback, won't be shown)
+            return Color.black
         }
     }
-    
+
     private var iconName: String {
-        "checkmark.seal.fill"
+        switch type {
+        case .school:     return "graduationcap.fill"
+        case .university: return "building.columns.fill"
+        default:          return "checkmark.seal.fill"
+        }
     }
 }
 

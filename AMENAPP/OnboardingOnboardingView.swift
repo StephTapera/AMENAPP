@@ -136,12 +136,17 @@ struct OnboardingView: View {
         .sheet(isPresented: $showFirstPostPrompt) {
             ONBFirstPostSheet(isPresented: $showFirstPostPrompt)
         }
-        .alert("Something went wrong", isPresented: $showErrorAlert) {
-            Button("Try Again") { Task { await finishOnboarding() } }
-            Button("Skip", role: .cancel) { authViewModel.completeOnboarding() }
-        } message: {
-            Text(saveError ?? "Please check your connection and try again.")
-        }
+        .amenAlert(isPresented: $showErrorAlert, config: LiquidGlassAlertConfig(
+            title: "Something Went Wrong",
+            message: saveError ?? "Please check your connection and try again.",
+            icon: "wifi.slash",
+            primaryButton: LiquidGlassAlertButton("Try Again", tone: .primary) {
+                Task { await finishOnboarding() }
+            },
+            secondaryButton: LiquidGlassAlertButton("Skip", tone: .dismiss) {
+                authViewModel.completeOnboarding()
+            }
+        ))
     }
 
     // MARK: - Progress Bar

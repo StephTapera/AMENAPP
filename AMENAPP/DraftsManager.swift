@@ -145,8 +145,18 @@ class DraftsManager: ObservableObject {
         }
     }
     
+    // MARK: - Reset (call on sign-out to prevent cross-user draft leakage)
+
+    /// Clears all in-memory drafts and removes the persisted drafts from UserDefaults.
+    /// Leaves the singleton in the same state as after first init.
+    func reset() {
+        drafts.removeAll()
+        UserDefaults.standard.removeObject(forKey: draftsKey)
+        dlog("🧹 DraftsManager: drafts cleared on sign-out")
+    }
+
     // MARK: - Private Methods
-    
+
     private func saveDrafts() {
         if let encoded = try? JSONEncoder().encode(drafts) {
             UserDefaults.standard.set(encoded, forKey: draftsKey)

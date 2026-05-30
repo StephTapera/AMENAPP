@@ -15,16 +15,18 @@
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
-import Stripe from "stripe";
+import { defineSecret } from "firebase-functions/params";
+import Stripe = require("stripe");
+import type { StripePaymentIntent, StripeInvoice, StripeMetadataParam } from "../stripeHelper";
 
+const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const db = admin.firestore();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function stripeClient(): Stripe {
-    const key = process.env.STRIPE_SECRET_KEY;
+function stripeClient(key: string) {
     if (!key) throw new HttpsError("internal", "Stripe secret key not configured.");
-    return new Stripe(key, { apiVersion: "2024-06-20" });
+    return new Stripe(key, { apiVersion: "2026-05-27.dahlia" });
 }
 
 async function getConnectAccountId(communityId: string): Promise<string> {
@@ -55,7 +57,7 @@ async function getConnectAccountId(communityId: string): Promise<string> {
 // The webhook (stripeWebhookEntitlementHandler) fires after confirmation and
 // writes the entitlement document.
 
-export const purchaseSpaceAccess = onCall(async (request) => {
+export const purchaseSpaceAccess = onCall({ secrets: [stripeSecretKey] }, async (request) => {
     const callerUid = request.auth?.uid;
     if (!callerUid) {
         throw new HttpsError("unauthenticated", "Authentication required.");
@@ -117,9 +119,9 @@ export const purchaseSpaceAccess = onCall(async (request) => {
     // Fetch owning community's Connect account
     const connectAccountId = await getConnectAccountId(communityId);
 
-    const stripe = stripeClient();
+    const stripe = stripeClient(stripeSecretKey.value());
     const currency = priceConfig.currency.toLowerCase();
-    const metadataBase: Stripe.MetadataParam = {
+    const metadataBase: StripeMetadataParam = {
         spaceId,
         userId,
         communityId,
@@ -207,8 +209,8 @@ export const purchaseSpaceAccess = onCall(async (request) => {
         );
 
         // Extract client_secret from the expanded latest_invoice.payment_intent
-        const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null;
-        const paymentIntent = latestInvoice?.payment_intent as Stripe.PaymentIntent | null;
+        const latestInvoice = subscription.latest_invoice as unknown as (StripeInvoice & { payment_intent?: StripePaymentIntent | null }) | null;
+        const paymentIntent = latestInvoice?.payment_intent ?? null;
         const clientSecret = paymentIntent?.client_secret;
 
         if (!clientSecret) {

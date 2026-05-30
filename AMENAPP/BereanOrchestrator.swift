@@ -318,7 +318,7 @@ struct OrchestratorResponse {
 /// Central AI routing singleton.
 /// All AI requests in the app must go through here — not directly to providers.
 @MainActor
-final class BereanOrchestrator {
+final class BereanOrchestrator: ObservableObject {
     static let shared = BereanOrchestrator()
 
     private lazy var functions = Functions.functions()

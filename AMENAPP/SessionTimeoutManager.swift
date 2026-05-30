@@ -855,9 +855,7 @@ private func makeDiscs(in size: CGSize) -> [DiscConfig] {
 /// with the 3-dot loading indicator appearing below after a short delay.
 /// This is the only launch screen — there is no separate WelcomeScreenView overlay.
 struct AppLoadingScreen: View {
-    @State private var logoOpacity: Double = 0
-    @State private var logoScale: CGFloat = 0.85
-    @State private var taglineOpacity: Double = 0
+    @State private var logoScale: CGFloat = 0.92
     @State private var dotsOpacity: Double = 0
 
     var body: some View {
@@ -867,26 +865,24 @@ struct AppLoadingScreen: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Logo
+                // Logo — visible immediately to avoid blank-white perception
                 Image("amen-logo")
                     .resizable()
                     .renderingMode(.original)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 90, height: 90)
-                    .opacity(logoOpacity)
                     .scaleEffect(logoScale)
 
-                // Tagline
+                // Tagline — visible immediately
                 Text("Social Media, Re-ordered")
                     .font(.systemScaled(13, weight: .light))
                     .tracking(2)
                     .foregroundStyle(.secondary)
                     .padding(.top, 16)
-                    .opacity(taglineOpacity)
 
                 Spacer()
 
-                // Infinity loader + status text — adapts to color scheme automatically
+                // Loader fades in after a brief moment
                 VStack(spacing: 12) {
                     AMENLoader(size: 72, caption: "loading")
                 }
@@ -896,17 +892,10 @@ struct AppLoadingScreen: View {
         }
         .ignoresSafeArea()
         .onAppear {
-            // Logo fades in immediately
-            withAnimation(.easeOut(duration: 0.35)) {
-                logoOpacity = 1.0
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
                 logoScale = 1.0
             }
-            // Tagline fades in slightly after logo
-            withAnimation(.easeOut(duration: 0.3).delay(0.2)) {
-                taglineOpacity = 1.0
-            }
-            // Dots fade in quickly so user sees loading feedback immediately
-            withAnimation(.easeIn(duration: 0.2).delay(0.15)) {
+            withAnimation(.easeIn(duration: 0.2).delay(0.1)) {
                 dotsOpacity = 1.0
             }
         }

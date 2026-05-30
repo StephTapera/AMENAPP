@@ -173,6 +173,46 @@ struct ReplyActivityAttributes: Codable, Hashable {
     }
 }
 
+// MARK: - 5. Prayer Session (Live Activity for active group prayer)
+
+#if canImport(ActivityKit)
+import ActivityKit
+
+@available(iOS 16.2, *)
+struct PrayerSessionAttributes: ActivityAttributes {
+    struct ContentState: Codable, Hashable {
+        var prayerTitle: String
+        var elapsedMinutes: Int
+        var participantCount: Int
+        var isChurchMode: Bool
+    }
+
+    let prayerTopic: String
+    let groupName: String
+}
+#endif
+
+// MARK: - End Prayer Session Intent (used by Live Activity button)
+
+import AppIntents
+
+@available(iOS 16.2, *)
+struct EndPrayerSessionIntent: AppIntent {
+    static let title: LocalizedStringResource = "End Prayer Session"
+    static let description = IntentDescription("Ends your active prayer session.")
+
+    func perform() async throws -> some IntentResult {
+        #if canImport(ActivityKit)
+        if #available(iOS 16.2, *) {
+            for activity in Activity<PrayerSessionAttributes>.activities {
+                await activity.end(dismissalPolicy: .immediate)
+            }
+        }
+        #endif
+        return .result()
+    }
+}
+
 // MARK: - ActivityAttributes conformances (available wherever ActivityKit is linked)
 
 #if canImport(ActivityKit)

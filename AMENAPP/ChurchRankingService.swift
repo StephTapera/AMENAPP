@@ -114,6 +114,11 @@ final class ChurchRankingService: ObservableObject {
         startUserContextListener()
     }
 
+    deinit {
+        listeners.values.forEach { $0.remove() }
+        userContextListener?.remove()
+    }
+
     func observe(church: Church) {
         let key = church.id.uuidString
         guard listeners[key] == nil else { return }

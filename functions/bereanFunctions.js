@@ -165,13 +165,53 @@ function requireAuth(request) {
   }
 }
 
+/**
+ * Shared rate limiter for ALL Berean AI endpoints (proxy + legacy).
+ * Counts every call against the same Firestore quota so legacy endpoints
+ * cannot be used to amplify cost beyond what bereanChatProxy allows.
+ * Hourly: 30 calls/user/hour  |  Daily: 100 calls/user/day.
+ * @param {string} uid
+ * @param {FirebaseFirestore.Firestore} db
+ */
+async function checkSharedBereanRateLimit(uid, db) {
+  const hourKey = new Date().toISOString().slice(0, 13);
+  const usageRef = db.doc(`users/${uid}/bereanUsage/${hourKey}`);
+  const usageSnap = await usageRef.get();
+  const count = usageSnap.exists ? (usageSnap.data().count ?? 0) : 0;
+  if (count >= 30) {
+    throw new HttpsError("resource-exhausted", "Berean usage limit reached. Please try again later.");
+  }
+  await usageRef.set({count: count + 1}, {merge: true});
+
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const dailyRef = db.doc(`users/${uid}/aiUsage/berean`);
+  const dailySnap = await dailyRef.get();
+  const dailyData = dailySnap.exists ? dailySnap.data() : {};
+  const storedDay = dailyData.dailyKey ?? "";
+  const dailyCalls = storedDay === dayKey ? (dailyData.dailyCalls ?? 0) : 0;
+  if (dailyCalls >= 100) {
+    throw new HttpsError("resource-exhausted", "Daily Berean usage limit reached. Try again tomorrow.");
+  }
+  if (storedDay !== dayKey) {
+    await dailyRef.set({dailyKey: dayKey, dailyCalls: 1}, {merge: true});
+  } else {
+    await dailyRef.update({dailyCalls: admin.firestore.FieldValue.increment(1)});
+  }
+}
+
 // ─── BIBLE Q&A ────────────────────────────────────────────────────────────────
 
 exports.bereanBibleQA = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth.uid;
+      const db = admin.firestore();
+      await checkSharedBereanRateLimit(uid, db);
       const {prompt, maxTokens = 600} = request.data;
+
+      const inputGuard = validateInput(prompt, uid, "ask");
+      if (!inputGuard.safe) return makeResponse(INJECTION_BLOCK_RESPONSE, "blocked", "guardrail");
 
       const system = `You are Berean, a knowledgeable, humble biblical AI assistant for the AMEN faith community app.
 Answer biblical questions with care, grace, and scriptural grounding.
@@ -214,7 +254,13 @@ exports.bereanMoralCounsel = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth.uid;
+      const db = admin.firestore();
+      await checkSharedBereanRateLimit(uid, db);
       const {prompt, maxTokens = 600} = request.data;
+
+      const inputGuard = validateInput(prompt, uid, "ask");
+      if (!inputGuard.safe) return makeResponse(INJECTION_BLOCK_RESPONSE, "blocked", "guardrail");
 
       const system = `You are Berean, a compassionate pastoral AI for the AMEN faith community.
 Offer thoughtful, biblically-grounded moral guidance with empathy and grace.
@@ -234,7 +280,13 @@ exports.bereanBusinessQA = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth.uid;
+      const db = admin.firestore();
+      await checkSharedBereanRateLimit(uid, db);
       const {prompt, maxTokens = 500} = request.data;
+
+      const inputGuard = validateInput(prompt, uid, "ask");
+      if (!inputGuard.safe) return makeResponse(INJECTION_BLOCK_RESPONSE, "blocked", "guardrail");
 
       const system = `You are Berean, a faith-integrated business and technology advisor.
 Help believers integrate their faith into professional and entrepreneurial decisions.
@@ -732,6 +784,7 @@ exports.bereanChatProxy = onCall(
       secrets: [ANTHROPIC_API_KEY],
       enforceAppCheck: true,
       minInstances: 1,
+      timeoutSeconds: 120,
     },
     async (request) => {
       if (!request.auth) {
@@ -777,7 +830,9 @@ exports.bereanChatProxy = onCall(
       }
 
       // ── Input size limits ─────────────────────────────────────────────────
-      if (userMessage.length > 4000) {
+      // Use spread-to-array to count Unicode code points, not UTF-16 code units.
+      // .length undercounts multibyte characters (emoji, CJK, etc.).
+      if ([...userMessage].length > 4000) {
         throw new HttpsError("invalid-argument", "Message too long. Please keep messages under 4000 characters.");
       }
 

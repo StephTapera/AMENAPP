@@ -27,7 +27,9 @@ final class VisitPlanningService: ObservableObject {
             activePlans = snap.documents.compactMap {
                 try? Firestore.Decoder().decode(ChurchVisitPlan.self, from: $0.data())
             }
-        } catch {}
+        } catch {
+            print("[ERROR] VisitPlanningService.loadPlans: \(error)")
+        }
     }
 
     func createPlan(church: SmartChurchSummary, serviceTime: SmartChurchServiceTime) async throws -> ChurchVisitPlan {

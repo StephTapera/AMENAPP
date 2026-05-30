@@ -154,6 +154,16 @@ enum ImportCandidateSourceType: String, Codable {
         case .note:   return "note.text"
         }
     }
+
+    var displayLabel: String {
+        switch self {
+        case .post:   return "Post"
+        case .reel:   return "Reel"
+        case .story:  return "Story"
+        case .thread: return "Thread"
+        case .note:   return "Note"
+        }
+    }
 }
 
 // MARK: - BereanImportClassification

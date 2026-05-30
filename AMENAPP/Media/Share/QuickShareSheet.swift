@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 
 struct QuickShareFriend: Identifiable {
     let id: String
@@ -15,14 +16,24 @@ struct QuickShareSheet: View {
     @State private var friends: [QuickShareFriend] = []
     @State private var selectedIds: Set<String> = []
     @State private var message = ""
+    @State private var showSystemShare = false
     @FocusState private var messageFocused: Bool
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var shareURL: URL {
+        URL(string: "https://amen.app/media/\(mediaId)") ?? URL(string: "https://amen.app")!
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 friendsRow
+                    .padding(.vertical, 16)
+
+                Divider()
+
+                actionsRow
                     .padding(.vertical, 16)
 
                 Divider()
@@ -50,11 +61,17 @@ struct QuickShareSheet: View {
                 }
             }
         }
-        .presentationDetents([.fraction(0.55)])
+        .presentationDetents([.fraction(0.65)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(28)
-        .presentationBackground(.regularMaterial)
+        .presentationBackground(.ultraThinMaterial)
         .task { await loadFriends() }
+        .background {
+            if showSystemShare {
+                SystemSharePresenter(items: [shareURL], isPresented: $showSystemShare)
+                    .frame(width: 0, height: 0)
+            }
+        }
     }
 
     private var friendsRow: some View {
@@ -100,6 +117,56 @@ struct QuickShareSheet: View {
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
+    private var actionsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 20) {
+                actionButton(icon: "link", label: "Copy Link") {
+                    UIPasteboard.general.string = shareURL.absoluteString
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+                actionButton(icon: "square.and.arrow.up", label: "Share") {
+                    showSystemShare = true
+                }
+                actionButton(icon: "message.fill", label: "iMessage") {
+                    let smsURL = URL(string: "sms:&body=\(shareURL.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")
+                    if let url = smsURL, UIApplication.shared.canOpenURL(url) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                actionButton(icon: "paperplane.fill", label: "Send") {
+                    guard !selectedIds.isEmpty else { return }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    onShared(Array(selectedIds), message)
+                    isPresented = false
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
+    private func actionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .overlay { Circle().fill(Color.white.opacity(0.12)) }
+                        .overlay { Circle().strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5) }
+                        .overlay { Circle().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.6) }
+                        .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
+                        .frame(width: 56, height: 56)
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(.primary)
+                }
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
     private var messageField: some View {
         TextField("Add a message...", text: $message)
             .textFieldStyle(.plain)
@@ -118,9 +185,41 @@ struct QuickShareSheet: View {
 
     @MainActor
     private func loadFriends() async {
-        // Stub: return placeholder friends until real Firestore query is wired
-        friends = (1...8).map { i in
-            QuickShareFriend(id: "user_\(i)", displayName: "Friend \(i)", avatarURL: nil)
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let profiles = (try? await FollowService.shared.fetchFollowing(userId: uid)) ?? []
+        if profiles.isEmpty {
+            // Fallback: show people the current user follows by ID set
+            friends = FollowService.shared.following.prefix(20).map { uid in
+                QuickShareFriend(id: uid, displayName: uid, avatarURL: nil)
+            }
+        } else {
+            friends = profiles.prefix(20).map { profile in
+                QuickShareFriend(
+                    id: profile.id,
+                    displayName: profile.displayName,
+                    avatarURL: profile.profileImageURL.flatMap(URL.init)
+                )
+            }
         }
+    }
+}
+
+// MARK: - System Share Sheet Presenter
+
+private struct SystemSharePresenter: UIViewControllerRepresentable {
+    let items: [Any]
+    @Binding var isPresented: Bool
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        UIViewController()
+    }
+
+    func updateUIViewController(_ uiVC: UIViewController, context: Context) {
+        guard isPresented, uiVC.presentedViewController == nil else { return }
+        let shareVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        shareVC.completionWithItemsHandler = { _, _, _, _ in
+            isPresented = false
+        }
+        uiVC.present(shareVC, animated: true)
     }
 }

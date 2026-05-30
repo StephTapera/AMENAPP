@@ -158,30 +158,32 @@ struct SpacesListView: View {
                     // "Continue Studying" rail — surfaces bible study Spaces at the top
                     let studySpaces = viewModel.spaces.filter { $0.type == .bibleStudy }
                     if !studySpaces.isEmpty {
-                        SpaceRailView(title: "Continue Studying", items: studySpaces) { space in
-                            AMENGlassCard(
-                                width: 160,
-                                height: 100,
-                                tintColor: AmenTheme.Colors.amenGold
-                            ) {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Image(systemName: "book.fill")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(AmenTheme.Colors.amenGold)
-                                    Text(space.title)
-                                        .font(.caption.bold())
-                                        .foregroundStyle(AmenTheme.Colors.textPrimary)
-                                        .lineLimit(2)
+                        if #available(iOS 26.0, *) {
+                            SpaceRailView(title: "Continue Studying", items: studySpaces) { space in
+                                AMENGlassCard(
+                                    width: 160,
+                                    height: 100,
+                                    tintColor: AmenTheme.Colors.amenGold
+                                ) {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Image(systemName: "book.fill")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(AmenTheme.Colors.amenGold)
+                                        Text(space.title)
+                                            .font(.caption.bold())
+                                            .foregroundStyle(AmenTheme.Colors.textPrimary)
+                                            .lineLimit(2)
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                                 }
-                                .padding(12)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                .onTapGesture {
+                                    Task { await handleTap(space) }
+                                }
                             }
-                            .onTapGesture {
-                                Task { await handleTap(space) }
-                            }
+                            .padding(.top, 12)
+                            .padding(.bottom, 4)
                         }
-                        .padding(.top, 12)
-                        .padding(.bottom, 4)
                     }
 
                     LazyVStack(spacing: 10) {

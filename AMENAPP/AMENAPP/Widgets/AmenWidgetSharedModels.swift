@@ -13,19 +13,6 @@
 import Foundation
 import WidgetKit
 
-// Private dlog shim — file-scoped so it compiles in both the main app and the
-// Widget Extension without conflicting with the global dlog in DebugLog.swift.
-@inline(__always)
-private func dlog(
-    _ message: @autoclosure () -> String,
-    file: StaticString = #file,
-    line: UInt = #line
-) {
-    #if DEBUG
-    print("[Widget]", message())
-    #endif
-}
-
 // MARK: - Shared Data Models
 
 /// Lightweight verse model persisted to the App Group UserDefaults

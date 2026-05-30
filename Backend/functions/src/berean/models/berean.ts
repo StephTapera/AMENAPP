@@ -25,7 +25,15 @@ export type ResponseMode =
   | "crisis"
   | "exploratory"
   | "prayer_support"
-  | "balanced";
+  | "balanced"
+  // Extended modes used by responseModePrompt.ts
+  | "deep_exegesis"
+  | "study"
+  | "gentle_pastoral"
+  | "prayerful_reflection"
+  | "crisis_safe"
+  | "leadership_redirect"
+  | "short_grounding";
 
 export type SensitivityFlag =
   | "divine_authority_assertion"
@@ -34,7 +42,15 @@ export type SensitivityFlag =
   | "crisis_escalation"
   | "controversial_doctrine"
   | "minor_user"
-  | "scrupulosity_risk";
+  | "scrupulosity_risk"
+  // Extended flags used by sensitiveTopicPolicy.ts
+  | "self_harm"
+  | "suicidal_language"
+  | "abuse"
+  | "spiritual_abuse"
+  | "medical"
+  | "legal"
+  | "doctrinal_conflict";
 
 export interface SpiritualStateSignals {
   emotionalIntensity: number;     // 0–1
@@ -50,6 +66,7 @@ export interface SpiritualStateClassification {
   primaryState: SpiritualPrimaryState;
   signals: SpiritualStateSignals;
   selectedResponseMode: ResponseMode;
+  sensitivityFlags?: SensitivityFlag[];
   escalationTriggered: boolean;
   escalationReason?: string;
   sessionId: string;
@@ -278,4 +295,139 @@ export interface StudyPassageRequest {
   includeWordStudy?: boolean;
   includeChristConnection?: boolean;
   includeImmersionMode?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Conversation / Message
+// ---------------------------------------------------------------------------
+
+export interface BereanMessage {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: FirebaseFirestore.Timestamp;
+}
+
+export interface BereanConversation {
+  id: string;
+  userId: string;
+  title: string;
+  currentMode: "chat" | "study" | "prayer" | "discipleship";
+  lastMessageAt: FirebaseFirestore.Timestamp;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// Discipleship Profile / Practice
+// ---------------------------------------------------------------------------
+
+export interface DiscipleshipProfile {
+  userId: string;
+  totalStudySessions: number;
+  lastStudiedBook?: string;
+  currentGrowthPath?: string;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface PracticeRecommendation {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  category: "prayer" | "study" | "community" | "service" | "rest";
+  status: "open" | "completed" | "dismissed";
+  sourceSessionId?: string;
+  createdAt: FirebaseFirestore.Timestamp;
+}
+
+export interface ReflectionEntry {
+  id: string;
+  userId: string;
+  passageReference?: string;
+  reflectionText?: string;
+  text?: string;
+  title?: string;
+  mood?: string;
+  conversationId?: string;
+  passageIds?: string[];
+  themeIds?: string[];
+  privacyLevel?: "private" | "shareable_with_leader";
+  sourceType?: "study" | "immersion" | "follow_up" | "manual";
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt?: FirebaseFirestore.Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// Safety Event
+// ---------------------------------------------------------------------------
+
+export interface BereanSafetyEvent {
+  id: string;
+  userId: string;
+  conversationId: string;
+  messageId?: string;
+  eventType: "crisis_detected" | "authority_violation" | "sensitivity_flag" | "escalation";
+  flagsTriggered: SensitivityFlag[];
+  actionTaken: "crisis_card_shown" | "leadership_referral_created" | "response_patched" | "logged_only";
+  generatedAt: FirebaseFirestore.Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// LLM Output
+// ---------------------------------------------------------------------------
+
+export type TopicClass =
+  | "scripture_study"
+  | "prayer"
+  | "doctrine"
+  | "pastoral_care"
+  | "crisis"
+  | "general"
+  | "off_topic"
+  | "suicidality"
+  | "abuse_disclosure"
+  | "medical_override"
+  | "legal_conflict"
+  | "church_conflict"
+  | "major_life_decision"
+  | "doctrinal_dispute"
+  | "pastoral_discernment";
+
+export interface LLMStudyCard {
+  type: string;
+  title: string;
+  body: string;
+  scriptureRef?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface LLMStructuredOutput {
+  answerText: string;
+  responseMode: ResponseMode;
+  scriptureReferences?: string[];
+  studyCards: LLMStudyCard[];
+  reflectionPrompts: string[];
+  prayerPrompt?: string | null;
+  leadershipPrompt?: {
+    show?: boolean;
+    title?: string;
+    body: string;
+    targetTypes?: string[];
+  };
+  sensitivitySummary?: {
+    primaryState: string;
+    sensitivityFlags: string[];
+    topicClass: TopicClass | null;
+  };
+  suggestedNextActions?: Array<{
+    type: string;
+    label: string;
+    payload: Record<string, unknown>;
+  }>;
+  confidenceNotes?: Record<string, unknown>;
+  doctrinalConfidence: number;
+  anchorPassage?: string;
+  followUpSuggestion?: string;
 }

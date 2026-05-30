@@ -24,7 +24,7 @@ const PINECONE_API_KEY  = defineSecret("PINECONE_API_KEY");
 const OPENAI_API_KEY    = defineSecret("OPENAI_API_KEY");
 
 const ALGOLIA_INDEX       = "community_notes";
-const PINECONE_INDEX_HOST = process.env.PINECONE_INDEX_HOST ?? "";
+const PINECONE_INDEX_HOST = process.env.PINECONE_NOTES_INDEX_HOST ?? "";
 const PINECONE_NAMESPACE  = "community_notes";
 const EMBEDDING_MODEL     = "text-embedding-3-small";
 

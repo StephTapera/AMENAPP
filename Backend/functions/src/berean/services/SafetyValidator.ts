@@ -106,6 +106,7 @@ function buildSafeFallbackResponse(violations: string[]): LLMStructuredOutput {
     answerText: hasCrisis
       ? "I want to make sure you're supported right now. Please reach out to a pastor, counselor, or trusted person. If you're in immediate danger, please contact emergency services. You are not alone."
       : "I want to make sure I'm answering you faithfully and humbly. For this topic, I'd encourage you to bring it to your pastor or a trusted mentor who knows you and your situation. Scripture is the foundation, and wise human leadership is a gift God has provided for moments like these.",
+    responseMode: hasCrisis ? "crisis" : "balanced",
     scriptureReferences: hasCrisis ? ["Psalm 34:18", "Matthew 11:28"] : ["Proverbs 11:14", "Proverbs 15:22"],
     studyCards: [],
     reflectionPrompts: hasCrisis
@@ -134,6 +135,7 @@ function buildSafeFallbackResponse(violations: string[]): LLMStructuredOutput {
       containsInterpretiveCaution: true,
       containsLeadershipRedirect: true,
     },
+    doctrinalConfidence: 0,
   };
 }
 

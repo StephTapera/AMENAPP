@@ -8,6 +8,8 @@ struct OpenTableView: View {
     @ObservedObject private var caughtUpService = CaughtUpService.shared
     @ObservedObject private var firebasePostService = FirebasePostService.shared
     @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
+    @State private var showPersonalizationToast = false
     @State private var showingOlderPosts = false   // true after user taps "View older posts"
     @State private var isRefreshing = false
     @State private var personalizedPosts: [Post] = []
@@ -35,10 +37,50 @@ struct OpenTableView: View {
 
     // Phase 4: Cancel in-flight ranking when new posts arrive to avoid stale reorder jank.
     @State private var personalizationTask: Task<Void, Never>?
+    @State private var countingDelayTask: Task<Void, Never>?
+    // S3-7: Debounce rapid post-count changes so personalization fires at most once per 500ms.
+    @State private var personalizationDebounceTask: Task<Void, Never>?
 
     // Network error state
     @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
     @State private var showOfflineBanner = false
+
+    // MARK: - Feed Filter
+    @State private var showFeedFilter = false
+    @AppStorage("openTable.contentFilter") private var feedContentFilter: String = "all"
+    @AppStorage("openTable.feedMode") private var feedMode: String = "personalized"
+    @AppStorage("openTable.sortOrder") private var feedSortOrder: String = "newest"
+
+    private var feedSelectionMap: Binding<[String: String]> {
+        Binding(
+            get: {
+                ["main": feedContentFilter, "Feed Mode": feedMode, "Sort": feedSortOrder]
+            },
+            set: { newMap in
+                if let v = newMap["main"]       { feedContentFilter = v }
+                if let v = newMap["Feed Mode"]  { feedMode = v }
+                if let v = newMap["Sort"]       { feedSortOrder = v }
+            }
+        )
+    }
+
+    private var feedFilterSections: [AmenFilterSection] {
+        [
+            AmenFilterSection(header: nil, options: [
+                AmenFilterOption(id: "all",          label: "All Posts",       icon: "rectangle.stack"),
+                AmenFilterOption(id: "testimonies",  label: "Testimonies",     icon: "star"),
+                AmenFilterOption(id: "prayer",       label: "Prayer",          icon: "hands.sparkles"),
+                AmenFilterOption(id: "following",    label: "Following Only",  icon: "person.2"),
+            ]),
+            AmenFilterSection(header: "Feed Mode", options: [
+                AmenFilterOption(id: "personalized", label: "Personalized",    icon: "wand.and.stars"),
+            ]),
+            AmenFilterSection(header: "Sort", options: [
+                AmenFilterOption(id: "newest",       label: "Newest First",    icon: "arrow.down.circle"),
+                AmenFilterOption(id: "chron",        label: "Chronological",   icon: "clock"),
+            ]),
+        ]
+    }
 
     @Environment(\.tabBarVisible) private var tabBarVisible
     
@@ -55,24 +97,31 @@ struct OpenTableView: View {
             .padding(.top, 56)
             .zIndex(10)
 
+            ScrollView {
             VStack(alignment: .leading, spacing: 20) {
             // Header Section (cleaned up - removed grey icon and divider)
                 if showHeader {
                     VStack(alignment: .leading, spacing: 4) {
                         
                         HStack {
-                            Text("#OPENTABLE")
+                            (Text("#")
+                                .foregroundStyle(AmenTheme.Colors.amenPurple)
+                             + Text("OPENTABLE")
+                                .foregroundStyle(Color.primary))
                                 .font(AMENFont.bold(24))
-                                .foregroundStyle(.primary)
-                            
+
                             Spacer()
-                            
+
                             // Refresh indicator
                             if isRefreshing {
                                 AMENLoader.inline
+                                    .padding(.trailing, 4)
                             }
+
+                            // Feed filter button
+                            AmenFilterButton(isShowing: $showFeedFilter)
                         }
-                        
+
                         Text("Gather. Share. Grow.")
                             .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
@@ -81,7 +130,12 @@ struct OpenTableView: View {
                     .padding(.vertical, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                
+
+                // CONTEXTUAL EXPERIENCE BANNER — shown when resolver finds an active experience
+                if AMENFeatureFlags.shared.contextualExperiencesEnabled {
+                    ExperienceResolverBannerWrapper()
+                }
+
                 // Daily Verse Banner — show optimistically while prefs load (both default to true).
                 // Only hide after load if the user has explicitly turned it off.
                 if !prefsService.isLoaded || (prefsService.preferences.widgetsEnabled && prefsService.preferences.dailyVerseWidgetEnabled) {
@@ -99,10 +153,10 @@ struct OpenTableView: View {
                     .padding(.top, 4)
 
                 // Feed Section - Dynamic posts from PostsManager (Trending section removed)
-                // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
-                // The parent ScrollView in ContentView handles the scrolling.
-                VStack(spacing: 0) {
-                    let allPosts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts
+                LazyVStack(spacing: 0) {
+                    // S3-5: Strip soft-deleted (removed) posts before display.
+                    let allPosts = (hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts)
+                        .filter { $0.isEligibleForFeedDisplay }
                     let displayPosts = Array(allPosts.prefix(visiblePostCount))
 
                     // Skeleton loader during initial data fetch (before first posts arrive)
@@ -114,8 +168,11 @@ struct OpenTableView: View {
                     ForEach(Array(displayPosts.enumerated()), id: \.element.id) { index, post in
                         feedPostItem(post: post, index: index, displayPosts: displayPosts)
 
-                        // "Suggested for you" rail — injected after the 3rd post, non-intrusive
-                        if index == 2 {
+                        // "Suggested for you" rail — injected at the index set by the feature
+                        // flag (default: after 2nd post, i.e. index == 2). Hidden entirely when
+                        // suggestedFollowsEnabled is off in Remote Config.
+                        let railIndex = max(0, featureFlags.suggestedRailInsertionIndex - 1)
+                        if featureFlags.suggestedFollowsEnabled && index == railIndex {
                             FeedPostDivider()
                             OpenTableSuggestedRailView()
                                 .background(Color(.systemBackground))
@@ -229,7 +286,10 @@ struct OpenTableView: View {
             showingOlderPosts = false
             // Allow initial render to complete, then enable counting
             // Cards only count once userHasScrolled is also true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            countingDelayTask?.cancel()
+            countingDelayTask = Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                guard !Task.isCancelled else { return }
                 sessionCountingEnabled = true
             }
             // Reset seen-post session and reload Firestore seed
@@ -249,6 +309,8 @@ struct OpenTableView: View {
             // state mutation after the view leaves the hierarchy.
             personalizationTask?.cancel()
             personalizationTask = nil
+            countingDelayTask?.cancel()
+            countingDelayTask = nil
         }
         .fullScreenCover(isPresented: $showSessionStopScreen) {
             FeedSessionStopScreen(
@@ -260,7 +322,10 @@ struct OpenTableView: View {
                     userHasScrolled = false
                     initiallyVisiblePostIds = []
                     initialScrollY = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    countingDelayTask?.cancel()
+                    countingDelayTask = Task {
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        guard !Task.isCancelled else { return }
                         sessionCountingEnabled = true
                     }
                 },
@@ -284,9 +349,20 @@ struct OpenTableView: View {
                 }
             }
             
-            // Only re-personalize if there are new posts
-            if oldValue != newValue {
-                personalizeFeeds()
+            // PERF FIX: Skip re-personalization on the initial 0→N load event.
+            // The .task block already calls personalizeFeeds() after loadInterests().
+            // Firing it here too would race the Cloud Run ranking call (3-second timeout)
+            // against first paint and cause a concurrent ranked-array replacement that
+            // jumps the scroll position. Re-personalize only for subsequent live updates
+            // after the initial skeleton has dissolved.
+            // S3-7: Debounce so rapid burst writes don't each trigger a Cloud Run call.
+            if oldValue != newValue && !isInitialLoad {
+                personalizationDebounceTask?.cancel()
+                personalizationDebounceTask = Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
+                    guard !Task.isCancelled else { return }
+                    personalizeFeeds()
+                }
             }
             // Update the 72-hour window for caught-up detection
             let cutoff = Date().addingTimeInterval(-72 * 3600)
@@ -330,6 +406,12 @@ struct OpenTableView: View {
             // Haptic feedback for instant confirmation
             HapticManager.notification(type: .success)
         }
+        // P2 FIX: When the user follows someone from any screen, re-run feed
+        // personalization so the newly followed author's posts get boosted immediately.
+        .onReceive(NotificationCenter.default.publisher(for: .followRelationshipChanged)) { _ in
+            feedAlgorithm.followingIds = FollowService.shared.following
+            if !isInitialLoad { personalizeFeeds() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .scrollBudget50Reached)) { _ in
             show50Banner = true
         }
@@ -343,11 +425,55 @@ struct OpenTableView: View {
         .onReceive(NotificationCenter.default.publisher(for: .scrollBudgetLocked)) { _ in
             showLocked = true
         }
-            
+        .onReceive(NotificationCenter.default.publisher(for: .feedSuggestionsPersonalized)) { _ in
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                showPersonalizationToast = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    showPersonalizationToast = false
+                }
+            }
+        }
+
             // 50% usage banner (top overlay)
             if show50Banner {
                 ScrollBudget50Banner()
             }
+
+            // Personalization toast — shown when user follows 3+ people from suggestions
+            if showPersonalizationToast {
+                VStack {
+                    HStack(spacing: 10) {
+                        Image(systemName: "sparkles")
+                            .font(.systemScaled(14, weight: .semibold))
+                            .foregroundStyle(AmenTheme.Colors.amenGold)
+                        Text("Your feed is being personalized")
+                            .font(AMENFont.semiBold(13))
+                            .foregroundStyle(.primary)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.amenGold.opacity(0.25), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    Spacer()
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(20)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Your feed is being personalized")
+            }
+        }
+        } // end ScrollView
+        .refreshable {
+            await refreshOpenTable()
         }
         .sheet(isPresented: $show80Suggestion) {
             ScrollBudget80Suggestion()
@@ -362,6 +488,31 @@ struct OpenTableView: View {
             CreatePostView(initialCategory: selectedPostCategory)
                 .presentationBackground(.regularMaterial)
                 .presentationDragIndicator(.visible)
+        }
+        // Feed filter dropdown — overlaid top-trailing, above all feed content
+        .overlay(alignment: .topTrailing) {
+            AmenGlassFilterDropdown(
+                sections: feedFilterSections,
+                selectionMap: feedSelectionMap,
+                isShowing: $showFeedFilter
+            )
+            // Offset below the header (~96pt accounts for safe area + header height)
+            .padding(.top, 96)
+            .padding(.trailing, 16)
+        }
+        .onChange(of: feedContentFilter) { _, newFilter in
+            Task { @MainActor in
+                await postsManager.fetchFilteredPosts(for: .openTable, filter: newFilter, topicTag: nil)
+            }
+        }
+        .onChange(of: feedMode) { _, _ in
+            // Feed mode (personalized/sabbath) is applied by personalizeFeeds() — re-run it.
+            if !isInitialLoad { personalizeFeeds() }
+        }
+        .onChange(of: feedSortOrder) { _, newSort in
+            Task { @MainActor in
+                await postsManager.fetchFilteredPosts(for: .openTable, filter: newSort, topicTag: nil)
+            }
         }
     }
 
@@ -442,7 +593,8 @@ struct OpenTableView: View {
         let capturedCardsServed = feedSession.cardsSeenThisSession
         let capturedSessionCap = feedSession.sessionCap
 
-        personalizationTask = Task.detached(priority: .userInitiated) {
+        // S3-4: Capture class instances weakly so the detached task doesn't extend their lifetime.
+        personalizationTask = Task.detached(priority: .userInitiated) { [weak feedSession, weak feedAlgorithm] in
             guard !Task.isCancelled else { return }
 
             // 1. Try Cloud Run (fast path — returns nil on timeout / no URL configured)
@@ -458,7 +610,7 @@ struct OpenTableView: View {
 
             // Apply server-side session exhaustion signal
             if let result = sessionResult, result.sessionExhausted {
-                await MainActor.run { feedSession.isSessionComplete = true }
+                await MainActor.run { feedSession?.isSessionComplete = true }
             }
 
             // 2. Local fallback if Cloud Run unavailable
@@ -468,11 +620,11 @@ struct OpenTableView: View {
             if let r = sessionResult {
                 ranked = r.posts
             } else {
-                ranked = await feedAlgorithm.benefitRankPosts(
+                ranked = await feedAlgorithm?.benefitRankPosts(
                     posts,
                     for: interests,
                     followingIds: followingIds
-                )
+                ) ?? posts
             }
 
             guard !Task.isCancelled else { return }
@@ -634,6 +786,44 @@ struct CollapsibleTrendingSection: View {
                     insertion: .opacity.combined(with: .scale(scale: 0.95)).animation(.spring(response: 0.3, dampingFraction: 0.8)),
                     removal: .opacity.combined(with: .scale(scale: 0.95)).animation(.spring(response: 0.3, dampingFraction: 0.8))
                 ))
+            }
+        }
+    }
+}
+
+// MARK: - Contextual Experience Banner Wrapper
+
+private struct ExperienceResolverBannerWrapper: View {
+    @ObservedObject private var resolver = ExperienceResolverService.shared
+    @State private var isDismissed = false
+    @State private var showExperienceDetail = false
+
+    var body: some View {
+        if !isDismissed,
+           let title = resolver.resolved.activeBannerTitle {
+            ContextualExperienceFeedBanner(
+                resolved: resolver.resolved,
+                onTap: { showExperienceDetail = true },
+                onDismiss: {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        isDismissed = true
+                    }
+                }
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .sheet(isPresented: $showExperienceDetail) {
+                // Navigate to the active experience if we have an ID
+                if let expId = resolver.resolved.activeExperienceId {
+                    // ExperienceDetailView is loaded lazily
+                    Text("Experience: \(expId)") // placeholder until ExperienceDetailView compiles
+                }
+            }
+            .onAppear {
+                isDismissed = false // reset on new experience
+            }
+            .onChange(of: resolver.resolved.activeExperienceId) { _, _ in
+                isDismissed = false
             }
         }
     }

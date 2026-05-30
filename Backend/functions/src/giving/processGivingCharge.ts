@@ -71,6 +71,12 @@ export const processGivingCharge = onCall(
             throw new HttpsError("failed-precondition",
                 "This organization has not enabled in-app giving.");
         }
+        // SECURITY (C-04): identity verification must be complete before any donation
+        // transfer is processed. Unverified orgs could be fraudulent or unvetted.
+        if (!nonprofit.identityVerified) {
+            throw new HttpsError("failed-precondition",
+                "This organization must complete identity verification before accepting donations.");
+        }
         const stripeAccountId = nonprofit.stripeConnectedAccountId as string | undefined;
         if (!stripeAccountId) {
             throw new HttpsError("failed-precondition",

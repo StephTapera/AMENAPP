@@ -1000,7 +1000,7 @@ private struct Step4ChannelsView: View {
                 .padding(.horizontal, 20)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(reduceTransparency ? AmenTheme.Colors.surfaceCard : .ultraThinMaterial.opacity(0.7))
+                        .fill(reduceTransparency ? AnyShapeStyle(AmenTheme.Colors.surfaceCard) : AnyShapeStyle(.ultraThinMaterial.opacity(0.7)))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)

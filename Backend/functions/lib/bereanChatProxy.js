@@ -50,6 +50,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.bereanChatProxy = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
+const firebase_functions_1 = require("firebase-functions");
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
 const rateLimit_1 = require("./rateLimit");
@@ -57,6 +58,7 @@ const rateLimitHelper_1 = require("./rateLimitHelper");
 const sensitiveTopicPolicy_1 = require("./berean/prompts/sensitiveTopicPolicy");
 const SpiritualStateEngine_1 = require("./berean/services/SpiritualStateEngine");
 const conversationHistory_1 = require("./berean/services/conversationHistory");
+const InputGuardrails_1 = require("./berean/services/InputGuardrails");
 const aiDisclosure_1 = require("./berean/services/aiDisclosure");
 const agentIdentity_1 = require("./agents/agentIdentity");
 const agentOutcomes_1 = require("./agents/agentOutcomes");
@@ -97,13 +99,19 @@ exports.bereanChatProxy = (0, https_1.onCall)({
     // it for optimistic UX but cannot override this check.
     // Free tier: 20 Berean queries per UTC day.
     await (0, rateLimitHelper_1.checkAndIncrementDailyRateLimit)(request.auth.uid, rateLimitHelper_1.BEREAN_DAILY_LIMITS.bereanQuery);
+    // Global circuit breaker — project-wide daily ceiling.
+    await (0, rateLimit_1.checkGlobalCircuitBreaker)();
+    const requestStart = Date.now();
     const data = request.data;
     const { message, conversationHistory = [], mode = "shepherd", memoryScope, callData, } = data;
     const maxTokens = Math.min(Math.max(Number(data.maxTokens ?? 2000), 128), 2000);
     const temperature = Math.min(Math.max(Number(data.temperature ?? 0.7), 0), 1);
-    const systemPromptSuffix = typeof data.systemPromptSuffix === "string"
-        ? data.systemPromptSuffix.slice(0, 1500)
-        : undefined;
+    // SECURITY: never append raw client-supplied text to the system prompt —
+    // that is a prompt-injection vector. Mode-specific guidance is handled
+    // entirely server-side by buildSystemPrompt(mode). The field is read and
+    // immediately discarded so existing clients don't receive an error.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _ignoredClientSuffix = data.systemPromptSuffix;
     // Validate input
     if (!message || typeof message !== "string" || message.trim().length === 0) {
         throw new https_1.HttpsError("invalid-argument", "Message is required and must be a non-empty string");
@@ -116,6 +124,33 @@ exports.bereanChatProxy = (0, https_1.onCall)({
     const MAX_MESSAGE_LENGTH = 4000;
     if (message.length > MAX_MESSAGE_LENGTH) {
         throw new https_1.HttpsError("invalid-argument", `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters.`);
+    }
+    // ── Input injection detection ─────────────────────────────────────────
+    const injectionResult = (0, InputGuardrails_1.detectInjection)(message);
+    if (injectionResult.isInjection) {
+        firebase_functions_1.logger.warn("berean_callable_injection_blocked", {
+            mode,
+            patternSource: injectionResult.pattern,
+            uidPrefix: request.auth.uid.slice(0, 8),
+        });
+        // Log to bereanGuardrails for abuse pattern analysis (fire-and-forget).
+        admin.firestore().collection("bereanGuardrails").add({
+            eventType: "input_injection",
+            mode,
+            detectedPattern: injectionResult.pattern,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            uidHash: request.auth.uid.slice(0, 8) + "...",
+            proxy: "callable",
+        }).catch(() => { });
+        return {
+            response: (0, InputGuardrails_1.injectionRefusalMessage)(),
+            model: "berean-guardrail",
+            usage: null,
+            agentRunId: null,
+            outcomeStatus: "blocked",
+            outcomeScore: 100,
+            safetyStatus: "blocked_injection",
+        };
     }
     // Get API key from secret
     const apiKey = anthropicApiKey.value();
@@ -238,9 +273,7 @@ exports.bereanChatProxy = (0, https_1.onCall)({
         if (contextualPrompt) {
             systemPrompt += `\n\n${contextualPrompt}`;
         }
-        if (systemPromptSuffix) {
-            systemPrompt += `\n\n${systemPromptSuffix}`;
-        }
+        // systemPromptSuffix intentionally not appended — see SECURITY note above.
         await (0, agentObservability_1.logAgentSpan)(agentRunId, {
             type: "prompt_built",
             status: "ok",
@@ -319,11 +352,17 @@ exports.bereanChatProxy = (0, https_1.onCall)({
             visibleSummary: outcome.visibleSummary,
             metadata: { model },
         });
-        // Log usage for monitoring (no UID — opaque metrics only)
-        console.log("✅ berean_chat_proxy_succeeded", {
+        // Structured telemetry — no UID, no message content, never log sensitive modes' text.
+        firebase_functions_1.logger.info("berean_callable_succeeded", {
             model,
-            outputTokens: result.usage?.output_tokens || 0,
+            mode,
+            inputLength: message.length,
+            outputTokens: result.usage?.output_tokens ?? 0,
+            latencyMs: Date.now() - requestStart,
+            sensitive: (data.callData?.sensitivityFlags ?? []).length > 0,
         });
+        // Fire-and-forget global counter — never block the response on this write.
+        (0, rateLimit_1.incrementGlobalAICounter)().catch(() => { });
         return {
             response: safeResponseText,
             model,

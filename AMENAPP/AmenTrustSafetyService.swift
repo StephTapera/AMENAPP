@@ -224,7 +224,9 @@ final class AmenTrustSafetyService: ObservableObject {
             let result = try await functions.httpsCallable("getEnforcementProfile").call([:])
             guard let data = result.data as? [String: Any] else { return }
             enforcementProfile = parseEnforcementProfile(data)
-        } catch {}
+        } catch {
+            dlog("[TrustSafety] fetchEnforcementProfile failed: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Helpers

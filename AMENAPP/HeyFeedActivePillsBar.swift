@@ -84,6 +84,21 @@ private struct HeyFeedActivePillChip: View {
                         .strokeBorder(actionColor.opacity(0.18), lineWidth: 0.5)
                 )
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(actionA11yLabel) \(preference.targetLabel), \(preference.timeRemainingLabel) remaining")
+        .accessibilityHint("Double-tap to remove this feed tuning")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { onRemove() }
+    }
+
+    private var actionA11yLabel: String {
+        switch preference.action {
+        case .increase: return "Show more"
+        case .decrease: return "Show less"
+        case .mute:     return "Muting"
+        case .explore:  return "Explore"
+        case .balance:  return "Balancing"
+        }
     }
 
     private var actionIcon: String {

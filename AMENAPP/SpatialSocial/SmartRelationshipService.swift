@@ -30,7 +30,9 @@ final class SmartRelationshipService: ObservableObject {
             relationships = snap.documents.compactMap {
                 try? Firestore.Decoder().decode(SocialRelationship.self, from: $0.data())
             }
-        } catch {}
+        } catch {
+            print("[ERROR] SmartRelationshipService.loadRelationships: \(error)")
+        }
     }
 
     func proposeRelationship(targetUID: String, type: SpatialRelationshipType, context: String) async throws {

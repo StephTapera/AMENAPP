@@ -51,7 +51,7 @@ struct AltTextEditorSheet: View {
                             altText = ""
                         }
                         .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(AmenTheme.Colors.amenBlue)
                     }
                 }
                 .padding(.horizontal)
@@ -129,7 +129,7 @@ struct ImagePreviewWithAltText: View {
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .fill(altText.isEmpty ? Color.black.opacity(0.7) : Color.green.opacity(0.8))
+                            .fill(altText.isEmpty ? Color.black.opacity(0.7) : Color(.systemGreen).opacity(0.8))
                     )
                     .foregroundStyle(.white)
                 }
@@ -155,11 +155,11 @@ struct EngagementPrivacyRow: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(Color.purple.opacity(0.12))
+                        .fill(AmenTheme.Colors.amenPurple.opacity(0.12))
                         .frame(width: 40, height: 40)
                     Image(systemName: hideEngagementCounts ? "eye.slash.fill" : "eye.fill")
                         .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(AmenTheme.Colors.amenPurple)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -206,13 +206,13 @@ struct ContentWarningRow: View {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(Color.orange.opacity(0.12))
+                            .fill(AmenTheme.Colors.amenGold.opacity(0.12))
                             .frame(width: 40, height: 40)
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.systemScaled(16, weight: .semibold))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(AmenTheme.Colors.amenGold)
                     }
-                    
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Sensitive Content Warning")
                             .font(.custom("OpenSans-SemiBold", size: 15))
@@ -242,7 +242,7 @@ struct ContentWarningRow: View {
                         showReasonSheet = true
                     }
                     .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
                 }
                 .padding(.horizontal, 74)
                 .padding(.bottom, 14)
@@ -291,12 +291,12 @@ struct SensitiveContentReasonSheet: View {
                             Spacer()
                             if reason == suggestion {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(AmenTheme.Colors.amenGold)
                             }
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 12)
-                        .background(reason == suggestion ? Color.orange.opacity(0.1) : Color.clear)
+                        .background(reason == suggestion ? AmenTheme.Colors.amenGold.opacity(0.1) : Color.clear)
                     }
                 }
                 
@@ -376,7 +376,7 @@ struct AIVerseSuggestionsBanner: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "sparkles")
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(AmenTheme.Colors.amenPurple)
                 Text("Berean suggests these verses")
                     .font(.custom("OpenSans-SemiBold", size: 14))
                     .foregroundStyle(.primary)
@@ -407,7 +407,7 @@ struct AIVerseSuggestionsBanner: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(verse.reference)
                                         .font(.custom("OpenSans-SemiBold", size: 12))
-                                        .foregroundStyle(.purple)
+                                        .foregroundStyle(AmenTheme.Colors.amenPurple)
                                     Text(String(verse.text.prefix(60)) + "...")
                                         .font(.custom("OpenSans-Regular", size: 11))
                                         .foregroundStyle(.secondary)
@@ -429,7 +429,7 @@ struct AIVerseSuggestionsBanner: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.purple.opacity(0.05))
+                .fill(AmenTheme.Colors.amenPurple.opacity(0.05))
         )
         .padding(.horizontal)
     }
@@ -473,7 +473,7 @@ struct PostPreviewSheet: View {
                         if hasSensitiveContent {
                             HStack(spacing: 8) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(AmenTheme.Colors.amenGold)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Sensitive Content")
                                         .font(.custom("OpenSans-SemiBold", size: 13))
@@ -484,7 +484,7 @@ struct PostPreviewSheet: View {
                             }
                             .padding(10)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.orange.opacity(0.1))
+                            .background(AmenTheme.Colors.amenGold.opacity(0.1))
                             .cornerRadius(8)
                         }
                         
@@ -509,14 +509,14 @@ struct PostPreviewSheet: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(verseReference)
                                     .font(.custom("OpenSans-SemiBold", size: 13))
-                                    .foregroundStyle(.indigo)
+                                    .foregroundStyle(AmenTheme.Colors.amenPurple)
                                 Text(verseText)
                                     .font(.custom("OpenSans-Regular", size: 14))
                                     .foregroundStyle(.secondary)
                             }
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.indigo.opacity(0.05))
+                            .background(AmenTheme.Colors.amenPurple.opacity(0.05))
                             .cornerRadius(10)
                         }
                     }

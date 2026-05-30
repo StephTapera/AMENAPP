@@ -64,25 +64,41 @@ class AlgoliaSyncService {
     func syncUser(userId: String, userData: [String: Any]) async throws {
         let accountStatus = normalizedAccountStatus(from: userData)
         let isDeactivated = userData["isDeactivated"] as? Bool ?? false
-        guard isSearchableUser(accountStatus: accountStatus, isDeactivated: isDeactivated) else {
+        // PRIVACY FIX 2026-05-28: private accounts must not be indexed in Algolia
+        let isPrivate = userData["isPrivate"] as? Bool ?? false
+        guard isSearchableUser(accountStatus: accountStatus, isDeactivated: isDeactivated, isPrivate: isPrivate) else {
+            // Remove from index if previously indexed (e.g. user just switched to private mode)
             try? await deleteUser(userId: userId)
             return
         }
 
-        _ = try await functions.httpsCallable("algolia_syncUser").call([
+        // SECURITY (H-03): only sync follower/following counts if the user's privacy
+        // settings allow them to be publicly visible. Algolia is a public search index
+        // readable by all signed-in users; exposing counts here bypasses the
+        // showFollowerCount / showFollowingCount toggles on the profile screen.
+        let showFollowerCount = userData["showFollowerCount"] as? Bool ?? true
+        let showFollowingCount = userData["showFollowingCount"] as? Bool ?? true
+
+        var payload: [String: Any] = [
             "userId": userId,
             "displayName": userData["displayName"] as? String ?? "",
             "username": userData["username"] as? String ?? "",
             "usernameLowercase": userData["usernameLowercase"] as? String ?? "",
             "bio": userData["bio"] as? String ?? "",
-            "followersCount": userData["followersCount"] as? Int ?? 0,
-            "followingCount": userData["followingCount"] as? Int ?? 0,
             "profileImageURL": userData["profileImageURL"] as? String ?? "",
             "isVerified": userData["isVerified"] as? Bool ?? false,
             "createdAt": userData["createdAt"] as? Double ?? Date().timeIntervalSince1970,
             "accountStatus": accountStatus,
             "isDeactivated": isDeactivated
-        ])
+        ]
+        if showFollowerCount {
+            payload["followersCount"] = userData["followersCount"] as? Int ?? 0
+        }
+        if showFollowingCount {
+            payload["followingCount"] = userData["followingCount"] as? Int ?? 0
+        }
+
+        _ = try await functions.httpsCallable("algolia_syncUser").call(payload)
         dlog("✅ AlgoliaSyncService: syncUser \(userId) dispatched to Cloud Function")
     }
 
@@ -115,7 +131,23 @@ class AlgoliaSyncService {
         dlog("✅ AlgoliaSyncService: deletePost \(postId) dispatched to Cloud Function")
     }
 
-    // MARK: - Bulk Sync (Debug / Admin)
+    // MARK: - Org Sync
+
+    /// Syncs a single org stub to the Algolia `organizations` index via the
+    /// server-side `algolia_syncOrg` Cloud Function.
+    /// The function is admin-gated on the server; calling it from a non-admin
+    /// account is a no-op (the CF returns permission-denied silently).
+    func syncOrg(orgId: String) async {
+        let fn = Functions.functions().httpsCallable("algolia_syncOrg")
+        try? await fn.call(["orgId": orgId])
+        dlog("✅ AlgoliaSyncService: syncOrg \(orgId) dispatched to Cloud Function")
+    }
+
+    // MARK: - Bulk Sync (Debug / Admin only)
+    // IMPORTANT: These methods are for admin tooling and debug builds only.
+    // They must never be called during normal user sessions — each page fetches
+    // up to 100 documents to avoid unbounded full-collection reads on large databases.
+    // For production re-indexing, trigger the server-side Cloud Function instead.
 
     func syncAllData() async throws {
         try await bulkSyncUsers()
@@ -123,17 +155,19 @@ class AlgoliaSyncService {
     }
 
     func bulkSyncUsers() async throws {
-        let snapshot = try await db.collection("users").getDocuments()
+        let snapshot = try await db.collection("users").limit(to: 100).getDocuments()
         for doc in snapshot.documents {
             try await syncUser(userId: doc.documentID, userData: doc.data())
         }
+        dlog("⚠️ AlgoliaSyncService.bulkSyncUsers: limited to first 100 users. Use server-side CF for full re-index.")
     }
 
     func bulkSyncPosts() async throws {
-        let snapshot = try await db.collection("posts").getDocuments()
+        let snapshot = try await db.collection("posts").limit(to: 100).getDocuments()
         for doc in snapshot.documents {
             try await syncPost(postId: doc.documentID, postData: doc.data())
         }
+        dlog("⚠️ AlgoliaSyncService.bulkSyncPosts: limited to first 100 posts. Use server-side CF for full re-index.")
     }
 
     // MARK: - Helpers
@@ -144,8 +178,11 @@ class AlgoliaSyncService {
             .lowercased() ?? "active"
     }
 
-    private func isSearchableUser(accountStatus: String, isDeactivated: Bool) -> Bool {
-        guard !isDeactivated else { return false }
+    // PRIVACY FIX 2026-05-28: private accounts must not appear in discovery search.
+    // isPrivate = true means the account is opt-out of public discovery — their
+    // profile should only be visible to approved followers, not searchable by everyone.
+    private func isSearchableUser(accountStatus: String, isDeactivated: Bool, isPrivate: Bool = false) -> Bool {
+        guard !isDeactivated, !isPrivate else { return false }
         switch accountStatus {
         case "banned", "suspended", "deleted", "deactivated":
             return false

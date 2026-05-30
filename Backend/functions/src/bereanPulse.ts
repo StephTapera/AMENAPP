@@ -107,7 +107,7 @@ async function collectBereanConversationSignals(
       .limit(4)
       .get();
 
-    const messages = messagesSnapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) }));
+    const messages = messagesSnapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) } as { id: string; role?: string; content?: string; createdAt?: FirestoreLikeTimestamp; [key: string]: unknown }));
     const newest = messages[0];
     const newestTimestamp = (newest?.createdAt as FirestoreLikeTimestamp | undefined) ??
       (conversationData.lastUpdated as FirestoreLikeTimestamp | undefined) ??

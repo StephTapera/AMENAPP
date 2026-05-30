@@ -1,7 +1,10 @@
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
-import Stripe from "stripe";
+import { defineSecret } from "firebase-functions/params";
+import Stripe = require("stripe");
+
+const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 
 // createCovenantCheckoutSession
 //
@@ -21,7 +24,7 @@ interface CheckoutInput {
 }
 
 export const createCovenantCheckoutSession = onCall(
-    { enforceAppCheck: true, region: "us-central1" },
+    { enforceAppCheck: true, region: "us-central1", secrets: [stripeSecretKey] },
     async (request) => {
         // ── 1. Auth ────────────────────────────────────────────────────────────
         if (!request.auth?.uid) {
@@ -39,8 +42,8 @@ export const createCovenantCheckoutSession = onCall(
             throw new HttpsError("invalid-argument", "tierId is required.");
         }
 
-        const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-        if (!stripeSecretKey) {
+        const key = stripeSecretKey.value();
+        if (!key) {
             logger.error("[createCovenantCheckoutSession] STRIPE_SECRET_KEY not configured");
             throw new HttpsError("internal", "Payment service not configured.");
         }
@@ -86,7 +89,7 @@ export const createCovenantCheckoutSession = onCall(
         }
 
         // ── 5. Create Stripe checkout session ─────────────────────────────────
-        const stripe = new Stripe(stripeSecretKey, { apiVersion: "2023-10-16" });
+        const stripe = new Stripe(key, { apiVersion: "2026-05-27.dahlia" });
 
         try {
             const session = await stripe.checkout.sessions.create({

@@ -47,21 +47,17 @@ class AgeAssuranceService: ObservableObject {
             }
             dlog("✅ Age tier loaded: \(profile.tier.rawValue), age: \(profile.age)")
         } catch let error as AgeAssuranceError where error == .profileNotFound {
-            // MIGRATION: User pre-dates the age assurance system (existed before this
-            // feature was built) or skipped DOB entry during onboarding. We cannot
-            // fail-closed to .teen for these users because it permanently locks them
-            // out of DMs and other adult features they already had access to.
-            //
-            // Strategy: create a declared-adult stub profile so the app treats them
-            // as adult immediately, and also write ageTier:"tierD" to the main user
-            // doc so Firestore rules (callerAgeTier / callerCanUseDMs) allow DMs.
-            // The stub uses a synthetic DOB of exactly 25 years ago; actual DOB
-            // collection can happen later via the account settings flow.
-            dlog("⚠️ Age profile not found for user — migrating pre-existing user to adult tier")
-            await migrateExistingUserToAdult(userId: userId)
+            // MIGRATION: User pre-dates the age assurance system or skipped DOB entry.
+            // SECURITY FIX (C-02): previously auto-upgraded to .adult using a synthetic
+            // DOB, allowing actual minors to receive full adult DM access. Now we default
+            // to .teen and set needsVerification=true so the app prompts for DOB on next
+            // session. All restricted features stay blocked until the user provides their
+            // real date of birth via setDateOfBirth().
+            dlog("⚠️ Age profile not found for user — defaulting to teen tier, prompting for DOB")
+            await createUnverifiedMigrationProfile(userId: userId)
             await MainActor.run {
-                currentUserTier = .adult
-                needsVerification = false
+                currentUserTier = .teen
+                needsVerification = true
             }
         } catch {
             dlog("⚠️ Failed to load age tier: \(error.localizedDescription)")
@@ -125,44 +121,42 @@ class AgeAssuranceService: ObservableObject {
         dlog("✅ Date of birth stored for user \(userId): tier=\(profile.tier.rawValue)")
     }
     
-    /// Migrate a pre-existing user (who has no age_assurance doc) to adult tier.
-    /// Creates a stub profile with a synthetic DOB 25 years ago and writes
-    /// ageTier:"tierD" to the main user document so Firestore rules allow DMs.
-    /// Called automatically when loadTier() finds no profile.
-    private func migrateExistingUserToAdult(userId: String) async {
-        // Synthetic DOB: 25 years ago (well above the 18+ threshold).
-        let twentyFiveYearsAgo = Calendar.current.date(
-            byAdding: .year, value: -25, to: Date()
+    /// Creates a placeholder age profile for pre-existing users with no DOB on file.
+    /// Defaults to .teen (restricted) and marks needsVerification=true so the app
+    /// prompts for a real date of birth. Never grants adult access speculatively.
+    private func createUnverifiedMigrationProfile(userId: String) async {
+        // Use a placeholder DOB of exactly 16 years ago — firmly in the teen tier.
+        // This keeps the account usable for non-DM features while blocking adult-only
+        // access until the user provides their real DOB.
+        let sixteenYearsAgo = Calendar.current.date(
+            byAdding: .year, value: -16, to: Date()
         ) ?? Date()
 
-        let profile = UserAgeProfile(
-            dateOfBirth: twentyFiveYearsAgo,
+        var profile = UserAgeProfile(
+            dateOfBirth: sixteenYearsAgo,
             countryCode: "US",
             verificationMethod: .dateOfBirth
         )
+        profile.verificationStatus = .pending
 
         do {
-            // 1. Write the private age_assurance document so the app stops
-            //    showing the "profile not found" warning on every launch.
             try await db.collection("users")
                 .document(userId)
                 .collection("private")
                 .document("age_assurance")
                 .setData(try Firestore.Encoder().encode(profile))
 
-            // 2. Write ageTier to the main user document so Firestore rules
-            //    (callerAgeTier / callerCanUseDMs) return tierD for this user.
+            // Write tierB (teen) so Firestore rules restrict DMs until real DOB provided.
             try await db.collection("users")
                 .document(userId)
-                .setData(["ageTier": "tierD"], merge: true)
+                .setData(["ageTier": "tierB", "needsAgeVerification": true], merge: true)
 
-            // Update cache so subsequent calls in this session skip the fetch.
             ageProfileCache[userId] = (profile, Date())
 
             await MainActor.run {
                 currentUserAge = profile.age
             }
-            dlog("✅ Age migration complete: user \(userId) set to adult (tierD)")
+            dlog("⚠️ Age migration: user \(userId) defaulted to teen (tierB), DOB required")
         } catch {
             dlog("⚠️ Age migration failed (non-fatal): \(error.localizedDescription)")
         }
@@ -390,7 +384,9 @@ class AgeAssuranceService: ObservableObject {
     /// Clear cache (called on sign-out)
     func clearCache() {
         ageProfileCache.removeAll()
-        currentUserTier = .adult
+        // Reset to .teen (restricted) rather than .adult so the next signed-in
+        // user always loads their real tier before gaining adult feature access.
+        currentUserTier = .teen
         currentUserAge = 0
         needsVerification = false
     }
@@ -436,6 +432,9 @@ extension AMENAgeAssuranceTier {
             return self != .underMinimum
         case .sensitiveContent, .commerce, .liveStreaming:
             return self == .adult
+        case .bereanAI:
+            // COPPA: Berean AI requires minimum age (13+); block underMinimum users.
+            return self != .underMinimum
         }
     }
 }
@@ -496,6 +495,8 @@ struct AgeGatedModifier: ViewModifier {
             return "Commerce features are only available for users 18 and older."
         case .liveStreaming:
             return "Live streaming is only available for users 18 and older."
+        case .bereanAI:
+            return "Berean AI is only available for users \(AppConfig.Legal.minimumAge) and older."
         }
     }
 }

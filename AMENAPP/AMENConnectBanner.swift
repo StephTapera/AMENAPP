@@ -4,8 +4,6 @@ import SwiftUI
 /// Replaces the previous multi-card scatter in ResourcesView.
 struct AMENConnectBanner: View {
 
-    @State private var isPressed = false
-
     private let featurePills = ["Network", "Serve", "Jobs", "Ministries", "Conversations"]
 
     var body: some View {
@@ -79,13 +77,6 @@ struct AMENConnectBanner: View {
                 .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.07), radius: 14, x: 0, y: 5)
-        .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isPressed)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded   { _ in isPressed = false }
-        )
     }
 }
 

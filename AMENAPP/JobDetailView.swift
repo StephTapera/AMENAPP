@@ -450,7 +450,7 @@ struct JobDetailView: View {
                 }
 
                 if let url = emp.websiteURL, !url.isEmpty {
-                    Link(destination: URL(string: url) ?? URL(string: "https://amen.app")!) {
+                    Link(destination: URL(string: url) ?? URL(string: "https://amen.app") ?? URL(string: "https://")!) {
                         Label("Visit website", systemImage: "arrow.up.right.square")
                             .font(AMENFont.semiBold(13))
                             .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))

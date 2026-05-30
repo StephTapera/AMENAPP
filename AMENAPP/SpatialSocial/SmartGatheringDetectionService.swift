@@ -108,6 +108,10 @@ final class SmartGatheringDetectionService: ObservableObject {
         spacesListener?.remove()
         spacesListener = nil
     }
+
+    deinit {
+        spacesListener?.remove()
+    }
 }
 
 enum EphemeralSpaceError: LocalizedError {

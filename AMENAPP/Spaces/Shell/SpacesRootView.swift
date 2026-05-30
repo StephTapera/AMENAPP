@@ -21,6 +21,13 @@ struct SpacesRootView: View {
     @State private var isLoadingCommunities: Bool = true
     @State private var showCommunitySwitcherSheet: Bool = false
     @State private var showCreationWizard: Bool = false
+    @State private var showOrgOnboarding: Bool = false
+    @State private var showMoreSheet: Bool = false
+    @State private var showWorkspaceHome: Bool = false
+
+    @ObservedObject private var onboardingManager = SpacesOnboardingManager.shared
+
+    @AppStorage("currentUserProfileImageURL") private var profileImageURL: String = ""
 
     // Badge counts — keyed by communityId (populated from notification layer)
     // Callers can inject this via environment or direct binding in the future.
@@ -41,9 +48,43 @@ struct SpacesRootView: View {
                 iphoneLayout
             }
         }
-        .task { await loadCommunities() }
+        .fullScreenCover(isPresented: $onboardingManager.shouldShowOnboarding) {
+            AmenSpacesOnboardingView {
+                onboardingManager.markComplete()
+            }
+        }
+        .task {
+            await onboardingManager.resolve()
+            await loadCommunities()
+        }
         .sheet(isPresented: $showCreationWizard) {
             SpaceCreationWizard(communityId: selectedCommunityId)
+        }
+        .sheet(isPresented: $showOrgOnboarding) {
+            AmenOrgOnboardingFlow { _ in
+                showOrgOnboarding = false
+                Task { await loadCommunities() }
+            }
+        }
+        .sheet(isPresented: $showMoreSheet) {
+            AmenMoreSheetView(
+                onYouTapped: { showMoreSheet = false },
+                onCreateTapped: { type in
+                    showMoreSheet = false
+                    if type == .channel { showOrgOnboarding = true }
+                }
+            )
+        }
+        .sheet(isPresented: $showWorkspaceHome) {
+            AmenOrgWorkspaceHomeView(
+                orgId: selectedCommunityId,
+                onYouTapped: { showWorkspaceHome = false },
+                onDMsTapped: { showWorkspaceHome = false },
+                onAddChannelTapped: {
+                    showWorkspaceHome = false
+                    showCreationWizard = true
+                }
+            )
         }
     }
 
@@ -57,6 +98,28 @@ struct SpacesRootView: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         communityAvatarButton
+                    }
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        if !communities.isEmpty {
+                            Button {
+                                HapticManager.impact(style: .light)
+                                showWorkspaceHome = true
+                            } label: {
+                                Image(systemName: "house.fill")
+                                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                            }
+                            .accessibilityLabel("Workspace home")
+                            .accessibilityHint("Opens the workspace overview")
+                        }
+                        Button {
+                            HapticManager.impact(style: .light)
+                            showMoreSheet = true
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .foregroundStyle(AmenTheme.Colors.textSecondary)
+                        }
+                        .accessibilityLabel("More options")
+                        .accessibilityHint("Files, tasks, and quick create")
                     }
                 }
         }
@@ -101,22 +164,38 @@ struct SpacesRootView: View {
     }
 
     // MARK: - Community avatar button (iPhone toolbar)
+    // Shows the signed-in user's profile picture. Tapping opens the community switcher.
 
     private var communityAvatarButton: some View {
         Button {
             showCommunitySwitcherSheet = true
         } label: {
-            let current = communities.first(where: { $0.id == selectedCommunityId })
-            SpaceAvatarView(
-                avatarURL: current?.avatarURL,
-                title: current?.name ?? "C",
-                size: 32,
-                isShared: false
-            )
+            if let url = URL(string: profileImageURL), !profileImageURL.isEmpty {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                            .overlay(Circle().strokeBorder(AmenTheme.Colors.amenPurple.opacity(0.3), lineWidth: 1))
+                    default:
+                        profileAvatarFallback
+                    }
+                }
+            } else {
+                profileAvatarFallback
+            }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Switch community")
+        .accessibilityLabel("My profile — tap to switch community")
         .accessibilityHint("Opens the community switcher.")
+    }
+
+    private var profileAvatarFallback: some View {
+        Circle()
+            .fill(AmenTheme.Colors.amenPurple.opacity(0.15))
+            .frame(width: 32, height: 32)
+            .overlay(Image(systemName: "person.fill").font(.system(size: 14, weight: .medium)).foregroundStyle(AmenTheme.Colors.amenPurple))
     }
 
     // MARK: - Community switcher sheet (iPhone)
@@ -223,9 +302,10 @@ struct SpacesRootView: View {
                 systemImage: "plus",
                 isLoading: false,
                 isDisabled: false,
-                hint: "Opens the community creation sheet."
+                hint: "Opens the community creation wizard."
             ) {
-                showCommunitySwitcherSheet = true
+                HapticManager.impact(style: .medium)
+                showOrgOnboarding = true
             }
 
             Spacer()

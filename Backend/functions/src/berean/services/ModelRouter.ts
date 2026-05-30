@@ -88,6 +88,7 @@ export class ModelRouter {
       // Fallback: return a visible retry state instead of a blank response.
       return {
         answerText: "Berean encountered an issue parsing the response. Tap to retry.",
+        responseMode: "balanced",
         scriptureReferences: [],
         studyCards: [
           {
@@ -116,6 +117,7 @@ export class ModelRouter {
           containsInterpretiveCaution: true,
           containsLeadershipRedirect: false,
         },
+        doctrinalConfidence: 0,
       };
     }
   }

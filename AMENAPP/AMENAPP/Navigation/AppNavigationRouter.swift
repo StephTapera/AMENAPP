@@ -36,9 +36,7 @@ final class AppNavigationRouter: ObservableObject {
     // MARK: - Singleton
 
     static let shared = AppNavigationRouter()
-    private init() {
-        setupAmenDeepLinkObserver()
-    }
+    private init() {}
 
     // MARK: - Published state (root scene observes these)
 
@@ -192,6 +190,15 @@ final class AppNavigationRouter: ObservableObject {
         case .profile:
             selectedTab = 5
 
+        case .gatherings:
+            selectedTab = 6
+
+        case .spaces:
+            selectedTab = 7
+
+        case .communityNotes:
+            selectedTab = 8
+
         case .settings:
             selectedTab = 5
             if case .settings(let section) = destination, let section {
@@ -286,23 +293,6 @@ final class AppNavigationRouter: ObservableObject {
         }
     }
 
-    // MARK: - amenDeepLink P0 fix
-
-    /// Registers the observer for the "amenDeepLink" notification that AmenIntentRouter
-    /// posts when Siri shortcuts and Spotlight results fire. Previously no observer
-    /// existed anywhere, so every Siri shortcut and Spotlight tap was silently dropped.
-    private func setupAmenDeepLinkObserver() {
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name("amenDeepLink"),
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self,
-                  let urlString = notification.userInfo?["url"] as? String else { return }
-            dlog("[AppNavigationRouter] 📡 Received amenDeepLink: \(urlString)")
-            self.navigate(to: urlString)
-        }
-    }
 }
 
 // MARK: - Notification.Name additions

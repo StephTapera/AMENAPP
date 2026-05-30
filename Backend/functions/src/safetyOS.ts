@@ -304,8 +304,8 @@ export const updateTrustedContacts = functions.onCall(
 // updateFeedControls
 // ---------------------------------------------------------------------------
 
-export const updateFeedControls = functions.onCall(
-  { region: "us-central1" , enforceAppCheck: true }, 
+const updateFeedControls = functions.onCall(
+  { region: "us-central1" , enforceAppCheck: true },
   async (request) => {
     const uid = requireAuth(request);
     const { mode, categories, sessionDurationMinutes, quietHoursStart, quietHoursEnd } =

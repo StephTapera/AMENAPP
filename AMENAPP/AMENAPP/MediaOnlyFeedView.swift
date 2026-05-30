@@ -17,6 +17,7 @@ struct MediaOnlyFeedView: View {
     var onViewFullPost: ((String) -> Void)? = nil
     var onViewProfile: ((String) -> Void)? = nil
     var isCurrentUserProfile: Bool = false
+    var onComposeTap: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -39,8 +40,8 @@ struct MediaOnlyFeedView: View {
                 if viewModel.uniquePostItems.isEmpty {
                     emptyState(
                         icon: "photo.on.rectangle.angled",
-                        title: "No photos or videos yet",
-                        message: "When visual posts are shared, they'll appear here"
+                        title: "No visual stories yet",
+                        message: "Images and videos you share will appear here"
                     )
                 } else {
                     mediaGrid
@@ -48,8 +49,8 @@ struct MediaOnlyFeedView: View {
             case .empty:
                 emptyState(
                     icon: "photo.on.rectangle.angled",
-                    title: "No photos or videos yet",
-                    message: "When visual posts are shared, they'll appear here"
+                    title: "No visual stories yet",
+                    message: "Images and videos you share will appear here"
                 )
             case .error(let message):
                 emptyState(
@@ -136,16 +137,39 @@ struct MediaOnlyFeedView: View {
     @ViewBuilder
     var filterPills: some View {
         if AMENFeatureFlags.shared.mediaFilterPillsEnabled {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(MediaFeedFilter.allCases) { filter in
-                        filterPill(filter)
+            if AMENFeatureFlags.shared.liquidGlassCategoryChips {
+                glassFilterChips
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(MediaFeedFilter.allCases) { filter in
+                            filterPill(filter)
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
             }
         }
+    }
+
+    // Maps MediaFeedFilter cases → AMENCategoryChip and bridges the selection binding.
+    @ViewBuilder
+    private var glassFilterChips: some View {
+        let chips: [AMENCategoryChip] = MediaFeedFilter.allCases.map {
+            AMENCategoryChip(id: $0.id, label: $0.rawValue)
+        }
+        let selectedID = Binding<String?>(
+            get: { viewModel.activeFilter.id },
+            set: { newID in
+                if let newID, let filter = MediaFeedFilter.allCases.first(where: { $0.id == newID }) {
+                    withAnimation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.8)) {
+                        viewModel.activeFilter = filter
+                    }
+                }
+            }
+        )
+        AMENCategoryChips(chips: chips, selectedID: selectedID)
     }
 
     @ViewBuilder
@@ -219,7 +243,7 @@ struct MediaOnlyFeedView: View {
             ForEach(0..<9, id: \.self) { _ in
                 Rectangle()
                     .fill(AmenTheme.Colors.shimmerBase)
-                    .frame(minHeight: 120)
+                    .aspectRatio(1, contentMode: .fill)
                     .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     .shimmering()
             }
@@ -235,17 +259,17 @@ struct MediaOnlyFeedView: View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(AmenTheme.Colors.surfaceCard)
+                    .fill(AmenTheme.Colors.amenGold.opacity(0.10))
                     .overlay(
                         Circle()
-                            .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+                            .strokeBorder(AmenTheme.Colors.amenGold.opacity(0.25), lineWidth: 0.5)
                     )
                     .shadow(color: AmenTheme.Colors.shadowCard, radius: 10, y: 4)
                     .frame(width: 72, height: 72)
 
                 Image(systemName: icon)
-                    .font(.system(size: 28))
-                    .foregroundStyle(AmenTheme.Colors.iconSecondary)
+                    .font(.system(size: 52))
+                    .foregroundStyle(AmenTheme.Colors.amenPurple)
             }
 
             VStack(spacing: 6) {
@@ -258,10 +282,25 @@ struct MediaOnlyFeedView: View {
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
+
+                if isCurrentUserProfile {
+                    Button(action: { onComposeTap?() }) {
+                        Label("Share a moment from your walk", systemImage: "camera.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(AmenTheme.Colors.amenBlack)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(AmenTheme.Colors.amenGold)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 16)
+                }
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 48)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .padding(.vertical, 24)
         .accessibilityElement(children: .combine)
     }
 }

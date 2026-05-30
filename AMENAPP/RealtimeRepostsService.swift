@@ -275,7 +275,7 @@ class RealtimeRepostsService: ObservableObject {
         let commentCount = data["commentCount"] as? Int ?? 0
         let repostCount = data["repostCount"] as? Int ?? 0
         let timeAgo = data["timeAgo"] as? String ?? "Just now"
-        let visibilityRaw = data["visibility"] as? String ?? "Everyone"
+        let visibilityRaw = data["visibility"] as? String ?? Post.PostVisibility.everyone.rawValue
         let visibility = Post.PostVisibility(rawValue: visibilityRaw) ?? .everyone
         let allowComments = data["allowComments"] as? Bool ?? true
         let imageURLs = data["imageURLs"] as? [String]

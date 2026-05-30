@@ -42,6 +42,7 @@ const GRACE_RECOVERY_LIMIT = 2;
 // ─── evaluateNotificationEligibility ─────────────────────────────────────────
 
 exports.evaluateNotificationEligibility = onCall(async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Must be signed in.");
   const { userId, category } = request.data;
   if (!userId || !category) {
     throw new HttpsError("invalid-argument", "userId and category required.");
@@ -243,10 +244,13 @@ exports.calculateStreakState = onCall(async (request) => {
 // ─── pauseInactiveUserNotifications ─────────────────────────────────────────
 
 exports.pauseInactiveUserNotifications = onCall(async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Must be signed in.");
+  const callerUid = request.auth.uid;
   const { userId } = request.data;
   if (!userId) throw new HttpsError("invalid-argument", "userId required.");
+  if (userId !== callerUid) throw new HttpsError("permission-denied", "Cannot modify another user's rhythm.");
 
-  await db.collection("users").doc(userId)
+  await db.collection("users").doc(callerUid)
     .collection("spiritualRhythm").doc("main")
     .set({
       notificationsPausedDueToInactivity: true,
@@ -256,7 +260,7 @@ exports.pauseInactiveUserNotifications = onCall(async (request) => {
 
   // Send a single quiet-return push (best-effort)
   try {
-    const userSnap = await db.collection("users").doc(userId).get();
+    const userSnap = await db.collection("users").doc(callerUid).get();
     const fcmToken = userSnap.data()?.fcmToken;
     if (fcmToken) {
       await admin.messaging().send({
@@ -276,10 +280,13 @@ exports.pauseInactiveUserNotifications = onCall(async (request) => {
 // ─── restoreUserAfterInactivity ──────────────────────────────────────────────
 
 exports.restoreUserAfterInactivity = onCall(async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Must be signed in.");
+  const callerUid = request.auth.uid;
   const { userId } = request.data;
   if (!userId) throw new HttpsError("invalid-argument", "userId required.");
+  if (userId !== callerUid) throw new HttpsError("permission-denied", "Cannot modify another user's rhythm.");
 
-  await db.collection("users").doc(userId)
+  await db.collection("users").doc(callerUid)
     .collection("spiritualRhythm").doc("main")
     .set({
       notificationsPausedDueToInactivity: false,

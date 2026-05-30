@@ -182,8 +182,25 @@ function evaluateSafeSearch(safeSearch) {
     const medicalScore = scores[safeSearch.medical] || 0;
     const spoofScore = scores[safeSearch.spoof] || 0;
 
+    // P0-2: CSAM hard-block.
+    // NOTE: The Vision SafeSearch API does not expose a dedicated child-safety
+    // likelihood field (childSafe / childSexualAbuse). Until PhotoDNA or a
+    // purpose-built CSAM classifier is integrated, we use the `adult` signal
+    // at a POSSIBLE threshold (one tier stricter than the normal adult block)
+    // as a conservative proxy. Any adult content at POSSIBLE+ is blocked
+    // immediately — this intentionally produces more false positives than the
+    // standard adult check, which is the correct trade-off for a faith platform.
+    // TODO: Integrate Google Cloud CSAM hashing API (PhotoDNA-backed) for
+    // authoritative CSAM detection once the partnership is established.
+    const CSAM_BLOCK_THRESHOLD = ["POSSIBLE", "LIKELY", "VERY_LIKELY"];
+    if (safeSearch.adult && CSAM_BLOCK_THRESHOLD.includes(safeSearch.adult)) {
+        // Re-uses adultScore check below but fires first with explicit CSAM label
+        reasons.push("Potentially explicit content — CSAM proxy block (adult ≥ POSSIBLE)");
+        return {action: "blocked", reasons, category: "csam_proxy"};
+    }
+
     // BLOCK: Strict thresholds for faith platform
-    if (adultScore >= 3) { // POSSIBLE or higher
+    if (adultScore >= 3) { // POSSIBLE or higher — already caught above, kept for clarity
         reasons.push("Inappropriate content detected");
     }
     if (racyScore >= 3) { // POSSIBLE or higher

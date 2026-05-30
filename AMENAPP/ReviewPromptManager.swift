@@ -130,10 +130,10 @@ final class ReviewPromptManager: ObservableObject {
     /// Open App Store page for manual review
     /// Fallback for older iOS or if user wants to write a review
     func openAppStoreForReview() {
-        // TODO: Replace with your actual App Store ID
-        let appStoreID = "YOUR_APP_STORE_ID"
-        
-        if let url = URL(string: "https://apps.apple.com/app/id\(appStoreID)?action=write-review") {
+        // TODO: Replace APP_STORE_ID with the real numeric ID from App Store Connect before submission
+        let appStoreID = "APP_STORE_ID"
+
+        if let url = URL(string: "itms-apps://itunes.apple.com/app/id\(appStoreID)?action=write-review") {
             UIApplication.shared.open(url)
             userDidRate()
         }

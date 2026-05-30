@@ -137,6 +137,23 @@ final class LivingComposerViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Publish
+
+    func publish() async {
+        guard canPost else { return }
+        isPosting = true
+        defer { isPosting = false }
+        let content = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let category: Post.PostCategory = composerMode == .reflective ? .testimonies : .openTable
+        do {
+            try await FirebasePostService.shared.createPost(content: content, category: category)
+            postSuccess = true
+            reset()
+        } catch {
+            postError = error.localizedDescription
+        }
+    }
+
     // MARK: - Reset
 
     func reset() {

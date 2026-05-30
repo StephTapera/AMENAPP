@@ -229,7 +229,10 @@ struct SleepHygieneView: View {
                                           start: now.addingTimeInterval(-600), end: now,
                                           metadata: ["AMENSleepRoutine": "completed"])
             try await healthStore.save(sample)
-        } catch { }
+        } catch {
+            // Non-fatal: HealthKit write is a best-effort background operation.
+            print("[ERROR] SleepHygieneView.writeHealthKit: \(error)")
+        }
     }
 }
 

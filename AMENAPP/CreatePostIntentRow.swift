@@ -140,6 +140,7 @@ struct CreatePostIntentRow: View {
             Image(systemName: intent.composerIcon)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.primary)
+                .accessibilityHidden(true)
 
             Text(intent.confirmationLabel)
                 .font(AMENFont.semiBold(12))
@@ -158,8 +159,12 @@ struct CreatePostIntentRow: View {
                     .foregroundStyle(.secondary)
                     .padding(5)
                     .background(Circle().fill(Color(.systemGray5)))
+                    .accessibilityHidden(true)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Clear selected intent")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Removes the selected post intent")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -185,6 +190,7 @@ private struct IntentPill: View {
             HStack(spacing: 5) {
                 Image(systemName: intent.composerIcon)
                     .font(.system(size: 11, weight: .medium))
+                    .accessibilityHidden(true)
                 Text(intent.composerDisplayName)
                     .font(AMENFont.semiBold(12))
             }
@@ -201,5 +207,8 @@ private struct IntentPill: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(intent.composerDisplayName)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Selects \(intent.composerDisplayName) as the intent for your post")
     }
 }

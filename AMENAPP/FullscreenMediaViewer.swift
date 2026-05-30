@@ -153,7 +153,7 @@ struct FullscreenMediaViewer: View {
     }
     
     // MARK: - Chrome Overlay
-    
+
     private var chromeOverlay: some View {
         VStack {
             topBar
@@ -161,8 +161,67 @@ struct FullscreenMediaViewer: View {
             if media.count > 1 {
                 bottomIndicators
             }
+            bottomActionPill
         }
         .opacity(dismissOpacity)
+    }
+
+    private var bottomActionPill: some View {
+        HStack(spacing: 0) {
+            mediaActionButton(icon: "square.and.arrow.up", label: "Share") {
+                HapticManager.impact(style: .light)
+            }
+            dividerLine
+            mediaActionButton(icon: "bookmark", label: "Save") {
+                HapticManager.impact(style: .light)
+            }
+            dividerLine
+            mediaActionButton(icon: "ellipsis", label: "More") {
+                HapticManager.impact(style: .light)
+            }
+        }
+        .background {
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.14))
+                }
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.5)
+                }
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.10), lineWidth: 0.7)
+                }
+                .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
+        }
+        .padding(.horizontal, 48)
+        .padding(.bottom, 52)
+    }
+
+    private var dividerLine: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.20))
+            .frame(width: 0.5, height: 22)
+    }
+
+    private func mediaActionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.white)
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.80))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
     
     private var topBar: some View {

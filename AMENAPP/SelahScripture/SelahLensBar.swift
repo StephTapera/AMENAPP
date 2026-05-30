@@ -247,8 +247,8 @@ private extension SelahLensActionKind {
         switch self {
         case .understand:      return .amenBlue
         case .crossReferences: return .amenPurple
-        case .reflect:         return .amenGold
-        case .pray:            return .amenGold
+        case .reflect:         return .amenBlue
+        case .pray:            return .amenBlue
         case .addToSession:    return .amenBlue
         case .more:            return .secondary
         }

@@ -11,7 +11,7 @@ import FirebaseFirestore
 
 // MARK: - Models
 
-struct CommunityGroup: Identifiable, Codable {
+struct CommunityGroup: Identifiable, Codable, Hashable {
     var id: String = UUID().uuidString
     var name: String
     var description: String
@@ -164,12 +164,19 @@ struct CommunityGroupsView: View {
                                     showCreateSheet = true
                                 } label: {
                                     Text("Create a Group")
-                                        .font(.systemScaled(14, weight: .semibold))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 10)
-                                        .background(Capsule().fill(Color.accentColor))
+                                        .font(.systemScaled(13, weight: .semibold))
+                                        .foregroundStyle(Color(red: 0.44, green: 0.26, blue: 0.80))
+                                        .padding(.horizontal, 18)
+                                        .padding(.vertical, 9)
+                                        .background(
+                                            ZStack {
+                                                Capsule(style: .continuous).fill(.ultraThinMaterial)
+                                                Capsule(style: .continuous).fill(Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.12))
+                                                Capsule(style: .continuous).stroke(Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.40), lineWidth: 0.6)
+                                            }
+                                        )
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -190,17 +197,25 @@ struct CommunityGroupsView: View {
             Button {
                 showCreateSheet = true
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "plus")
+                        .font(.systemScaled(13, weight: .semibold))
                     Text("Create Group")
+                        .font(.systemScaled(14, weight: .semibold))
                 }
-                .font(.systemScaled(16, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 14)
-                .background(Capsule().fill(Color.blue))
-                .shadow(color: .blue.opacity(0.3), radius: 8, y: 4)
+                .foregroundStyle(Color(red: 0.44, green: 0.26, blue: 0.80))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 11)
+                .background(
+                    ZStack {
+                        Capsule(style: .continuous).fill(.ultraThinMaterial)
+                        Capsule(style: .continuous).fill(Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.14))
+                        Capsule(style: .continuous).stroke(Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.45), lineWidth: 0.6)
+                    }
+                )
+                .shadow(color: .black.opacity(0.10), radius: 10, y: 4)
             }
+            .buttonStyle(.plain)
             .padding(.bottom, 20)
         }
         .onAppear { loadGroups() }
@@ -212,20 +227,30 @@ struct CommunityGroupsView: View {
     }
 
     private func categoryPill(_ category: CommunityGroup.GroupCategory?, label: String) -> some View {
-        Button {
+        let isSelected = selectedCategory == category
+        let amenPurple = Color(red: 0.44, green: 0.26, blue: 0.80)
+        return Button {
             withAnimation(Motion.adaptive(.spring(response: 0.25))) {
                 selectedCategory = category
             }
         } label: {
             Text(label)
                 .font(.systemScaled(13, weight: .medium))
-                .foregroundStyle(selectedCategory == category ? .white : .primary)
+                .foregroundStyle(isSelected ? amenPurple : .primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(
-                    Capsule().fill(selectedCategory == category ? Color.blue : Color(.systemGray5))
+                    ZStack {
+                        Capsule(style: .continuous)
+                            .fill(.ultraThinMaterial)
+                        Capsule(style: .continuous)
+                            .fill(isSelected ? amenPurple.opacity(0.15) : Color.clear)
+                        Capsule(style: .continuous)
+                            .stroke(isSelected ? amenPurple.opacity(0.45) : Color.white.opacity(0.25), lineWidth: 0.6)
+                    }
                 )
         }
+        .buttonStyle(.plain)
     }
 
     private func myGroupCard(_ group: CommunityGroup) -> some View {
@@ -284,11 +309,17 @@ struct CommunityGroupsView: View {
             Spacer()
 
             Button("Join") {}
-                .font(.systemScaled(13, weight: .semibold))
-                .foregroundStyle(.blue)
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(Color(red: 0.44, green: 0.26, blue: 0.80))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Capsule().stroke(Color.blue, lineWidth: 1.5))
+                .background(
+                    ZStack {
+                        Capsule(style: .continuous).fill(.ultraThinMaterial)
+                        Capsule(style: .continuous).fill(Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.12))
+                        Capsule(style: .continuous).stroke(Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.40), lineWidth: 0.6)
+                    }
+                )
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.systemGray6)))

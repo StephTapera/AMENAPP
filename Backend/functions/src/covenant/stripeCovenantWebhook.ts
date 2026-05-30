@@ -1,7 +1,12 @@
 import * as admin from "firebase-admin";
 import { onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
-import Stripe from "stripe";
+import { defineSecret } from "firebase-functions/params";
+import Stripe = require("stripe");
+import type { StripeEvent, StripeSubscription, StripeCheckoutSession, StripeCustomer, StripeMetadata, StripeSubscriptionStatus, StripeInstance } from "../stripeHelper";
+
+const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
+const stripeCovenantWebhookSecret = defineSecret("STRIPE_COVENANT_WEBHOOK_SECRET");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,7 +28,7 @@ interface MemberIndexFields {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function memberStatusFromStripe(
-    stripeStatus: Stripe.Subscription.Status
+    stripeStatus: StripeSubscriptionStatus
 ): MemberStatus | null {
     switch (stripeStatus) {
         case "active":   return "active";
@@ -41,7 +46,7 @@ function isGrantingAccess(status: MemberStatus | null): boolean {
 
 // Checks both metadata key conventions (camelCase and snake_case).
 function extractMetadata(
-    metadata: Stripe.Metadata | null | undefined
+    metadata: StripeMetadata | null | undefined
 ): { covenantId: string | null; userId: string | null } {
     if (!metadata) return { covenantId: null, userId: null };
     return {
@@ -56,7 +61,7 @@ export async function writeMemberIndex(params: {
     db: admin.firestore.Firestore;
     covenantId: string;
     userId: string;
-    stripeStatus: Stripe.Subscription.Status;
+    stripeStatus: StripeSubscriptionStatus;
     stripeCustomerId: string;
     stripeSubscriptionId: string;
 }): Promise<void> {
@@ -105,19 +110,19 @@ export async function writeMemberIndex(params: {
 // ── Core event dispatch (exported for unit testing) ───────────────────────────
 
 export async function handleStripeEvent(
-    event: Stripe.Event,
+    event: StripeEvent,
     db: admin.firestore.Firestore,
-    stripe: Pick<Stripe, "subscriptions">
+    stripe: Pick<StripeInstance, "subscriptions">
 ): Promise<void> {
     switch (event.type) {
 
         case "checkout.session.completed": {
-            const session = event.data.object as Stripe.Checkout.Session;
+            const session = event.data.object as StripeCheckoutSession;
             if (session.mode !== "subscription" || !session.subscription) return;
 
             const subscriptionId = typeof session.subscription === "string"
                 ? session.subscription
-                : (session.subscription as Stripe.Subscription).id;
+                : (session.subscription as StripeSubscription).id;
 
             // Retrieve full subscription to get live status + metadata.
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -143,7 +148,7 @@ export async function handleStripeEvent(
                 stripeStatus: subscription.status,
                 stripeCustomerId: typeof session.customer === "string"
                     ? session.customer
-                    : (session.customer as Stripe.Customer | null)?.id ?? "",
+                    : (session.customer as StripeCustomer | null)?.id ?? "",
                 stripeSubscriptionId: subscriptionId,
             });
 
@@ -153,7 +158,7 @@ export async function handleStripeEvent(
 
         case "customer.subscription.created":
         case "customer.subscription.updated": {
-            const subscription = event.data.object as Stripe.Subscription;
+            const subscription = event.data.object as StripeSubscription;
             const { covenantId, userId } = extractMetadata(subscription.metadata);
 
             if (!covenantId || !userId) {
@@ -170,7 +175,7 @@ export async function handleStripeEvent(
                 stripeStatus: subscription.status,
                 stripeCustomerId: typeof subscription.customer === "string"
                     ? subscription.customer
-                    : (subscription.customer as Stripe.Customer).id,
+                    : (subscription.customer as StripeCustomer).id,
                 stripeSubscriptionId: subscription.id,
             });
 
@@ -181,7 +186,7 @@ export async function handleStripeEvent(
         }
 
         case "customer.subscription.deleted": {
-            const subscription = event.data.object as Stripe.Subscription;
+            const subscription = event.data.object as StripeSubscription;
             const { covenantId, userId } = extractMetadata(subscription.metadata);
 
             if (!covenantId || !userId) {
@@ -215,26 +220,26 @@ export async function handleStripeEvent(
 // ── Cloud Function ────────────────────────────────────────────────────────────
 
 export const stripeCovenantWebhook = onRequest(
-    { region: "us-central1" },
+    { region: "us-central1", secrets: [stripeSecretKey, stripeCovenantWebhookSecret] },
     async (req, res) => {
         if (req.method !== "POST") {
             res.status(405).send("Method Not Allowed");
             return;
         }
 
-        const stripeSecretKey    = process.env.STRIPE_SECRET_KEY;
-        const webhookSecret      = process.env.STRIPE_COVENANT_WEBHOOK_SECRET;
+        const key           = stripeSecretKey.value();
+        const webhookSecret = stripeCovenantWebhookSecret.value();
 
-        if (!stripeSecretKey || !webhookSecret) {
+        if (!key || !webhookSecret) {
             logger.error("[stripeCovenantWebhook] Missing Stripe credentials in environment");
             res.status(500).send("Server configuration error");
             return;
         }
 
-        const stripe = new Stripe(stripeSecretKey, { apiVersion: "2023-10-16" });
+        const stripe = new Stripe(key, { apiVersion: "2026-05-27.dahlia" });
         const signature = req.headers["stripe-signature"] as string | undefined;
 
-        let event: Stripe.Event;
+        let event: StripeEvent;
         try {
             event = stripe.webhooks.constructEvent(
                 (req as unknown as { rawBody: Buffer }).rawBody,

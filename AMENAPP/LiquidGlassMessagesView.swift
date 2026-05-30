@@ -51,6 +51,10 @@ struct LiquidGlassMessagesView: View {
     @State private var quotedMessage: AMENMessage?
     @State private var scrollProxy: ScrollViewProxy?
     @State private var keyboardHeight: CGFloat = 0
+    @State private var keyboardShowToken: NSObjectProtocol?
+    @State private var keyboardHideToken: NSObjectProtocol?
+    @State private var reportingMessage: AMENMessage?
+    @State private var editingMessage: AMENMessage?
 
     @Namespace private var reactionNamespace
     @Namespace private var sendButtonNamespace
@@ -85,6 +89,15 @@ struct LiquidGlassMessagesView: View {
                                     },
                                     onQuoteReply: {
                                         quotedMessage = message
+                                    },
+                                    onDelete: {
+                                        withAnimation {
+                                            messages.removeAll { $0.id == message.id }
+                                        }
+                                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                    },
+                                    onReport: {
+                                        reportingMessage = message
                                     }
                                 )
                                 .id(message.id)
@@ -121,6 +134,26 @@ struct LiquidGlassMessagesView: View {
         .onAppear {
             setupKeyboardObservers()
             loadMockMessages()
+        }
+        .onDisappear {
+            if let token = keyboardShowToken {
+                NotificationCenter.default.removeObserver(token)
+            }
+            if let token = keyboardHideToken {
+                NotificationCenter.default.removeObserver(token)
+            }
+        }
+        .alert("Report Message", isPresented: Binding(
+            get: { reportingMessage != nil },
+            set: { if !$0 { reportingMessage = nil } }
+        )) {
+            Button("Report", role: .destructive) {
+                reportingMessage = nil
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            }
+            Button("Cancel", role: .cancel) { reportingMessage = nil }
+        } message: {
+            Text("Report this message as inappropriate? Our team will review it.")
         }
     }
 
@@ -241,7 +274,7 @@ struct LiquidGlassMessagesView: View {
     }
 
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
+        keyboardShowToken = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
             if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
                 withAnimation(.easeOut(duration: 0.25)) {
                     keyboardHeight = frame.height
@@ -249,7 +282,7 @@ struct LiquidGlassMessagesView: View {
             }
         }
 
-        NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
+        keyboardHideToken = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
             withAnimation(.easeOut(duration: 0.25)) {
                 keyboardHeight = 0
             }
@@ -266,6 +299,8 @@ struct MessageBubbleView: View {
     let onReactionTap: (String) -> Void
     let onLongPress: () -> Void
     let onQuoteReply: () -> Void
+    var onDelete: (() -> Void)? = nil
+    var onReport: (() -> Void)? = nil
 
     @State private var appeared = false
 
@@ -361,6 +396,7 @@ struct MessageBubbleView: View {
                 .onLongPressGesture(minimumDuration: 0.3) {
                     onLongPress()
                 }
+                .contextMenu { messageBubbleContextMenu }
         case .prayer:
             prayerBubble(bubbleContent)
         case .testimony:
@@ -421,6 +457,7 @@ struct MessageBubbleView: View {
             .onLongPressGesture(minimumDuration: 0.3) {
                 onLongPress()
             }
+            .contextMenu { messageBubbleContextMenu }
     }
 
     private func testimonyBubble(_ content: some View) -> some View {
@@ -451,6 +488,7 @@ struct MessageBubbleView: View {
             .onLongPressGesture(minimumDuration: 0.3) {
                 onLongPress()
             }
+            .contextMenu { messageBubbleContextMenu }
     }
 
     private func scriptureBubble(_ content: some View) -> some View {
@@ -472,6 +510,55 @@ struct MessageBubbleView: View {
         }
         .onLongPressGesture(minimumDuration: 0.3) {
             onLongPress()
+        }
+        .contextMenu { messageBubbleContextMenu }
+    }
+
+    // MARK: - Context Menu
+
+    @ViewBuilder
+    private var messageBubbleContextMenu: some View {
+        // Reply (all messages)
+        Button {
+            onQuoteReply()
+        } label: {
+            Label("Reply", systemImage: "arrow.turn.up.left")
+        }
+
+        // Copy text (all messages)
+        Button {
+            UIPasteboard.general.string = message.text
+        } label: {
+            Label("Copy", systemImage: "doc.on.doc")
+        }
+
+        // React (all messages — opens the reaction bar via onLongPress)
+        Button {
+            onLongPress()
+        } label: {
+            Label("React", systemImage: "face.smiling")
+        }
+
+        Divider()
+
+        if message.isFromCurrentUser {
+            Button {
+                onLongPress()
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+
+            Button(role: .destructive) {
+                onDelete?()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        } else {
+            Button(role: .destructive) {
+                onReport?()
+            } label: {
+                Label("Report", systemImage: "flag")
+            }
         }
     }
 

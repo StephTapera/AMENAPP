@@ -15,7 +15,7 @@ import SwiftUI
 
 private extension Color {
     // Forward the canonical brand token so this file needs no magic number.
-    static let amenTabAccent = AmenTheme.Colors.amenBlue
+    static let amenTabAccent = Color.blue
 }
 
 private let useAccentForSelection = true
@@ -189,7 +189,11 @@ struct AMENBadgeCounts {
     var notifications: Int = 0
     var profile:       Int = 0
     var gatherings:    Int = 0
-    var spaces:        Int = 0  // Spaces v2 — Agent C
+    // TODO: populate from AmenConnectService unread space counts when a
+    // dedicated BadgeCountManager publisher is wired up for Spaces.
+    var spaces:        Int = 0
+    // TODO: populate from a CommunityNotes unread-count publisher when available.
+    var communityNotes: Int = 0
 
     func count(for tab: AMENTab) -> Int {
         switch tab {
@@ -201,6 +205,7 @@ struct AMENBadgeCounts {
         case .profile:       return profile
         case .gatherings:    return gatherings
         case .spaces:        return spaces
+        case .communityNotes: return communityNotes
         }
     }
 }
@@ -216,6 +221,7 @@ enum AMENTab: Int, CaseIterable {
     case profile
     case gatherings    // rawValue 6 — gated on AMENFeatureFlags.gatheringsEnabled
     case spaces        // rawValue 7 — Spaces v2 (Agent C), gated on SpacesFeatureFlags.spacesLiquidGlassEnabled
+    case communityNotes // rawValue 8 — gated on AMENFeatureFlags.communityNotesEnabled
 
     var activeIcon: String {
         switch self {
@@ -227,6 +233,7 @@ enum AMENTab: Int, CaseIterable {
         case .profile:       return "person.crop.circle.fill"
         case .gatherings:    return "person.3.sequence.fill"
         case .spaces:        return "house.and.flag.fill"
+        case .communityNotes: return "doc.text.fill"
         }
     }
 
@@ -240,6 +247,7 @@ enum AMENTab: Int, CaseIterable {
         case .profile:       return "person.crop.circle"
         case .gatherings:    return "person.3.sequence"
         case .spaces:        return "house.and.flag"
+        case .communityNotes: return "doc.text"
         }
     }
 
@@ -247,12 +255,13 @@ enum AMENTab: Int, CaseIterable {
         switch self {
         case .home:          return "Home"
         case .search:        return "Explore"
-        case .messages:      return "Chats"
+        case .messages:      return "Messages"
         case .library:       return "Library"
-        case .notifications: return "Alerts"
-        case .profile:       return "You"
+        case .notifications: return "Notifications"
+        case .profile:       return "Profile"
         case .gatherings:    return "Gather"
         case .spaces:        return "Spaces"
+        case .communityNotes: return "Notes"
         }
     }
 
@@ -269,6 +278,7 @@ enum AMENTab: Int, CaseIterable {
         case .profile:       return "Profile"
         case .gatherings:    return "Gatherings"
         case .spaces:        return "Spaces"
+        case .communityNotes: return "Community Notes"
         }
     }
 
@@ -291,44 +301,31 @@ struct AMENTabBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var restModeGate = RestModeGate.shared
     @ObservedObject private var flags = AMENFeatureFlags.shared
-    @ObservedObject private var spacesFlags = SpacesFeatureFlags.shared
     @State private var showRestModeSheet = false
+    @State private var showProfileSheet = false
     @Namespace private var selectionNamespace
 
     private var selectedColor: Color   { useAccentForSelection ? .amenTabAccent : .primary }
     private var unselectedColor: Color { Color.primary.opacity(0.55) }
 
+    /// Center capsule destinations. Profile lives in the left orb; compose is the right orb.
     private var centerTabs: [AMENTab] {
-        var tabs: [AMENTab] = [.home, .search, .messages, .library, .notifications]
-        if flags.gatheringsEnabled { tabs.append(.gatherings) }
-        // Spaces tab — gated on spacesLiquidGlassEnabled flag (default OFF in production)
-        if spacesFlags.spacesLiquidGlassEnabled { tabs.append(.spaces) }
-        return tabs
+        [.home, .search, .messages, .library, .notifications]
     }
 
-    private var barHeight: CGFloat { isMinimized ? 44 : 50 }
-
-    // Physical hide: bar shrinks into the bottom edge rather than flying off-screen
-    private var hideTransform: (scale: CGFloat, opacity: Double, offsetY: CGFloat) {
-        if isMinimized {
-            return (scale: 0.82, opacity: 0.0, offsetY: 10)
-        }
-        return (scale: 1.0, opacity: 1.0, offsetY: 0)
-    }
+    private var barHeight: CGFloat { isMinimized ? 36 : 44 }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 7) {
             profileOrb
             centerCapsule
             composeOrb
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 10)
         .padding(.bottom, 10)
-        .scaleEffect(hideTransform.scale, anchor: .bottom)
-        .opacity(hideTransform.opacity)
-        .offset(y: hideTransform.offsetY)
-        // Pattern 2: canonical bouncy spring for tab bar compress/expand
-        .animation(reduceMotion ? .easeOut(duration: 0.16) : Motion.liquidSpring,
+        .scaleEffect(y: isMinimized ? 0.97 : 1.0, anchor: .bottom)
+        .animation(reduceMotion ? .easeOut(duration: 0.16)
+                                : .spring(response: 0.34, dampingFraction: 0.86),
                    value: isMinimized)
         .sheet(isPresented: $showRestModeSheet) {
             SundayRestModeSheet(
@@ -342,31 +339,48 @@ struct AMENTabBar: View {
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(24)
         }
+        .sheet(isPresented: $showProfileSheet) {
+            AmenProfileGlassActionSheet { _ in
+                showProfileSheet = false
+            }
+        }
     }
 
     // MARK: Center capsule
 
+    @ViewBuilder
     private var centerCapsule: some View {
-        HStack(spacing: 2) {
-            ForEach(centerTabs, id: \.rawValue) { tab in
-                tabColumn(tab).frame(maxWidth: .infinity)
+        if flags.liquidGlassPillNav {
+            AMENPillNav(
+                tabs: centerTabs,
+                selectedTab: $selectedTab,
+                badges: $badges,
+                onTabTap: handleTap,
+                barHeight: barHeight,
+                isMinimized: isMinimized
+            )
+        } else {
+            HStack(spacing: 2) {
+                ForEach(centerTabs, id: \.rawValue) { tab in
+                    tabColumn(tab).frame(maxWidth: .infinity)
+                }
             }
-        }
-        .padding(.horizontal, 6)
-        .frame(height: barHeight)
-        .frame(maxWidth: .infinity)
-        // Apply clipShape to the background only, NOT the HStack content.
-        // This allows badge views (which offset outside the capsule bounds) to render
-        // unclipped while the glass surface still gets a proper capsule shape.
-        .background {
-            LiquidGlassTabBarBackground(isCompressed: isMinimized)
-                .clipShape(Capsule(style: .continuous))
+            .padding(.horizontal, 6)
+            .frame(height: barHeight)
+            .frame(maxWidth: .infinity)
+            // Apply clipShape to the background only, NOT the HStack content.
+            // This allows badge views (which offset outside the capsule bounds) to render
+            // unclipped while the glass surface still gets a proper capsule shape.
+            .background {
+                LiquidGlassTabBarBackground(isCompressed: isMinimized)
+                    .clipShape(Capsule(style: .continuous))
+            }
         }
     }
 
     @ViewBuilder
     private func tabColumn(_ tab: AMENTab) -> some View {
-        let isSelected = selectedTab == tab.rawValue
+        let isSelected = visibleSelectedTab(for: selectedTab) == tab.rawValue
         Button { handleTap(tab) } label: {
             VStack(spacing: 2) {
                 ZStack(alignment: .topTrailing) {
@@ -378,16 +392,8 @@ struct AMENTabBar: View {
                         BadgeView(count: badges.count(for: tab)).offset(x: 9, y: -9)
                     }
                 }
-                if !isMinimized {
-                    Text(tab.label)
-                        .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.65)
-                        .foregroundStyle(isSelected ? selectedColor : unselectedColor)
-                        .transition(.opacity)
-                }
             }
-            .padding(.horizontal, 5)
+            .padding(.horizontal, 3)
             .padding(.vertical, isMinimized ? 5 : 7)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
@@ -475,7 +481,7 @@ struct AMENTabBar: View {
     // MARK: Left circle — Profile
 
     private var profileOrb: some View {
-        let isSelected = selectedTab == AMENTab.profile.rawValue
+        let isSelected = visibleSelectedTab(for: selectedTab) == AMENTab.profile.rawValue
         let badge = badges.profile
         return Button { handleTap(.profile) } label: {
             ZStack {
@@ -495,8 +501,16 @@ struct AMENTabBar: View {
         }
         .buttonStyle(ComposeButtonStyle(reduceMotion: reduceMotion))
         .accessibilityLabel(AMENTab.profile.accessibilityLabel(badgeCount: badge))
-        .accessibilityHint("Double tap to open Profile")
+        .accessibilityHint("Double tap to open Profile. Long press for quick actions.")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                HapticManager.impact(style: .medium)
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.82)) {
+                    showProfileSheet = true
+                }
+            }
+        )
     }
 
     @ViewBuilder
@@ -550,13 +564,16 @@ struct AMENTabBar: View {
 
     private static let retapNotification: [AMENTab: Notification.Name] = [
         .home:          .homeTabTapped,
-        .search:        .searchTabTapped,
         .messages:      .messagesTabTapped,
         .library:       .libraryTabTapped,
         .notifications: .notificationsTabTapped,
         .profile:       .profileTabTapped,
-        .gatherings:    .gatheringsTabTapped,
     ]
+
+    /// Maps a raw selectedTab index to the tab that should appear highlighted in the bar.
+    private func visibleSelectedTab(for rawTab: Int) -> Int {
+        return rawTab
+    }
 
     private func handleTap(_ tab: AMENTab) {
         if selectedTab == tab.rawValue {
@@ -589,6 +606,7 @@ struct AMENTabBar: View {
         case .profile:       return .profile
         case .gatherings:    return .gatherings
         case .spaces:        return .spaces
+        case .communityNotes: return .communityNotes
         }
     }
 
@@ -601,7 +619,7 @@ struct AMENTabBar: View {
         case .notifications: badges.notifications = 0
         case .profile:       badges.profile = 0
         case .gatherings:    badges.gatherings = 0
-        case .spaces:        badges.spaces = 0
+        case .spaces, .communityNotes: break
         }
     }
 }
@@ -616,6 +634,8 @@ private struct BadgeView: View {
     // Spring scale state for appear (0→1) and disappear (1→0) transitions.
     @State private var badgeScale: CGFloat = 1.0
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Text(displayText)
             .font(.systemScaled(10, weight: .bold))
@@ -627,7 +647,7 @@ private struct BadgeView: View {
             .overlay(Capsule().strokeBorder(Color(.systemBackground).opacity(0.9), lineWidth: 1.5))
             // Compose pulse (increment) and appear/disappear scale together.
             .scaleEffect(pulsing ? 1.35 : badgeScale)
-            .animation(.spring(response: 0.25, dampingFraction: 0.5), value: pulsing)
+            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.5), value: pulsing)
             .animation(Motion.adaptive(Motion.popToggle), value: badgeScale)
             .onAppear {
                 // Animate in when badge first appears (0→positive).
@@ -640,7 +660,8 @@ private struct BadgeView: View {
             }
             .onChange(of: count) { oldValue, newValue in
                 // Increment pulse: existing badge gets a bounce on any count increase.
-                if newValue > oldValue && newValue > 0 && oldValue > 0 {
+                // Skip the bounce pulse when Reduce Motion is enabled.
+                if !reduceMotion && newValue > oldValue && newValue > 0 && oldValue > 0 {
                     pulsing = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { pulsing = false }
                 }
@@ -782,10 +803,12 @@ extension View {
 // MARK: - Notification Names (context menu actions)
 
 extension Notification.Name {
-    static let homeTabMarkRead        = Notification.Name("amen.homeTabMarkRead")
-    static let messagesTabMarkRead    = Notification.Name("amen.messagesTabMarkRead")
-    static let notificationsTabClear  = Notification.Name("amen.notificationsTabClear")
+    static let homeTabMarkRead         = Notification.Name("amen.homeTabMarkRead")
+    static let messagesTabMarkRead     = Notification.Name("amen.messagesTabMarkRead")
+    static let notificationsTabClear   = Notification.Name("amen.notificationsTabClear")
     static let libraryTabRecentlySaved = Notification.Name("amen.libraryTabRecentlySaved")
+    static let communityNotesTabTapped = Notification.Name("amen.communityNotesTabTapped")
+    static let navigateToCommunityNotes = Notification.Name("amen.navigateToCommunityNotes")
 }
 
 // MARK: - Preview

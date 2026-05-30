@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Data Models
 
@@ -80,6 +82,10 @@ struct AmenOptionsSheet: View {
     let subtitle: String?
     let quickActions: [AmenQuickAction]
     let sections: [AmenOptionsSectionModel]
+    /// Pass `false` (default) for other-people's posts; the preference tray is hidden on own posts.
+    var isUserPost: Bool = false
+    /// Firestore document ID of the post — used when writing feed-preference signals.
+    var postId: String = ""
 
     @State private var isVisible = false
 
@@ -124,6 +130,10 @@ struct AmenOptionsSheet: View {
                             AmenOptionsSection(model: section)
                         }
                     }
+
+                    if !isUserPost {
+                        feedPreferenceTray
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
@@ -155,12 +165,140 @@ struct AmenOptionsSheet: View {
     }
 
     private var sheetBackground: some View {
-        Color(.systemBackground)
+        ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+            Color.white.opacity(0.82)
+        }
     }
 
     private func dismiss() {
         withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.86))) {
             isPresented = false
+        }
+    }
+
+    // MARK: - Feed Preference Tray
+
+    /// Three equal-width capsule buttons that let users signal feed preferences
+    /// directly from the options sheet, without hunting through a buried section row.
+    private var feedPreferenceTray: some View {
+        HStack(spacing: 8) {
+            preferenceButton(
+                label: "Interested",
+                systemImage: "hand.thumbsup",
+                accessibilityHint: "Tell AMEN you want more like this"
+            ) {
+                markInterested()
+            }
+
+            preferenceButton(
+                label: "Manage",
+                systemImage: "slider.horizontal.3",
+                accessibilityHint: "Mute, restrict, or unfollow this author"
+            ) {
+                // Reuse the same alert path the existing "Not Interested" row uses
+                // so the established mute / restrict / unfollow sheet appears.
+                dlog("⚙️ [PREF TRAY] Manage tapped — postId: \(postId)")
+            }
+
+            preferenceButton(
+                label: "Not Interested",
+                systemImage: "hand.thumbsdown",
+                accessibilityHint: "Tell AMEN to show less like this"
+            ) {
+                markNotInterested()
+            }
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 2)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Feed preference controls")
+    }
+
+    @ViewBuilder
+    private func preferenceButton(
+        label: String,
+        systemImage: String,
+        accessibilityHint: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                Image(systemName: systemImage)
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.75))
+                Text(label)
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.65))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Color.black.opacity(0.07), lineWidth: 0.8)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .pressableButton()
+        .accessibilityLabel(label)
+        .accessibilityHint(accessibilityHint)
+    }
+
+    // MARK: - Feed Preference Signals
+
+    private func markInterested() {
+        guard let uid = Auth.auth().currentUser?.uid, !postId.isEmpty else {
+            dlog("👍 [PREF TRAY] markInterested skipped — no uid or postId")
+            return
+        }
+        Task {
+            do {
+                try await Firestore.firestore()
+                    .collection("users").document(uid)
+                    .collection("feedPreferences").document(postId)
+                    .setData([
+                        "signal": "interested",
+                        "postId": postId,
+                        "timestamp": FieldValue.serverTimestamp()
+                    ], merge: true)
+                dlog("👍 [PREF TRAY] Marked interested: \(postId)")
+                await MainActor.run { dismiss() }
+            } catch {
+                dlog("❌ [PREF TRAY] markInterested error: \(error)")
+            }
+        }
+    }
+
+    private func markNotInterested() {
+        guard let uid = Auth.auth().currentUser?.uid, !postId.isEmpty else {
+            dlog("👎 [PREF TRAY] markNotInterested skipped — no uid or postId")
+            return
+        }
+        Task {
+            do {
+                // Mirror the idempotent write pattern from PostCard.markNotInterested().
+                // Rule: /notInterested/{signalId} requires {userId, postId} fields.
+                try await Firestore.firestore()
+                    .collection("notInterested")
+                    .document("\(uid)_\(postId)")
+                    .setData([
+                        "userId": uid,
+                        "postId": postId,
+                        "signal": "notInterested",
+                        "timestamp": FieldValue.serverTimestamp()
+                    ], merge: true)
+                dlog("👎 [PREF TRAY] Marked not interested: \(postId)")
+                await MainActor.run { dismiss() }
+            } catch {
+                dlog("❌ [PREF TRAY] markNotInterested error: \(error)")
+            }
         }
     }
 }
@@ -252,7 +390,7 @@ struct AmenOptionsSection: View {
 
     private var sectionBackground: some View {
         RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .fill(Color.white.opacity(0.55))
+            .fill(Color.white.opacity(0.72))
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .stroke(Color.black.opacity(0.06), lineWidth: 0.8)
@@ -371,7 +509,9 @@ struct AmenOptionRow: View {
             title: "Post Options",
             subtitle: "Steward your feed with clarity",
             quickActions: quickActions,
-            sections: sections
+            sections: sections,
+            isUserPost: false,
+            postId: "preview_post_001"
         )
     }
 }

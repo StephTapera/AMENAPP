@@ -472,13 +472,16 @@ extension NotificationManager {
             options: .customDismissAction
         )
         
-        center.setNotificationCategories([
+        // H-14 FIX: Route through NotificationCategoryRegistrar instead of calling
+        // setNotificationCategories directly, which would wipe categories registered by
+        // other services. The registrar merges all categories and applies the union.
+        NotificationCategoryRegistrar.shared.register([
             prayerCategory,
             messageCategory,
             prayerRequestCategory,
             testimonyPostedCategory,
             eventReminderCategory
         ])
-        dlog("✅ Notification categories setup complete")
+        dlog("✅ Notification categories setup complete via NotificationCategoryRegistrar")
     }
 }

@@ -276,13 +276,17 @@ function distanceFrom(location: UserLocationContext | null | undefined, latitude
     return earthMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function normalizedIncludes(haystack: string[], needle?: string | null): boolean {
-    const value = String(needle ?? "").trim().toLowerCase();
-    if (!value) return true;
-    return haystack.some((item) => {
-        const normalized = item.toLowerCase();
-        if (!normalized) return false;
-        return normalized.includes(value) || value.includes(normalized);
+function normalizedIncludes(haystack: string[], needle?: string | string[] | null): boolean {
+    if (!needle || (Array.isArray(needle) && needle.length === 0)) return true;
+    const needles = Array.isArray(needle) ? needle : [needle];
+    return needles.some((n) => {
+        const value = String(n ?? "").trim().toLowerCase();
+        if (!value) return true;
+        return haystack.some((item) => {
+            const normalized = item.toLowerCase();
+            if (!normalized) return false;
+            return normalized.includes(value) || value.includes(normalized);
+        });
     });
 }
 

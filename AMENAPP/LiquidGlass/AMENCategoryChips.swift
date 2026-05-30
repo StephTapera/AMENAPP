@@ -82,7 +82,7 @@ struct AMENCategoryChips: View {
         } else if #available(iOS 26.0, *) {
             Capsule(style: .continuous)
                 .fill(Color.clear)
-                .glassEffect(.regular, in: Capsule(style: .continuous))
+                .glassEffect(Glass.regular.interactive(), in: Capsule(style: .continuous))
                 .overlay {
                     Capsule(style: .continuous)
                         .fill(isSelected

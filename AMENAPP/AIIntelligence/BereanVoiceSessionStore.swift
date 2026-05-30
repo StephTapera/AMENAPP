@@ -1,4 +1,4 @@
-// BereanVoiceSessionStore.swift
+// BereanVoiceStudySessionStore.swift
 // AMEN App — Context-Aware Voice Bible Companion (Agent 5)
 //
 // Persists spiritual context across voice companion sessions.
@@ -28,7 +28,7 @@ struct BereanVoiceTurn: Codable, Identifiable {
 
 // MARK: - Session
 
-struct BereanVoiceSession: Codable, Identifiable {
+struct BereanVoiceStudySession: Codable, Identifiable {
     var id: String
     let uid: String
     var title: String               // e.g. "Studying Proverbs 9:10" — auto-set
@@ -55,12 +55,12 @@ struct BereanVoiceSession: Codable, Identifiable {
 // MARK: - Store
 
 @MainActor
-final class BereanVoiceSessionStore: ObservableObject {
+final class BereanVoiceStudySessionStore: ObservableObject {
 
-    static let shared = BereanVoiceSessionStore()
+    static let shared = BereanVoiceStudySessionStore()
 
-    @Published private(set) var currentSession: BereanVoiceSession?
-    @Published private(set) var recentSessions: [BereanVoiceSession] = []
+    @Published private(set) var currentSession: BereanVoiceStudySession?
+    @Published private(set) var recentSessions: [BereanVoiceStudySession] = []
     @Published private(set) var isSaving = false
 
     private let db = Firestore.firestore()
@@ -80,7 +80,7 @@ final class BereanVoiceSessionStore: ObservableObject {
         }
 
         // Otherwise start fresh
-        currentSession = BereanVoiceSession(uid: uid)
+        currentSession = BereanVoiceStudySession(uid: uid)
     }
 
     func addTurn(_ turn: BereanVoiceTurn) {
@@ -118,7 +118,7 @@ final class BereanVoiceSessionStore: ObservableObject {
             // Refresh recent sessions
             await loadRecentSessions()
         } catch {
-            // Non-fatal: session stays in memory
+            dlog("[BereanVoiceStore] saveSession failed (non-fatal, session stays in memory): \(error.localizedDescription)")
         }
     }
 
@@ -136,16 +136,16 @@ final class BereanVoiceSessionStore: ObservableObject {
                 .getDocuments()
 
             recentSessions = snapshot.documents.compactMap {
-                try? Firestore.Decoder().decode(BereanVoiceSession.self, from: $0.data())
+                try? Firestore.Decoder().decode(BereanVoiceStudySession.self, from: $0.data())
             }
         } catch {
-            // Non-fatal
+            dlog("[BereanVoiceStore] loadRecentSessions failed (non-fatal): \(error.localizedDescription)")
         }
     }
 
     // MARK: - Delete (hard delete per privacy contract)
 
-    func deleteSession(_ session: BereanVoiceSession) async {
+    func deleteSession(_ session: BereanVoiceStudySession) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         try? await db

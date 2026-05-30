@@ -55,6 +55,7 @@ final class AmenCovenantCheckoutService: NSObject, ObservableObject {
 
     @Published var isLoading: Bool = false
     @Published var checkoutState: CheckoutState = .idle
+    @Published private(set) var isCheckoutInProgress: Bool = false
 
     private let functions = Functions.functions()
     private var authSession: ASWebAuthenticationSession?
@@ -67,6 +68,16 @@ final class AmenCovenantCheckoutService: NSObject, ObservableObject {
     /// checkout URL, then opens it via `ASWebAuthenticationSession`.
     /// The custom URL scheme `amen://covenant-checkout` is used as the callback.
     func startCheckout(covenantId: String, tierId: String) async {
+        // Idempotency guard: prevent rapid double-tap from issuing two Stripe charges.
+        guard !isCheckoutInProgress else { return }
+        isCheckoutInProgress = true
+        defer { isCheckoutInProgress = false }
+
+        // B-24: Gate — createCovenantCheckoutSession CF is not yet deployed.
+        guard AMENFeatureFlags.shared.paymentsEnabled else {
+            checkoutState = .failed(CheckoutError.invalidResponse)
+            return
+        }
         guard Auth.auth().currentUser != nil else {
             checkoutState = .failed(CheckoutError.invalidResponse)
             return

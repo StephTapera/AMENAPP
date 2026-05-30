@@ -13,7 +13,7 @@ class MessagingViewController: UIViewController {
     
     // MARK: - Properties
     
-    var conversationId: String!
+    var conversationId: String?
     private let rtdb = RealtimeDatabaseManager.shared
     private var messagesObserverKey: String?
     private var messages: [[String: Any]] = []
@@ -58,6 +58,10 @@ class MessagingViewController: UIViewController {
     }
     
     private func observeMessages() {
+        guard let conversationId else {
+            showError("Unable to load conversation")
+            return
+        }
         messagesObserverKey = rtdb.observeMessages(conversationId: conversationId) { [weak self] message in
             self?.messages.insert(message, at: 0)
             self?.messagesTableView.reloadData()
@@ -85,10 +89,14 @@ class MessagingViewController: UIViewController {
     // MARK: - Actions
     
     @IBAction func sendButtonTapped(_ sender: UIButton) {
+        guard let conversationId else {
+            showError("Unable to send message: conversation not found")
+            return
+        }
         guard let text = messageTextField.text, !text.isEmpty else {
             return
         }
-        
+
         // Send message instantly!
         rtdb.sendMessage(conversationId: conversationId, text: text) { [weak self] success in
             if success {
@@ -174,6 +182,9 @@ extension MessagingViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        guard indexPath.row < messages.count else {
+            return tableView.dequeueReusableCell(withIdentifier: "TheirMessageCell", for: indexPath)
+        }
         let message = messages[indexPath.row]
         let senderId = message["senderId"] as? String
         let isMe = senderId == Auth.auth().currentUser?.uid
@@ -217,12 +228,12 @@ extension MessagingViewController: UIImagePickerControllerDelegate, UINavigation
         
         // Upload image
         uploadImage(image) { [weak self] photoURL in
-            guard let self = self, let url = photoURL else {
+            guard let self = self, let url = photoURL, let conversationId = self.conversationId else {
                 return
             }
-            
+
             // Send photo message
-            self.rtdb.sendPhotoMessage(conversationId: self.conversationId, photoURL: url) { success in
+            self.rtdb.sendPhotoMessage(conversationId: conversationId, photoURL: url) { success in
                 if !success {
                     self.showError("Failed to send photo")
                 }

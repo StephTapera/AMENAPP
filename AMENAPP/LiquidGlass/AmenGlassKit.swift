@@ -497,6 +497,72 @@ extension View {
     }
 }
 
+// MARK: - Availability-safe glassEffect wrappers
+// Wrap iOS 26+ Glass API behind ViewModifiers so files that use them
+// can target earlier OS versions without #available at every call site.
+
+private struct AmenGlassEffectCapsuleModifier: ViewModifier {
+    let tint: Color
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.glassEffect(Glass.regular.tint(tint), in: Capsule())
+        } else {
+            content
+        }
+    }
+}
+
+private struct AmenGlassEffectCircleModifier: ViewModifier {
+    let tint: Color
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.glassEffect(Glass.regular.tint(tint), in: Circle())
+        } else {
+            content
+        }
+    }
+}
+
+private struct AmenGlassEffectRRModifier: ViewModifier {
+    let tint: Color
+    let cornerRadius: CGFloat
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.glassEffect(
+                Glass.regular.tint(tint),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+        } else {
+            content
+        }
+    }
+}
+
+private struct AmenGlassEffectDefaultModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.glassEffect(Glass.regular)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func amenGlassEffect(_ tint: Color = .white.opacity(0.12), in _: Capsule) -> some View {
+        modifier(AmenGlassEffectCapsuleModifier(tint: tint))
+    }
+    func amenGlassEffect(_ tint: Color = .white.opacity(0.12), in _: Circle) -> some View {
+        modifier(AmenGlassEffectCircleModifier(tint: tint))
+    }
+    func amenGlassEffect(_ tint: Color = .white.opacity(0.12), cornerRadius: CGFloat) -> some View {
+        modifier(AmenGlassEffectRRModifier(tint: tint, cornerRadius: cornerRadius))
+    }
+    func amenGlassEffect() -> some View {
+        modifier(AmenGlassEffectDefaultModifier())
+    }
+}
+
 // MARK: - Liquid Glass Motion System
 
 enum AmenLiquidGlassSurfaceRole: String, Hashable {

@@ -204,6 +204,43 @@ async function flagOriginatingDocument(filePath) {
         functions.logger.warn("[MediaScanning] flagOriginatingDocument failed silently", { filePath });
     }
 }
+// ── Write TrueSource scan result to post document ─────────────────────────
+// Only meaningful for post_media paths — other paths (profiles, chats) do not
+// carry a TrueSourceBundle.  Merges into trueSource.safety using dot-notation
+// so we never overwrite unrelated bundle fields written by other pipeline steps.
+async function writeTrueSourceMediaScanResult(filePath, decision, moderationStatus, riskFields) {
+    const parts = filePath.split("/");
+    if (parts[0] !== "post_media" || parts.length < 3)
+        return;
+    const uploadGroupId = parts[2];
+    try {
+        const snap = await db.collection("posts")
+            .where("uploadGroupId", "==", uploadGroupId)
+            .limit(1)
+            .get();
+        if (snap.empty)
+            return;
+        const update = {
+            "trueSource.safety.distributionDecision": decision,
+            "trueSource.safety.moderationStatus": moderationStatus,
+            "trueSource.safety.reviewedAt": admin.firestore.FieldValue.serverTimestamp(),
+            "trueSource.safety.reviewerType": "ai",
+        };
+        for (const [k, v] of Object.entries(riskFields)) {
+            update[`trueSource.safety.${k}`] = v;
+        }
+        if (decision === "remove") {
+            update.removed = true;
+        }
+        else if (decision === "human_review") {
+            update.flaggedForReview = true;
+        }
+        await snap.docs[0].ref.set(update, { merge: true });
+    }
+    catch {
+        functions.logger.warn("[MediaScanning] writeTrueSourceMediaScanResult failed silently", { filePath });
+    }
+}
 // ── Core enforcement ───────────────────────────────────────────────────────
 exports.scanUploadedMedia = functions.storage
     .object()
@@ -276,6 +313,7 @@ exports.scanUploadedMedia = functions.storage
         await Promise.all([
             writeViolationLog(filePath, uploaderUid, "csam_or_explicit_content", safeSearchResult),
             writeModerationQueueEntry(filePath, uploaderUid, "csam_detection", "immediate", safeSearchResult),
+            writeTrueSourceMediaScanResult(filePath, "remove", "removed", { childSafetyRisk: 1.0, sexualSafetyRisk: 1.0 }),
             // Writing a critical_harassment_pattern entry causes autoSuspendOnCriticalPattern
             // to disable the uploading account's Firebase Auth entry.
             uploaderUid ? db.collection("moderationQueue").add({
@@ -303,6 +341,7 @@ exports.scanUploadedMedia = functions.storage
         await Promise.all([
             writeViolationLog(filePath, uploaderUid, "graphic_violence", safeSearchResult),
             writeModerationQueueEntry(filePath, uploaderUid, "graphic_violence_detected", "immediate", safeSearchResult),
+            writeTrueSourceMediaScanResult(filePath, "remove", "removed", { violenceRisk: 1.0 }),
         ]);
         return;
     }
@@ -326,6 +365,7 @@ exports.scanUploadedMedia = functions.storage
             writeViolationLog(filePath, uploaderUid, "likely_unsafe_content", safeSearchResult),
             writeModerationQueueEntry(filePath, uploaderUid, "unsafe_content_detected", "high", safeSearchResult),
             flagOriginatingDocument(filePath),
+            writeTrueSourceMediaScanResult(filePath, "human_review", "human_review", {}),
         ]);
         return;
     }
@@ -337,6 +377,7 @@ exports.scanUploadedMedia = functions.storage
         await Promise.all([
             flagOriginatingDocument(filePath),
             writeModerationQueueEntry(filePath, uploaderUid, "possible_unsafe_content", "standard", safeSearchResult),
+            writeTrueSourceMediaScanResult(filePath, "reduce_reach", "approved_limited", {}),
         ]);
     }
     // Clean — no action needed

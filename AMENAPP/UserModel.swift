@@ -11,8 +11,25 @@ import FirebaseAuth
 import FirebaseFirestore
 
 /// User model for Firebase Firestore
+///
+/// PRIVACY AUDIT NOTE 2026-05-28 (P1):
+/// The `email` field is currently written to the root `/users/{uid}` document, which
+/// Firestore rules allow every signed-in user to read (`allow read: if isSignedIn()`).
+/// This means every authenticated user can read every other user's email address.
+///
+/// REQUIRED MIGRATION:
+/// 1. Stop writing `email` to the root document (remove from `createUserProfile` and
+///    `updateUserEmail` writes that target `/users/{uid}`).
+/// 2. Write email to `/users/{uid}/usage/pii` (owner-only subcollection) instead.
+/// 3. Run a one-time server-side migration CF to move existing email fields out of root
+///    documents and into the PII subcollection.
+/// 4. Update any read paths that currently pull email from UserModel to use the PII subcollection.
+///
+/// Until this migration is complete, `email` is intentionally excluded from Algolia sync
+/// (confirmed: AlgoliaSyncService does not sync the email field).
 struct UserModel: Codable, Identifiable {
     @DocumentID var id: String?
+    // PRIVACY: email is on the root doc (world-readable by signed-in users). See migration note above.
     var email: String?  // ✅ Optional for phone-authenticated users
     var displayName: String
     var username: String  // Unique username (e.g., @johndoe)

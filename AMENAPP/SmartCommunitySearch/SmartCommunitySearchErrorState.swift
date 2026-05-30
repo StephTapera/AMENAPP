@@ -8,9 +8,7 @@ struct SmartCommunitySearchErrorState: View {
         VStack(spacing: 20) {
             Spacer()
 
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 44))
-                .foregroundStyle(.orange)
+            AmenGlass3DIcon(systemName: "exclamationmark.triangle", tint: AmenTheme.Colors.amenGold, size: 72)
                 .accessibilityHidden(true)
 
             Text("Something went wrong")
@@ -28,7 +26,7 @@ struct SmartCommunitySearchErrorState: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 12)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(AmenTheme.Colors.amenPurple, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .accessibilityLabel("Retry search")
 

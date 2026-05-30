@@ -37,6 +37,7 @@ struct AMENImmersiveMediaViewer: View {
     var onChipSelected: ((String?) -> Void)? = nil
 
     @State private var showActions = false
+    @ObservedObject private var flags = AMENFeatureFlags.shared
 
     var body: some View {
         ZStack(alignment: .trailing) {
@@ -67,7 +68,7 @@ struct AMENImmersiveMediaViewer: View {
         .sheet(isPresented: $showActions) {
             AMENActionSheet(
                 items:          actionItems,
-                chips:          actionChips,
+                chips:          flags.liquidGlassCategoryChips ? actionChips : [],
                 onChipSelected: onChipSelected
             )
         }

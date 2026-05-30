@@ -410,11 +410,11 @@ final class VoiceToWisdomViewModel: ObservableObject {
 
 @MainActor
 final class CommunityDuetViewModel: ObservableObject {
-    @Published var communityNotes: [CommunityNote] = []
+    @Published var communityNotes: [DuetCommunityNote] = []
     @Published var searchText: String = ""
-    @Published var filteredNotes: [CommunityNote] = []
+    @Published var filteredNotes: [DuetCommunityNote] = []
 
-    func loadCommunityNotes() {
+    func loadDuetCommunityNotes() {
         let raw: [(name: String, initials: String, color: String, snippet: String, ref: String, church: String, likes: Int)] = [
             ("Aisha Okonkwo", "AO", "A855F7", "God's love is not conditional on our performance — it's the foundation we build from, not the reward we earn.", "Romans 5:8", "New Birth Missionary", 42),
             ("Marcus Webb", "MW", "4A9EFF", "Pastor challenged us: your faith isn't measured in church attendance, but in how you love people on Monday morning.", "James 2:17", "Hillsong Atlanta", 38),
@@ -432,7 +432,7 @@ final class CommunityDuetViewModel: ObservableObject {
 
         let calendar = Calendar.current
         communityNotes = raw.enumerated().map { idx, r in
-            CommunityNote(
+            DuetCommunityNote(
                 id: UUID(),
                 authorName: r.name,
                 authorInitials: r.initials,
@@ -461,7 +461,7 @@ final class CommunityDuetViewModel: ObservableObject {
         }
     }
 
-    func stitchNote(_ note: CommunityNote, into bodyText: inout String) {
+    func stitchNote(_ note: DuetCommunityNote, into bodyText: inout String) {
         let block = """
 
 

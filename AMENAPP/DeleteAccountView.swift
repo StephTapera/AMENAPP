@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import GoogleSignIn
 import AuthenticationServices
 import CryptoKit
 
@@ -301,11 +302,38 @@ private struct ReauthenticationSheet: View {
                     }
                     .padding(.horizontal, 24)
                 } else if isGoogle {
-                    Text("Please sign in with Google again to confirm.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
+                    if let err = error {
+                        Text(err)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+
+                    Button {
+                        Task { await reauthWithGoogle() }
+                    } label: {
+                        Group {
+                            if isLoading {
+                                ProgressView().tint(.white)
+                            } else {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "globe")
+                                    Text("Sign in with Google to confirm")
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(isLoading ? Color.accentColor.opacity(0.4) : Color.accentColor)
+                        )
+                    }
+                    .disabled(isLoading)
+                    .padding(.horizontal, 24)
                 } else {
                     // Email/password
                     VStack(alignment: .leading, spacing: 8) {
@@ -378,6 +406,31 @@ private struct ReauthenticationSheet: View {
             onComplete(true)
         } catch {
             self.error = "Incorrect password. Please try again."
+        }
+        isLoading = false
+    }
+
+    private func reauthWithGoogle() async {
+        isLoading = true
+        error = nil
+        let rootVC = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first?.rootViewController ?? UIViewController()
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+            guard let idToken = result.user.idToken?.tokenString else {
+                self.error = "Google sign-in did not return a valid token. Please try again."
+                self.isLoading = false
+                return
+            }
+            let accessToken = result.user.accessToken.tokenString
+            let credential = GoogleAuthProvider.credential(withIDToken: idToken,
+                                                           accessToken: accessToken)
+            try await Auth.auth().currentUser?.reauthenticate(with: credential)
+            onComplete(true)
+        } catch {
+            self.error = "Google re-authentication failed. Please try again."
+            onComplete(false)
         }
         isLoading = false
     }

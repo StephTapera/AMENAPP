@@ -1323,7 +1323,6 @@ struct PostCard: View {
                     case .tip:         return "bible_teaching"
                     case .funFact:     return "bible_teaching"
                     case .openTable:   return "community"
-                    default:           return "community"
                     }
                 }()
 
@@ -2235,6 +2234,64 @@ struct PostCard: View {
                     HapticManager.impact(style: .light)
                     withAnimation(.amenSpring) { showPostActionMenu = true }
                 }
+                .contextMenu {
+                    // Reply
+                    Button {
+                        if let p = post { presentSheet(.comments(post: p)) }
+                    } label: {
+                        Label("Reply", systemImage: "arrow.turn.up.left")
+                    }
+
+                    // Copy Link
+                    Button {
+                        copyLink()
+                    } label: {
+                        Label("Copy Link", systemImage: "link")
+                    }
+
+                    // Save
+                    Button {
+                        toggleSave()
+                    } label: {
+                        Label(isSaved ? "Saved" : "Save", systemImage: isSaved ? "bookmark.fill" : "bookmark")
+                    }
+
+                    // Translate
+                    Button {
+                        Task { await triggerTranslation() }
+                    } label: {
+                        Label("Translate", systemImage: "character.bubble")
+                    }
+
+                    Divider()
+
+                    // Share
+                    Button {
+                        sharePost()
+                    } label: {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+
+                    // Own-post actions
+                    if isUserPost {
+                        Divider()
+                        Button(role: .destructive) {
+                            activeAlert = .deleteConfirmation
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+
+                    // Others' posts actions
+                    if !isUserPost {
+                        Divider()
+                        Button(role: .destructive) {
+                            if let p = post { presentSheet(.report(post: p)) }
+                        } label: {
+                            Label("Report", systemImage: "flag")
+                        }
+                    }
+                }
                 .modifier(PostCardSheetsModifier(
                     activeSheet: $activeSheet,
                     hasCommented: $hasCommented,
@@ -2657,7 +2714,7 @@ struct PostCard: View {
         let isPublic: Bool
         switch visibility {
         case .everyone: isPublic = true
-        case .followers, .community: isPublic = false
+        case .followers, .community, .underReview: isPublic = false
         case .none: isPublic = true
         }
 
@@ -2928,6 +2985,7 @@ struct PostCard: View {
     /// Frame of the media carousel (in card-local coordinates). Used to block the
     /// swipe-to-comment/like gesture when the user's drag starts inside the carousel.
     @State private var mediaCarouselFrame: CGRect = .zero
+    @State private var activeMediaIndex: Int = 0
     
     enum SwipeDirection {
         case none, left, right
@@ -3259,11 +3317,11 @@ struct PostCard: View {
         if AMENFeatureFlags.shared.replyPreviewRotationEnabled,
            let post {
             let candidates = post.dynamicReplyPreviewCandidates ?? []
-            if !candidates.isEmpty {
-                // FIXME: AmenUniversalContentRouter.openReplies / showReplyActions removed
-                // — routing directly via local card state
+            let safeCandidates = candidates.filter { $0.isSafe && !$0.isExpired }
+
+            if !safeCandidates.isEmpty {
                 LiquidReplyPreviewRotator(
-                    candidates: candidates,
+                    candidates: safeCandidates,
                     onOpenReplies: { preview in
                         openReplyPreview(preview, for: post)
                     },
@@ -3274,31 +3332,38 @@ struct PostCard: View {
                         )
                     }
                 )
-                // .id drives a SwiftUI crossfade each time the server rotates to a new
-                // preview (generatedAt changes). The rotator's internal contentHash also
-                // guards against spurious re-renders within the same generation.
-                .id(resolvedPreview?.generatedAt)
-                // Reserve a stable 44-pt slot so the chip appearing/disappearing
-                // does not cause a feed scroll jump.
+                // Crossfade only when content actually changes (post+type+text), not on
+                // every server timestamp update — CONTRACT §5.
+                .id(resolvedPreview.map { "\($0.postId)|\($0.type.rawValue)|\($0.previewText)" })
                 .frame(height: 44)
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
                 .padding(.bottom, 2)
-                // Present ReplyActionsMenuView when this card receives a long-press target
-                // for its own post.
                 .sheet(item: $localReplyActionsTarget) { target in
                     ReplyActionsMenuView(target: target)
                 }
-            } else {
-                // Feature flag is ON but candidates haven't loaded yet (or resolved to zero
-                // safe previews). Reserve the 44-pt slot to prevent a layout jump when
-                // the server-populated candidates arrive.
+                // Handle the Reply action from ReplyActionsMenuView: the menu dismisses
+                // itself then fires this notification so the hosting card opens CommentsView.
+                .onReceive(NotificationCenter.default.publisher(for: .amenOpenRepliesRequested)) { note in
+                    guard let postId = note.userInfo?["postId"] as? String,
+                          postId == post.firestoreId,
+                          let notePost = note.userInfo?["post"] as? Post else { return }
+                    let replyId = note.userInfo?["highlightedReplyId"] as? String ?? ""
+                    if replyId.isEmpty {
+                        presentSheet(.comments(post: notePost))
+                    } else {
+                        presentSheet(.commentsHighlighted(post: notePost, replyId: replyId, highlightedCommentIds: [replyId]))
+                    }
+                }
+            } else if candidates.isEmpty {
+                // No candidates from server yet — reserve slot to prevent layout jump on load.
                 Color.clear
                     .frame(height: 44)
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
                     .padding(.bottom, 2)
             }
+            // All candidates exist but are unsafe/expired: render nothing, no slot.
         }
     }
 
@@ -3384,10 +3449,28 @@ struct PostCard: View {
     }
 
     private var inlineHubPillModel: AmenObjectHubPreviewPillModel? {
-        // FIXME: Post.communityHubPreview field removed — community hub pill branch disabled
+        guard let post else { return nil }
 
-        guard let post,
-              let attachment = post.smartAttachment,
+        // Preferred: trusted preview written by attachCommunityHubPreviewToPost (Admin SDK)
+        if let preview = post.communityHubPreview, preview.isVisiblePreview {
+            let objectType  = AmenAttachmentType(rawValue: preview.objectTypeRaw) ?? .genericLink
+            let safetyState = AmenAttachmentSafetyStatus(rawValue: preview.safetyStateRaw) ?? .needsReview
+            let explicit    = AmenExplicitContentState(rawValue: preview.explicitContentStateRaw) ?? .unknown
+            let iconName    = preview.iconKind ?? AmenObjectHubInlineActionRanker.icon(for: objectType)
+            return AmenObjectHubPreviewPillModel(
+                target: .canonicalObjectId(preview.canonicalObjectId),
+                objectType: objectType,
+                aggregateText: preview.aggregateText,
+                actionText: preview.actionText,
+                iconName: iconName,
+                safetyState: safetyState,
+                explicitContentState: explicit,
+                accessibilityLabel: "\(preview.actionText). \(preview.aggregateText)."
+            )
+        }
+
+        // Fallback: smartAttachment (client-side; shown before backend indexing completes)
+        guard let attachment = post.smartAttachment,
               attachment.safetyStatus != .blocked,
               !attachment.canonicalUrl.isEmpty else {
             return nil
@@ -3678,7 +3761,8 @@ struct PostCard: View {
             // FIXME: PostMediaContainerView init no longer has post: or sourceContext: params — removed
             PostMediaContainerView(
                 media: media,
-                postId: post.firestoreId
+                postId: post.firestoreId,
+                onActiveIndexChanged: { idx in activeMediaIndex = idx }
             )
             .padding(.top, 6)
             .onLongPressGesture(minimumDuration: 0.4) {
@@ -3713,6 +3797,18 @@ struct PostCard: View {
                     }
                 }
             )
+
+            // Per-media caption (System 24, flag-guarded)
+            if AMENFeatureFlags.shared.perMediaCaptionsEnabled {
+                PostCardPerMediaCaption(
+                    media: media,
+                    activeIndex: activeMediaIndex,
+                    postCaption: post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .animation(.easeInOut(duration: 0.15), value: activeMediaIndex)
+            }
         }
 
         // Church Note attachment — preserve existing pill direction, add inline expand + full detail
@@ -3860,8 +3956,24 @@ struct PostCard: View {
                     .padding(.top, 12)
             }
         }
+
+        // Media attachments (music, links, scripture, etc.)
+        // Only rendered when attachments exist — old posts with no field are unaffected.
+        if let attachments = post?.mediaAttachments, !attachments.isEmpty {
+            Group {
+                AmenPostMediaRenderer(
+                    attachments: attachments,
+                    isCompact: true,
+                    onAskBerean: nil
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+                .padding(.top, 4)
+            }
+            // Media renderer — safe to remove if layout breaks
+        }
     }
-    
+
     // MARK: - Moderation Banner
     @ViewBuilder
     private var moderationBanner: some View {
@@ -4928,6 +5040,7 @@ struct PostCard: View {
                 logDebug("✅ Backend write SUCCESS", category: "LIGHTBULB")
                 logDebug("  AFTER: hasLitLightbulb=\(hasLitLightbulb), count=\(lightbulbCount)", category: "LIGHTBULB")
                 logDebug("  Note: Count will update via real-time observer", category: "LIGHTBULB")
+                AMENAnalyticsService.shared.track(.homePostLightbulbTapped(postId: stableId))
 
                 // Reset animation state
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -5004,6 +5117,7 @@ struct PostCard: View {
                 logDebug("✅ Backend write SUCCESS", category: "AMEN")
                 logDebug("  AFTER: hasSaidAmen=\(hasSaidAmen), count=\(amenCount)", category: "AMEN")
                 logDebug("  Note: Count will update via real-time observer", category: "AMEN")
+                AMENAnalyticsService.shared.track(.homePostAmenReactionTapped(postId: stableId))
 
                 // Record engagement for ML training (only on amen, not un-amen)
                 if hasSaidAmen, let userId = Auth.auth().currentUser?.uid {
@@ -5025,7 +5139,6 @@ struct PostCard: View {
                         case .tip:         return "bible_teaching"
                         case .funFact:     return "bible_teaching"
                         case .openTable:   return "community"
-                        default:           return "community"
                         }
                     }()
                     HeyFeedContradictionService.shared.recordEngage(targetId: amenTopicId)
@@ -5195,7 +5308,6 @@ struct PostCard: View {
                 case .tip:         return "bible_teaching"
                 case .funFact:     return "bible_teaching"
                 case .openTable:   return "community"
-                default:           return "community"
                 }
             }()
             Task {
@@ -5340,7 +5452,6 @@ struct PostCard: View {
                     case .tip:         return "bible_teaching"
                     case .funFact:     return "bible_teaching"
                     case .openTable:   return "community"
-                    default:           return "community"
                     }
                 }()
                 await MainActor.run {
@@ -5542,7 +5653,6 @@ struct PostCard: View {
                             case .tip:         return "bible_teaching"
                             case .funFact:     return "bible_teaching"
                             case .openTable:   return "community"
-                            default:           return "community"
                             }
                         }()
                         HeyFeedContradictionService.shared.recordEngage(targetId: saveTopicId)
@@ -6113,7 +6223,7 @@ private struct PostCardSheetsModifier: ViewModifier {
             UserProfileView(userId: userId, showsDismissButton: true)
         case .edit(let post):
             EditPostSheet(post: post)
-        case .share(let post, let note):
+        case .share(let post, _):
             // FIXME: ShareRouter.entity removed — PostShareOptionsSheet takes post: Post directly
             PostShareOptionsSheet(post: post)
         case .postDetail(let post):
@@ -6351,7 +6461,6 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     case .tip:         return "bible_teaching"
                     case .funFact:     return "bible_teaching"
                     case .openTable:   return "community"
-                    default:           return "community"
                     }
                 }()
                 await MainActor.run {
@@ -6846,7 +6955,7 @@ private struct ContextPrayerMomentRouteView: View {
         .navigationTitle("Prayer Moment")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            prayerRoomService.loadUpcoming()
+            prayerRoomService.startListening()
         }
     }
 
@@ -6871,3 +6980,26 @@ private struct ContextUnavailableRouteView: View {
 }
 
 // MinimalReactionButtonStyle and PostPollView moved to PostCardPollView.swift
+
+// MARK: - Per-Media Caption (System 24 stub — full implementation pending)
+struct PostCardPerMediaCaption: View {
+    let media: PostMediaContainer
+    let activeIndex: Int
+    let postCaption: String
+
+    var body: some View {
+        let items = media.sortedItems
+        let caption: String = {
+            guard activeIndex < items.count else { return "" }
+            return items[activeIndex].perMediaCaption ?? (items.count == 1 ? postCaption : "")
+        }()
+        if caption.isEmpty {
+            EmptyView()
+        } else {
+            Text(caption)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}

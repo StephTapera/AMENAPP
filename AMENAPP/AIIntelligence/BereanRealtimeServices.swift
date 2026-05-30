@@ -5,7 +5,7 @@ import FirebaseFunctions
 @MainActor
 final class BereanLiveTranscriptService: ObservableObject {
     @Published private(set) var captions: [BereanCaptionChunk] = []
-    @Published private(set) var scriptures: [BereanScriptureReference] = []
+    @Published private(set) var scriptures: [BereanResolvedScriptureRef] = []
     @Published var listenerError: String?
 
     private let db = Firestore.firestore()
@@ -47,7 +47,7 @@ final class BereanLiveTranscriptService: ObservableObject {
                 }
                 guard let docs = snapshot?.documents else { return }
                 Task { @MainActor in
-                    self?.scriptures = docs.map { BereanScriptureReference(id: $0.documentID, data: $0.data()) }
+                    self?.scriptures = docs.map { BereanResolvedScriptureRef(id: $0.documentID, data: $0.data()) }
                 }
             }
     }
@@ -131,18 +131,23 @@ final class BereanTranslationCoordinator: ObservableObject {
 
 @MainActor
 final class BereanScriptureResolutionEngine: ObservableObject {
-    @Published private(set) var references: [BereanScriptureReference] = []
+    @Published private(set) var references: [BereanResolvedScriptureRef] = []
     private let functions = Functions.functions()
 
-    func resolve(text: String, sessionId: String? = nil) async throws -> [BereanScriptureReference] {
+    func resolve(
+        text: String,
+        language: BereanSupportedLanguage = .english,
+        sessionId: String? = nil
+    ) async throws -> [BereanResolvedScriptureRef] {
         let result = try await functions.httpsCallable("resolveScriptureReferences").call([
             "text": text,
+            "language": language.rawValue,
             "sessionId": sessionId ?? "",
         ])
         guard let data = result.data as? [String: Any],
               let items = data["references"] as? [[String: Any]] else { return [] }
         let resolved = items.enumerated().map { index, item in
-            BereanScriptureReference(id: item["reference"] as? String ?? "ref_\(index)", data: item)
+            BereanResolvedScriptureRef(id: item["reference"] as? String ?? "ref_\(index)", data: item)
         }
         references = resolved
         return resolved
@@ -225,16 +230,133 @@ struct BereanLanguageDetectionService {
 }
 
 @MainActor
-final class BereanSermonCaptureEngine {
-    let sessionManager = BereanRealtimeSessionManager.shared
-    let transcriptService = BereanLiveTranscriptService()
-    let scriptureEngine = BereanScriptureResolutionEngine()
+final class BereanSermonCaptureEngine: ObservableObject {
+    @Published private(set) var isCapturing = false
+    @Published private(set) var sessionId: String?
+    @Published private(set) var currentSecret: BereanRealtimeClientSecret?
+    @Published private(set) var error: String?
+
+    // Exposed so call sites can observe captions / scriptures directly.
+    let transcriptService: BereanLiveTranscriptService
+
+    private let sessionManager: BereanRealtimeSessionManager
+    private let scriptureEngine: BereanScriptureResolutionEngine
+    private let analytics: BereanRealtimeAnalyticsService
+    private let whisperService: BereanRealtimeWhisperService
+
+    init(sessionManager: BereanRealtimeSessionManager = .shared) {
+        self.sessionManager = sessionManager
+        self.transcriptService = BereanLiveTranscriptService()
+        self.scriptureEngine = BereanScriptureResolutionEngine()
+        self.analytics = BereanRealtimeAnalyticsService()
+        self.whisperService = BereanRealtimeWhisperService()
+    }
+
+    /// Creates a realtime session and begins streaming captions + scripture references.
+    func start(
+        sourceLanguage: BereanSupportedLanguage = .english,
+        targetLanguages: [BereanSupportedLanguage]
+    ) async {
+        guard !isCapturing else { return }
+        error = nil
+        do {
+            let secret = try await whisperService.createTranscriptionSession(
+                sourceLanguage: sourceLanguage,
+                targetLanguages: targetLanguages
+            )
+            currentSecret = secret
+            sessionId = secret.sessionId
+            let displayLanguage = targetLanguages.first ?? sourceLanguage
+            transcriptService.start(sessionId: secret.sessionId, language: displayLanguage)
+            isCapturing = true
+            await analytics.track(
+                sessionId: secret.sessionId,
+                type: "sermon_capture_started",
+                language: sourceLanguage,
+                surface: "sermon_capture"
+            )
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Switches the live caption output to a different target language without restarting the session.
+    func switchLanguage(to language: BereanSupportedLanguage) {
+        guard let sid = sessionId else { return }
+        transcriptService.start(sessionId: sid, language: language)
+    }
+
+    /// Stops capture, tears down listeners, and ends the backend session.
+    func stop() {
+        guard isCapturing else { return }
+        let sid = sessionId
+        transcriptService.stop()
+        isCapturing = false
+        sessionId = nil
+        currentSecret = nil
+        Task {
+            if let sid {
+                await analytics.track(sessionId: sid, type: "sermon_capture_ended", surface: "sermon_capture")
+            }
+            try? await sessionManager.endCurrentSession()
+        }
+    }
 }
 
 @MainActor
 final class BereanAmbientIntelligenceEngine {
-    let moderation = BereanRealtimeModerationService()
-    let analytics = BereanRealtimeAnalyticsService()
-    let scripture = BereanScriptureResolutionEngine()
+    private let moderation: BereanRealtimeModerationService
+    private let analytics: BereanRealtimeAnalyticsService
+    private let scripture: BereanScriptureResolutionEngine
+    private let languageDetector = BereanLanguageDetectionService()
+
+    init() {
+        self.moderation = BereanRealtimeModerationService()
+        self.analytics = BereanRealtimeAnalyticsService()
+        self.scripture = BereanScriptureResolutionEngine()
+    }
+
+    /// Validates a transcript chunk through moderation, resolves any scripture references,
+    /// and tracks the event. Returns resolved references, or empty if moderation blocks it.
+    @discardableResult
+    func analyzeTranscriptChunk(
+        _ text: String,
+        sessionId: String,
+        language: BereanSupportedLanguage? = nil
+    ) async throws -> [BereanResolvedScriptureRef] {
+        let allowed = try await moderation.validateTranscript(text, sessionId: sessionId)
+        guard allowed else { return [] }
+
+        let detectedLanguage = language ?? languageDetector.detectLanguageCode(in: text)
+        let refs = try await scripture.resolve(text: text, language: detectedLanguage, sessionId: sessionId)
+
+        if !refs.isEmpty {
+            await analytics.track(
+                sessionId: sessionId,
+                type: "ambient_scripture_detected",
+                language: detectedLanguage,
+                surface: "ambient_intelligence"
+            )
+        }
+        return refs
+    }
+
+    /// Returns true when the content carries enough spiritual signal to proactively
+    /// surface Berean context (e.g., pop a scripture card). Requires ≥ 5 words and
+    /// ≥ 2 spiritual keyword matches so single-word utterances never trigger it.
+    func shouldSurfaceScripture(for text: String) -> Bool {
+        let words = text.split(separator: " ").count
+        guard words >= 5 else { return false }
+        let keywords = ["pray", "prayer", "scripture", "verse", "bible", "god", "lord",
+                        "jesus", "spirit", "faith", "grace", "amen", "worship", "sermon",
+                        "holy", "gospel", "revelation", "salvation", "repent", "glory"]
+        let lower = text.lowercased()
+        return keywords.filter { lower.contains($0) }.count >= 2
+    }
+
+    /// Records a user interaction with an ambient intelligence surface for analytics.
+    func recordInteraction(type: String, sessionId: String, language: BereanSupportedLanguage? = nil) async {
+        await analytics.track(sessionId: sessionId, type: type, language: language, surface: "ambient_intelligence")
+    }
 }
 

@@ -69,15 +69,19 @@ final class SmartCommunitySearchService {
         isSearching = false
     }
 
-    func logInteraction(event: String, result: SmartCommunityRankedResult?) async {
-        do {
-            _ = try await functions.httpsCallable("logSmartSearchInteraction").call([
-                "event": event,
-                "resultId": result?.id as Any,
-                "resultType": result?.type.rawValue as Any,
-            ])
-        } catch {
-            // Analytics failures must never crash the app
+    // PERF: Fire-and-forget analytics call — non-async so callers don't need
+    // to wrap in Task { await ... }. The call never blocks the UI path.
+    func logInteraction(event: String, result: SmartCommunityRankedResult?) {
+        Task {
+            do {
+                _ = try await functions.httpsCallable("logSmartSearchInteraction").call([
+                    "event": event,
+                    "resultId": result?.id as Any,
+                    "resultType": result?.type.rawValue as Any,
+                ])
+            } catch {
+                // Analytics failures must never crash the app
+            }
         }
     }
 

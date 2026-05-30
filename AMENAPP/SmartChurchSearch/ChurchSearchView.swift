@@ -1,15 +1,30 @@
 import SwiftUI
 import MapKit
 
+// MARK: - Intent model (file-private, referenced by ChurchSearchViewModel.quickIntents)
+struct QuickChurchIntent {
+    let label: String
+    let icon: String
+    let query: String
+}
+
 struct ChurchSearchView: View {
     @StateObject private var viewModel = ChurchSearchViewModel()
     @State private var detailResult: SmartChurchSearchItem?
     @State private var showBereanFinder = false
+    @State private var bereanSeedQuery: String?
+    @State private var mapProvider: ChurchMapProvider = .apple
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
                 searchBar
+                if viewModel.results.isEmpty && !viewModel.isLoading {
+                    intentChips
+                }
+                if viewModel.displayMode == .map && !viewModel.results.isEmpty {
+                    MapProviderPicker(provider: $mapProvider)
+                }
                 modePicker
                 content
             }
@@ -34,8 +49,19 @@ struct ChurchSearchView: View {
                 SmartChurchDetailView(result: result)
             }
             .sheet(isPresented: $showBereanFinder) {
-                SmartChurchBereanFinderView()
+                SmartChurchBereanFinderView(seedQuery: bereanSeedQuery)
             }
+            .alert("Location Access Needed", isPresented: $viewModel.showLocationPrompt) {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("AMEN uses your location to find churches nearby. Enable location access in Settings to see suggestions.")
+            }
+            .onAppear { viewModel.loadNearby() }
         }
     }
 
@@ -66,6 +92,28 @@ struct ChurchSearchView: View {
         }
     }
 
+    private var intentChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ChurchSearchViewModel.quickIntents, id: \.query) { intent in
+                    Button {
+                        viewModel.query = intent.query
+                        viewModel.search()
+                    } label: {
+                        Label(intent.label, systemImage: intent.icon)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AmenTheme.Colors.textSecondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(AmenTheme.Colors.surfaceChip, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+    }
+
     private var modePicker: some View {
         Picker("View", selection: $viewModel.displayMode) {
             Label("List", systemImage: "list.bullet").tag(ChurchSearchViewModel.DisplayMode.list)
@@ -86,20 +134,28 @@ struct ChurchSearchView: View {
             ContentUnavailableView("No Results", systemImage: "building.columns", description: Text(message))
             Spacer()
         } else if viewModel.displayMode == .map {
-            ChurchMapView(
+            ChurchDualMapView(
                 results: viewModel.results,
+                provider: $mapProvider,
                 selectedResult: $viewModel.selectedResult,
                 camera: $viewModel.mapCamera,
                 onOpen: { detailResult = $0 }
             )
-        } else {
+        } else if !viewModel.results.isEmpty {
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    Text(viewModel.isNearbySearch ? "Suggested near you" : "Results for your search")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AmenTheme.Colors.textSecondary)
+                        .padding(.top, 4)
                     ForEach(viewModel.results) { result in
                         Button {
                             detailResult = result
                         } label: {
-                            ChurchResultCard(result: result)
+                            ChurchResultCard(result: result) { church in
+                                bereanSeedQuery = "Tell me more about \(church.name) — \(church.denomination.isEmpty ? "" : "\(church.denomination), ")\(church.shortLocation)"
+                                showBereanFinder = true
+                            }
                         }
                         .buttonStyle(.plain)
                     }
@@ -112,15 +168,22 @@ struct ChurchSearchView: View {
 
 struct ChurchResultCard: View {
     let result: SmartChurchSearchItem
+    var onAskBerean: ((SmartChurchSummary) -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 thumbnail
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(result.church.name)
-                        .font(.headline)
-                        .foregroundStyle(AmenTheme.Colors.textPrimary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .center, spacing: 6) {
+                        Text(result.church.name)
+                            .font(.headline)
+                            .foregroundStyle(AmenTheme.Colors.textPrimary)
+                        if result.score > 0 {
+                            scoreBadge
+                        }
+                        Spacer()
+                    }
                     Text(distanceLine)
                         .font(.subheadline)
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
@@ -131,6 +194,8 @@ struct ChurchResultCard: View {
                 }
             }
             chipRow
+            actionRow
+                .padding(.top, 4)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -141,6 +206,8 @@ struct ChurchResultCard: View {
         }
     }
 
+    // MARK: - Subviews
+
     private var thumbnail: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -150,6 +217,15 @@ struct ChurchResultCard: View {
                 .foregroundStyle(AmenTheme.Colors.accentPrimary)
         }
         .frame(width: 54, height: 54)
+    }
+
+    private var scoreBadge: some View {
+        Text(String(format: "%.0f%%", result.score * 100))
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(scoreColor(result.score))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(scoreColor(result.score).opacity(0.12), in: Capsule())
     }
 
     private var chipRow: some View {
@@ -164,9 +240,44 @@ struct ChurchResultCard: View {
         }
     }
 
+    private var actionRow: some View {
+        HStack(spacing: 8) {
+            // Dual directions: Apple Maps or Google Maps (action sheet)
+            ChurchDirectionsButton(church: result.church)
+
+            if let website = result.church.website, !website.isEmpty {
+                actionButton(icon: "safari.fill", label: "Website") {
+                    if let url = URL(string: website) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .accessibilityLabel("Visit website for \(result.church.name)")
+            }
+
+            actionButton(icon: "sparkles", label: "Ask Berean") {
+                onAskBerean?(result.church)
+            }
+            .accessibilityLabel("Ask Berean about \(result.church.name)")
+            .opacity(onAskBerean != nil ? 1 : 0.4)
+            .disabled(onAskBerean == nil)
+        }
+    }
+
+    // MARK: - Helpers
+
     private var distanceLine: String {
         let distance = result.distanceMiles > 0 ? String(format: "%.1f mi", result.distanceMiles) : "Distance unavailable"
         return [distance, result.church.shortLocation].filter { !$0.isEmpty }.joined(separator: " • ")
+    }
+
+    private func scoreColor(_ score: Double) -> Color {
+        if score >= 0.8 {
+            return AmenTheme.Colors.amenGold
+        } else if score >= 0.6 {
+            return AmenTheme.Colors.accentPrimary
+        } else {
+            return AmenTheme.Colors.textSecondary
+        }
     }
 
     private func chip(_ text: String) -> some View {
@@ -177,31 +288,21 @@ struct ChurchResultCard: View {
             .padding(.vertical, 6)
             .background(AmenTheme.Colors.surfaceChip, in: Capsule())
     }
-}
 
-struct ChurchMapView: View {
-    let results: [SmartChurchSearchItem]
-    @Binding var selectedResult: SmartChurchSearchItem?
-    @Binding var camera: MapCameraPosition
-    var onOpen: (SmartChurchSearchItem) -> Void
-
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            Map(position: $camera, selection: $selectedResult) {
-                ForEach(results) { result in
-                    Marker(result.church.name, systemImage: "building.columns.fill", coordinate: result.church.coordinate)
-                        .tag(result)
-                }
+    private func actionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.caption2)
+                Text(label)
+                    .font(.caption.weight(.semibold))
             }
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-
-            if let selectedResult {
-                Button { onOpen(selectedResult) } label: {
-                    ChurchResultCard(result: selectedResult)
-                        .padding(12)
-                }
-                .buttonStyle(.plain)
-            }
+            .foregroundStyle(AmenTheme.Colors.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(AmenTheme.Colors.surfaceChip, in: Capsule())
         }
+        .buttonStyle(.plain)
     }
 }
+

@@ -218,15 +218,30 @@ class PushNotificationManager: NSObject, ObservableObject {
     
     func removeFCMTokenFromFirestore() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        
+
         do {
             try await db.collection("users").document(userId).updateData([
                 "fcmToken": FieldValue.delete()
             ])
-            
+
             dlog("✅ FCM token removed from Firestore")
         } catch {
             dlog("❌ Error removing FCM token: \(error)")
+        }
+
+        // S4-8 FIX: Explicitly unsubscribe from all FCM topics on logout so this
+        // device no longer receives broadcast pushes for the signed-out user.
+        // Topic subscriptions are device-level (not per-user) in FCM, so they
+        // persist across account switches unless explicitly removed here.
+        let topicsToUnsubscribe = ["disasters_general", "disasters_critical"]
+        for topic in topicsToUnsubscribe {
+            Messaging.messaging().unsubscribe(fromTopic: topic) { error in
+                if let error = error {
+                    dlog("⚠️ Failed to unsubscribe from FCM topic '\(topic)': \(error.localizedDescription)")
+                } else {
+                    dlog("✅ Unsubscribed from FCM topic: \(topic)")
+                }
+            }
         }
     }
     

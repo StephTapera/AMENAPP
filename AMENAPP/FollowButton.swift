@@ -48,13 +48,7 @@ struct SocialFollowButton: View {
                             )
                     } else {
                         RoundedRectangle(cornerRadius: 20)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.orange, Color(red: 1.0, green: 0.6, blue: 0.2)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .fill(Color.amenGold)
                     }
                 }
             )

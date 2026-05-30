@@ -11,6 +11,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildSystemPrompt = buildSystemPrompt;
+exports.buildBereanSystemPrompt = buildSystemPrompt;
 const BASE_SYSTEM_PROMPT = `You are Berean, a Scripture-centered AI study companion within the AMEN community.
 Your name comes from Acts 17:11 — the Bereans who "examined the Scriptures every day."
 

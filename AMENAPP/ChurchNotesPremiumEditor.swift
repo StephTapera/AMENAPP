@@ -8,6 +8,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Premium Church Note Editor
 
@@ -55,9 +56,12 @@ struct ChurchNotesPremiumEditor: View {
     // Blocks & tags
     @State private var blocks: [ChurchNoteBlock] = []
     @State private var noteTags: [String] = []
+    @State private var detectedTags: [String] = []
 
     // Review mode
     @State private var isReviewMode = false
+    @State private var aiReviewInsights: String? = nil
+    @State private var isLoadingAIReview = false
 
     // UI state
     @State private var isSaving = false
@@ -135,6 +139,7 @@ struct ChurchNotesPremiumEditor: View {
             // Blocks & tags
             _blocks = State(initialValue: note.blocks)
             _noteTags = State(initialValue: note.tags)
+            _detectedTags = State(initialValue: note.claudeTags)
         }
     }
 
@@ -473,6 +478,7 @@ struct ChurchNotesPremiumEditor: View {
 
             Button {
                 withAnimation(CNToken.Anim.reviewToggle) {
+                    if !isReviewMode { fetchAIReview() }
                     isReviewMode.toggle()
                 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -511,6 +517,36 @@ struct ChurchNotesPremiumEditor: View {
                     blocks: blocks,
                     tags: noteTags
                 )
+
+                // AI insights (shown when loaded)
+                if isLoadingAIReview {
+                    HStack {
+                        ProgressView()
+                        Text("Getting AI insights...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                } else if let insights = aiReviewInsights {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Berean AI Insights", systemImage: "sparkles")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.amenPurple)
+                        Text(insights)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.amenPurple.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(Color.amenPurple.opacity(0.15), lineWidth: 0.75)
+                            )
+                    )
+                    .padding(.horizontal, 12)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 12)
@@ -923,16 +959,51 @@ struct ChurchNotesPremiumEditor: View {
         Task {
             isSaving = true
             defer { isSaving = false }
-            do {
-                try await saveNoteInternal()
-                hasUnsavedChanges = false
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                dismiss()
-            } catch {
-                errorMessage = error.localizedDescription
+            var lastError: Error?
+            for attempt in 1...3 {
+                do {
+                    try await saveNoteInternal()
+                    hasUnsavedChanges = false
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    dismiss()
+                    return  // success
+                } catch {
+                    lastError = error
+                    if attempt < 3 {
+                        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+                    }
+                }
+            }
+            // All retries failed
+            if let err = lastError {
+                errorMessage = err.localizedDescription
                 showErrorAlert = true
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
+        }
+    }
+
+    private func fetchAIReview() {
+        guard !isLoadingAIReview else { return }
+        isLoadingAIReview = true
+        aiReviewInsights = nil
+        let noteTitle = title
+        let noteContent = content
+        Task {
+            do {
+                let functions = Functions.functions()
+                let result = try await functions.httpsCallable("reviewChurchNote").call([
+                    "title": noteTitle,
+                    "content": noteContent
+                ])
+                if let data = result.data as? [String: Any],
+                   let insights = data["insights"] as? String {
+                    aiReviewInsights = insights
+                }
+            } catch {
+                // Gracefully fail — local summary still shows
+            }
+            isLoadingAIReview = false
         }
     }
 
@@ -949,7 +1020,7 @@ struct ChurchNotesPremiumEditor: View {
             throw NSError(domain: "ChurchNotesEditor", code: 401,
                           userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
-        let note = try persistenceService.buildNote(
+        var note = try persistenceService.buildNote(
             from: existingNote,
             title: title,
             sermonTitle: sermonTitle,
@@ -968,6 +1039,7 @@ struct ChurchNotesPremiumEditor: View {
             prayer: prayerFromSermon,
             revisitMidweek: shouldRevisit
         )
+        note.claudeTags = detectedTags
         try await persistenceService.save(note: note)
     }
 

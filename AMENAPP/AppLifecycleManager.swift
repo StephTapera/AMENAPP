@@ -46,6 +46,10 @@ final class AppLifecycleManager {
     func performFullSignOutCleanup() {
         // ── Realtime Database listeners ──────────────────────────────────────
         RealtimePostService.shared.stopAllObserving()
+        // P0-14 FIX: Detach FirebasePostService Firestore listeners on sign-out so they
+        // cannot fire under the stale (or nil) auth credential after sign-out, which would
+        // cause permission_denied floods and potential cross-user data leaks.
+        FirebasePostService.shared.stopListening()
         // resetUserState() calls stopAllObservers() AND clears per-user like/amen/repost
         // sets so the previous user's interaction state is never visible to the next account.
         PostInteractionsService.shared.resetUserState()
@@ -93,6 +97,18 @@ final class AppLifecycleManager {
         // ── Global listener registry (Firestore registrations + boolean gates) ──
         ListenerRegistry.shared.reset()
 
+        // ── Per-user singleton caches ─────────────────────────────────────────
+        // DraftsManager: clears in-memory and UserDefaults drafts so a newly
+        // signed-in account cannot see the previous user's unsaved posts.
+        DraftsManager.shared.reset()
+        // BadgeCountManager: stops drift-recovery tasks and zeroes all counts /
+        // caches so the next user starts with a clean badge state.
+        BadgeCountManager.shared.reset()
+        // GrowthLoopEngine: detaches Firestore listener and clears loop/metrics
+        // data so growth-loop history from the previous user is never visible
+        // to the next signed-in account.
+        GrowthLoopEngine.shared.reset()
+
         // ── AI service caches ────────────────────────────────────────────────
         OpenAIService.shared.reset()
         ClaudeService.shared.reset()
@@ -113,6 +129,12 @@ final class AppLifecycleManager {
         // beginSession() resets all behavioral signals so they don't carry over to the next user.
         SafetyOrchestrator.shared.clearSupportState()
         BehavioralAwarenessEngine.shared.beginSession()
+
+        // ── Navigation routers ───────────────────────────────────────────────
+        // S1-2 FIX: Reset deep-link routers on sign-out so queued navigation
+        // destinations from user A cannot fire into user B's session after re-login.
+        NotificationDeepLinkRouter.shared.reset()
+        DeepLinkRouter.shared.reset()
 
         // ── Session timeout timers ───────────────────────────────────────────
         // Stop monitoring AFTER service teardown so the warning UI is dismissed cleanly.

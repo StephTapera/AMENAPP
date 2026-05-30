@@ -254,6 +254,7 @@
 		EF5480EA2FC9DF8000EEE566 /* MapKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MapKit.framework; path = System/Library/Frameworks/MapKit.framework; sourceTree = SDKROOT; };
 		EF5480EC2FC9DF8800EEE566 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
 		EF5480EE2FC9DF8E00EEE566 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
+		EF5481012FCA2FE100EEE566 /* AMENAppRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENAppRoutingTests.swift; sourceTree = "<group>"; };
 		EF55D2072F4E9DF40086707A /* FTUEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTUEManager.swift; sourceTree = "<group>"; };
 		EF55D2092F4E9E1B0086707A /* CoachMarkOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkOverlay.swift; sourceTree = "<group>"; };
 		EF55D20B2F4E9E4D0086707A /* CoachMarkFramePreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkFramePreferences.swift; sourceTree = "<group>"; };
@@ -772,6 +773,7 @@
 		EF6854562FAB959A000B840E /* AMENAPPUITests 2 */ = {
 			isa = PBXGroup;
 			children = (
+				EF5481012FCA2FE100EEE566 /* AMENAppRoutingTests.swift */,
 				EF6854572FAB95B9000B840E /* AMENAPPUITestsLaunchTests.swift */,
 				EF6854582FAB95B9000B840E /* ContextualReactionUITests.swift */,
 				EF6854A72FAD7480000B840E /* Phase34DiscoveryComposerUITests.swift */,

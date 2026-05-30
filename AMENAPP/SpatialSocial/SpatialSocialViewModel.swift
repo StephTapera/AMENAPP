@@ -69,7 +69,9 @@ final class SpatialSocialViewModel: ObservableObject {
         do {
             let space = try await gatheringService.createEphemeralSpace(for: gathering)
             activeEphemeralSpaces.insert(space, at: 0)
-        } catch {}
+        } catch {
+            print("[ERROR] SpatialSocialViewModel.createEphemeralSpace: \(error)")
+        }
     }
 
     func dismissIntroduction(_ intro: SmartIntroduction) {

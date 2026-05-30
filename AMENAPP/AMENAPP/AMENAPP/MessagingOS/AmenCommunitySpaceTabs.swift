@@ -12,6 +12,8 @@
 //   - Role permissions enforced server-side; client only shows/hides UI
 
 import SwiftUI
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Tab Definition
 
@@ -317,6 +319,7 @@ struct PostAnnouncementButton: View {
 struct AnnouncementComposerSheet: View {
     let spaceId: String
     @State private var text = ""
+    @State private var isPosting = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -330,14 +333,32 @@ struct AnnouncementComposerSheet: View {
                         Button("Cancel") { dismiss() }
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Post") {
-                            // TODO: call postAnnouncement callable
-                            dismiss()
-                        }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Button("Post") { postAnnouncement() }
+                            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPosting)
+                            .fontWeight(.semibold)
                     }
                 }
         }
+    }
+
+    private func postAnnouncement() {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let uid = Auth.auth().currentUser?.uid else { return }
+        isPosting = true
+        let db = Firestore.firestore()
+        let data: [String: Any] = [
+            "spaceId": spaceId,
+            "authorId": uid,
+            "body": trimmed,
+            "isPinned": false,
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+        db.collection("spaces").document(spaceId)
+            .collection("announcements")
+            .addDocument(data: data) { _ in
+                isPosting = false
+                dismiss()
+            }
     }
 }
 
@@ -348,6 +369,7 @@ struct PrayerRequestsTabView: View {
 
     @State private var requests: [GroupPrayerRequest] = []
     @State private var isLoading = true
+    @State private var listener: ListenerRegistration?
 
     var body: some View {
         Group {
@@ -368,13 +390,27 @@ struct PrayerRequestsTabView: View {
             }
         }
         .task { await loadRequests() }
+        .onDisappear { listener?.remove() }
         .safeAreaInset(edge: .bottom) {
             AddPrayerRequestButton(spaceId: spaceId)
         }
     }
 
     private func loadRequests() async {
-        isLoading = false
+        isLoading = true
+        listener?.remove()
+        listener = BereanSmartChannelHook.shared.listenChannelPrayerRequests(groupId: spaceId) { channelRequests in
+            requests = channelRequests.map { cr in
+                GroupPrayerRequest(
+                    id: cr.id ?? UUID().uuidString,
+                    authorName: cr.authorUid,
+                    body: cr.text,
+                    createdAt: cr.createdAt,
+                    prayerCount: 0
+                )
+            }
+            isLoading = false
+        }
     }
 }
 
@@ -400,11 +436,17 @@ struct PrayerRequestRow: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button {
-                    // TODO: call addPrayerCount callable
+                    let db = Firestore.firestore()
+                    db.collection("spaces")
+                        .document(request.id.components(separatedBy: "/").first ?? request.id)
+                        .collection("prayerRequests")
+                        .document(request.id)
+                        .updateData(["prayerCount": FieldValue.increment(Int64(1))])
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
                     Label("Pray", systemImage: "hands.and.sparkles")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(AmenTheme.Colors.amenPurple)
                 }
             }
         }
@@ -437,6 +479,7 @@ struct AddPrayerRequestButton: View {
 struct PrayerRequestComposerSheet: View {
     let spaceId: String
     @State private var text = ""
+    @State private var isSharing = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -450,14 +493,33 @@ struct PrayerRequestComposerSheet: View {
                         Button("Cancel") { dismiss() }
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Share") {
-                            // TODO: call addPrayerRequest callable
-                            dismiss()
-                        }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Button("Share") { sharePrayerRequest() }
+                            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSharing)
+                            .fontWeight(.semibold)
                     }
                 }
         }
+    }
+
+    private func sharePrayerRequest() {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let uid = Auth.auth().currentUser?.uid else { return }
+        isSharing = true
+        let db = Firestore.firestore()
+        let data: [String: Any] = [
+            "spaceId": spaceId,
+            "authorId": uid,
+            "body": trimmed,
+            "prayerCount": 0,
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+        db.collection("spaces").document(spaceId)
+            .collection("prayerRequests")
+            .addDocument(data: data) { _ in
+                isSharing = false
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                dismiss()
+            }
     }
 }
 
@@ -496,15 +558,56 @@ struct NotesFilesTabView: View {
 
 struct RecapsTabView: View {
     let spaceId: String
+    @State private var summary: ConversationSummary?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     var body: some View {
-        CommunityTabEmptyState(
-            icon: "sparkles.rectangle.stack.fill",
-            title: "No Recaps Yet",
-            message: "AI-generated recaps appear here when the conversation has enough messages."
-        )
-        // TODO: Wire to AmenConversationOSService.generateCatchUpRecap()
-        // Gated by catchUpRecapsEnabled + conversationSummariesEnabled + aiPerChatConsent
+        ZStack {
+            if isLoading {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let summary {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(summary.summaryText)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(16)
+                }
+            } else if let errorMessage {
+                CommunityTabEmptyState(
+                    icon: "sparkles.rectangle.stack.fill",
+                    title: "Recap unavailable",
+                    message: errorMessage
+                )
+            } else {
+                CommunityTabEmptyState(
+                    icon: "sparkles.rectangle.stack.fill",
+                    title: "No Recaps Yet",
+                    message: "AI-generated recaps appear here when the conversation has enough messages."
+                )
+            }
+        }
+        .task { await loadRecap() }
+    }
+
+    private func loadRecap() async {
+        isLoading = true
+        do {
+            summary = try await AmenConversationOSService.shared.generateCatchUpRecap(
+                spaceId: spaceId,
+                surface: .amenSpaces,
+                unreadCount: 0,
+                lastVisitedAt: nil
+            )
+        } catch ConversationOSError.featureDisabled {
+            errorMessage = "Recaps are not enabled for this space."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
     }
 }
 
@@ -512,15 +615,62 @@ struct RecapsTabView: View {
 
 struct ActionItemsTabView: View {
     let spaceId: String
+    @State private var items: [ConversationActionItem] = []
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     var body: some View {
-        CommunityTabEmptyState(
-            icon: "checkmark.circle.fill",
-            title: "No Action Items",
-            message: "Action items extracted from discussions will appear here."
-        )
-        // TODO: Wire to AmenConversationOSService.extractActionItems()
-        // Gated by actionExtractionEnabled + aiPerChatConsent
+        ZStack {
+            if isLoading {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !items.isEmpty {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(items) { item in
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: "checkmark.circle")
+                                    .foregroundStyle(AmenTheme.Colors.amenPurple)
+                                    .accessibilityHidden(true)
+                                Text(item.title)
+                                    .font(.system(size: 15))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            Divider().padding(.leading, 44)
+                        }
+                    }
+                }
+            } else if let errorMessage {
+                CommunityTabEmptyState(
+                    icon: "checkmark.circle.fill",
+                    title: "Action items unavailable",
+                    message: errorMessage
+                )
+            } else {
+                CommunityTabEmptyState(
+                    icon: "checkmark.circle.fill",
+                    title: "No Action Items",
+                    message: "Action items extracted from discussions will appear here."
+                )
+            }
+        }
+        .task { await loadActionItems() }
+    }
+
+    private func loadActionItems() async {
+        isLoading = true
+        do {
+            items = try await AmenConversationOSService.shared.extractActionItems(
+                threadId: spaceId,
+                spaceId: spaceId
+            )
+        } catch ConversationOSError.featureDisabled {
+            errorMessage = "Action extraction is not enabled for this space."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
     }
 }
 

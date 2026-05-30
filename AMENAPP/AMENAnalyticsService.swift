@@ -42,6 +42,7 @@ enum AMENAnalyticsEvent {
 
     // Berean AI
     case bereanSessionStarted
+    case bereanChatMessageSent(tier: String, mode: String)
     case bereanResponseGenerated(latencyMs: Double, sourceCount: Int)
     case bereanSourceTapped(sourceType: String)
     case bereanFollowUpUsed
@@ -51,6 +52,9 @@ enum AMENAnalyticsEvent {
     case bereanStudyActionCompleted(action: String)
     case bereanTheoLensSelected(lens: String)
     case bereanProviderFailure(reason: String)
+    case bereanChurchNoteSaveStarted
+    case bereanChurchNoteSaveCompleted
+    case bereanTierDowngradeBannerShown(requestedTier: String, grantedTier: String)
 
     // Berean Onboarding
     case bereanOnboardingStarted
@@ -175,6 +179,7 @@ enum AMENAnalyticsEvent {
 
     // Command Layer
     case commandLayerOpened(surface: String)
+    case commandLayerDismissed(surface: String)
     case commandLayerActionTapped(surface: String, actionId: String)
     case commandLayerRouteSucceeded(surface: String, actionId: String, routeId: String)
     case commandLayerUnavailableActionTapped(surface: String, actionId: String, reason: String)
@@ -199,6 +204,10 @@ enum AMENAnalyticsEvent {
 
     // Inline post
     case homeInlinePostStarted
+
+    // Post interactions
+    case homePostLightbulbTapped(postId: String)
+    case homePostAmenReactionTapped(postId: String)
 
     // Media captions
     case mediaCaptionEdited(mediaIndex: Int, mediaType: String)
@@ -280,6 +289,10 @@ enum AMENAnalyticsEvent {
         case .moderationAppealSubmitted: return "moderation_appeal_submitted"
         case .userReportSubmitted: return "user_report_submitted"
         case .bereanSessionStarted: return "berean_session_started"
+        case .bereanChatMessageSent: return "berean_chat_message_sent"
+        case .bereanChurchNoteSaveStarted: return "berean_church_note_save_started"
+        case .bereanChurchNoteSaveCompleted: return "berean_church_note_save_completed"
+        case .bereanTierDowngradeBannerShown: return "berean_tier_downgrade_banner_shown"
         case .bereanResponseGenerated: return "berean_response_generated"
         case .bereanSourceTapped: return "berean_source_tapped"
         case .bereanFollowUpUsed: return "berean_follow_up_used"
@@ -379,6 +392,7 @@ enum AMENAnalyticsEvent {
         case .purchaseFailed: return "purchase_failed"
         case .purchaseCanceled: return "purchase_canceled"
         case .commandLayerOpened: return "command_layer_opened"
+        case .commandLayerDismissed: return "command_layer_dismissed"
         case .commandLayerActionTapped: return "command_layer_action_tapped"
         case .commandLayerRouteSucceeded: return "command_layer_route_succeeded"
         case .commandLayerUnavailableActionTapped: return "command_layer_unavailable_action_tapped"
@@ -437,6 +451,8 @@ enum AMENAnalyticsEvent {
         case .amenDailyWeatherShown: return "amen_daily_weather_shown"
         case .amenDailyHolidayShown: return "amen_daily_holiday_shown"
         case .amenDailyDigestFallbackUsed: return "amen_daily_digest_fallback_used"
+        case .homePostLightbulbTapped: return "home_post_lightbulb_tapped"
+        case .homePostAmenReactionTapped: return "home_post_amen_reaction_tapped"
         case .custom(let eventName, _): return eventName
         }
     }
@@ -533,6 +549,10 @@ enum AMENAnalyticsEvent {
             return ["post_id": postId]
         case .voiceCommentSubmitted(let postId, let type):
             return ["post_id": postId, "comment_type": type]
+        case .homePostLightbulbTapped(let postId):
+            return ["post_id": postId]
+        case .homePostAmenReactionTapped(let postId):
+            return ["post_id": postId]
         default:
             return [:]
         }

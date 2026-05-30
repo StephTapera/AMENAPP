@@ -420,6 +420,8 @@ struct LiturgicalState: Codable {
     let activeObservances: [ActiveObservance]
     let upcomingObservances: [UpcomingObservance]
     let computedAt: Date
+    let userRegion: String
+    let denominationProfile: DenominationProfile
 
     struct ActiveObservance: Codable {
         let type: HolidayType
@@ -496,8 +498,27 @@ final class LiturgicalCalendarEngine {
     private var cacheDate: Date?
     private let cacheTTL: TimeInterval = 3600 // 1 hour
 
-    /// Denomination profile (default: non-denominational).
-    var denominationProfile: DenominationProfile = .nonDenominational
+    /// Denomination profile — reads from UserDefaults so it stays in sync with user settings.
+    var denominationProfile: DenominationProfile {
+        get {
+            let raw = UserDefaults.standard.string(forKey: "church_denomination_profile") ?? ""
+            return DenominationProfile(rawValue: raw) ?? .nonDenominational
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: "church_denomination_profile")
+            invalidateCache()
+        }
+    }
+
+    /// ISO 3166-1 alpha-2 region code derived from device locale (e.g. "US", "GB", "NG").
+    /// Falls back to "US" if unavailable.
+    var userRegion: String {
+        if #available(iOS 16, *) {
+            return Locale.current.region?.identifier ?? "US"
+        } else {
+            return Locale.current.regionCode ?? "US"
+        }
+    }
 
     private init() {}
 
@@ -596,7 +617,9 @@ final class LiturgicalCalendarEngine {
             isHighPrioritySeason: currentSeason.isHighPriority,
             activeObservances: active,
             upcomingObservances: Array(upcoming),
-            computedAt: now
+            computedAt: now,
+            userRegion: userRegion,
+            denominationProfile: denominationProfile
         )
     }
 
@@ -775,12 +798,191 @@ final class LiturgicalCalendarEngine {
                 summary: "The Holy Spirit descends — the Church is empowered."
             ),
 
-            // Thanksgiving (4th Thursday of November — US)
+            // Thanksgiving — US (4th Thursday of November) or Canada (2nd Monday of October)
             observance(
-                type: .thanksgiving, date: thanksgivingDate(year: year), season: .ordinaryTimeLate,
+                type: .thanksgiving,
+                date: userRegion == "CA" ? canadianThanksgivingDate(year: year) : thanksgivingDate(year: year),
+                season: .ordinaryTimeLate,
                 scriptures: ["Psalm 100:1-5", "1 Thessalonians 5:18", "Colossians 3:15-17"],
                 summary: "A day of gratitude — giving thanks for God's faithfulness."
+            ),
+
+            // Mother's Day — 2nd Sunday of May
+            observance(
+                type: .mothersDay, date: nthWeekdayOfMonth(n: 2, weekday: 1, month: 5, year: year),
+                season: .ordinaryTimeEarly,
+                scriptures: ["Proverbs 31:25-31", "Luke 1:46-55", "2 Timothy 1:5"],
+                summary: "Honouring mothers — reflecting on care, sacrifice, and faith passed down."
+            ),
+
+            // Father's Day — 3rd Sunday of June
+            observance(
+                type: .fathersDay, date: nthWeekdayOfMonth(n: 3, weekday: 1, month: 6, year: year),
+                season: .ordinaryTimeLate,
+                scriptures: ["Psalm 103:13", "Proverbs 22:6", "Deuteronomy 6:6-7"],
+                summary: "Honouring fathers — reflecting on spiritual leadership and faithful fatherhood."
+            ),
+        ] + regionObservances(year: year) + hebrewFeastObservances(year: year)
+    }
+
+    // MARK: - Region-specific holidays
+
+    private func regionObservances(year: Int) -> [HolidayObservance] {
+        let cal = Calendar.current
+
+        func offset(_ base: Date, days: Int) -> Date {
+            cal.date(byAdding: .day, value: days, to: base) ?? base
+        }
+
+        func makeDate(month: Int, day: Int) -> Date {
+            cal.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
+        }
+
+        func observance(
+            type: HolidayType, date: Date, season: LiturgicalSeasonType,
+            scriptures: [String], summary: String,
+            denominations: [DenominationProfile] = DenominationProfile.allCases
+        ) -> HolidayObservance {
+            HolidayObservance(
+                id: "\(type.rawValue)_\(year)_\(userRegion)",
+                type: type, date: date, seasonType: season,
+                leadUpStart: offset(date, days: -type.leadUpDays),
+                followUpEnd: offset(date, days: type.followUpDays),
+                scriptureReferences: scriptures, summary: summary,
+                denominationTags: denominations
             )
+        }
+
+        var results: [HolidayObservance] = []
+
+        switch userRegion {
+        case "GB", "IE", "AU", "NZ", "ZA":
+            // Remembrance Sunday (Sunday nearest Nov 11) — UK & core Commonwealth
+            let nov11 = makeDate(month: 11, day: 11)
+            let nov11Weekday = cal.component(.weekday, from: nov11)
+            let daysToSunday = nov11Weekday == 1 ? 0 : (8 - nov11Weekday)
+            let remembranceSunday = offset(nov11, days: daysToSunday)
+            results.append(observance(
+                type: .veteransDay, date: remembranceSunday, season: .ordinaryTimeLate,
+                scriptures: ["John 15:13", "Psalm 46:1-3", "Isaiah 2:4"],
+                summary: "Remembrance Sunday — honouring the fallen and praying for peace."
+            ))
+            // Harvest Festival — first Sunday of October (UK/Commonwealth tradition)
+            let harvestSunday = nthWeekdayOfMonth(n: 1, weekday: 1, month: 10, year: year)
+            results.append(observance(
+                type: .thanksgiving, date: harvestSunday, season: .ordinaryTimeLate,
+                scriptures: ["Deuteronomy 26:1-11", "Psalm 65:9-13", "2 Corinthians 9:10-11"],
+                summary: "Harvest Festival — bringing the first fruits and giving thanks for God's provision."
+            ))
+
+        case "US":
+            // Memorial Day — last Monday of May
+            results.append(observance(
+                type: .memorialDay,
+                date: nthWeekdayOfMonth(n: -1, weekday: 2, month: 5, year: year),
+                season: .ordinaryTimeEarly,
+                scriptures: ["John 15:13", "Psalm 91:1-2", "Romans 8:38-39"],
+                summary: "Memorial Day — honouring those who gave their lives in service."
+            ))
+            // Independence Day — July 4
+            results.append(observance(
+                type: .independenceDay, date: makeDate(month: 7, day: 4), season: .ordinaryTimeLate,
+                scriptures: ["Micah 6:8", "Proverbs 14:34", "1 Timothy 2:1-2"],
+                summary: "Independence Day — praying for the nation and its leaders."
+            ))
+            // Veterans Day — Nov 11
+            results.append(observance(
+                type: .veteransDay, date: makeDate(month: 11, day: 11), season: .ordinaryTimeLate,
+                scriptures: ["John 15:13", "Psalm 46:1-3"],
+                summary: "Veterans Day — honouring those who served."
+            ))
+            // Labor Day — first Monday of September
+            results.append(observance(
+                type: .laborDay,
+                date: nthWeekdayOfMonth(n: 1, weekday: 2, month: 9, year: year),
+                season: .ordinaryTimeLate,
+                scriptures: ["Colossians 3:23-24", "Proverbs 12:11"],
+                summary: "Labor Day — honouring work as vocation and calling."
+            ))
+
+        case "NG", "GH", "KE", "UG", "ZW", "ZM", "SN", "CM", "RW", "ET", "TZ":
+            // Africa Day — May 25
+            results.append(observance(
+                type: .independenceDay, date: makeDate(month: 5, day: 25), season: .ordinaryTimeEarly,
+                scriptures: ["Acts 17:26", "Psalm 68:31", "Isaiah 43:5-6"],
+                summary: "Africa Day — celebrating the body of Christ across the continent."
+            ))
+
+        default:
+            break
+        }
+
+        // Reformation Day — Oct 31, for Reformed/Evangelical traditions globally
+        let profile = denominationProfile
+        if profile == .reformed || profile == .evangelical || profile == .liturgical {
+            results.append(observance(
+                type: .halloween, date: makeDate(month: 10, day: 31), season: .ordinaryTimeLate,
+                scriptures: ["Romans 1:16-17", "Galatians 3:11", "Habakkuk 2:4"],
+                summary: "Reformation Day — honouring the rediscovery of salvation by grace through faith.",
+                denominations: [.reformed, .evangelical, .liturgical]
+            ))
+        }
+
+        return results
+    }
+
+    // MARK: - Hebrew Feast Observances
+
+    private func hebrewFeastObservances(year: Int) -> [HolidayObservance] {
+        // Only surface for denominations that observe messianic/biblical feasts
+        guard denominationProfile == .liturgical || denominationProfile == .charismatic ||
+              denominationProfile == .custom else { return [] }
+
+        let cal = Calendar.current
+
+        func offset(_ base: Date, days: Int) -> Date {
+            cal.date(byAdding: .day, value: days, to: base) ?? base
+        }
+
+        // Hebrew calendar feasts are tied to the lunar calendar; these are approximate
+        // Gregorian mappings for the given year. The AI prompt will indicate these are approximate.
+        // Passover falls on Nisan 15 — approximately 2 days before Western Easter (varies ±14 days).
+        let easter = computeEaster(year: year)
+        let passoverApprox = offset(easter, days: -2)
+
+        func observance(type: HolidayType, date: Date, season: LiturgicalSeasonType,
+                        scriptures: [String], summary: String) -> HolidayObservance {
+            HolidayObservance(
+                id: "\(type.rawValue)_\(year)_hebrew",
+                type: type, date: date, seasonType: season,
+                leadUpStart: offset(date, days: -type.leadUpDays),
+                followUpEnd: offset(date, days: type.followUpDays),
+                scriptureReferences: scriptures, summary: summary,
+                denominationTags: [.liturgical, .charismatic, .custom]
+            )
+        }
+
+        return [
+            observance(
+                type: .passover, date: passoverApprox, season: .holyWeek,
+                scriptures: ["Exodus 12:1-28", "John 1:29", "1 Corinthians 5:7"],
+                summary: "Passover — the lamb slain, pointing forward to Christ."
+            ),
+            observance(
+                type: .unleavenedBread, date: offset(passoverApprox, days: 1), season: .holyWeek,
+                scriptures: ["Exodus 12:15-20", "1 Corinthians 5:6-8"],
+                summary: "Feast of Unleavened Bread — removing sin and walking in purity."
+            ),
+            observance(
+                type: .firstfruits, date: offset(easter, days: 1), season: .easter,
+                scriptures: ["Leviticus 23:9-14", "1 Corinthians 15:20-23"],
+                summary: "Firstfruits — Christ as the firstfruits of the resurrection."
+            ),
+            observance(
+                type: .feastOfWeeks, date: offset(easter, days: 49), season: .pentecost,
+                scriptures: ["Leviticus 23:15-22", "Acts 2:1-4", "Deuteronomy 16:9-12"],
+                summary: "Feast of Weeks (Shavuot) — the giving of the Torah and the Holy Spirit."
+            ),
         ]
     }
 
@@ -819,7 +1021,31 @@ final class LiturgicalCalendarEngine {
         ]
     }
 
-    // MARK: - Thanksgiving Calculation
+    // MARK: - Date Calculation Helpers
+
+    /// Returns the Nth weekday of a given month. weekday: 1=Sunday…7=Saturday.
+    /// Pass n=-1 for the last occurrence.
+    private func nthWeekdayOfMonth(n: Int, weekday: Int, month: Int, year: Int) -> Date {
+        let cal = Calendar.current
+        if n > 0 {
+            var components = DateComponents()
+            components.year = year
+            components.month = month
+            components.weekday = weekday
+            components.weekdayOrdinal = n
+            return cal.date(from: components) ?? Date()
+        } else {
+            // Last occurrence: start from end of month and walk back
+            var components = DateComponents()
+            components.year = year
+            components.month = month + 1
+            components.day = 0 // last day of `month`
+            let lastDay = cal.date(from: components) ?? Date()
+            let lastWeekday = cal.component(.weekday, from: lastDay)
+            let daysBack = (lastWeekday - weekday + 7) % 7
+            return cal.date(byAdding: .day, value: -daysBack, to: lastDay) ?? lastDay
+        }
+    }
 
     private func thanksgivingDate(year: Int) -> Date {
         let cal = Calendar.current
@@ -829,6 +1055,17 @@ final class LiturgicalCalendarEngine {
         components.month = 11
         components.weekday = 5 // Thursday
         components.weekdayOrdinal = 4
+        return cal.date(from: components) ?? Date()
+    }
+
+    private func canadianThanksgivingDate(year: Int) -> Date {
+        let cal = Calendar.current
+        // 2nd Monday of October
+        var components = DateComponents()
+        components.year = year
+        components.month = 10
+        components.weekday = 2 // Monday
+        components.weekdayOrdinal = 2
         return cal.date(from: components) ?? Date()
     }
 

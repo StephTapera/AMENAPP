@@ -61,6 +61,8 @@ struct PostShareOptionsSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var showShareCardSheet = false
     @State private var showMessageCompose = false
+    @State private var selectedContactIds: Set<String> = []
+    @State private var shareContacts: [QuickShareFriend] = []
 
     var body: some View {
         ZStack {
@@ -92,6 +94,11 @@ struct PostShareOptionsSheet: View {
                     .font(AMENFont.regular(14))
                     .foregroundStyle(.black.opacity(0.6))
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                contactsRow
+
+                Divider()
+                    .padding(.vertical, 8)
 
                 VStack(spacing: 10) {
                     GlassDialogButton(title: "Send in Message", subtitle: "Share with a friend", systemImage: "paperplane") {
@@ -143,8 +150,68 @@ struct PostShareOptionsSheet: View {
         .fullScreenCover(isPresented: $showShareCardSheet) {
             AMENShareSheet(payload: makeSharePayload(), isPresented: $showShareCardSheet)
         }
+        .task {
+            await loadShareContacts()
+        }
     }
-    
+
+    // MARK: - Contacts avatar row
+    private var contactsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 16) {
+                ForEach(shareContacts) { contact in
+                    let isSelected = selectedContactIds.contains(contact.id)
+                    VStack(spacing: 6) {
+                        ZStack {
+                            AsyncImage(url: contact.avatarURL) { img in
+                                img.resizable().scaledToFill()
+                            } placeholder: {
+                                Circle().fill(Color.gray.opacity(0.25))
+                            }
+                            .frame(width: 56, height: 56)
+                            .clipShape(Circle())
+
+                            if isSelected {
+                                Circle()
+                                    .strokeBorder(AmenTheme.Colors.amenPurple, lineWidth: 2.5)
+                                    .frame(width: 56, height: 56)
+                            }
+                        }
+                        Text(contact.displayName)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .frame(width: 56)
+                    }
+                    .onTapGesture {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        if isSelected {
+                            selectedContactIds.remove(contact.id)
+                        } else {
+                            selectedContactIds.insert(contact.id)
+                        }
+                    }
+                    .accessibilityLabel("\(contact.displayName), \(isSelected ? "selected" : "not selected")")
+                    .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
+    @MainActor
+    private func loadShareContacts() async {
+        guard let uid = FirebaseManager.shared.currentUser?.uid else { return }
+        let profiles = (try? await FollowService.shared.fetchFollowing(userId: uid)) ?? []
+        shareContacts = profiles.prefix(20).map { profile in
+            QuickShareFriend(
+                id: profile.id,
+                displayName: profile.displayName,
+                avatarURL: profile.profileImageURL.flatMap(URL.init)
+            )
+        }
+    }
+
     private func makeSharePayload() -> AMENSharePayload {
         let isCarousel = (post.imageURLs?.count ?? 0) > 1
         let hasPhoto = (post.imageURLs?.first?.isEmpty == false)

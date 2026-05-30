@@ -22,6 +22,8 @@ struct AutoLoginSplashView: View {
     @State private var statusOpacity: Double = 0
     @State private var shimmerAngle: Double = 0
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // MARK: - Auth State
     @State private var authTask: Task<Void, Never>? = nil
 
@@ -41,6 +43,7 @@ struct AutoLoginSplashView: View {
                 .blur(radius: 70)
                 .offset(x: -120, y: -250)
                 .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             Circle()
                 .fill(gold.opacity(0.12))
@@ -48,13 +51,14 @@ struct AutoLoginSplashView: View {
                 .blur(radius: 60)
                 .offset(x: 140, y: 280)
                 .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             VStack(spacing: 0) {
                 Spacer()
 
                 // ── Glassmorphic avatar ring ──────────────────────────────
                 ZStack {
-                    // Gold shimmer ring (rotating conic gradient)
+                    // Gold shimmer ring (rotating conic gradient) — decorative only
                     Circle()
                         .stroke(
                             AngularGradient(
@@ -70,8 +74,9 @@ struct AutoLoginSplashView: View {
                             lineWidth: 2.5
                         )
                         .frame(width: 112, height: 112)
+                        .accessibilityHidden(true)
 
-                    // Frosted glass backing ring
+                    // Frosted glass backing ring — decorative
                     Circle()
                         .fill(.ultraThinMaterial)
                         .frame(width: 112, height: 112)
@@ -80,6 +85,7 @@ struct AutoLoginSplashView: View {
                                 .stroke(Color.white.opacity(0.8), lineWidth: 1)
                         )
                         .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 8)
+                        .accessibilityHidden(true)
 
                     // Profile photo
                     Group {
@@ -108,6 +114,8 @@ struct AutoLoginSplashView: View {
                 }
                 .scaleEffect(ringScale)
                 .opacity(ringOpacity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(cachedUsername.map { "Profile photo for \($0)" } ?? "AMEN")
 
                 Spacer().frame(height: 28)
 
@@ -127,8 +135,10 @@ struct AutoLoginSplashView: View {
                         .foregroundStyle(ink.opacity(0.55))
 
                     LiquidDotsProgressView(color: ink.opacity(0.75))
+                        .accessibilityHidden(true)  // decorative dots; label on parent
                 }
                 .opacity(statusOpacity)
+                .accessibilityLabel("Loading")
 
                 Spacer()
 
@@ -138,6 +148,7 @@ struct AutoLoginSplashView: View {
                     .tracking(6)
                     .foregroundStyle(ink.opacity(0.12))
                     .padding(.bottom, 44)
+                    .accessibilityLabel("AMEN")
             }
         }
         .onAppear {
@@ -201,6 +212,7 @@ struct AutoLoginSplashView: View {
     }
 
     private func startShimmer() {
+        guard !reduceMotion else { return }
         withAnimation(.linear(duration: 2.8).repeatForever(autoreverses: false)) {
             shimmerAngle = 360
         }
@@ -210,16 +222,17 @@ struct AutoLoginSplashView: View {
 
     private func scheduleAuthCheck() {
         authTask = Task {
-            // Wait 1 second for animations to settle before checking
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            // PERF FIX: resolveAuth() is now a synchronous cache read (no network).
+            // We only need to wait long enough for the avatar + name animations to reach
+            // a visually comfortable state (~0.8 s covers the ring + photo bloom).
+            // The previous 1-second wait was sized for the async `user.reload()` call,
+            // which no longer exists. Cutting it saves ~200 ms of splash screen time.
+            try? await Task.sleep(nanoseconds: 800_000_000) // 0.8 s minimum display
 
-            // 4-second timeout
-            let didResolve = await withTimeout(seconds: 4) {
-                await resolveAuth()
-            }
+            let didResolve = resolveAuth()  // synchronous — no timeout needed
 
             await MainActor.run {
-                if didResolve == true {
+                if didResolve {
                     withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8))) {
                         onSuccess()
                     }
@@ -232,27 +245,17 @@ struct AutoLoginSplashView: View {
         }
     }
 
-    private func resolveAuth() async -> Bool {
-        guard let user = Auth.auth().currentUser else { return false }
-        do {
-            try await user.reload()
-            return true
-        } catch {
-            return false
-        }
+    private func resolveAuth() -> Bool {
+        // PERF FIX: Firebase Auth caches the user session locally and restores it
+        // synchronously on launch — no network call is needed to confirm the user is
+        // "still logged in" here. The previous `user.reload()` was a full network round-trip
+        // (GET /v1/accounts:lookup) that added 300–700 ms to every warm-start splash.
+        //
+        // The auth state listener in AuthenticationViewModel will independently verify
+        // token validity and handle revoked/expired accounts after the first frame.
+        // Using the cached user here is correct and matches the Instagram/Threads pattern.
+        return Auth.auth().currentUser != nil
     }
 
-    /// Runs `operation` with a timeout. Returns nil if timed out.
-    private func withTimeout<T>(seconds: Double, operation: @escaping () async -> T) async -> T? {
-        await withTaskGroup(of: T?.self) { group in
-            group.addTask { await operation() }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                return nil
-            }
-            let result = await group.next()!
-            group.cancelAll()
-            return result
-        }
-    }
 }
+

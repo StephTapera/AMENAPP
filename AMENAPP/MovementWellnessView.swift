@@ -296,6 +296,9 @@ struct MovementWellnessView: View {
                                           start: now.addingTimeInterval(-duration), end: now,
                                           metadata: ["AMENMovement": selectedMode.rawValue])
             try await healthStore.save(sample)
-        } catch { }
+        } catch {
+            // Non-fatal: HealthKit write is a best-effort background operation.
+            print("[ERROR] MovementWellnessView.writeHealthKit: \(error)")
+        }
     }
 }

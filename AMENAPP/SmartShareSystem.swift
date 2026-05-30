@@ -243,11 +243,13 @@ struct ShareDeepLinkBuilder {
         if let url = DeepLinkRouter.shared.generateURL(for: .post(id: post.firestoreId)) {
             return url
         }
-        return URL(string: "amen://post/\(post.firestoreId)")!
+        let encoded = post.firestoreId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? post.firestoreId
+        return URL(string: "amen://post/\(encoded)") ?? URL(string: "amen://")!
     }
 
     func webFallbackURL(for post: Post) -> URL {
-        URL(string: "https://amenapp.com/post/\(post.firestoreId)")!
+        let encoded = post.firestoreId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? post.firestoreId
+        return URL(string: "https://amenapp.com/post/\(encoded)") ?? URL(string: "https://amenapp.com")!
     }
 }
 

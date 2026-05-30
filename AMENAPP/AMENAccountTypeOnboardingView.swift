@@ -16,25 +16,31 @@ import FirebaseFirestore
 // MARK: - Account Type Model
 
 enum AMENAccountType: String, CaseIterable, Identifiable {
-    case personal = "Personal"
-    case church   = "Church"
-    case business = "Business"
+    case personal   = "Personal"
+    case church     = "Church"
+    case business   = "Business"
+    case school     = "School"
+    case university = "University"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
-        case .personal: return "person.fill"
-        case .church:   return "building.columns.fill"
-        case .business: return "briefcase.fill"
+        case .personal:   return "person.fill"
+        case .church:     return "building.columns.fill"
+        case .business:   return "briefcase.fill"
+        case .school:     return "graduationcap.fill"
+        case .university: return "building.columns.fill"
         }
     }
 
     var tagline: String {
         switch self {
-        case .personal: return "Your faith journey, your way"
-        case .church:   return "Lead, connect, and equip your congregation"
-        case .business: return "Grow your ministry or faith-based organization"
+        case .personal:   return "Your faith journey, your way"
+        case .church:     return "Lead, connect, and equip your congregation"
+        case .business:   return "Grow your ministry or faith-based organization"
+        case .school:     return "Connect your school community in faith"
+        case .university: return "Build a campus-wide faith community"
         }
     }
 
@@ -67,32 +73,56 @@ enum AMENAccountType: String, CaseIterable, Identifiable {
                 "Partnership tools",
                 "Store and resources expansion"
             ]
+        case .school:
+            return [
+                "Everything in Personal",
+                "Official school profile",
+                "Class and chapel notes",
+                "Events and activities",
+                "Study groups and Spaces",
+                "Safe community tools"
+            ]
+        case .university:
+            return [
+                "Everything in School",
+                "Campus ministry directory",
+                "Degree program listing",
+                "Faith-affiliation profile",
+                "Campus Spaces and discussions",
+                "Alumni and donor community"
+            ]
         }
     }
 
     /// One-line description of the operational layer this account type unlocks.
     var operationalLayerDescription: String {
         switch self {
-        case .personal: return "Individual spiritual life"
-        case .church:   return "Shepherding and community leadership"
-        case .business: return "Mission, organization, and growth tools"
+        case .personal:   return "Individual spiritual life"
+        case .church:     return "Shepherding and community leadership"
+        case .business:   return "Mission, organization, and growth tools"
+        case .school:     return "Faith-based K-12 school community"
+        case .university: return "Campus ministry and academic faith community"
         }
     }
 
     var badgeColor: Color {
         switch self {
-        case .personal: return Color(red: 0.30, green: 0.50, blue: 0.90)
-        case .church:   return Color(red: 0.35, green: 0.30, blue: 0.90)
-        case .business: return Color(red: 0.85, green: 0.45, blue: 0.20)
+        case .personal:   return Color(red: 0.30, green: 0.50, blue: 0.90)
+        case .church:     return Color(red: 0.35, green: 0.30, blue: 0.90)
+        case .business:   return Color(red: 0.85, green: 0.45, blue: 0.20)
+        case .school:     return Color(red: 0.20, green: 0.65, blue: 0.45)
+        case .university: return Color(red: 0.55, green: 0.25, blue: 0.80)
         }
     }
 
-    /// Returns the pill label for Church / Business. `nil` for Personal.
+    /// Returns the pill label for Church / Business / School / University. `nil` for Personal.
     var badgePillLabel: String? {
         switch self {
-        case .personal: return nil
-        case .church:   return "Verification required"
-        case .business: return "Pro features"
+        case .personal:   return nil
+        case .church:     return "Verification required"
+        case .business:   return "Pro features"
+        case .school:     return "School account"
+        case .university: return "Campus account"
         }
     }
 }

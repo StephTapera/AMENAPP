@@ -37,6 +37,9 @@ struct ContentView: View {
     // the main screen to briefly appear between signalSignIn() and the @State update.
     @ObservedObject private var appReadyState = AppReadyStateManager.shared
     private var isShowingLoadingScreen: Bool { appReadyState.isShowingLoadingScreen }
+    // C/P1-3 FIX: Observe biometric lock state so the fullScreenCover reacts
+    // immediately when lockIfEnabled() publishes isAppLocked = true.
+    @ObservedObject private var biometricLockManager = BiometricAppLockManager.shared
     private var shouldShowAccountTypeOnboarding: Bool {
         // ✅ DISABLED: All users get Personal account by default (like Instagram/Threads)
         // Church/Business accounts can be added in settings if needed later
@@ -331,6 +334,28 @@ struct ContentView: View {
                         // Signal the canonical AppNavigationRouter.
                         // Releases any destination queued before the scene was mounted
                         // (cold-launch from Siri, Spotlight, or URL scheme).
+
+                        // C/P0-2 FIX: Wire the Shabbat destination-block closure so the
+                        // router enforces the same gate that selectedTabView already enforces
+                        // for deep-link / external-surface navigations (Siri, Spotlight, URL).
+                        // Allowed always: home, verseOfDay, findChurch, churchNotes, settings,
+                        //                 resources (tab 3), profile (tab 5).
+                        // Blocked when Shabbat active: social / posting / messaging surfaces.
+                        AppNavigationRouter.shared.isDestinationBlocked = { destination in
+                            guard SundayChurchFocusManager.shared.shouldGateFeature() else {
+                                return false
+                            }
+                            switch destination {
+                            // Always allowed during Shabbat
+                            case .home, .verseOfDay, .findChurch, .churchNotes,
+                                 .settings, .resources, .reflection:
+                                return false
+                            // All other destinations are blocked during Shabbat
+                            default:
+                                return true
+                            }
+                        }
+
                         AppNavigationRouter.shared.sceneDidBecomeReady()
                         if Auth.auth().currentUser != nil {
                             AppNavigationRouter.shared.authDidBecomeReady()
@@ -494,8 +519,18 @@ struct ContentView: View {
         ) {
             AMENAccountTypeOnboardingView()
         }
+        // C/P1-3 FIX: Biometric app-lock gate — shown whenever the app is locked
+        // (triggered on scene .background when biometric auth is enabled in Settings).
+        .fullScreenCover(
+            isPresented: Binding(
+                get: { biometricLockManager.isAppLocked },
+                set: { _ in }
+            )
+        ) {
+            AMENBiometricLockGateView()
+        }
     }
-    
+
     @ViewBuilder
     private var selectedTabView: some View {
         // ✅ Shabbat Mode: Gate restricted features
@@ -1342,6 +1377,8 @@ struct ContentView: View {
             break // Don't end session yet, might be temporary
 
         case .background:
+            // C/P1-3 FIX: Lock the app on background so the lock gate appears on resume.
+            BiometricAppLockManager.shared.lockIfEnabled()
             AppUsageTracker.shared.endSession()
 
         @unknown default:
@@ -1636,7 +1673,6 @@ struct HomeView: View {
     @ObservedObject private var postsManager = PostsManager.shared  // ✅ FIXED: Use @ObservedObject for singletons
     @State private var isCategoriesExpanded = false
     @State private var selectedFeedMode: LegacyFeedMode = .everyone
-    @State private var showFeedModeDropdown = false
     @State private var showCommunitiesSheet = false
     @State private var showBereanAssistant = false
     @Binding var showBereanQuickActions: Bool
@@ -1650,6 +1686,8 @@ struct HomeView: View {
     @State private var tapCount = 0
     #endif
     
+    @AppStorage("currentUserProfileImageURL") private var profileImageURL: String = ""
+
     // MARK: - Scroll Detection for Dynamic UI (OPTIMIZED)
     @State private var scrollOffset: CGFloat = 0
     @State private var lastScrollOffset: CGFloat = 0
@@ -1745,8 +1783,9 @@ struct HomeView: View {
             mainScrollContent
                 .navigationTitle("AMEN")
                 .navigationBarTitleDisplayMode(.inline)
-                // Auto-hide header when scrolling down
-                .toolbar(showToolbar ? .visible : .hidden, for: .navigationBar)
+                // Navigation bar stays visible so back buttons are never hidden;
+                // individual toolbar items fade via .opacity instead.
+                .toolbarBackground(.visible, for: .navigationBar)
                 .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // ✅ MERGED: Combined feed mode + communities menu button
@@ -1772,7 +1811,7 @@ struct HomeView: View {
                                 HapticManager.impact(style: .light)
                                 showCommunitiesSheet = true
                             } label: {
-                                Label("Browse Communities", systemImage: "person.3.fill")
+                                Label("Communities", systemImage: "person.3.fill")
                             }
                         }
                     } label: {
@@ -1789,10 +1828,31 @@ struct HomeView: View {
                     .opacity(showToolbar ? 1 : 0)
                 }
                     ToolbarItem(placement: .topBarTrailing) {
-                        // Search Button - hides with toolbar
-                        SearchButton(isVisible: showToolbar, action: {
-                            showBereanAssistant = true
-                        }, showQuickActions: $showBereanQuickActions)
+                        Button {
+                            NotificationCenter.default.post(name: .navigateToSettings, object: nil)
+                        } label: {
+                            Group {
+                                if !profileImageURL.isEmpty, let url = URL(string: profileImageURL) {
+                                    AsyncImage(url: url) { phase in
+                                        if case .success(let img) = phase {
+                                            img.resizable().scaledToFill()
+                                                .frame(width: 30, height: 30)
+                                                .clipShape(Circle())
+                                                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                                        } else {
+                                            Image(systemName: "person.crop.circle.fill")
+                                                .font(.system(size: 22, weight: .medium))
+                                                .foregroundStyle(.primary)
+                                        }
+                                    }
+                                } else {
+                                    Image(systemName: "person.crop.circle.fill")
+                                        .font(.system(size: 22, weight: .medium))
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                        }
+                        .opacity(showToolbar ? 1 : 0)
                     }
                     
                     ToolbarItem(placement: .principal) {
@@ -1868,27 +1928,6 @@ struct HomeView: View {
                 #endif
                 // Notification listener started in mainContent.onAppear (not here,
                 // so it fires regardless of which tab opens first)
-                // Feed mode dropdown overlay
-                .overlay(alignment: .topLeading) {
-                    if showFeedModeDropdown {
-                        ZStack(alignment: .topLeading) {
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .ignoresSafeArea()
-                                .onTapGesture {
-                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                        showFeedModeDropdown = false
-                                    }
-                                }
-                            FeedModeDropdownMenu(
-                                selectedMode: $selectedFeedMode,
-                                isVisible: $showFeedModeDropdown
-                            )
-                            .padding(.top, 50)
-                            .padding(.leading, 8)
-                        }
-                    }
-                }
             }
         // Deep link: open a specific post when a push notification is tapped
         .onReceive(NotificationCenter.default.publisher(for: .openPostFromNotification)) { notification in
@@ -2251,82 +2290,6 @@ struct FeedModeNavButton: View {
                         .stroke(Color.white.opacity(0.22), lineWidth: 1)
                 }
         }
-    }
-}
-
-// MARK: - Feed Mode Dropdown Menu
-
-struct FeedModeDropdownMenu: View {
-    @Binding var selectedMode: LegacyFeedMode
-    @Binding var isVisible: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(LegacyFeedMode.allCases, id: \.self) { mode in
-                Button {
-                    HapticManager.impact(style: .light)
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                        selectedMode = mode
-                        isVisible = false
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        // Icon with background for selected state
-                        ZStack {
-                            if selectedMode == mode {
-                                Circle()
-                                    .fill(Color.primary.opacity(0.1))
-                                    .frame(width: 28, height: 28)
-                            }
-                            Image(systemName: mode.icon)
-                                .font(.systemScaled(14, weight: .medium))
-                                .foregroundStyle(selectedMode == mode ? .primary : .secondary)
-                        }
-                        .frame(width: 28)
-
-                        Text(mode.rawValue)
-                            .font(AMENFont.semiBold(14))
-                            .foregroundStyle(selectedMode == mode ? .primary : .secondary)
-
-                        Spacer()
-
-                        if selectedMode == mode {
-                            Image(systemName: "checkmark")
-                                .font(.systemScaled(12, weight: .semibold))
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(selectedMode == mode ? Color.primary.opacity(0.04) : Color.clear)
-                    )
-                }
-                .buttonStyle(.plain)
-
-                if mode != LegacyFeedMode.allCases.last {
-                    Divider()
-                        .padding(.horizontal, 14)
-                        .opacity(0.5)
-                }
-            }
-        }
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
-                )
-        )
-        .frame(width: 200)
-        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
-        .transition(.asymmetric(
-            insertion: .scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity),
-            removal:   .scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity)
-        ))
     }
 }
 

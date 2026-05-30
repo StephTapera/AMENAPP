@@ -2238,6 +2238,7 @@ struct CommentsView: View {
                 case .everyone: visibilityString = "everyone"
                 case .followers: visibilityString = "followers"
                 case .community: visibilityString = "everyone" // community posts allow comments
+                case .underReview: visibilityString = "everyone" // treat as public for comment gating
                 }
                 let canPost = await PrivacyAccessControl.shared.canComment(
                     onPostBy: postAuthorId,

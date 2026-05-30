@@ -6,10 +6,12 @@ struct BereanPulseErrorStateView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.65))
-                .accessibilityHidden(true)
+            AmenGlass3DIcon(
+                systemName: "exclamationmark.triangle",
+                tint: AmenTheme.Colors.amenGold,
+                size: 72
+            )
+            .accessibilityHidden(true)
 
             Text(String(localized: "Berean Pulse could not load"))
                 .font(.title3.weight(.semibold))

@@ -376,6 +376,7 @@ extension Post.PostVisibility {
         case .everyone: return .public
         case .followers: return .followers
         case .community: return .church
+        case .underReview: return .private
         }
     }
 }

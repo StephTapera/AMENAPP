@@ -112,6 +112,8 @@ struct UserProfile {
     var bioURL: String?  // Bio link URL
     var initials: String
     var profileImageURL: String?
+    /// Optional full-width cover image rendered edge-to-edge above the header row.
+    var bannerImageURL: String?
     var interests: [String]
     var profileTopics: [String] = []
     var socialLinks: [UserSocialLink]
@@ -334,6 +336,8 @@ struct UserProfileView: View {
     @ObservedObject private var followService = FollowService.shared
     @Namespace private var tabNamespace
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     // Mutuals
     @StateObject private var mutualsVM = MutualsViewModel()
     @State private var showMutualsSheet = false
@@ -356,6 +360,11 @@ struct UserProfileView: View {
     // Computed property to determine if buttons should be in toolbar
     private var shouldShowToolbarButtons: Bool {
         scrollOffset > 200  // Show in toolbar after scrolling 200 points
+    }
+
+    private var navBarTitle: String {
+        guard showCompactHeader, let username = profileData?.username else { return "" }
+        return "@\(username)"
     }
     
     // P0-5: Computed properties for follow button states
@@ -393,12 +402,15 @@ struct UserProfileView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: []) {
+                    // Edge-to-edge hero banner — runs under the status bar
+                    userProfileHeroBannerView
+
                     // Inline error banner
                     if showInlineError {
                         inlineErrorBannerView
                             .padding(.top, 12)
                     }
-                    
+
                     // Profile Header
                     // .task(id: userId) here ensures mutuals load kicks off as soon as the
                     // profile renders, regardless of whether the strip is visible yet.
@@ -454,6 +466,7 @@ struct UserProfileView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .coordinateSpace(name: "scroll")
+            .ignoresSafeArea(.container, edges: .top)
             .onChange(of: rawScrollValue) { oldValue, newValue in
                 scrollOffset = -newValue
                 
@@ -467,12 +480,11 @@ struct UserProfileView: View {
                 await refreshProfile()
             }
             .background(ProfileDesignTokens.canvasBackground)
-            .navigationTitle(profileData?.username ?? "")
+            // Title only materialises after the hero scrolls off — keeps the glass bar clean
+            .navigationTitle(navBarTitle)
             .navigationBarTitleDisplayMode(.inline)
-            // Suppress the dark hairline separator that appears when the view
-            // is presented as a sheet or pushed inside another NavigationStack.
-            .toolbarBackground(ProfileDesignTokens.canvasBackground, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            // Transparent bar — media renders behind status bar and controls float over it
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 12) {
@@ -483,7 +495,7 @@ struct UserProfileView: View {
                             } label: {
                                 Image(systemName: "chevron.left")
                                     .font(.systemScaled(18, weight: .semibold))
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(showCompactHeader ? Color.primary : .white)
                             }
                             .buttonStyle(.plain)
                         }
@@ -509,24 +521,34 @@ struct UserProfileView: View {
                     FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
                 }
             }
-            .alert("Block User", isPresented: $showBlockAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button(isBlocked ? "Unblock" : "Block", role: .destructive) {
-                    toggleBlock()
-                }
-            } message: {
-                Text(isBlocked ? "Are you sure you want to unblock \(profileData?.name ?? "this user")?" : "Are you sure you want to block \(profileData?.name ?? "this user")? You won't see their posts or be able to message them.")
-            }
-            .alert("Unfollow", isPresented: $showUnfollowAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Unfollow", role: .destructive) {
-                    Task {
-                        await performFollowAction()
-                    }
-                }
-            } message: {
-                Text("Are you sure you want to unfollow \(profileData?.name ?? "this user")?")
-            }
+            .amenAlert(
+                isPresented: $showBlockAlert,
+                config: LiquidGlassAlertConfig(
+                    title: "Block User",
+                    message: isBlocked
+                        ? "Are you sure you want to unblock \(profileData?.name ?? "this user")?"
+                        : "Are you sure you want to block \(profileData?.name ?? "this user")? You won't see their posts or be able to message them.",
+                    icon: "hand.raised.fill",
+                    primaryButton: LiquidGlassAlertButton(isBlocked ? "Unblock" : "Block", tone: .destructive) {
+                        toggleBlock()
+                    },
+                    secondaryButton: .cancel()
+                )
+            )
+            .amenAlert(
+                isPresented: $showUnfollowAlert,
+                config: LiquidGlassAlertConfig(
+                    title: "Unfollow?",
+                    message: "You'll stop seeing \(profileData?.name ?? "this user")'s posts.",
+                    icon: "person.badge.minus",
+                    primaryButton: LiquidGlassAlertButton("Unfollow", tone: .destructive) {
+                        Task {
+                            await performFollowAction()
+                        }
+                    },
+                    secondaryButton: .cancel()
+                )
+            )
             .sheet(isPresented: $showReportOptions) {
                 if let profileData = profileData {
                     ReportUserView(
@@ -1080,6 +1102,7 @@ struct UserProfileView: View {
                 bioURL: bioURL,
                 initials: String(initials),
                 profileImageURL: profileImageURL,
+                bannerImageURL: data["bannerImageURL"] as? String,
                 interests: interests,
                 profileTopics: profileTopics,
                 socialLinks: (data["socialLinks"] as? [[String: Any]] ?? []).compactMap { linkData -> UserSocialLink? in
@@ -2054,7 +2077,7 @@ struct UserProfileView: View {
             } label: {
                 Image(systemName: "square.and.arrow.up")
                     .font(.systemScaled(18, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(showCompactHeader ? Color.primary : .white)
             }
             .buttonStyle(.plain)
 
@@ -2161,6 +2184,68 @@ struct UserProfileView: View {
             .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
     }
     
+    // MARK: - Edge-to-Edge Hero Banner
+
+    /// Full-bleed hero that renders under the status bar (y = 0).
+    /// Priority: bannerImageURL → blurred profile photo → AMEN gradient.
+    @ViewBuilder
+    private var userProfileHeroBannerView: some View {
+        ZStack(alignment: .bottom) {
+            Group {
+                if let bannerURL = profileData?.bannerImageURL,
+                   !bannerURL.isEmpty,
+                   let url = URL(string: bannerURL) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image): image.resizable().scaledToFill()
+                        default: Color(uiColor: .secondarySystemBackground)
+                        }
+                    }
+                } else if let photoURL = profileData?.profileImageURL,
+                          !photoURL.isEmpty,
+                          let url = URL(string: photoURL),
+                          !reduceTransparency {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                                .blur(radius: 22, opaque: true)
+                                .saturation(1.15)
+                        default: Color(uiColor: .secondarySystemBackground)
+                        }
+                    }
+                } else {
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.78), Color.black.opacity(0.48)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                }
+            }
+            .frame(height: AmenHero.profileBannerHeight)
+            .frame(maxWidth: .infinity)
+            .clipped()
+            .ignoresSafeArea(.container, edges: .top)
+
+            VStack {
+                LinearGradient(
+                    colors: [.black.opacity(AmenHero.scrimTopOpacity), .clear],
+                    startPoint: .top, endPoint: .center
+                )
+                .frame(height: 110)
+                .ignoresSafeArea(.container, edges: .top)
+                Spacer()
+            }
+
+            LinearGradient(
+                colors: [.clear, Color(uiColor: .systemBackground)],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: 56)
+        }
+        .frame(height: AmenHero.profileBannerHeight)
+        .frame(maxWidth: .infinity)
+    }
+
     private var profileHeaderView: some View {
         VStack(spacing: 0) {
             if let profileData = profileData {
@@ -2502,60 +2587,52 @@ struct UserProfileView: View {
     }
 
     // MARK: - Tab Selector
-    
+
     private var tabSelectorView: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             ForEach(UserProfileTab.allCases, id: \.self) { tab in
+                let isActive = selectedTab == tab
                 Button {
-                    // Prevent re-selecting same tab
                     guard selectedTab != tab else { return }
-                    
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
-                    
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                         selectedTab = tab
                     }
                 } label: {
-                    VStack(spacing: 8) {
-                        // Tab label with icon (optional - uncomment to show icons)
-                        HStack(spacing: 6) {
-                            // Uncomment to show icons alongside text:
-                            // Image(systemName: tab.icon)
-                            //     .font(.systemScaled(14, weight: .semibold))
-                            
+                    HStack(spacing: isActive ? 5 : 0) {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 13, weight: isActive ? .semibold : .medium))
+                            .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.45))
+                        if isActive {
                             Text(tab.rawValue)
-                                .font(AMENFont.bold(15))
-                        }
-                        .foregroundStyle(selectedTab == tab ? ProfileDesignTokens.textPrimary : ProfileDesignTokens.textTertiary)
-                        
-                        // Active indicator with smooth animation
-                        if selectedTab == tab {
-                            Capsule()
-                                .fill(ProfileDesignTokens.textPrimary)
-                                .frame(height: 2.5)
-                                .matchedGeometryEffect(id: "tab", in: tabNamespace)
-                        } else {
-                            Capsule()
-                                .fill(Color.clear)
-                                .frame(height: 3)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.primary)
+                                .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .contentShape(Rectangle()) // Expand tap area
+                    .padding(.horizontal, isActive ? 12 : 0)
+                    .padding(.vertical, 8)
+                    .frame(width: isActive ? nil : 34, height: 34)
+                    .background(
+                        ZStack {
+                            Capsule().fill(.ultraThinMaterial)
+                            Capsule().fill(isActive ? Color.white.opacity(0.55) : Color.white.opacity(0.28))
+                            Capsule().strokeBorder(Color.white.opacity(isActive ? 0.55 : 0.30), lineWidth: 0.5)
+                        }
+                        .shadow(color: .black.opacity(isActive ? 0.10 : 0.04), radius: isActive ? 8 : 3, y: isActive ? 3 : 1)
+                    )
+                    .if(isActive) { $0.matchedGeometryEffect(id: "tabPill", in: tabNamespace) }
                 }
                 .buttonStyle(PlainButtonStyle())
                 .accessibilityLabel(tab.rawValue)
                 .accessibilityHint("Shows \(tab.rawValue.lowercased()) from this user")
-                .accessibilityAddTraits(selectedTab == tab ? [.isSelected] : [])
+                .accessibilityAddTraits(isActive ? [.isSelected] : [])
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .profileGlassCard()
         .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
         .padding(.top, ProfileDesignTokens.sectionGap)
+        .padding(.bottom, 4)
         .accessibilityElement(children: .contain)
     }
     

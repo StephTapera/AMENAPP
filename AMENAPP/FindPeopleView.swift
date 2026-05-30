@@ -220,14 +220,22 @@ final class FindPeopleViewModel: ObservableObject {
 
     private func loadOrRequestNearby() async {
         let manager = CLLocationManager()
-        let status = manager.authorizationStatus
-        if status == .denied || status == .restricted {
+        switch manager.authorizationStatus {
+        case .denied, .restricted:
             locationDenied = true
             markDone(.nearby, [])
-            return
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
+            markDone(.nearby, [])  // Will retry once permission is granted
+        case .authorizedWhenInUse, .authorizedAlways:
+            if userLocation != nil {
+                await loadNearby()
+            } else {
+                markDone(.nearby, [])
+            }
+        @unknown default:
+            markDone(.nearby, [])
         }
-        // No live location yet — mark empty; user can refresh after granting
-        markDone(.nearby, [])
     }
 
     private func loadNearby() async {

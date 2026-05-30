@@ -65,6 +65,11 @@ class DiscoveryViewModel: ObservableObject {
     @Published var isLoadingTrending = true        // P1: skeleton state for trending
     @Published var networkError: String?
 
+    // FTUE-personalized sections
+    @Published var churchPeople: [UserModel] = []
+    @Published var interestPeople: [UserModel] = []
+    @Published var isLoadingPersonalized = false
+
     // Pagination
     @Published var isLoadingMore = false
     @Published var hasMore = true
@@ -288,6 +293,115 @@ class DiscoveryViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Personalized Sections (FTUE-seeded)
+
+    /// Loads "From Your Church" and "Based on Your Interests" people sections
+    /// using data collected during the Find-Your-People FTUE.
+    func loadPersonalizedSections() async {
+        let ftue = FTUEPeopleDiscoveryManager.shared
+        guard ftue.hasCompleted else { return }
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+
+        isLoadingPersonalized = true
+        defer { isLoadingPersonalized = false }
+
+        let blockedIds = BlockService.shared.blockedUsers
+
+        // Snapshot values before entering task group (avoids actor-hopping inside group closures)
+        let churchId   = ftue.churchId
+        let churchName = ftue.churchName
+        let interests  = ftue.interests
+
+        // Sequential: church first, then interests.
+        // (Parallel via withTaskGroup is unsafe for @MainActor classes in Swift 6 strict mode)
+        if !churchId.isEmpty || !churchName.isEmpty {
+            await fetchChurchPeople(
+                churchId: churchId,
+                churchName: churchName,
+                currentUserId: currentUserId,
+                blockedIds: blockedIds
+            )
+        }
+        if !interests.isEmpty {
+            await fetchInterestPeople(
+                interests: interests,
+                currentUserId: currentUserId,
+                blockedIds: blockedIds
+            )
+        }
+    }
+
+    private func fetchChurchPeople(
+        churchId: String,
+        churchName: String,
+        currentUserId: String,
+        blockedIds: Set<String>
+    ) async {
+        do {
+            var snap: QuerySnapshot?
+            if !churchId.isEmpty {
+                snap = try await db.collection("users")
+                    .whereField("onboardingChurchId", isEqualTo: churchId)
+                    .whereField("isPrivate", isEqualTo: false)
+                    .limit(to: 8)
+                    .getDocuments()
+            }
+            // Fallback: match by stored church name field
+            if (snap?.documents.isEmpty ?? true) && !churchName.isEmpty {
+                snap = try await db.collection("users")
+                    .whereField("onboardingChurchName", isEqualTo: churchName)
+                    .whereField("isPrivate", isEqualTo: false)
+                    .limit(to: 8)
+                    .getDocuments()
+            }
+            guard let docs = snap?.documents else { return }
+            var users: [UserModel] = []
+            for doc in docs {
+                if var user = try? doc.data(as: UserModel.self) {
+                    if user.id == nil { user.id = doc.documentID }
+                    guard let uid = user.id,
+                          uid != currentUserId,
+                          !blockedIds.contains(uid)
+                    else { continue }
+                    users.append(user)
+                }
+            }
+            churchPeople = await rankUsers(users, currentUserId: currentUserId)
+        } catch {
+            Logger.error("fetchChurchPeople failed", error: error)
+        }
+    }
+
+    private func fetchInterestPeople(
+        interests: [String],
+        currentUserId: String,
+        blockedIds: Set<String>
+    ) async {
+        guard !interests.isEmpty else { return }
+        let queryInterests = Array(interests.prefix(10))
+        do {
+            let snap = try await db.collection("users")
+                .whereField("interests", arrayContainsAny: queryInterests)
+                .whereField("isPrivate", isEqualTo: false)
+                .limit(to: 12)
+                .getDocuments()
+            var users: [UserModel] = []
+            for doc in snap.documents {
+                if var user = try? doc.data(as: UserModel.self) {
+                    if user.id == nil { user.id = doc.documentID }
+                    guard let uid = user.id,
+                          uid != currentUserId,
+                          !blockedIds.contains(uid)
+                    else { continue }
+                    users.append(user)
+                }
+            }
+            interestPeople = await rankUsers(users, currentUserId: currentUserId)
+        } catch {
+            Logger.error("fetchInterestPeople failed", error: error)
+        }
+    }
+
     func loadMoreSuggested() async {
         guard !isLoadingMore, hasMore, let last = lastDocument else { return }
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
@@ -337,12 +451,15 @@ class DiscoveryViewModel: ObservableObject {
         hasMore = true
         connectionsCache = nil
         suggestedPeople = []
+        churchPeople = []
+        interestPeople = []
         searchError = nil
         networkError = nil
         isLoadingTrending = true
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.loadSuggestedPeople() }
             group.addTask { await self.loadTrendingFromFirestore() }
+            group.addTask { await self.loadPersonalizedSections() }
         }
     }
 
@@ -630,6 +747,7 @@ struct PeopleDiscoveryViewNew: View {
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask { await vm.loadSuggestedPeople() }
                     group.addTask { await vm.loadTrendingFromFirestore() }
+                    group.addTask { await vm.loadPersonalizedSections() }
                 }
             }
             .navigationDestination(item: $selectedTopic) { topic in
@@ -726,11 +844,100 @@ struct PeopleDiscoveryViewNew: View {
             recentSearchesSection
         }
 
+        // Personalized: From Your Church (only if FTUE completed + church set)
+        if FTUEPeopleDiscoveryManager.shared.hasCompleted
+            && !FTUEPeopleDiscoveryManager.shared.churchName.isEmpty
+            && (!vm.churchPeople.isEmpty || vm.isLoadingPersonalized) {
+            personalizedSection(
+                title: "From Your Church",
+                icon: "building.columns.fill",
+                people: vm.churchPeople,
+                isLoading: vm.isLoadingPersonalized
+            )
+        }
+
+        // Personalized: Based on Your Interests (only if FTUE completed + interests set)
+        if FTUEPeopleDiscoveryManager.shared.hasCompleted
+            && !FTUEPeopleDiscoveryManager.shared.interests.isEmpty
+            && (!vm.interestPeople.isEmpty || vm.isLoadingPersonalized) {
+            personalizedSection(
+                title: "Based on Your Interests",
+                icon: "sparkles",
+                people: vm.interestPeople,
+                isLoading: vm.isLoadingPersonalized
+            )
+        }
+
         // Trending Topics
         trendingSection
 
         // Suggested People
         suggestedPeopleSection
+    }
+
+    // MARK: - Personalized People Section
+
+    @ViewBuilder
+    private func personalizedSection(
+        title: String,
+        icon: String,
+        people: [UserModel],
+        isLoading: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(title)
+                    .font(AMENFont.semiBold(16))
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+
+            if isLoading && people.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(0..<3, id: \.self) { i in
+                        PersonRowSkeletonView()
+                        if i < 2 { Divider().padding(.leading, 74) }
+                    }
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+            } else if !people.isEmpty {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(people.prefix(6).enumerated()), id: \.element.id) { idx, user in
+                        DiscoveryPersonRow(
+                            user: user,
+                            isFollowing: vm.followingUserIds.contains(user.id ?? ""),
+                            cardIndex: idx,
+                            onTap: { showProfileSheet = user },
+                            onFollow: {
+                                if let uid = user.id { vm.toggleFollow(userId: uid) }
+                            }
+                        )
+                        if user.id != people.prefix(6).last?.id {
+                            Divider().padding(.leading, 74)
+                        }
+                    }
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+            }
+        }
+        .padding(.bottom, 28)
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     private var recentSearchesSection: some View {
@@ -1170,10 +1377,16 @@ struct PeopleDiscoveryViewNew: View {
                         vibeMatchLoading.remove(targetUserId)
                     }
                 } else {
-                    await MainActor.run { vibeMatchLoading.remove(targetUserId) }
+                    await MainActor.run {
+                        vibeMatchReasons[targetUserId] = "Suggested for you"
+                        vibeMatchLoading.remove(targetUserId)
+                    }
                 }
             } catch {
-                await MainActor.run { vibeMatchLoading.remove(targetUserId) }
+                await MainActor.run {
+                    vibeMatchReasons[targetUserId] = "Suggested for you"
+                    vibeMatchLoading.remove(targetUserId)
+                }
             }
         }
     }

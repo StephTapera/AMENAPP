@@ -25,7 +25,7 @@ import * as admin from "firebase-admin";
 
 import { AgeTier, AccountSnapshot, PermissionSet } from "./permissionsTypes";
 import { resolvePermissions, defaultModeForTier } from "./permissionsEngine";
-import { normalizeAgeTier } from "./permissionsCallables";
+import { normalizeAgeTier } from "./permissionsUtils";
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();

@@ -13,6 +13,7 @@
 import SwiftUI
 import AVFoundation
 import Photos
+import Foundation
 
 // MARK: - PostAudience
 
@@ -43,6 +44,14 @@ struct MediaPostComposerView: View {
     @State private var cameraPermissionDenied: Bool = false
     @State private var libraryPermissionDenied: Bool = false
 
+    // MARK: - Media attachment state (additive — does not affect existing fields)
+    @StateObject private var attachmentManager = AmenSmartAttachmentManager()
+    @State private var selectedMusic: AmenMediaAttachment? = nil
+    @State private var selectedCommunityId: String? = nil
+    @State private var selectedTopicIds: [String] = []
+    @State private var showMusicPicker: Bool = false
+    @State private var showCommunityPicker: Bool = false
+
     private let captionLimit = 2000
 
     var body: some View {
@@ -53,11 +62,29 @@ struct MediaPostComposerView: View {
                     // Permission banners
                     permissionBanners
 
+                    // Attachment chip row (community / music / scripture quick-chips)
+                    attachmentChipRow
+
                     // Media thumbnail rail
                     mediaThumbnailRail
 
                     // Caption editor
                     captionSection
+
+                    // Music card preview (shown below caption when music is attached)
+                    if let music = selectedMusic {
+                        AmenMusicCardContainer(attachment: music)
+                            .transition(.opacity)
+                    }
+
+                    // Smart link / URL attachment rail (auto-detected from caption)
+                    if !attachmentManager.pendingAttachments.isEmpty {
+                        AmenAttachmentRail(
+                            attachments: attachmentManager.pendingAttachments,
+                            onRemove: { id in attachmentManager.removeAttachment(id: id) }
+                        )
+                        .transition(.opacity)
+                    }
 
                     // Scripture chip
                     scriptureChip
@@ -69,12 +96,18 @@ struct MediaPostComposerView: View {
                     if !caption.isEmpty {
                         translateChip
                     }
+
+                    // Bottom spacing so toolbar doesn't overlap content
+                    Spacer(minLength: 60)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 40)
             }
             .background(AmenTheme.Colors.backgroundPrimary)
+            .safeAreaInset(edge: .bottom) {
+                attachmentToolbar
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -117,6 +150,15 @@ struct MediaPostComposerView: View {
         .sheet(isPresented: $coordinator.isShowingCamera) {
             MediaCaptureCameraView(coordinator: coordinator, mode: .photo)
         }
+        .sheet(isPresented: $showMusicPicker) {
+            AmenMusicPickerSheet(selectedMusic: $selectedMusic)
+        }
+        .sheet(isPresented: $showCommunityPicker) {
+            AmenCommunityPickerSheet(
+                selectedCommunityId: $selectedCommunityId,
+                selectedTopicIds: $selectedTopicIds
+            )
+        }
         .alert("Error", isPresented: .constant(coordinator.captureError != nil)) {
             Button("OK") { coordinator.captureError = nil }
         } message: {
@@ -130,10 +172,20 @@ struct MediaPostComposerView: View {
         Button {
             guard !coordinator.capturedItems.isEmpty, !isPosting else { return }
             isPosting = true
-            let finalCaption = [selectedVerse, caption]
+            var captionParts = [selectedVerse, caption]
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
-                .joined(separator: "\n\n")
+            // TODO: migrate to mediaAttachments array field when backend ready.
+            // For now, append music metadata as a structured annotation in the caption
+            // using existing linkURL / linkPreview* fields via the onPost closure.
+            // The serialized JSON is stored in the caption suffix so the feed renderer
+            // can decode it via AmenPostMediaRenderer without a schema migration.
+            if let music = selectedMusic,
+               let musicJSON = try? JSONEncoder().encode(music),
+               let musicString = String(data: musicJSON, encoding: .utf8) {
+                captionParts.append("[amenMusic:\(musicString)]")
+            }
+            let finalCaption = captionParts.joined(separator: "\n\n")
             onPost(coordinator.capturedItems, finalCaption, selectedAudience)
         } label: {
             if isPosting {
@@ -244,6 +296,8 @@ struct MediaPostComposerView: View {
                         if newValue.count > captionLimit {
                             caption = String(newValue.prefix(captionLimit))
                         }
+                        // Detect URLs and smart-resolve media attachments from caption text
+                        Task { await attachmentManager.processText(newValue) }
                     }
                     .accessibilityLabel("Caption")
                     .accessibilityHint("Add a caption for your post")
@@ -360,6 +414,53 @@ struct MediaPostComposerView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Translate caption before posting")
+    }
+
+    // MARK: - Attachment Chip Row
+
+    private var attachmentChipRow: some View {
+        AmenComposerChipRow(
+            communityName: selectedCommunityId.map { _ in "Community" }, // display name resolved separately
+            musicTitle: selectedMusic?.title,
+            scriptureRef: selectedVerse.isEmpty ? nil : selectedVerse,
+            onTapCommunity: { showCommunityPicker = true },
+            onTapMusic: { showMusicPicker = true },
+            onTapScripture: { showVersePicker = true },
+            onRemoveCommunity: {
+                selectedCommunityId = nil
+                selectedTopicIds = []
+            },
+            onRemoveMusic: { selectedMusic = nil },
+            onRemoveScripture: { selectedVerse = "" }
+        )
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedMusic?.id)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedCommunityId)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedVerse)
+    }
+
+    // MARK: - Attachment Toolbar
+
+    private var attachmentToolbar: some View {
+        AmenComposerAttachmentToolbar(
+            onPhoto: {
+                coordinator.openPhotoPicker(maxItems: max(1, 10 - coordinator.capturedItems.count))
+            },
+            onVideo: {
+                coordinator.openPhotoPicker(maxItems: max(1, 10 - coordinator.capturedItems.count))
+            },
+            onGIF: {
+                // TODO: wire to GIF picker when available
+            },
+            onMusic: { showMusicPicker = true },
+            onScripture: { showVersePicker = true },
+            onPrayer: {
+                // TODO: wire to prayer request composer
+            },
+            onMore: {
+                // TODO: wire to extended attachment options sheet
+            }
+        )
+        .background(AmenTheme.Colors.backgroundPrimary)
     }
 
     // MARK: - Helpers

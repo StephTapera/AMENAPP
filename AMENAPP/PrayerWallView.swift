@@ -205,9 +205,9 @@ struct PrayerWallMapView_DEPRECATED: View {
                             VStack(spacing: 6) {
                                 Image(systemName: "shuffle")
                                     .font(.systemScaled(20, weight: .semibold))
-                                
+
                                 Text("Random")
-                                    .font(.custom("OpenSans-Bold", size: 11))
+                                    .font(AMENFont.bold(11))
                             }
                             .foregroundStyle(.white)
                             .frame(width: 70, height: 70)
@@ -215,8 +215,10 @@ struct PrayerWallMapView_DEPRECATED: View {
                                 Circle()
                                     .fill(Color(red: 0.6, green: 0.5, blue: 1.0))
                                     .shadow(color: .black.opacity(0.3), radius: 15, y: 5)
+                                    .accessibilityHidden(true)
                             )
                         }
+                        .accessibilityLabel("Random prayer")
                         .padding(.trailing, 24)
                         .padding(.bottom, 180)
                     }
@@ -231,16 +233,16 @@ struct PrayerWallMapView_DEPRECATED: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Prayer Wall")
-                    .font(.custom("OpenSans-Bold", size: 26))
+                    .font(AMENFont.bold(26))
                     .foregroundStyle(.white)
-                
+
                 Text("\(filteredPins.count) prayers around the world")
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(.white.opacity(0.8))
             }
-            
+
             Spacer()
-            
+
             Button {
                 withAnimation(.smooth(duration: 0.3)) {
                     isShowing = false
@@ -250,6 +252,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                     .font(.systemScaled(28))
                     .foregroundStyle(.white.opacity(0.6))
             }
+            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 24)
         .padding(.top, 20)
@@ -337,24 +340,25 @@ struct PrayerWallMapView_DEPRECATED: View {
                         Circle()
                             .fill(pin.category.color.opacity(0.15))
                             .frame(width: 50, height: 50)
-                        
+                            .accessibilityHidden(true)
+
                         Image(systemName: pin.category.icon)
                             .font(.systemScaled(22, weight: .medium))
                             .foregroundStyle(pin.category.color)
                     }
-                    
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text(pin.city)
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                             .foregroundStyle(.white)
-                        
+
                         Text(pin.author)
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
-                    
+
                     Spacer()
-                    
+
                     Button {
                         withAnimation(.smooth(duration: 0.3)) {
                             selectedPin = nil
@@ -364,13 +368,14 @@ struct PrayerWallMapView_DEPRECATED: View {
                             .font(.systemScaled(24))
                             .foregroundStyle(.white.opacity(0.5))
                     }
+                    .accessibilityLabel("Close")
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
                 
                 // Prayer content
                 Text(pin.content)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .foregroundStyle(.white.opacity(0.9))
                     .lineSpacing(6)
                     .padding(.horizontal, 24)
@@ -380,12 +385,14 @@ struct PrayerWallMapView_DEPRECATED: View {
                     HStack(spacing: 8) {
                         Image(systemName: "hands.sparkles.fill")
                             .font(.systemScaled(16))
-                            .foregroundStyle(.white.opacity(0.6))
-                        
+                            .foregroundStyle(.white.opacity(0.8))
+                            .accessibilityHidden(true)
+
                         Text("\(pin.prayerCount) praying")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(AMENFont.semiBold(13))
+                            .foregroundStyle(.white.opacity(0.8))
                     }
+                    .accessibilityLabel("\(pin.prayerCount) people praying")
                     
                     Spacer()
                 }
@@ -401,9 +408,9 @@ struct PrayerWallMapView_DEPRECATED: View {
                         HStack(spacing: 8) {
                             Image(systemName: "hands.sparkles.fill")
                                 .font(.systemScaled(16, weight: .semibold))
-                            
+
                             Text("I'm Praying")
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                         }
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
@@ -413,7 +420,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                                 .fill(.white)
                         )
                     }
-                    
+
                     Button {
                         // Share
                     } label: {
@@ -430,6 +437,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                                     )
                             )
                     }
+                    .accessibilityLabel("Share")
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 30)
@@ -483,13 +491,14 @@ struct PrayerPinView: View {
     
     var body: some View {
         ZStack {
-            // Pulsing glow
+            // Pulsing glow — purely decorative
             Circle()
                 .fill(pin.category.color.opacity(0.3))
                 .frame(width: isSelected ? 40 : 24, height: isSelected ? 40 : 24)
                 .blur(radius: 10)
                 .scaleEffect(isSelected ? 1.2 : 1.0)
-            
+                .accessibilityHidden(true)
+
             // Pin
             Image(systemName: "mappin.circle.fill")
                 .font(.systemScaled(isSelected ? 32 : 20, weight: .medium))
@@ -514,15 +523,16 @@ private struct StatCard_Deprecated: View {
                 Image(systemName: icon)
                     .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(color)
-                
+                    .accessibilityHidden(true)
+
                 Text("\(count)")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.white)
             }
-            
+
             Text(label)
-                .font(.custom("OpenSans-SemiBold", size: 11))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(AMENFont.semiBold(11))
+                .foregroundStyle(.white.opacity(0.8))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -551,7 +561,7 @@ struct CategoryButton: View {
                     .font(.systemScaled(14, weight: .medium))
                 
                 Text(category.rawValue)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
             }
             .foregroundStyle(isSelected ? .black : category.color)
             .padding(.horizontal, 16)

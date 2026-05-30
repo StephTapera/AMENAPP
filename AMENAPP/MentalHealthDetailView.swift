@@ -4,7 +4,8 @@
 //
 //  Support Hub — Mental Health & Wellness
 //  Three trust layers: Crisis / Professional / Wellness & Spiritual
-//  Parchment design language, editorial card UI.
+//  Adaptive surface: mood-aware verse, Berean Care mode, smart tool ordering,
+//  rhythm context, local insight (on-device only), groups intake.
 //
 
 import SwiftUI
@@ -15,6 +16,18 @@ struct MentalHealthDetailView: View {
     @State private var selectedTab: WellnessTab = .tools
     @State private var appeared = false
     @Environment(\.dismiss) private var dismiss
+
+    // Wellness adaptive surface state
+    @State private var selectedMood: WellnessMood = .other
+    @State private var careChoice: WellnessCareChoice? = nil
+    @ObservedObject private var insightEngine = WellnessLocalInsightEngine.shared
+    @State private var intakeNeed: GroupsIntakeNeed = .grief
+    @State private var intakeFormat: GroupsIntakeFormat = .inPerson
+    @State private var intakePacing: GroupsIntakePacing = .lowPressure
+    @State private var forAFriendExpanded = false
+    @State private var showBereanCareSheet = false
+    @State private var showSilenceSheet = false
+    @State private var showPsalmSheet = false
 
     enum WellnessTab: String, CaseIterable {
         case tools    = "Tools"
@@ -46,6 +59,12 @@ struct MentalHealthDetailView: View {
                         .padding(.top, 20)
                         .opacity(appeared ? 1 : 0)
 
+                    // Promoted "For a Friend" expandable surface
+                    promotedForAFriendCard
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                        .opacity(appeared ? 1 : 0)
+
                     // Tab switcher
                     tabSwitcher
                         .padding(.top, 24)
@@ -74,6 +93,20 @@ struct MentalHealthDetailView: View {
             withAnimation(.easeOut(duration: 0.5).delay(0.06)) {
                 appeared = true
             }
+        }
+        .sheet(isPresented: $showBereanCareSheet) {
+            BereanAIAssistantView(
+                seedMessage: selectedMood.config.careOpeningLine
+            )
+        }
+        .sheet(isPresented: $showSilenceSheet) {
+            SilenceOverlayView(
+                verse: selectedMood.config.quote,
+                reference: selectedMood.config.verse
+            )
+        }
+        .sheet(isPresented: $showPsalmSheet) {
+            PsalmFocusView(mood: selectedMood)
         }
     }
 
@@ -259,6 +292,117 @@ struct MentalHealthDetailView: View {
         .shadow(color: Color.black.opacity(0.04), radius: 4, y: 2)
     }
 
+    // MARK: - Promoted For a Friend Surface
+
+    private var promotedForAFriendCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.80))) {
+                    forAFriendExpanded.toggle()
+                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 9)
+                            .fill(Color(red: 0.72, green: 0.22, blue: 0.22).opacity(0.12))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "person.fill.questionmark")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(Color(red: 0.72, green: 0.22, blue: 0.22))
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("For a Friend")
+                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .foregroundStyle(ink)
+                        Text("What to say, what not to say, when to call.")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(inkSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: forAFriendExpanded ? "chevron.up" : "chevron.down")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(inkSecondary)
+                }
+                .padding(14)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            if forAFriendExpanded {
+                VStack(alignment: .leading, spacing: 14) {
+                    Divider().padding(.horizontal, 14)
+
+                    ForAFriendGuidanceRow(
+                        icon: "checkmark.circle.fill",
+                        color: Color(red: 0.12, green: 0.52, blue: 0.38),
+                        title: "What helps",
+                        content: "\"I'm here with you.\" Sit in silence if needed. Ask \"Are you thinking about suicide?\" — it doesn't plant the idea, it opens the door."
+                    )
+
+                    ForAFriendGuidanceRow(
+                        icon: "xmark.circle.fill",
+                        color: Color(red: 0.72, green: 0.22, blue: 0.22),
+                        title: "What doesn't help",
+                        content: "\"You just need to pray more.\" \"Others have it worse.\" \"God won't give you more than you can handle.\" These dismiss the real weight."
+                    )
+
+                    ForAFriendGuidanceRow(
+                        icon: "exclamationmark.triangle.fill",
+                        color: Color(red: 0.82, green: 0.40, blue: 0.10),
+                        title: "If risk feels immediate",
+                        content: "Call 988 together. Stay with them. Remove access to means if safe to do so. Don't leave them alone."
+                    )
+
+                    ForAFriendGuidanceRow(
+                        icon: "heart.fill",
+                        color: Color(red: 0.48, green: 0.22, blue: 0.72),
+                        title: "Your limits",
+                        content: "You are not their therapist. Caring deeply doesn't mean carrying everything. 988 and trained counselors exist so you don't have to do this alone."
+                    )
+
+                    // Scripture anchor
+                    HStack(alignment: .top, spacing: 10) {
+                        Rectangle()
+                            .fill(Color(red: 0.48, green: 0.22, blue: 0.72))
+                            .frame(width: 2)
+                            .cornerRadius(1)
+                        Text("\"Carry each other's burdens, and in this way you will fulfill the law of Christ.\" — Galatians 6:2")
+                            .font(.custom("Georgia", size: 13))
+                            .italic()
+                            .foregroundStyle(inkSecondary)
+                            .lineSpacing(4)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 14)
+
+                    // Call 988 action button
+                    Button {
+                        if let url = URL(string: "tel:988") {
+                            UIApplication.shared.open(url)
+                        }
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "phone.fill")
+                                .font(.systemScaled(13, weight: .semibold))
+                            Text("Call 988 with them")
+                                .font(.custom("OpenSans-SemiBold", size: 14))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Capsule().fill(crisisRed))
+                    }
+                    .buttonStyle(SquishButtonStyle())
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 14)
+                }
+            }
+        }
+        .background(glassCardBackground(cornerRadius: 16))
+        .animation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.80)), value: forAFriendExpanded)
+    }
+
     // MARK: Tab Switcher
 
     private var tabSwitcher: some View {
@@ -316,32 +460,33 @@ struct MentalHealthDetailView: View {
         }
     }
 
-    // MARK: Tools Tab
+    // MARK: Tools Tab — Adaptive Surface
 
     private var wellnessToolsGrid: some View {
         VStack(spacing: 0) {
-            scriptureBlockquote
+            // 1. Mood check-in
+            moodCheckInCard
                 .padding(.horizontal, 20)
 
-            let tools: [(String, String, String, Color)] = [
-                ("wind",                  "Breathing",     "Box-breath exercise",      tealAccent),
-                ("brain.head.profile",    "Grounding",     "5-4-3-2-1 technique",      Color(red: 0.52, green: 0.36, blue: 0.72)),
-                ("moon.stars.fill",       "Sleep Hygiene", "Rest & restoration tips",  Color(red: 0.28, green: 0.38, blue: 0.62)),
-                ("figure.walk",           "Movement",      "Body & mood connection",   Color(red: 0.22, green: 0.52, blue: 0.38)),
-                ("book.fill",             "Journaling",    "Reflection prompts",       Color(red: 0.72, green: 0.46, blue: 0.22)),
-                ("hands.sparkles.fill",   "Prayer",        "Centering in Christ",      Color(red: 0.62, green: 0.22, blue: 0.42)),
-            ]
+            // 2. Adaptive verse
+            adaptiveVerseCard
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
 
+            // 3. Berean Care mode card
+            bereanCareModeCard
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
+            // 4. Smart tool grid — reordered by mood + time of day
+            let smartTools = WellnessToolRegistry.ranked(mood: selectedMood, rhythm: WellnessRhythmContext.current)
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)],
                 spacing: 14
             ) {
-                ForEach(tools, id: \.0) { tool in
-                    MentalHealthWellnessCard(
-                        icon: tool.0,
-                        title: tool.1,
-                        subtitle: tool.2,
-                        accent: tool.3,
+                ForEach(smartTools) { tool in
+                    SmartWellnessToolCard(
+                        tool: tool,
                         parchment: parchment,
                         ink: ink,
                         inkSecondary: inkSecondary
@@ -351,37 +496,309 @@ struct MentalHealthDetailView: View {
             .padding(.horizontal, 20)
             .padding(.top, 20)
 
+            // 5. Rhythm context
+            rhythmContextCard
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
+            // 6. Local insight (on-device only)
+            if insightEngine.isEnabled {
+                localInsightCard
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+            }
+
+            // 7. Berean bridge
             bereanWellnessBridge
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
         }
     }
 
-    // MARK: Counseling Tab
+    // MARK: - Mood Check-In Card
+
+    private var moodCheckInCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("How are you right now?")
+                .font(.custom("OpenSans-SemiBold", size: 15))
+                .foregroundStyle(ink)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(WellnessMood.allCases) { mood in
+                        Button {
+                            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
+                                selectedMood = mood
+                                careChoice = nil
+                            }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        } label: {
+                            Text(mood.rawValue)
+                                .font(.custom(selectedMood == mood ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 13))
+                                .foregroundStyle(selectedMood == mood ? .white : ink)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(selectedMood == mood ? tealAccent : Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.07))
+                                )
+                        }
+                        .buttonStyle(SquishButtonStyle())
+                        .accessibilityLabel("Mood: \(mood.rawValue)\(selectedMood == mood ? ", selected" : "")")
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(16)
+        .background(glassCardBackground(cornerRadius: 16))
+    }
+
+    // MARK: - Adaptive Verse Card
+
+    private var adaptiveVerseCard: some View {
+        let config = selectedMood.config
+        return HStack(alignment: .top, spacing: 14) {
+            Rectangle()
+                .fill(tealAccent)
+                .frame(width: 3)
+                .cornerRadius(2)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("\"\(config.quote)\"")
+                    .font(.custom("Georgia", size: 15))
+                    .fontWeight(.regular)
+                    .foregroundStyle(ink)
+                    .italic()
+                    .lineSpacing(4)
+
+                Text("— \(config.verse)")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(inkSecondary)
+            }
+        }
+        .padding(16)
+        .background(glassCardBackground(cornerRadius: 16))
+        .animation(Motion.adaptive(.easeOut(duration: 0.30)), value: selectedMood)
+    }
+
+    // MARK: - Berean Care Mode Card
+
+    private var bereanCareModeCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(tealAccent.opacity(0.12))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                        .font(.systemScaled(15, weight: .medium))
+                        .foregroundStyle(tealAccent)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Berean Care")
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(ink)
+                    Text(selectedMood.config.careOpeningLine)
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(inkSecondary)
+                        .lineSpacing(3)
+                        .lineLimit(2)
+                }
+            }
+
+            // 4 care choices
+            HStack(spacing: 8) {
+                ForEach(WellnessCareChoice.allCases, id: \.self) { choice in
+                    Button {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.80))) {
+                            careChoice = choice
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        // Route to action
+                        switch choice {
+                        case .talk:
+                            showBereanCareSheet = true
+                        case .sitInSilence:
+                            showSilenceSheet = true
+                        case .showPsalm:
+                            showPsalmSheet = true
+                        case .findSupport:
+                            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
+                                selectedTab = .counsel
+                            }
+                        }
+                    } label: {
+                        Text(choice.rawValue)
+                            .font(.custom(careChoice == choice ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 12))
+                            .foregroundStyle(careChoice == choice ? .white : ink)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule()
+                                    .fill(careChoice == choice ? tealAccent : Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.07))
+                            )
+                    }
+                    .buttonStyle(SquishButtonStyle())
+                    .accessibilityLabel(choice.rawValue)
+                }
+            }
+
+            // Never-replaces guardrail
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.systemScaled(11))
+                    .foregroundStyle(inkSecondary)
+                Text("Berean Care does not replace professional mental health care or crisis support.")
+                    .font(.custom("OpenSans-Regular", size: 11))
+                    .foregroundStyle(inkSecondary)
+                    .lineSpacing(2)
+            }
+        }
+        .padding(16)
+        .background(glassCardBackground(cornerRadius: 16))
+        .animation(Motion.adaptive(.easeOut(duration: 0.25)), value: selectedMood)
+    }
+
+    // MARK: - Rhythm Context Card
+
+    private var rhythmContextCard: some View {
+        let rhythm = WellnessRhythmContext.current
+        return HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(tealAccent.opacity(0.10))
+                    .frame(width: 32, height: 32)
+                Image(systemName: rhythmIcon(rhythm))
+                    .font(.systemScaled(14, weight: .medium))
+                    .foregroundStyle(tealAccent)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(rhythm.rawValue)
+                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .foregroundStyle(ink)
+                Text(rhythm.contextNote)
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(inkSecondary)
+                    .lineSpacing(3)
+            }
+        }
+        .padding(14)
+        .background(glassCardBackground(cornerRadius: 14))
+    }
+
+    private func rhythmIcon(_ rhythm: WellnessRhythmContext) -> String {
+        switch rhythm {
+        case .morning:   return "sunrise.fill"
+        case .afternoon: return "sun.max.fill"
+        case .night:     return "moon.stars.fill"
+        case .sunday:    return "cross.fill"
+        case .lent:      return "leaf.fill"
+        }
+    }
+
+    // MARK: - Local Insight Card (on-device only, never uploaded)
+
+    private var localInsightCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(tealAccent)
+                Text("On-device only · Never uploaded")
+                    .font(.custom("OpenSans-Regular", size: 11))
+                    .foregroundStyle(tealAccent)
+                Spacer()
+                Toggle("", isOn: $insightEngine.isEnabled)
+                    .labelsHidden()
+                    .scaleEffect(0.78)
+                    .tint(tealAccent)
+            }
+
+            Text(insightEngine.currentInsight)
+                .font(.custom("Georgia", size: 14))
+                .italic()
+                .foregroundStyle(inkSecondary)
+                .lineSpacing(4)
+        }
+        .padding(14)
+        .background(glassCardBackground(cornerRadius: 14))
+    }
+
+    // MARK: - Glass Card Background Helper
+
+    private func glassCardBackground(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.55), Color.white.opacity(0.0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.60), lineWidth: 0.75)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+    }
+
+    // MARK: Counseling Tab — Differentiated Trust Tiers
 
     private var counselingList: some View {
         VStack(spacing: 0) {
-            // Trust layer header
-            trustLayerHeader(
+            // Tier 1 — Licensed therapy
+            counselingTierHeader(
                 icon: "person.fill.checkmark",
-                title: "Professional Support",
-                subtitle: "Licensed counselors & therapists",
+                title: "Licensed Therapy",
+                subtitle: "Credentialed clinicians — insurance accepted",
                 color: Color(red: 0.22, green: 0.42, blue: 0.72)
             )
             .padding(.horizontal, 20)
-            .padding(.bottom, 16)
+            .padding(.bottom, 12)
 
             VStack(spacing: 14) {
-                ForEach(MentalHealthResource.counselingResources) { resource in
+                ForEach(MentalHealthResource.counselingResources.filter { !$0.isFree }) { resource in
                     EditorialResourceCard(resource: resource, ink: ink, inkSecondary: inkSecondary, parchment: parchment)
                 }
             }
             .padding(.horizontal, 20)
 
-            // Specialty finder
+            // Tier 2 — Pastoral (free)
+            counselingTierHeader(
+                icon: "cross.fill",
+                title: "Pastoral Consultation",
+                subtitle: "Faith-based counseling · Often free",
+                color: Color(red: 0.48, green: 0.22, blue: 0.72)
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+            .padding(.bottom, 12)
+
+            VStack(spacing: 14) {
+                ForEach(MentalHealthResource.counselingResources.filter { $0.isFree }) { resource in
+                    EditorialResourceCard(resource: resource, ink: ink, inkSecondary: inkSecondary, parchment: parchment)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            // Tier 3 — Local finder
+            counselingTierHeader(
+                icon: "location.magnifyingglass",
+                title: "Find Local Care",
+                subtitle: "Search by specialty, insurance & faith",
+                color: Color(red: 0.22, green: 0.48, blue: 0.42)
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+            .padding(.bottom, 12)
+
             specialtyFinderCard
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
 
             counselingGuardrailNote
                 .padding(.horizontal, 20)
@@ -389,7 +806,30 @@ struct MentalHealthDetailView: View {
         }
     }
 
-    // MARK: Groups Tab
+    @ViewBuilder
+    private func counselingTierHeader(icon: String, title: String, subtitle: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(color.opacity(0.12))
+                    .frame(width: 42, height: 42)
+                Image(systemName: icon)
+                    .font(.systemScaled(18, weight: .medium))
+                    .foregroundStyle(color)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.custom("OpenSans-Bold", size: 16))
+                    .foregroundStyle(ink)
+                Text(subtitle)
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(inkSecondary)
+            }
+            Spacer()
+        }
+    }
+
+    // MARK: Groups Tab — Intake First
 
     private var supportGroupsList: some View {
         VStack(spacing: 0) {
@@ -399,6 +839,32 @@ struct MentalHealthDetailView: View {
                 subtitle: "Groups where you are not alone",
                 color: Color(red: 0.12, green: 0.52, blue: 0.38)
             )
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+
+            // Intake card
+            groupsIntakeCard
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+
+            // Match result
+            intakeMatchCard
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+
+            // Divider to full directory
+            HStack(spacing: 10) {
+                Rectangle()
+                    .fill(inkSecondary.opacity(0.15))
+                    .frame(height: 1)
+                Text("All Groups")
+                    .font(.custom("OpenSans-Regular", size: 11))
+                    .foregroundStyle(inkSecondary)
+                    .kerning(0.4)
+                Rectangle()
+                    .fill(inkSecondary.opacity(0.15))
+                    .frame(height: 1)
+            }
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
 
@@ -415,7 +881,149 @@ struct MentalHealthDetailView: View {
         }
     }
 
-    // MARK: Faith Tab
+    // MARK: - Groups Intake Card
+
+    private var groupsIntakeCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Find the right group for you")
+                .font(.custom("OpenSans-SemiBold", size: 14))
+                .foregroundStyle(ink)
+
+            // Question 1 — What are you navigating?
+            VStack(alignment: .leading, spacing: 8) {
+                Text("What are you navigating?")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(inkSecondary)
+
+                intakePillRow(
+                    cases: GroupsIntakeNeed.allCases,
+                    selected: intakeNeed,
+                    label: { $0.rawValue },
+                    onSelect: { intakeNeed = $0 }
+                )
+            }
+
+            // Question 2 — Format preference
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Format preference?")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(inkSecondary)
+
+                intakePillRow(
+                    cases: GroupsIntakeFormat.allCases,
+                    selected: intakeFormat,
+                    label: { $0.rawValue },
+                    onSelect: { intakeFormat = $0 }
+                )
+            }
+
+            // Question 3 — Pacing
+            VStack(alignment: .leading, spacing: 8) {
+                Text("How do you like to engage?")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(inkSecondary)
+
+                intakePillRow(
+                    cases: GroupsIntakePacing.allCases,
+                    selected: intakePacing,
+                    label: { $0.rawValue },
+                    onSelect: { intakePacing = $0 }
+                )
+            }
+        }
+        .padding(16)
+        .background(glassCardBackground(cornerRadius: 16))
+    }
+
+    private func intakePillRow<T: Hashable>(
+        cases: [T],
+        selected: T,
+        label: @escaping (T) -> String,
+        onSelect: @escaping (T) -> Void
+    ) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(cases, id: \.self) { item in
+                    Button {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.80))) {
+                            onSelect(item)
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        Text(label(item))
+                            .font(.custom(selected == item ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 12))
+                            .foregroundStyle(selected == item ? .white : ink)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule()
+                                    .fill(selected == item ? Color(red: 0.12, green: 0.52, blue: 0.38) : Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.07))
+                            )
+                    }
+                    .buttonStyle(SquishButtonStyle())
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private var intakeMatchCard: some View {
+        let match = GroupsIntakeResult.match(need: intakeNeed, format: intakeFormat, pacing: intakePacing)
+        return Button {
+            if let url = URL(string: match.url) {
+                UIApplication.shared.open(url)
+            }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color(red: 0.12, green: 0.52, blue: 0.38).opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.systemScaled(18, weight: .medium))
+                        .foregroundStyle(Color(red: 0.12, green: 0.52, blue: 0.38))
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("Matched: \(match.groupName)")
+                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .foregroundStyle(ink)
+                        Text("Free")
+                            .font(.custom("OpenSans-SemiBold", size: 10))
+                            .foregroundStyle(Color(red: 0.12, green: 0.52, blue: 0.38))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color(red: 0.12, green: 0.52, blue: 0.38).opacity(0.12)))
+                    }
+                    Text(match.description)
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(inkSecondary)
+                        .lineSpacing(3)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundStyle(inkSecondary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(red: 0.93, green: 0.97, blue: 0.96))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color(red: 0.12, green: 0.52, blue: 0.38).opacity(0.25), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(SquishButtonStyle())
+        .animation(Motion.adaptive(.easeOut(duration: 0.25)), value: intakeNeed)
+        .animation(Motion.adaptive(.easeOut(duration: 0.25)), value: intakeFormat)
+        .animation(Motion.adaptive(.easeOut(duration: 0.25)), value: intakePacing)
+    }
+
+    // MARK: Faith Tab — Contemplative Practices First
 
     private var faithResourcesList: some View {
         VStack(spacing: 0) {
@@ -427,6 +1035,12 @@ struct MentalHealthDetailView: View {
             )
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
+
+            // Contemplative practices (gated by flag — default OFF, show if enabled)
+            if AMENFeatureFlags.shared.wellnessContemplativePracticesEnabled {
+                contemplativePracticesSection
+                    .padding(.bottom, 20)
+            }
 
             // Faith orgs — NAMI FaithNet + Mental Health Grace Alliance
             VStack(spacing: 14) {
@@ -466,6 +1080,56 @@ struct MentalHealthDetailView: View {
         }
     }
 
+    private var contemplativePracticesSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Rectangle()
+                    .fill(inkSecondary.opacity(0.15))
+                    .frame(height: 1)
+                Text("Contemplative Practices")
+                    .font(.custom("OpenSans-Regular", size: 11))
+                    .foregroundStyle(inkSecondary)
+                    .kerning(0.4)
+                Rectangle()
+                    .fill(inkSecondary.opacity(0.15))
+                    .frame(height: 1)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 14)
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)],
+                spacing: 14
+            ) {
+                ContemplativePracticeCard(
+                    icon: "moon.stars.fill",
+                    title: "Examen",
+                    subtitle: "Review the day with God",
+                    accent: Color(red: 0.28, green: 0.38, blue: 0.62)
+                )
+                ContemplativePracticeCard(
+                    icon: "book.fill",
+                    title: "Lectio Divina",
+                    subtitle: "Sacred reading, slow and open",
+                    accent: Color(red: 0.72, green: 0.46, blue: 0.22)
+                )
+                ContemplativePracticeCard(
+                    icon: "circle.dotted",
+                    title: "Centering Prayer",
+                    subtitle: "20 minutes, one word, open hands",
+                    accent: Color(red: 0.48, green: 0.22, blue: 0.72)
+                )
+                ContemplativePracticeCard(
+                    icon: "moon.fill",
+                    title: "Compline",
+                    subtitle: "Night prayer before rest",
+                    accent: Color(red: 0.22, green: 0.38, blue: 0.52)
+                )
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
     // MARK: Crisis Tab (dedicated, expanded)
 
     private var crisisDetailTab: some View {
@@ -487,7 +1151,7 @@ struct MentalHealthDetailView: View {
             }
             .padding(.horizontal, 20)
 
-            // "For a Friend" card
+            // "For a Friend" expanded card
             forAFriendCard
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
@@ -529,29 +1193,6 @@ struct MentalHealthDetailView: View {
         }
     }
 
-    private var scriptureBlockquote: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Rectangle()
-                .fill(tealAccent)
-                .frame(width: 3)
-                .cornerRadius(2)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("\"Do not be anxious about anything, but in every situation, by prayer and petition, present your requests to God.\"")
-                    .font(.custom("Georgia", size: 15))
-                    .fontWeight(.regular)
-                    .foregroundStyle(ink)
-                    .italic()
-                    .lineSpacing(4)
-
-                Text("— Philippians 4:6")
-                    .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(inkSecondary)
-            }
-        }
-        .padding(.top, 4)
-    }
-
     private var bereanWellnessBridge: some View {
         HStack(spacing: 14) {
             ZStack {
@@ -580,6 +1221,10 @@ struct MentalHealthDetailView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(red: 0.93, green: 0.97, blue: 0.96))
         )
+        .onTapGesture {
+            showBereanCareSheet = true
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
     }
 
     private var specialtyFinderCard: some View {
@@ -623,8 +1268,9 @@ struct MentalHealthDetailView: View {
         .buttonStyle(SquishButtonStyle())
     }
 
+    // Expanded "For a Friend" card in crisis tab
     private var forAFriendCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "person.fill.questionmark")
                     .font(.systemScaled(14, weight: .semibold))
@@ -634,10 +1280,46 @@ struct MentalHealthDetailView: View {
                     .foregroundStyle(ink)
             }
 
-            Text("If someone you know is in crisis, stay with them. Call 988 together, or text on their behalf. You don't need to have all the answers — your presence matters.")
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(inkSecondary)
-                .lineSpacing(4)
+            ForAFriendGuidanceRow(
+                icon: "checkmark.circle.fill",
+                color: Color(red: 0.12, green: 0.52, blue: 0.38),
+                title: "What helps",
+                content: "\"I'm here with you.\" Sit in silence if needed. Ask \"Are you thinking about suicide?\" — it opens the door, it doesn't plant the idea."
+            )
+
+            ForAFriendGuidanceRow(
+                icon: "xmark.circle.fill",
+                color: crisisRed,
+                title: "What doesn't help",
+                content: "\"You just need to pray more.\" \"Others have it worse.\" These phrases dismiss the real weight of what someone is carrying."
+            )
+
+            ForAFriendGuidanceRow(
+                icon: "exclamationmark.triangle.fill",
+                color: Color(red: 0.82, green: 0.40, blue: 0.10),
+                title: "If risk is immediate",
+                content: "Call 988 together. Stay with them. Remove access to means if safe to do so. Don't leave them alone."
+            )
+
+            ForAFriendGuidanceRow(
+                icon: "heart.fill",
+                color: Color(red: 0.48, green: 0.22, blue: 0.72),
+                title: "Your limits",
+                content: "You are not their therapist. Caring doesn't mean carrying everything. 988 and trained counselors exist so you don't have to do this alone."
+            )
+
+            // Scripture anchor
+            HStack(alignment: .top, spacing: 10) {
+                Rectangle()
+                    .fill(Color(red: 0.48, green: 0.22, blue: 0.72))
+                    .frame(width: 2)
+                    .cornerRadius(1)
+                Text("\"Carry each other's burdens, and in this way you will fulfill the law of Christ.\" — Galatians 6:2")
+                    .font(.custom("Georgia", size: 13))
+                    .italic()
+                    .foregroundStyle(inkSecondary)
+                    .lineSpacing(4)
+            }
 
             HStack(spacing: 10) {
                 ForAFriendActionButton(
@@ -865,13 +1547,38 @@ private struct ForAFriendActionButton: View {
     }
 }
 
-// MARK: - Wellness Tool Card
+// MARK: - For a Friend Guidance Row
 
-private struct MentalHealthWellnessCard: View {
+private struct ForAFriendGuidanceRow: View {
     let icon: String
+    let color: Color
     let title: String
-    let subtitle: String
-    let accent: Color
+    let content: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.systemScaled(13, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 18)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .foregroundStyle(Color(red: 0.14, green: 0.12, blue: 0.10))
+                Text(content)
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(Color(red: 0.42, green: 0.38, blue: 0.34))
+                    .lineSpacing(3)
+            }
+        }
+    }
+}
+
+// MARK: - Smart Wellness Tool Card
+
+private struct SmartWellnessToolCard: View {
+    let tool: WellnessSmartTool
     let parchment: Color
     let ink: Color
     let inkSecondary: Color
@@ -883,31 +1590,81 @@ private struct MentalHealthWellnessCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(accent.opacity(0.13))
+                        .fill(tool.accent.opacity(0.13))
                         .frame(width: 40, height: 40)
-                    Image(systemName: icon)
+                    Image(systemName: tool.icon)
                         .font(.systemScaled(18, weight: .medium))
-                        .foregroundStyle(accent)
+                        .foregroundStyle(tool.accent)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
+                    Text(tool.name)
                         .font(.custom("OpenSans-SemiBold", size: 14))
                         .foregroundStyle(ink)
-                    Text(subtitle)
+                    Text(tool.suggestion)
                         .font(.custom("OpenSans-Regular", size: 11))
                         .foregroundStyle(inkSecondary)
                         .lineLimit(2)
+                    Text(tool.memoryLine)
+                        .font(.custom("OpenSans-Regular", size: 10))
+                        .foregroundStyle(inkSecondary.opacity(0.70))
+                        .lineLimit(1)
+                        .padding(.top, 2)
                 }
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .frame(height: 120)
+            .frame(height: 140)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(red: 0.99, green: 0.98, blue: 0.96))
+                    .fill(parchment)
                     .shadow(color: Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.07), radius: 8, y: 2)
+            )
+        }
+        .buttonStyle(SquishButtonStyle())
+    }
+}
+
+// MARK: - Contemplative Practice Card
+
+private struct ContemplativePracticeCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let accent: Color
+
+    var body: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(accent.opacity(0.13))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon)
+                        .font(.systemScaled(17, weight: .medium))
+                        .foregroundStyle(accent)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(Color(red: 0.14, green: 0.12, blue: 0.10))
+                    Text(subtitle)
+                        .font(.custom("OpenSans-Regular", size: 11))
+                        .foregroundStyle(Color(red: 0.42, green: 0.38, blue: 0.34))
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .frame(height: 110)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(red: 0.97, green: 0.95, blue: 0.91))
+                    .shadow(color: Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.06), radius: 6, y: 2)
             )
         }
         .buttonStyle(SquishButtonStyle())
@@ -1011,6 +1768,126 @@ private struct EditorialResourceCard: View {
             )
         }
         .buttonStyle(SquishButtonStyle())
+    }
+}
+
+// MARK: - Silence Overlay View (Care: Sit in silence)
+
+struct SilenceOverlayView: View {
+    let verse: String
+    let reference: String
+    @Environment(\.dismiss) private var dismiss
+
+    private let wellnessDark = Color(red: 0.06, green: 0.18, blue: 0.20)
+    private let wellnessMid  = Color(red: 0.10, green: 0.32, blue: 0.30)
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [wellnessDark, wellnessMid], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                VStack(spacing: 20) {
+                    Image(systemName: "leaf.fill")
+                        .font(.system(size: 32, weight: .light))
+                        .foregroundStyle(Color.white.opacity(0.40))
+
+                    Text("\"\(verse)\"")
+                        .font(.custom("Georgia", size: 20))
+                        .italic()
+                        .foregroundStyle(Color.white.opacity(0.90))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(6)
+                        .padding(.horizontal, 32)
+
+                    Text("— \(reference)")
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(Color.white.opacity(0.55))
+                }
+
+                Spacer()
+
+                Button { dismiss() } label: {
+                    Text("Close")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(Color.white.opacity(0.60))
+                }
+                .padding(.bottom, 40)
+            }
+        }
+        .accessibilityLabel("Silence with scripture. \(verse). \(reference). Tap Close to dismiss.")
+    }
+}
+
+// MARK: - Psalm Focus View (Care: Show Psalm)
+
+struct PsalmFocusView: View {
+    let mood: WellnessMood
+    @Environment(\.dismiss) private var dismiss
+
+    private let wellnessDark = Color(red: 0.06, green: 0.18, blue: 0.20)
+    private let wellnessMid  = Color(red: 0.10, green: 0.32, blue: 0.30)
+
+    // Map mood to a focused Psalm passage
+    private var psalmContent: (reference: String, text: String) {
+        switch mood {
+        case .anxious:
+            return ("Psalm 23:1–4", "The Lord is my shepherd; I shall not want. He makes me lie down in green pastures. He leads me beside still waters. He restores my soul. Even though I walk through the valley of the shadow of death, I will fear no evil.")
+        case .tired:
+            return ("Psalm 62:1–2", "My soul finds rest in God alone; my salvation comes from him. He alone is my rock and my salvation; he is my fortress, I will never be shaken.")
+        case .heavy:
+            return ("Psalm 34:18", "The Lord is near to the brokenhearted and saves the crushed in spirit.")
+        case .numb:
+            return ("Psalm 13:1–2", "How long, Lord? Will you forget me forever? How long will you hide your face from me? How long must I wrestle with my thoughts and every day have sorrow in my heart?")
+        case .grateful:
+            return ("Psalm 103:1–4", "Bless the Lord, O my soul, and all that is within me, bless his holy name. Bless the Lord, O my soul, and forget not all his benefits — who forgives all your iniquity, who heals all your diseases.")
+        case .joyful:
+            return ("Psalm 118:24", "This is the day the Lord has made; let us rejoice and be glad in it.")
+        case .other:
+            return ("Psalm 139:1–4", "Lord, you have searched me and known me. You know when I sit down and when I rise up; you discern my thoughts from afar. You search out my path and my lying down and are acquainted with all my ways.")
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [wellnessDark, wellnessMid], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                VStack(spacing: 24) {
+                    Image(systemName: "book.fill")
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundStyle(Color.white.opacity(0.40))
+
+                    Text(psalmContent.reference)
+                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .kerning(1.5)
+                        .foregroundStyle(Color.white.opacity(0.55))
+                        .textCase(.uppercase)
+
+                    Text(psalmContent.text)
+                        .font(.custom("Georgia", size: 19))
+                        .italic()
+                        .foregroundStyle(Color.white.opacity(0.90))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(7)
+                        .padding(.horizontal, 28)
+                }
+
+                Spacer()
+
+                Button { dismiss() } label: {
+                    Text("Close")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(Color.white.opacity(0.60))
+                }
+                .padding(.bottom, 40)
+            }
+        }
     }
 }
 

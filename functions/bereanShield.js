@@ -54,6 +54,7 @@ function extractJSON(text) {
 
 exports.bereanShieldAnalyze = onCall(
   {
+    enforceAppCheck: true,
     secrets: [CLAUDE_API_KEY],
     timeoutSeconds: 60,
     memory: "256MiB",
@@ -151,6 +152,7 @@ Confidence is a float from 0.0 to 1.0 reflecting how certain you are in your ver
 
 exports.bereanCompassAnalyze = onCall(
   {
+    enforceAppCheck: true,
     secrets: [CLAUDE_API_KEY],
     timeoutSeconds: 45,
     memory: "256MiB",

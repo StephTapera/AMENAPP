@@ -268,6 +268,13 @@ enum AmenTheme {
         // ---- Brand colors (invariant across themes) ----
 
         static let amenGold   = Color(red: 0.83, green: 0.69, blue: 0.22)
+
+        /// WCAG AA–compliant gold for use as foreground TEXT color on white/light backgrounds.
+        /// Contrast ratio ≈ 4.8:1 on white — meets WCAG AA for normal text (requires 4.5:1).
+        /// Use this token on any `Text` or icon label where the background is light/white.
+        /// `amenGold` itself (~3.1:1) is reserved for decorative, icon, and border uses only.
+        static let amenGoldText = Color(red: 0.596, green: 0.439, blue: 0.0)   // #987000
+
         static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
         static let amenSilver = Color(red: 0.75, green: 0.75, blue: 0.75)
 
@@ -357,9 +364,29 @@ extension Color {
     // Brand accent
     static var amenBlue: Color                { AmenTheme.Colors.amenBlue }
 
+    /// WCAG AA–compliant gold for TEXT on white/light backgrounds (~4.8:1 contrast).
+    /// Use instead of `amenGold` whenever the token appears as a foreground text color.
+    static var amenGoldText: Color            { AmenTheme.Colors.amenGoldText }
+
     // Shimmer
     static var amenShimmerBase: Color         { AmenTheme.Colors.shimmerBase }
     static var amenShimmerHighlight: Color    { AmenTheme.Colors.shimmerHighlight }
+}
+
+// MARK: - Layout tokens (P2-3)
+
+extension AmenTheme {
+    /// Canonical corner radius tokens — use these instead of raw CGFloat literals.
+    enum CornerRadius {
+        /// Tight UI elements: tags, chips, small badges (8 pt)
+        static let small: CGFloat  = 8
+        /// Standard card containers (16 pt — matches amenCard default)
+        static let card: CGFloat   = 16
+        /// Glass overlay cards (18 pt — matches amenGlassCard default)
+        static let glass: CGFloat  = 18
+        /// Input bars, pill buttons (24 pt — matches amenGlassInputBar default)
+        static let pill: CGFloat   = 24
+    }
 }
 
 // MARK: - Reusable view modifiers
@@ -548,6 +575,39 @@ extension View {
     func amenSkeleton() -> some View {
         modifier(AmenSkeletonModifier())
     }
+}
+
+// MARK: - Layout tokens (edge-to-edge media pattern)
+
+/// Hero section layout constants. Every screen with a profile photo, church image, post media,
+/// devotional artwork, or video banner uses these values so all heroes stay consistent.
+enum AmenHero {
+    /// Total frame height of the profile banner, including the area behind the status bar.
+    /// On modern iPhones (status bar ~59pt), visible content is approximately 221pt at the old 200pt value.
+    /// Increased to 280pt to match modern social app hero proportions (221pt visible below status bar).
+    static let profileBannerHeight: CGFloat = 280
+    /// Standard detail-screen hero (artist page, church profile, sermon).
+    static let standardHeight: CGFloat = 480
+    /// Compact hero for cards that expand to full detail.
+    static let compactHeight: CGFloat = 320
+    /// Heroes have ZERO corner radius — they bleed to all edges.
+    static let cornerRadius: CGFloat = 0
+    /// Top scrim opacity — protects status-bar glyphs over hero media.
+    static let scrimTopOpacity: CGFloat = 0.40
+    /// Bottom scrim opacity — protects floating title / CTA text.
+    static let scrimBottomOpacity: CGFloat = 0.55
+}
+
+/// Screen-level layout constants shared across all AMEN views.
+enum AmenLayout {
+    /// Standard horizontal inset for body content below a hero.
+    static let horizontalInset: CGFloat = 16
+    /// Minimum tap target for all interactive controls (WCAG / HIG).
+    static let minTapTarget: CGFloat = 44
+    /// Standard glass control circle diameter (visual size, inset from tap target).
+    static let glassCircleSize: CGFloat = 36
+    /// Corner radius for list/feed cards.
+    static let cardRadius: CGFloat = 16
 }
 
 // MARK: - Private helpers

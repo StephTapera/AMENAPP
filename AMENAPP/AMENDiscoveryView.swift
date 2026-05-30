@@ -104,15 +104,6 @@ struct AMENDiscoveryView: View {
                                     .foregroundColor(Color(white: 0.45))
                                     .tracking(1.4)
                                 Spacer()
-                                Button {
-                                    HapticManager.impact(style: .light)
-                                    showUniversalSearch = true
-                                } label: {
-                                    Image(systemName: "magnifyingglass")
-                                        .font(.systemScaled(15, weight: .medium))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .accessibilityLabel("Universal Search")
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 10)
@@ -207,6 +198,7 @@ struct AMENDiscoveryView: View {
                 }
             }
         }
+        .accessibilityIdentifier("screen.discovery")
     }
 
     // MARK: - Discover Mode Selector
@@ -1749,7 +1741,7 @@ struct DiscoveryFollowCard: View {
                     .frame(maxWidth: 130)
             }
 
-            // Follow button
+            // P1 FIX: Three-state follow button — Follow (amenGold) / Requested (gray) / Following (outlined)
             Button {
                 guard !isFollowInFlight else { return }
                 isFollowInFlight = true
@@ -1758,18 +1750,40 @@ struct DiscoveryFollowCard: View {
                     isFollowInFlight = false
                 }
             } label: {
-                Text(suggestion.isFollowing ? "Following" : "Follow")
-                    .font(AMENFont.semiBold(13))
-                    .foregroundStyle(suggestion.isFollowing ? .secondary : .primary)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 7)
-                    .background(
-                        Capsule()
-                            .fill(suggestion.isFollowing
-                                  ? Color.primary.opacity(0.06)
-                                  : Color.primary.opacity(0.10))
-                            .overlay(Capsule().stroke(Color.primary.opacity(0.15), lineWidth: 0.5))
-                    )
+                Group {
+                    if suggestion.isRequested {
+                        Text("Requested")
+                            .foregroundStyle(Color.primary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule()
+                                    .fill(Color(.systemFill))
+                                    .overlay(Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 0.75))
+                            )
+                    } else if suggestion.isFollowing {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Following")
+                        }
+                        .foregroundStyle(Color.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 7)
+                        .background(
+                            Capsule().strokeBorder(Color.secondary.opacity(0.4), lineWidth: 1.5)
+                        )
+                    } else {
+                        Text("Follow")
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(Color.amenGold))
+                    }
+                }
+                .font(AMENFont.semiBold(13))
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: suggestion.isFollowing)
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: suggestion.isRequested)
             }
             .buttonStyle(.plain)
             .disabled(isFollowInFlight)

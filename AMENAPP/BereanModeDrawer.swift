@@ -3,7 +3,7 @@
 //  AMENAPP
 //
 //  Bottom sheet drawer for Berean personality mode selection.
-//  Replaces inline mode chips with a full-featured selection experience.
+//  2-column glass pill grid replacing full-width card list.
 //
 
 import SwiftUI
@@ -12,19 +12,29 @@ struct BereanModeDrawer: View {
     @Binding var selectedMode: BereanPersonalityMode
     @Environment(\.dismiss) private var dismiss
 
+    private let columns = [
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
+    ]
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
+                LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(BereanPersonalityMode.allCases) { mode in
-                        modeCard(mode)
+                        ModePill(mode: mode, isSelected: selectedMode == mode) {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
+                                selectedMode = mode
+                            }
+                            HapticManager.impact(style: .light)
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
-            .background(Color(uiColor: .systemBackground))
+            .background(Color(.systemBackground))
             .navigationTitle("Response Style")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -38,57 +48,62 @@ struct BereanModeDrawer: View {
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
     }
+}
 
-    private func modeCard(_ mode: BereanPersonalityMode) -> some View {
-        let isSelected = selectedMode == mode
+// MARK: - ModePill
 
-        return Button {
-            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.78))) {
-                selectedMode = mode
+private struct ModePill: View {
+    let mode: BereanPersonalityMode
+    let isSelected: Bool
+    let action: () -> Void
+
+    @GestureState private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let gold = AmenTheme.Colors.amenGold
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: mode.icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(isSelected ? gold : Color.secondary)
+
+                Text(mode.rawValue)
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(Color.primary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
             }
-            HapticManager.impact(style: .light)
-        } label: {
-            HStack(spacing: 14) {
-                // Icon circle
-                Circle()
-                    .fill(isSelected ? Color.black : Color.black.opacity(0.06))
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Image(systemName: mode.icon)
-                            .font(.systemScaled(16, weight: .semibold))
-                            .foregroundStyle(isSelected ? .white : .black.opacity(0.5))
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(mode.rawValue)
-                        .font(AMENFont.semiBold(16))
-                        .foregroundStyle(.primary)
-
-                    Text(mode.description)
-                        .font(AMENFont.regular(13))
-                        .foregroundStyle(.black.opacity(0.5))
-                }
-
-                Spacer()
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.systemScaled(20))
-                        .foregroundStyle(.primary)
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .padding(.horizontal, 8)
+            .background {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isSelected ? Color.black.opacity(0.04) : Color.clear)
+                    .fill(isSelected ? gold.opacity(0.15) : Color.primary.opacity(0.06))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(
+                                isSelected ? gold.opacity(0.5) : Color.primary.opacity(0.12),
+                                lineWidth: isSelected ? 1 : 0.5
+                            )
+                    }
+            }
+            .amenGlassEffect(isSelected ? gold.opacity(0.15) : .clear, cornerRadius: 14)
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .opacity(isPressed ? 0.88 : 1.0)
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.22, dampingFraction: 0.82),
+                value: isPressed
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(isSelected ? Color.black.opacity(0.12) : Color.black.opacity(0.06), lineWidth: 0.5)
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.22, dampingFraction: 0.82),
+                value: isSelected
             )
         }
         .buttonStyle(.plain)
+        .gesture(DragGesture(minimumDistance: 0).updating($isPressed) { _, s, _ in s = true })
+        .accessibilityLabel(mode.rawValue)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

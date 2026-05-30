@@ -55,6 +55,20 @@ enum BereanReasoningCategory: String, CaseIterable, Identifiable {
         case .notes: return "note.text"
         }
     }
+
+    var retrievalStrategy: String {
+        switch self {
+        case .scripture: return "Cite primary Scripture passages"
+        case .crossReferences: return "Identify parallel and contrasting passages"
+        case .commentary: return "Draw on classical and modern commentary"
+        case .sermons: return "Reference relevant sermons and expositions"
+        case .articles: return "Search theological and scholarly articles"
+        case .originalLanguage: return "Examine Hebrew/Greek root meanings"
+        case .historicalContext: return "Provide first-century historical context"
+        case .application: return "Offer practical daily application"
+        case .notes: return "Include personal study notes"
+        }
+    }
 }
 
 enum BereanReasoningCategoryState: Equatable {

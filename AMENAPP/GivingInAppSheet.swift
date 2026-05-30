@@ -61,7 +61,16 @@ struct GivingInAppSheet: View {
             ZStack {
                 Color(.systemGroupedBackground).ignoresSafeArea()
 
-                if showSuccess {
+                // B-01 / B-02: Gate entire payment UI behind paymentsEnabled flag.
+                // Stripe CFs, Apple Pay merchant registration, and webhook handler
+                // must all be deployed before this flag is flipped on.
+                if !AMENFeatureFlags.shared.paymentsEnabled {
+                    ContentUnavailableView(
+                        "In-App Giving Coming Soon",
+                        systemImage: "heart.fill",
+                        description: Text("Online giving will be available in an upcoming update. You can still give directly through \(nonprofit.name)'s website.")
+                    )
+                } else if showSuccess {
                     successView.transition(.opacity.combined(with: .scale(scale: 0.96)))
                 } else {
                     ScrollView(showsIndicators: false) {

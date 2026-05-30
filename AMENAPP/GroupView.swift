@@ -45,15 +45,23 @@ struct GroupView: View {
             } else if let error = loadError {
                 errorState(error)
             } else if let group {
-                content(for: group)
+                // Route to the album-style view when the flag is on.
+                if AMENFeatureFlags.shared.discussionAlbumUIEnabled {
+                    DiscussionGroupDetailView(group: group)
+                } else {
+                    content(for: group)
+                }
             } else {
                 emptyState
             }
         }
-        .navigationTitle(group?.name ?? "Group")
+        .navigationTitle(
+            AMENFeatureFlags.shared.discussionAlbumUIEnabled ? "" : (group?.name ?? "Group")
+        )
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if let group {
+            // Hide system toolbar when the album view owns its own chrome.
+            if !AMENFeatureFlags.shared.discussionAlbumUIEnabled, let group {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         ShareRouter.presentGroup(group, sourceSurface: "group_profile")

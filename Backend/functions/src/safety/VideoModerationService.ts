@@ -99,7 +99,7 @@ async function extractFrames(videoPath: string, durationSeconds: number): Promis
         `-frames:v ${frameCount}`,
       ])
       .output(path.join(tmpDir, "frame_%04d.jpg"))
-      .on("end", resolve)
+      .on("end", () => resolve())
       .on("error", reject)
       .run();
   });
@@ -145,9 +145,9 @@ async function analyzeFrame(
   const ss = result.safeSearchAnnotation;
   if (!ss) return null;
 
-  const adultIdx = likelihoodIndex(ss.adult);
-  const violenceIdx = likelihoodIndex(ss.violence);
-  const racyIdx = likelihoodIndex(ss.racy);
+  const adultIdx = likelihoodIndex(String(ss.adult ?? "UNKNOWN"));
+  const violenceIdx = likelihoodIndex(String(ss.violence ?? "UNKNOWN"));
+  const racyIdx = likelihoodIndex(String(ss.racy ?? "UNKNOWN"));
   const minorThreshold = isMinor ? 2 : 3;
 
   if (adultIdx >= 5) {

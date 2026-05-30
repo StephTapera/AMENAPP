@@ -165,6 +165,9 @@ exports.invalidateServerFlagCache = functions.https.onCall(async (_data, context
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Auth required");
     }
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    }
     // Only allow users with the "admin" custom claim to flush the cache.
     const tokenClaims = context.auth.token;
     if (!tokenClaims.admin) {

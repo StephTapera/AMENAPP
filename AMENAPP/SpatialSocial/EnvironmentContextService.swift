@@ -63,7 +63,9 @@ final class EnvironmentContextService: ObservableObject {
                    let envType = EnvironmentType(rawValue: typeString) {
                     return envType
                 }
-            } catch {}
+            } catch {
+                    print("[ERROR] EnvironmentContextService.classify: AI environment classification failed — \(error)")
+                }
         }
 
         return .unknown

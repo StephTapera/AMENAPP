@@ -502,19 +502,35 @@ class PrayerRoomService: ObservableObject {
     @Published var upcomingRooms: [PrayerRoom] = []
     @Published var isLoading = false
 
-    func loadUpcoming() {
+    private var listener: ListenerRegistration?
+
+    func startListening() {
+        guard listener == nil else { return }
         isLoading = true
-        Firestore.firestore().collection("prayerRooms")
+        listener = Firestore.firestore().collection("prayerRooms")
             .whereField("scheduledAt", isGreaterThan: Timestamp(date: Date()))
             .whereField("isArchived", isEqualTo: false)
             .order(by: "scheduledAt")
             .limit(to: 10)
-            .getDocuments { [weak self] snap, _ in
-                DispatchQueue.main.async {
-                    self?.upcomingRooms = snap?.documents.compactMap { try? $0.data(as: PrayerRoom.self) } ?? []
-                    self?.isLoading = false
+            .addSnapshotListener { [weak self] snap, error in
+                guard let self else { return }
+                if let error {
+                    dlog("PrayerRoomService: snapshot error — \(error.localizedDescription)")
+                    self.isLoading = false
+                    return
                 }
+                self.upcomingRooms = snap?.documents.compactMap { try? $0.data(as: PrayerRoom.self) } ?? []
+                self.isLoading = false
             }
+    }
+
+    func stopListening() {
+        listener?.remove()
+        listener = nil
+    }
+
+    deinit {
+        listener?.remove()
     }
 
     func rsvp(roomId: String) async {
@@ -733,6 +749,7 @@ class BurdenMatchService: ObservableObject {
 
 struct BurdenMatchPrompt: View {
     @ObservedObject var service = BurdenMatchService.shared
+    @State private var isConnecting = false
 
     var body: some View {
         if service.showMatchPrompt {
@@ -747,11 +764,47 @@ struct BurdenMatchPrompt: View {
                 HStack(spacing: 12) {
                     Button("Not now") { service.declineMatch() }
                         .buttonStyle(.bordered)
-                    Button("Connect") {
-                        if let id = service.pendingMatchUserId { service.acceptMatch(with: id) }
+                    Button {
+                        guard let matchedUserId = service.pendingMatchUserId, !isConnecting else { return }
+                        isConnecting = true
+                        service.acceptMatch(with: matchedUserId)
+                        Task {
+                            do {
+                                // Fetch matched user's display name for the conversation header
+                                let userDoc = try? await Firestore.firestore()
+                                    .collection("users").document(matchedUserId).getDocument()
+                                let userName = (userDoc?.data()?["displayName"] as? String)
+                                    ?? (userDoc?.data()?["username"] as? String)
+                                    ?? "Prayer Partner"
+                                // Get or create a DM thread and navigate to it
+                                let conversationId = try await FirebaseMessagingService.shared
+                                    .getOrCreateDirectConversation(withUserId: matchedUserId, userName: userName)
+                                await MainActor.run {
+                                    isConnecting = false
+                                    MessagingCoordinator.shared.openConversation(conversationId)
+                                    dlog("✅ BurdenMatch: opened DM \(conversationId) with \(userName)")
+                                }
+                            } catch {
+                                await MainActor.run {
+                                    isConnecting = false
+                                    dlog("❌ BurdenMatch: failed to open DM — \(error)")
+                                    ToastManager.shared.show(ToastNotification(
+                                        message: "Unable to open message thread. Please try again.",
+                                        style: .error
+                                    ))
+                                }
+                            }
+                        }
+                    } label: {
+                        if isConnecting {
+                            ProgressView().scaleEffect(0.8).frame(width: 60)
+                        } else {
+                            Text("Connect")
+                        }
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.purple)
+                    .disabled(isConnecting)
                 }
             }
             .padding(20)
@@ -884,6 +937,456 @@ class PrayerPreSeedState: ObservableObject {
               let ref = verseReference, let text = verseText, let noteId = noteId else { return nil }
         hasPendingPreSeed = false
         return (ref, text, noteId)
+    }
+}
+
+// MARK: - Prayer Groups View
+
+/// Service that loads and persists prayer group membership via Firestore.
+/// Collection schema: prayerGroups/{groupId}  — members subcollection: prayerGroups/{groupId}/members/{uid}
+@MainActor
+class PrayerGroupsService: ObservableObject {
+    static let shared = PrayerGroupsService()
+
+    @Published var groups: [PrayerGroup] = []
+    @Published var joinedGroupIds: Set<String> = []
+    @Published var isSaving = false
+    /// P1-14: surfaced to the UI via .alert in PrayerGroupsView
+    @Published var lastError: String? = nil
+
+    private var listener: ListenerRegistration?
+
+    init() {
+        startListening()
+    }
+
+    func startListening() {
+        guard listener == nil else { return }
+        listener = Firestore.firestore().collection("prayerGroups")
+            .order(by: "createdAt", descending: false)
+            .addSnapshotListener { [weak self] snap, error in
+                guard let self else { return }
+                if let error {
+                    dlog("PrayerGroupsService: snapshot error — \(error.localizedDescription)")
+                    return
+                }
+                let mapped: [PrayerGroup] = snap?.documents.compactMap { doc in
+                    let data = doc.data()
+                    let name = data["name"] as? String ?? ""
+                    guard !name.isEmpty else { return nil }
+                    let icon = data["icon"] as? String ?? "person.3.fill"
+                    let memberCount = data["memberCount"] as? Int ?? 0
+                    let activeNow = data["activeNow"] as? Int ?? 0
+                    let description = data["description"] as? String ?? ""
+                    let category = data["category"] as? String ?? "General"
+                    // Firestore stores color as an optional hex string; fall back to amenPurple.
+                    let colorHex = data["colorHex"] as? String ?? ""
+                    let color: Color = colorHex.isEmpty ? Color(red: 0.55, green: 0.45, blue: 1.0) : Color(hex: colorHex)
+                    // Use the Firestore document ID as a stable string key; synthesise a UUID for Identifiable.
+                    let docId = doc.documentID
+                    let uuid = UUID(uuidString: docId) ?? UUID()
+                    return PrayerGroup(
+                        id: uuid,
+                        name: name,
+                        icon: icon,
+                        memberCount: memberCount,
+                        activeNow: activeNow,
+                        description: description,
+                        color: color,
+                        category: category
+                    )
+                } ?? []
+                DispatchQueue.main.async {
+                    self.groups = mapped
+                }
+            }
+    }
+
+    func stopListening() {
+        listener?.remove()
+        listener = nil
+    }
+
+    func loadJoinedGroups() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        Task {
+            // Query all prayerGroups where the current user is a member.
+            let snap = try? await db.collectionGroup("members").whereField("uid", isEqualTo: uid).getDocuments()
+            let joined = Set((snap?.documents ?? []).compactMap { $0.reference.parent.parent?.documentID })
+            self.joinedGroupIds = joined
+            dlog("PrayerGroupsService: loaded \(joined.count) joined groups")
+        }
+    }
+
+    func join(groupId: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        // Duplicate-tap guard: bail if already joined.
+        guard !joinedGroupIds.contains(groupId) else { return }
+
+        // Optimistic local update.
+        joinedGroupIds.insert(groupId)
+        if let idx = groups.firstIndex(where: { $0.id.uuidString == groupId || $0.id.uuidString.lowercased() == groupId }) {
+            let g = groups[idx]
+            groups[idx] = PrayerGroup(
+                id: g.id, name: g.name, icon: g.icon,
+                memberCount: g.memberCount + 1, activeNow: g.activeNow,
+                description: g.description, color: g.color, category: g.category
+            )
+        }
+
+        isSaving = true
+        defer { isSaving = false }
+        let db = Firestore.firestore()
+        let groupRef = db.collection("prayerGroups").document(groupId)
+        let memberRef = groupRef.collection("members").document(uid)
+        do {
+            try await memberRef.setData(["uid": uid, "joinedAt": FieldValue.serverTimestamp()], merge: true)
+            try await groupRef.updateData([
+                "memberCount": FieldValue.increment(Int64(1))
+            ])
+            dlog("PrayerGroupsService: joined group \(groupId)")
+        } catch {
+            // Rollback optimistic update on failure.
+            joinedGroupIds.remove(groupId)
+            if let idx = groups.firstIndex(where: { $0.id.uuidString == groupId || $0.id.uuidString.lowercased() == groupId }) {
+                let g = groups[idx]
+                groups[idx] = PrayerGroup(
+                    id: g.id, name: g.name, icon: g.icon,
+                    memberCount: max(0, g.memberCount - 1), activeNow: g.activeNow,
+                    description: g.description, color: g.color, category: g.category
+                )
+            }
+            dlog("PrayerGroupsService: join error — \(error.localizedDescription)")
+            lastError = error.localizedDescription // P1-14: surface to UI
+        }
+    }
+
+    func leave(groupId: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isSaving = true
+        defer { isSaving = false }
+        let db = Firestore.firestore()
+        let groupRef = db.collection("prayerGroups").document(groupId)
+        do {
+            try await groupRef.collection("members").document(uid).delete()
+            try await groupRef.setData(["memberCount": FieldValue.increment(Int64(-1))], merge: true)
+            joinedGroupIds.remove(groupId)
+            dlog("PrayerGroupsService: left group \(groupId)")
+        } catch {
+            dlog("PrayerGroupsService: leave error — \(error.localizedDescription)")
+            lastError = error.localizedDescription // P1-14: surface to UI
+        }
+    }
+
+    func createGroup(name: String, description: String, category: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isSaving = true
+        defer { isSaving = false }
+        let db = Firestore.firestore()
+        let data: [String: Any] = [
+            "name": name,
+            "description": description,
+            "category": category,
+            "hostId": uid,
+            "memberCount": 1,
+            "activeNow": 0,
+            "icon": "person.3.fill",
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+        do {
+            let ref = try await db.collection("prayerGroups").addDocument(data: data)
+            // Auto-join on creation
+            try await ref.collection("members").document(uid)
+                .setData(["uid": uid, "joinedAt": FieldValue.serverTimestamp()], merge: true)
+            dlog("PrayerGroupsService: created group \(ref.documentID)")
+        } catch {
+            dlog("PrayerGroupsService: create error — \(error.localizedDescription)")
+            lastError = error.localizedDescription // P1-14: surface to UI
+        }
+    }
+}
+
+// MARK: - PrayerGroupsView
+
+struct PrayerGroupsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var service = PrayerGroupsService.shared
+    @State private var showCreateGroup = false
+    @State private var selectedGroup: PrayerGroup?
+
+    private let columns = [GridItem(.flexible())]
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if service.groups.isEmpty {
+                    emptyState
+                } else {
+                    groupList
+                }
+            }
+            .navigationTitle("Prayer Groups")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Done") { dismiss() }
+                        .font(AMENFont.semiBold(16))
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showCreateGroup = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityLabel("Create Prayer Group")
+                }
+            }
+            .sheet(item: $selectedGroup) { group in
+                PrayerGroupDetailView(group: group)
+            }
+            .sheet(isPresented: $showCreateGroup) {
+                CreatePrayerGroupView()
+            }
+            .onAppear { service.loadJoinedGroups() }
+            // P1-14: surface join/leave/create errors to the user
+            .alert("Something went wrong", isPresented: .constant(service.lastError != nil), actions: {
+                Button("OK") { service.lastError = nil }
+            }, message: {
+                Text(service.lastError ?? "")
+            })
+        }
+    }
+
+    // MARK: - Group List
+
+    private var groupList: some View {
+        ScrollView {
+            LazyVStack(spacing: 14) {
+                ForEach(service.groups) { group in
+                    PrayerGroupListCard(
+                        group: group,
+                        isJoined: service.joinedGroupIds.contains(group.id.uuidString.lowercased()),
+                        isSaving: service.isSaving
+                    ) {
+                        selectedGroup = group
+                    } onJoinLeave: {
+                        let gid = group.id.uuidString.lowercased()
+                        Task {
+                            if service.joinedGroupIds.contains(gid) {
+                                await service.leave(groupId: gid)
+                            } else {
+                                await service.join(groupId: gid)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .padding(.bottom, 32)
+        }
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "person.3.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(.secondary)
+            Text("No Prayer Groups Yet")
+                .font(AMENFont.bold(20))
+            Text("Start or join a prayer group to pray together consistently")
+                .font(AMENFont.regular(15))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            AmenLiquidGlassPillButton(
+                title: "Create a Group",
+                systemImage: "plus.circle.fill",
+                isLoading: false,
+                isDisabled: false,
+                hint: "Create a new prayer group"
+            ) {
+                showCreateGroup = true
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(40)
+    }
+}
+
+// MARK: - Prayer Group List Card
+
+struct PrayerGroupListCard: View {
+    let group: PrayerGroup
+    let isJoined: Bool
+    let isSaving: Bool
+    let onTap: () -> Void
+    let onJoinLeave: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                // Icon avatar
+                ZStack {
+                    Circle()
+                        .fill(group.color.opacity(0.15))
+                        .frame(width: 52, height: 52)
+                    Image(systemName: group.icon)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(group.color)
+                }
+
+                // Info
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(group.name)
+                            .font(AMENFont.bold(15))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(group.category)
+                            .font(AMENFont.semiBold(10))
+                            .foregroundStyle(group.color)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(group.color.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    Text(group.description)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    HStack(spacing: 10) {
+                        Label("\(group.memberCount)", systemImage: "person.2.fill")
+                            .font(AMENFont.regular(11))
+                            .foregroundStyle(.secondary)
+                        if group.activeNow > 0 {
+                            HStack(spacing: 4) {
+                                Circle().fill(Color.green).frame(width: 6, height: 6)
+                                Text("\(group.activeNow) praying")
+                                    .font(AMENFont.semiBold(11))
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // Join / Leave button
+                Button {
+                    onJoinLeave()
+                } label: {
+                    Text(isJoined ? "Joined" : "Join")
+                        .font(AMENFont.semiBold(13))
+                        .foregroundStyle(isJoined ? Color.secondary : Color.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(isJoined ? Color.clear : Color.black)
+                        .overlay(Capsule().strokeBorder(isJoined ? Color.secondary.opacity(0.4) : Color.clear, lineWidth: 1))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(isSaving)
+            }
+            .padding(14)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(group.name), \(group.memberCount) members")
+        .accessibilityHint("Tap to view group details")
+    }
+}
+
+// MARK: - Create Prayer Group View
+
+struct CreatePrayerGroupView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var service = PrayerGroupsService.shared
+
+    @State private var name = ""
+    @State private var description = ""
+    @State private var selectedCategory = "General"
+    @State private var isSaving = false
+    @State private var showSuccess = false
+
+    private let categories = [
+        "General", "Daily Rhythm", "Fasting", "Intercession",
+        "Family", "Healing", "Youth", "Missions", "Finance", "Marriage"
+    ]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Group name", text: $name)
+                        .font(AMENFont.regular(16))
+                    TextField("What will this group pray about?", text: $description, axis: .vertical)
+                        .font(AMENFont.regular(15))
+                        .lineLimit(3...6)
+                } header: {
+                    Text("Group Details")
+                }
+
+                Section {
+                    Picker("Category", selection: $selectedCategory) {
+                        ForEach(categories, id: \.self) { cat in
+                            Text(cat).tag(cat)
+                        }
+                    }
+                } header: {
+                    Text("Category")
+                }
+
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text("You'll be the first member and group host.")
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("New Prayer Group")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        isSaving = true
+                        Task {
+                            await service.createGroup(
+                                name: name.trimmingCharacters(in: .whitespaces),
+                                description: description.trimmingCharacters(in: .whitespaces),
+                                category: selectedCategory
+                            )
+                            await MainActor.run {
+                                isSaving = false
+                                dismiss()
+                            }
+                        }
+                    } label: {
+                        if isSaving {
+                            ProgressView().scaleEffect(0.8)
+                        } else {
+                            Text("Create")
+                                .font(AMENFont.bold(16))
+                        }
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+                }
+            }
+        }
     }
 }
 

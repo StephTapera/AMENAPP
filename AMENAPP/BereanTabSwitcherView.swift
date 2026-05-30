@@ -592,10 +592,13 @@ private struct MiniChatCard: View {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 showConfirmDelete = true
             }
-            .confirmationDialog(session.displayTitle, isPresented: $showConfirmDelete, titleVisibility: .visible) {
-                Button("Delete Chat", role: .destructive) { onClose() }
-                Button("Cancel", role: .cancel) {}
-            }
+            .amenAlert(isPresented: $showConfirmDelete, config: LiquidGlassAlertConfig(
+                title: "Delete Chat?",
+                message: "This conversation can't be recovered.",
+                icon: "bubble.left.and.bubble.right",
+                primaryButton: LiquidGlassAlertButton("Delete Chat", tone: .destructive) { onClose() },
+                secondaryButton: .cancel()
+            ))
 
             // Close X
             Button(action: onClose) {

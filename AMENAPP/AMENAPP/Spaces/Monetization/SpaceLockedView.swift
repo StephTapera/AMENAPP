@@ -278,10 +278,10 @@ struct SpaceLockedView: View {
             .accessibilityHint(viewModel.isPurchasing ? "" : "Double-tap to purchase access")
 
             if let error = viewModel.purchaseError {
-                Text(error.localizedDescription)
+                Text(error.userFriendlyMessage)
                     .font(.footnote).foregroundStyle(.red)
                     .multilineTextAlignment(.center)
-                    .accessibilityLabel("Error: \(error.localizedDescription)")
+                    .accessibilityLabel("Error: \(error.userFriendlyMessage)")
             }
 
             // Restore — one-time spaces only

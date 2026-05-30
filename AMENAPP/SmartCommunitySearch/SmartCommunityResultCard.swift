@@ -6,7 +6,17 @@ struct SmartCommunityResultCard: View {
     let onAskBerean: (SmartCommunityRankedResult) -> Void
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    @State private var isSaved = false
+    @ObservedObject private var libraryService = DiscussionGroupLibraryService.shared
+    @State private var saveInFlight = false
+
+    private var isSaved: Bool {
+        // When find-then-add is on, drive from the library service for persistence.
+        if AMENFeatureFlags.shared.discussionFindThenAddEnabled {
+            return libraryService.isAdded(groupId: result.id)
+        }
+        return _localSaved
+    }
+    @State private var _localSaved = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -142,20 +152,31 @@ struct SmartCommunityResultCard: View {
                 .accessibilityLabel(primary.label)
             }
 
-            // Save button
+            // Save / Add to Library button
             Button {
-                isSaved.toggle()
-                if let saveAction = result.action(ofType: .save) {
-                    onAction(saveAction)
-                }
+                Task { await handleSaveTap() }
             } label: {
-                Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 18))
-                    .foregroundStyle(isSaved ? .yellow : .secondary)
-                    .frame(width: 40, height: 40)
-                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(isSaved
+                              ? Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.12)
+                              : Color(.systemGray6))
+                        .frame(width: 40, height: 40)
+
+                    if saveInFlight {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                            .font(.system(size: 18))
+                            .foregroundStyle(isSaved
+                                             ? Color(red: 0.44, green: 0.26, blue: 0.80)
+                                             : Color.secondary)
+                            .reactionPop(isActive: isSaved)
+                    }
+                }
             }
-            .accessibilityLabel(isSaved ? "Unsave" : "Save")
+            .disabled(saveInFlight)
+            .accessibilityLabel(isSaved ? "Remove from library" : "Add to library")
 
             // Directions button
             if result.action(ofType: .directions) != nil || result.locationCoord != nil {
@@ -217,5 +238,56 @@ struct SmartCommunityResultCard: View {
         if result.matchScore > 0.75 { return .green }
         if result.matchScore > 0.5 { return .orange }
         return .secondary
+    }
+
+    // MARK: - Save / Add to Library
+
+    @MainActor
+    private func handleSaveTap() async {
+        // Always fire the caller's save action for backward compat.
+        if let saveAction = result.action(ofType: .save) {
+            onAction(saveAction)
+        }
+
+        guard AMENFeatureFlags.shared.discussionFindThenAddEnabled else {
+            _localSaved.toggle()
+            return
+        }
+
+        let isGroupType = result.type == .group
+            || result.type == .discussion
+            || result.type == .space
+
+        guard isGroupType else { return }
+
+        saveInFlight = true
+        defer { saveInFlight = false }
+
+        if libraryService.isAdded(groupId: result.id) {
+            try? await libraryService.removeGroup(groupId: result.id)
+        } else {
+            // Build a minimal CommunityGroup from the search result.
+            let group = CommunityGroup(
+                id: result.id,
+                name: result.title,
+                description: result.subtitle ?? "",
+                category: categoryFromTags(result.tags),
+                creatorId: "",
+                memberCount: 0,
+                coverImageURL: result.imageUrl,
+                isPrivate: false,
+                createdAt: Date(),
+                rules: []
+            )
+            try? await libraryService.addGroup(group)
+            await AmenHapticEngine.shared.play(.encouragement)
+        }
+    }
+
+    private func categoryFromTags(_ tags: [String]) -> CommunityGroup.GroupCategory {
+        for tag in tags {
+            if let cat = CommunityGroup.GroupCategory(rawValue: tag) { return cat }
+        }
+        return .general
     }
 }

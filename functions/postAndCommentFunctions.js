@@ -107,12 +107,25 @@ exports.finalizePostPublish = onCall({ region: REGION }, async (request) => {
   }
 
   // Validate all URLs belong to the author's storage path
+  const ALLOWED_STORAGE_HOSTS = [
+    "firebasestorage.googleapis.com",
+    "storage.googleapis.com",
+  ];
   for (const url of mediaUrls) {
     if (typeof url !== 'string') {
       throw new HttpsError('invalid-argument', 'All mediaUrls must be strings');
     }
-    // URL must reference the author's own storage folder
-    if (!url.includes(`/post_media/${auth.uid}/`)) {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new HttpsError('invalid-argument', `Invalid media URL: ${url}`);
+    }
+    if (!ALLOWED_STORAGE_HOSTS.includes(parsed.hostname)) {
+      throw new HttpsError('permission-denied', `Media URL host not allowed: ${parsed.hostname}`);
+    }
+    const decodedPath = decodeURIComponent(parsed.pathname);
+    if (!decodedPath.includes(`/post_media/${auth.uid}/`)) {
       throw new HttpsError('permission-denied', `Media URL does not belong to post author: ${url}`);
     }
   }

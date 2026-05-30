@@ -14,12 +14,14 @@ import FirebaseAuth
 
 /// Intelligent feed ranking algorithm for prayer requests
 /// Emphasizes urgency, community relevance, and prayer coverage gaps
-@MainActor
 class PrayerAlgorithm: ObservableObject {
     static let shared = PrayerAlgorithm()
 
     @Published var personalizedPrayers: [Post] = []
     @Published var userPrayerHistory = PrayerHistory()
+
+    // Debounce task for saveHistory
+    private var saveTask: Task<Void, Never>?
 
     // MARK: - Prayer History Model
 
@@ -203,6 +205,7 @@ class PrayerAlgorithm: ObservableObject {
     // MARK: - Interaction Learning
 
     /// Update history when user prays for someone
+    @MainActor
     func recordPrayer(for post: Post) {
         // Update author prayer count
         userPrayerHistory.prayedForAuthors[post.authorId, default: 0] += 1
@@ -234,6 +237,7 @@ class PrayerAlgorithm: ObservableObject {
     }
 
     /// Record view interaction
+    @MainActor
     func recordView(for post: Post) {
         // Light tracking for views (doesn't boost as much as prayer)
         if let topic = post.topicTag {
@@ -246,6 +250,7 @@ class PrayerAlgorithm: ObservableObject {
     }
 
     /// Record comment interaction
+    @MainActor
     func recordComment(for post: Post) {
         // Comments on prayers show engagement
         userPrayerHistory.prayedForAuthors[post.authorId, default: 0] += 1
@@ -262,18 +267,26 @@ class PrayerAlgorithm: ObservableObject {
     // MARK: - Persistence
 
     private func saveHistory() {
-        do {
-            let encoder = JSONEncoder()
-            let data = try encoder.encode(userPrayerHistory)
-            UserDefaults.standard.set(data, forKey: "prayerHistory_v1")
-        } catch {
-            dlog("❌ Failed to save prayer history: \(error)")
+        saveTask?.cancel()
+        saveTask = Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s debounce
+            guard !Task.isCancelled else { return }
+            let snapshot = await self.userPrayerHistory
+            do {
+                let encoder = JSONEncoder()
+                let data = try encoder.encode(snapshot)
+                UserDefaults.standard.set(data, forKey: "prayerHistory_v1")
+            } catch {
+                dlog("❌ Failed to save prayer history: \(error)")
+            }
         }
     }
 
     private static let historyDecoder = JSONDecoder()
     private var historyLoaded = false
 
+    @MainActor
     func loadHistory() {
         // Skip if already loaded this session
         guard !historyLoaded else { return }

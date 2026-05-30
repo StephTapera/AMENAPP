@@ -748,28 +748,26 @@ exports.moderatePostText = async function moderatePostText(postId, userId, text)
 //
 // ============================================================================
 
-const {onDocumentWritten} = require('firebase-functions/v2/firestore');
+const {onDocumentWritten, onDocumentCreated} = require('firebase-functions/v2/firestore');
 
 // Visibility values that are terminal — post has already been through the gate.
 const TERMINAL_VISIBILITY = new Set([
   'everyone', 'followers', 'community', 'flagged', 'removed',
 ]);
 
-exports.serverSidePostModeration = onDocumentWritten(
+// P1-11: Changed from onDocumentWritten to onDocumentCreated so the moderation
+// trigger fires exactly once per post (at creation). This eliminates the infinite-
+// loop risk that required the serverModerated=true guard, and avoids re-running
+// moderation on every subsequent admin update to the document.
+exports.serverSidePostModeration = onDocumentCreated(
   {document: 'posts/{postId}', region: 'us-central1'},
   async (event) => {
     const postId = event.params.postId;
-    const afterData = event.data.after ? event.data.after.data() : null;
-
-    // Skip deletes
-    if (!afterData) return null;
-
-    // Skip if already moderated server-side (avoid infinite loops caused by
-    // the update writes below re-triggering this function).
-    if (afterData.serverModerated === true) return null;
+    // onDocumentCreated: event.data is the DocumentSnapshot of the new document.
+    const afterData = event.data.data();
 
     // Skip if this post is already in a terminal visibility state.
-    // This guards against direct admin writes or retries that already passed.
+    // Guards against rare double-fire edge cases.
     if (TERMINAL_VISIBILITY.has(afterData.visibility)) return null;
 
     // Skip if post is already hard-removed
@@ -862,16 +860,27 @@ exports.serverSidePostModeration = onDocumentWritten(
       }
 
     } catch (err) {
-      // Fail-closed: keep visibility as "under_review" so the post stays hidden.
-      // Flag the error for ops triage without deleting the post.
+      // P1-12: On transient error, hold the post for human review (visibility stays
+      // "under_review" — never made public) and write to moderationRetryQueue so a
+      // separate scheduled function can re-attempt moderation asynchronously.
+      // We do NOT set serverModerated=true here so ops can trigger a re-run by
+      // processing the retry queue document; the post itself remains safely hidden.
       console.error(`[serverSidePostModeration] Error moderating post ${postId}:`, err);
       try {
         await db.collection('posts').doc(postId).update({
-          moderationStatus: 'error',
-          serverModeratedError: err.toString(),
-          serverModerated: true,           // prevents infinite retry loops
-          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
+          serverModerated: true,
+          moderationStatus: 'human_review_required',
+          moderationErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+          moderationError: err.message || 'Unknown error',
         });
+        // Write to retry queue for async recovery by a scheduled function.
+        await db.collection('moderationRetryQueue').doc(postId).set({
+          postId,
+          failedAt: admin.firestore.FieldValue.serverTimestamp(),
+          error: err.message || 'Unknown error',
+          retryCount: 0,
+        });
+        console.log(`[serverSidePostModeration] Post ${postId} sent to human review + retry queue`);
       } catch (updateErr) {
         console.error(`[serverSidePostModeration] Failed to write error state:`, updateErr);
       }

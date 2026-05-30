@@ -77,8 +77,8 @@ export async function runBereanContextEngine(
   const searchHints = deriveContextualSearchHints(payload);
   const now = admin.firestore.Timestamp.now();
   const resultId = db().collection("users").doc(userId).collection("contextActions").doc().id;
-  const scriptureReferences = response.scriptureReferences.length > 0
-    ? response.scriptureReferences
+  const scriptureReferences: string[] = (response.scriptureReferences ?? []).length > 0
+    ? (response.scriptureReferences ?? [])
     : (payload.scriptureReference ? [payload.scriptureReference] : []);
 
   await db().batch()

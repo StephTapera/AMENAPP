@@ -327,6 +327,8 @@ struct FollowSuggestion: Identifiable, Equatable {
     let person: DiscoveryPerson
     let reason: String      // "Posts church notes on Proverbs"
     var isFollowing: Bool
+    /// true when the target is a private account and a follow request is pending
+    var isRequested: Bool = false
 }
 
 // MARK: - Discovery Query Intent Classification

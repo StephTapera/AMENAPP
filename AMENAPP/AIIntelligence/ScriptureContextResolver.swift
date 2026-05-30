@@ -14,7 +14,7 @@ final class ScriptureContextResolver {
         for text: String,
         language: BereanSupportedLanguage,
         sessionId: String? = nil
-    ) async throws -> [BereanScriptureReference] {
+    ) async throws -> [BereanResolvedScriptureRef] {
         try await knowledgeGraph.resolveReferences(in: text, language: language, sessionId: sessionId)
             .sorted { $0.confidence > $1.confidence }
     }

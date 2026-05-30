@@ -80,6 +80,19 @@ export const calculateCovenantChurnRisk = onSchedule(
                         risk = "medium";
                     }
 
+                    // Escalate to high if member has been inactive for 30+ days
+                    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                    const longInactiveSnap = await db.collection("users").doc(userId)
+                        .collection("covenantActivity")
+                        .where("covenantId", "==", covenantId)
+                        .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(thirtyDaysAgo))
+                        .limit(1)
+                        .get();
+                    if (longInactiveSnap.empty && risk === "medium") {
+                        risk = "high";
+                        reasons.push("inactive_30_days");
+                    }
+
                     if (risk !== "low") {
                         if (risk === "high") highCount++;
                         else mediumCount++;

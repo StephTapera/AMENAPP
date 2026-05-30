@@ -144,6 +144,14 @@ struct TestimoniesView: View {
                     }
                 }
 
+                // MARK: Filter Bar — always visible
+                HStack {
+                    Spacer()
+                    AmenLiquidGlassFilterPillRow(selection: $selectedFilter)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+
                 // Loading state - show skeletons on initial load
                 // Snapshot once — avoids repeated filter+sort on every body re-evaluation.
                 let posts = filteredPosts
@@ -269,46 +277,6 @@ struct TestimoniesView: View {
                 // Category subtitle removed — tagline lives in the header
             }
             
-            // Filters - Center Aligned
-            HStack {
-                Spacer()
-                HStack(spacing: 8) {
-                    ForEach(TestimonyFilter.allCases, id: \.self) { filter in
-                        Button {
-                            selectedFilter = filter
-                            filterHaptic.impactOccurred()
-                        } label: {
-                            Text(filter.rawValue)
-                                .font(AMENFont.semiBold(14))
-                                .foregroundStyle(selectedFilter == filter ? .white : .black)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background {
-                                    if selectedFilter == filter {
-                                        Capsule(style: .continuous)
-                                            .fill(.ultraThinMaterial)
-                                            .overlay {
-                                                Capsule(style: .continuous)
-                                                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8)
-                                            }
-                                            .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
-                                    } else {
-                                        Color.clear
-                                    }
-                                }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .animation(.easeOut(duration: fastAnimationDuration), value: selectedFilter)
-                .padding(10)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            
             // Collapsible Categories Section
             VStack(alignment: .leading, spacing: 12) {
                 // Category Header Button
@@ -419,9 +387,7 @@ struct TestimoniesView: View {
             }
             
             // Filtered testimonies feed
-            // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
-            // The parent ScrollView in ContentView handles the scrolling.
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 let allPosts = filteredPosts
                 let displayPosts = Array(allPosts.prefix(visiblePostCount))
 
@@ -619,21 +585,21 @@ struct TestimoniesView: View {
     private func loadInitialTestimonies() async {
         isLoadingPosts = true
         errorMessage = nil
-        
-        do {
-            // PostsManager already loads testimonies
-            // Just wait a moment to show loading state
-            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-            
-            await MainActor.run {
-                isLoadingPosts = false
-                isInitialLoad = false
-            }
-        } catch {
-            await MainActor.run {
-                isLoadingPosts = false
-                isInitialLoad = false
-                errorMessage = "Failed to load testimonies. Pull to refresh."
+        dlog("⏳ loadInitialTestimonies — fetching from Firestore...")
+
+        await postsManager.fetchFilteredPosts(
+            for: .testimonies,
+            filter: selectedFilter.rawValue.lowercased(),
+            topicTag: selectedCategory?.title
+        )
+
+        await MainActor.run {
+            isLoadingPosts = false
+            isInitialLoad = false
+            if postsManager.testimoniesPosts.isEmpty {
+                dlog("⚠️ loadInitialTestimonies complete — 0 posts (possible network error)")
+            } else {
+                dlog("✅ loadInitialTestimonies complete — \(postsManager.testimoniesPosts.count) posts")
             }
         }
     }
@@ -832,7 +798,8 @@ struct TestimonyPostCard: View {
     }
     
     @State private var isFollowing = false
-    
+    @State private var isFollowLoading = false
+
     // MARK: - Computed Properties
     
     private var shareItems: [Any] {
@@ -860,24 +827,33 @@ struct TestimonyPostCard: View {
             // Follow button - only show if not user's post
             if !isOwnPost {
                 Button {
-                    isFollowing.toggle()
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
+                    Task { await toggleFollow() }
                 } label: {
-                    Image(systemName: isFollowing ? "checkmark.circle.fill" : "plus.circle.fill")
-                        .font(.systemScaled(18, weight: .semibold))
-                        .foregroundStyle(isFollowing ? .black : .white)
-                        .background(
-                            Circle()
-                                .fill(isFollowing ? Color.white : Color.black)
+                    Group {
+                        if isFollowLoading {
+                            ProgressView()
+                                .scaleEffect(0.5)
                                 .frame(width: 18, height: 18)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(Color.black.opacity(0.15), lineWidth: isFollowing ? 1 : 0)
-                        )
+                        } else {
+                            Image(systemName: isFollowing ? "checkmark.circle.fill" : "plus.circle.fill")
+                                .font(.systemScaled(18, weight: .semibold))
+                                .foregroundStyle(isFollowing ? .black : .white)
+                        }
+                    }
+                    .background(
+                        Circle()
+                            .fill(isFollowing ? Color.white : Color.black)
+                            .frame(width: 18, height: 18)
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(Color.black.opacity(0.15), lineWidth: isFollowing ? 1 : 0)
+                    )
                 }
                 .buttonStyle(.plain)
+                .disabled(isFollowLoading)
+                .accessibilityLabel(isFollowing ? "Unfollow \(post.authorName)" : "Follow \(post.authorName)")
+                .accessibilityHint(isFollowing ? "Tap to unfollow" : "Tap to follow and see their testimonies")
                 .symbolEffect(.bounce, value: isFollowing)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
                 .offset(x: 2, y: 2)
@@ -942,9 +918,28 @@ struct TestimonyPostCard: View {
             }
             
             Button {
+                let db = Firestore.firestore()
+                guard let uid = Auth.auth().currentUser?.uid else { return }
+                let docRef = db.collection("users").document(uid)
+                    .collection("savedPosts").document(post.id.uuidString)
                 hasSaved.toggle()
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
                 haptic.impactOccurred()
+                if hasSaved {
+                    dlog("🔖 Saving testimony \(post.id.uuidString)")
+                    docRef.setData([
+                        "postId": post.id.uuidString,
+                        "savedAt": Timestamp(date: Date()),
+                        "category": "testimonies"
+                    ]) { err in
+                        if let err { dlog("❌ Save failed: \(err.localizedDescription)") }
+                    }
+                } else {
+                    dlog("🔖 Unsaving testimony \(post.id.uuidString)")
+                    docRef.delete { err in
+                        if let err { dlog("❌ Unsave failed: \(err.localizedDescription)") }
+                    }
+                }
             } label: {
                 Label(hasSaved ? "Unsave" : "Save", systemImage: hasSaved ? "bookmark.fill" : "bookmark")
             }
@@ -1035,6 +1030,9 @@ struct TestimonyPostCard: View {
                     .stroke(hasAmened ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: hasAmened ? 1.5 : 1)
             )
         }
+        .accessibilityLabel(hasAmened ? "Remove Amen" : "Amen")
+        .accessibilityValue("\(amenCount) amens")
+        .accessibilityHint(hasAmened ? "Tap to remove your amen" : "Tap to amen this testimony")
     }
     
     private func toggleAmen() async {
@@ -1099,6 +1097,9 @@ struct TestimonyPostCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Comments")
+        .accessibilityValue("\(commentCount) comments")
+        .accessibilityHint("Tap to view and add comments")
     }
     
     private var repostButton: some View {
@@ -1126,6 +1127,9 @@ struct TestimonyPostCard: View {
                     .stroke(hasReposted ? Color.green.opacity(0.3) : Color.black.opacity(0.1), lineWidth: 1)
             )
         }
+        .accessibilityLabel(hasReposted ? "Remove repost" : "Repost")
+        .accessibilityValue("\(repostCount) reposts")
+        .accessibilityHint(hasReposted ? "Tap to remove your repost" : "Tap to share this testimony with your followers")
     }
     
     private func toggleRepost() async {
@@ -1185,6 +1189,8 @@ struct TestimonyPostCard: View {
                         .stroke(Color.black.opacity(0.1), lineWidth: 1)
                 )
         }
+        .accessibilityLabel("Share testimony")
+        .accessibilityHint("Opens the share sheet")
     }
     
     var body: some View {
@@ -1246,14 +1252,15 @@ struct TestimonyPostCard: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: shareItems)
         }
-        .confirmationDialog("Delete this testimony?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .amenAlert(isPresented: $showDeleteConfirmation, config: LiquidGlassAlertConfig(
+            title: "Delete Testimony?",
+            message: "Testimonies can't be recovered once deleted.",
+            icon: "star.slash.fill",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 onDelete()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This action cannot be undone.")
-        }
+            },
+            secondaryButton: .cancel()
+        ))
         .sheet(isPresented: $showReportSheet) {
             ReportPostSheet(post: post, postAuthor: post.authorName, category: .testimonies)
         }
@@ -1269,18 +1276,36 @@ struct TestimonyPostCard: View {
     private func loadInteractionStates() async {
         let postId = post.id.uuidString
         let interactionsService = PostInteractionsService.shared
-        
+
         // Check if user has amened
         hasAmened = await interactionsService.hasAmened(postId: postId)
-        
+
         // Check if user has reposted
         hasReposted = await interactionsService.hasReposted(postId: postId)
-        
+
         // Update counts from backend (only if different from initial values)
         let counts = await interactionsService.getInteractionCounts(postId: postId)
         amenCount = counts.amenCount
         commentCount = counts.commentCount
         repostCount = counts.repostCount
+
+        // Load persisted saved state
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        do {
+            let snap = try await db.collection("users").document(uid)
+                .collection("savedPosts").document(postId).getDocument()
+            await MainActor.run { hasSaved = snap.exists }
+            dlog("🔖 Saved state loaded for \(postId): \(snap.exists)")
+        } catch {
+            dlog("❌ Failed to load saved state: \(error.localizedDescription)")
+        }
+
+        // Load follow state for author (only for other users' posts)
+        if !isOwnPost {
+            isFollowing = FollowService.shared.following.contains(post.authorId)
+            dlog("👤 Follow state for \(post.authorName): \(isFollowing)")
+        }
     }
     
     private func sharePost() {
@@ -1322,6 +1347,29 @@ struct TestimonyPostCard: View {
                 dlog("❌ Failed to block \(post.authorName): \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Toggle follow/unfollow via FollowService with optimistic UI and rollback.
+    private func toggleFollow() async {
+        guard !isFollowLoading else { return }
+        let previousState = isFollowing
+        // Optimistic update
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { isFollowing.toggle() }
+        isFollowLoading = true
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        do {
+            try await FollowService.shared.toggleFollow(userId: post.authorId)
+            dlog("✅ Follow toggled for \(post.authorName): now following=\(isFollowing)")
+        } catch {
+            dlog("❌ toggleFollow failed for \(post.authorName): \(error.localizedDescription)")
+            await MainActor.run {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { isFollowing = previousState }
+                let errHaptic = UINotificationFeedbackGenerator()
+                errHaptic.notificationOccurred(.error)
+            }
+        }
+        await MainActor.run { isFollowLoading = false }
     }
 }
 
@@ -1535,14 +1583,21 @@ struct TestimonyCommentRow: View {
     let postId: String
     @State private var hasAmened = false
     @State private var amenCount: Int
-    
+    @State private var localToast: Toast? = nil
+
+    // Inline reply state
+    @State private var showReplyComposer = false
+    @State private var replyText = ""
+    @State private var isSubmittingReply = false
+    @FocusState private var isReplyFocused: Bool
+
     init(comment: TestimonyFeedComment, commentId: String, postId: String) {
         self.comment = comment
         self.commentId = commentId
         self.postId = postId
         _amenCount = State(initialValue: comment.amenCount)
     }
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Circle()
@@ -1553,32 +1608,27 @@ struct TestimonyCommentRow: View {
                         .font(AMENFont.bold(13))
                         .foregroundStyle(.black.opacity(0.7))
                 )
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(comment.authorName)
                         .font(AMENFont.bold(13))
                         .foregroundStyle(.black.opacity(0.9))
-                    
+
                     Text(comment.timeAgo)
                         .font(AMENFont.regular(11))
                         .foregroundStyle(.black.opacity(0.4))
                 }
-                
+
                 Text(comment.content)
                     .font(AMENFont.regular(13))
                     .foregroundStyle(.black.opacity(0.8))
                     .lineSpacing(2)
-                
+
                 // Comment actions
                 HStack(spacing: 16) {
                     Button {
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
-                            hasAmened.toggle()
-                            amenCount += hasAmened ? 1 : -1
-                        }
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
+                        Task { await toggleCommentAmen() }
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
@@ -1591,20 +1641,176 @@ struct TestimonyCommentRow: View {
                         .foregroundStyle(hasAmened ? .black : .black.opacity(0.5))
                     }
                     .buttonStyle(.plain)
-                    
+                    .accessibilityLabel(hasAmened ? "Remove amen from comment" : "Amen comment")
+                    .accessibilityValue("\(amenCount) amens")
+
                     Button {
-                        // Reply to comment
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            showReplyComposer.toggle()
+                        }
+                        if showReplyComposer {
+                            isReplyFocused = true
+                        }
                     } label: {
                         Text("Reply")
                             .font(AMENFont.semiBold(11))
                             .foregroundStyle(.black.opacity(0.5))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Reply to \(comment.authorName)")
+                    .accessibilityHint("Opens reply composer")
                 }
                 .padding(.top, 4)
+
+                // Inline reply composer
+                if showReplyComposer {
+                    HStack(spacing: 8) {
+                        TextField("Reply to \(comment.authorName)…", text: $replyText)
+                            .font(AMENFont.regular(13))
+                            .focused($isReplyFocused)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.black.opacity(0.05))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                                    )
+                            )
+                            .accessibilityLabel("Reply text")
+
+                        Button {
+                            Task { await submitReply() }
+                        } label: {
+                            Group {
+                                if isSubmittingReply {
+                                    ProgressView().scaleEffect(0.7)
+                                } else {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .font(.systemScaled(24))
+                                        .foregroundStyle(replyText.trimmingCharacters(in: .whitespaces).isEmpty ? .secondary : .primary)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(replyText.trimmingCharacters(in: .whitespaces).isEmpty || isSubmittingReply)
+                        .accessibilityLabel("Send reply")
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .padding(.top, 6)
+                }
             }
-            
+
             Spacer()
+        }
+        .toast($localToast)
+        .task {
+            await loadCommentAmenState()
+        }
+    }
+
+    // MARK: - Comment Amen (Firestore-backed)
+
+    private func loadCommentAmenState() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        let ref = db.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+            .collection("amens").document(uid)
+        do {
+            let snap = try await ref.getDocument()
+            await MainActor.run { hasAmened = snap.exists }
+        } catch {
+            dlog("❌ Failed to load comment amen state: \(error.localizedDescription)")
+        }
+    }
+
+    private func toggleCommentAmen() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let previousAmened = hasAmened
+        let previousCount = amenCount
+
+        // Optimistic update
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
+            hasAmened.toggle()
+            amenCount += hasAmened ? 1 : -1
+        }
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+
+        let db = Firestore.firestore()
+        let commentRef = db.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+        let amenRef = commentRef.collection("amens").document(uid)
+
+        do {
+            if hasAmened {
+                try await amenRef.setData(["uid": uid, "amenedAt": Timestamp(date: Date())])
+                try await commentRef.updateData(["amenCount": FieldValue.increment(Int64(1))])
+            } else {
+                try await amenRef.delete()
+                try await commentRef.updateData(["amenCount": FieldValue.increment(Int64(-1))])
+            }
+            dlog("✅ Comment amen toggled: \(commentId) hasAmened=\(hasAmened)")
+        } catch {
+            dlog("❌ Comment amen failed: \(error.localizedDescription)")
+            await MainActor.run {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
+                    hasAmened = previousAmened
+                    amenCount = previousCount
+                }
+                let errHaptic = UINotificationFeedbackGenerator()
+                errHaptic.notificationOccurred(.error)
+            }
+        }
+    }
+
+    // MARK: - Reply Submission (Firestore)
+
+    private func submitReply() async {
+        let trimmed = replyText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        guard let uid = Auth.auth().currentUser?.uid else {
+            localToast = Toast(type: .error, message: "Sign in to reply")
+            return
+        }
+
+        isSubmittingReply = true
+
+        let db = Firestore.firestore()
+        let replyRef = db.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+            .collection("replies").document()
+
+        let authorName = Auth.auth().currentUser?.displayName ?? "Anonymous"
+        let replyData: [String: Any] = [
+            "id": replyRef.documentID,
+            "authorId": uid,
+            "authorName": authorName,
+            "content": trimmed,
+            "createdAt": Timestamp(date: Date()),
+            "amenCount": 0
+        ]
+
+        do {
+            try await replyRef.setData(replyData)
+            dlog("✅ Reply posted to comment \(commentId): \(trimmed.prefix(40))")
+            await MainActor.run {
+                replyText = ""
+                showReplyComposer = false
+                isReplyFocused = false
+                isSubmittingReply = false
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                localToast = Toast(type: .success, message: "Reply posted!")
+            }
+        } catch {
+            dlog("❌ Failed to post reply: \(error.localizedDescription)")
+            await MainActor.run {
+                isSubmittingReply = false
+                localToast = Toast(type: .error, message: "Failed to post reply. Try again.")
+            }
         }
     }
 }
@@ -1615,6 +1821,7 @@ struct TestimonyCategoryDetailInlineView: View {
     @Environment(\.dismiss) private var dismiss
     let category: TestimonyCategory
     @State private var selectedFilter: CategoryFilter = .recent
+    @State private var showShareSheet = false
     @ObservedObject private var postsManager = PostsManager.shared
     private let filterHaptic = UIImpactFeedbackGenerator(style: .light)
     
@@ -1720,7 +1927,7 @@ struct TestimonyCategoryDetailInlineView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 40)
                         } else {
-                            ForEach(categoryPosts) { post in
+                            ForEach(categoryPosts, id: \.id) { post in
                                 PostCard(post: post, isUserPost: post.authorId == FirebaseManager.shared.currentUser?.uid)
                             }
                         }
@@ -1744,17 +1951,24 @@ struct TestimonyCategoryDetailInlineView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        // Share category
+                        showShareSheet = true
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
                     } label: {
                         Image(systemName: "square.and.arrow.up")
                             .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
+                    .accessibilityLabel("Share \(category.title) testimonies")
                 }
             }
         }
+        .sheet(isPresented: $showShareSheet) {
+            let shareText = "Check out \(category.title) testimonies on AMEN APP — https://amenapp.com/testimonies/\(category.title.lowercased().replacingOccurrences(of: " ", with: "-"))"
+            ShareSheet(items: [shareText])
+        }
     }
-    
+
     var categoryDescription: String {
         switch category.title {
         case "Healing":
@@ -1996,7 +2210,7 @@ struct TestimonyFullCommentSheet: View {
                         } else {
                             // Comments
                             VStack(alignment: .leading, spacing: 16) {
-                                ForEach(comments) { comment in
+                                ForEach(comments, id: \.id) { comment in
                                     TestimonyCommentRow(
                                         comment: comment,
                                         commentId: comment.id,

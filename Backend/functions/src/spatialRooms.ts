@@ -214,6 +214,12 @@ function draftFromRoom(room: FirebaseFirestore.DocumentData): SpatialRoomDraft {
 
 export const generateSpatialRoomTheme = functions.https.onCall(async (data, context) => {
     const uid = requireUid(context);
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError(
+            "failed-precondition",
+            "The function must be called from an App Check verified app."
+        );
+    }
     const draft = readDraft(data);
     await assertCanManageCovenant(uid, draft.covenantId);
 
@@ -232,6 +238,12 @@ export const generateSpatialRoomTheme = functions.https.onCall(async (data, cont
 
 export const createCovenantSpatialRoom = functions.https.onCall(async (data, context) => {
     const uid = requireUid(context);
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError(
+            "failed-precondition",
+            "The function must be called from an App Check verified app."
+        );
+    }
     const draft = readDraft(data);
     await assertCanManageCovenant(uid, draft.covenantId);
 
@@ -286,6 +298,12 @@ export const createCovenantSpatialRoom = functions.https.onCall(async (data, con
 
 export const backfillCovenantSpatialRooms = functions.https.onCall(async (data, context) => {
     const uid = requireUid(context);
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError(
+            "failed-precondition",
+            "The function must be called from an App Check verified app."
+        );
+    }
     const covenantId = readString(data, "covenantId", 96);
     await assertCanManageCovenant(uid, covenantId);
 

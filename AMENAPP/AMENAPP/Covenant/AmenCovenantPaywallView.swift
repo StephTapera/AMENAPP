@@ -347,7 +347,7 @@ struct AmenCovenantPaywallView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .disabled(selectedTier == nil || checkoutService.isLoading)
+                .disabled(selectedTier == nil || checkoutService.isLoading || checkoutService.isCheckoutInProgress)
                 .padding(.horizontal, 20)
 
                 Text("Cancel anytime. No dark-pattern pressure here — just a real community that matters to you.")

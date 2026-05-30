@@ -8,10 +8,17 @@ import Foundation
 struct AmenMentionParser {
 
     // Regex: matches @word (alphanumeric + underscores + hyphens, 1–32 chars)
-    private static let mentionRegex = try! NSRegularExpression(
-        pattern: #"@([a-zA-Z0-9_\-]{1,32})"#,
-        options: []
-    )
+    private static let mentionRegex: NSRegularExpression = {
+        guard let regex = try? NSRegularExpression(
+            pattern: #"@([a-zA-Z0-9_\-]{1,32})"#,
+            options: []
+        ) else {
+            // Pattern is a compile-time constant and will never fail;
+            // returning an empty-pattern regex is a safe, non-crashing fallback.
+            return NSRegularExpression()
+        }
+        return regex
+    }()
 
     // MARK: - Parse text → [RawMention]
 

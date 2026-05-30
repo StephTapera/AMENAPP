@@ -155,3 +155,39 @@ function extractBookFromReference(reference: string): string {
   const match = reference.match(/^([1-3]?\s?[A-Za-z]+(?:\s[A-Za-z]+)?)/);
   return match ? match[1].trim() : reference.split(" ")[0];
 }
+
+// ---------------------------------------------------------------------------
+// Singleton class adapter — used by generateDiscipleshipNextStep controller
+// ---------------------------------------------------------------------------
+
+class DiscipleshipTrackerServiceClass {
+  async generateNextSteps(
+    userId: string,
+    conversationId: string,
+    sourceThemeIds: string[],
+    sourcePassageIds: string[]
+  ): Promise<{
+    recommendations: { title: string; description: string; category: string }[];
+    followUps: { promptText: string; scheduledDelayHours: number }[];
+  }> {
+    await recordDiscipleshipEvent(userId, "study_session_completed", {
+      bereanSessionId: conversationId,
+      passageReference: sourcePassageIds[0],
+    }).catch(() => undefined);
+
+    const recommendations = sourcePassageIds.map((ref, i) => ({
+      title: `Reflect on ${ref}`,
+      description: `Spend 10 minutes meditating on ${ref} from your recent study.`,
+      category: i % 2 === 0 ? "study" : "prayer",
+    }));
+
+    const followUps = sourceThemeIds.map((theme) => ({
+      promptText: `How have you been applying the theme of "${theme}" this week?`,
+      scheduledDelayHours: 24,
+    }));
+
+    return { recommendations, followUps };
+  }
+}
+
+export const discipleshipTrackerService = new DiscipleshipTrackerServiceClass();

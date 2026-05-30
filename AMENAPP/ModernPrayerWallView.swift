@@ -25,15 +25,15 @@ struct ModernPrayerWallView: View {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Prayer Wall")
-                            .font(.custom("OpenSans-Bold", size: 32))
+                            .font(AMENFont.bold(32))
                             .foregroundStyle(.primary)
-                        
+
                         Text("Join believers around the world in prayer")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal)
-                    
+
                     // Category Filter
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
@@ -44,8 +44,10 @@ struct ModernPrayerWallView: View {
                                 ) {
                                     withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         selectedCategory = category
+                                        viewModel.applyFilter(category)
                                     }
                                 }
+                                .accessibilityValue(selectedCategory == category ? "selected" : "not selected")
                             }
                         }
                         .padding(.horizontal)
@@ -105,12 +107,50 @@ struct ModernPrayerWallView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 40)
+                    } else if viewModel.prayers.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+
+                            Text("Be the first to share a prayer")
+                                .font(AMENFont.bold(18))
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.secondary)
+
+                            Text("Your prayer community is here. Start by sharing what's on your heart.")
+                                .font(AMENFont.regular(14))
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 48)
+                        .frame(maxWidth: .infinity)
                     } else {
                         LazyVStack(spacing: 16) {
-                            ForEach(filteredPrayers) { prayer in
+                            ForEach(viewModel.prayers) { prayer in
                                 ModernPrayerCard(prayer: prayer) {
                                     await viewModel.prayForRequest(prayer)
                                 }
+                            }
+
+                            if viewModel.hasMorePages {
+                                Button {
+                                    Task { await viewModel.loadMorePrayers() }
+                                } label: {
+                                    if viewModel.isLoadingMore {
+                                        ProgressView()
+                                            .frame(maxWidth: .infinity)
+                                    } else {
+                                        Text("Load more")
+                                            .font(AMENFont.semiBold(15))
+                                            .foregroundStyle(.secondary)
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.vertical, 12)
+                                .disabled(viewModel.isLoadingMore)
                             }
                         }
                         .padding(.horizontal)
@@ -170,12 +210,6 @@ struct ModernPrayerWallView: View {
         }
     }
     
-    private var filteredPrayers: [PrayerWallItem] {
-        if selectedCategory == .all {
-            return viewModel.prayers
-        }
-        return viewModel.prayers.filter { $0.category == selectedCategory }
-    }
 }
 
 // MARK: - Prayer Category Pill
@@ -184,29 +218,31 @@ private struct PrayerCategoryPill: View {
     let category: PrayerWallCategory
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: category.icon)
                     .font(.systemScaled(12, weight: .semibold))
-                
                 Text(category.rawValue)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(12))
             }
-            .foregroundStyle(isSelected ? .white : .primary)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .foregroundStyle(isSelected ? category.color : .primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
             .background(
-                Capsule()
-                    .fill(isSelected ? category.color : Color(.secondarySystemBackground))
-                    .shadow(
-                        color: isSelected ? category.color.opacity(0.3) : .clear,
-                        radius: 8,
-                        y: 4
-                    )
+                ZStack {
+                    Capsule(style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? category.color.opacity(0.15) : Color.clear)
+                    Capsule(style: .continuous)
+                        .stroke(isSelected ? category.color.opacity(0.50) : Color.white.opacity(0.25), lineWidth: 0.6)
+                }
             )
+            .shadow(color: .black.opacity(isSelected ? 0.07 : 0.03), radius: 6, y: 2)
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -225,11 +261,11 @@ private struct StatCard: View {
                 .foregroundStyle(color)
             
             Text("\(count)")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
                 .foregroundStyle(.primary)
-            
+
             Text(label)
-                .font(.custom("OpenSans-Regular", size: 11))
+                .font(AMENFont.regular(11))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -262,6 +298,7 @@ private struct ModernPrayerCard: View {
                                 .font(.systemScaled(16))
                                 .foregroundStyle(prayer.category.color)
                         )
+                        .accessibilityHidden(true)
                 } else if let imageURL = prayer.authorProfileImage {
                     CachedAsyncImage(url: URL(string: imageURL)) { image in
                         image.resizable().scaledToFill()
@@ -274,11 +311,11 @@ private struct ModernPrayerCard: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(prayer.isAnonymous ? "Anonymous" : prayer.authorName)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.primary)
-                    
+
                     Text(prayer.timeAgo)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
                 
@@ -289,7 +326,7 @@ private struct ModernPrayerCard: View {
                     Image(systemName: prayer.category.icon)
                         .font(.systemScaled(10, weight: .semibold))
                     Text(prayer.category.rawValue)
-                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .font(AMENFont.semiBold(11))
                 }
                 .foregroundStyle(prayer.category.color)
                 .padding(.horizontal, 10)
@@ -302,7 +339,7 @@ private struct ModernPrayerCard: View {
             
             // Prayer content
             Text(prayer.content)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.primary)
                 .lineSpacing(4)
             
@@ -315,15 +352,24 @@ private struct ModernPrayerCard: View {
                         isPraying = false
                     }
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Image(systemName: isPraying ? "hands.sparkles.fill" : "hands.sparkles")
-                            .font(.systemScaled(14, weight: .semibold))
-                        
+                            .font(.systemScaled(12, weight: .semibold))
                         Text("\(prayer.prayerCount)")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(12))
                     }
-                    .foregroundStyle(isPraying ? Color.blue : Color.secondary)
+                    .foregroundStyle(isPraying ? Color(red: 0.44, green: 0.26, blue: 0.80) : .secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        ZStack {
+                            Capsule(style: .continuous).fill(.ultraThinMaterial)
+                            Capsule(style: .continuous).fill(isPraying ? Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.12) : Color.clear)
+                            Capsule(style: .continuous).stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+                        }
+                    )
                 }
+                .buttonStyle(.plain)
                 .disabled(isPraying)
                 
                 Spacer()
@@ -333,7 +379,7 @@ private struct ModernPrayerCard: View {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.systemScaled(14))
                         Text("Answered!")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                     }
                     .foregroundStyle(.green)
                 }
@@ -371,7 +417,7 @@ private struct NewPrayerSheet: View {
                 Section {
                     TextEditor(text: $content)
                         .frame(minHeight: 150)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .accessibilityLabel("Prayer request")
                         .onChange(of: content) { _, newValue in
                             scheduleSupportDraftAnalysis(for: newValue)
@@ -432,6 +478,7 @@ private struct NewPrayerSheet: View {
                             }
                             isSubmitting = true
                             await onSubmit(content, selectedCategory, isAnonymous)
+                            isSubmitting = false
                             dismiss()
                         }
                     }
@@ -588,43 +635,56 @@ class PrayerWallViewModel: ObservableObject {
     @Published var activePrayerWarriors = 0
     @Published var answeredToday = 0
     @Published var isLoading = false
+    @Published var isLoadingMore = false
     @Published var errorMessage: String?
     @Published var showActionError = false
     @Published var actionErrorMessage: String?
 
+    @Published private(set) var hasMorePages = false
+    private var lastDocument: DocumentSnapshot? = nil
+    private var activeFilter: PrayerWallCategory = .all
+    private let pageSize = 20
+
     private lazy var db = Firestore.firestore()
+
+    // MARK: - Filter application
+
+    func applyFilter(_ category: PrayerWallCategory) {
+        prayers = []
+        lastDocument = nil
+        hasMorePages = false
+        activeFilter = category
+        Task { await loadPrayers() }
+    }
+
+    // MARK: - Query builder
+
+    private func baseQuery() -> Query {
+        var query: Query = db.collection(FirestoreCollections.prayerWall)
+            .order(by: "timestamp", descending: true)
+
+        if activeFilter != .all {
+            query = query.whereField("category", isEqualTo: activeFilter.rawValue)
+        }
+
+        return query
+    }
+
+    // MARK: - Load first page
 
     func loadPrayers() async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
-            let snapshot = try await db.collection(FirestoreCollections.prayerWall)
-                .order(by: "timestamp", descending: true)
-                .limit(to: 50)
+            let snapshot = try await baseQuery()
+                .limit(to: pageSize)
                 .getDocuments()
 
-            prayers = snapshot.documents.compactMap { doc in
-                let data = doc.data()
+            lastDocument = snapshot.documents.last
+            hasMorePages = snapshot.documents.count == pageSize
 
-                guard let categoryStr = data["category"] as? String,
-                      let category = PrayerWallCategory(rawValue: categoryStr) else {
-                    return nil
-                }
-
-                return PrayerWallItem(
-                    id: doc.documentID,
-                    authorId: data["authorId"] as? String ?? "",
-                    authorName: data["authorName"] as? String ?? "Unknown",
-                    authorProfileImage: data["authorProfileImage"] as? String,
-                    content: data["content"] as? String ?? "",
-                    category: category,
-                    timestamp: (data["timestamp"] as? Timestamp)?.dateValue() ?? Date(),
-                    isAnonymous: data["isAnonymous"] as? Bool ?? false,
-                    prayerCount: data["prayerCount"] as? Int ?? 0,
-                    isAnswered: data["isAnswered"] as? Bool ?? false
-                )
-            }
+            prayers = snapshot.documents.compactMap { Self.map(doc: $0) }
 
             totalPrayers = prayers.count
             activePrayerWarriors = Set(prayers.map { $0.authorId }).count
@@ -634,6 +694,55 @@ class PrayerWallViewModel: ObservableObject {
             errorMessage = "Unable to load prayers. Please try again."
             dlog("❌ Failed to load prayers: \(error)")
         }
+    }
+
+    // MARK: - Load next page
+
+    func loadMorePrayers() async {
+        guard let lastDoc = lastDocument, !isLoadingMore else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        do {
+            let snapshot = try await baseQuery()
+                .limit(to: pageSize)
+                .start(afterDocument: lastDoc)
+                .getDocuments()
+
+            lastDocument = snapshot.documents.last
+            hasMorePages = snapshot.documents.count == pageSize
+
+            let newItems = snapshot.documents.compactMap { Self.map(doc: $0) }
+            prayers.append(contentsOf: newItems)
+
+            totalPrayers = prayers.count
+            activePrayerWarriors = Set(prayers.map { $0.authorId }).count
+            answeredToday = prayers.filter { $0.isAnswered }.count
+
+        } catch {
+            dlog("❌ Failed to load more prayers: \(error)")
+        }
+    }
+
+    // MARK: - Document mapper
+
+    private static func map(doc: QueryDocumentSnapshot) -> PrayerWallItem? {
+        let data = doc.data()
+        guard let categoryStr = data["category"] as? String,
+              let category = PrayerWallCategory(rawValue: categoryStr) else {
+            return nil
+        }
+        return PrayerWallItem(
+            id: doc.documentID,
+            authorId: data["authorId"] as? String ?? "",
+            authorName: data["authorName"] as? String ?? "Unknown",
+            authorProfileImage: data["authorProfileImage"] as? String,
+            content: data["content"] as? String ?? "",
+            category: category,
+            timestamp: (data["timestamp"] as? Timestamp)?.dateValue() ?? Date(),
+            isAnonymous: data["isAnonymous"] as? Bool ?? false,
+            prayerCount: data["prayerCount"] as? Int ?? 0,
+            isAnswered: data["isAnswered"] as? Bool ?? false
+        )
     }
     
     func submitPrayer(content: String, category: PrayerWallCategory, isAnonymous: Bool) async {

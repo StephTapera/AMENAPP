@@ -108,8 +108,7 @@ struct ExperienceDetailView: View {
                 }
             }
         }
-        .task {
-            await viewModel.loadExperience(id: experience.id ?? "")
+        .onAppear {
             if let first = experience.enabledModules.first {
                 selectedModule = first
             }

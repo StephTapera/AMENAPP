@@ -12,16 +12,20 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { getFirestore } = require("firebase-admin/firestore");
+const { defineSecret } = require("firebase-functions/params");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { logger } = require("firebase-functions");
+
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 // Lazy OpenAI client — requires OPENAI_API_KEY environment secret
 let _openai = null;
 function getOpenAI() {
   if (!_openai) {
     const OpenAI = require("openai");
-    const key = process.env.OPENAI_API_KEY;
+    const key = OPENAI_API_KEY.value();
     if (!key) throw new Error("OPENAI_API_KEY secret not set");
     _openai = new OpenAI({ apiKey: key });
   }
@@ -33,7 +37,7 @@ let _anthropic = null;
 function getAnthropic() {
   if (!_anthropic) {
     const Anthropic = require("@anthropic-ai/sdk");
-    const key = process.env.ANTHROPIC_API_KEY;
+    const key = ANTHROPIC_API_KEY.value();
     if (!key) throw new Error("ANTHROPIC_API_KEY secret not set");
     _anthropic = new Anthropic({ apiKey: key });
   }
@@ -115,7 +119,7 @@ CRITICAL RULES:
 exports.flockIntelligence = onSchedule({
   schedule: "0 22 * * 0", // Sunday 10pm
   timeZone: "America/New_York",
-  secrets: ["ANTHROPIC_API_KEY"],
+  secrets: [ANTHROPIC_API_KEY],
 }, async () => {
   const db = getFirestore();
   const now = new Date();
@@ -234,7 +238,7 @@ RULES:
 
 exports.processSermonMemory = onDocumentCreated({
   document: "sermons/{sermonId}",
-  secrets: ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"],
+  secrets: [ANTHROPIC_API_KEY, OPENAI_API_KEY],
 }, async (event) => {
   const snap = event.data;
   const sermon = snap.data();
@@ -333,8 +337,8 @@ CRITICAL:
 - hasPrivacyFlag: true → recommendedAction must NEVER be "post-to-wall".`;
 
 exports.reviewPrayerSubmission = onDocumentCreated({
-  document: "prayerWallSubmissions/{submissionId}",
-  secrets: ["ANTHROPIC_API_KEY"],
+  document: "prayerWall/{submissionId}",
+  secrets: [ANTHROPIC_API_KEY],
 }, async (event) => {
   const snap = event.data;
   const submission = snap.data();
@@ -342,6 +346,20 @@ exports.reviewPrayerSubmission = onDocumentCreated({
 
   const db = getFirestore();
   const submissionId = event.params.submissionId;
+
+  // Crisis keyword detection — flag immediately before AI review
+  const crisisKeywords = [
+    "suicide", "kill myself", "end my life", "self-harm",
+    "want to die", "hopeless", "no reason to live",
+  ];
+  const lowerText = (submission.text || "").toLowerCase();
+  const hasCrisisKeyword = crisisKeywords.some((kw) => lowerText.includes(kw));
+  if (hasCrisisKeyword) {
+    await snap.ref.update({
+      crisisFlag: true,
+      crisisFlaggedAt: FieldValue.serverTimestamp(),
+    });
+  }
 
   try {
     const payload = {
@@ -428,7 +446,7 @@ RULES:
 - Never approve vague commitments.`;
 
 exports.reviewCovenantApp = onCall({
-  secrets: ["ANTHROPIC_API_KEY"],
+  secrets: [ANTHROPIC_API_KEY],
 }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Must be signed in");
 
@@ -514,7 +532,7 @@ If input contains listing_review: true, assess the listing itself:
 }`;
 
 exports.matchKingdomCommerce = onCall({
-  secrets: ["ANTHROPIC_API_KEY"],
+  secrets: [ANTHROPIC_API_KEY],
 }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Must be signed in");
 

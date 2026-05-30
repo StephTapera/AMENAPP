@@ -909,32 +909,42 @@ struct UnifiedChatView: View {
             } message: {
                 if let item = chatCalendarBridge.pendingCalendarItem { Text(item.summary) }
             }
-            .alert("Message Failed", isPresented: $showErrorAlert) {
-                Button("OK", role: .cancel) {}
-            } message: { Text(errorMessage) }
-            .alert("Report Message", isPresented: $showReportConfirmation) {
-                Button("Report", role: .destructive) {
+            .amenAlert(isPresented: $showErrorAlert, config: LiquidGlassAlertConfig(
+                title: "Message Failed",
+                message: errorMessage,
+                icon: "exclamationmark.bubble",
+                primaryButton: LiquidGlassAlertButton("OK", tone: .dismiss) {}
+            ))
+            .amenAlert(isPresented: $showReportConfirmation, config: LiquidGlassAlertConfig(
+                title: "Report Message",
+                message: "This message will be reported for review. Thank you for helping keep AMEN safe.",
+                icon: "flag.fill",
+                primaryButton: LiquidGlassAlertButton("Report", tone: .destructive) {
                     if let msg = messageToReport { reportMessage(msg) }
                     messageToReport = nil
-                }
-                Button("Cancel", role: .cancel) { messageToReport = nil }
-            } message: { Text("This message will be reported for review. Thank you for helping keep AMEN safe.") }
-            .alert("Block User", isPresented: $showBlockConfirmation) {
-                Button("Block", role: .destructive) {
+                },
+                secondaryButton: .cancel { messageToReport = nil }
+            ))
+            .amenAlert(isPresented: $showBlockConfirmation, config: LiquidGlassAlertConfig(
+                title: "Block User",
+                message: "You will no longer receive messages from this person.",
+                icon: "hand.raised.fill",
+                primaryButton: LiquidGlassAlertButton("Block", tone: .destructive) {
                     if let uid = userIdToBlock { blockSender(userId: uid) }
                     userIdToBlock = nil
-                }
-                Button("Cancel", role: .cancel) { userIdToBlock = nil }
-            } message: { Text("You will no longer receive messages from this person.") }
-            .alert("Berean AI in this conversation", isPresented: $showBereanDMDisclosure) {
-                Button("Allow") {
+                },
+                secondaryButton: .cancel { userIdToBlock = nil }
+            ))
+            .amenAlert(isPresented: $showBereanDMDisclosure, config: LiquidGlassAlertConfig(
+                title: "Berean AI in this conversation",
+                message: "Typing @Berean routes this message to an AI model for a spiritual response. The conversation stays in this chat and is not used for training.",
+                icon: "sparkles",
+                primaryButton: LiquidGlassAlertButton("Allow", tone: .spiritual) {
                     UserDefaults.standard.set(true, forKey: "berean_dm_ai_disclosed_\(conversation.id)")
                     if let text = pendingBereanText { sendBereanMessage(userText: text); pendingBereanText = nil }
-                }
-                Button("No thanks", role: .cancel) { pendingBereanText = nil }
-            } message: {
-                Text("Typing @Berean routes this message to an AI model for a spiritual response. The conversation stays in this chat and is not used for training.")
-            }
+                },
+                secondaryButton: LiquidGlassAlertButton("No thanks", tone: .dismiss) { pendingBereanText = nil }
+            ))
             // Lifecycle cluster
             .task {
                 await setupChatViewAsync()

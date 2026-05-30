@@ -11,8 +11,7 @@
 
 // ─── Core Types ───────────────────────────────────────────────────────────────
 
-// v1 ships with teen + adult only. under13 (COPPA / Family Mode) is added in a future release.
-export type AgeTier = "teen" | "adult";
+export type AgeTier = "under13" | "teen" | "adult";
 
 export type IdentityMode =
   | "social"

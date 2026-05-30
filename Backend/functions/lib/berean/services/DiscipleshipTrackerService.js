@@ -46,6 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.discipleshipTrackerService = void 0;
 exports.recordDiscipleshipEvent = recordDiscipleshipEvent;
 exports.createFollowUpPrompt = createFollowUpPrompt;
 exports.getRecentEvents = getRecentEvents;
@@ -152,4 +153,26 @@ function extractBookFromReference(reference) {
     const match = reference.match(/^([1-3]?\s?[A-Za-z]+(?:\s[A-Za-z]+)?)/);
     return match ? match[1].trim() : reference.split(" ")[0];
 }
+// ---------------------------------------------------------------------------
+// Singleton class adapter — used by generateDiscipleshipNextStep controller
+// ---------------------------------------------------------------------------
+class DiscipleshipTrackerServiceClass {
+    async generateNextSteps(userId, conversationId, sourceThemeIds, sourcePassageIds) {
+        await recordDiscipleshipEvent(userId, "study_session_completed", {
+            bereanSessionId: conversationId,
+            passageReference: sourcePassageIds[0],
+        }).catch(() => undefined);
+        const recommendations = sourcePassageIds.map((ref, i) => ({
+            title: `Reflect on ${ref}`,
+            description: `Spend 10 minutes meditating on ${ref} from your recent study.`,
+            category: i % 2 === 0 ? "study" : "prayer",
+        }));
+        const followUps = sourceThemeIds.map((theme) => ({
+            promptText: `How have you been applying the theme of "${theme}" this week?`,
+            scheduledDelayHours: 24,
+        }));
+        return { recommendations, followUps };
+    }
+}
+exports.discipleshipTrackerService = new DiscipleshipTrackerServiceClass();
 //# sourceMappingURL=DiscipleshipTrackerService.js.map

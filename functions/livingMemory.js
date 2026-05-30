@@ -4,16 +4,18 @@
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 
 // ── Lazy clients ──────────────────────────────────────────────────────────────
 
 let _openai = null;
 let _openaiKey = null;
 function getOpenAI() {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY environment variable is not set");
-  // Re-create the client if the key has changed (e.g. rotated between cold starts)
+  const key = OPENAI_API_KEY.value();
+  if (!key) throw new Error("OPENAI_API_KEY secret is not set");
   if (!_openai || _openaiKey !== key) {
     const { OpenAI } = require("openai");
     _openai = new OpenAI({ apiKey: key });
@@ -55,7 +57,7 @@ function extractTextFromPost(data) {
 exports.generateEmbedding = onDocumentCreated(
   {
     document: "posts/{postId}",
-    secrets: ["OPENAI_API_KEY"],
+    secrets: [OPENAI_API_KEY],
   },
   async (event) => {
     const data = event.data.data();
@@ -83,7 +85,7 @@ exports.generateEmbedding = onDocumentCreated(
 // Callable: given a sourcePostId (usually a recent prayer), returns the top-N
 // posts/testimonies/prayers that resonate most with it.
 
-exports.findResonantContent = onCall(async (request) => {
+exports.findResonantContent = onCall({ secrets: [OPENAI_API_KEY] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
@@ -157,7 +159,7 @@ exports.findResonantContent = onCall(async (request) => {
 // Callable: links a prayer post to an answered-prayer testimony, building the
 // answeredPrayerChain that Living Memory surfaces.
 
-exports.markPrayerAnswered = onCall(async (request) => {
+exports.markPrayerAnswered = onCall({ secrets: [OPENAI_API_KEY] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required");
   }

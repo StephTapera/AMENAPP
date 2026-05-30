@@ -21,7 +21,6 @@ struct PrayerView: View {
     @State private var showPrayerWall = false
     @State private var showLiveDiscussion = false
     @State private var showCollaborationHub = false
-    @State private var selectedPrayerAuthor: PrayerAuthorInfo?
     @State private var currentBannerIndex = 0
     @State private var isBannerExpanded = true  // ✅ NEW: Toggle for banner visibility
     @State private var rankedPrayers: [Post] = []
@@ -90,53 +89,7 @@ struct PrayerView: View {
                 // MARK: Filter Tabs
                 HStack {
                     Spacer()
-                    HStack(spacing: 8) {
-                        ForEach(PrayerTab.allCases, id: \.self) { tab in
-                            Text(tab.rawValue)
-                                .font(AMENFont.semiBold(14))
-                                .foregroundStyle(selectedTab == tab ? .white : .black)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background {
-                                    if selectedTab == tab {
-                                        Capsule(style: .continuous)
-                                            .fill(.ultraThinMaterial)
-                                            .overlay {
-                                                Capsule(style: .continuous)
-                                                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8)
-                                            }
-                                            .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
-                                    } else {
-                                        Color.clear
-                                    }
-                                }
-                                // Instant scale-down on finger contact — no render cycle needed
-                                .scaleEffect(pressedTab == tab ? 0.93 : 1.0)
-                                .animation(.easeOut(duration: 0.08), value: pressedTab)
-                                .animation(.easeOut(duration: 0.12), value: selectedTab)
-                                ._onButtonGesture(
-                                    pressing: { pressing in
-                                        withAnimation(.easeOut(duration: 0.08)) {
-                                            pressedTab = pressing ? tab : nil
-                                        }
-                                    },
-                                    perform: {
-                                        let t0 = Date()
-                                        selectedTab = tab
-                                        tabHaptic.impactOccurred()
-                                        DispatchQueue.main.async {
-                                            let ms = Date().timeIntervalSince(t0) * 1000
-                                            dlog("🔘 [PrayerView] Filter tap → '\(tab.rawValue)' settled in \(String(format: "%.1f", ms))ms")
-                                        }
-                                    }
-                                )
-                        }
-                    }
-                    .animation(.easeOut(duration: 0.12), value: selectedTab)
-                    .padding(10)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                    .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+                    AmenLiquidGlassFilterPillRow(selection: $selectedTab)
                     Spacer()
                 }
                 .padding(.horizontal, 16)
@@ -144,14 +97,69 @@ struct PrayerView: View {
                 // MARK: Fruit of the Spirit Banner
                 FruitOfSpiritBannerView()
 
+                // MARK: Prayer Action Rail
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        AmenLiquidGlassPillButton(
+                            title: "Daily Prayer",
+                            systemImage: "sun.horizon.fill",
+                            isLoading: false,
+                            isDisabled: false,
+                            hint: "Open today's guided prayer prompts"
+                        ) {
+                            showDailyPrayer = true
+                        }
+
+                        AmenLiquidGlassPillButton(
+                            title: "Prayer Groups",
+                            systemImage: "person.3.fill",
+                            isLoading: false,
+                            isDisabled: false,
+                            hint: "Browse and join prayer groups"
+                        ) {
+                            showPrayerGroups = true
+                        }
+
+                        AmenLiquidGlassPillButton(
+                            title: "Prayer Wall",
+                            systemImage: "square.grid.2x2.fill",
+                            isLoading: false,
+                            isDisabled: false,
+                            hint: "Browse the community prayer wall"
+                        ) {
+                            showPrayerWall = true
+                        }
+
+                        AmenLiquidGlassPillButton(
+                            title: "Live Discussion",
+                            systemImage: "waveform.circle.fill",
+                            isLoading: false,
+                            isDisabled: false,
+                            hint: "Join a live prayer discussion"
+                        ) {
+                            showLiveDiscussion = true
+                        }
+
+                        AmenLiquidGlassPillButton(
+                            title: "Pray Together",
+                            systemImage: "hands.sparkles.fill",
+                            isLoading: false,
+                            isDisabled: false,
+                            hint: "Find prayer partners in the community"
+                        ) {
+                            showCollaborationHub = true
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                }
+
                 // MARK: Prayer Rooms
                 PrayerRoomsSection()
-                    .onAppear { PrayerRoomService.shared.loadUpcoming() }
+                    .onAppear { PrayerRoomService.shared.startListening() }
 
                 // MARK: Posts Feed
-                // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
-                // The parent ScrollView in ContentView handles the scrolling.
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     // Snapshot once — avoids triple filter+sort on every body re-evaluation.
                     let allPosts = filteredPosts
                     let displayPosts = Array(allPosts.prefix(visiblePostCount))
@@ -183,9 +191,7 @@ struct PrayerView: View {
                     // Empty state
                     if allPosts.isEmpty {
                         VStack(spacing: 16) {
-                            Image(systemName: emptyStateIcon)
-                                .font(.systemScaled(48))
-                                .foregroundStyle(.secondary)
+                            AmenGlass3DIcon(systemName: emptyStateGlassIcon, tint: AmenTheme.Colors.amenGold, size: 72)
                             Text(emptyStateTitle)
                                 .font(AMENFont.bold(18))
                                 .foregroundStyle(.primary)
@@ -247,8 +253,39 @@ struct PrayerView: View {
         .onChange(of: selectedTab) { _, _ in
             visiblePostCount = 20
         }
+        // MARK: - Sheet Gates
+        // P1-4: route to EnhancedDailyPrayerView (DailyPrayerView.swift) which has the full feature set
+        .sheet(isPresented: $showDailyPrayer) {
+            EnhancedDailyPrayerView()
+        }
+        .sheet(isPresented: $showPrayerGroups) {
+            PrayerGroupsView()
+        }
+        .sheet(isPresented: $showPrayerWall) {
+            PrayerWallView()
+        }
+        // CollaborationHubView uses @Binding for dismiss and is a full-screen overlay
+        // (dark backdrop + slide-up card), matching the LiveDiscussion pattern.
+        .overlay {
+            if showCollaborationHub {
+                CollaborationHubView(isShowing: $showCollaborationHub)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .zIndex(11)
+                    .animation(.smooth(duration: 0.3), value: showCollaborationHub)
+            }
+        }
+        // LiveDiscussionView uses @Binding instead of @Environment(\.dismiss), so it is
+        // presented as a ZStack overlay rather than a sheet.
+        .overlay {
+            if showLiveDiscussion {
+                LiveDiscussionView(isShowing: $showLiveDiscussion)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .zIndex(10)
+                    .animation(.smooth(duration: 0.3), value: showLiveDiscussion)
+            }
+        }
     }
-    
+
     // MARK: - Helper Functions
 
     private func prayerRow(post: Post, index: Int, total: Int, allCount: Int) -> some View {
@@ -347,7 +384,15 @@ struct PrayerView: View {
             return "checkmark.seal"
         }
     }
-    
+
+    private var emptyStateGlassIcon: String {
+        switch selectedTab {
+        case .requests: return "hands.sparkles"
+        case .praises:  return "hands.clap"
+        case .answered: return "checkmark.seal.fill"
+        }
+    }
+
     private var emptyStateTitle: String {
         switch selectedTab {
         case .requests:
@@ -369,15 +414,6 @@ struct PrayerView: View {
             return "Celebrate answered prayers with the community!"
         }
     }
-}
-
-// MARK: - Prayer Author Info Model
-
-struct PrayerAuthorInfo: Identifiable {
-    let id = UUID()
-    let name: String
-    let prayerContent: String
-    let prayerCategory: PrayerPostCard.PrayerCategory
 }
 
 // MARK: - Prayer Banner Card (Swipable Design)
@@ -504,9 +540,15 @@ struct PrayerBannerCard: View {
 
 struct DailyPrayerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var currentPrayerIndex = 0
     @State private var completedPrayers: Set<Int> = []
     @State private var showCompletionCelebration = false
+
+    // MARK: - Firestore persistence key (P0-7)
+    private var prayerProgressDateKey: String {
+        String(ISO8601DateFormatter().string(from: Date()).prefix(10))
+    }
     
     let dailyPrayers = [
         DailyPrayerItem(
@@ -537,7 +579,8 @@ struct DailyPrayerView: View {
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.85)
+            // P1-11: adaptive background for light/dark mode
+            (colorScheme == .dark ? Color.black.opacity(0.85) : AmenTheme.Colors.backgroundPrimary)
                 .ignoresSafeArea()
                 .onTapGesture {
                     withAnimation(.smooth(duration: 0.3)) {
@@ -583,7 +626,7 @@ struct DailyPrayerView: View {
                             onComplete: {
                                 withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                     completedPrayers.insert(index)
-                                    
+                                    persistCompletedPrayers(index: index) // S3-1: persist to Firestore
                                     if completedPrayers.count == dailyPrayers.count {
                                         showCompletionCelebration = true
                                     }
@@ -624,6 +667,29 @@ struct DailyPrayerView: View {
                     .zIndex(10)
             }
         }
+        // S3-1: Load persisted prayer progress from Firestore on appear (auto-reset at midnight via date key)
+        .task {
+            let today = String(ISO8601DateFormatter().string(from: Date()).prefix(10))
+            guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+            let db = Firestore.firestore()
+            if let snap = try? await db.document("users/\(uid)/dailyPrayers/\(today)").getDocument(),
+               let indices = snap.data()?["completedIndices"] as? [Int] {
+                completedPrayers = Set(indices)
+            }
+        }
+    }
+
+    // S3-1: Persist completed prayer moments to Firestore using arrayUnion for safe concurrent writes
+    private func persistCompletedPrayers(index: Int) {
+        let today = String(ISO8601DateFormatter().string(from: Date()).prefix(10))
+        guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+        let db = Firestore.firestore()
+        Task {
+            try? await db.document("users/\(uid)/dailyPrayers/\(today)")
+                .setData(["completedIndices": FieldValue.arrayUnion([index]),
+                          "updatedAt": FieldValue.serverTimestamp()],
+                         merge: true)
+        }
     }
 }
 
@@ -651,7 +717,7 @@ struct DailyPrayerCard: View {
     
     private var completedButtonBackground: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 18)
+            Capsule(style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -663,7 +729,7 @@ struct DailyPrayerCard: View {
                     )
                 )
             
-            RoundedRectangle(cornerRadius: 18)
+            Capsule(style: .continuous)
                 .stroke(
                     LinearGradient(
                         colors: [
@@ -673,40 +739,40 @@ struct DailyPrayerCard: View {
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 2
+                    lineWidth: 1
                 )
         }
     }
-    
+
     private var defaultButtonBackground: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 18)
+            Capsule(style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.2),
-                            Color.white.opacity(0.1)
+                            Color.white.opacity(0.20),
+                            Color.white.opacity(0.10)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
-            
-            RoundedRectangle(cornerRadius: 18)
+
+            Capsule(style: .continuous)
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.4),
-                            Color.white.opacity(0.2)
+                            Color.white.opacity(0.40),
+                            Color.white.opacity(0.20)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 2
+                    lineWidth: 0.8
                 )
         }
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             ScrollView(showsIndicators: false) {
@@ -907,34 +973,35 @@ struct DailyPrayerCard: View {
                 
                 // Button container
                 VStack(spacing: 16) {
-                    // "Pray Now" — starts a Live Activity in the Dynamic Island
+                    // "Focus Prayer" — starts a Live Activity in the Dynamic Island
                     if !isCompleted && LiveActivityManager.shared.isLiveActivitiesAvailable {
                         Button {
                             PrayerLiveActivityService.shared.startPersonalPrayerSession(title: prayer.title)
                             let h = UIImpactFeedbackGenerator(style: .light)
                             h.impactOccurred()
                         } label: {
-                            HStack(spacing: 8) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "hands.sparkles")
-                                    .font(.systemScaled(15, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                 Text("Focus Prayer")
-                                    .font(AMENFont.semiBold(15))
+                                    .font(AMENFont.semiBold(14))
                             }
-                            .foregroundStyle(.white.opacity(0.7))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 13)
+                            .foregroundStyle(.white.opacity(0.75))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
                             .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(Color.white.opacity(0.08))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-                                    )
+                                ZStack {
+                                    Capsule(style: .continuous)
+                                        .fill(Color.white.opacity(0.10))
+                                    Capsule(style: .continuous)
+                                        .stroke(Color.white.opacity(0.22), lineWidth: 0.6)
+                                }
                             )
                         }
                         .buttonStyle(.plain)
                     }
 
+                    // "Mark as Prayed" primary CTA
                     Button(action: {
                         onComplete()
                         // Also end any active prayer Live Activity with success state
@@ -942,22 +1009,22 @@ struct DailyPrayerCard: View {
                             LiveActivityManager.shared.markPrayerAsAnswered()
                         }
                     }) {
-                        HStack(spacing: 10) {
+                        HStack(spacing: 8) {
                             Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                                .font(.systemScaled(20, weight: .bold))
+                                .font(.systemScaled(16, weight: .bold))
                                 .symbolEffect(.bounce, value: isCompleted)
-                            
                             Text(isCompleted ? "Prayed ✓" : "Mark as Prayed")
-                                .font(AMENFont.bold(17))
+                                .font(AMENFont.bold(15))
                         }
                         .foregroundStyle(isCompleted ? prayer.color : .white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 13)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
                         .background(buttonBackground)
                         .shadow(
-                            color: isCompleted ? prayer.color.opacity(0.4) : Color.white.opacity(0.2),
-                            radius: isCompleted ? 20 : 15,
-                            y: 10
+                            color: isCompleted ? prayer.color.opacity(0.35) : Color.white.opacity(0.15),
+                            radius: isCompleted ? 16 : 10,
+                            y: 6
                         )
                         .scaleEffect(isButtonPressed ? 0.96 : 1.0)
                     }
@@ -1055,10 +1122,10 @@ struct CompletionCelebrationView: View {
             }
             .padding(30)
             .background(
-                RoundedRectangle(cornerRadius: 24)
+                RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.pill) // P2-3: canonical token (24 = pill/sheet radius)
                     .fill(Color(white: 0.1))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 24)
+                        RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.pill) // P2-3: canonical token
                             .stroke(Color.white.opacity(0.1), lineWidth: 1)
                     )
             )
@@ -1462,6 +1529,48 @@ struct PrayerPostCard: View {
         .padding(16)
         .background(cardBackground)
         .overlay(cardOverlay)
+        .contextMenu {
+            // Reply
+            Button {
+                showFullCommentSheet = true
+            } label: {
+                Label("Reply", systemImage: "arrow.turn.up.left")
+            }
+
+            // Copy
+            Button {
+                copyLink()
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+
+            // Pray for this
+            Button {
+                showEncouragementSheet = true
+            } label: {
+                Label("Pray for this", systemImage: "hands.sparkles")
+            }
+
+            Divider()
+
+            // Own-post: Delete
+            if isOwnPost {
+                Button(role: .destructive) {
+                    showingDeleteAlert = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+
+            // Others' posts: Report
+            if !isOwnPost {
+                Button(role: .destructive) {
+                    showReportSheet = true
+                } label: {
+                    Label("Report", systemImage: "flag")
+                }
+            }
+        }
         .sheet(isPresented: $showingEditSheet) {
             EditPostSheet(post: post)
         }
@@ -1469,14 +1578,15 @@ struct PrayerPostCard: View {
             CommentsView(post: post)
                 .environmentObject(UserService())
         }
-        .alert("Delete Post", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
+        .amenAlert(isPresented: $showingDeleteAlert, config: LiquidGlassAlertConfig(
+            title: "Delete Prayer Post",
+            message: "This prayer can't be recovered.",
+            icon: "hands.and.sparkles",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 deletePost()
-            }
-        } message: {
-            Text("Are you sure you want to delete this prayer post? This action cannot be undone.")
-        }
+            },
+            secondaryButton: .cancel()
+        ))
         .sheet(isPresented: $showReportSheet) {
             ReportPostSheet(post: post, postAuthor: authorName, category: .prayer)
         }
@@ -1744,16 +1854,16 @@ struct PrayerPostCard: View {
     }
     
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 16)
+        RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.card) // P2-3: canonical token
             .fill(Color.white)
             .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
     }
-    
+
     private var cardOverlay: some View {
-        RoundedRectangle(cornerRadius: 16)
+        RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.card) // P2-3: canonical token
             .stroke(Color.black.opacity(0.1), lineWidth: 1)
     }
-    
+
     @ViewBuilder
     private var avatarWithFollowButton: some View {
         Button {
@@ -2356,22 +2466,44 @@ struct PrayerPostCard: View {
     }
     
     private func copyLink() {
-        UIPasteboard.general.string = "https://amenapp.com/prayer/\(UUID().uuidString)"
+        let postId = post.firebaseId ?? post.id.uuidString
+        UIPasteboard.general.string = "https://amenapp.com/prayer/\(postId)"
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        dlog("🔗 Prayer link copied")
+        ToastManager.shared.show(ToastNotification(message: "Prayer link copied", style: .success))
+        dlog("🔗 Prayer link copied: \(postId)")
     }
     
     private func muteAuthor() {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        dlog("🔇 Muted \(authorName)")
+        dlog("🔇 Muting \(authorName)…")
+        Task {
+            do {
+                try await ModerationService.shared.muteUser(userId: post.authorId)
+                dlog("✅ Muted \(authorName)")
+                ToastManager.shared.show(ToastNotification(message: "\(authorName) muted", style: .success))
+            } catch {
+                dlog("❌ Failed to mute \(authorName): \(error)")
+                ToastManager.shared.show(ToastNotification(message: "Unable to mute user. Please try again.", style: .error))
+            }
+        }
     }
-    
+
     private func blockAuthor() {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.warning)
-        dlog("🚫 Blocked \(authorName)")
+        dlog("🚫 Blocking \(authorName)…")
+        Task {
+            do {
+                try await BlockService.shared.blockUser(userId: post.authorId)
+                dlog("✅ Blocked \(authorName)")
+                ToastManager.shared.show(ToastNotification(message: "\(authorName) blocked", style: .success))
+            } catch {
+                dlog("❌ Failed to block \(authorName): \(error)")
+                ToastManager.shared.show(ToastNotification(message: "Unable to block user. Please try again.", style: .error))
+            }
+        }
     }
     
     @ViewBuilder
@@ -2532,6 +2664,16 @@ struct PrayerCommentSection: View {
         .onAppear {
             commentService.startListening(to: post.id.uuidString)
         }
+        // ✅ Verse picker: attaches selected verse text to the comment input
+        .sheet(isPresented: $showVerseSelector) {
+            VerseDrawerCoordinator(isPresented: $showVerseSelector) { verse in
+                let verseText = "\"\(verse.text)\" — \(verse.reference)"
+                commentText = commentText.isEmpty ? verseText : commentText + "\n" + verseText
+                showVerseSelector = false
+            }
+            .presentationDetents([.medium, .large])
+            .presentationCornerRadius(24)
+        }
         // ✅ REMOVED: .onDisappear that stopped comment listeners
         // This allows comments to stay in real-time even when user navigates away
         // Minimal battery impact due to efficient Firebase WebSocket connections
@@ -2539,7 +2681,7 @@ struct PrayerCommentSection: View {
         //     commentService.stopListening()
         // }
     }
-    
+
     // MARK: - View Components
     
     private var commentsHeader: some View {
@@ -3097,14 +3239,14 @@ struct PrayerCommentRow: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.black.opacity(0.06), lineWidth: 1)
         )
-        .alert("Delete Comment", isPresented: $showDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
+        .amenAlert(isPresented: $showDeleteAlert, config: LiquidGlassAlertConfig(
+            title: "Delete Comment",
+            icon: "bubble.slash",
+            primaryButton: LiquidGlassAlertButton("Delete", tone: .destructive) {
                 onDelete()
-            }
-        } message: {
-            Text("Are you sure you want to delete this comment?")
-        }
+            },
+            secondaryButton: .cancel()
+        ))
         .task {
             // Load initial prayer state when view appears
             await loadInitialState()
@@ -3242,28 +3384,27 @@ struct PrayerWallView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedFilter: PrayerWallFilter = .all
     @State private var searchText = ""
-    
+    @State private var prayerWallPosts: [PrayerWallPost] = []
+    @State private var isLoading = false
+
     enum PrayerWallFilter: String, CaseIterable {
         case all = "All Prayers"
         case urgent = "Urgent"
         case answered = "Answered"
         case today = "Today"
     }
-    
-    // Sample prayer wall posts - will be replaced with real data from Firebase
-    let prayerWallPosts: [PrayerWallPost] = []
-    
-    var filteredPosts: [PrayerWallPost] {
+
+    private var filteredPosts: [PrayerWallPost] {
+        let base: [PrayerWallPost]
         switch selectedFilter {
-        case .all:
-            return prayerWallPosts
-        case .urgent:
-            return prayerWallPosts.filter { $0.isUrgent }
-        case .answered:
-            return prayerWallPosts.filter { $0.category == .answered }
-        case .today:
-            return prayerWallPosts.filter { $0.timeAgo.contains("m") || $0.timeAgo.contains("h") }
+        case .all:      base = prayerWallPosts
+        case .urgent:   base = prayerWallPosts.filter { $0.isUrgent }
+        case .answered: base = prayerWallPosts.filter { $0.category == .answered }
+        case .today:    base = prayerWallPosts.filter { Calendar.current.isDateInToday($0.createdAt) }
         }
+        guard !searchText.isEmpty else { return base }
+        let q = searchText.lowercased()
+        return base.filter { $0.title.lowercased().contains(q) || $0.excerpt.lowercased().contains(q) }
     }
     
     var body: some View {
@@ -3331,19 +3472,83 @@ struct PrayerWallView: View {
                 .padding(.vertical, 12)
                 
                 // Prayer wall grid
-                ScrollView {
-                    LazyVGrid(columns: [
-                        GridItem(.flexible(), spacing: 12),
-                        GridItem(.flexible(), spacing: 12)
-                    ], spacing: 12) {
-                        ForEach(filteredPosts) { post in
-                            PrayerWallCard(post: post)
-                        }
+                if isLoading && prayerWallPosts.isEmpty {
+                    Spacer()
+                    ProgressView().scaleEffect(0.9)
+                    Spacer()
+                } else if filteredPosts.isEmpty {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        AmenGlass3DIcon(systemName: "hands.sparkles", tint: AmenTheme.Colors.amenGold, size: 64)
+                        Text(searchText.isEmpty ? "No prayers yet" : "No results for \"\(searchText)\"")
+                            .font(AMENFont.semiBold(16))
+                            .foregroundStyle(.secondary)
                     }
-                    .padding()
+                    Spacer()
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ], spacing: 12) {
+                            ForEach(filteredPosts, id: \.id) { post in
+                                PrayerWallCard(post: post)
+                            }
+                        }
+                        .padding()
+                    }
                 }
             }
             .navigationBarHidden(true)
+            .task { await loadPrayerWall() }
+        }
+    }
+
+    // MARK: - Firestore Loader
+
+    private func loadPrayerWall() async {
+        guard !isLoading else { return }
+        isLoading = true
+        do {
+            let db = Firestore.firestore()
+            // P1-1: query prayerWall collection directly instead of posts filtered by category
+            let snap = try await db.collection("prayerWall")
+                .order(by: "createdAt", descending: true)
+                .limit(to: 50)
+                .getDocuments()
+
+            let posts: [PrayerWallPost] = snap.documents.compactMap { doc in
+                let data = doc.data()
+                // prayerWall documents use "text" or "content" for the prayer body
+                guard let content = (data["text"] as? String) ?? (data["content"] as? String),
+                      let authorName = (data["authorName"] as? String) ?? (data["authorId"] as? String) else { return nil }
+                let topicTag = data["topicTag"] as? String ?? "Prayer Request"
+                let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+                let status = data["status"] as? String ?? ""
+                let category: PrayerPostCard.PrayerCategory = (topicTag == "Answered Prayer" || status == "answered") ? .answered
+                    : topicTag == "Praise Report" ? .praise : .prayer
+                return PrayerWallPost(
+                    id: doc.documentID,
+                    title: "\(authorName)'s Prayer",
+                    author: authorName,
+                    timeAgo: createdAt.timeAgoDisplay(),
+                    createdAt: createdAt,
+                    category: category,
+                    prayCount: data["amenCount"] as? Int ?? 0,
+                    isUrgent: data["isUrgent"] as? Bool ?? false,
+                    excerpt: String(content.prefix(120))
+                )
+            }
+            await MainActor.run {
+                prayerWallPosts = posts
+                isLoading = false
+                dlog("✅ PrayerWall loaded \(posts.count) posts from Firestore")
+            }
+        } catch {
+            await MainActor.run {
+                isLoading = false
+                dlog("❌ PrayerWall load failed: \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -3447,16 +3652,16 @@ struct PrayerWallCard: View {
         .padding(14)
         .frame(height: 240)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.card) // P2-3: canonical token
                 .fill(Color.white)
                 .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.card) // P2-3: canonical token
                 .stroke(Color.black.opacity(0.1), lineWidth: 1)
         )
     }
-    
+
     @ViewBuilder
     private var categoryBadge: some View {
         let config = categoryConfig
@@ -3497,510 +3702,15 @@ struct PrayerWallCard: View {
 // MARK: - Prayer Wall Post Model
 
 struct PrayerWallPost: Identifiable {
-    let id = UUID()
+    let id: String          // Firestore document ID
     let title: String
     let author: String
     let timeAgo: String
+    let createdAt: Date     // Used for "Today" filter
     let category: PrayerPostCard.PrayerCategory
     let prayCount: Int
     let isUrgent: Bool
     let excerpt: String
-}
-
-// MARK: - Smart Prayer Chat View
-
-struct SmartPrayerChatView: View {
-    let authorInfo: PrayerAuthorInfo
-    @Environment(\.dismiss) private var dismiss
-    @State private var messageText = ""
-    @State private var showQuickResponses = false
-    @State private var showPrayerTemplates = false
-    @State private var messages: [PrayerChatMessage] = []
-    @FocusState private var isMessageFieldFocused: Bool
-    @State private var showConversationActions = false
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 0) {
-                    HStack(spacing: 12) {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.systemScaled(18, weight: .semibold))
-                                .foregroundStyle(.primary)
-                        }
-                        
-                        Circle()
-                            .fill(Color.black)
-                            .frame(width: 40, height: 40)
-                            .overlay(
-                                Text(String(authorInfo.name.prefix(1)))
-                                    .font(AMENFont.bold(16))
-                                    .foregroundStyle(.white)
-                            )
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(authorInfo.name)
-                                .font(AMENFont.bold(16))
-                                .foregroundStyle(.primary)
-                            
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color(red: 0.4, green: 0.85, blue: 0.7))
-                                    .frame(width: 6, height: 6)
-                                
-                                Text("Active now")
-                                    .font(AMENFont.regular(12))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        Button {
-                            showConversationActions = true
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.systemScaled(18, weight: .semibold))
-                                .foregroundStyle(.primary)
-                                .rotationEffect(.degrees(90))
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
-                    
-                    Divider()
-                }
-                .background(Color.white)
-                
-                if !messages.isEmpty && messages.count < 3 {
-                    PrayerContextCard(
-                        authorName: authorInfo.name,
-                        content: authorInfo.prayerContent,
-                        category: authorInfo.prayerCategory
-                    )
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-                
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            if messages.isEmpty {
-                                VStack(spacing: 16) {
-                                    Text("Start of conversation")
-                                        .font(AMENFont.regular(12))
-                                        .foregroundStyle(.tertiary)
-                                        .padding(.top, 20)
-                                    
-                                    PrayerChatBubble(
-                                        message: PrayerChatMessage(
-                                            id: UUID(),
-                                            content: "Thank you for reaching out about my prayer request. Your support means everything. 🙏",
-                                            isFromCurrentUser: false,
-                                            timestamp: Date()
-                                        ),
-                                        authorName: authorInfo.name
-                                    )
-                                }
-                            }
-                            
-                            ForEach(messages) { message in
-                                PrayerChatBubble(
-                                    message: message,
-                                    authorName: message.isFromCurrentUser ? "You" : authorInfo.name
-                                )
-                                .id(message.id)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
-                    }
-                    .onChange(of: messages.count) { _, _ in
-                        if let lastMessage = messages.last {
-                            withAnimation {
-                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                }
-                
-                VStack(spacing: 0) {
-                    Divider()
-                    
-                    VStack(spacing: 12) {
-                        if showQuickResponses {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    QuickResponseChip(text: "🙏 I'm praying for you") {
-                                        messageText = "I'm praying for you right now 🙏"
-                                    }
-                                    QuickResponseChip(text: "💪 God's got you") {
-                                        messageText = "God's got you! Stay strong 💪"
-                                    }
-                                    QuickResponseChip(text: "✨ Believing with you") {
-                                        messageText = "I'm believing with you for breakthrough ✨"
-                                    }
-                                    QuickResponseChip(text: "❤️ Sending love") {
-                                        messageText = "Sending love and prayers your way ❤️"
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                            }
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
-                        
-                        if showPrayerTemplates {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    PrayerTemplateChip(
-                                        icon: "heart.circle.fill",
-                                        title: "Healing",
-                                        color: Color(red: 1.0, green: 0.6, blue: 0.7)
-                                    ) {
-                                        messageText = "Heavenly Father, I lift up \(authorInfo.name) to You. Pour out Your healing power and restoration. Amen 🙏"
-                                    }
-                                    PrayerTemplateChip(
-                                        icon: "sparkles",
-                                        title: "Strength",
-                                        color: Color(red: 0.4, green: 0.7, blue: 1.0)
-                                    ) {
-                                        messageText = "Lord, renew their strength. Where they are weak, be their power. Give them courage for today 💪"
-                                    }
-                                    PrayerTemplateChip(
-                                        icon: "sun.max.fill",
-                                        title: "Peace",
-                                        color: Color(red: 1.0, green: 0.85, blue: 0.4)
-                                    ) {
-                                        messageText = "Father, let Your peace that surpasses understanding guard their heart and mind in Christ Jesus ✨"
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                            }
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
-                        
-                        HStack(spacing: 12) {
-                            HStack(spacing: 10) {
-                                Button {
-                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                        showQuickResponses.toggle()
-                                        if showQuickResponses { showPrayerTemplates = false }
-                                    }
-                                } label: {
-                                    Image(systemName: showQuickResponses ? "bubble.left.fill" : "bubble.left")
-                                        .font(.systemScaled(18))
-                                        .foregroundStyle(showQuickResponses ? .black : .black.opacity(0.5))
-                                }
-                                
-                                Button {
-                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                        showPrayerTemplates.toggle()
-                                        if showPrayerTemplates { showQuickResponses = false }
-                                    }
-                                } label: {
-                                    Image(systemName: showPrayerTemplates ? "hands.sparkles.fill" : "hands.sparkles")
-                                        .font(.systemScaled(18))
-                                        .foregroundStyle(showPrayerTemplates ? .black : .black.opacity(0.5))
-                                }
-                            }
-                            
-                            TextField("Send encouragement...", text: $messageText, axis: .vertical)
-                                .font(AMENFont.regular(15))
-                                .foregroundStyle(.primary)
-                                .lineLimit(1...4)
-                                .focused($isMessageFieldFocused)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .fill(Color.black.opacity(0.05))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(isMessageFieldFocused ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
-                                )
-                            
-                            if !messageText.isEmpty {
-                                Button { sendMessage() } label: {
-                                    Image(systemName: "arrow.up.circle.fill")
-                                        .font(.systemScaled(36))
-                                        .foregroundStyle(.primary)
-                                }
-                                .transition(.scale.combined(with: .opacity))
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                    .padding(.vertical, 12)
-                }
-                .background(Color.white)
-            }
-            .navigationBarHidden(true)
-        }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                withAnimation { showPrayerTemplates = true }
-            }
-        }
-        .confirmationDialog("Conversation Actions", isPresented: $showConversationActions, titleVisibility: .visible) {
-            Button(showQuickResponses ? "Hide Quick Responses" : "Show Quick Responses") {
-                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                    showQuickResponses.toggle()
-                    if showQuickResponses { showPrayerTemplates = false }
-                }
-            }
-            Button(showPrayerTemplates ? "Hide Prayer Templates" : "Show Prayer Templates") {
-                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                    showPrayerTemplates.toggle()
-                    if showPrayerTemplates { showQuickResponses = false }
-                }
-            }
-            if !messages.isEmpty {
-                Button("Clear Conversation", role: .destructive) {
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
-                        messages.removeAll()
-                    }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-    }
-    
-    private func sendMessage() {
-        guard !messageText.isEmpty else { return }
-        
-        let newMessage = PrayerChatMessage(
-            id: UUID(),
-            content: messageText,
-            isFromCurrentUser: true,
-            timestamp: Date()
-        )
-        
-        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
-            messages.append(newMessage)
-            messageText = ""
-            
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            let responses = [
-                "Thank you so much! Your prayers mean the world 🙏",
-                "I really appreciate you lifting me up. God is good! ✨",
-                "This brought tears to my eyes. Thank you for standing with me 💙",
-                "Amen! I receive that prayer. Believing for breakthrough! 🙌"
-            ]
-            
-            let responseMessage = PrayerChatMessage(
-                id: UUID(),
-                content: responses.randomElement() ?? responses[0],
-                isFromCurrentUser: false,
-                timestamp: Date()
-            )
-            
-            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
-                messages.append(responseMessage)
-            }
-        }
-    }
-}
-
-// MARK: - Prayer Context Card
-
-struct PrayerContextCard: View {
-    let authorName: String
-    let content: String
-    let category: PrayerPostCard.PrayerCategory
-    @State private var isDismissed = false
-    
-    var body: some View {
-        if !isDismissed {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    HStack(spacing: 6) {
-                        Image(systemName: categoryIcon)
-                            .font(.systemScaled(12, weight: .semibold))
-                            .foregroundStyle(categoryColor)
-                        
-                        Text("Prayer Request")
-                            .font(AMENFont.bold(12))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Button {
-                        withAnimation { isDismissed = true }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.systemScaled(10, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                
-                Text(content)
-                    .font(AMENFont.regular(13))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                    .lineSpacing(4)
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(categoryColor.opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(categoryColor.opacity(0.2), lineWidth: 1)
-            )
-            .transition(.move(edge: .top).combined(with: .opacity))
-        }
-    }
-    
-    private var categoryIcon: String {
-        switch category {
-        case .prayer: return "hands.sparkles.fill"
-        case .praise: return "hands.clap.fill"
-        case .answered: return "checkmark.seal.fill"
-        }
-    }
-    
-    private var categoryColor: Color {
-        switch category {
-        case .prayer: return Color(red: 0.4, green: 0.7, blue: 1.0)
-        case .praise: return Color(red: 1.0, green: 0.7, blue: 0.4)
-        case .answered: return Color(red: 0.4, green: 0.85, blue: 0.7)
-        }
-    }
-}
-
-// MARK: - Prayer Chat Bubble
-
-struct PrayerChatBubble: View {
-    let message: PrayerChatMessage
-    let authorName: String
-    
-    var body: some View {
-        HStack {
-            if message.isFromCurrentUser {
-                Spacer(minLength: 60)
-            }
-            
-            VStack(alignment: message.isFromCurrentUser ? .trailing : .leading, spacing: 6) {
-                if !message.isFromCurrentUser {
-                    Text(authorName)
-                        .font(AMENFont.bold(12))
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 4)
-                }
-                
-                Text(message.content)
-                    .font(AMENFont.regular(15))
-                    .foregroundStyle(message.isFromCurrentUser ? .white : .black.opacity(0.9))
-                    .lineSpacing(4)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(message.isFromCurrentUser ? Color.black : Color.black.opacity(0.06))
-                    )
-                
-                Text(message.timestamp.formatted(date: .omitted, time: .shortened))
-                    .font(AMENFont.regular(11))
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 4)
-            }
-            
-            if !message.isFromCurrentUser {
-                Spacer(minLength: 60)
-            }
-        }
-    }
-}
-
-// MARK: - Quick Response Chip
-
-struct QuickResponseChip: View {
-    let text: String
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(text)
-                .font(AMENFont.semiBold(13))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(Color.white)
-                        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                )
-        }
-    }
-}
-
-// MARK: - Prayer Template Chip
-
-struct PrayerTemplateChip: View {
-    let icon: String
-    let title: String
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(color)
-                
-                Text(title)
-                    .font(AMENFont.bold(13))
-                    .foregroundStyle(.primary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(color.opacity(0.12))
-            )
-            .overlay(
-                Capsule()
-                    .stroke(color.opacity(0.3), lineWidth: 1.5)
-            )
-        }
-    }
-}
-
-// MARK: - Prayer Chat Message Model
-
-struct PrayerChatMessage: Identifiable {
-    let id: UUID
-    let content: String
-    let isFromCurrentUser: Bool
-    let timestamp: Date
-}
-
-// MARK: - Prayer User Model
-
-struct PrayerUser: Identifiable {
-    let id = UUID()
-    let name: String
-    let alias: String
-    let bio: String
-    let isOnline: Bool
-    let prayerCount: Int
 }
 
 // MARK: - Live Discussion View
@@ -4009,6 +3719,7 @@ struct LiveDiscussionView: View {
     @Binding var isShowing: Bool
     @State private var selectedTopic: DiscussionTopic = .general
     @State private var isMuted = true
+    @State private var isHandRaised = false
     @State private var participantCount = Int.random(in: 45...234)
     
     enum DiscussionTopic: String, CaseIterable {
@@ -4153,26 +3864,33 @@ struct LiveDiscussionView: View {
                     }
                     
                     Button {
-                        // Raise hand action
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                            isHandRaised.toggle()
+                        }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
+                        dlog("🖐️ [LiveDiscussion] Hand \(isHandRaised ? "raised" : "lowered")")
                     } label: {
                         VStack(spacing: 8) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.white.opacity(0.15))
+                                    .fill(isHandRaised
+                                          ? Color(red: 1.0, green: 0.85, blue: 0.2)
+                                          : Color.white.opacity(0.15))
                                     .frame(width: 60, height: 60)
-                                
+
                                 Image(systemName: "hand.raised.fill")
                                     .font(.systemScaled(24, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(isHandRaised ? Color.black.opacity(0.8) : .white)
+                                    .symbolEffect(.bounce, value: isHandRaised)
                             }
-                            
-                            Text("Raise Hand")
+
+                            Text(isHandRaised ? "Lower Hand" : "Raise Hand")
                                 .font(AMENFont.semiBold(12))
                                 .foregroundStyle(.white.opacity(0.8))
                         }
                     }
+                    .accessibilityLabel(isHandRaised ? "Lower your hand" : "Raise your hand to speak")
                     
                     Button {
                         withAnimation(.smooth(duration: 0.3)) {
@@ -4260,10 +3978,10 @@ struct LiveSpeakerCard: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.card) // P2-3: canonical token
                 .fill(Color.white.opacity(0.08))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.card) // P2-3: canonical token
                         .stroke(isSpeaking ? Color(red: 0.4, green: 0.85, blue: 0.7).opacity(0.3) : Color.white.opacity(0.12), lineWidth: 1)
                 )
         )
@@ -4276,18 +3994,40 @@ struct CollaborationHubView: View {
     @Binding var isShowing: Bool
     @State private var selectedFilter: CollabFilter = .all
     @State private var searchText = ""
-    
+
+    // Real data — loaded from Firestore on .task
+    @State private var collaborators: [Collaborator] = []
+    @State private var isLoading = true
+    @State private var loadError: String?
+
+    private let db = Firestore.firestore()
+
     enum CollabFilter: String, CaseIterable {
         case all = "All"
         case available = "Available Now"
         case groups = "Prayer Groups"
         case partners = "Partners"
     }
-    
-    let sampleCollaborators: [Collaborator] = [
-        // Sample collaborators - will be replaced with real data from Firebase
-    ]
-    
+
+    // Filtered + searched list shown in the list
+    private var displayedCollaborators: [Collaborator] {
+        let filtered: [Collaborator]
+        switch selectedFilter {
+        case .all:
+            filtered = collaborators
+        case .available:
+            filtered = collaborators.filter { $0.isOnline }
+        case .groups, .partners:
+            // Future: filter by role tag. For now show all.
+            filtered = collaborators
+        }
+        guard !searchText.isEmpty else { return filtered }
+        let q = searchText.lowercased()
+        return filtered.filter {
+            $0.name.lowercased().contains(q) || $0.specialty.lowercased().contains(q)
+        }
+    }
+
     var body: some View {
         ZStack {
             // Dark backdrop
@@ -4298,7 +4038,7 @@ struct CollaborationHubView: View {
                         isShowing = false
                     }
                 }
-            
+
             VStack(spacing: 0) {
                 // Header
                 HStack {
@@ -4306,14 +4046,14 @@ struct CollaborationHubView: View {
                         Text("Collaboration Hub")
                             .font(AMENFont.bold(26))
                             .foregroundStyle(.white)
-                        
+
                         Text("Find prayer partners & mentors")
                             .font(AMENFont.regular(13))
                             .foregroundStyle(.white.opacity(0.6))
                     }
-                    
+
                     Spacer()
-                    
+
                     Button {
                         withAnimation(.smooth(duration: 0.3)) {
                             isShowing = false
@@ -4327,15 +4067,16 @@ struct CollaborationHubView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
                 .padding(.bottom, 20)
-                
+
                 // Search bar
                 HStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.white.opacity(0.4))
-                    
-                    TextField("Search by specialty...", text: $searchText)
+
+                    TextField("Search by name or topic...", text: $searchText)
                         .font(AMENFont.regular(15))
                         .foregroundStyle(.white)
+                        .tint(.white)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -4345,7 +4086,7 @@ struct CollaborationHubView: View {
                 )
                 .padding(.horizontal, 24)
                 .padding(.bottom, 16)
-                
+
                 // Filter tabs
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -4370,31 +4111,235 @@ struct CollaborationHubView: View {
                     .padding(.horizontal, 24)
                 }
                 .padding(.bottom, 20)
-                
-                // Collaborators list
-                ScrollView {
-                    VStack(spacing: 16) {
-                        ForEach(sampleCollaborators, id: \.name) { collaborator in
-                            CollaboratorCard(collaborator: collaborator)
+
+                // Collaborators list — loading / empty / loaded states
+                if isLoading {
+                    collaboratorsSkeleton
+                } else if let err = loadError {
+                    errorState(message: err)
+                } else if displayedCollaborators.isEmpty {
+                    emptyState
+                } else {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            ForEach(displayedCollaborators) { collaborator in
+                                CollaboratorCard(collaborator: collaborator)
+                            }
                         }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 40)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
                 }
             }
+        }
+        .task { await loadCollaborators() }
+    }
+
+    // MARK: - Firestore fetch
+
+    /// Queries recent prayer posts (last 30 days), collects distinct authorIds,
+    /// batch-fetches their user profiles, and maps them to Collaborator values.
+    @MainActor
+    private func loadCollaborators() async {
+        dlog("🤝 [CollaborationHub] Loading prayer collaborators from Firestore")
+        isLoading = true
+        loadError = nil
+
+        do {
+            let currentUid = Auth.auth().currentUser?.uid
+            let cutoff = Timestamp(date: Date().addingTimeInterval(-30 * 24 * 3600))
+
+            // 1. Fetch recent prayer posts to discover active participants.
+            //    PostCategory.prayer.rawValue == "prayer" (lowercase, Firebase-safe).
+            let snapshot = try await db.collection("posts")
+                .whereField("category", isEqualTo: "prayer")
+                .whereField("createdAt", isGreaterThan: cutoff)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 100)
+                .getDocuments()
+
+            dlog("🤝 [CollaborationHub] Got \(snapshot.documents.count) recent prayer posts")
+
+            // 2. Collect distinct authorIds (excluding current user)
+            var seen = Set<String>()
+            var authorIds: [String] = []
+            for doc in snapshot.documents {
+                let authorId = doc.data()["authorId"] as? String ?? ""
+                guard !authorId.isEmpty,
+                      authorId != currentUid,
+                      !seen.contains(authorId) else { continue }
+                seen.insert(authorId)
+                authorIds.append(authorId)
+                if authorIds.count >= 20 { break } // cap at 20 collaborators
+            }
+
+            guard !authorIds.isEmpty else {
+                dlog("🤝 [CollaborationHub] No prayer authors found")
+                isLoading = false
+                return
+            }
+
+            // 3. Batch-fetch user profiles (Firestore `in` max 10 per query)
+            var profiles: [[String: Any]] = []
+            let chunks = stride(from: 0, to: authorIds.count, by: 10).map {
+                Array(authorIds[$0 ..< min($0 + 10, authorIds.count)])
+            }
+            for chunk in chunks {
+                let usersSnap = try await db.collection("users")
+                    .whereField(FieldPath.documentID(), in: chunk)
+                    .getDocuments()
+                profiles.append(contentsOf: usersSnap.documents.map { $0.data().merging(["uid": $0.documentID]) { $1 } })
+            }
+
+            dlog("🤝 [CollaborationHub] Fetched \(profiles.count) user profiles")
+
+            // 4. Map to Collaborator model
+            let now = Date()
+            let mapped: [Collaborator] = profiles.compactMap { d in
+                let uid = d["uid"] as? String ?? ""
+                guard !uid.isEmpty else { return nil }
+                let displayName = d["displayName"] as? String
+                    ?? d["username"] as? String
+                    ?? "Prayer Partner"
+                let photoURL  = d["photoURL"] as? String ?? ""
+                let prayerCount = d["prayerCount"] as? Int ?? 0
+
+                // Rough availability heuristic — users active in the last hour
+                let lastSeen: Date
+                if let ts = d["lastSeen"] as? Timestamp {
+                    lastSeen = ts.dateValue()
+                } else {
+                    lastSeen = .distantPast
+                }
+                let isOnline = now.timeIntervalSince(lastSeen) < 3600
+                let availability = isOnline ? "Active now" : "Recently active"
+
+                // Derive specialty from user bio or prayer focus tags
+                let specialty = (d["bio"] as? String).flatMap { bio in
+                    bio.isEmpty ? nil : String(bio.prefix(60))
+                } ?? "Prayer & intercession"
+
+                return Collaborator(
+                    userId: uid,
+                    name: displayName,
+                    photoURL: photoURL,
+                    specialty: specialty,
+                    availability: availability,
+                    isOnline: isOnline,
+                    prayerCount: prayerCount,
+                    rating: 0.0 // reserved for future peer rating feature
+                )
+            }
+
+            withAnimation(.smooth(duration: 0.3)) {
+                collaborators = mapped
+                isLoading = false
+            }
+            dlog("🤝 [CollaborationHub] Displayed \(mapped.count) collaborators")
+        } catch {
+            dlog("❌ [CollaborationHub] Load failed: \(error)")
+            loadError = "Couldn't load prayer partners. Pull to retry."
+            isLoading = false
+        }
+    }
+
+    // MARK: - Loading skeleton
+
+    private var collaboratorsSkeleton: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                ForEach(0..<4, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white.opacity(0.07))
+                        .frame(height: 120)
+                        .overlay(
+                            HStack(spacing: 16) {
+                                Circle()
+                                    .fill(Color.white.opacity(0.12))
+                                    .frame(width: 60, height: 60)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.white.opacity(0.15))
+                                        .frame(width: 120, height: 14)
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.white.opacity(0.10))
+                                        .frame(width: 180, height: 11)
+                                }
+                                Spacer()
+                            }
+                            .padding(20)
+                        )
+                        // Pulse animation serves as a lightweight shimmer substitute
+                        .opacity(isLoading ? 1.0 : 0.0)
+                        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: isLoading)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 40)
+        }
+    }
+
+    // MARK: - Empty state
+
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "hands.sparkles")
+                .font(.systemScaled(48))
+                .foregroundStyle(.white.opacity(0.35))
+            Text("No prayer partners found")
+                .font(AMENFont.bold(18))
+                .foregroundStyle(.white)
+            Text("Be the first to post a prayer — your community will find you.")
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.white.opacity(0.55))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer()
+        }
+    }
+
+    // MARK: - Error state
+
+    private func errorState(message: String) -> some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.systemScaled(40))
+                .foregroundStyle(.white.opacity(0.5))
+            Text(message)
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.white.opacity(0.65))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button {
+                Task { await loadCollaborators() }
+            } label: {
+                Text("Retry")
+                    .font(AMENFont.semiBold(15))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(Color.white))
+            }
+            Spacer()
         }
     }
 }
 
 // MARK: - Collaborator Model
 
-struct Collaborator {
+struct Collaborator: Identifiable {
+    let userId: String
     let name: String
+    let photoURL: String
     let specialty: String
     let availability: String
     let isOnline: Bool
     let prayerCount: Int
     let rating: Double
+
+    var id: String { userId }
 }
 
 // MARK: - Collaborator Card
@@ -4402,111 +4347,151 @@ struct Collaborator {
 struct CollaboratorCard: View {
     let collaborator: Collaborator
     @State private var isPressed = false
-    
+    @State private var showChat = false
+
     var body: some View {
-        Button {
-            // Connect action
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
-        } label: {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 16) {
-                    // Avatar with online indicator
-                    ZStack(alignment: .bottomTrailing) {
-                        Circle()
-                            .fill(Color.black)
-                            .frame(width: 60, height: 60)
-                            .overlay(
-                                Text(String(collaborator.name.prefix(1)))
-                                    .font(AMENFont.bold(24))
-                                    .foregroundStyle(.white)
-                            )
-                        
-                        if collaborator.isOnline {
-                            Circle()
-                                .fill(Color(red: 0.4, green: 0.85, blue: 0.7))
-                                .frame(width: 16, height: 16)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.2), lineWidth: 2)
-                                )
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 16) {
+                // Avatar with online indicator
+                ZStack(alignment: .bottomTrailing) {
+                    if let url = URL(string: collaborator.photoURL), !collaborator.photoURL.isEmpty {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable()
+                                    .scaledToFill()
+                                    .frame(width: 60, height: 60)
+                                    .clipShape(Circle())
+                            default:
+                                collaboratorInitialAvatar
+                            }
                         }
+                    } else {
+                        collaboratorInitialAvatar
                     }
-                    
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(collaborator.name)
-                            .font(AMENFont.bold(17))
-                            .foregroundStyle(.white)
-                        
-                        Text(collaborator.specialty)
-                            .font(AMENFont.regular(13))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(2)
+
+                    if collaborator.isOnline {
+                        Circle()
+                            .fill(Color(red: 0.4, green: 0.85, blue: 0.7))
+                            .frame(width: 16, height: 16)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.black.opacity(0.3), lineWidth: 2)
+                            )
                     }
-                    
-                    Spacer()
                 }
-                
-                // Stats row
-                HStack(spacing: 20) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "star.fill")
-                            .font(.systemScaled(12))
-                            .foregroundStyle(Color(red: 1.0, green: 0.85, blue: 0.4))
-                        
-                        Text(String(format: "%.1f", collaborator.rating))
-                            .font(AMENFont.bold(13))
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
-                    
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(collaborator.name)
+                        .font(AMENFont.bold(17))
+                        .foregroundStyle(.white)
+
+                    Text(collaborator.specialty)
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(2)
+                }
+
+                Spacer()
+            }
+
+            // Stats row
+            HStack(spacing: 20) {
+                if collaborator.prayerCount > 0 {
                     HStack(spacing: 6) {
                         Image(systemName: "hands.sparkles.fill")
                             .font(.systemScaled(12))
                             .foregroundStyle(.white.opacity(0.6))
-                        
+
                         Text("\(collaborator.prayerCount) prayers")
                             .font(AMENFont.semiBold(13))
                             .foregroundStyle(.white.opacity(0.6))
                     }
-                    
-                    Spacer()
                 }
-                
-                // Availability
-                HStack {
+
+                HStack(spacing: 6) {
                     Image(systemName: "clock.fill")
                         .font(.systemScaled(12))
                         .foregroundStyle(collaborator.isOnline ? Color(red: 0.4, green: 0.85, blue: 0.7) : .white.opacity(0.5))
-                    
+
                     Text(collaborator.availability)
                         .font(AMENFont.semiBold(13))
                         .foregroundStyle(collaborator.isOnline ? Color(red: 0.4, green: 0.85, blue: 0.7) : .white.opacity(0.5))
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.systemScaled(12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.4))
                 }
+
+                Spacer()
             }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.08))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                    )
-            )
-            .scaleEffect(isPressed ? 0.98 : 1.0)
-            .opacity(isPressed ? 0.8 : 1.0)
+
+            // "Pray Together" CTA — opens a DM thread with this partner
+            AmenLiquidGlassPillButton(
+                title: "Pray Together",
+                systemImage: "message.fill",
+                isLoading: false,
+                isDisabled: false,
+                hint: "Start a prayer conversation with \(collaborator.name)"
+            ) {
+                dlog("🤝 [CollaborationHub] Opening DM with \(collaborator.name) (\(collaborator.userId))")
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                showChat = true
+            }
         }
-        .buttonStyle(PlainButtonStyle())
-        .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.card) // P2-3: canonical token
+                .fill(Color.white.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AmenTheme.CornerRadius.card) // P2-3: canonical token
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+        )
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .opacity(isPressed ? 0.8 : 1.0)
+        .onLongPressGesture(minimumDuration: 0.4, maximumDistance: .infinity, pressing: { pressing in
             withAnimation(.smooth(duration: 0.2)) {
                 isPressed = pressing
             }
         }, perform: {})
+        .contextMenu {
+            Button {
+                showChat = true
+            } label: {
+                Label("Reply", systemImage: "arrow.turn.up.left")
+            }
+
+            Button {
+                UIPasteboard.general.string = collaborator.userId
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+
+            Button {
+                showChat = true
+            } label: {
+                Label("Pray for this", systemImage: "hands.sparkles")
+            }
+        }
+        // Open DM using existing ChatConversationLoader (resolves/creates the conversation ID)
+        .sheet(isPresented: $showChat) {
+            NavigationStack {
+                ChatConversationLoader(
+                    userId: collaborator.userId,
+                    userName: collaborator.name
+                )
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .presentationCornerRadius(28)
+        }
+    }
+
+    private var collaboratorInitialAvatar: some View {
+        Circle()
+            .fill(Color.black)
+            .frame(width: 60, height: 60)
+            .overlay(
+                Text(String(collaborator.name.prefix(1)).uppercased())
+                    .font(AMENFont.bold(24))
+                    .foregroundStyle(.white)
+            )
     }
 }
 
@@ -4552,7 +4537,8 @@ struct PrayerGroupDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var hasJoined = false
     @State private var selectedTab: GroupDetailTab = .about
-    
+    @State private var showGroupDailyPrayer = false
+
     enum GroupDetailTab: String, CaseIterable {
         case about = "About"
         case members = "Members"
@@ -4601,7 +4587,7 @@ struct PrayerGroupDetailView: View {
                     }
                     
                     VStack(spacing: 4) {
-                        Text("24")
+                        Text("\(group.activeNow)")
                             .font(AMENFont.bold(20))
                         Text("Active Now")
                             .font(AMENFont.regular(12))
@@ -4648,9 +4634,9 @@ struct PrayerGroupDetailView: View {
                         case .about:
                             AboutGroupView(group: group)
                         case .members:
-                            MembersView()
+                            MembersView(groupId: group.id.uuidString)
                         case .prayers:
-                            GroupPrayersView()
+                            GroupPrayersView(groupId: group.id.uuidString)
                         }
                     }
                     .padding()
@@ -4677,8 +4663,12 @@ struct PrayerGroupDetailView: View {
                 }
             }
         }
+        // P1-4: route to EnhancedDailyPrayerView
+        .sheet(isPresented: $showGroupDailyPrayer) {
+            EnhancedDailyPrayerView()
+        }
     }
-    
+
     // MARK: - Extracted View Components
     
     private var joinButton: some View {
@@ -4714,7 +4704,11 @@ struct PrayerGroupDetailView: View {
     
     private var messageGroupButton: some View {
         Button {
-            // Message group
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+            // Navigate to Messages tab filtered to this group's discussion thread
+            MessagingCoordinator.shared.openMessagesTab()
+            dlog("💬 [PrayerGroup] Opening messages for group: \(group.name)")
         } label: {
             Image(systemName: "message.fill")
                 .font(.systemScaled(18))
@@ -4722,11 +4716,15 @@ struct PrayerGroupDetailView: View {
                 .frame(width: 50, height: 50)
                 .background(Circle().fill(group.color))
         }
+        .accessibilityLabel("Message group members")
     }
-    
+
     private var startPrayingButton: some View {
         Button {
-            // Start praying
+            let haptic = UIImpactFeedbackGenerator(style: .medium)
+            haptic.impactOccurred()
+            showGroupDailyPrayer = true
+            dlog("🙏 [PrayerGroup] Starting prayer session for group: \(group.name)")
         } label: {
             HStack {
                 Image(systemName: "hands.sparkles.fill")
@@ -4741,6 +4739,7 @@ struct PrayerGroupDetailView: View {
                     .fill(group.color)
             )
         }
+        .accessibilityLabel("Start a guided prayer session")
     }
 }
 
@@ -4806,58 +4805,119 @@ struct GroupRuleRow: View {
 
 // MARK: - Members View
 struct MembersView: View {
-    // Sample members - will be replaced with real data from Firebase
-    let members: [(String, String, Bool)] = []
-    
+    let groupId: String
+
+    struct GroupMember: Identifiable {
+        let id: String
+        let displayName: String
+        let username: String
+        let isOnline: Bool
+    }
+
+    @State private var members: [GroupMember] = []
+    @State private var isLoading = false
+
     var body: some View {
         VStack(spacing: 12) {
-            ForEach(members, id: \.0) { member in
-                HStack(spacing: 12) {
-                    ZStack(alignment: .bottomTrailing) {
-                        Circle()
-                            .fill(Color.black)
-                            .frame(width: 44, height: 44)
-                            .overlay(
-                                Text(String(member.0.prefix(1)))
-                                    .font(AMENFont.bold(16))
-                                    .foregroundStyle(.white)
-                            )
-                        
-                        if member.2 {
+            if isLoading && members.isEmpty {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 20)
+            } else if members.isEmpty {
+                Text("No members yet")
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            } else {
+                ForEach(members) { member in
+                    HStack(spacing: 12) {
+                        ZStack(alignment: .bottomTrailing) {
                             Circle()
-                                .fill(Color.green)
-                                .frame(width: 12, height: 12)
+                                .fill(Color.black)
+                                .frame(width: 44, height: 44)
                                 .overlay(
-                                    Circle()
-                                        .stroke(Color.white, lineWidth: 2)
+                                    Text(String(member.displayName.prefix(1)))
+                                        .font(AMENFont.bold(16))
+                                        .foregroundStyle(.white)
                                 )
+
+                            if member.isOnline {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 12, height: 12)
+                                    .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                            }
                         }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(member.displayName)
+                                .font(AMENFont.bold(15))
+                            Text("@\(member.username)")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                            haptic.impactOccurred()
+                            // Open DM with this member via the messaging coordinator
+                            Task {
+                                if let conversationId = try? await FirebaseMessagingService.shared
+                                    .getOrCreateDirectConversation(withUserId: member.id, userName: member.displayName) {
+                                    MessagingCoordinator.shared.openConversation(conversationId)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "message")
+                                .font(.systemScaled(16))
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityLabel("Message \(member.displayName)")
                     }
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(member.0)
-                            .font(AMENFont.bold(15))
-                        
-                        Text(member.1)
-                            .font(AMENFont.regular(13))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Button {
-                        // Message member
-                    } label: {
-                        Image(systemName: "message")
-                            .font(.systemScaled(16))
-                            .foregroundStyle(.secondary)
-                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.gray.opacity(0.1))
+                    )
                 }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.gray.opacity(0.1))
+            }
+        }
+        .task { await loadMembers() }
+    }
+
+    private func loadMembers() async {
+        guard !groupId.isEmpty, !isLoading else { return }
+        isLoading = true
+        do {
+            let db = Firestore.firestore()
+            let snap = try await db.collection("prayerGroups")
+                .document(groupId)
+                .collection("members")
+                .limit(to: 30)
+                .getDocuments()
+
+            let now = Date()
+            let fetched: [GroupMember] = snap.documents.compactMap { doc in
+                let d = doc.data()
+                guard let displayName = d["displayName"] as? String else { return nil }
+                let lastSeen = (d["lastSeen"] as? Timestamp)?.dateValue() ?? .distantPast
+                return GroupMember(
+                    id: doc.documentID,
+                    displayName: displayName,
+                    username: d["username"] as? String ?? displayName.lowercased(),
+                    isOnline: now.timeIntervalSince(lastSeen) < 3600
                 )
+            }
+            await MainActor.run {
+                members = fetched
+                isLoading = false
+                dlog("✅ MembersView: loaded \(fetched.count) members for group \(groupId)")
+            }
+        } catch {
+            await MainActor.run {
+                isLoading = false
+                dlog("❌ MembersView: load failed — \(error.localizedDescription)")
             }
         }
     }
@@ -4865,25 +4925,53 @@ struct MembersView: View {
 
 // MARK: - Group Prayers View
 struct GroupPrayersView: View {
-    // Helper to create example posts for UI demonstration
-    private func createExamplePost(authorName: String, content: String, topicTag: String) -> Post {
-        Post(
-            authorName: authorName,
-            authorInitials: String(authorName.prefix(2)).uppercased(),
-            timeAgo: ["2m", "10m", "1h", "3h"].randomElement() ?? "1h",
-            content: content,
-            category: .prayer,
-            topicTag: topicTag
-        )
-    }
-    
+    let groupId: String
+
+    @State private var posts: [Post] = []
+    @State private var isLoading = false
+
     var body: some View {
         VStack(spacing: 16) {
-            // Sample posts - will be replaced with real data from Firebase
-            Text("No posts yet")
-                .font(AMENFont.regular(15))
-                .foregroundStyle(.secondary)
-                .padding()
+            if isLoading && posts.isEmpty {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 20)
+            } else if posts.isEmpty {
+                Text("No prayers posted yet")
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            } else {
+                ForEach(posts) { post in
+                    PostCard(post: post, isUserPost: post.authorId == Auth.auth().currentUser?.uid)
+                }
+            }
+        }
+        .task { await loadGroupPrayers() }
+    }
+
+    private func loadGroupPrayers() async {
+        guard !groupId.isEmpty, !isLoading else { return }
+        isLoading = true
+        do {
+            let db = Firestore.firestore()
+            let snap = try await db.collection("posts")
+                .whereField("category", isEqualTo: "prayer")
+                .whereField("prayerGroupId", isEqualTo: groupId)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 20)
+                .getDocuments()
+
+            let fetched = snap.documents.compactMap { try? $0.data(as: Post.self) }
+            await MainActor.run {
+                posts = fetched
+                isLoading = false
+                dlog("✅ GroupPrayersView: loaded \(fetched.count) posts for group \(groupId)")
+            }
+        } catch {
+            await MainActor.run {
+                isLoading = false
+                dlog("❌ GroupPrayersView: load failed — \(error.localizedDescription)")
+            }
         }
     }
 }

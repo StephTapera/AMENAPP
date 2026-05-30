@@ -213,6 +213,7 @@ final class DiscoveryService: ObservableObject {
                           !followingSet.contains(userId),
                           !blockedSet.contains(userId),
                           !(d["isDeactivated"] as? Bool ?? false),
+                          !(d["isPrivate"] as? Bool ?? false),  // PRIVACY FIX 2026-05-28
                           let displayName = d["displayName"] as? String,
                           let username = d["username"] as? String else { return nil }
 
@@ -261,6 +262,7 @@ final class DiscoveryService: ObservableObject {
                           !existingIds.contains(userId),
                           !blockedSet.contains(userId),
                           !(d["isDeactivated"] as? Bool ?? false),
+                          !(d["isPrivate"] as? Bool ?? false),  // PRIVACY FIX 2026-05-28
                           let displayName = d["displayName"] as? String,
                           let username = d["username"] as? String else { return nil }
 
@@ -289,9 +291,29 @@ final class DiscoveryService: ObservableObject {
 
     // MARK: - Public: Contact-Based Suggestions
 
-    /// Looks up normalized phone numbers against Firestore `users.phoneNumber`.
-    /// Call after fetching E.164-normalized numbers from CNContactStore.
+    /// Looks up normalized phone numbers to find people the user may know.
+    ///
+    /// PRIVACY ISSUE — REQUIRES BACKEND MIGRATION (P1):
+    /// This function currently queries `users.phoneNumber` directly on the root Firestore
+    /// document, which is readable by every signed-in user (firestore.rules `allow read: if isSignedIn()`).
+    /// Storing a cleartext phone number on a world-readable document allows any
+    /// authenticated user to reverse-lookup "does this phone number have an AMEN account?"
+    /// by querying the collection with a known number.
+    ///
+    /// REQUIRED FIX: Move phone number storage to /users/{uid}/usage/pii (owner-only subcollection)
+    /// and proxy all contact-lookup queries through a `contactLookupByPhone` Cloud Function
+    /// that reads the locked subcollection server-side with the Admin SDK.
+    ///
+    /// Until the migration is complete this function is DISABLED and returns an empty result
+    /// to prevent phone number enumeration.
     func loadContactSuggestions(phoneNumbers: [String]) async {
+        // DISABLED: phone number stored on world-readable root doc — see comment above.
+        // Re-enable after migrating phoneNumber to /users/{uid}/usage/pii and
+        // implementing the contactLookupByPhone callable.
+        contactSuggestions = []
+        return
+
+        // --- ORIGINAL IMPLEMENTATION (kept for reference, unreachable until migration) ---
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isContactSuggestionsLoading = true
         defer { isContactSuggestionsLoading = false }
@@ -497,7 +519,8 @@ final class DiscoveryService: ObservableObject {
                 let userId = doc.documentID
                 guard userId != uid,
                       !followingSet.contains(userId),
-                      !(d["isDeactivated"] as? Bool ?? false),   // hide deactivated accounts
+                      !(d["isDeactivated"] as? Bool ?? false),     // hide deactivated accounts
+                      !(d["isPrivate"] as? Bool ?? false),          // PRIVACY FIX 2026-05-28: private accounts must not appear in suggestions
                       let displayName = d["displayName"] as? String,
                       let username = d["username"] as? String else { return nil }
 
@@ -741,6 +764,10 @@ final class DiscoveryService: ObservableObject {
                 let d = doc.data()
                 guard doc.documentID != currentUser,
                       !blockedSet.contains(doc.documentID),
+                      // PRIVACY FIX 2026-05-28: suppress private accounts from search
+                      // unless the searcher already follows them. Private-account profiles
+                      // (bio, posts, follower counts) must not be visible before approval.
+                      !(d["isPrivate"] as? Bool ?? false) || followingSet.contains(doc.documentID),
                       let displayName = d["displayName"] as? String,
                       let username = d["username"] as? String else { return nil }
                 return DiscoveryPerson(

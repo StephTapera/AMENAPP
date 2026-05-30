@@ -230,7 +230,10 @@ struct BereanChurchFinderView: View {
     private func suggestionChips(_ items: [String]) -> some View {
         VStack(alignment: .center, spacing: 8) {
             ForEach(items, id: \.self) { item in
-                Button { viewModel.queryText = item } label: {
+                Button {
+                    viewModel.queryText = item
+                    viewModel.submit()
+                } label: {
                     Text(item)
                         .font(.caption)
                         .multilineTextAlignment(.leading)
@@ -422,15 +425,15 @@ struct BereanChurchFinderView: View {
     // MARK: Action handler
 
     private func handleAction(_ action: SmartCommunityAction, result: SmartCommunityRankedResult) {
-        Task { await SmartCommunitySearchService.shared.logInteraction(event: action.type.rawValue, result: result) }
+        SmartCommunitySearchService.shared.logInteraction(event: action.type.rawValue, result: result)
 
         switch action.type {
         case .directions:
             let urlString = action.payload?["mapsUrl"] ?? action.payload?["url"]
             if let raw = urlString, let url = URL(string: raw) {
                 UIApplication.shared.open(url)
-            } else if let coord = result.locationCoord {
-                let url = URL(string: "maps://?daddr=\(coord.lat),\(coord.lng)")!
+            } else if let coord = result.locationCoord,
+                      let url = URL(string: "maps://?daddr=\(coord.lat),\(coord.lng)") {
                 UIApplication.shared.open(url)
             }
         case .view:

@@ -71,70 +71,104 @@ struct AMENLoadingIndicator: View {
 
 // MARK: - Loading Skeleton Views
 
-/// Skeleton loader for post cards while data is loading
+/// Skeleton loader for post cards while data is loading.
+/// Matches PostCard's exact layout: flat background, Threads-style divider,
+/// header row (40 pt avatar + name/timestamp), 3 body text lines, icon action bar.
 struct PostSkeletonView: View {
     @State private var isAnimating = false
-    
+
+    // Shimmer fill — matches PostCard's Color(.systemBackground) surface
+    private let shimmerStrong = Color.gray.opacity(0.2)
+    private let shimmerLight  = Color.gray.opacity(0.13)
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header (profile + name)
+        VStack(alignment: .leading, spacing: 0) {
+            // ── Header row (mirrors postHeaderView padding: h:12, top:4, bottom:10) ──
             HStack(spacing: 12) {
+                // Avatar circle — 40 pt, same as avatarButton
                 Circle()
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(shimmerStrong)
                     .frame(width: 40, height: 40)
-                
+
+                // Author name + timestamp stack
                 VStack(alignment: .leading, spacing: 4) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(width: 120, height: 12)
-                    
+                        .fill(shimmerStrong)
+                        .frame(width: 120, height: 13)   // name line
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.15))
-                        .frame(width: 80, height: 10)
+                        .fill(shimmerLight)
+                        .frame(width: 80, height: 11)    // timestamp line
                 }
-                
+
                 Spacer()
+
+                // Options button placeholder (•••)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(shimmerLight)
+                    .frame(width: 20, height: 16)
             }
-            
-            // Content lines
+            .padding(.horizontal, 12)
+            .padding(.top, 4)
+            .padding(.bottom, 10)
+
+            // ── Body text lines (mirrors postContentWithSelection padding h:16) ──
             VStack(alignment: .leading, spacing: 8) {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(shimmerStrong)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 14)
-                
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(shimmerStrong)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 14)
-                
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(shimmerLight)
                     .frame(width: 200, height: 14)
             }
-            .padding(.vertical, 4)
-            
-            // Interaction buttons
-            HStack(spacing: 12) {
-                ForEach(0..<4) { _ in
-                    Capsule()
-                        .fill(Color.gray.opacity(0.15))
-                        .frame(width: 60, height: 28)
-                }
-                
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+
+            // ── Interaction bar (mirrors interactionButtons padding h:16, top:14, bottom:16) ──
+            // PostCard shows icon-style buttons (~20 pt), not capsules.
+            HStack(spacing: 20) {
+                // Lightbulb / Amen icon
+                Circle()
+                    .fill(shimmerLight)
+                    .frame(width: 22, height: 22)
+                // Emoji reaction icon
+                Circle()
+                    .fill(shimmerLight)
+                    .frame(width: 22, height: 22)
+                // Comment icon
+                Circle()
+                    .fill(shimmerLight)
+                    .frame(width: 22, height: 22)
+                // Repost icon
+                Circle()
+                    .fill(shimmerLight)
+                    .frame(width: 22, height: 22)
+                // Share / save icon
+                Circle()
+                    .fill(shimmerLight)
+                    .frame(width: 22, height: 22)
+
                 Spacer()
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 16)
+
+            // Threads-style bottom divider (mirrors PostCard's .overlay divider)
+            Rectangle()
+                .fill(Color(.separator).opacity(0.5))
+                .frame(height: 0.5)
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 8, y: 2)
-        )
+        .background(Color(.systemBackground))
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(
             .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
             value: isAnimating
         )
-        .accessibilityLabel("Loading posts")
         .accessibilityHidden(true)
         .onAppear {
             isAnimating = true
@@ -142,17 +176,18 @@ struct PostSkeletonView: View {
     }
 }
 
-/// Skeleton loader for list of posts
+/// Skeleton loader for list of posts.
+/// Uses spacing: 0 to match the Threads-style feed where PostCard renders its
+/// own bottom divider — no card gap or outer padding needed.
 struct PostListSkeletonView: View {
     var count: Int = 5
-    
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             ForEach(0..<count, id: \.self) { _ in
                 PostSkeletonView()
             }
         }
-        .padding()
     }
 }
 
@@ -417,7 +452,7 @@ struct ErrorView: View {
                 .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
 
-            Text(error.localizedDescription)
+            Text(error.userFriendlyMessage)
                 .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

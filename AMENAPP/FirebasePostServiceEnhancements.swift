@@ -655,7 +655,8 @@ extension FirebasePostService {
         }()
         
         let scheduledPostData: [String: Any] = [
-            "userId": userId,
+            "authorId": userId,
+            "userId": userId,   // secondary field kept for legacy Cloud Function compatibility
             "content": content,
             "category": categoryString,
             "topicTag": topicTag as Any,

@@ -80,34 +80,60 @@ export async function classifySpiritualState(
   message: string,
   conversationHistory: Array<{ role: string; content: string }>
 ): Promise<SpiritualStateClassification> {
-  const lower = message.toLowerCase();
-  const signals = extractSignals(lower);
-  const primaryState = determinePrimaryState(signals, lower);
-  const selectedMode = selectResponseMode(primaryState, signals);
-  const escalationTriggered = signals.crisisSignalDetected || primaryState === "crisis";
-  const escalationReason = escalationTriggered
-    ? "Crisis signal detected in user message. Human support resources presented."
-    : undefined;
+  try {
+    const lower = message.toLowerCase();
+    const signals = extractSignals(lower);
+    const primaryState = determinePrimaryState(signals, lower);
+    const selectedMode = selectResponseMode(primaryState, signals);
+    const escalationTriggered = signals.crisisSignalDetected || primaryState === "crisis";
+    const escalationReason = escalationTriggered
+      ? "Crisis signal detected in user message. Human support resources presented."
+      : undefined;
 
-  const sessionId = uuidv4();
-  const now = admin.firestore.Timestamp.now();
+    const sessionId = uuidv4();
+    const now = admin.firestore.Timestamp.now();
 
-  const classification: SpiritualStateClassification = {
-    primaryState,
-    signals,
-    selectedResponseMode: selectedMode,
-    escalationTriggered,
-    escalationReason,
-    sessionId,
-    classifiedAt: now,
-  };
+    const classification: SpiritualStateClassification = {
+      primaryState,
+      signals,
+      selectedResponseMode: selectedMode,
+      escalationTriggered,
+      escalationReason,
+      sessionId,
+      classifiedAt: now,
+    };
 
-  // Store session record for longitudinal tracking (fire-and-forget, non-blocking)
-  storeSessionRecord(userId, classification, sessionId).catch(() => {
-    // Non-fatal — classification still proceeds
-  });
+    // Store session record for longitudinal tracking (fire-and-forget, non-blocking)
+    storeSessionRecord(userId, classification, sessionId).catch(() => {
+      // Non-fatal — classification still proceeds
+    });
 
-  return classification;
+    return classification;
+  } catch {
+    // Fail pastoral: a classification error must never silently pass through
+    // as "neutral" — that would suppress crisis routing on adversarial input.
+    // "pastoral" mode adds human warmth without triggering a false escalation.
+    const sessionId = uuidv4();
+    const now = admin.firestore.Timestamp.now();
+    const safeSignals: SpiritualStateSignals = {
+      emotionalIntensity: 0,
+      containsDoubt: false,
+      referencesHardship: false,
+      crisisSignalDetected: false,
+      doctrinalQuery: false,
+      mentionedLeader: false,
+      classificationConfidence: 0,
+    };
+    return {
+      primaryState: "neutral" as SpiritualPrimaryState,
+      signals: safeSignals,
+      selectedResponseMode: "pastoral" as ResponseMode,
+      escalationTriggered: false,
+      escalationReason: undefined,
+      sessionId,
+      classifiedAt: now,
+    } as SpiritualStateClassification;
+  }
 }
 
 function extractSignals(lower: string): SpiritualStateSignals {
@@ -232,3 +258,46 @@ async function storeSessionRecord(
       sessionStartedAt: classification.classifiedAt,
     });
 }
+
+// ---------------------------------------------------------------------------
+// Singleton class adapter — used by evaluateAuthorityEscalation controller
+// ---------------------------------------------------------------------------
+
+class SpiritualStateEngineClass {
+  classify(message: string): {
+    sensitivityFlags: string[];
+    primaryState: SpiritualPrimaryState;
+    selectedResponseMode: ResponseMode;
+    escalationTriggered: boolean;
+    signals: SpiritualStateSignals;
+  } {
+    try {
+      const lower = message.toLowerCase();
+      const signals = extractSignals(lower);
+      const primaryState = determinePrimaryState(signals, lower);
+      const selectedResponseMode = selectResponseMode(primaryState, signals);
+      const escalationTriggered = signals.crisisSignalDetected || primaryState === "crisis";
+      const flags: string[] = escalationTriggered ? ["crisis_escalation"] : [];
+      return { sensitivityFlags: flags, primaryState, selectedResponseMode, escalationTriggered, signals };
+    } catch {
+      const safeSignals: SpiritualStateSignals = {
+        emotionalIntensity: 0,
+        containsDoubt: false,
+        referencesHardship: false,
+        crisisSignalDetected: false,
+        doctrinalQuery: false,
+        mentionedLeader: false,
+        classificationConfidence: 0,
+      };
+      return {
+        sensitivityFlags: [] as string[],
+        primaryState: "neutral" as SpiritualPrimaryState,
+        selectedResponseMode: "pastoral" as ResponseMode,
+        escalationTriggered: false,
+        signals: safeSignals,
+      };
+    }
+  }
+}
+
+export const spiritualStateEngine = new SpiritualStateEngineClass();

@@ -1556,20 +1556,17 @@ struct BereanAIAssistantView: View {
         )
         .padding(.horizontal, 12)
         .padding(.bottom, 4)
-        .confirmationDialog(
-            "Clear Session Memory?",
-            isPresented: $showClearSessionConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Clear Session", role: .destructive) {
+        .amenAlert(isPresented: $showClearSessionConfirm, config: LiquidGlassAlertConfig(
+            title: "Clear Session Memory?",
+            message: "Berean will lose context from this conversation.",
+            icon: "brain.head.profile",
+            primaryButton: LiquidGlassAlertButton("Clear Session", tone: .destructive) {
                 withAnimation(.easeOut(duration: 0.25)) {
                     viewModel.clearMessages()
                 }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Berean will forget this conversation. Saved conversations are not affected.")
-        }
+            },
+            secondaryButton: .cancel()
+        ))
         .transition(.asymmetric(
             insertion: .move(edge: .bottom).combined(with: .opacity),
             removal: .move(edge: .bottom).combined(with: .opacity)
@@ -4969,24 +4966,38 @@ class BereanViewModel: ObservableObject {
     // MARK: - Firestore Sync
 
     /// Firestore collection path: users/{uid}/bereanConversations
+    // Canonical path — backend CFs (ConversationRepository.ts) need separate migration to match
     private var firestoreCollection: CollectionReference? {
         guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        // Canonical path: users/{uid}/bereanConversations/{convId}/messages
+        // Canonical path — backend CFs (ConversationRepository.ts) need separate migration to match
         return Firestore.firestore().collection("users").document(uid).collection("bereanConversations")
     }
 
     /// Write all conversations to Firestore in the background. Each conversation is
     /// stored as its own document (id = conversation.id.uuidString) so individual
-    /// deletes/updates are cheap. Large message arrays are JSON-encoded as a string
-    /// field to avoid Firestore's 1 MiB document limit issues with deeply nested arrays.
+    /// deletes/updates are cheap. Individual messages are written to the canonical
+    /// `messages` subcollection (users/{uid}/bereanConversations/{id}/messages/{msgId})
+    /// so they are readable by BereanChatView / BereanConversationService using the same path.
     private func syncConversationsToFirestore() {
         guard let col = firestoreCollection else { return }
         // Snapshot on MainActor before handing off to detached task —
         // avoids "MainActor-isolated conformance used in nonisolated context" warnings.
         let toSync = Array(savedConversations.prefix(maxSavedConversations))
-        let payloads: [(id: String, title: String, translation: String, date: Date, isPinned: Bool, isStarred: Bool, messageCount: Int, payload: String)] = toSync.compactMap { conversation in
-            guard let encoded = try? JSONEncoder().encode(conversation),
-                  let json = String(data: encoded, encoding: .utf8) else { return nil }
-            return (
+
+        // Build value-type snapshot for Sendable crossing into detached task
+        struct ConvSnapshot {
+            let id: String
+            let title: String
+            let translation: String
+            let date: Date
+            let isPinned: Bool
+            let isStarred: Bool
+            let messageCount: Int
+            let messages: [(id: String, role: String, content: String, timestamp: Date, verseRefs: [String])]
+        }
+        let snapshots: [ConvSnapshot] = toSync.map { conversation in
+            ConvSnapshot(
                 id: conversation.id.uuidString,
                 title: conversation.title,
                 translation: conversation.translation,
@@ -4994,28 +5005,52 @@ class BereanViewModel: ObservableObject {
                 isPinned: conversation.isPinned,
                 isStarred: conversation.isStarred,
                 messageCount: conversation.messages.count,
-                payload: json
+                messages: conversation.messages.map { m in
+                    (id: m.id.uuidString, role: m.role.rawValue, content: m.content,
+                     timestamp: m.timestamp, verseRefs: m.verseReferences)
+                }
             )
         }
+
         Task.detached(priority: .background) {
-            for conversation in payloads {
-                let docRef = col.document(conversation.id)
+            for conv in snapshots {
+                let docRef = col.document(conv.id)
+                // Write conversation metadata — no embedded messages blob
                 try? await docRef.setData([
-                    "id":          conversation.id,
-                    "title":       conversation.title,
-                    "translation": conversation.translation,
-                    "date":        Timestamp(date: conversation.date),
-                    "isPinned":    conversation.isPinned,
-                    "isStarred":   conversation.isStarred,
-                    "messageCount": conversation.messageCount,
-                    "payload":     conversation.payload   // full JSON blob for restoration
+                    "id":           conv.id,
+                    "title":        conv.title,
+                    "translation":  conv.translation,
+                    "date":         Timestamp(date: conv.date),
+                    "updatedAt":    Timestamp(date: conv.date),
+                    "isPinned":     conv.isPinned,
+                    "isStarred":    conv.isStarred,
+                    "messageCount": conv.messageCount
                 ], merge: true)
+                // Write each message to the canonical messages subcollection
+                // Canonical path: users/{uid}/bereanConversations/{convId}/messages/{msgId}
+                // Canonical path — backend CFs (ConversationRepository.ts) need separate migration to match
+                let msgsRef = docRef.collection("messages")
+                for msg in conv.messages {
+                    var msgData: [String: Any] = [
+                        "id":             msg.id,
+                        "conversationId": conv.id,
+                        "role":           msg.role,
+                        "content":        msg.content,
+                        "createdAt":      Timestamp(date: msg.timestamp)
+                    ]
+                    if !msg.verseRefs.isEmpty {
+                        msgData["scriptureRefs"] = msg.verseRefs
+                    }
+                    try? await msgsRef.document(msg.id).setData(msgData, merge: true)
+                }
             }
-            dlog("☁️ Synced \(toSync.count) conversations to Firestore")
+            dlog("☁️ Synced \(snapshots.count) conversations to Firestore (messages subcollection)")
         }
     }
 
     /// Fetch conversations from Firestore and merge them with local data.
+    /// Reads conversation metadata from the document and messages from the canonical
+    /// `messages` subcollection (users/{uid}/bereanConversations/{convId}/messages).
     /// Cloud wins for any conversation not present locally.
     private func fetchConversationsFromFirestore() {
         guard let col = firestoreCollection else { return }
@@ -5025,14 +5060,56 @@ class BereanViewModel: ObservableObject {
                 .limit(to: 50)
                 .getDocuments() else { return }
 
-            let payloads: [String] = snapshot.documents.compactMap { doc in
-                doc.data()["payload"] as? String
-            }
-            let cloudConversations = await MainActor.run { () -> [SavedConversation] in
-                payloads.compactMap { payload in
-                    guard let data = payload.data(using: .utf8) else { return nil }
-                    return try? JSONDecoder().decode(SavedConversation.self, from: data)
+            var cloudConversations: [SavedConversation] = []
+            for doc in snapshot.documents {
+                let data = doc.data()
+                guard let idStr = data["id"] as? String,
+                      let id = UUID(uuidString: idStr),
+                      let title = data["title"] as? String,
+                      let date = (data["date"] as? Timestamp)?.dateValue()
+                else { continue }
+
+                let translation = data["translation"] as? String ?? "ESV"
+                let isPinned = data["isPinned"] as? Bool ?? false
+                let isStarred = data["isStarred"] as? Bool ?? false
+
+                // Read messages from canonical subcollection
+                // Canonical path: users/{uid}/bereanConversations/{convId}/messages
+                // Canonical path — backend CFs (ConversationRepository.ts) need separate migration to match
+                var messages: [BereanMessage] = []
+                if let msgsSnap = try? await doc.reference.collection("messages")
+                    .order(by: "createdAt", descending: false)
+                    .getDocuments() {
+                    messages = msgsSnap.documents.compactMap { msgDoc -> BereanMessage? in
+                        let md = msgDoc.data()
+                        guard let msgIdStr = md["id"] as? String,
+                              let msgId = UUID(uuidString: msgIdStr),
+                              let roleStr = md["role"] as? String,
+                              let role = BereanMessage.MessageRole(rawValue: roleStr),
+                              let content = md["content"] as? String
+                        else { return nil }
+                        let ts = (md["createdAt"] as? Timestamp)?.dateValue() ?? date
+                        let verseRefs = md["scriptureRefs"] as? [String] ?? []
+                        return BereanMessage(
+                            id: msgId,
+                            content: content,
+                            role: role,
+                            timestamp: ts,
+                            verseReferences: verseRefs,
+                            isBookmarked: false
+                        )
+                    }
                 }
+
+                cloudConversations.append(SavedConversation(
+                    id: id,
+                    title: title,
+                    messages: messages,
+                    date: date,
+                    translation: translation,
+                    isPinned: isPinned,
+                    isStarred: isStarred
+                ))
             }
 
             // Snapshot into a `let` before crossing into MainActor to avoid
@@ -5050,7 +5127,7 @@ class BereanViewModel: ObservableObject {
                         return $0.date > $1.date
                     }
                     self.saveConversationsToUserDefaults()
-                    dlog("☁️ Merged \(newFromCloud.count) conversations from Firestore")
+                    dlog("☁️ Merged \(newFromCloud.count) conversations from Firestore (messages subcollection)")
                 }
             }
         }

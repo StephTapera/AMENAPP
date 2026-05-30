@@ -61,12 +61,12 @@ class AlgoliaSearchService: ObservableObject {
     private func setupAlgoliaClient() {
         // Get credentials from AlgoliaConfig
         let appID = AlgoliaConfig.applicationID
-        let apiKey = AlgoliaConfig.searchAPIKey
+        let apiKey = AlgoliaConfig.effectiveSearchAPIKey
         
         // Validate credentials
         guard !appID.isEmpty && appID != "YOUR_APP_ID",
               !apiKey.isEmpty && apiKey != "YOUR_SEARCH_KEY" else {
-            dlog("❌ Algolia credentials not configured in AlgoliaConfig.swift")
+            dlog("⚠️ Algolia credentials not configured — search unavailable (set AlgoliaAppID / AlgoliaSearchKey in Config.xcconfig)")
             return
         }
         
@@ -196,6 +196,9 @@ class AlgoliaSearchService: ObservableObject {
         
         do {
             // Build search request using SearchForHits
+            // PRIVACY FIX 2026-05-28: retrieve isPrivate so we can filter it client-side
+            // as defense-in-depth (Algolia index may contain stale records from before
+            // AlgoliaSyncService started excluding private accounts on sync).
             let searchForHits = SearchForHits(
                 query: query,
                 attributesToRetrieve: [
@@ -205,33 +208,42 @@ class AlgoliaSearchService: ObservableObject {
                     "followersCount",
                     "followingCount",
                     "profileImageURL",
-                    "isVerified"
+                    "isVerified",
+                    "isPrivate"     // needed for client-side privacy filter
                 ],
                 hitsPerPage: limit,
                 indexName: usersIndexName,
                 type: .default
             )
-            
+
             // Wrap in SearchQuery enum
             let searchQuery = SearchQuery.searchForHits(searchForHits)
-            
+
             // Perform search
             let responses: [SearchResponse<Hit>] = try await client.searchForHitsWithResponse(
                 searchMethodParams: SearchMethodParams(requests: [searchQuery])
             )
-            
+
             // Parse results
             guard let searchResponse = responses.first else {
                 return []
             }
-            
+
             let users = searchResponse.hits.compactMap { hit -> AlgoliaUser? in
                 let props = decodeAdditionalProperties(hit.additionalProperties)
                 guard let displayName = props["displayName"] as? String,
                       let username = props["username"] as? String else {
                     return nil
                 }
-                
+
+                // PRIVACY FIX 2026-05-28: suppress private accounts from search results.
+                // Private accounts opted out of public discovery — they must not appear
+                // in search results for users who are not already approved followers.
+                // (Follower-based re-inclusion is handled at the call site in DiscoveryService
+                // and PeopleDiscoveryView which have access to the current user's following set.)
+                let isPrivate = props["isPrivate"] as? Bool ?? false
+                guard !isPrivate else { return nil }
+
                 return AlgoliaUser(
                     objectID: hit.objectID,
                     displayName: displayName,
@@ -243,7 +255,7 @@ class AlgoliaSearchService: ObservableObject {
                     isVerified: props["isVerified"] as? Bool ?? false
                 )
             }
-            
+
             dlog("✅ Algolia found \(users.count) users for '\(query)'")
             userSearchCache[cacheKey] = CacheEntry(value: users, expiry: Date().addingTimeInterval(cacheTTL))
             return users

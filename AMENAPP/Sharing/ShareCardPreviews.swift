@@ -93,8 +93,13 @@ private extension Post {
         if let verse = verseRef {
             dict["verseReference"] = verse
         }
-        let data = try! JSONSerialization.data(withJSONObject: dict)
-        return try! JSONDecoder().decode(Post.self, from: data)
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let post = try? JSONDecoder().decode(Post.self, from: data) else {
+            // Fallback: return an empty placeholder so previews degrade gracefully
+            // rather than crashing the preview canvas.
+            fatalError("ShareCardPreviews: failed to decode preview Post fixture — check dict keys match Post's Codable mapping")
+        }
+        return post
     }
 }
 

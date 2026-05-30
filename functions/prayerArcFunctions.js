@@ -115,7 +115,7 @@ exports.onTestimonyLinked = onDocumentWritten(
 
     // Schedule push notifications — sent 30 min after testimony goes live
     const delayMs = 30 * 60 * 1000;
-    await new Promise((resolve) => setTimeout(resolve, Math.min(delayMs, 0)));
+    await new Promise((resolve) => setTimeout(resolve, Math.max(delayMs, 0)));
     // Note: for actual 30-min delay in production, use Cloud Tasks (HTTP enqueue).
     // Here we fire immediately so the function doesn't time out; the Cloud Task
     // pattern should be wired in a production deploy.

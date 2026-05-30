@@ -42,7 +42,8 @@
  */
 
 import * as admin from "firebase-admin";
-import Stripe from "stripe";
+import Stripe = require("stripe");
+import type { StripeCustomer } from "../stripeHelper";
 
 export type BackfillAction =
     | "create"
@@ -200,11 +201,11 @@ async function main(): Promise<void> {
         });
     }
     const db = admin.firestore();
-    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+    const stripe = new Stripe(stripeKey, { apiVersion: "2026-05-27.dahlia" });
 
-    async function* customerIterator(): AsyncGenerator<Stripe.Customer> {
+    async function* customerIterator(): AsyncGenerator<StripeCustomer> {
         for await (const customer of stripe.customers.list({ limit: 100 })) {
-            yield customer;
+            yield customer as unknown as StripeCustomer;
         }
     }
 

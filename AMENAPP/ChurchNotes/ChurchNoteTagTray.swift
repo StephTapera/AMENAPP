@@ -81,7 +81,7 @@ struct ChurchNoteTagTray: View {
             if isAddingTag {
                 HStack(spacing: 6) {
                     TextField("Add tag…", text: $newTagText)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13, weight: .regular))
                         .textFieldStyle(.plain)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -102,7 +102,7 @@ struct ChurchNoteTagTray: View {
                         addCustomTag()
                     } label: {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16, weight: .regular))
                             .foregroundStyle(.primary.opacity(0.5))
                     }
                     .buttonStyle(.plain)
@@ -112,7 +112,7 @@ struct ChurchNoteTagTray: View {
                         newTagText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16, weight: .regular))
                             .foregroundStyle(.primary.opacity(0.3))
                     }
                     .buttonStyle(.plain)
@@ -126,9 +126,9 @@ struct ChurchNoteTagTray: View {
                 } label: {
                     HStack(spacing: 3) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                         Text("Tag")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(.primary.opacity(0.45))
                     .padding(.horizontal, 10)
@@ -139,6 +139,7 @@ struct ChurchNoteTagTray: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Add custom tag")
             }
         }
     }
@@ -148,17 +149,18 @@ struct ChurchNoteTagTray: View {
     private func appliedChip(_ tag: String) -> some View {
         HStack(spacing: 4) {
             Text(tag)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
             Button {
                 withAnimation(CNToken.Anim.chipInsert) {
                     appliedTags.removeAll { $0 == tag }
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.systemScaled(8, weight: .bold))
                     .foregroundStyle(.primary.opacity(0.4))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(tag) tag")
         }
         .foregroundStyle(.primary.opacity(0.75))
         .padding(.horizontal, 10)
@@ -172,6 +174,8 @@ struct ChurchNoteTagTray: View {
                 .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.75)
         )
         .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(tag) tag")
     }
 
     private func suggestedChip(_ tag: String, isContentMatch: Bool) -> some View {
@@ -182,9 +186,9 @@ struct ChurchNoteTagTray: View {
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: "plus")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.systemScaled(9, weight: .medium))
                 Text(tag)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
             }
             .foregroundStyle(.primary.opacity(isContentMatch ? 0.55 : 0.35))
             .padding(.horizontal, 9)
@@ -198,6 +202,7 @@ struct ChurchNoteTagTray: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Add tag: \(tag)")
         .transition(.opacity.combined(with: .scale(scale: 0.9)))
     }
 

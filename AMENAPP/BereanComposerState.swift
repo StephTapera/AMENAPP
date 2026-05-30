@@ -73,7 +73,7 @@ struct BereanLiquidAction: Identifiable, Equatable {
     let color: Color
     let action: ActionType
     
-    enum ActionType: Equatable {
+    enum ActionType: String, Equatable {
         case attachFile
         case camera
         case voiceNote
@@ -89,6 +89,8 @@ struct BereanLiquidAction: Identifiable, Equatable {
         case addFile
         case createNote
         case saveToChurchNotes
+
+        var analyticsName: String { rawValue }
     }
 }
 
@@ -96,6 +98,43 @@ struct BereanComposerSubmissionContext: Equatable {
     var attachments: [String] = []
     var selectedTools: [String] = []
     var instruction: String? = nil
+
+    // Non-Equatable payload; excluded from synthesized Equatable.
+    var callData: [String: Any] {
+        var d: [String: Any] = ["tools": selectedTools, "attachments": attachments]
+        if let ins = instruction { d["instruction"] = ins }
+        return d
+    }
+
+    static func == (lhs: BereanComposerSubmissionContext, rhs: BereanComposerSubmissionContext) -> Bool {
+        lhs.attachments == rhs.attachments &&
+        lhs.selectedTools == rhs.selectedTools &&
+        lhs.instruction == rhs.instruction
+    }
+}
+
+// MARK: - Composer Attachment
+
+struct BereanComposerAttachment: Identifiable, Equatable {
+    let id = UUID()
+    var displayName: String
+    var type: String
+    var promptPrefix: String?
+    var contextText: String?
+    var contentType: String?
+    var byteCount: Int?
+    var storagePath: String?
+    var downloadURL: String?
+}
+
+// MARK: - AI Settings Store
+
+enum BereanAISettingsStore {
+    static var personalizationEnabled: Bool { UserDefaults.standard.bool(forKey: "berean.personalizationEnabled") }
+    static var conciseModeEnabled: Bool { UserDefaults.standard.bool(forKey: "berean.conciseModeEnabled") }
+    static var scriptureSourcesRequired: Bool { UserDefaults.standard.bool(forKey: "berean.scriptureSourcesRequired") }
+    static var focusTopics: [String] { [] }
+    static var voiceInputEnabled: Bool { true }
 }
 
 // MARK: - Suggestion Chip
@@ -232,5 +271,33 @@ class BereanComposerViewModel: ObservableObject {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
             state = newState
         }
+    }
+
+    // MARK: - Attachment + submission context
+
+    private var pendingAttachments: [BereanComposerAttachment] = []
+    private var pendingTools: [String] = []
+
+    func attach(_ attachment: BereanComposerAttachment) {
+        pendingAttachments.append(attachment)
+        attachedFile = attachment.displayName
+        showStatus(.fileAttached(attachment.displayName))
+    }
+
+    func recordTool(_ action: BereanLiquidAction.ActionType) {
+        pendingTools.append(action.rawValue)
+    }
+
+    func submissionContext(mode: BereanPersonalityMode) -> BereanComposerSubmissionContext? {
+        guard !pendingAttachments.isEmpty || !pendingTools.isEmpty else { return nil }
+        return BereanComposerSubmissionContext(
+            attachments: pendingAttachments.map { $0.displayName },
+            selectedTools: pendingTools
+        )
+    }
+
+    func clearSubmissionContext() {
+        pendingAttachments = []
+        pendingTools = []
     }
 }

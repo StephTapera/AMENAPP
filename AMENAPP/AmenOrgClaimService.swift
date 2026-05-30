@@ -70,7 +70,7 @@ final class AmenOrgClaimService: ObservableObject {
 
     private init() {
         let appID = AlgoliaConfig.applicationID
-        let searchKey = AlgoliaConfig.searchAPIKey
+        let searchKey = AlgoliaConfig.effectiveSearchAPIKey
         guard !appID.isEmpty, !searchKey.isEmpty else {
             dlog("AmenOrgClaimService: Algolia keys not configured — search will be unavailable.")
             return
@@ -121,8 +121,8 @@ final class AmenOrgClaimService: ObservableObject {
 
             // Decode each hit's additionalProperties → AmenOrganizationProfile
             let decoded: [AmenOrganizationProfile] = first.hits.compactMap { hit in
-                guard let props = hit.additionalProperties,
-                      let data = try? JSONSerialization.data(withJSONObject: props),
+                let props = hit.additionalProperties
+                guard let data = try? JSONSerialization.data(withJSONObject: props),
                       let profile = try? JSONDecoder().decode(AmenOrganizationProfile.self, from: data)
                 else { return nil }
                 return profile

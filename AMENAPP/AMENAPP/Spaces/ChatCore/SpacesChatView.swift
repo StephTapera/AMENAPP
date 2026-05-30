@@ -208,7 +208,7 @@ struct SpacesChatView: View {
     @ViewBuilder
     private var errorBanner: some View {
         if let error = viewModel.error {
-            Text(error.localizedDescription)
+            Text(error.userFriendlyMessage)
                 .font(.caption)
                 .foregroundStyle(AmenTheme.Colors.statusError)
                 .padding(.horizontal, 16)

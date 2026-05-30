@@ -326,7 +326,9 @@ struct SelahVerseExplorerView: View {
         Task {
             do {
                 expansion = try await selahService.expandVerse(reference: reference)
-            } catch {}
+            } catch {
+                print("[ERROR] SelahVerseExplorerView.loadData: failed to expand verse \(reference) — \(error)")
+            }
             isLoadingExpansion = false
         }
 

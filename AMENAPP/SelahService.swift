@@ -87,7 +87,9 @@ final class SelahService: ObservableObject {
                     date: (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
                 )
             }
-        } catch {}
+        } catch {
+            print("[ERROR] SelahService.buildSourceBundle: failed to fetch church notes — \(error)")
+        }
 
         // Fetch recent Berean sessions
         do {
@@ -104,7 +106,9 @@ final class SelahService: ObservableObject {
                     date: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
                 )
             }
-        } catch {}
+        } catch {
+            print("[ERROR] SelahService.buildSourceBundle: failed to fetch Selah sessions — \(error)")
+        }
 
         return bundle
     }
@@ -313,7 +317,9 @@ final class SelahService: ObservableObject {
                     snippet: parts.count > 2 ? parts[2] : nil
                 ))
             }
-        } catch {}
+        } catch {
+            print("[ERROR] SelahService.fetchCrossReferences: AI cross-reference generation failed — \(error)")
+        }
 
         return refs
     }

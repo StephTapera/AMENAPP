@@ -148,7 +148,7 @@ struct AnsweredPrayerComposerView: View {
             "amenCount": 0,
             "commentCount": 0,
             "repostCount": 0,
-            "visibility": "Everyone"
+            "visibility": Post.PostVisibility.everyone.rawValue
         ]
 
         do {

@@ -84,7 +84,14 @@ async function checkCsamHash(storageUri: string): Promise<boolean> {
   const lookupUrl = process.env.CSAM_HASH_LOOKUP_URL;
   const lookupToken = process.env.CSAM_HASH_LOOKUP_TOKEN;
   if (!lookupUrl || !lookupToken) {
-    logger.warn("[ImageModerationService] CSAM hash lookup not configured.");
+    // SECURITY (M-01): CSAM hash matching is a child-safety control — silently
+    // skipping it creates an undetected gap. Log at CRITICAL severity so the
+    // missing secret surfaces in monitoring/alerting immediately.
+    // ACTION REQUIRED: set CSAM_HASH_LOOKUP_URL and CSAM_HASH_LOOKUP_TOKEN in
+    // Firebase Secret Manager and add them to the function's secrets:[...] array.
+    logger.error("[ImageModerationService] CRITICAL: CSAM hash lookup secrets not configured. " +
+      "CSAM hash-matching is DISABLED. Configure CSAM_HASH_LOOKUP_URL and " +
+      "CSAM_HASH_LOOKUP_TOKEN in Firebase Secret Manager immediately.");
     return false;
   }
 
@@ -121,11 +128,11 @@ async function runSafeSearch(storageUri: string): Promise<SafeSearchScores | nul
     const ss = result.safeSearchAnnotation;
     if (!ss) return null;
     return {
-      adult: ss.adult ?? "UNKNOWN",
-      racy: ss.racy ?? "UNKNOWN",
-      violence: ss.violence ?? "UNKNOWN",
-      spoof: ss.spoof ?? "UNKNOWN",
-      medical: ss.medical ?? "UNKNOWN",
+      adult: String(ss.adult ?? "UNKNOWN"),
+      racy: String(ss.racy ?? "UNKNOWN"),
+      violence: String(ss.violence ?? "UNKNOWN"),
+      spoof: String(ss.spoof ?? "UNKNOWN"),
+      medical: String(ss.medical ?? "UNKNOWN"),
     };
   } catch (err) {
     logger.error("[ImageModerationService] Cloud Vision SafeSearch failed.", err);

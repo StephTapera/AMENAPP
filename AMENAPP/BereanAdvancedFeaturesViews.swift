@@ -149,11 +149,11 @@ struct StudyPlanGeneratorView: View {
                                             .fill(Color.red.opacity(0.1))
                                     )
                             }
-                        } else {
+                        } else if let studyPlan = studyPlan {
                             // Display study plan
-                            StudyPlanDisplay(plan: studyPlan!) {
+                            StudyPlanDisplay(plan: studyPlan) {
                                 withAnimation(.easeOut(duration: 0.3)) {
-                                    studyPlan = nil
+                                    self.studyPlan = nil
                                     topic = ""
                                     errorMessage = nil
                                 }
@@ -451,13 +451,13 @@ struct ScriptureAnalyzerView: View {
                                             .fill(Color.red.opacity(0.1))
                                     )
                             }
-                        } else {
+                        } else if let analysis = analysis {
                             // Display analysis
                             VStack(alignment: .leading, spacing: 16) {
                                 Text(reference)
                                     .font(.systemScaled(20, weight: .semibold))
                                     .foregroundStyle(Color(white: 0.2))
-                                
+
                                 Text(analysisType.rawValue)
                                     .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(Color.blue)
@@ -467,15 +467,15 @@ struct ScriptureAnalyzerView: View {
                                         Capsule()
                                             .fill(Color.blue.opacity(0.1))
                                     )
-                                
-                                Text(analysis!)
+
+                                Text(analysis)
                                     .font(.systemScaled(15))
                                     .foregroundStyle(Color(white: 0.3))
                                     .lineSpacing(6)
                                 
                                 Button {
                                     withAnimation(.easeOut(duration: 0.3)) {
-                                        analysis = nil
+                                        self.analysis = nil
                                         reference = ""
                                         errorMessage = nil
                                     }

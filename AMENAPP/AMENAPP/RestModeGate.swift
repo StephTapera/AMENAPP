@@ -26,6 +26,7 @@ enum AmenRoute: String, CaseIterable {
     case resources
     case gatherings
     case spaces
+    case communityNotes
 
     var policyKey: String {
         switch self {
@@ -49,6 +50,7 @@ enum AmenRoute: String, CaseIterable {
         case .resources:        return "resources"
         case .gatherings:       return "gatherings"
         case .spaces:           return "spaces"
+        case .communityNotes:   return "community_notes"
         }
     }
 }

@@ -35,41 +35,62 @@ enum ChurchNoteTemplate: String, CaseIterable {
     }
 }
 
-// MARK: - TemplateCard (private subview)
+// MARK: - TemplatePill (private subview)
 
-private struct ChurchNoteTemplateCard: View {
+private struct TemplatePill: View {
     let template: ChurchNoteTemplate
+    let isSelected: Bool
     let action: () -> Void
+
+    @GestureState private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let gold = AmenTheme.Colors.amenGold
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(spacing: 6) {
                 Image(systemName: template.icon)
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(isSelected ? gold : Color.secondary)
 
                 Text(template.rawValue)
                     .font(AMENFont.semiBold(14))
-                    .foregroundStyle(.primary)
-
-                Text(template.description)
-                    .font(AMENFont.regular(12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.primary)
+                    .multilineTextAlignment(.center)
                     .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .padding(.horizontal, 8)
             .background {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
+                    .fill(isSelected ? gold.opacity(0.15) : Color.primary.opacity(0.06))
+                    .overlay {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(Color.black.opacity(0.07), lineWidth: 0.5)
-                    )
+                            .strokeBorder(
+                                isSelected ? gold.opacity(0.5) : Color.primary.opacity(0.12),
+                                lineWidth: isSelected ? 1 : 0.5
+                            )
+                    }
             }
+            .amenGlassEffect(isSelected ? gold.opacity(0.15) : .clear, cornerRadius: 14)
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .opacity(isPressed ? 0.88 : 1.0)
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.22, dampingFraction: 0.82),
+                value: isPressed
+            )
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.22, dampingFraction: 0.82),
+                value: isSelected
+            )
         }
         .buttonStyle(.plain)
+        .gesture(DragGesture(minimumDistance: 0).updating($isPressed) { _, s, _ in s = true })
+        .accessibilityLabel(template.rawValue)
+        .accessibilityHint(template.description)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -83,6 +104,9 @@ struct ChurchNotesQuickStartView: View {
 
     @Environment(\.dismiss) var dismiss
     var onStartNote: (ChurchNoteTemplate) -> Void
+
+    // MARK: - Template highlight (drives description subtitle below grid)
+    @State private var highlightedTemplate: ChurchNoteTemplate = .blank
 
     // MARK: - Reminder State
     @State private var reminderEnabled = false
@@ -125,13 +149,32 @@ struct ChurchNotesQuickStartView: View {
                     }
 
                     // Template grid
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(ChurchNoteTemplate.allCases, id: \.rawValue) { template in
-                            ChurchNoteTemplateCard(template: template) {
-                                onStartNote(template)
-                                dismiss()
+                    VStack(spacing: 10) {
+                        LazyVGrid(columns: columns, spacing: 10) {
+                            ForEach(ChurchNoteTemplate.allCases, id: \.rawValue) { template in
+                                TemplatePill(
+                                    template: template,
+                                    isSelected: highlightedTemplate == template
+                                ) {
+                                    withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
+                                        highlightedTemplate = template
+                                    }
+                                    onStartNote(template)
+                                    dismiss()
+                                }
                             }
                         }
+
+                        // Description of the currently-highlighted template
+                        Text(highlightedTemplate.description)
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(Color.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 4)
+                            .padding(.top, 2)
+                            .animation(.spring(response: 0.22, dampingFraction: 0.82), value: highlightedTemplate)
+                            .transition(.opacity)
                     }
                     .padding(.horizontal, 20)
 
@@ -152,7 +195,7 @@ struct ChurchNotesQuickStartView: View {
                 .padding(.bottom, 24)
             }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
     }

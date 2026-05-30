@@ -75,12 +75,15 @@ final class BereanConversationService: ObservableObject {
     private init() {}
 
     // MARK: - Collection References
+    // Canonical path — backend CFs (ConversationRepository.ts) need separate migration to match
 
     private func conversationsRef(uid: String) -> CollectionReference {
+        // Canonical path: users/{uid}/bereanConversations
         db.collection("users").document(uid).collection("bereanConversations")
     }
 
     private func messagesRef(uid: String, convId: String) -> CollectionReference {
+        // Canonical path: users/{uid}/bereanConversations/{convId}/messages
         conversationsRef(uid: uid).document(convId).collection("messages")
     }
 

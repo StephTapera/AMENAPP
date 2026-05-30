@@ -90,6 +90,8 @@ struct CreatePostView: View {
     @State private var smartAttachmentResolutionTask: Task<Void, Never>?
     @State private var useSmartAttachmentAsSoundtrack = false
     @State private var showingMediaAttachmentPicker = false
+    @State private var selectedMusicAttachment: AmenMediaAttachment?
+    @State private var showMusicAttachmentPicker = false
     @ObservedObject private var insightEngine = ComposerInsightEngine.shared // PERF: singleton → @ObservedObject
     @State private var showMentionSuggestions = false
     @State private var mentionSuggestions: [AlgoliaUser] = []
@@ -697,7 +699,7 @@ struct CreatePostView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(selectedTopicTag.isEmpty ? "Select topic tag" : "Topic: \(selectedTopicTag)")
-                .accessibilityHint("Double tap to choose a topic tag for your post")
+                .accessibilityHint("Choose a topic tag for your post")
                 .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
             }
 
@@ -748,7 +750,7 @@ struct CreatePostView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint("Double tap to add captions, alt text, and other media details")
+                .accessibilityHint("Add captions, alt text, and other media details")
             }
 
             if featureFlags.composerApprovedAudioEnabled, (!selectedImageData.isEmpty || cameraCoordinator.attachedWitnessMedia != nil) {
@@ -791,7 +793,7 @@ struct CreatePostView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(mediaMetadataDraft.audioAttachment == nil ? "Add music to post" : "Music added — tap to change")
-                .accessibilityHint("Double tap to attach worship music or approved audio to your post")
+                .accessibilityHint("Attach worship music or approved audio to your post")
                 .accessibilityIdentifier("composer_add_music_button")
             }
 
@@ -814,6 +816,28 @@ struct CreatePostView: View {
             ComposerLinkPreview(controller: linkController)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
             smartAttachmentComposerPreview
+
+            // Music attachment card (Threads-style)
+            if let music = selectedMusicAttachment {
+                AmenMusicCardContainer(attachment: music)
+                    .overlay(alignment: .topTrailing) {
+                        Button {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                                selectedMusicAttachment = nil
+                            }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(Color.secondary)
+                                .font(.system(size: 22))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(8)
+                        .accessibilityLabel("Remove music attachment")
+                    }
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    .padding(.top, 8)
+            }
 
             // Inline toolbar — simple gray icons
             threadsAttachmentBar
@@ -877,7 +901,7 @@ struct CreatePostView: View {
                                         .foregroundStyle(Color(.tertiaryLabel))
                                 }
                                 .buttonStyle(.plain)
-                                .accessibilityHint("Double tap to post as a thread with multiple connected posts")
+                                .accessibilityHint("Post as a thread with multiple connected posts")
 
                                 Spacer()
                             }
@@ -956,7 +980,7 @@ struct CreatePostView: View {
                                             .font(.systemScaled(15))
                                             .foregroundStyle(Color(.tertiaryLabel))
                                     }
-                                    .accessibilityHint("Double tap to add a new post to this thread")
+                                    .accessibilityHint("Add a new post to this thread")
                                     .buttonStyle(.plain)
                                     
                                     Spacer()
@@ -965,9 +989,14 @@ struct CreatePostView: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                             }
                         }
+
+                        Spacer(minLength: 40)
                     }
                 }
-                
+                .frame(maxHeight: .infinity)
+
+                Divider()
+                    .opacity(0.35)
                 // ── Bottom toolbar with schedule, tone check, etc. ────────────
                 threadsBottomBar
                     .padding(.bottom, 8)
@@ -1053,6 +1082,19 @@ struct CreatePostView: View {
         }
         .accessibilityIdentifier("create_post_view")
         .accessibilityIdentifier("screen.composer.post")
+        .overlay(alignment: .top) {
+            if showingDraftSavedNotice {
+                Text("Draft saved")
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: Capsule())
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.top, 8)
+            }
+        }
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8)), value: showingDraftSavedNotice)
     }
 
     // MARK: - Navigation Stack Content with Toolbar
@@ -1093,7 +1135,7 @@ struct CreatePostView: View {
                 .foregroundStyle(.primary)
             }
             .accessibilityLabel("Close")
-            .accessibilityHint("Double tap to go back and discard or save as draft")
+            .accessibilityHint("Go back and discard or save as draft")
             .amenAlert(isPresented: $showCancelConfirmation, config: LiquidGlassAlertConfig(
                 title: "Save your post?",
                 message: nil,
@@ -1130,7 +1172,7 @@ struct CreatePostView: View {
                     .foregroundStyle(.primary)
             }
             .accessibilityLabel("Saved drafts")
-            .accessibilityHint("Double tap to view and restore previously saved post drafts")
+            .accessibilityHint("View and restore previously saved post drafts")
         }
 
         // Liquid Glass Post Button
@@ -1141,13 +1183,21 @@ struct CreatePostView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    ZStack {
-                        Circle()
-                            .fill(canPost ? Color.black.opacity(0.08) : Color.black.opacity(0.35))
+                    // P1-13: Show spinner during any publish/upload phase to block double-taps.
+                    if publishState != .idle {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .scaleEffect(0.75)
                             .frame(width: 20, height: 20)
+                    } else {
+                        ZStack {
+                            Circle()
+                                .fill(canPost ? Color.black.opacity(0.08) : Color.black.opacity(0.35))
+                                .frame(width: 20, height: 20)
 
-                        Image(systemName: scheduledDate != nil ? "calendar" : "arrow.up")
-                            .font(.systemScaled(11, weight: .bold))
+                            Image(systemName: scheduledDate != nil ? "calendar" : "arrow.up")
+                                .font(.systemScaled(11, weight: .bold))
+                        }
                     }
 
                     Text(scheduledDate != nil ? "Schedule" : "Post")
@@ -1286,6 +1336,9 @@ struct CreatePostView: View {
                         showAmenAudioComposer = false
                     }
                 )
+            }
+            .sheet(isPresented: $showMusicAttachmentPicker) {
+                AmenMusicPickerSheet(selectedMusic: $selectedMusicAttachment)
             }
             .sheet(item: $activePerMediaCaptionEditor) { route in
                 if route.index < mediaMetadataDraft.frameCaptions.count {
@@ -1617,6 +1670,9 @@ struct CreatePostView: View {
 
             // Start auto-save timer (every 30 seconds)
             startAutoSaveTimer()
+
+            // Track composer open
+            AMENAnalyticsService.shared.track(.createHubOpened)
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
@@ -1689,7 +1745,8 @@ struct CreatePostView: View {
         let baseStack = NavigationStack {
             applySheetModifiers2(applySheetModifiers1(applyPhotoPickerModifiers(navigationStackContent)))
         }
-        
+        .background(Color(.systemBackground))
+
         return applyFinalModifiers(baseStack)
     }
     
@@ -1712,9 +1769,12 @@ struct CreatePostView: View {
 
         let hasWitnessMedia = cameraCoordinator.attachedWitnessMedia != nil
         let hasValidPoll = showingPoll && pollHasValidOptions
+        // P1-12: link-only and verse-only posts carry standalone content.
+        let hasLink = !linkURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasVerse = !attachedVerseReference.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
-        // Any of: text, witness capture, or valid poll qualifies as content
-        let hasContent = hasText || hasWitnessMedia || hasValidPoll || !selectedImageData.isEmpty
+        let hasContent = hasText || hasWitnessMedia || hasValidPoll
+            || !selectedImageData.isEmpty || hasLink || hasVerse
 
         return hasContent
     }
@@ -2329,16 +2389,16 @@ struct CreatePostView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(selectedCategory.displayName)
-                            .font(.systemScaled(13, weight: .regular))
-                            .foregroundStyle(.secondary)
+                            .font(.systemScaled(13, weight: .semibold))
+                            .foregroundStyle(selectedCategory.primaryColor.opacity(0.85))
                         Image(systemName: "chevron.down")
                             .font(.systemScaled(9, weight: .semibold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color.primary.opacity(0.35))
                     }
                 }
             }
             .accessibilityLabel("Post category: \(selectedCategory.displayName)")
-            .accessibilityHint("Double tap to choose a category for your post")
+            .accessibilityHint("Choose a category for your post")
 
             Spacer()
         }
@@ -2396,6 +2456,13 @@ struct CreatePostView: View {
             attachmentBarIcon("text.book.closed", recommended: recommended, accessibilityLabel: "Attach scripture") {
                 showingVersePickerSheet = true
             }
+            attachmentBarIcon(
+                "music.note",
+                recommended: recommended,
+                accessibilityLabel: selectedMusicAttachment == nil ? "Attach music" : "Change attached music"
+            ) {
+                showMusicAttachmentPicker = true
+            }
             attachmentBarIcon("link", recommended: recommended, accessibilityLabel: "Add link") {
                 showingLinkSheet = true
             }
@@ -2419,8 +2486,8 @@ struct CreatePostView: View {
         let isHighlighted = (icon == recommended)
         Button(action: action) {
             Image(systemName: icon)
-                .font(.systemScaled(18, weight: .regular))
-                .foregroundStyle(isHighlighted && isEnabled ? Color.primary.opacity(0.85) : .secondary.opacity(isEnabled ? 0.70 : 0.35))
+                .font(.systemScaled(19, weight: .regular))
+                .foregroundStyle(isHighlighted && isEnabled ? Color.primary.opacity(0.9) : Color.primary.opacity(isEnabled ? 0.45 : 0.20))
                 .scaleEffect(isHighlighted ? 1.08 : 1.0)
                 .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: isHighlighted)
         }
@@ -2455,7 +2522,7 @@ struct CreatePostView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Attach a Bible verse")
-                .accessibilityHint("Double tap to search and attach a scripture reference to your post")
+                .accessibilityHint("Search and attach a scripture reference to your post")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -2482,7 +2549,7 @@ struct CreatePostView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(allAlt ? "Alt text added for all images" : "Add alt text for images")
-                .accessibilityHint("Double tap to add descriptions for your images so screen reader users can understand them")
+                .accessibilityHint("Add descriptions for your images so screen reader users can understand them")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .transition(.opacity)
@@ -2517,19 +2584,23 @@ struct CreatePostView: View {
                 .accessibilityLabel("AI writing tools")
                 .accessibilityHint("Opens AI options for improving your post")
 
-                // Reply options
+                // Reply options — Liquid Glass capsule
                 Button {
                     showCommentControls = true
                 } label: {
                     Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
                         .font(.systemScaled(12, weight: .medium))
-                        .foregroundStyle(Color.primary.opacity(0.75))
+                        .foregroundStyle(Color.primary.opacity(0.80))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+                        .overlay(Capsule(style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Reply permission: \(commentPermission == .everyone ? "anyone" : commentPermission.rawValue)")
-                .accessibilityHint("Double tap to change who can reply to this post")
+                .accessibilityHint("Change who can reply to this post")
 
-                // Audience/Visibility selector
+                // Audience/Visibility selector — Liquid Glass capsule
                 Button {
                     showingAudienceSheet = true
                 } label: {
@@ -2539,11 +2610,15 @@ struct CreatePostView: View {
                         Text(postVisibility.displayName)
                             .font(.systemScaled(12, weight: .medium))
                     }
-                    .foregroundStyle(Color.primary.opacity(0.75))
+                    .foregroundStyle(Color.primary.opacity(0.80))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+                    .overlay(Capsule(style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Post visibility: \(postVisibility.displayName)")
-                .accessibilityHint("Double tap to change who can see this post")
+                .accessibilityHint("Change who can see this post")
 
                 Spacer()
 
@@ -2601,10 +2676,10 @@ struct CreatePostView: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            Rectangle()
                 .fill(.regularMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    Rectangle()
                         .strokeBorder(
                             LinearGradient(
                                 colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
@@ -2670,7 +2745,7 @@ struct CreatePostView: View {
                 topicTagButtonContent
             }
             .accessibilityLabel(selectedTopicTag.isEmpty ? "Add topic tag" : "Topic tag: \(selectedTopicTag)")
-            .accessibilityHint("Double tap to choose a topic tag")
+            .accessibilityHint("Choose a topic tag for your post")
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
@@ -2738,11 +2813,15 @@ struct CreatePostView: View {
         }
         .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
+                )
         )
     }
-    
+
     // MARK: - Audience Selector
 
     private var audienceSelectorView: some View {
@@ -4479,6 +4558,7 @@ struct CreatePostView: View {
         isUploadingImages = false
         uploadProgress = 0
         inFlightPostId = nil
+        uploadState = .idle  // P1-1: reset button state on failure/cancel
         if markDraftFailed {
             draftVM.markFailed()
         } else {
@@ -4681,6 +4761,7 @@ struct CreatePostView: View {
         allowComments: Bool,
         linkURL: String?
     ) {
+        activePublishTask?.cancel()
         activePublishTask = Task {
             // Safety net: if any unhandled throw escapes the do/catch below,
             // ensure isPublishing and inFlightPostId are always cleared.
@@ -4966,6 +5047,7 @@ struct CreatePostView: View {
                 newPost.witnessMedia = witnessMediaMetadata
                 // Attach AI usage label if tone check / rewrite was accepted
                 if let usage = pendingAIUsage { newPost.aiUsage = usage }
+                newPost.mediaAttachments = selectedMusicAttachment.map { [$0] }
                 newPost.publicationVisibility = hasAttachedMedia ? "private_pending" : "public"
 
                 dlog("   ✅ Post object created: \(postId)")
@@ -5022,6 +5104,12 @@ struct CreatePostView: View {
                     postData["canonicalUrl"] = smartAttachment.canonicalUrl
                     postData["safetyState"] = smartAttachment.safetyStatus.rawValue
                     postData["explicitContentState"] = smartAttachment.safetyStatus == .blocked ? "blocked" : "unknown"
+                }
+
+                // Music / media attachments (v2 media system)
+                if let music = selectedMusicAttachment,
+                   let encodedMedia = try? Firestore.Encoder().encode([music] as [AmenMediaAttachment]) {
+                    postData["mediaAttachments"] = encodedMedia
                 }
 
                 if let witnessMediaMetadata,
@@ -5100,6 +5188,22 @@ struct CreatePostView: View {
                 }
 
                 // ✅ Poll attachment
+                // P1-10: Check poll option text through content guard
+                if showingPoll && pollHasValidOptions {
+                    let allPollText = ([pollQuestion] + pollOptions).joined(separator: " ")
+                    let pollCheckResult = await ModerationIngestService.shared.check(
+                        text: allPollText,
+                        contentType: .post,
+                        authorId: Auth.auth().currentUser?.uid ?? ""
+                    )
+                    if case .block(let reason, _) = pollCheckResult {
+                        await MainActor.run {
+                            stopPublishAttempt()
+                            showError(title: "Poll Content Issue", message: reason)
+                        }
+                        return
+                    }
+                }
                 if showingPoll && pollHasValidOptions {
                     let filledOptions = pollOptions
                         .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -5185,6 +5289,26 @@ struct CreatePostView: View {
                     return
                 }
                 
+                // P0-1: Run crisis detection BEFORE writing to Firestore for prayer posts
+                if category == .prayer, !content.isEmpty {
+                    do {
+                        let crisisCheck = try await CrisisDetectionService.shared.detectCrisis(
+                            in: content,
+                            userId: Auth.auth().currentUser?.uid ?? ""
+                        )
+                        if crisisCheck.isCrisis {
+                            await MainActor.run {
+                                stopPublishAttempt()
+                                showCrisisResourcesAlert(crisisResult: crisisCheck)
+                            }
+                            return
+                        }
+                    } catch {
+                        // Crisis detection failure is non-blocking — proceed with publish
+                        dlog("⚠️ Pre-publish crisis check failed (non-blocking): \(error)")
+                    }
+                }
+
                 dlog("   📤 Saving to Firestore immediately...")
                 await MainActor.run {
                     if hasAttachedMedia {
@@ -5369,6 +5493,12 @@ struct CreatePostView: View {
                         withAnimation {
                             postPendingReview = true
                             showingSuccessNotice = true
+                            uploadState = .success  // P1-1: driven by publish pipeline, not fixed timer
+                        }
+                        scheduleDelayedAction(seconds: 0.9) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.88))) {
+                                uploadState = .idle
+                            }
                         }
                     }
 
@@ -5394,30 +5524,7 @@ struct CreatePostView: View {
                 dlog("🔍 Syncing to Algolia in background...")
                 syncPostToAlgolia(newPost)
                 
-                // ============================================================================
-                // ✅ CRISIS DETECTION (for prayer requests - in background after dismiss)
-                // ============================================================================
-                if category == .prayer {
-                    dlog("🚨 Running crisis detection for prayer request in background...")
-                    Task {
-                        do {
-                            let crisisResult = try await CrisisDetectionService.shared.detectCrisis(
-                                in: content,
-                                userId: currentUserId
-                            )
-                            
-                            // If crisis detected, show resources (post already created and dismissed)
-                            if crisisResult.isCrisis {
-                                await MainActor.run {
-                                    showCrisisResourcesAlert(crisisResult: crisisResult)
-                                }
-                                dlog("🚨 Crisis detected: \(crisisResult.crisisTypes.map { $0.displayName })")
-                            }
-                        } catch {
-                            dlog("⚠️ Crisis detection failed (non-critical): \(error)")
-                        }
-                    }
-                }
+                // Crisis detection now runs pre-publish (see above)
             } catch let error as NSError {
                 // ⚠️ Post creation failed in background - user already saw success
                 dlog("❌ Failed to create post in background (NSError)")
@@ -5536,18 +5643,8 @@ struct CreatePostView: View {
             withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) {
                 uploadState = .uploading(progress: 0.05)
             }
-            // Kick off real publish pipeline
             await MainActor.run { publishPost() }
-            // Visual progress animation — runs in parallel with actual upload
-            let steps: [CGFloat] = [0.12, 0.24, 0.37, 0.51, 0.68, 0.84, 1.0]
-            for v in steps {
-                try? await Task.sleep(for: .milliseconds(140))
-                withAnimation(.linear(duration: 0.12)) { uploadState = .uploading(progress: v) }
-            }
-            try? await Task.sleep(for: .milliseconds(180))
-            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.84))) { uploadState = .success }
-            try? await Task.sleep(for: .milliseconds(900))
-            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.88))) { uploadState = .idle }
+            // Success/failure states are set by the publish pipeline itself
         }
     }
 
@@ -6094,6 +6191,7 @@ struct CreatePostView: View {
             return
         }
 
+        activePublishTask?.cancel()
         activePublishTask = Task {
             defer {
                 Task { @MainActor in
@@ -6273,6 +6371,7 @@ struct CreatePostView: View {
         let scheduledPostId = ensurePendingPublishSession()
         let scheduledClientRequestId = uploadCapsuleClientRequestId ?? scheduledPostId
         let scheduledIdempotencyKey = uploadCapsuleIdempotencyKey ?? scheduledPostId
+        activePublishTask?.cancel()
         activePublishTask = Task {
             do {
                 // Upload images first if any
@@ -6551,6 +6650,8 @@ struct CreatePostView: View {
     
     /// Check for draft recovery on appear
     private func checkForDraftRecovery() {
+        // P1-14: Don't offer recovery if the user has already started typing
+        guard postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         // Prefer SwiftData via ViewModel — restores phase state + returns content draft
         if let sd = draftVM.restoreIfAvailable() {
             let draft = Draft(
@@ -9358,6 +9459,7 @@ private extension Post.PostVisibility {
         case .everyone: return "Visible to everyone on AMEN"
         case .followers: return "Only people who follow you"
         case .community: return "Only verified church community members"
+        case .underReview: return "This post is under review"
         }
     }
 }

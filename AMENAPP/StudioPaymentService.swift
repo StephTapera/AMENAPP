@@ -40,6 +40,10 @@ class StudioPaymentService: ObservableObject {
     /// Create a Stripe Connected Account for the creator.
     /// Returns an onboarding URL to complete identity verification.
     func createConnectedAccount() async throws -> URL {
+        // B-24: Gate — stripeCreateConnectedAccount CF is not yet deployed.
+        guard AMENFeatureFlags.shared.paymentsEnabled else {
+            throw PaymentError.accountNotActive
+        }
         guard Auth.auth().currentUser?.uid != nil else {
             throw PaymentError.notAuthenticated
         }
@@ -64,6 +68,8 @@ class StudioPaymentService: ObservableObject {
 
     /// Check the status of the creator's connected account.
     func refreshAccountStatus() async {
+        // B-24: Gate — stripeGetAccountStatus CF is not yet deployed.
+        guard AMENFeatureFlags.shared.paymentsEnabled else { return }
         guard Auth.auth().currentUser?.uid != nil else { return }
 
         do {
@@ -96,6 +102,10 @@ class StudioPaymentService: ObservableObject {
         currency: String = "usd",
         description: String
     ) async throws -> String {
+        // B-24: Gate — stripeCreatePaymentIntent CF is not yet deployed.
+        guard AMENFeatureFlags.shared.paymentsEnabled else {
+            throw PaymentError.accountNotActive
+        }
         isLoading = true
         defer { isLoading = false }
 
@@ -121,6 +131,10 @@ class StudioPaymentService: ObservableObject {
 
     /// Request a payout of available balance to the creator's bank account.
     func requestPayout(amount: Int) async throws {
+        // B-24: Gate — stripeRequestPayout CF is not yet deployed.
+        guard AMENFeatureFlags.shared.paymentsEnabled else {
+            throw PaymentError.accountNotActive
+        }
         isLoading = true
         defer { isLoading = false }
 

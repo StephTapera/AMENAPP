@@ -1171,7 +1171,7 @@ struct AmenImmersiveMediaHomeView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 40)
             }
-            .background(Color(.systemBackground))
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("Media")
             .navigationBarTitleDisplayMode(.large)
         }
@@ -1273,7 +1273,7 @@ struct AmenImmersiveMediaHomeView: View {
     private var learningSection: some View {
         horizontalScrollSection(
             label: "Learning & teaching",
-            sessions: [.sermonClipReflection, .churchNotesStudyPath]
+            sessions: [.fiveMinuteSelah, .churchNotesStudyPath]
         )
     }
 
@@ -1330,15 +1330,15 @@ struct AmenImmersiveMediaHomeView: View {
         HStack(spacing: 14) {
             Image(systemName: "play.circle.fill")
                 .font(.system(size: 32, weight: .light))
-                .foregroundStyle(.primary)
+                .foregroundStyle(AmenTheme.Colors.amenBlue)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.headline)
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text("Continue session")
-                    .font(.subheadline)
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -1347,39 +1347,40 @@ struct AmenImmersiveMediaHomeView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(Color.black, in: Capsule())
+                .background(AmenTheme.Colors.amenGold, in: Capsule())
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(AmenTheme.Colors.amenBlue.opacity(0.20), lineWidth: 0.5))
     }
 
     private func heroCard(session: AmenMediaSessionType, subtitle: String) -> some View {
         HStack(spacing: 16) {
             Image(systemName: sessionIcon(for: session))
                 .font(.system(size: 28, weight: .light))
-                .foregroundStyle(.primary)
+                .foregroundStyle(AmenTheme.Colors.amenBlue)
                 .frame(width: 52, height: 52)
-                .background(Color(.tertiarySystemFill), in: Circle())
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(AmenTheme.Colors.amenBlue.opacity(0.25), lineWidth: 0.5))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(session.title)
-                    .font(.headline)
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
                 Text(subtitle)
-                    .font(.subheadline)
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Text(sessionMetaLabel(for: session))
-                    .font(.caption)
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.tertiary)
             }
             Spacer()
             startPill
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(AmenTheme.Colors.amenBlue.opacity(0.18), lineWidth: 0.5))
     }
 
     private func sessionCard(_ session: AmenMediaSessionType) -> some View {
@@ -1387,17 +1388,18 @@ struct AmenImmersiveMediaHomeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: sessionIcon(for: session))
                     .font(.system(size: 24, weight: .light))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
                     .frame(width: 44, height: 44)
-                    .background(Color(.tertiarySystemFill), in: Circle())
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(AmenTheme.Colors.amenBlue.opacity(0.2), lineWidth: 0.5))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(session.title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
                     Text(sessionMetaLabel(for: session))
-                        .font(.caption)
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -1406,8 +1408,8 @@ struct AmenImmersiveMediaHomeView: View {
             }
             .padding(16)
             .frame(width: 200, height: 190)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(session.title). \(sessionMetaLabel(for: session)). Double-tap to start.")
@@ -1417,48 +1419,50 @@ struct AmenImmersiveMediaHomeView: View {
         HStack(spacing: 14) {
             Image(systemName: "sparkles")
                 .font(.title2)
-                .foregroundStyle(.primary)
+                .foregroundStyle(AmenTheme.Colors.amenBlue)
                 .frame(width: 44, height: 44)
-                .background(Color(.tertiarySystemFill), in: Circle())
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(AmenTheme.Colors.amenBlue.opacity(0.2), lineWidth: 0.5))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Discover")
-                    .font(.headline)
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
                 Text("New voices · Curated for your walk")
-                    .font(.subheadline)
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
             }
             Spacer()
             startPill
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
     }
 
     private var savedCard: some View {
         HStack(spacing: 14) {
             Image(systemName: "bookmark.fill")
                 .font(.title2)
-                .foregroundStyle(.primary)
+                .foregroundStyle(AmenTheme.Colors.amenBlue)
                 .frame(width: 44, height: 44)
-                .background(Color(.tertiarySystemFill), in: Circle())
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(AmenTheme.Colors.amenBlue.opacity(0.2), lineWidth: 0.5))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Saved Media")
-                    .font(.headline)
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
                 Text("Your personal queue · Continue anytime")
-                    .font(.subheadline)
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
             }
             Spacer()
             startPill
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
     }
 
     private var startPill: some View {
@@ -1467,13 +1471,13 @@ struct AmenImmersiveMediaHomeView: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.black, in: Capsule())
+            .background(AmenTheme.Colors.amenGold, in: Capsule())
             .accessibilityHidden(true)
     }
 
     private func sectionLabel(_ title: String) -> some View {
         Text(title)
-            .font(.headline)
+            .font(AMENFont.semiBold(16))
             .foregroundStyle(.primary)
     }
 
@@ -1505,7 +1509,7 @@ struct AmenImmersiveMediaHomeView: View {
         case .familySafeWatch:       return "6 clips · ~8 min · Safe for all ages"
         case .localChurchUpdates:    return "5 clips · ~6 min · Your local community"
         case .savedVideos:           return "Your saved media · Continue anytime"
-        case .communityMoments:      return "Moments from your community · No metrics"
+        case .communityMoments:      return "Moments from your community"
         case .discoverFeed:          return "Curated voices · Finite session"
         @unknown default:            return "Finite session · Intentional media"
         }

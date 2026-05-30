@@ -350,7 +350,7 @@ async function rankOneChurch(
         : "";
 
     const topReason = reasons[0] ?? "Balanced fit across distance, service timing, and church profile.";
-    const bestVisit = `Best first-time visit: ${serviceStatus.nextServiceTime ?? normalizeText(church.serviceTime) || "Sunday service"} - ${doc?.hasChildcare === true ? "childcare available" : "childcare details unclear"}, ${doc?.welcomeTeamActive === true ? "welcome team active" : "low-pressure arrival"}, ${normalizeText(doc?.crowdWindowHint) || "usually easier than the earliest service"}.`;
+    const bestVisit = `Best first-time visit: ${(serviceStatus.nextServiceTime ?? normalizeText(church.serviceTime)) || "Sunday service"} - ${doc?.hasChildcare === true ? "childcare available" : "childcare details unclear"}, ${doc?.welcomeTeamActive === true ? "welcome team active" : "low-pressure arrival"}, ${normalizeText(doc?.crowdWindowHint) || "usually easier than the earliest service"}.`;
 
     const socialProof: string[] = [];
     if (typeof doc?.savedByNearbyCount === "number" && doc.savedByNearbyCount > 0) {
@@ -501,7 +501,7 @@ export const trackChurchInteraction = onCall({ enforceAppCheck: true }, async (r
         const context = readUserContext(contextSnap.data());
         const recentSearches = normalizeList(context.recentSearches).slice(0, 9);
 
-        const nextContext: FirebaseFirestore.UpdateData = {
+        const nextContext: FirebaseFirestore.UpdateData<Record<string, unknown>> = {
             engagementSignals: {
                 ...(context.engagementSignals ?? {}),
                 [action]: ((context.engagementSignals ?? {})[action] ?? 0) + 1,

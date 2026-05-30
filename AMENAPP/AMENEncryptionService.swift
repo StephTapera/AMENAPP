@@ -15,6 +15,21 @@
 //  Server never sees plaintext. Server stores:
 //    encryptedPayload (ciphertext + nonce), senderID, recipientID, timestamp.
 //
+//  ⚠️  KNOWN GAP (M-3 — 2026-05-29 security audit):
+//  The iOS client correctly sends only ciphertext to RTDB.  However, Cloud
+//  Functions that perform notification fan-out (sendMessageNotification, etc.)
+//  read the raw RTDB payload server-side.  If those functions log or persist
+//  the decrypted content they break the E2EE guarantee.
+//
+//  Required follow-up (tracked in audit):
+//    1. Audit every Cloud Function that reads /messages/{id} or /chats/{id}.
+//    2. Ensure notification payloads carry only metadata (sender name, "New
+//       message") — never the decrypted body.
+//    3. Add RTDB security rules that prevent service-account reads of message
+//       content outside the sender/recipient UIDs.
+//  Until step 1 is complete, treat DMs as encrypted in transit / at rest on
+//  the device, but NOT guaranteed E2EE end-to-end through the server path.
+//
 //  Key terminology:
 //    IK  = Identity Key pair  (long-lived, device-bound)
 //    SPK = Signed Pre-Key     (rotated monthly, signed by IK)

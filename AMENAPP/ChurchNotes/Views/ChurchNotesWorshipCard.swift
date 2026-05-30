@@ -10,18 +10,26 @@ struct ChurchNotesWorshipCard: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Music")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("Attach one meaningful song or album without overpowering the note.")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Button(songs.isEmpty ? "Attach Music" : "Replace music", action: onAdd)
-                    .buttonStyle(.bordered)
-                    .tint(.black)
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundStyle(Color.amenGoldText)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(
+                        Capsule()
+                            .fill(Color.amenGold.opacity(0.10))
+                            .overlay(Capsule().strokeBorder(Color.amenGold.opacity(0.35), lineWidth: 1))
+                    )
+                    .buttonStyle(.plain)
             }
 
             if songs.isEmpty {
@@ -65,10 +73,10 @@ struct ChurchNotesWorshipCard: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Attach Music")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("Paste an Apple Music or Spotify song or album link.")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
 
@@ -76,7 +84,7 @@ struct ChurchNotesWorshipCard: View {
 
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Color.amenGold)
             }
             .padding(14)
             .background(

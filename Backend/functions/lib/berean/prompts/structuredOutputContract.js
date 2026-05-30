@@ -11,6 +11,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.STRUCTURED_OUTPUT_INSTRUCTION = void 0;
 exports.validateStructuredResponse = validateStructuredResponse;
+exports.buildStructuredOutputContract = buildStructuredOutputContract;
 exports.STRUCTURED_OUTPUT_INSTRUCTION = `
 STRUCTURED OUTPUT REQUIREMENT:
 You MUST respond with a single JSON object matching the following schema exactly.
@@ -74,5 +75,8 @@ function validateStructuredResponse(parsed) {
     // Clamp confidence to valid range
     obj.doctrinalConfidence = Math.max(0, Math.min(1, obj.doctrinalConfidence));
     return obj;
+}
+function buildStructuredOutputContract() {
+    return exports.STRUCTURED_OUTPUT_INSTRUCTION;
 }
 //# sourceMappingURL=structuredOutputContract.js.map

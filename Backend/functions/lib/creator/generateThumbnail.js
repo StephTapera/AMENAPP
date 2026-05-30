@@ -64,7 +64,11 @@ exports.generateThumbnail = functions.https.onCall(async (data, context) => {
     try {
         await (0, ffmpegUtils_1.createThumbnailImage)(localInput, localOutput);
         await (0, ffmpegUtils_1.uploadFromTmp)(localOutput, outputStoragePath);
-        const thumbnailURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({ action: "read", expires: "03-01-2500" }))[0];
+        // SECURITY (H-04): short-lived signed URL (7 days). The previous value of
+        // "03-01-2500" produced a ~475-year URL that would remain valid indefinitely
+        // even after the creator's account or the underlying file is removed.
+        const sevenDaysMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+        const thumbnailURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({ action: "read", expires: sevenDaysMs }))[0];
         await jobRef.set({ status: "completed", progress: 1, outputRefs: [thumbnailURL], outputStoragePath: outputStoragePath }, { merge: true });
     }
     finally {

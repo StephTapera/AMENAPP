@@ -193,19 +193,18 @@ private struct ImmersiveMediaPage: View {
 
     private var bottomOverlay: some View {
         LinearGradient(
-            colors: [.clear, .black.opacity(0.60)],
+            colors: [.clear, .black.opacity(0.55)],
             startPoint: .top,
             endPoint: .bottom
         )
-        .frame(height: 220)
+        .frame(height: 260)
         .overlay(alignment: .bottom) {
-            HStack(alignment: .bottom, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 authorCaptionStack
-                Spacer()
-                actionRail
+                actionPill
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 40)
+            .padding(.bottom, 44)
         }
     }
 
@@ -227,24 +226,35 @@ private struct ImmersiveMediaPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var actionRail: some View {
-        VStack(spacing: 20) {
-            ImmersiveActionButton(
-                icon: "hands.clap.fill",
-                label: "Amen",
-                tint: AmenTheme.Colors.amenGold
-            )
-            ImmersiveActionButton(
-                icon: "bubble.left",
-                label: "Comment",
-                tint: .white
-            )
-            ImmersiveActionButton(
-                icon: "paperplane",
-                label: "Share",
-                tint: .white
-            )
+    private var actionPill: some View {
+        HStack(spacing: 0) {
+            ImmersiveActionButton(icon: "hands.clap.fill", label: "Amen", tint: AmenTheme.Colors.amenGold)
+            pillDivider
+            ImmersiveActionButton(icon: "bubble.left", label: "Comment", tint: .white)
+            pillDivider
+            ImmersiveActionButton(icon: "paperplane", label: "Share", tint: .white)
         }
+        .padding(.horizontal, 4)
+        .background {
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    Capsule(style: .continuous).fill(Color.white.opacity(0.12))
+                }
+                .overlay {
+                    Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5)
+                }
+                .overlay {
+                    Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.10), lineWidth: 0.7)
+                }
+                .shadow(color: .black.opacity(0.16), radius: 18, y: 8)
+        }
+    }
+
+    private var pillDivider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.22))
+            .frame(width: 0.5, height: 20)
     }
 }
 
@@ -261,18 +271,22 @@ private struct ImmersiveActionButton: View {
         Button {
             // Action handled by parent via coordinator — placeholder
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: isActive ? icon : icon)
-                    .font(.system(size: 26, weight: .medium))
-                    .foregroundColor(isActive ? tint : tint)
-                    .frame(width: 44, height: 44)
-
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(tint)
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.85))
                 if count > 0 {
                     Text(compactCount)
                         .font(.caption2)
                         .foregroundColor(.white)
                 }
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

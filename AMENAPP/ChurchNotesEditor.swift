@@ -1628,7 +1628,10 @@ struct SongSearchSheet: View {
                     }
                 }
             }
-        } catch {}
+        } catch {
+            // Non-fatal: MusicKit search failure falls through to the URL fallback below.
+            print("[ERROR] ChurchNotesEditor: MusicKit search failed — \(error)")
+        }
         #endif
         let searchURL = WorshipMusicService.appleMusicSearchURL(title: query, artist: "")?.absoluteString
         return [SongResult(

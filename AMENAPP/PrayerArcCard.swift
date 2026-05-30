@@ -388,12 +388,14 @@ struct PrayerArcCard: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: -6) {
                 ForEach(vm.intercessors.prefix(5)) { person in
-                    AsyncImage(url: URL(string: person.photoURL ?? "")) { phase in
-                        if let img = phase.image {
-                            img.resizable().scaledToFill()
-                        } else {
-                            Circle().fill(Color(.systemGray4))
-                        }
+                    // PERF: CachedAsyncImage hits ImageCache memory tier on repeat scrolls
+                    CachedAsyncImage(
+                        url: URL(string: person.photoURL ?? ""),
+                        size: CGSize(width: 48, height: 48)
+                    ) { img in
+                        img.resizable().scaledToFill()
+                    } placeholder: {
+                        Circle().fill(Color(.systemGray4))
                     }
                     .frame(width: 24, height: 24)
                     .clipShape(Circle())
@@ -493,9 +495,14 @@ private struct PrayerDetailSheet: View {
                                 .padding(.horizontal, 20)
                             ForEach(intercessors) { person in
                                 HStack(spacing: 12) {
-                                    AsyncImage(url: URL(string: person.photoURL ?? "")) { phase in
-                                        if let img = phase.image { img.resizable().scaledToFill() }
-                                        else { Circle().fill(Color(.systemGray4)) }
+                                    // PERF: CachedAsyncImage hits ImageCache memory tier on repeat scrolls
+                                    CachedAsyncImage(
+                                        url: URL(string: person.photoURL ?? ""),
+                                        size: CGSize(width: 64, height: 64)
+                                    ) { img in
+                                        img.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Circle().fill(Color(.systemGray4))
                                     }
                                     .frame(width: 32, height: 32)
                                     .clipShape(Circle())
@@ -532,9 +539,14 @@ private struct IntercessorListSheet: View {
         NavigationView {
             List(intercessors) { person in
                 HStack(spacing: 12) {
-                    AsyncImage(url: URL(string: person.photoURL ?? "")) { phase in
-                        if let img = phase.image { img.resizable().scaledToFill() }
-                        else { Circle().fill(Color(.systemGray4)) }
+                    // PERF: CachedAsyncImage hits ImageCache memory tier on repeat scrolls
+                    CachedAsyncImage(
+                        url: URL(string: person.photoURL ?? ""),
+                        size: CGSize(width: 72, height: 72)
+                    ) { img in
+                        img.resizable().scaledToFill()
+                    } placeholder: {
+                        Circle().fill(Color(.systemGray4))
                     }
                     .frame(width: 36, height: 36)
                     .clipShape(Circle())

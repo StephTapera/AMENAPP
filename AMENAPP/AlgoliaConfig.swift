@@ -8,17 +8,29 @@
 //
 
 import Foundation
+import FirebaseRemoteConfig
 
 enum AlgoliaConfig {
-    /// Your Algolia Application ID
-    /// Found in: Algolia Dashboard → Settings → API Keys
-    static let applicationID = "182SCN7O9S"
-    
-    /// Your Search-Only API Key (safe for client-side use)
-    /// Found in: Algolia Dashboard → Settings → API Keys → Search-Only API Key
-    /// ✅ Safe to use in iOS app (read-only)
-    static let searchAPIKey = "8727f5af5779e9795b12b565bba20dc3"
-    
+    /// Your Algolia Application ID — read from Info.plist, which is substituted at
+    /// build time from Config.xcconfig (gitignored). Do not hardcode here.
+    // SECURITY: Rotate the search key in Algolia dashboard — the old key is in git history.
+    static let applicationID = Bundle.main.infoDictionary?["AlgoliaAppID"] as? String ?? ""
+
+    /// Search-Only API Key — baked into the bundle at build time.
+    /// Use `effectiveSearchAPIKey` instead so callers pick up Remote Config overrides.
+    static let searchAPIKey = Bundle.main.infoDictionary?["AlgoliaSearchKey"] as? String ?? ""
+
+    /// The search key to use at runtime. Remote Config `algolia_search_key` overrides the
+    /// bundle value so the key can be rotated without an App Store update.
+    static var effectiveSearchAPIKey: String {
+        let rcValue = RemoteConfig.remoteConfig()["algolia_search_key"].stringValue
+        if !rcValue.isEmpty { return rcValue }
+        return searchAPIKey
+    }
+
+    /// Organizations Algolia index name — used for org stub directory search.
+    static let organizationsIndex = "organizations"
+
     /// Write API Key: NEVER include in the client binary.
     /// Algolia sync must go through a Cloud Function (server-side).
     /// This property is intentionally empty — the key lives in Firebase Remote Config / Cloud Functions only.

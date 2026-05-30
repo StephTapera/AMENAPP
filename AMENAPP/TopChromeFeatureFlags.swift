@@ -11,7 +11,7 @@ struct TopChromeFeatureFlags {
     static var compactModeEnabled: Bool     { true }
     static var intentAdaptationEnabled: Bool { true }
 
-    static var verseFirstOrder: Bool        { false }
+    static var verseFirstOrder: Bool        { true }
 
     #if DEBUG
     static var debugForceEnabled = true

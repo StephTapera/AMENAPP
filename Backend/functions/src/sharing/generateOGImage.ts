@@ -87,7 +87,8 @@ async function renderOGImage(post: PostData): Promise<Buffer> {
     // Dynamic import so the build doesn't fail if sharp isn't installed yet.
     // Run: npm install sharp   in Backend/functions before deploying.
     try {
-        const sharp = (await import("sharp")).default;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sharp = (await import("sharp" as string as never)).default as any;
         return await sharp(Buffer.from(svg)).png().toBuffer();
     } catch {
         // If sharp is unavailable, return the SVG as-is (platforms that accept SVG will show it).

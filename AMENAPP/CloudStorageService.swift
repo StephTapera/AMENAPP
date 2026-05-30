@@ -26,8 +26,17 @@ enum MediaType {
 class CloudStorageService {
     static let shared = CloudStorageService()
     private lazy var storage = Storage.storage()
-    
+
+    // P2-7: Retained so uploads can be cancelled mid-flight.
+    private var currentUploadTask: StorageUploadTask?
+
     private init() {}
+
+    /// Cancels the in-flight upload, if any.
+    func cancelUpload() {
+        currentUploadTask?.cancel()
+        currentUploadTask = nil
+    }
     
     /// Upload media file to Cloud Storage
     /// - Parameters:
@@ -54,8 +63,20 @@ class CloudStorageService {
         metadata.contentType = type.contentType
         metadata.cacheControl = "public, max-age=31536000" // Cache for 1 year
         
+        // P2-8: Reject files that exceed the 25MB upload limit.
+        let maxSizeBytes: Int = 25 * 1024 * 1024
+        if data.count > maxSizeBytes {
+            throw NSError(
+                domain: "CloudStorageService",
+                code: 413,
+                userInfo: [NSLocalizedDescriptionKey: "File size exceeds 25MB limit."]
+            )
+        }
+
         return try await withCheckedThrowingContinuation { continuation in
             let uploadTask = storageRef.putData(data, metadata: metadata)
+            // P2-7: Retain the task so callers can cancel via cancelUpload().
+            currentUploadTask = uploadTask
             
             // Track upload progress
             uploadTask.observe(.progress) { snapshot in
@@ -66,26 +87,28 @@ class CloudStorageService {
             }
             
             // Handle completion
-            uploadTask.observe(.success) { _ in
+            uploadTask.observe(.success) { [weak self] _ in
+                self?.currentUploadTask = nil
                 storageRef.downloadURL { url, error in
                     if let error = error {
                         dlog("❌ [CLOUD STORAGE] Failed to get download URL: \(error)")
                         continuation.resume(throwing: error)
                         return
                     }
-                    
+
                     guard let downloadURL = url?.absoluteString else {
                         let error = NSError(domain: "CloudStorage", code: -1, userInfo: [NSLocalizedDescriptionKey: "No download URL"])
                         continuation.resume(throwing: error)
                         return
                     }
-                    
+
                     dlog("✅ [CLOUD STORAGE] Upload successful: \(downloadURL)")
                     continuation.resume(returning: downloadURL)
                 }
             }
-            
-            uploadTask.observe(.failure) { snapshot in
+
+            uploadTask.observe(.failure) { [weak self] snapshot in
+                self?.currentUploadTask = nil
                 if let error = snapshot.error {
                     dlog("❌ [CLOUD STORAGE] Upload failed: \(error)")
                     continuation.resume(throwing: error)

@@ -35,7 +35,7 @@ struct StartPrayerModeIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         dlog("[AmenIntents] StartPrayerModeIntent fired")
         await MainActor.run {
-            NotificationCenter.default.post(name: Notification.Name("openPrayerMode"), object: nil)
+            AppNavigationRouter.shared.navigate(to: .resources)
         }
         return .result()
     }
@@ -58,7 +58,7 @@ struct AskBereanIntent: AppIntent {
             UserDefaults.standard.set(q, forKey: "pendingBereanQuestion")
         }
         await MainActor.run {
-            NotificationCenter.default.post(name: Notification.Name("openBerean"), object: nil)
+            AppNavigationRouter.shared.navigate(to: .askBerean(question: nil))
         }
         return .result()
     }
@@ -75,7 +75,7 @@ struct FindChurchIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         dlog("[AmenIntents] FindChurchIntent fired")
         await MainActor.run {
-            NotificationCenter.default.post(name: Notification.Name("openFindChurch"), object: nil)
+            AppNavigationRouter.shared.navigate(to: .findChurch)
         }
         return .result()
     }
@@ -92,7 +92,7 @@ struct OpenChurchNotesIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         dlog("[AmenIntents] OpenChurchNotesIntent fired")
         await MainActor.run {
-            NotificationCenter.default.post(name: Notification.Name("openChurchNotes"), object: nil)
+            AppNavigationRouter.shared.navigate(to: .churchNotes)
         }
         return .result()
     }
@@ -109,7 +109,7 @@ struct StartReflectionIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         dlog("[AmenIntents] StartReflectionIntent fired")
         await MainActor.run {
-            NotificationCenter.default.post(name: Notification.Name("openReflection"), object: nil)
+            AppNavigationRouter.shared.navigate(to: .reflection)
         }
         return .result()
     }
@@ -132,7 +132,7 @@ struct SendPrayerRequestIntent: AppIntent {
             UserDefaults.standard.set(msg, forKey: "pendingPrayerMessage")
         }
         await MainActor.run {
-            NotificationCenter.default.post(name: Notification.Name("openPrayerComposer"), object: nil)
+            AppNavigationRouter.shared.navigate(to: .prayerNew)
         }
         return .result()
     }
@@ -153,7 +153,9 @@ final class AmenIntentDonationService {
     /// iOS surfaces the correct phrases in Siri Suggestions and Shortcuts.
     static func donateIntents() {
         dlog("[AmenIntents] Donating app shortcuts to system")
-        AmenAppShortcutsProvider.updateAppShortcutParameters()
+        // AmenAppShortcutsProvider was removed (P2 FIX — duplicate provider).
+        // The canonical provider is AMENShortcutsProvider in AMENAppIntents.swift.
+        AMENShortcutsProvider.updateAppShortcutParameters()
     }
 }
 

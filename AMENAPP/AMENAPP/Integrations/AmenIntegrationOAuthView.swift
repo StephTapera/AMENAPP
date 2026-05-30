@@ -131,7 +131,7 @@ struct AmenIntegrationOAuthView: View {
                 .accessibilityHidden(true)
             Text("Connection Failed")
                 .font(.title3.weight(.semibold))
-            Text(error.localizedDescription)
+            Text(error.userFriendlyMessage)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

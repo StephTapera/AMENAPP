@@ -126,7 +126,9 @@ final class DevotionalGenerationService: ObservableObject {
                 prompt, maxTokens: 150, temperature: 0.3, mode: .scholar
             )
             for try await chunk in stream { result += chunk }
-        } catch {}
+        } catch {
+            dlog("[DevotionalGen] Claude stream failed: \(error.localizedDescription)")
+        }
 
         return result
             .components(separatedBy: "\n")

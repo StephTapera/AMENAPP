@@ -26,6 +26,8 @@ struct WellnessLibraryView: View {
                     if service.isLoading {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 200)
+                    } else if filtered.isEmpty {
+                        wellnessEmptyState
                     } else {
                         itemGrid
                     }
@@ -74,6 +76,24 @@ struct WellnessLibraryView: View {
             }
             .padding(.horizontal, 16)
         }
+    }
+
+    private var wellnessEmptyState: some View {
+        VStack(spacing: 16) {
+            Spacer().frame(height: 40)
+            Image(systemName: "heart.text.square")
+                .font(.system(size: 52))
+                .foregroundStyle(.secondary)
+            Text("Content coming soon")
+                .font(.title3.weight(.semibold))
+            Text("Wellness resources, guided practices, and spiritual care tools will appear here.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, minHeight: 300)
     }
 
     private var itemGrid: some View {

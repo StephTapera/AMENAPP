@@ -6,6 +6,19 @@ import { BereanConversation, BereanMessage } from "../models/berean";
 
 const db = () => admin.firestore();
 
+// Scrubs common PII patterns before persisting conversation turns.
+// Berean messages can contain names, addresses, and health details typed
+// by users in prayer/counsel context; storing them verbatim is unnecessary.
+function scrubPII(text: string): string {
+  return text
+    // Email addresses
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email]")
+    // SSN: 123-45-6789
+    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[ssn]")
+    // Phone: (555) 123-4567 | 555-123-4567 | +1 555 123 4567
+    .replace(/\b(\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g, "[phone]");
+}
+
 export class ConversationRepository {
   // ── Conversations ────────────────────────────────────────────────────────────
 
@@ -51,7 +64,13 @@ export class ConversationRepository {
   // ── Messages ─────────────────────────────────────────────────────────────────
 
   async saveMessage(messageId: string, message: Omit<BereanMessage, "id">): Promise<void> {
-    await db().collection("berean_messages").doc(messageId).set(message);
+    const sanitized = {
+      ...message,
+      content: typeof (message as Record<string, unknown>).content === "string"
+        ? scrubPII((message as Record<string, unknown>).content as string)
+        : (message as Record<string, unknown>).content,
+    };
+    await db().collection("berean_messages").doc(messageId).set(sanitized);
   }
 
   async getRecentMessages(conversationId: string, limit = 10): Promise<BereanMessage[]> {

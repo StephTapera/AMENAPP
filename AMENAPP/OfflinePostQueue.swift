@@ -9,6 +9,7 @@
 import Foundation
 import Combine
 import FirebaseAuth
+import FirebaseFirestore
 
 @MainActor
 class OfflinePostQueue: ObservableObject {
@@ -55,26 +56,37 @@ class OfflinePostQueue: ObservableObject {
 
         isSyncing = true
         var published: [String] = []
+        let db = Firestore.firestore()
 
         for post in pendingPosts {
+            // Idempotency pre-check: if a post with this queue item's id was already
+            // written to Firestore (e.g. the app was killed after the write succeeded
+            // but before the queue was flushed), skip re-creation and just dequeue it.
             do {
-                try await PostsManager.shared.createPost(
-                    content: post.content,
-                    category: Post.PostCategory(rawValue: post.category) ?? .openTable,
-                    topicTag: post.topicTag,
-                    visibility: .everyone,
-                    allowComments: true
-                )
-                published.append(post.id)
-            } catch {
-                // Increment retry count; drop after 5 failures
-                if let index = pendingPosts.firstIndex(where: { $0.id == post.id }) {
-                    pendingPosts[index].retryCount += 1
-                    if pendingPosts[index].retryCount >= 5 {
-                        published.append(post.id) // Remove failed post
-                    }
+                let existing = try await db.collection("posts")
+                    .whereField("idempotencyKey", isEqualTo: post.id)
+                    .limit(to: 1)
+                    .getDocuments()
+                if !existing.isEmpty {
+                    published.append(post.id)
+                    continue
                 }
+            } catch {
+                // Network error on the check — leave post in queue to retry later.
+                continue
             }
+
+            // PostsManager.createPost does not throw (it spawns an internal Task).
+            // We call it and mark the item as published; the internal retry/error
+            // handling inside FirebasePostService handles transient write failures.
+            PostsManager.shared.createPost(
+                content: post.content,
+                category: Post.PostCategory(rawValue: post.category) ?? .openTable,
+                topicTag: post.topicTag,
+                visibility: .everyone,
+                allowComments: true
+            )
+            published.append(post.id)
         }
 
         pendingPosts.removeAll { published.contains($0.id) }

@@ -892,7 +892,7 @@ private struct StackingMediaCard: View {
 
             // Thumbnail (if available)
             if let urlStr = item.thumbnailURL, let url = URL(string: urlStr) {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url, size: CGSize(width: 400, height: 240)) { image in
                     image
                         .resizable()
                         .scaledToFill()

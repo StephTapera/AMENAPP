@@ -40,7 +40,10 @@
 
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
 const {checkRateLimit} = require("./rateLimiter");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const db = () => admin.firestore();
 
@@ -59,7 +62,7 @@ let _anthropic = null;
 function getAnthropic() {
   if (!_anthropic) {
     const Anthropic = require("@anthropic-ai/sdk");
-    _anthropic = new Anthropic.default({apiKey: process.env.ANTHROPIC_API_KEY});
+    _anthropic = new Anthropic.default({apiKey: ANTHROPIC_API_KEY.value()});
   }
   return _anthropic;
 }
@@ -357,7 +360,7 @@ function synthesizeDecision(visionResult, aiResult, inputData) {
 // ── Main callable ────────────────────────────────────────────────────────────
 
 exports.moderateMediaContent = onCall(
-    {region: "us-central1", timeoutSeconds: 60},
+    {region: "us-central1", timeoutSeconds: 60, secrets: [ANTHROPIC_API_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");

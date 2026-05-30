@@ -11,6 +11,7 @@ struct GivingHomeView: View {
     @StateObject private var vm = GivingHomeViewModel()
     @State private var budgetDollars = 100
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     private let heroHeight: CGFloat = 310
     private let sheetOverlap: CGFloat = 56
@@ -49,6 +50,24 @@ struct GivingHomeView: View {
                     }
                 }
                 .ignoresSafeArea(edges: .top)
+
+                // ── Floating glass buttons (above hero, below status bar) ──
+                VStack(spacing: 0) {
+                    HStack {
+                        Button { dismiss() } label: {
+                            glassCircleButton(systemName: "xmark")
+                        }
+                        .accessibilityLabel("Close")
+                        Spacer()
+                        Button { vm.showIntentFlow = true } label: {
+                            glassCircleButton(systemName: "slider.horizontal.3")
+                        }
+                        .accessibilityLabel("Values preferences")
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, safeTop + 14)
+                    Spacer()
+                }
             }
         }
         .ignoresSafeArea(edges: .top)
@@ -129,40 +148,17 @@ struct GivingHomeView: View {
 
             // Content
             VStack(alignment: .leading, spacing: 0) {
-                Spacer().frame(height: safeAreaTop + 16)
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("GIVING")
-                            .font(.system(size: 10, weight: .bold))
-                            .tracking(3.2)
-                            .foregroundStyle(.white.opacity(0.65))
-                    }
-                    Spacer()
-                    // Preferences button
-                    Button {
-                        vm.showIntentFlow = true
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 12, weight: .medium))
-                            Text("Values")
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                        .foregroundStyle(.white.opacity(0.85))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(.white.opacity(0.15), in: Capsule())
-                        .overlay(Capsule().strokeBorder(.white.opacity(0.20), lineWidth: 0.5))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 22)
+                Spacer().frame(height: safeAreaTop + 68)
 
                 Spacer()
 
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 4) {
+                        Text("GIVING & NONPROFITS")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(3.0)
+                            .foregroundStyle(.white.opacity(0.66))
+                            .padding(.bottom, 6)
                         Text("Giving &")
                             .font(.custom("Georgia", size: 46))
                             .foregroundStyle(.white)
@@ -454,6 +450,27 @@ struct GivingHomeView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Glass Circle Button
+
+    private func glassCircleButton(systemName: String) -> some View {
+        ZStack {
+            Circle().fill(.ultraThinMaterial)
+            Circle().fill(
+                LinearGradient(
+                    colors: [.white.opacity(0.28), .white.opacity(0.10)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            Circle().stroke(.white.opacity(0.22), lineWidth: 0.7)
+            Image(systemName: systemName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: 42, height: 42)
+        .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
     }
 
     // MARK: - Sheet Background

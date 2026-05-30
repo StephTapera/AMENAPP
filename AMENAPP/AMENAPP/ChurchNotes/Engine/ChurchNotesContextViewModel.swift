@@ -7,6 +7,8 @@ final class ChurchNotesContextViewModel: ObservableObject {
     // MARK: - Published State
 
     @Published private(set) var contextResult: CNContextResult?
+    /// Live context updated automatically as the user types (debounced, on-device only).
+    @Published private(set) var liveContext: CNContextResult?
     @Published private(set) var loadState: CNContextLoadState = .idle
     @Published private(set) var recapLoadState: CNContextLoadState = .idle
     @Published private(set) var growthTimelineState: CNContextLoadState = .idle
@@ -24,6 +26,48 @@ final class ChurchNotesContextViewModel: ObservableObject {
     private let engine = ChurchNotesContextEngine.shared
     private let service = ChurchNotesContextService()
     private let flags = AMENFeatureFlags.shared
+
+    // MARK: - Auto-Analysis (debounced)
+
+    /// Task holding the pending debounce. Cancelled and replaced on each new call.
+    private var autoAnalysisTask: Task<Void, Never>?
+    /// Hash of the last text that produced a liveContext result — prevents re-running for identical content.
+    private var lastAnalyzedTextHash: Int?
+
+    /// Schedules a debounced on-device context analysis (1.5 s). Safe to call on every keystroke.
+    /// - Parameters:
+    ///   - noteText: Full joined text of all blocks.
+    ///   - noteHistory: Texts of prior notes (used for recurring-theme detection).
+    func scheduleAutoAnalysis(noteText: String, noteHistory: [String] = []) {
+        guard flags.churchNotesContextEngineEnabled else { return }
+        guard noteText.count > 50 else { return }
+
+        let currentHash = noteText.hashValue
+        guard currentHash != lastAnalyzedTextHash else { return }
+
+        autoAnalysisTask?.cancel()
+        autoAnalysisTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 s debounce
+            } catch {
+                return // task was cancelled — a newer call is pending
+            }
+            guard !Task.isCancelled else { return }
+
+            // Re-check hash in case another call slipped in before we woke up
+            guard noteText.hashValue != lastAnalyzedTextHash else { return }
+
+            let result = engine.analyzeForContext(
+                noteId: UUID().uuidString,
+                noteText: noteText,
+                noteHistory: noteHistory
+            )
+            lastAnalyzedTextHash = noteText.hashValue
+            withAnimation(.easeInOut(duration: 0.25)) {
+                liveContext = result.isEmpty ? nil : result
+            }
+        }
+    }
 
     // MARK: - Context Analysis
 
@@ -53,7 +97,8 @@ final class ChurchNotesContextViewModel: ObservableObject {
         do {
             try await service.saveRecap(recap)
         } catch {
-            // Non-fatal: recap available in-memory; silently skip persist failure
+            // Non-fatal: recap is available in-memory. Log so we can detect Firestore permission issues.
+            print("[ERROR] ChurchNotesContextViewModel.generateRecap: failed to persist recap — \(error)")
         }
     }
 
@@ -94,7 +139,7 @@ final class ChurchNotesContextViewModel: ObservableObject {
         do {
             try await service.saveRecap(recap)
         } catch {
-            // Surface via alert if needed
+            print("[ERROR] ChurchNotesContextViewModel.saveEditedRecap: \(error)")
         }
     }
 
@@ -117,7 +162,9 @@ final class ChurchNotesContextViewModel: ObservableObject {
         do {
             try await service.approveActionSuggestion(suggestion, noteId: noteId)
             mutateAction(id: suggestion.id) { $0.approvalState = .approved }
-        } catch {}
+        } catch {
+            print("[ERROR] ChurchNotesContextViewModel.approveActionSuggestion: \(error)")
+        }
     }
 
     func rejectActionSuggestion(_ suggestion: CNActionSuggestion) async {
@@ -125,7 +172,9 @@ final class ChurchNotesContextViewModel: ObservableObject {
         do {
             try await service.rejectActionSuggestion(suggestion, noteId: noteId)
             mutateAction(id: suggestion.id) { $0.approvalState = .rejected }
-        } catch {}
+        } catch {
+            print("[ERROR] ChurchNotesContextViewModel.rejectActionSuggestion: \(error)")
+        }
     }
 
     func editActionSuggestion(id: String, newText: String) {
@@ -141,7 +190,9 @@ final class ChurchNotesContextViewModel: ObservableObject {
         guard flags.churchNotesGroupIntelligenceEnabled else { return }
         do {
             groupInsight = try await service.loadGroupInsights(for: churchId)
-        } catch {}
+        } catch {
+            print("[ERROR] ChurchNotesContextViewModel.loadGroupInsights: \(error)")
+        }
     }
 
     // MARK: - Command Bar
@@ -182,6 +233,28 @@ final class ChurchNotesContextViewModel: ObservableObject {
                     source: "your note",
                     confidence: .possible,
                     whySuggested: "Extracted from commitment language in your note"
+                )
+            )
+        case .recap:
+            let themes = engine.detectThemes(in: noteText)
+            let scriptures = engine.detectScriptureReferences(in: noteText)
+            let recap = engine.generateSmartRecap(for: UUID().uuidString, from: noteText, themes: themes, scriptures: scriptures)
+            let recapText = [recap.whatStoodOut,
+                             recap.prayerItems.isEmpty ? nil : "Prayer: " + recap.prayerItems.joined(separator: ", "),
+                             recap.nextStep.map { "Next Step: \($0)" }]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n\n")
+            commandBarResult = CNCommandBarResult(
+                id: UUID().uuidString,
+                command: command,
+                text: recapText.isEmpty ? "Add more content to generate a recap." : recapText,
+                editedText: nil,
+                isApproved: false,
+                provenance: CNProvenanceLabel(
+                    source: "your note",
+                    confidence: .possible,
+                    whySuggested: "Smart recap of this week's notes — edit before saving"
                 )
             )
         case .smallGroup:

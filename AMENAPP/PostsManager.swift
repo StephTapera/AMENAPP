@@ -120,6 +120,7 @@ struct Post: Identifiable, Codable, Equatable {
     var topicTag: String?
     let visibility: PostVisibility
     let allowComments: Bool
+    var commentPermission: String?              // Raw server-side comment permission value
     var commentPermissions: CommentPermissions? // Who can comment
     var replyPermission: ReplyPermission?     // Who can reply (everyone if nil)
     var quotesAllowed: QuotePermission?       // Who can quote-repost (everyone if nil)
@@ -263,6 +264,11 @@ struct Post: Identifiable, Codable, Equatable {
     var topicScoreMap: [String: Double]? = nil    // Per-key confidence (0–1.0) from enrichment
     var primaryTopicKey: String? = nil            // Highest-confidence topic key
 
+    // Media attachments — music, video, article, scripture, etc.
+    // Additive field: nil on posts that predate this field. Feed cell and detail view
+    // only render the renderer when this is non-nil and non-empty.
+    var mediaAttachments: [AmenMediaAttachment]? = nil
+
     // Structured media items
     var mediaItems: [PostMediaItem]? = nil
     var witnessMedia: PostWitnessMediaMetadata? = nil
@@ -270,6 +276,9 @@ struct Post: Identifiable, Codable, Equatable {
     // Smart attachment
     var smartAttachment: AmenSmartAttachment? = nil
     var hasSmartAttachment: Bool = false
+
+    // Community Hub preview — server-owned; written by attachCommunityHubPreviewToPost (Admin SDK)
+    var communityHubPreview: AmenPostCommunityHubPreview? = nil
     var attachmentCount: Int = 0
     var primaryAttachmentId: String? = nil
 
@@ -353,15 +362,21 @@ struct Post: Identifiable, Codable, Equatable {
     }
     
     enum PostVisibility: String, Codable {
-        case everyone = "Everyone"
-        case followers = "Followers"
-        case community = "Community Only"
+        // IMPORTANT: rawValues must exactly match the Firestore stored strings.
+        // Firestore queries filter with lowercase "everyone" / "followers" / "community only".
+        // Legacy documents may have been written with capital-E "Everyone" — run a
+        // one-time migration script to rewrite those to lowercase before enabling strict reads.
+        case everyone = "everyone"
+        case followers = "followers"
+        case community = "community only"
+        case underReview = "under_review"
 
         var displayName: String {
             switch self {
             case .everyone: return "Everyone"
             case .followers: return "Followers Only"
             case .community: return "Community Only"
+            case .underReview: return "Under Review"
             }
         }
 
@@ -370,6 +385,7 @@ struct Post: Identifiable, Codable, Equatable {
             case .everyone: return "globe"
             case .followers: return "person.2.fill"
             case .community: return "building.columns.fill"
+            case .underReview: return "clock.badge.exclamationmark"
             }
         }
 
@@ -378,6 +394,7 @@ struct Post: Identifiable, Codable, Equatable {
             case .everyone: return .blue
             case .followers: return .green
             case .community: return .purple
+            case .underReview: return .orange
             }
         }
     }
@@ -486,7 +503,7 @@ struct Post: Identifiable, Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case id, firebaseId, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
-        case content, category, topicTag, visibility, allowComments, commentPermissions
+        case content, category, topicTag, visibility, allowComments, commentPermission, commentPermissions
         case replyPermission, quotesAllowed, trustedCircle
         case savesCount, sharesCount, prayTapsCount, encouragedCount, hasContext
         case imageURLs, linkURL, linkPreviewTitle, linkPreviewDescription, linkPreviewImageURL, linkPreviewSiteName
@@ -530,6 +547,7 @@ struct Post: Identifiable, Codable, Equatable {
         topicTag = try container.decodeIfPresent(String.self, forKey: .topicTag)
         visibility = try container.decode(PostVisibility.self, forKey: .visibility)
         allowComments = try container.decode(Bool.self, forKey: .allowComments)
+        commentPermission = try container.decodeIfPresent(String.self, forKey: .commentPermission)
         commentPermissions = try container.decodeIfPresent(CommentPermissions.self, forKey: .commentPermissions)
         replyPermission    = try container.decodeIfPresent(ReplyPermission.self,    forKey: .replyPermission)
         quotesAllowed      = try container.decodeIfPresent(QuotePermission.self,    forKey: .quotesAllowed)
@@ -556,10 +574,10 @@ struct Post: Identifiable, Codable, Equatable {
         editWindowExpiresAt = try container.decodeIfPresent(Date.self, forKey: .editWindowExpiresAt)
         editMetadata = try container.decodeIfPresent(PostEditMetadata.self, forKey: .editMetadata)
         postUpdates = try container.decodeIfPresent([PostUpdateItem].self, forKey: .postUpdates)
-        amenCount = try container.decode(Int.self, forKey: .amenCount)
-        lightbulbCount = try container.decode(Int.self, forKey: .lightbulbCount)
-        commentCount = try container.decode(Int.self, forKey: .commentCount)
-        repostCount = try container.decode(Int.self, forKey: .repostCount)
+        amenCount = try container.decodeIfPresent(Int.self, forKey: .amenCount) ?? 0
+        lightbulbCount = try container.decodeIfPresent(Int.self, forKey: .lightbulbCount) ?? 0
+        commentCount = try container.decodeIfPresent(Int.self, forKey: .commentCount) ?? 0
+        repostCount = try container.decodeIfPresent(Int.self, forKey: .repostCount) ?? 0
         isRepost = try container.decodeIfPresent(Bool.self, forKey: .isRepost) ?? false
         originalAuthorName = try container.decodeIfPresent(String.self, forKey: .originalAuthorName)
         originalAuthorId = try container.decodeIfPresent(String.self, forKey: .originalAuthorId)
@@ -629,6 +647,7 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(topicTag, forKey: .topicTag)
         try container.encode(visibility, forKey: .visibility)
         try container.encode(allowComments, forKey: .allowComments)
+        try container.encodeIfPresent(commentPermission, forKey: .commentPermission)
         try container.encodeIfPresent(commentPermissions, forKey: .commentPermissions)
         try container.encodeIfPresent(replyPermission,   forKey: .replyPermission)
         try container.encodeIfPresent(quotesAllowed,     forKey: .quotesAllowed)
@@ -984,6 +1003,26 @@ class PostsManager: ObservableObject {
                 guard let self = self else { return }
                 // ✅ FIX CR-6: Filter out blocked users
                 self.allPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+            }
+            .store(in: &cancellables)
+
+        // P0-13 FIX: Roll back optimistic posts on Firestore write failure.
+        // FirebasePostService posts "postCreationFailed" with "postId" = tempId.uuidString
+        // whenever the background write Task throws. Any optimistic post with firebaseId == nil
+        // that was retained by the uniqueOptimistic filter above must be removed so it does
+        // not stay in the feed forever. This observer is the single rollback point for all
+        // category arrays.
+        NotificationCenter.default.publisher(for: Notification.Name("postCreationFailed"))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let failedId = notification.userInfo?["postId"] as? String else { return }
+                let remove: (Post) -> Bool = { $0.firebaseId == nil && $0.id.uuidString == failedId }
+                self.allPosts.removeAll(where: remove)
+                self.openTablePosts.removeAll(where: remove)
+                self.testimoniesPosts.removeAll(where: remove)
+                self.prayerPosts.removeAll(where: remove)
+                dlog("🔄 P0-13: Rolled back failed optimistic post \(failedId) from all arrays")
             }
             .store(in: &cancellables)
     }

@@ -7,15 +7,6 @@
 
 import SwiftUI
 
-/// Navigation destinations for the app
-enum AppDestination: Hashable {
-    case userProfile(userId: String)
-    case postDetail(postId: UUID)
-    case editProfile
-    case messaging(userId: String, userName: String)
-    case settings
-}
-
 /// Environment key for navigation path
 struct NavigationPathKey: EnvironmentKey {
     static let defaultValue: Binding<NavigationPath> = .constant(NavigationPath())

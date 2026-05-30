@@ -152,16 +152,16 @@ actor CommentRateLimiter {
         // ── 1. Per-minute check ──────────────────────────────────────────────
         let inLastMinute = records.filter { now.timeIntervalSince($0.timestamp) < minuteWindow }
         if inLastMinute.count >= minuteLimit {
-            let oldestInWindow = inLastMinute.min(by: { $0.timestamp < $1.timestamp })!.timestamp
-            let retryAfter = minuteWindow - now.timeIntervalSince(oldestInWindow)
+            guard let oldest1 = inLastMinute.min(by: { $0.timestamp < $1.timestamp }) else { return .success(()) }
+            let retryAfter = minuteWindow - now.timeIntervalSince(oldest1.timestamp)
             return .failure(.rateLimitedPerMinute(retryAfter: max(0, retryAfter)))
         }
 
         // ── 2. Per-hour check ────────────────────────────────────────────────
         let inLastHour = records.filter { now.timeIntervalSince($0.timestamp) < hourWindow }
         if inLastHour.count >= hourLimit {
-            let oldestInWindow = inLastHour.min(by: { $0.timestamp < $1.timestamp })!.timestamp
-            let retryAfter = hourWindow - now.timeIntervalSince(oldestInWindow)
+            guard let oldest2 = inLastHour.min(by: { $0.timestamp < $1.timestamp }) else { return .success(()) }
+            let retryAfter = hourWindow - now.timeIntervalSince(oldest2.timestamp)
             return .failure(.rateLimitedPerHour(retryAfter: max(0, retryAfter)))
         }
 
@@ -170,8 +170,8 @@ actor CommentRateLimiter {
             $0.postId == postId && now.timeIntervalSince($0.timestamp) < perPostWindowSeconds
         }
         if inPostWindow.count >= perPostLimit {
-            let oldestInWindow = inPostWindow.min(by: { $0.timestamp < $1.timestamp })!.timestamp
-            let retryAfter = perPostWindowSeconds - now.timeIntervalSince(oldestInWindow)
+            guard let oldest3 = inPostWindow.min(by: { $0.timestamp < $1.timestamp }) else { return .success(()) }
+            let retryAfter = perPostWindowSeconds - now.timeIntervalSince(oldest3.timestamp)
             return .failure(.rateLimitedPerPost(postId: postId, retryAfter: max(0, retryAfter)))
         }
 

@@ -43,6 +43,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.amenapp.feed.refresh</string>
+		<string>com.amen.app.versePrefetch</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>
@@ -73,6 +74,10 @@
 	<string>$(CLAUDE_API_KEY)</string>
 	<key>OPENAI_API_KEY</key>
 	<string>$(OPENAI_API_KEY)</string>
+	<key>AlgoliaAppID</key>
+	<string>$(ALGOLIA_APP_ID)</string>
+	<key>AlgoliaSearchKey</key>
+	<string>$(ALGOLIA_SEARCH_KEY)</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>
@@ -86,7 +91,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>AMEN uses the camera to take photos for posts, messages, and your profile picture.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>AMEN uses your location to find nearby churches and faith communities.</string>
+	<string>AMEN uses your approximate location to find nearby churches, faith communities, and believers near you. Your exact GPS coordinates are never stored — only a fuzzy zone (about 500 m). Location data for people discovery expires automatically in 1 hour.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>AMEN uses your contacts to help you find friends who are already on the app. No contact information is stored on our servers.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -108,9 +113,13 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UILaunchScreen</key>
-	<dict>
-		<key>UIColorName</key>
-		<string>AccentColor</string>
-	</dict>
+	<dict/>
+	<key>AMEN_GOOGLE_MAPS_API_KEY</key>
+	<string>$(AMEN_GOOGLE_MAPS_API_KEY)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+		<string>comgooglemaps-x-callback</string>
+	</array>
 </dict>
 </plist>

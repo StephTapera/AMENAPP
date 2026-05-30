@@ -57,8 +57,15 @@ struct LivingComposerView: View {
             .toolbar { toolbarContent }
             .sheet(isPresented: $vm.showIntentPicker) { intentPickerSheet }
             .sheet(isPresented: $vm.showAudienceSelector) { audienceSelectorSheet }
+            .sheet(isPresented: $vm.showAIAssist) {
+                BereanChatView(
+                    initialMode: .askBerean,
+                    initialQuery: vm.draftText.isEmpty ? nil : "Help me refine this post: \(vm.draftText)"
+                )
+            }
             .onChange(of: vm.selectedPhotoItems) { vm.loadSelectedPhotos() }
             .onChange(of: vm.draftText) { vm.onDraftChanged(vm.draftText) }
+            .onChange(of: vm.postSuccess) { _, success in if success { dismiss() } }
             .onAppear { vm.onAppear(); textFocused = true }
         }
     }
@@ -87,8 +94,8 @@ struct LivingComposerView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(.blue.opacity(0.12), in: Capsule())
-                .foregroundStyle(.blue)
+                .background(AmenTheme.Colors.amenGold.opacity(0.12), in: Capsule())
+                .foregroundStyle(AmenTheme.Colors.amenGold)
             }
 
             // Context label
@@ -251,7 +258,7 @@ struct LivingComposerView: View {
                 Spacer()
                 Button("Edit") { vm.showAudienceSelector = true }
                     .font(.caption)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(AmenTheme.Colors.amenGold)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -264,7 +271,7 @@ struct LivingComposerView: View {
                                 if SmartAudienceRouter.shared.selectedRouteIds.contains(route.id) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .font(.caption2)
-                                        .foregroundStyle(.blue)
+                                        .foregroundStyle(AmenTheme.Colors.amenGold)
                                 }
                                 Text(route.label)
                                     .font(.caption.weight(.semibold))
@@ -273,10 +280,10 @@ struct LivingComposerView: View {
                             .padding(.vertical, 6)
                             .background(
                                 SmartAudienceRouter.shared.selectedRouteIds.contains(route.id)
-                                    ? AnyShapeStyle(Color.blue.opacity(0.15)) : AnyShapeStyle(.ultraThinMaterial),
+                                    ? AnyShapeStyle(AmenTheme.Colors.amenGold.opacity(0.15)) : AnyShapeStyle(.ultraThinMaterial),
                                 in: Capsule()
                             )
-                            .foregroundStyle(SmartAudienceRouter.shared.selectedRouteIds.contains(route.id) ? .blue : .secondary)
+                            .foregroundStyle(SmartAudienceRouter.shared.selectedRouteIds.contains(route.id) ? AmenTheme.Colors.amenGold : .secondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -343,14 +350,14 @@ struct LivingComposerView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                // Posting handled by parent via vm
+                Task { await vm.publish() }
             } label: {
                 Text("Post")
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
-                    .background(vm.canPost && !vm.hasBlockingFlag ? .blue : .secondary.opacity(0.3))
-                    .foregroundStyle(vm.canPost && !vm.hasBlockingFlag ? .white : .secondary)
+                    .background(vm.canPost && !vm.hasBlockingFlag ? AmenTheme.Colors.amenGold : .secondary.opacity(0.3))
+                    .foregroundStyle(vm.canPost && !vm.hasBlockingFlag ? AmenTheme.Colors.amenBlack : .secondary)
                     .clipShape(Capsule())
             }
             .disabled(!vm.canPost || vm.hasBlockingFlag)
@@ -369,11 +376,11 @@ struct LivingComposerView: View {
                         HStack {
                             Image(systemName: intent.composerIcon)
                                 .frame(width: 24)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(AmenTheme.Colors.amenBlue)
                             Text(intent.composerDisplayName)
                             Spacer()
                             if vm.selectedIntent == intent {
-                                Image(systemName: "checkmark").foregroundStyle(.blue)
+                                Image(systemName: "checkmark").foregroundStyle(AmenTheme.Colors.amenBlue)
                             }
                         }
                     }
@@ -407,7 +414,7 @@ struct LivingComposerView: View {
                         }
                         Spacer()
                         if SmartAudienceRouter.shared.selectedRouteIds.contains(route.id) {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue)
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(AmenTheme.Colors.amenBlue)
                         }
                     }
                 }

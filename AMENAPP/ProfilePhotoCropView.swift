@@ -43,78 +43,110 @@ struct ProfilePhotoCropView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                AmenLiquidWhiteBackdrop()
+
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+                    .blur(radius: 34)
+                    .saturation(0.92)
+                    .opacity(0.26)
+                    .overlay(Color.white.opacity(0.42))
 
                 VStack(spacing: 0) {
+                    HStack {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            onCancel()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.systemScaled(16, weight: .bold))
+                                .frame(width: 46, height: 46)
+                        }
+                        .buttonStyle(AmenLiquidWhiteCircleButtonStyle())
+
+                        Spacer()
+
+                        Text("Crop Image")
+                            .font(AMENFont.bold(16))
+                            .foregroundStyle(.black)
+
+                        Spacer()
+
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            commitCrop()
+                        } label: {
+                            Image(systemName: "checkmark")
+                                .font(.systemScaled(17, weight: .bold))
+                                .frame(width: 46, height: 46)
+                        }
+                        .buttonStyle(AmenLiquidWhiteCircleButtonStyle(isProminent: true))
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 14)
+
                     Spacer()
 
                     // ── Crop Frame ───────────────────────────────────────────
                     ZStack {
-                        // The image, transformed
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(
-                                width:  imageSize.width  > 0 ? imageSize.width  * scale : 300,
-                                height: imageSize.height > 0 ? imageSize.height * scale : 300
+                        AmenLiquidWhiteSurface(cornerRadius: 999, shadow: .floating) {
+                            Color.clear
+                                .frame(width: cropDiameter + 34, height: cropDiameter + 34)
+                        }
+
+                        ZStack {
+                            // The image, transformed
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(
+                                    width:  imageSize.width  > 0 ? imageSize.width  * scale : 300,
+                                    height: imageSize.height > 0 ? imageSize.height * scale : 300
+                                )
+                                .offset(offset)
+
+                            // Bright overlay with circular lens cut out.
+                            CropOverlay(diameter: cropDiameter)
+                                .allowsHitTesting(false)
+
+                            // Grid lines inside circle (appears only during gesture)
+                            CropGridLines(diameter: cropDiameter)
+                                .opacity(isDragging || isPinching ? 0.45 : 0)
+                                .animation(.easeOut(duration: 0.2), value: isDragging || isPinching)
+                                .allowsHitTesting(false)
+                        }
+                        .frame(width: cropDiameter, height: cropDiameter)
+                        .clipShape(Rectangle())
+                        .contentShape(Rectangle())
+                        .gesture(
+                            SimultaneousGesture(
+                                dragGesture,
+                                magnifyGesture
                             )
-                            .offset(offset)
-
-                        // Darkened overlay with circular hole cut out
-                        CropOverlay(diameter: cropDiameter)
-                            .allowsHitTesting(false)
-
-                        // Grid lines inside circle (appears only during gesture)
-                        CropGridLines(diameter: cropDiameter)
-                            .opacity(isDragging || isPinching ? 0.35 : 0)
-                            .animation(.easeOut(duration: 0.2), value: isDragging || isPinching)
-                            .allowsHitTesting(false)
-                    }
-                    .frame(width: cropDiameter, height: cropDiameter)
-                    .clipShape(Rectangle())  // prevent image bleeding during drag
-                    .contentShape(Rectangle())
-                    .gesture(
-                        SimultaneousGesture(
-                            dragGesture,
-                            magnifyGesture
                         )
-                    )
+                    }
 
                     Spacer()
 
                     // ── Hint text ────────────────────────────────────────────
-                    Text("Pinch to zoom · Drag to reposition")
-                        .font(AMENFont.regular(13))
-                        .foregroundStyle(.white.opacity(0.55))
-                        .padding(.bottom, 32)
-                }
-            }
-            .navigationTitle("Crop Photo")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbarBackground(.black, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        onCancel()
-                    }
-                    .foregroundStyle(.white)
-                    .font(AMENFont.regular(16))
-                }
+                    AmenLiquidWhiteSurface(cornerRadius: 999, shadow: .soft) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                .font(.systemScaled(13, weight: .semibold))
 
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        commitCrop()
-                    } label: {
-                        Text("Use Photo")
-                            .font(AMENFont.bold(16))
-                            .foregroundStyle(.white)
+                            Text("Pinch to zoom · Drag to reposition")
+                                .font(AMENFont.semiBold(13))
+                        }
+                        .foregroundStyle(.black.opacity(0.64))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 12)
                     }
+                    .padding(.bottom, 28)
                 }
             }
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 // Start with image filling the circle
                 let initial = max(minScale, 1.0)
@@ -122,7 +154,7 @@ struct ProfilePhotoCropView: View {
                 baseScale = initial
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 
     // MARK: - Gesture state helpers
@@ -245,15 +277,14 @@ struct ProfilePhotoCropView: View {
     }
 }
 
-// MARK: - Crop Overlay (dark vignette with circular hole)
+// MARK: - Crop Overlay (soft diffusion with circular lens)
 
 private struct CropOverlay: View {
     let diameter: CGFloat
 
     var body: some View {
         GeometryReader { geo in
-            // Dark overlay
-            Color.black.opacity(0.55)
+            Color.white.opacity(0.36)
                 // Cut out the circle
                 .mask(
                     ZStack {
@@ -267,8 +298,20 @@ private struct CropOverlay: View {
                 // White circle border
                 .overlay(
                     Circle()
-                        .strokeBorder(Color.white.opacity(0.85), lineWidth: 1.5)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.98),
+                                    Color.black.opacity(0.18),
+                                    Color.white.opacity(0.72)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.6
+                        )
                         .frame(width: diameter, height: diameter)
+                        .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
                 )
         }
     }
@@ -288,7 +331,7 @@ private struct CropGridLines: View {
                 height: diameter
             )
             let third = diameter / 3
-            let white = Color.white
+            let white = Color.white.opacity(0.82)
 
             // Vertical thirds
             for i in 1 ..< 3 {

@@ -65,6 +65,20 @@ final class BereanModelStore: ObservableObject {
         selectedMode = BereanModelMode(rawValue: saved) ?? .core
     }
 
+    // MARK: - Usage State / Quota
+
+    @Published var deepCreditsRemaining: Int? = nil
+    @Published var quotaExceeded: Bool = false
+
+    func updateUsageState(deepCreditsRemaining: Int?, quotaExceeded: Bool?) {
+        self.deepCreditsRemaining = deepCreditsRemaining
+        if let q = quotaExceeded { self.quotaExceeded = q }
+    }
+
+    func fallbackToCore() {
+        selectedMode = .core
+    }
+
     private func saveToFirestore(_ mode: BereanModelMode) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let data: [String: Any] = [

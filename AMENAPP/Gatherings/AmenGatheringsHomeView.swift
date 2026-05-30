@@ -30,8 +30,21 @@ struct AmenGatheringsHomeView: View {
             .sheet(isPresented: $showCreateFlow) {
                 AmenGatheringCreateFlow()
             }
+            .onChange(of: showCreateFlow) { _, isShowing in
+                if !isShowing {
+                    Task { await vm.load() }
+                }
+            }
             .sheet(item: $selectedGathering) { card in
                 AmenGatheringDetailSheetWrapper(gatheringId: card.gatheringId)
+            }
+            .sheet(isPresented: $vm.showCalendar) {
+                AmenGatheringCalendarView()
+            }
+            .sheet(isPresented: $vm.showSearch) {
+                GatheringsSearchSheet(gatherings: vm.allGatherings) {
+                    vm.showSearch = false
+                }
             }
             .task { await vm.load() }
         }
@@ -178,9 +191,9 @@ struct AmenGatheringsHomeView: View {
             VStack(spacing: 8) {
                 Text("No Gatherings Found")
                     .font(.title3.weight(.semibold))
-                Text("Be the first to create a gathering for your community.")
+                Text("Be the first to invite your community to gather in prayer, worship, or fellowship.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -191,10 +204,10 @@ struct AmenGatheringsHomeView: View {
                 } label: {
                     Label("Create a Gathering", systemImage: "plus.circle.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.black)
                         .padding(.horizontal, 20)
                         .frame(minHeight: 44)
-                        .background(Color.primary)
+                        .background(AmenTheme.Colors.amenGold)
                         .clipShape(Capsule(style: .continuous))
                 }
                 .accessibilityLabel("Create a gathering")
@@ -218,12 +231,12 @@ struct AmenGatheringsHomeView: View {
                     Text("Create Gathering")
                         .font(.subheadline.weight(.semibold))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.black)
                 .padding(.horizontal, 20)
                 .frame(minHeight: 50)
-                .background(Color.primary)
+                .background(AmenTheme.Colors.amenGold)
                 .clipShape(Capsule(style: .continuous))
-                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
+                .shadow(color: AmenTheme.Colors.shadowCard, radius: 12, x: 0, y: 6)
             }
             .accessibilityLabel("Create a new gathering")
             .padding(.bottom, 24)
@@ -250,6 +263,60 @@ struct AmenGatheringsHomeView: View {
     }
 }
 
+// MARK: - Search Sheet
+
+private struct GatheringsSearchSheet: View {
+    let gatherings: [AmenGatheringFeedCard]
+    let onDone: () -> Void
+
+    @State private var searchText = ""
+
+    private var filtered: [AmenGatheringFeedCard] {
+        guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return gatherings }
+        let query = searchText.lowercased()
+        return gatherings.filter {
+            $0.title.lowercased().contains(query) ||
+            $0.hostName.lowercased().contains(query) ||
+            $0.type.displayName.lowercased().contains(query)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(filtered) { card in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(card.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AmenTheme.Colors.textPrimary)
+                        HStack(spacing: 6) {
+                            Text(card.type.displayName)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(AmenTheme.Colors.amenGold)
+                            Text("·")
+                                .foregroundStyle(AmenTheme.Colors.textSecondary)
+                            Text(card.hostName)
+                                .font(.caption)
+                                .foregroundStyle(AmenTheme.Colors.textSecondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(card.title), \(card.type.displayName), hosted by \(card.hostName)")
+                }
+            }
+            .searchable(text: $searchText, prompt: "Search gatherings")
+            .navigationTitle("Search Gatherings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { onDone() }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Filter Chip
 
 private struct GatheringFilterChip: View {
@@ -269,12 +336,12 @@ private struct GatheringFilterChip: View {
                 Text(label)
                     .font(.caption.weight(.semibold))
             }
-            .foregroundStyle(isSelected ? .white : .primary)
+            .foregroundStyle(isSelected ? AmenTheme.Colors.textPrimary : AmenTheme.Colors.textSecondary)
             .padding(.horizontal, 12)
             .frame(minHeight: 34)
             .background {
                 if isSelected {
-                    Capsule(style: .continuous).fill(Color.primary)
+                    Capsule(style: .continuous).fill(AmenTheme.Colors.amenGold.opacity(0.15))
                 } else if reduceTransparency {
                     Capsule(style: .continuous).fill(Color(.systemGray6))
                 } else {
@@ -284,7 +351,10 @@ private struct GatheringFilterChip: View {
             }
             .overlay {
                 Capsule(style: .continuous)
-                    .strokeBorder(Color.primary.opacity(isSelected ? 0 : 0.1), lineWidth: 0.5)
+                    .strokeBorder(
+                        isSelected ? AmenTheme.Colors.amenGold.opacity(0.5) : AmenTheme.Colors.borderSoft,
+                        lineWidth: isSelected ? 1.0 : 0.5
+                    )
             }
         }
         .buttonStyle(.plain)
@@ -311,7 +381,7 @@ struct AmenGatheringDetailSheetWrapper: View {
             } else if let error {
                 VStack(spacing: 16) {
                     Text(error.userFacingTitle).font(.headline)
-                    Text(error.localizedDescription).font(.subheadline).foregroundStyle(.secondary)
+                    Text(error.userFriendlyMessage).font(.subheadline).foregroundStyle(.secondary)
                 }
                 .padding()
             }
@@ -347,6 +417,11 @@ final class AmenGatheringsHomeViewModel: ObservableObject {
     var isEmpty: Bool {
         trending.isEmpty && thisWeek.isEmpty && fromChurches.isEmpty &&
         prayerAndWorship.isEmpty && volunteer.isEmpty && yourUpcoming.isEmpty
+    }
+
+    var allGatherings: [AmenGatheringFeedCard] {
+        (trending + thisWeek + fromChurches + prayerAndWorship + volunteer + yourUpcoming)
+            .uniqued(by: \.gatheringId)
     }
 
     func load() async {

@@ -126,7 +126,7 @@ struct PinnedProfileHeroSection: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.72))
                         .frame(width: 34, height: 34)
-                        .glassEffect(.regular.tint(.white.opacity(0.12)), in: Circle())
+                        .amenGlassEffect(.white.opacity(0.12), in: Circle())
                         .glassEffectID("pinned-overflow-\(post.firestoreId)", in: namespace)
                 }
                 .buttonStyle(.plain)
@@ -176,7 +176,7 @@ struct PinnedProfileHeroSection: View {
         .foregroundStyle(.black.opacity(0.82))
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+        .amenGlassEffect(.white.opacity(0.12), in: Capsule())
         .glassEffectID("pinned-pill-\(post.firestoreId)", in: namespace)
     }
 
@@ -361,7 +361,7 @@ struct PinnedProfileHeroSection: View {
                 .foregroundStyle(.black.opacity(0.78))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
-                .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+                .amenGlassEffect(.white.opacity(0.12), in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -417,7 +417,7 @@ struct PinnedProfileMiniTokenView: View {
         .foregroundStyle(.black.opacity(0.78))
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+        .amenGlassEffect(.white.opacity(0.12), in: Capsule())
         .glassEffectID("pinned-pill-\(postID)", in: namespace)
         .scaleEffect(0.97 + (collapseProgress * 0.03))
         .opacity(1 - fadeProgress)
@@ -439,7 +439,7 @@ struct PinnedReadOnlyProfileHeader: View {
             .foregroundStyle(.black.opacity(0.78))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+            .amenGlassEffect(.white.opacity(0.12), in: Capsule())
 
             if let rationale = metadata.rationale, !rationale.isEmpty {
                 Text(rationale)
@@ -596,7 +596,7 @@ private struct PinnedProfileFocusedMediaOverlay: View {
                     .foregroundStyle(.black.opacity(0.78))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+                    .amenGlassEffect(.white.opacity(0.12), in: Capsule())
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)

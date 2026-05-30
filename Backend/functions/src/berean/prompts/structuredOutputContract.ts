@@ -81,3 +81,7 @@ export function validateStructuredResponse(parsed: unknown): Record<string, unkn
 
   return obj;
 }
+
+export function buildStructuredOutputContract(): string {
+  return STRUCTURED_OUTPUT_INSTRUCTION;
+}

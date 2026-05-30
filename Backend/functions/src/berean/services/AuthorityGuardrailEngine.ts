@@ -173,7 +173,7 @@ export function buildEscalationContextSummary(
   primaryTopic: string,
   sensitivityFlag: SensitivityFlag
 ): string {
-  const descriptions: Record<SensitivityFlag, string> = {
+  const descriptions: Partial<Record<SensitivityFlag, string>> = {
     crisis_escalation: `A member may be experiencing a crisis moment. Their conversation touched on themes of distress or hopelessness.`,
     pastoral_escalation: `A member had a question about "${primaryTopic}" that is beyond the scope of AI and would benefit from your pastoral wisdom.`,
     scrupulosity_risk: `A member may be experiencing spiritual anxiety around "${primaryTopic}". Gentle pastoral care is recommended.`,
@@ -185,3 +185,53 @@ export function buildEscalationContextSummary(
 
   return descriptions[sensitivityFlag] ?? `A pastoral follow-up is recommended for "${primaryTopic}".`;
 }
+
+// ---------------------------------------------------------------------------
+// Singleton class adapter — used by evaluateAuthorityEscalation controller
+// ---------------------------------------------------------------------------
+
+export type TopicClass =
+  | "scripture_study"
+  | "prayer"
+  | "doctrine"
+  | "pastoral_care"
+  | "crisis"
+  | "general"
+  | "off_topic";
+
+export interface EvaluationResult {
+  topicClass: TopicClass;
+  escalationRequired: boolean;
+  detectedFlags: SensitivityFlag[];
+  escalationTargets?: string[];
+  safeResponsePolicy?: string;
+}
+
+class AuthorityGuardrailEngineClass {
+  evaluate(
+    _messageText: string,
+    flags: SensitivityFlag[]
+  ): EvaluationResult {
+    const flagSet = new Set(flags);
+    const escalationRequired =
+      flagSet.has("crisis_escalation") ||
+      flagSet.has("pastoral_escalation") ||
+      flagSet.has("self_harm") ||
+      flagSet.has("suicidal_language");
+
+    let topicClass: TopicClass = "general";
+    if (flagSet.has("crisis_escalation") || flagSet.has("self_harm") || flagSet.has("suicidal_language")) {
+      topicClass = "crisis";
+    } else if (flagSet.has("controversial_doctrine") || flagSet.has("doctrinal_conflict") || flagSet.has("scripture_contradiction")) {
+      topicClass = "doctrine";
+    } else if (flagSet.has("pastoral_escalation") || flagSet.has("scrupulosity_risk")) {
+      topicClass = "pastoral_care";
+    }
+
+    const escalationTargets = escalationRequired ? ["pastor", "counselor"] : undefined;
+    const safeResponsePolicy = escalationRequired ? "crisis_safe" : undefined;
+    return { topicClass, escalationRequired, detectedFlags: flags, escalationTargets, safeResponsePolicy };
+  }
+}
+
+export const authorityGuardrailEngine = new AuthorityGuardrailEngineClass();

@@ -152,7 +152,7 @@ async function runImagePreflightInternal(
     enforcementAction,
     createdAt: admin.firestore.Timestamp.now(),
     modelVersions: ["cloud-vision-safeSearch-v1", `trust-safety-os:${TRUST_SAFETY_OS_VERSION}`],
-    appealAllowed: outcome !== "escalate",
+    appealAllowed: (outcome as string) !== "escalate",
     policyVersion: TRUST_SAFETY_OS_VERSION,
     contentId,
     contentType,

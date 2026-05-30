@@ -76,12 +76,9 @@ struct BereanCompactComposerBar: View {
 
         VStack(spacing: 0) {
             // Rule 4: BereanComposerTray (capability chip row + mode picker) is only
-            // visible when:
-            //   a) the "+" tools button has been tapped (showActions == true), OR
-            //   b) a meaningful draft intent has been detected (non-empty intent).
-            // When the composer is idle with no text, the tray stays hidden.
-            // The "+" button itself remains the permanent affordance for tool access.
-            if showActions || currentDraftIntent != .empty {
+            // visible when a meaningful draft intent has been detected (non-empty intent).
+            // Tool access is via the BereanToolGlassCard overlay triggered by the "+" button.
+            if currentDraftIntent != .empty {
                 BereanComposerTray(
                     draftText: $messageText,
                     draftIntent: currentDraftIntent,
@@ -164,14 +161,21 @@ struct BereanCompactComposerBar: View {
         }
         .frame(maxWidth: .infinity)
         .animation(.amenSpring, value: showActions)
-        .sheet(isPresented: $showActions) {
-            BereanComposerToolSheet(
-                actions: quickActions,
-                isVoiceEnabled: isVoiceEnabled,
-                onSelect: handleToolSelection
-            )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
+        .overlay(alignment: .bottomLeading) {
+            if showActions {
+                BereanToolGlassCard(
+                    actions: quickActions,
+                    isVoiceEnabled: isVoiceEnabled,
+                    onSelect: handleToolSelection
+                )
+                .padding(.leading, 6)
+                .offset(y: -64)
+                .transition(
+                    reduceMotion
+                        ? .opacity
+                        : .scale(scale: 0.94, anchor: .bottomLeading).combined(with: .opacity)
+                )
+            }
         }
         .sheet(isPresented: $showModePicker) {
             BereanModePickerSheet(
@@ -330,9 +334,9 @@ struct BereanCompactComposerBar: View {
 
     private func utilityButton(progress: CGFloat) -> some View {
         Button {
-            showActions = true
-            composerVM.setState(.expandedActions)
-            Analytics.logEvent("berean_tool_opened", parameters: ["tool": "sheet"])
+            withAnimation(reduceMotion ? .none : .amenSpring) { showActions.toggle() }
+            if showActions { composerVM.setState(.expandedActions) }
+            Analytics.logEvent("berean_tool_opened", parameters: ["tool": "glass_card"])
             HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "plus")
@@ -670,6 +674,72 @@ struct BereanCompactComposerBar: View {
 }
 
 typealias BereanComposerBar = BereanCompactComposerBar
+
+private struct BereanToolGlassCard: View {
+    let actions: [BereanLiquidAction]
+    let isVoiceEnabled: Bool
+    let onSelect: (BereanLiquidAction.ActionType) -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                    let disabled = action.action == .voiceNote && !isVoiceEnabled
+                    Button {
+                        guard !disabled else { return }
+                        onSelect(action.action)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: action.icon)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(AmenTheme.Colors.amenBlue)
+                                .frame(width: 26, height: 26)
+                            Text(action.title)
+                                .font(AMENFont.semiBold(14))
+                                .foregroundStyle(Color.primary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(height: 48)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(disabled ? 0.4 : 1)
+                    if index < actions.count - 1 {
+                        Divider().padding(.leading, 52)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .frame(maxWidth: 300)
+        .frame(maxHeight: 320)
+        .background(cardBackground)
+        .shadow(color: .black.opacity(0.10), radius: 16, y: 4)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if reduceTransparency {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.systemBackground))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                }
+        } else {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.regularMaterial)
+                .amenGlassEffect(Color(.systemBackground).opacity(0.35), cornerRadius: 18)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.6)
+                }
+        }
+    }
+}
 
 private struct BereanComposerToolSheet: View {
     let actions: [BereanLiquidAction]

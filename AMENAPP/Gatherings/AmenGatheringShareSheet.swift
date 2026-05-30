@@ -136,7 +136,11 @@ struct AmenGatheringShareSheet: View {
                 .accessibilityLabel(copiedLink ? "Copied!" : "Copy link")
             }
             .padding(12)
-            .background(Color(.systemGray6))
+            .background(AmenTheme.Colors.surfaceCard)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
     }
@@ -149,9 +153,9 @@ struct AmenGatheringShareSheet: View {
         } label: {
             Label("Share via Messages, Email & More", systemImage: "square.and.arrow.up")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.black)
                 .frame(maxWidth: .infinity, minHeight: 48)
-                .background(Color.primary)
+                .background(AmenTheme.Colors.amenGold)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -170,7 +174,11 @@ struct AmenGatheringShareSheet: View {
                 .foregroundStyle(.secondary)
         }
         .padding(12)
-        .background(Color(.systemGray6))
+        .background(AmenTheme.Colors.surfaceCard)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
