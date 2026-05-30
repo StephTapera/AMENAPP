@@ -46,6 +46,7 @@ struct AMENCompletionScreen: View {
     let moment: CompletionMoment
     var onDismiss: (() -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var wordOpacity: Double = 0
     @State private var pencilProgress: CGFloat = 0
     @State private var pencilX: CGFloat = 0
@@ -130,31 +131,31 @@ struct AMENCompletionScreen: View {
 
     private func runAnimation() {
         // 1. Word fades in
-        withAnimation(.easeIn(duration: 0.4)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.4)) {
             wordOpacity = 1
         }
 
         // 2. Pencil draws underline after 0.3s
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.easeInOut(duration: 0.7)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) {
                 pencilProgress = 1
             }
             // Pencil tip slides right in sync
-            withAnimation(.easeInOut(duration: 0.7)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) {
                 pencilX = wordSize.width
             }
         }
 
         // 3. Subtitle appears
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
-            withAnimation(.easeIn(duration: 0.4)) {
+            withAnimation(reduceMotion ? nil : .easeIn(duration: 0.4)) {
                 subtitleOpacity = 1
             }
         }
 
         // 4. Dismiss button appears
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            withAnimation(.easeIn(duration: 0.35)) {
+            withAnimation(reduceMotion ? nil : .easeIn(duration: 0.35)) {
                 dismissButtonOpacity = 1
             }
         }

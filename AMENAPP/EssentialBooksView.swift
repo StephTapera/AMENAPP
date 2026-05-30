@@ -11,6 +11,7 @@ import SwiftUI
 
 struct EssentialBooksView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel = BooksViewModel()
     
     @State private var selectedCategory: BookCategory = .all
@@ -90,7 +91,7 @@ struct EssentialBooksView: View {
             
             if !searchText.isEmpty {
                 Button {
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         searchText = ""
                     }
                 } label: {

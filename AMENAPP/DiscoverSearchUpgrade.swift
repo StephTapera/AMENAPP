@@ -23,6 +23,7 @@ enum SearchScope: String, CaseIterable {
 struct SearchScopeTabBar: View {
     @Binding var selected: SearchScope
     @Namespace private var ns
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -51,7 +52,7 @@ struct SearchScopeTabBar: View {
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.72), value: selected)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.72), value: selected)
                 }
             }
             .padding(.horizontal, 16)

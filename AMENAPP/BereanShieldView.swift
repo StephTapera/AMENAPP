@@ -11,6 +11,7 @@ import SwiftUI
 struct BereanShieldView: View {
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var service = BereanShieldService.shared
 
     /// Called when user taps "Ask Berean more" — bridges back to the Berean chat.
@@ -112,7 +113,7 @@ struct BereanShieldView: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(inputFocused ? coralRed.opacity(0.5) : cardStroke, lineWidth: 1)
                     )
-                    .animation(.spring(response: 0.25, dampingFraction: 0.75), value: inputFocused)
+                    .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.75), value: inputFocused)
 
                 if claimText.isEmpty {
                     Text("Paste a claim, headline, or quote…")
@@ -175,7 +176,7 @@ struct BereanShieldView: View {
         }
         .buttonStyle(.plain)
         .disabled(isEmpty || service.isAnalyzing)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isEmpty)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: isEmpty)
     }
 
     // MARK: - Dimensions Section

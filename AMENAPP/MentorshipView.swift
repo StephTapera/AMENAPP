@@ -308,6 +308,7 @@ struct MentorshipView: View {
     @State private var selectedTrack: DiscipleshipTrack?
     @State private var appeared = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let navy  = Color(red: 0.08, green: 0.10, blue: 0.22)
     private let green = Color(red: 0.18, green: 0.62, blue: 0.36)
 
@@ -362,7 +363,7 @@ struct MentorshipView: View {
         }
         .onAppear {
             store.loadAll()
-            withAnimation(.easeOut(duration: 0.5)) { appeared = true }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.5)) { appeared = true }
         }
     }
 

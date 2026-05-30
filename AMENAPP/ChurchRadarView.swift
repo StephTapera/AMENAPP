@@ -11,6 +11,7 @@ struct ChurchRadarView: View {
     @StateObject var viewModel: ChurchRadarViewModel
     var onChurchSelected: (LiveChurch) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isCollapsed: Bool = false
     @State private var pulseScale: CGFloat = 1.0
     @State private var selectedId: UUID? = nil
@@ -33,7 +34,7 @@ struct ChurchRadarView: View {
                     .scaleEffect(pulseScale)
                     .shadow(color: .amenEmerald.opacity(0.6), radius: 4)
                     .onAppear {
-                        withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                             pulseScale = 1.5
                         }
                     }

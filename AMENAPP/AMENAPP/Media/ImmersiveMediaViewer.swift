@@ -20,6 +20,7 @@ struct ImmersiveMediaViewer: View {
     let startingIndex: Int
     let onDismiss: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentIndex: Int
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
@@ -56,7 +57,7 @@ struct ImmersiveMediaViewer: View {
         }
         .statusBarHidden(true)
         .gesture(dismissDragGesture)
-        .animation(.interactiveSpring(), value: dragOffset)
+        .animation(reduceMotion ? .none : .interactiveSpring(), value: dragOffset)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Media viewer")
     }
@@ -75,11 +76,11 @@ struct ImmersiveMediaViewer: View {
             .onEnded { value in
                 isDragging = false
                 if value.translation.height > 100 {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.72)) {
                         onDismiss()
                     }
                 } else {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.80)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.80)) {
                         dragOffset = 0
                     }
                 }
@@ -93,6 +94,7 @@ private struct ImmersiveMediaPage: View {
 
     let item: ImmersiveMediaItem
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
     @State private var isVideoPlaying = true
@@ -138,7 +140,7 @@ private struct ImmersiveMediaPage: View {
                     .scaleEffect(scale)
                     .gesture(pinchGesture)
                     .gesture(doubleTapGesture)
-                    .animation(.spring(response: 0.30, dampingFraction: 0.75), value: scale)
+                    .animation(reduceMotion ? .none : .spring(response: 0.30, dampingFraction: 0.75), value: scale)
                     .accessibilityLabel(item.caption ?? "Photo by \(item.authorName)")
             case .failure:
                 Color.black
@@ -177,7 +179,7 @@ private struct ImmersiveMediaPage: View {
     private var doubleTapGesture: some Gesture {
         TapGesture(count: 2)
             .onEnded {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.75)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.75)) {
                     if scale > 1.5 {
                         scale = 1.0
                         lastScale = 1.0

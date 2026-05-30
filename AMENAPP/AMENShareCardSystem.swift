@@ -1127,6 +1127,7 @@ struct ShareActionButton: View {
     let label: String
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
@@ -1144,7 +1145,7 @@ struct ShareActionButton: View {
             .background(ShareGlass.capsuleBackground())
         }
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.65), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.65), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -1161,6 +1162,7 @@ struct AMENShareSheet: View {
     let payload: AMENSharePayload
     @Binding var isPresented: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var renderedImage: UIImage? = nil
     @State private var isRendering: Bool = true
     @State private var cardScale: CGFloat = 0.92
@@ -1293,7 +1295,7 @@ struct AMENShareSheet: View {
                     cardScale = 1.0
                     cardOpacity = 1.0
                 }
-                withAnimation(.easeIn(duration: 0.25).delay(0.2)) {
+                withAnimation(reduceMotion ? nil : .easeIn(duration: 0.25).delay(0.2)) {
                     showShareOptions = true
                 }
             }

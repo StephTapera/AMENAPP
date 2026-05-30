@@ -174,6 +174,7 @@ private struct DismissButton: View {
 /// The user is never told "we detected you're distressed."
 struct GentleCheckInCard: View {
     let onDismiss: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedMood: CheckInMood?
     @State private var showFollowUp = false
 
@@ -199,7 +200,7 @@ struct GentleCheckInCard: View {
                             selectedMood = mood
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            withAnimation { showFollowUp = true }
+                            withAnimation(reduceMotion ? nil : .default) { showFollowUp = true }
                         }
                     } label: {
                         VStack(spacing: 4) {
@@ -280,6 +281,7 @@ enum CheckInMood: CaseIterable {
 /// Gentle grounding prompt shown after frantic scrolling or heavy content.
 struct PauseAndBreatheCard: View {
     let onDismiss: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var breathPhase: BreathPhase = .inhale
     @State private var circleScale: CGFloat = 0.6
     @State private var isRunning = false
@@ -351,20 +353,20 @@ struct PauseAndBreatheCard: View {
 
     private func stopBreathing() {
         isRunning = false
-        withAnimation(.easeInOut(duration: 0.4)) { circleScale = 0.6 }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.4)) { circleScale = 0.6 }
     }
 
     private func animateBreath() {
         guard isRunning else { return }
         breathPhase = .inhale
-        withAnimation(.easeInOut(duration: 4.0)) { circleScale = 1.0 }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 4.0)) { circleScale = 1.0 }
         DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
             guard self.isRunning else { return }
             self.breathPhase = .hold
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 guard self.isRunning else { return }
                 self.breathPhase = .exhale
-                withAnimation(.easeInOut(duration: 4.0)) { self.circleScale = 0.6 }
+                withAnimation(self.reduceMotion ? nil : .easeInOut(duration: 4.0)) { self.circleScale = 0.6 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
                     guard self.isRunning else { return }
                     self.animateBreath()

@@ -11,6 +11,7 @@ import SwiftUI
 
 struct FaithPodcastsView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedGenre: PodcastGenre = .all
     @State private var searchText = ""
     @State private var showPlayer = false
@@ -107,7 +108,7 @@ struct FaithPodcastsView: View {
                         
                         if !searchText.isEmpty {
                             Button {
-                                withAnimation {
+                                withAnimation(reduceMotion ? nil : .default) {
                                     searchText = ""
                                 }
                             } label: {
@@ -239,7 +240,7 @@ struct FaithPodcastsView: View {
                         // Show full player
                     },
                     onClose: {
-                        withAnimation {
+                        withAnimation(reduceMotion ? nil : .default) {
                             showPlayer = false
                         }
                     }
@@ -667,6 +668,7 @@ struct MiniPlayer: View {
     @Binding var isPlaying: Bool
     let onTap: () -> Void
     let onClose: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         Button(action: onTap) {
@@ -678,7 +680,7 @@ struct MiniPlayer: View {
                             .fill(Color.purple)
                             .frame(width: 3, height: isPlaying ? CGFloat.random(in: 12...24) : 12)
                             .animation(
-                                isPlaying ? .easeInOut(duration: 0.5).repeatForever() : .default,
+                                reduceMotion ? .none : (isPlaying ? .easeInOut(duration: 0.5).repeatForever() : .default),
                                 value: isPlaying
                             )
                     }

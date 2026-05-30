@@ -405,11 +405,12 @@ struct GetReadyGlassBanner: View {
 struct GetReadyJourneySectionCard: View {
     @Binding var section: JourneySection
     @ObservedObject var vm: GetReadyViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(duration: 0.32, bounce: 0.08)) {
+                withAnimation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0.08)) {
                     section.isExpanded.toggle()
                 }
             } label: {
@@ -508,12 +509,13 @@ struct GetReadyDepartureCard: View {
     let route: GetReadyRouteRecommendation
     let churchName: String
     let onOpenMaps: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(duration: 0.28, bounce: 0.08)) {
+                withAnimation(reduceMotion ? nil : .spring(duration: 0.28, bounce: 0.08)) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -668,12 +670,13 @@ struct GetReadyBereanCard: View {
     let prompt: String
     let passagePreview: String?
     let prayerPrompt: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(duration: 0.28, bounce: 0.08)) {
+                withAnimation(reduceMotion ? nil : .spring(duration: 0.28, bounce: 0.08)) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -739,12 +742,13 @@ struct GetReadyKidsCard: View {
     let kids: [GetReadyFamilyState.Child]
     let hasIntegration: Bool
     let reminder: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(duration: 0.28, bounce: 0.08)) {
+                withAnimation(reduceMotion ? nil : .spring(duration: 0.28, bounce: 0.08)) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -935,12 +939,13 @@ struct GetReadyFirstVisitCard: View {
     let parking: String?
     let entrance: String?
     let dressHint: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(duration: 0.28, bounce: 0.08)) {
+                withAnimation(reduceMotion ? nil : .spring(duration: 0.28, bounce: 0.08)) {
                     isExpanded.toggle()
                 }
             } label: {

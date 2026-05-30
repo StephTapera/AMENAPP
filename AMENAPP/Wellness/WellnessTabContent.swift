@@ -15,13 +15,14 @@ enum WellnessDisplayTab: String, CaseIterable {
 struct WellnessTabRow: View {
     @Binding var selectedTab: WellnessDisplayTab
     @Namespace private var tabNamespace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 0) {
                 ForEach(WellnessDisplayTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.80)) {
                             selectedTab = tab
                         }
                     } label: {
@@ -142,6 +143,7 @@ struct WellnessGroupsTabContent: View {
     @State private var selectedNeed: GroupsIntakeNeed = .grief
     @State private var selectedFormat: GroupsIntakeFormat = .inPerson
     @State private var selectedPacing: GroupsIntakePacing = .lowPressure
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var matchResult: GroupsIntakeResult {
         GroupsIntakeResult.match(need: selectedNeed, format: selectedFormat, pacing: selectedPacing)
@@ -180,21 +182,21 @@ struct WellnessGroupsTabContent: View {
             WellnessIntakeRow(label: "What do you need support with?") {
                 ForEach(GroupsIntakeNeed.allCases, id: \.self) { need in
                     WellnessIntakePill(label: need.rawValue, isSelected: selectedNeed == need) {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) { selectedNeed = need }
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.80)) { selectedNeed = need }
                     }
                 }
             }
             WellnessIntakeRow(label: "Preferred format?") {
                 ForEach(GroupsIntakeFormat.allCases, id: \.self) { fmt in
                     WellnessIntakePill(label: fmt.rawValue, isSelected: selectedFormat == fmt) {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) { selectedFormat = fmt }
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.80)) { selectedFormat = fmt }
                     }
                 }
             }
             WellnessIntakeRow(label: "Pacing?") {
                 ForEach(GroupsIntakePacing.allCases, id: \.self) { pace in
                     WellnessIntakePill(label: pace.rawValue, isSelected: selectedPacing == pace) {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) { selectedPacing = pace }
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.80)) { selectedPacing = pace }
                     }
                 }
             }
@@ -224,7 +226,7 @@ struct WellnessGroupsTabContent: View {
             .shadow(color: .black.opacity(0.07), radius: 10, y: 4)
             .id("match-\(matchResult.groupName)")
             .transition(.opacity)
-            .animation(.spring(response: 0.38, dampingFraction: 0.82), value: matchResult.groupName)
+            .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.82), value: matchResult.groupName)
         }
     }
 }

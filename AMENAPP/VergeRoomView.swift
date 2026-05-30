@@ -19,6 +19,7 @@ struct VergeRoomView: View {
 
     @StateObject private var messagesVM   = VergeMessagesViewModel()
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var messageText        = ""
     @State private var messageType        = VergeMessageType.text
@@ -159,7 +160,7 @@ struct VergeRoomView: View {
                         )
                         .frame(width: 88, height: 88)
                         .scaleEffect(1.05)
-                        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: room.isLive)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: room.isLive)
 
                     Circle()
                         .fill(amenPurple.opacity(0.3))
@@ -352,7 +353,7 @@ struct VergeRoomView: View {
             ForEach(["🙌", "🔥", "❤️", "🙏", "✨"], id: \.self) { emoji in
                 Button {
                     sendReaction(emoji)
-                    withAnimation { showEmojiPicker = false }
+                    withAnimation(reduceMotion ? nil : .default) { showEmojiPicker = false }
                 } label: {
                     Text(emoji)
                         .font(.systemScaled(28))

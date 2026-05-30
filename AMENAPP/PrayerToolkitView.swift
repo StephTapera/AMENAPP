@@ -147,6 +147,7 @@ struct FeaturedPrayerCard: View {
     @State private var currentIndex = 0
     @State private var shimmerPhase: CGFloat = 0
     @State private var autoScrollTimer: Timer?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var currentBanner: PrayerBanner {
         prayerBanners[currentIndex]
@@ -170,14 +171,14 @@ struct FeaturedPrayerCard: View {
                     Capsule()
                         .fill(currentIndex == index ? currentBanner.gradientColors[0] : Color.gray.opacity(0.3))
                         .frame(width: currentIndex == index ? 24 : 8, height: 8)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentIndex)
+                        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: currentIndex)
                 }
             }
             .padding(.horizontal)
         }
         .onAppear {
             startAutoScroll()
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 3).repeatForever(autoreverses: false)) {
                 shimmerPhase = 400
             }
         }

@@ -23,6 +23,7 @@ struct BereanGlassComposer: View {
     var onNotes: (() -> Void)?
     var onScripture: (() -> Void)?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var isFocused: Bool
     @State private var composerScale: CGFloat = 1.0
     @State private var composerOffsetY: CGFloat = 0
@@ -149,7 +150,7 @@ struct BereanGlassComposer: View {
                         )
                 )
         )
-        .animation(.amenEaseQuick, value: fillOpacity)
+        .animation(reduceMotion ? .none : .amenEaseQuick, value: fillOpacity)
     }
 
     // ─── Send Button ─────────────────────────────────────────────────────────
@@ -178,6 +179,7 @@ struct BereanActionChipRow: View {
     @Binding var activeChip: BereanChipAction?
     var onSelect: (BereanChipAction) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let chips = BereanChipAction.allCases
     @State private var chipsVisible: [Bool] = Array(repeating: false, count: BereanChipAction.allCases.count)
 
@@ -190,7 +192,7 @@ struct BereanActionChipRow: View {
                         icon: chip.icon,
                         isActive: activeChip == chip
                     ) {
-                        withAnimation(.amenEaseQuick) {
+                        withAnimation(reduceMotion ? nil : .amenEaseQuick) {
                             activeChip = activeChip == chip ? nil : chip
                         }
                         onSelect(chip)

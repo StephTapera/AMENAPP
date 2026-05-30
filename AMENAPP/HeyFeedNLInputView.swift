@@ -12,6 +12,7 @@ import SwiftUI
 
 struct HeyFeedNLInputView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var nlService   = HeyFeedNLPreferencesService.shared
     @StateObject private var sessionSvc  = HeyFeedSessionModeService.shared
 
@@ -415,7 +416,7 @@ struct HeyFeedNLInputView: View {
             }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             try? await Task.sleep(nanoseconds: 1_800_000_000)
-            withAnimation { showSuccess = false }
+            withAnimation(reduceMotion ? nil : .default) { showSuccess = false }
         }
     }
 }

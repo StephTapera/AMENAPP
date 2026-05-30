@@ -19,6 +19,7 @@ struct FullscreenMediaViewer: View {
     var postId: String? = nil
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentIndex: Int
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -283,7 +284,7 @@ struct FullscreenMediaViewer: View {
                         width: index == currentIndex ? 7 : 5,
                         height: index == currentIndex ? 7 : 5
                     )
-                    .animation(.spring(response: 0.3), value: currentIndex)
+                    .animation(reduceMotion ? .none : .spring(response: 0.3), value: currentIndex)
             }
         }
         .padding(.bottom, 44)
@@ -349,7 +350,7 @@ struct FullscreenMediaViewer: View {
     // MARK: - Actions
     
     private func toggleChrome() {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
             showChrome.toggle()
         }
     }
