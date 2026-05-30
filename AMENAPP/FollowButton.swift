@@ -109,6 +109,7 @@ struct SocialFollowButton: View {
 /// Animated follow button with shimmer, checkmark spring, and particle burst.
 /// Usage: AnimatedFollowButton(isFollowing: $isFollowing, isInProgress: $isInProgress) { toggleFollow() }
 struct AnimatedFollowButton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isFollowing: Bool
     @Binding var isInProgress: Bool
     let onToggle: () -> Void
@@ -146,7 +147,7 @@ struct AnimatedFollowButton: View {
                         Capsule().fill(Color.black)
                     }
                 }
-                .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isFollowing)
+                .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.75), value: isFollowing)
 
                 // Shimmer
                 LinearGradient(
@@ -182,14 +183,14 @@ struct AnimatedFollowButton: View {
                             .foregroundStyle(isFollowing ? Color.primary : Color.white)
                             .opacity(labelOpacity)
                             .offset(y: labelOffset)
-                            .animation(.spring(response: 0.3), value: isFollowing)
+                            .animation(reduceMotion ? .none : .spring(response: 0.3), value: isFollowing)
                     }
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(height: 44)
             .scaleEffect(isPressed ? 0.96 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
         }
         .buttonStyle(FollowPressStyle(isPressed: $isPressed))
         .overlay(FollowParticleBurst(trigger: showParticles, color: accentColor))
@@ -201,9 +202,9 @@ struct AnimatedFollowButton: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
         shimmerOffset = -1
-        withAnimation(.easeOut(duration: 0.5)) { shimmerOffset = 1.5 }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.5)) { shimmerOffset = 1.5 }
 
-        withAnimation(.easeIn(duration: 0.12)) {
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.12)) {
             labelOpacity = 0
             labelOffset  = isFollowing ? 4 : -4
         }
@@ -239,6 +240,7 @@ private struct FollowPressStyle: ButtonStyle {
 }
 
 private struct FollowParticleBurst: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let trigger: Bool
     let color: Color
     private let count = 8
@@ -257,7 +259,7 @@ private struct FollowParticleBurst: View {
                     )
                     .opacity(trigger ? 0 : 0)
                     .animation(
-                        trigger ? .spring(response: 0.4, dampingFraction: 0.6).delay(Double(i) * 0.02) : .none,
+                        (!reduceMotion && trigger) ? .spring(response: 0.4, dampingFraction: 0.6).delay(Double(i) * 0.02) : .none,
                         value: trigger
                     )
             }

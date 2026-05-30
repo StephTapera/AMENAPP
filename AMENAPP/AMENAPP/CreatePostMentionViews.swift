@@ -5,6 +5,7 @@ struct AlgoliaMentionSuggestionRow: View {
     let user: AlgoliaUser
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     // Fallback profile image URL fetched from Firestore when Algolia index lacks it
     @State private var resolvedImageURL: String? = nil
@@ -79,7 +80,7 @@ struct AlgoliaMentionSuggestionRow: View {
                     ? Color(uiColor: .tertiarySystemFill)
                     : Color.clear
             )
-            .animation(.easeOut(duration: 0.1), value: isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.1), value: isPressed)
         }
         .buttonStyle(PlainButtonStyle())
         ._onButtonGesture { pressing in
@@ -130,6 +131,7 @@ struct BereanTonePopup: View {
     let onUse: (String) -> Void
     let onDismiss: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var cardScale: CGFloat = 0.88
     @State private var cardOpacity: Double = 0
     @State private var sparkleRotation: Double = -8
@@ -277,7 +279,7 @@ struct BereanTonePopup: View {
                                             .shadow(color: Color(red: 0.25, green: 0.55, blue: 1.0).opacity(0.35), radius: 8, y: 4)
                                     )
                                     .scaleEffect(usePressed ? 0.94 : 1.0)
-                                    .animation(.spring(response: 0.2, dampingFraction: 0.6), value: usePressed)
+                                    .animation(reduceMotion ? .none : .spring(response: 0.2, dampingFraction: 0.6), value: usePressed)
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 ._onButtonGesture { pressing in usePressed = pressing } perform: {}
@@ -302,7 +304,7 @@ struct BereanTonePopup: View {
                                             }
                                     )
                                     .scaleEffect(keepPressed ? 0.94 : 1.0)
-                                    .animation(.spring(response: 0.2, dampingFraction: 0.6), value: keepPressed)
+                                    .animation(reduceMotion ? .none : .spring(response: 0.2, dampingFraction: 0.6), value: keepPressed)
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 ._onButtonGesture { pressing in keepPressed = pressing } perform: {}
@@ -378,7 +380,7 @@ struct BereanTonePopup: View {
                         cardOpacity = 1.0
                     }
                     // Sparkle rocks back and forth
-                    withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true).delay(0.3)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.4).repeatForever(autoreverses: true).delay(0.3)) {
                         sparkleRotation = 8
                     }
                     // Label has a tiny playful wiggle on appear
@@ -402,6 +404,7 @@ struct SourceLabelPrompt: View {
     let onPostWithSource: (String) -> Void   // passes the source string e.g. "ChatGPT"
     let onEdit: () -> Void                    // user wants to rewrite
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var cardScale: CGFloat = 0.88
     @State private var cardOpacity: Double = 0
     @State private var selectedSource: String = "ChatGPT"
@@ -555,7 +558,7 @@ struct SourceLabelPrompt: View {
                                     .shadow(color: Color(red: 0.25, green: 0.55, blue: 1.0).opacity(0.35), radius: 8, y: 4)
                             )
                             .scaleEffect(postPressed ? 0.94 : 1.0)
-                            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: postPressed)
+                            .animation(reduceMotion ? .none : .spring(response: 0.2, dampingFraction: 0.6), value: postPressed)
                         }
                         .buttonStyle(PlainButtonStyle())
                         ._onButtonGesture { pressing in postPressed = pressing } perform: {}
@@ -580,7 +583,7 @@ struct SourceLabelPrompt: View {
                                     }
                             )
                             .scaleEffect(editPressed ? 0.94 : 1.0)
-                            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: editPressed)
+                            .animation(reduceMotion ? .none : .spring(response: 0.2, dampingFraction: 0.6), value: editPressed)
                         }
                         .buttonStyle(PlainButtonStyle())
                         ._onButtonGesture { pressing in editPressed = pressing } perform: {}

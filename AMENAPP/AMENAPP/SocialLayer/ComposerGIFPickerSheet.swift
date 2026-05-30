@@ -477,6 +477,7 @@ private struct GIFCell: View {
     let onTap: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -490,7 +491,7 @@ private struct GIFCell: View {
                     image
                         .resizable()
                         .scaledToFill()
-                        .transition(.opacity.animation(.easeIn(duration: 0.18)))
+                        .transition(.opacity.animation(reduceMotion ? .none : .easeIn(duration: 0.18)))
                 case .failure:
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(AmenTheme.Colors.surfaceInput)
@@ -530,6 +531,7 @@ private struct StoredGIFCell: View {
     let onTap: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -543,7 +545,7 @@ private struct StoredGIFCell: View {
                     image
                         .resizable()
                         .scaledToFill()
-                        .transition(.opacity.animation(.easeIn(duration: 0.18)))
+                        .transition(.opacity.animation(reduceMotion ? .none : .easeIn(duration: 0.18)))
                 case .failure:
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(AmenTheme.Colors.surfaceInput)

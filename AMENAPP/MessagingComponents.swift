@@ -13,6 +13,7 @@ import FirebaseAuth
 
 struct MessagingPhotoPickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var selectedImages: [UIImage]
     
     @State private var selectedItems: [PhotosPickerItem] = []
@@ -88,7 +89,7 @@ struct MessagingPhotoPickerView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         
                         Button {
-                            withAnimation {
+                            withAnimation(reduceMotion ? nil : .default) {
                                 let _ = selectedImages.remove(at: index)
                             }
                         } label: {
@@ -493,6 +494,7 @@ struct ModernMessageBubble: View {
 // MARK: - Modern Typing Indicator (Liquid Glass Pill Design)
 
 struct ModernTypingIndicator: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animationIndex = 0
     
     var body: some View {
@@ -503,7 +505,7 @@ struct ModernTypingIndicator: View {
                     .frame(width: 8, height: 8)
                     .scaleEffect(animationIndex == index ? 1.3 : 0.9)
                     .animation(
-                        Animation.easeInOut(duration: 0.6)
+                        reduceMotion ? .none : Animation.easeInOut(duration: 0.6)
                             .repeatForever(autoreverses: true)
                             .delay(Double(index) * 0.2),
                         value: animationIndex
@@ -610,13 +612,14 @@ struct NeumorphicSegmentedControl: View {
 // MARK: - Dia-Style Chat Input Bar
 
 struct ModernChatInputBar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var messageText: String
     @FocusState var isInputFocused: Bool
     @Binding var selectedImages: [UIImage]
     let onSend: () -> Void
     let onPhotoPicker: () -> Void
     let onVoiceInput: (() -> Void)?
-    
+
     @State private var isPressed = false
     @State private var showingFilePicker = false
     
@@ -692,7 +695,7 @@ struct ModernChatInputBar: View {
                             Image(systemName: canSend ? "arrow.up" : "mic.fill")
                                 .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.white)
-                                .animation(.spring(response: 0.28, dampingFraction: 0.65), value: canSend)
+                                .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.65), value: canSend)
                             if canSend {
                                 Text("Send")
                                     .font(.systemScaled(13, weight: .semibold))
@@ -717,9 +720,9 @@ struct ModernChatInputBar: View {
                                     )
                                 )
                         )
-                        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: canSend)
+                        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.72), value: canSend)
                         .scaleEffect(isPressed ? 0.94 : 1.0)
-                        .animation(.spring(response: 0.28, dampingFraction: 0.65), value: isPressed)
+                        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.65), value: isPressed)
                     }
                     .simultaneousGesture(
                         DragGesture(minimumDistance: 0)

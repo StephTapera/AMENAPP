@@ -10,6 +10,7 @@ import SwiftUI
 // MARK: - Quick Testimony Popup
 struct QuickTestimonyView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var testimonyText = ""
     @State private var selectedCategory: QuickTestimonyCategory = .healing
     @State private var isPosting = false
@@ -236,12 +237,12 @@ struct QuickTestimonyView: View {
                             .stroke(characterProgressColor, lineWidth: 2.5)
                             .frame(width: 28, height: 28)
                             .rotationEffect(.degrees(-90))
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: characterProgress)
+                            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: characterProgress)
                     }
                 }
             }
             .offset(x: characterWarningShake ? -5 : 0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.3).repeatCount(3, autoreverses: true), value: characterWarningShake)
+            .animation(reduceMotion ? .none : .spring(response: 0.2, dampingFraction: 0.3).repeatCount(3, autoreverses: true), value: characterWarningShake)
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
@@ -342,7 +343,7 @@ struct QuickTestimonyView: View {
             }
             .disabled(!canPost || isPosting)
             .scaleEffect(canPost ? 1.0 : 0.97)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: canPost)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: canPost)
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 32)
@@ -586,7 +587,9 @@ struct QuickTestimonyCategoryChip: View {
     let category: QuickTestimonyCategory
     let isSelected: Bool
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
@@ -622,7 +625,7 @@ struct QuickTestimonyCategoryChip: View {
             )
         }
         .scaleEffect(isSelected ? 1.0 : 0.95)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
 }
 

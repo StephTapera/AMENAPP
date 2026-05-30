@@ -143,6 +143,7 @@ struct FaithReelStudioView: View {
 // MARK: - Main Card Helper
 
 private struct FaithReelMainCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let icon: String
     let iconColor: Color
     let title: String
@@ -227,7 +228,7 @@ private struct FaithReelMainCard: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.6), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -238,7 +239,7 @@ private struct FaithReelMainCard: View {
     private func triggerRipple() {
         rippleScale = 0
         rippleOpacity = 1
-        withAnimation(.easeOut(duration: 0.55)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.55)) {
             rippleScale = 1
             rippleOpacity = 0
         }
@@ -249,6 +250,7 @@ private struct FaithReelMainCard: View {
 
 struct FaithReelCreatorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var currentStep = 1
     private let totalSteps = 5
@@ -479,7 +481,7 @@ struct FaithReelCreatorView: View {
                 Capsule()
                     .fill(step == currentStep ? Color.purple : Color.white.opacity(0.15))
                     .frame(width: step == currentStep ? 28 : 8, height: 8)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: currentStep)
+                    .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.7), value: currentStep)
             }
         }
     }
@@ -795,7 +797,7 @@ struct FaithReelCreatorView: View {
                                         RoundedRectangle(cornerRadius: 6)
                                             .fill(Color.purple)
                                             .frame(width: geo.size.width * exportProgress, height: 8)
-                                            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: exportProgress)
+                                            .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8), value: exportProgress)
                                     }
                                 }
                                 .frame(height: 8)
@@ -859,7 +861,7 @@ struct FaithReelCreatorView: View {
         exportStarted = true
         exportProgress = 0
         exportDone = false
-        withAnimation(.linear(duration: 2.0)) {
+        withAnimation(reduceMotion ? nil : .linear(duration: 2.0)) {
             exportProgress = 1.0
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.1) {
@@ -996,6 +998,7 @@ struct FaithReelCreatorView: View {
 // MARK: - Media Option Card
 
 private struct MediaOptionCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let icon: String
     let iconColor: Color
     let title: String
@@ -1045,7 +1048,7 @@ private struct MediaOptionCard: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }

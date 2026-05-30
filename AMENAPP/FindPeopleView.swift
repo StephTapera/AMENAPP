@@ -311,6 +311,7 @@ final class FindPeopleViewModel: ObservableObject {
 
 struct FindPeopleView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var vm = FindPeopleViewModel()
     @State private var profileSheetUserId: String?
 
@@ -388,7 +389,7 @@ struct FindPeopleView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5)
         )
-        .animation(.easeInOut(duration: 0.15), value: vm.searchText.isEmpty)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: vm.searchText.isEmpty)
     }
 
     // MARK: Filter pills
@@ -401,7 +402,7 @@ struct FindPeopleView: View {
                         filter: filter,
                         isSelected: vm.selectedFilter == filter
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.72)) {
                             vm.selectedFilter = filter
                         }
                         HapticManager.impact(style: .light)
@@ -474,6 +475,7 @@ struct FindPeopleView: View {
 // MARK: - Filter Pill
 
 private struct PeopleDiscoveryFilterPill: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let filter: PeopleDiscoveryFilter
     let isSelected: Bool
     let action: () -> Void
@@ -507,7 +509,7 @@ private struct PeopleDiscoveryFilterPill: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityLabel(filter.rawValue)
         .accessibilityHint(isSelected ? "Currently selected filter" : "Filter by \(filter.rawValue)")
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
 }
 
@@ -578,6 +580,7 @@ private struct PeopleSectionView: View {
 // MARK: - Person Card
 
 private struct DiscoveryPersonCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let person: DiscoveredPerson
     let isFollowing: Bool
     let isPending: Bool
@@ -619,13 +622,13 @@ private struct DiscoveryPersonCard: View {
         .onAppear {
             localIsFollowing = isFollowing
             let delay = cardIndex < 6 ? Double(cardIndex) * 0.04 : 0
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8).delay(delay)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8).delay(delay)) {
                 appeared = true
             }
         }
         .onChange(of: isFollowing) { _, newVal in
             if newVal != localIsFollowing {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7)) {
                     localIsFollowing = newVal
                 }
             }
@@ -700,13 +703,13 @@ private struct DiscoveryPersonCard: View {
     private var followButton: some View {
         Button {
             HapticManager.impact(style: .light)
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.65)) {
                 if !localIsFollowing { showCheckmark = true }
                 localIsFollowing.toggle()
             }
             onFollow()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                withAnimation(.easeOut(duration: 0.2)) { showCheckmark = false }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showCheckmark = false }
             }
         } label: {
             ZStack {
@@ -734,8 +737,8 @@ private struct DiscoveryPersonCard: View {
                 }
             }
             .frame(width: localIsFollowing ? 88 : 72, height: 32)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: localIsFollowing)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showCheckmark)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: localIsFollowing)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: showCheckmark)
         }
         .buttonStyle(ScaleButtonStyle())
         .disabled(isPending)

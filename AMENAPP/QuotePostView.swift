@@ -16,6 +16,7 @@ enum TrayType { case mention, hashtag }
 
 struct QuotePostView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // The post being quoted
     let quotedPost: Post
@@ -147,7 +148,7 @@ struct QuotePostView: View {
             // Quoted card
             quotedCard
                 .scaleEffect(cardScale)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: cardScale)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: cardScale)
                 .onLongPressGesture(minimumDuration: 0.4) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
@@ -248,7 +249,7 @@ struct QuotePostView: View {
 
     private func triggerShimmer() {
         shimmerOffset = -UIScreen.main.bounds.width
-        withAnimation(.easeInOut(duration: 0.65)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.65)) {
             shimmerOffset = UIScreen.main.bounds.width
         }
     }
@@ -287,6 +288,7 @@ struct QuotePostView: View {
                 .scaleEffect(showReactionTray ? 1 : 0.75)
                 .opacity(showReactionTray ? 1 : 0)
                 .animation(
+                    reduceMotion ? .none :
                     .spring(response: 0.32, dampingFraction: 0.62)
                     .delay(Double(index) * 0.04),
                     value: showReactionTray
@@ -341,6 +343,7 @@ struct QuotePostView: View {
                         .opacity(trayVisible ? 1 : 0)
                         .offset(y: trayVisible ? 0 : 8)
                         .animation(
+                            reduceMotion ? .none :
                             .spring(response: 0.35, dampingFraction: 0.72)
                             .delay(Double(index) * 0.055),
                             value: trayVisible
@@ -358,7 +361,7 @@ struct QuotePostView: View {
         .offset(y: trayVisible ? 0 : 14)
         .scaleEffect(trayVisible ? 1 : 0.94, anchor: .bottom)
         .opacity(trayVisible ? 1 : 0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: trayVisible)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: trayVisible)
     }
 
     // MARK: - PROMPT 2: Trigger Detection

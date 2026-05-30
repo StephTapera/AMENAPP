@@ -659,6 +659,7 @@ class DiscoveryViewModel: ObservableObject {
 // MARK: - Main Discovery View
 
 struct PeopleDiscoveryViewNew: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var vm = DiscoveryViewModel()
     @State private var searchText = ""
     @State private var isSearchFocused = false
@@ -729,9 +730,9 @@ struct PeopleDiscoveryViewNew: View {
                     .onChanged { v in
                         let delta = v.translation.height - lastDragValue
                         if delta < -8, !isTabBarHidden {
-                            withAnimation(.easeInOut(duration: 0.2)) { isTabBarHidden = true }
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { isTabBarHidden = true }
                         } else if delta > 8, isTabBarHidden {
-                            withAnimation(.easeInOut(duration: 0.2)) { isTabBarHidden = false }
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { isTabBarHidden = false }
                         }
                         lastDragValue = v.translation.height
                     }
@@ -790,7 +791,7 @@ struct PeopleDiscoveryViewNew: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 8)
-        .animation(.easeOut(duration: 0.15), value: scrollOffset)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: scrollOffset)
     }
 
     // MARK: - Search Bar (tap-to-expand)
@@ -951,7 +952,7 @@ struct PeopleDiscoveryViewNew: View {
                     .foregroundStyle(.primary)
                 Spacer()
                 Button("Clear") {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         vm.clearRecentSearches()
                     }
                     HapticManager.impact(style: .light)
@@ -1479,6 +1480,7 @@ struct DiscoveryPersonRow: View {
     let onTap: () -> Void
     let onFollow: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
     @State private var isPressed = false
     @State private var showCheckmark = false
@@ -1585,7 +1587,7 @@ struct DiscoveryPersonRow: View {
                 }
                 onFollow()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                    withAnimation(.easeOut(duration: 0.2)) { showCheckmark = false }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showCheckmark = false }
                     isFollowInProgress = false
                 }
             } label: {
@@ -1618,8 +1620,8 @@ struct DiscoveryPersonRow: View {
                     }
                 }
                 .frame(width: localIsFollowing ? 90 : 72, height: 32)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: localIsFollowing)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showCheckmark)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: localIsFollowing)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: showCheckmark)
             }
             .buttonStyle(ScaleButtonStyle())
             .disabled(isFollowInProgress)
@@ -1913,13 +1915,22 @@ struct DiscoveryChurchRow: View {
 
 struct DiscoveryPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
+        DiscoveryPressStyleBody(configuration: configuration)
+    }
+}
+
+private struct DiscoveryPressStyleBody: View {
+    let configuration: DiscoveryPressStyle.Configuration
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         configuration.label
             .background(
                 configuration.isPressed
                     ? Color(uiColor: .tertiarySystemFill)
                     : Color.clear
             )
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -2072,6 +2083,7 @@ struct TrendingTopicFeedView: View {
 
 /// Animated shimmer skeleton for a person row while data loads
 struct PersonRowSkeletonView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmer = false
 
     var body: some View {
@@ -2099,7 +2111,7 @@ struct PersonRowSkeletonView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 11)
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 shimmer = true
             }
         }
@@ -2112,6 +2124,7 @@ struct PersonRowSkeletonView: View {
 
 /// Animated shimmer skeleton for a trending topic row while data loads
 struct TrendingTopicSkeletonRow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmer = false
 
     var body: some View {
@@ -2135,7 +2148,7 @@ struct TrendingTopicSkeletonRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 shimmer = true
             }
         }
