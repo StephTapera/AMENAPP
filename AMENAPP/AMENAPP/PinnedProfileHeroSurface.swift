@@ -11,6 +11,7 @@ struct PinnedProfileHeroSection: View {
     let onViewDetails: () -> Void
     let onReplace: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasAnimatedIn = false
     @State private var showSheen = false
     @State private var sheenOffset: CGFloat = -260
@@ -74,7 +75,7 @@ struct PinnedProfileHeroSection: View {
                         item: focusedMedia,
                         namespace: namespace,
                         onDismiss: {
-                            withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.88)) {
                                 showFocusedMedia = false
                             }
                         }
@@ -88,13 +89,13 @@ struct PinnedProfileHeroSection: View {
         .onAppear {
             guard !hasAnimatedIn else { return }
             labelTransitionKey = UUID()
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.82)) {
                 hasAnimatedIn = true
             }
             runSheenSweep()
         }
         .onChange(of: metadata.label) { _, _ in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.86)) {
                 labelTransitionKey = UUID()
             }
         }
@@ -103,7 +104,7 @@ struct PinnedProfileHeroSection: View {
                 .onEnded { _ in
                     let generator = UIImpactFeedbackGenerator(style: .soft)
                     generator.impactOccurred()
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82)) {
                         showActionBloom.toggle()
                     }
                 }
@@ -118,7 +119,7 @@ struct PinnedProfileHeroSection: View {
                 Spacer(minLength: 0)
 
                 Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.85)) {
                         showActionBloom.toggle()
                     }
                 } label: {
@@ -153,7 +154,7 @@ struct PinnedProfileHeroSection: View {
                             .offset(y: hasAnimatedIn ? 0 : 8)
                             .opacity(hasAnimatedIn ? detailOpacity : 0)
                             .animation(
-                                .spring(response: 0.34, dampingFraction: 0.84).delay(Double(index) * 0.05),
+                                reduceMotion ? .none : .spring(response: 0.34, dampingFraction: 0.84).delay(Double(index) * 0.05),
                                 value: hasAnimatedIn
                             )
                     }
@@ -227,7 +228,7 @@ struct PinnedProfileHeroSection: View {
                     namespace: namespace,
                     onSelect: { item in
                         focusedMedia = item
-                        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.88)) {
                             showFocusedMedia = true
                         }
                     }
@@ -351,7 +352,7 @@ struct PinnedProfileHeroSection: View {
 
     private func actionButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button {
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.88)) {
                 showActionBloom = false
             }
             action()
@@ -387,7 +388,7 @@ struct PinnedProfileHeroSection: View {
         showSheen = true
         sheenOffset = -260
 
-        withAnimation(.easeInOut(duration: 0.82)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.82)) {
             sheenOffset = 340
         }
 
@@ -457,6 +458,8 @@ private struct PinnedProfileAnimatedLabelText: View {
     let text: String
     let transitionKey: UUID
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             Text(text)
@@ -469,7 +472,7 @@ private struct PinnedProfileAnimatedLabelText: View {
                 )
         }
         .fixedSize(horizontal: true, vertical: false)
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: transitionKey)
+        .animation(reduceMotion ? .none : .spring(response: 0.34, dampingFraction: 0.86), value: transitionKey)
     }
 }
 

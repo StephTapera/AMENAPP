@@ -46,6 +46,7 @@ private struct AIAssistChip: View {
     let isProcessing: Bool
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulseOpacity: Double = 1.0
 
     var body: some View {
@@ -79,11 +80,11 @@ private struct AIAssistChip: View {
         .buttonStyle(.plain)
         .onChange(of: isProcessing) { _, processing in
             if processing {
-                withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
                     pulseOpacity = 0.4
                 }
             } else {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     pulseOpacity = 1.0
                 }
             }
@@ -165,6 +166,7 @@ struct PrePublishAIAssistView: View {
     let detectedIntent: String
     let onApply: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded: Bool = false
     @State private var isProcessing: Bool = false
     @State private var resultPreview: String? = nil
@@ -195,7 +197,7 @@ struct PrePublishAIAssistView: View {
                         }
                     }
                 )
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: resultPreview != nil)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: resultPreview != nil)
             }
 
             // Collapsed pill or expanded card
@@ -207,7 +209,7 @@ struct PrePublishAIAssistView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isExpanded)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: isExpanded)
     }
 
     // MARK: Collapsed Pill

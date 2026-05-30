@@ -817,6 +817,7 @@ struct PublishPillView: View {
     var onSchedule: () -> Void
     var onSaveDraft: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded: Bool = false
     @State private var isPulsing: Bool = false
 
@@ -858,7 +859,7 @@ struct PublishPillView: View {
             // Main pill
             mainPill
                 .scaleEffect(mode == .schedule && isPulsing ? 1.03 : 1.0)
-                .animation(.spring(response: 0.4, dampingFraction: 0.85), value: isPulsing)
+                .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85), value: isPulsing)
                 .onAppear {
                     if mode == .schedule {
                         triggerPulse()

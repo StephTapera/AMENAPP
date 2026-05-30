@@ -495,6 +495,7 @@ struct ReviewInfoRow: View {
 struct OnboardingSuccessScreen: View {
     let gradientColors: [Color]
     let onComplete: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showConfetti = false
     @State private var scale: CGFloat = 0.5
     @State private var opacity: Double = 0
@@ -515,7 +516,7 @@ struct OnboardingSuccessScreen: View {
                             y: showConfetti ? CGFloat.random(in: -200...0) : 0
                         )
                         .opacity(showConfetti ? 0 : 1)
-                        .animation(.easeOut(duration: Double.random(in: 0.5...1.0)).delay(Double(index) * 0.05), value: showConfetti)
+                        .animation(reduceMotion ? .none : .easeOut(duration: Double.random(in: 0.5...1.0)).delay(Double(index) * 0.05), value: showConfetti)
                 }
                 
                 // Main icon
@@ -600,7 +601,7 @@ struct OnboardingSuccessScreen: View {
                 scale = 1.0
             }
             
-            withAnimation(.easeOut(duration: 0.5).delay(0.3)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.5).delay(0.3)) {
                 opacity = 1.0
             }
             

@@ -321,6 +321,7 @@ struct SelahView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedFormat: SelahFormat = .essay
     @Namespace private var formatNamespace
     @Namespace private var tabNamespace
@@ -432,7 +433,7 @@ struct SelahView: View {
             saveSession()
         }
         .onChange(of: selectedFormat) { _, _ in
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                 rebuildSections()
                 expandedSections = Set(sections.map { $0.id })
             }
@@ -1013,7 +1014,7 @@ struct SelahView: View {
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-            withAnimation(.easeOut(duration: 0.35)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
                 showSaveConfirmation = false
             }
         }
@@ -1047,6 +1048,7 @@ private struct SelahFormatSegment: View {
     let namespace: Namespace.ID
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
 
     var body: some View {
@@ -1101,7 +1103,7 @@ private struct SelahFormatSegment: View {
                     withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) { isPressed = false }
                 }
         )
-        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
     }
 }
 
@@ -1271,6 +1273,7 @@ struct HighlightedTextView: View {
 // MARK: - 3-dot Thinking Indicator
 
 struct SelahThinkingDots: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dot1Up = false
     @State private var dot2Up = false
     @State private var dot3Up = false
@@ -1294,17 +1297,17 @@ struct SelahThinkingDots: View {
             .fill(Color.accentColor.opacity(0.55))
             .frame(width: dotSize, height: dotSize)
             .offset(y: isUp ? -bounce : 0)
-            .animation(.easeInOut(duration: dur).repeatForever(autoreverses: true), value: isUp)
+            .animation(reduceMotion ? .none : .easeInOut(duration: dur).repeatForever(autoreverses: true), value: isUp)
     }
 
     private func start() {
         let stagger = dur * 0.5
-        withAnimation(.easeInOut(duration: dur).repeatForever(autoreverses: true)) { dot1Up = true }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: dur).repeatForever(autoreverses: true)) { dot1Up = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + stagger) {
-            withAnimation(.easeInOut(duration: dur).repeatForever(autoreverses: true)) { dot2Up = true }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: dur).repeatForever(autoreverses: true)) { dot2Up = true }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + stagger * 2) {
-            withAnimation(.easeInOut(duration: dur).repeatForever(autoreverses: true)) { dot3Up = true }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: dur).repeatForever(autoreverses: true)) { dot3Up = true }
         }
     }
 }

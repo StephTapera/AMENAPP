@@ -44,6 +44,8 @@ struct LiquidGlassMessagesView: View {
     let conversationTitle: String
     let conversationSubtitle: String
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var messages: [AMENMessage] = []
     @State private var messageText = ""
     @State private var isTyping = false
@@ -91,7 +93,7 @@ struct LiquidGlassMessagesView: View {
                                         quotedMessage = message
                                     },
                                     onDelete: {
-                                        withAnimation {
+                                        withAnimation(reduceMotion ? nil : .default) {
                                             messages.removeAll { $0.id == message.id }
                                         }
                                         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -276,14 +278,14 @@ struct LiquidGlassMessagesView: View {
     private func setupKeyboardObservers() {
         keyboardShowToken = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
             if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                     keyboardHeight = frame.height
                 }
             }
         }
 
         keyboardHideToken = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 keyboardHeight = 0
             }
         }
@@ -302,6 +304,7 @@ struct MessageBubbleView: View {
     var onDelete: (() -> Void)? = nil
     var onReport: (() -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     var body: some View {
@@ -452,7 +455,7 @@ struct MessageBubbleView: View {
                     )
                     .scaleEffect(appeared ? 1.0 : 0.95)
                     .opacity(appeared ? 1.0 : 0.5)
-                    .animation(Animation.easeInOut(duration: 3).repeatForever(autoreverses: true), value: appeared)
+                    .animation(reduceMotion ? .none : Animation.easeInOut(duration: 3).repeatForever(autoreverses: true), value: appeared)
             }
             .onLongPressGesture(minimumDuration: 0.3) {
                 onLongPress()
@@ -600,6 +603,7 @@ struct ReactionBar: View {
     let onSelect: (String) -> Void
 
     private let reactions = ["🙏", "❤️‍🔥", "✝️", "🕊️", "😭", "🙌"]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     var body: some View {
@@ -614,7 +618,7 @@ struct ReactionBar: View {
                         .opacity(appeared ? 1.0 : 0)
                 }
                 .buttonStyle(.plain)
-                .animation(.spring(response: 0.35, dampingFraction: 0.65).delay(Double(index) * 0.05), value: appeared)
+                .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.65).delay(Double(index) * 0.05), value: appeared)
             }
         }
         .padding(.horizontal, 16)
@@ -886,6 +890,7 @@ struct LiquidGlassInputBar: View {
 // MARK: - Animated Background
 
 struct AnimatedMeshBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: CGFloat = 0
 
     var body: some View {
@@ -916,7 +921,7 @@ struct AnimatedMeshBackground: View {
             .blur(radius: 80)
         }
         .onAppear {
-            withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 20).repeatForever(autoreverses: false)) {
                 phase = .pi * 2
             }
         }
@@ -926,6 +931,7 @@ struct AnimatedMeshBackground: View {
 // MARK: - Shimmer Line
 
 struct ShimmerLine: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: CGFloat = 0
 
     var body: some View {
@@ -948,7 +954,7 @@ struct ShimmerLine: View {
         }
         .frame(height: 1)
         .onAppear {
-            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+            withAnimation(reduceMotion ? nil : .linear(duration: 4).repeatForever(autoreverses: false)) {
                 phase = 1.2
             }
         }

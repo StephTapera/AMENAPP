@@ -14,7 +14,8 @@ struct VerseFullDrawerView: View {
     @Binding var translation: BibleTranslation
     @ObservedObject var searchEngine: VerseSmartSearchEngine
     @ObservedObject var baseViewModel: AttachVerseViewModel
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var isSearchFocused: Bool
     @State private var scrollOffset: CGFloat = 0
     
@@ -266,7 +267,7 @@ struct VerseFullDrawerView: View {
                         .frame(width: 9, height: 9)
                         .scaleEffect(searchEngine.isSearching ? 1.4 : 1.0)
                         .animation(
-                            .easeInOut(duration: 0.5).repeatForever().delay(Double(i) * 0.15),
+                            reduceMotion ? .none : .easeInOut(duration: 0.5).repeatForever().delay(Double(i) * 0.15),
                             value: searchEngine.isSearching
                         )
                 }

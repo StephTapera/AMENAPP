@@ -3,8 +3,9 @@ struct CategoryPill: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
-    
+
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -26,12 +27,12 @@ struct CategoryPill: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(Motion.liquidSpring) {
+                    withAnimation(reduceMotion ? nil : Motion.liquidSpring) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(Motion.liquidSpring) {
+                    withAnimation(reduceMotion ? nil : Motion.liquidSpring) {
                         isPressed = false
                     }
                 }
@@ -164,7 +165,8 @@ struct CommunityCard: View {
     let subtitle: String
     let backgroundColor: Color
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -203,10 +205,10 @@ struct CommunityCard: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    if !isPressed { withAnimation(Motion.liquidSpring) { isPressed = true } }
+                    if !isPressed { withAnimation(reduceMotion ? nil : Motion.liquidSpring) { isPressed = true } }
                 }
                 .onEnded { _ in
-                    withAnimation(Motion.liquidSpring) { isPressed = false }
+                    withAnimation(reduceMotion ? nil : Motion.liquidSpring) { isPressed = false }
                 }
         )
     }
@@ -222,7 +224,8 @@ struct SmartCommunityCard: View {
     let backgroundColor: Color
     let accentColor: Color
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -303,7 +306,7 @@ struct SmartCommunityCard: View {
         .buttonStyle(PlainButtonStyle())
         // Pattern 7: unified bouncy spring for press-state shrink
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(Motion.liquidSpring) {
+            withAnimation(reduceMotion ? nil : Motion.liquidSpring) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -315,7 +318,8 @@ struct TrendingCard: View {
     let iconColor: Color
     let title: String
     let backgroundColor: Color
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     @State private var showDetails = false
     
@@ -354,11 +358,11 @@ struct TrendingCard: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     if !isPressed {
-                        withAnimation(Motion.liquidSpring) { isPressed = true }
+                        withAnimation(reduceMotion ? nil : Motion.liquidSpring) { isPressed = true }
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(Motion.liquidSpring) { isPressed = false }
+                    withAnimation(reduceMotion ? nil : Motion.liquidSpring) { isPressed = false }
                 }
         )
         .sheet(isPresented: $showDetails) {
@@ -682,7 +686,8 @@ struct ReactionButton: View {
     let activeColor: Color
     let namespace: Namespace.ID
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     var body: some View {
@@ -716,10 +721,10 @@ struct ReactionButton: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    if !isPressed { withAnimation(Motion.liquidSpring) { isPressed = true } }
+                    if !isPressed { withAnimation(reduceMotion ? nil : Motion.liquidSpring) { isPressed = true } }
                 }
                 .onEnded { _ in
-                    withAnimation(Motion.liquidSpring) { isPressed = false }
+                    withAnimation(reduceMotion ? nil : Motion.liquidSpring) { isPressed = false }
                 }
         )
     }

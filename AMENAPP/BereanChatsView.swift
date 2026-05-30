@@ -68,6 +68,7 @@ private enum BereanChatStore {
 
 struct BereanChatsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var chats: [BereanChat] = []
     @State private var searchQuery = ""
@@ -206,7 +207,7 @@ struct BereanChatsView: View {
             }
         }
         .offset(y: showSearch ? 0 : -20)
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: showSearch)
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.75), value: showSearch)
     }
 
     // MARK: - Chat Grid
@@ -411,6 +412,7 @@ private struct ChatCardView: View {
     let onRename: () -> Void
     let onPin: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
     @State private var renaming = false
     @State private var newTitle = ""
@@ -427,8 +429,8 @@ private struct ChatCardView: View {
         .scaleEffect(appeared ? 1 : 0.94)
         .onAppear {
             withAnimation(
-                .spring(response: 0.45, dampingFraction: 0.72)
-                .delay(Double(index) * 0.07)
+                reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.72)
+                    .delay(Double(index) * 0.07)
             ) { appeared = true }
         }
         .contextMenu {

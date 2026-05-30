@@ -126,6 +126,7 @@ private let textColorCycle: [UIColor] = [
 struct StudioWriteView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - Document state
     @State private var documentTitle: String = "Untitled"
@@ -244,10 +245,10 @@ struct StudioWriteView: View {
             Button {
                 HapticManager.impact(style: .light)
                 saveDraft()
-                withAnimation(.easeInOut(duration: 0.2)) { showSavedFlash = true }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { showSavedFlash = true }
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(1.5))
-                    withAnimation { showSavedFlash = false }
+                    withAnimation(reduceMotion ? nil : .default) { showSavedFlash = false }
                 }
             } label: {
                 Text("Save")
@@ -310,7 +311,7 @@ struct StudioWriteView: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 16)
                         .scaleEffect(aiSuggestionScale)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.72), value: aiSuggestionScale)
+                        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.72), value: aiSuggestionScale)
                 }
 
                 Color.clear.frame(height: 80) // bottom padding for keyboard
@@ -593,7 +594,7 @@ struct StudioWriteView: View {
             .padding(.horizontal, 24)
             .scaleEffect(showAIModePicker ? 1.0 : 0.92, anchor: .top)
             .opacity(showAIModePicker ? 1 : 0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.78), value: showAIModePicker)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.78), value: showAIModePicker)
 
             Spacer()
         }
@@ -898,7 +899,7 @@ struct StudioWriteView: View {
         withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
             aiSuggestionScale = 0.92
         }
-        withAnimation(.easeOut(duration: 0.15).delay(0.1)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15).delay(0.1)) {
             showAISuggestion = false
             aiSuggestionText = ""
         }
@@ -939,10 +940,10 @@ struct StudioWriteView: View {
         autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
             Task { @MainActor in
                 saveDraft()
-                withAnimation(.easeInOut(duration: 0.2)) { showSavedFlash = true }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { showSavedFlash = true }
                 try? await Task.sleep(for: .seconds(1.5))
                 if !Task.isCancelled {
-                    withAnimation { showSavedFlash = false }
+                    withAnimation(reduceMotion ? nil : .default) { showSavedFlash = false }
                 }
             }
         }
