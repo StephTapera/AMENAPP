@@ -177,7 +177,7 @@ struct BereanSemanticSearchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Search bar
+            // Search bar — Liquid Glass capsule
             HStack(spacing: 10) {
                 Image(systemName: "sparkle.magnifyingglass")
                     .font(.systemScaled(15))
@@ -201,7 +201,14 @@ struct BereanSemanticSearchView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.7)
+                    }
+            }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
@@ -215,7 +222,7 @@ struct BereanSemanticSearchView: View {
                 .padding(.bottom, 8)
             }
 
-            // Results
+            // Results / suggestions
             if !service.results.isEmpty {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -230,6 +237,8 @@ struct BereanSemanticSearchView: View {
                     .font(.systemScaled(14))
                     .foregroundStyle(Color(.tertiaryLabel))
                     .padding(.top, 32)
+            } else if query.isEmpty {
+                SmartSearchSuggestionsView()
             }
 
             Spacer()
@@ -283,6 +292,68 @@ private struct SemanticResultRow: View {
     }
 }
 
+// MARK: - Smart Search Suggestions (pre-query state)
+
+private struct SmartSearchSuggestionsView: View {
+    private let suggestions: [(String, String)] = [
+        ("sparkles", "What did God say about faith?"),
+        ("heart.fill", "Notes on grace and forgiveness"),
+        ("book.fill", "Sermon on the mount"),
+        ("hands.sparkles", "Prayers and reflections"),
+        ("calendar", "Last Sunday's notes"),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("SUGGESTED SEARCHES")
+                .font(.systemScaled(11, weight: .semibold))
+                .foregroundStyle(Color(.tertiaryLabel))
+                .tracking(0.9)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+            VStack(spacing: 0) {
+                ForEach(suggestions, id: \.1) { icon, text in
+                    HStack(spacing: 14) {
+                        Image(systemName: icon)
+                            .font(.systemScaled(14))
+                            .foregroundStyle(Color(.secondaryLabel))
+                            .frame(width: 20)
+
+                        Text(text)
+                            .font(.systemScaled(15))
+                            .foregroundStyle(Color(.label))
+
+                        Spacer()
+
+                        Image(systemName: "arrow.up.left")
+                            .font(.systemScaled(12))
+                            .foregroundStyle(Color(.tertiaryLabel))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                    .contentShape(Rectangle())
+
+                    if text != suggestions.last?.1 {
+                        Divider()
+                            .padding(.leading, 50)
+                    }
+                }
+            }
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
+                    }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.horizontal, 16)
+        }
+    }
+}
+
 // MARK: - SemanticSearchButton (entry point for ChurchNotesView toolbar)
 
 struct SemanticSearchButton: View {
@@ -297,7 +368,7 @@ struct SemanticSearchButton: View {
                 .font(.systemScaled(16))
         }
         .sheet(isPresented: $showSearch) {
-            NavigationView {
+            NavigationStack {
                 BereanSemanticSearchView(notes: notes)
                     .navigationTitle("Smart Search")
                     .navigationBarTitleDisplayMode(.inline)
@@ -308,6 +379,8 @@ struct SemanticSearchButton: View {
                     }
             }
             .presentationDetents([.large])
+            .presentationBackground(.ultraThinMaterial)
+            .presentationCornerRadius(28)
         }
     }
 }

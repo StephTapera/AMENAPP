@@ -136,13 +136,9 @@ final class AmenObjectHubViewModel: ObservableObject {
     // MARK: - Private
 
     private func loadMembership(hubId: String) async {
-        // Lightweight Firestore read — membership doc is small
-        do {
-            guard let uid = try? await db.collection("_noop").document("_noop").getDocument().documentID as? String ?? nil,
-                  !uid.isEmpty else { return }
-            // Real membership read wired at app layer when auth context is available
-            _ = hubId
-        } catch {}
+        #if DEBUG
+        _ = try? await db.collection("_noop").document("_noop").getDocument()
+        #endif
     }
 
     // MARK: - Decoding helpers (Firestore/Callable response → model)
