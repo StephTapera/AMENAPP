@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMEN — Liquid Glass Design Reference</title>
+<style>
+  :root {
+    --gold: #C9A84C;
+    --purple: #7C5CBF;
+    --blue: #4A90D9;
+    --emerald: #3DAA75;
+    --black: #0F0F0F;
+    --glass-bg: rgba(255,255,255,0.72);
+    --glass-bg-dark: rgba(28,28,30,0.80);
+    --glass-border: rgba(255,255,255,0.65);
+    --glass-shadow: 0 8px 32px rgba(0,0,0,0.10);
+    --glass-shadow-float: 0 12px 40px rgba(0,0,0,0.13);
+    --radius-control: 999px;
+    --radius-card: 18px;
+    --radius-sheet: 24px;
+    --radius-panel: 20px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    background: #F2F2F7;
+    color: #1C1C1E;
+    min-height: 100vh;
+  }
+  h1 { font-size: 28px; font-weight: 700; color: var(--black); }
+  h2 { font-size: 18px; font-weight: 600; color: #3A3A3C; margin-bottom: 12px; margin-top: 0; }
+  h3 { font-size: 14px; font-weight: 600; color: #636366; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .page { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
+  .section { margin-bottom: 48px; }
+  .label { font-size: 11px; font-weight: 500; color: #8E8E93; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .badge.low { background: rgba(52,199,89,0.12); color: #1D8348; }
+  .badge.medium { background: rgba(255,159,10,0.14); color: #B7570A; }
+  .badge.high { background: rgba(255,59,48,0.12); color: #C0392B; }
+  .badge.ok { background: rgba(142,142,147,0.12); color: #48484A; }
+  .badge.queue { background: rgba(88,86,214,0.12); color: #5856D6; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .col { flex: 1; min-width: 200px; }
+  .note { font-size: 12px; color: #636366; margin-top: 6px; line-height: 1.5; }
+
+  /* ── Glass utility ─────────────────────────────────── */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 0.75px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+  .glass-float {
+    background: var(--glass-bg);
+    backdrop-filter: blur(28px) saturate(1.9);
+    -webkit-backdrop-filter: blur(28px) saturate(1.9);
+    border: 0.75px solid var(--glass-border);
+    box-shadow: var(--glass-shadow-float);
+  }
+
+  /* ── 1. Hero Header ────────────────────────────────── */
+  .hero-demo {
+    width: 100%;
+    height: 320px;
+    border-radius: 28px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, rgba(124,92,191,0.55) 0%, rgba(74,144,217,0.30) 60%, #F2F2F7 100%);
+  }
+  .hero-orb-1 {
+    position: absolute; width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(201,168,76,0.25) 0%, transparent 70%);
+    top: -40px; left: -40px; border-radius: 50%;
+    animation: pulse 4s ease-in-out infinite alternate;
+  }
+  .hero-orb-2 {
+    position: absolute; width: 150px; height: 150px;
+    background: radial-gradient(circle, rgba(124,92,191,0.18) 0%, transparent 70%);
+    bottom: 20px; right: -20px; border-radius: 50%;
+    animation: pulse 5.5s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+  .hero-scrim {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 45%;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.42));
+  }
+  .hero-controls {
+    position: absolute; top: 16px; left: 16px; right: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .glass-circle {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: #1C1C1E; cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .glass-circle:hover { transform: scale(1.06); }
+  .glass-pill {
+    border-radius: 999px; padding: 8px 14px;
+    display: flex; align-items: center; gap: 8px; font-size: 13px;
+    color: #1C1C1E; cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .glass-pill:hover { transform: scale(1.03); }
+  .glass-capsule {
+    flex: 1; border-radius: 999px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; color: #1C1C1E;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 0.75px solid linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.18));
+    border: 0.75px solid rgba(255,255,255,0.65);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.10);
+  }
+  .capsule-input { flex: 1; background: none; border: none; outline: none; font-size: 14px; font-family: inherit; color: #1C1C1E; }
+  .capsule-input::placeholder { color: #8E8E93; }
+  .hero-title-area {
+    position: absolute; bottom: 16px; left: 20px; right: 20px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+  }
+  .hero-title { font-size: 30px; font-weight: 700; color: white; line-height: 1.1; text-shadow: 0 1px 6px rgba(0,0,0,0.3); }
+  .hero-subtitle { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 3px; }
+  .hero-cta {
+    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--gold); color: white; font-size: 18px;
+    box-shadow: 0 4px 16px rgba(201,168,76,0.45);
+    cursor: pointer; transition: transform 0.15s ease;
+  }
+  .hero-cta:hover { transform: scale(1.08); }
+
+  /* ── 2. Glass Sheet ─────────────────────────────────── */
+  .sheet-demo {
+    border-radius: var(--radius-sheet); overflow: hidden;
+    max-width: 380px;
+  }
+  .sheet-handle {
+    width: 36px; height: 4px; border-radius: 3px;
+    background: rgba(60,60,67,0.28); margin: 10px auto 8px;
+  }
+  .sheet-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 20px; font-size: 16px; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .sheet-row:hover { background: rgba(0,0,0,0.04); }
+  .sheet-row-icon { width: 30px; text-align: center; font-size: 17px; color: #1C1C1E; }
+  .sheet-row-label { flex: 1; font-size: 16px; font-weight: 400; color: #1C1C1E; }
+  .sheet-row.destructive .sheet-row-icon,
+  .sheet-row.destructive .sheet-row-label { color: #FF3B30; }
+  .sheet-divider { height: 0.5px; background: rgba(60,60,67,0.18); margin: 0 20px; }
+
+  /* ── 3. Glass Dropdown ──────────────────────────────── */
+  .dropdown-demo {
+    border-radius: var(--radius-panel); overflow: hidden;
+    max-width: 300px; padding: 6px 0;
+  }
+  .dropdown-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; font-size: 14px; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .dropdown-row:hover { background: rgba(0,0,0,0.05); }
+  .dropdown-check { font-size: 13px; color: var(--purple); width: 18px; text-align: center; }
+
+  /* ── 4. Floating Tab Bar ────────────────────────────── */
+  .tabbar-demo-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    padding: 24px; background: linear-gradient(135deg, #E5E5EA 0%, #F2F2F7 100%);
+    border-radius: 20px; position: relative;
+  }
+  .tabbar {
+    border-radius: 999px; padding: 12px 20px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .tab-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .tab-item .icon { font-size: 20px; color: #8E8E93; }
+  .tab-item.active .icon { color: var(--gold); }
+  .tab-dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--gold); opacity: 0;
+  }
+  .tab-item.active .tab-dot { opacity: 1; }
+
+  /* ── 5. List Row ────────────────────────────────────── */
+  .list-demo { border-radius: var(--radius-card); overflow: hidden; background: white; }
+  .list-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 0.5px solid rgba(60,60,67,0.12);
+    cursor: pointer; transition: background 0.1s;
+  }
+  .list-row:last-child { border-bottom: none; }
+  .list-row:hover { background: rgba(0,0,0,0.025); }
+  .list-avatar {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: white; font-weight: 700;
+  }
+  .list-text { flex: 1; min-width: 0; }
+  .list-title { font-size: 15px; font-weight: 600; color: #1C1C1E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-subtitle { font-size: 13px; color: #8E8E93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .list-trail {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: #3A3A3C;
+  }
+
+  /* ── Token grid ──────────────────────────────────────── */
+  .token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 10px; }
+  .token-swatch {
+    border-radius: 12px; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .token-name { font-size: 11px; font-weight: 600; color: #1C1C1E; opacity: 0.7; }
+  .token-val { font-size: 10px; color: #8E8E93; font-family: monospace; }
+
+  /* page header */
+  .page-header {
+    padding: 24px 0 32px;
+    border-bottom: 0.5px solid rgba(60,60,67,0.15);
+    margin-bottom: 40px;
+  }
+  .page-header h1 { margin-bottom: 6px; }
+  .page-header .subtitle { font-size: 15px; color: #636366; }
+  .spec-box {
+    background: rgba(124,92,191,0.06); border-radius: 12px;
+    padding: 14px 16px; margin-top: 12px;
+    font-size: 12px; font-family: monospace; color: #3A3A3C;
+    line-height: 1.6; white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-header">
+    <h1>AMEN — Liquid Glass Design Reference</h1>
+    <div class="subtitle">Canonical patterns for the 2026-05-30 design pass. Each section = one SwiftUI pattern.</div>
+  </div>
+
+  <!-- ── 1. HERO HEADER ──────────────────────────────────── -->
+  <div class="section">
+    <h2>1 · Hero Header <span class="badge ok">Pattern A</span></h2>
+    <p class="note">Full-bleed into status bar. Ambient gradient (or photo). Legibility scrim. Floating glass controls.</p>
+    <br>
+    <div class="hero-demo">
+      <div class="hero-orb-1"></div>
+      <div class="hero-orb-2"></div>
+      <div class="hero-scrim"></div>
+      <!-- Floating controls -->
+      <div class="hero-controls">
+        <div class="glass-circle glass-float" title="Back">‹</div>
+        <div class="glass-capsule">
+          <span style="color:#8E8E93;font-size:14px">🔍</span>
+          <input class="capsule-input" placeholder="Search churches..." />
+        </div>
+        <div class="glass-circle glass-float" title="Map">⊞</div>
+        <div class="glass-circle glass-float" title="Filter">≡</div>
+      </div>
+      <!-- Title + CTA -->
+      <div class="hero-title-area">
+        <div>
+          <div class="hero-title">Find a Church</div>
+          <div class="hero-subtitle">📍 Brooklyn, NY</div>
+        </div>
+        <div class="hero-cta" title="Primary action">▶</div>
+      </div>
+    </div>
+    <div class="spec-box">// SwiftUI spec
+ZStack(alignment: .bottomLeading) {
+    // 1. Hero image / ambient gradient — ignoresSafeArea(edges: .top)
+    gradient.ignoresSafeArea(edges: .top)
+    // 2. Legibility scrim
+    LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .center, endPoint: .bottom)
+    // 3. Floating glass controls (top corners)
+    heroGlassRow.padding(.top, topSafeArea + 8)
+    // 4. Title + optional CTA (bottom)
+    titleArea.padding(.bottom, 16).padding(.horizontal, 20)
+}</div>
+  </div>
+
+  <!-- ── 2. GLASS SHEET ──────────────────────────────────── -->
+  <div class="section">
+    <h2>2 · Liquid Glass Option Sheet <span class="badge ok">Pattern B</span></h2>
+    <p class="note">.regularMaterial · cornerRadius 24 · drag handle · SF Symbol rows · destructive = red</p>
+    <br>
+    <div class="sheet-demo glass">
+      <div class="sheet-handle"></div>
+      <div class="sheet-row"><span class="sheet-row-icon">✎</span><span class="sheet-row-label">Edit Post</span></div>
+      <div class="sheet-divider"></div>
+      <div class="sheet-row"><span class="sheet-row-icon">🔁</span><span class="sheet-row-label">Repost</span></div>
+      <div class="sheet-divider"></div>
+      <div class="sheet-row"><span class="sheet-row-icon">🔖</span><span class="sheet-row-label">Save</span></div>
+      <div class="sheet-divider"></div>
+      <div class="sheet-row"><span class="sheet-row-icon">📤</span><span class="sheet-row-label">Share</span></div>
+      <div class="sheet-divider"></div>
+      <div class="sheet-row destructive"><span class="sheet-row-icon">🗑</span><span class="sheet-row-label">Delete Post</span></div>
+      <div style="height:16px"></div>
+    </div>
+    <div class="spec-box">// .regularMaterial, cornerRadius(24), shadow level 4
+.background(.regularMaterial)
+.cornerRadius(24)
+.shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 10)
+// REQUIRED: reduce-transparency fallback</div>
+  </div>
+
+  <!-- ── 3. GLASS DROPDOWN ───────────────────────────────── -->
+  <div class="section">
+    <h2>3 · Glass Dropdown / Filter Panel <span class="badge ok">Pattern C</span></h2>
+    <p class="note">.ultraThinMaterial · cornerRadius 16 · anchored to trigger · no scrim</p>
+    <br>
+    <div class="dropdown-demo glass-float">
+      <div class="dropdown-row"><span class="dropdown-check">✓</span> All Posts</div>
+      <div class="dropdown-row"><span class="dropdown-check"></span> Testimonies</div>
+      <div class="dropdown-row"><span class="dropdown-check"></span> Prayer</div>
+      <div class="dropdown-row"><span class="dropdown-check"></span> Following Only</div>
+    </div>
+    <div class="spec-box">// .ultraThinMaterial, cornerRadius(16), shadow level 3
+.background(.ultraThinMaterial)
+.cornerRadius(16)
+.shadow(color: .black.opacity(0.10), radius: 12, x: 0, y: 5)</div>
+  </div>
+
+  <!-- ── 4. FLOATING TAB BAR ────────────────────────────── -->
+  <div class="section">
+    <h2>4 · Floating Glass Tab Bar <span class="badge ok">Pattern D</span></h2>
+    <p class="note">Capsule shape · .ultraThinMaterial · white strokeBorder · float shadow · active = amenGold dot</p>
+    <br>
+    <div class="tabbar-demo-wrap">
+      <div class="tabbar glass-float">
+        <div class="tab-item active"><span class="icon">⌂</span><div class="tab-dot"></div></div>
+        <div class="tab-item"><span class="icon">🔍</span><div class="tab-dot"></div></div>
+        <div class="tab-item"><span class="icon">✉</span><div class="tab-dot"></div></div>
+        <div class="tab-item"><span class="icon">📖</span><div class="tab-dot"></div></div>
+        <div class="tab-item"><span class="icon">🔔</span><div class="tab-dot"></div></div>
+        <div class="tab-item"><span class="icon">＋</span><div class="tab-dot"></div></div>
+      </div>
+    </div>
+    <div class="spec-box">// Capsule().fill(.ultraThinMaterial) — NEVER flat Color fill
+Capsule().fill(.ultraThinMaterial)
+Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.75)
+.shadow(color: .black.opacity(0.16), radius: 20, x: 0, y: 11)
+// Reduce-transparency: solid Color(.systemBackground).opacity(0.94)</div>
+  </div>
+
+  <!-- ── 5. LIGHT LIST ROW ──────────────────────────────── -->
+  <div class="section">
+    <h2>5 · Clean Light List Row <span class="badge ok">Pattern E</span></h2>
+    <p class="note">White background · leading avatar 44pt · two-line text · trailing glass control</p>
+    <br>
+    <div class="list-demo" style="max-width:400px">
+      <div class="list-row">
+        <div class="list-avatar" style="background:linear-gradient(135deg,#7C5CBF,#4A90D9)">M</div>
+        <div class="list-text">
+          <div class="list-title">Marcus Johnson</div>
+          <div class="list-subtitle">Praise report: God is good 🙌</div>
+        </div>
+        <div class="list-trail glass">···</div>
+      </div>
+      <div class="list-row">
+        <div class="list-avatar" style="background:linear-gradient(135deg,#3DAA75,#4A90D9)">S</div>
+        <div class="list-text">
+          <div class="list-title">Sarah Williams</div>
+          <div class="list-subtitle">Prayer request: healing for my mom</div>
+        </div>
+        <div class="list-trail glass">···</div>
+      </div>
+      <div class="list-row">
+        <div class="list-avatar" style="background:linear-gradient(135deg,#C9A84C,#E8722A)">D</div>
+        <div class="list-text">
+          <div class="list-title">David Chen</div>
+          <div class="list-subtitle">Testimony: Got the job! Thank you Jesus</div>
+        </div>
+        <div class="list-trail glass">···</div>
+      </div>
+    </div>
+    <div class="spec-box">// Background: Color(.systemBackground) — not Color.white
+// Divider: Divider() — not hardcoded Color.black.opacity(0.06)
+// Trailing: glass circle or .bordered ButtonStyle</div>
+  </div>
+
+  <!-- ── PALETTE ────────────────────────────────────────── -->
+  <div class="section">
+    <h2>Accent Palette — Accent-only rule</h2>
+    <p class="note">Never as full screen/surface backgrounds. Max opacity ~0.15 for tint overlays.</p>
+    <br>
+    <div class="token-grid">
+      <div class="token-swatch" style="background:rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.3)">
+        <div class="token-name">amenGold</div>
+        <div class="token-val">#C9A84C</div>
+        <div style="height:24px;border-radius:6px;background:var(--gold);margin-top:6px"></div>
+      </div>
+      <div class="token-swatch" style="background:rgba(124,92,191,0.10); border: 1px solid rgba(124,92,191,0.25)">
+        <div class="token-name">amenPurple</div>
+        <div class="token-val">#7C5CBF</div>
+        <div style="height:24px;border-radius:6px;background:var(--purple);margin-top:6px"></div>
+      </div>
+      <div class="token-swatch" style="background:rgba(74,144,217,0.10); border: 1px solid rgba(74,144,217,0.25)">
+        <div class="token-name">amenBlue</div>
+        <div class="token-val">#4A90D9</div>
+        <div style="height:24px;border-radius:6px;background:var(--blue);margin-top:6px"></div>
+      </div>
+      <div class="token-swatch" style="background:rgba(61,170,117,0.10); border: 1px solid rgba(61,170,117,0.25)">
+        <div class="token-name">amenEmerald</div>
+        <div class="token-val">#3DAA75</div>
+        <div style="height:24px;border-radius:6px;background:var(--emerald);margin-top:6px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHADOW SCALE ───────────────────────────────────── -->
+  <div class="section">
+    <h2>Elevation / Shadow Scale</h2>
+    <div class="row">
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="width:80px;height:56px;border-radius:14px;background:white;box-shadow:none;display:flex;align-items:center;justify-content:center;font-size:11px;color:#8E8E93">0 – flat</div>
+        <div style="width:80px;height:56px;border-radius:14px;background:white;box-shadow:0 3px 8px rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:center;font-size:11px;color:#636366">1 – raised</div>
+        <div style="width:80px;height:56px;border-radius:14px;background:white;box-shadow:0 5px 14px rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;font-size:11px;color:#3A3A3C">2 – card</div>
+        <div style="width:80px;height:56px;border-radius:14px;background:white;box-shadow:0 5px 12px rgba(0,0,0,0.10);display:flex;align-items:center;justify-content:center;font-size:11px;color:#1C1C1E">3 – float</div>
+        <div style="width:80px;height:56px;border-radius:14px;background:white;box-shadow:0 10px 24px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;font-size:11px;color:#1C1C1E"><b>4 – sheet</b></div>
+        <div style="width:80px;height:56px;border-radius:14px;background:white;box-shadow:0 16px 32px rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center;font-size:11px;color:#1C1C1E"><b>5 – modal</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SEVERITY LEGEND ───────────────────────────────── -->
+  <div class="section">
+    <h2>Severity Legend</h2>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <span class="badge high">HIGH — queue, don't apply</span>
+      <span class="badge medium">MEDIUM — apply with verify</span>
+      <span class="badge low">LOW — safe to apply</span>
+      <span class="badge ok">OK — already compliant</span>
+      <span class="badge queue">QUEUE — human review required</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

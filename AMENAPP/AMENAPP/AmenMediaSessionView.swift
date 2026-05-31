@@ -266,7 +266,21 @@ struct AmenMediaSessionView: View {
 
     private var mediaArea: some View {
         ZStack {
-            if let postId = vm.currentMediaId {
+            if vm.isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMessage = vm.error {
+                VStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 32, weight: .light))
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let postId = vm.currentMediaId {
                 AmenMediaDetailLoaderView(
                     postID: postId,
                     initialMediaIndex: 0,
