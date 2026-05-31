@@ -89,7 +89,7 @@ final class OnboardingViewModel: ObservableObject {
     @Published var onboardingComplete: Bool = false
 
     private lazy var db = Firestore.firestore()
-    private var userId: String = Auth.auth().currentUser?.uid ?? "demo_user"
+    private var userId: String? = Auth.auth().currentUser?.uid
 
     var canAdvance: Bool { answers[currentStep] != nil }
     var isOnLastQuestion: Bool { currentStep == quizQuestions.count - 1 }
@@ -141,6 +141,10 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     private func saveToFirestore(result: OnboardingResult) {
+        guard let userId else {
+            print("[OnboardingViewModel] Skipping Firestore write — user not authenticated")
+            return
+        }
         db.collection("users").document(userId).setData([
             "feedTopics": result.feedTopics,
             "faithStage": answers[1]?.value ?? "",
