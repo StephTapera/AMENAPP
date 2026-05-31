@@ -620,10 +620,10 @@ struct NotificationsView: View {
             await notificationService.cleanupDuplicateFollowNotifications()
         }
         
-        // ✅ Handle deep link if present (using legacy handler for navigation compatibility)
-        // Note: LegacyNotificationDeepLinkHandler is kept for backward compatibility
-        // with the existing navigation system. NotificationDeepLinkHandler is used
-        // for push notification handling in PushNotificationManager.
+        // FIXME: PUSH-01 — migrate to NotificationDeepLinkRouter.shared.activeDestination
+        // LegacyNotificationDeepLinkHandler is kept for backward compatibility with the
+        // existing NavigationPath-based system. Migrate to NotificationDeepLinkRouter which
+        // adds block checks, content-existence verification, and debounce protection.
         if let deepLink = LegacyNotificationDeepLinkHandler.shared.activeDeepLink {
             let path = deepLink.navigationPath
             if path.hasPrefix("profile_") {

@@ -182,15 +182,19 @@ class LegacyNotificationDeepLinkHandler: ObservableObject {
 // MARK: - App Delegate Integration Helper
 
 class NotificationAppDelegateHelper {
-    
+
     /// Call this from your AppDelegate's didReceiveRemoteNotification
+    // FIXME: PUSH-01 — migrate to NotificationDeepLinkRouter.shared.routeFromPushPayload(_:)
+    #warning("PUSH-01: Deprecated handler — migrate to NotificationDeepLinkRouter")
     static func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) {
         Task { @MainActor in
             LegacyNotificationDeepLinkHandler.shared.handleNotificationTap(userInfo: userInfo)
         }
     }
-    
+
     /// Call this from your SceneDelegate's scene(_:openURLContexts:)
+    // FIXME: PUSH-01 — migrate to NotificationDeepLinkRouter.shared.handleURL(_:)
+    #warning("PUSH-01: Deprecated handler — migrate to NotificationDeepLinkRouter")
     static func handleURL(_ url: URL) {
         Task { @MainActor in
             LegacyNotificationDeepLinkHandler.shared.handleDeepLink(url: url)
