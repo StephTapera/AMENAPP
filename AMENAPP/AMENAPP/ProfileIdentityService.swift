@@ -88,7 +88,7 @@ final class ProfileIdentityService: ObservableObject {
         try await save(updated)
     }
 
-    func setDenomination(_ denom: Denomination?) async throws {
+    func setDenomination(_ denom: ProfileDenomination?) async throws {
         var updated = identity
         updated.denomination = denom
         try await save(updated)
@@ -191,7 +191,7 @@ final class ProfileIdentityService: ObservableObject {
         id.faithJourneyStage = (data["identity_faithJourneyStage"] as? String)
             .flatMap { FaithJourneyStage(rawValue: $0) }
         id.denomination = (data["identity_denomination"] as? String)
-            .flatMap { Denomination(rawValue: $0) }
+            .flatMap { ProfileDenomination(rawValue: $0) }
         id.openToSignalIds = data["identity_openToSignalIds"] as? [String] ?? []
 
         if let burdens = data["identity_burdens"] as? [[String: Any]] {

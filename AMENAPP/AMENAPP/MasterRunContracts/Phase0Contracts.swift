@@ -53,7 +53,7 @@ import CoreLocation
 /// Canonical denomination taxonomy for Phase 1 church search.
 /// SmartChurch uses a plain String; ChurchRecord uses this enum.
 enum ChurchSearchDenomination: String, Codable, CaseIterable, Hashable {
-    case nonChurchSearchDenominational
+    case nonDenominational
     case baptist
     case methodist
     case presbyterian

@@ -10,6 +10,7 @@ import SwiftUI
 
 struct HeyFeedControlsSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ObservedObject private var prefsService = HeyFeedPreferencesService.shared
     
     @State private var selectedMode: FeedMode
@@ -177,7 +178,18 @@ struct HeyFeedControlsSheet: View {
                     }
                 }
             }
+            .background {
+                Group {
+                    if reduceTransparency {
+                        AmenTheme.Colors.backgroundElevated
+                    } else {
+                        Color(.systemBackground).opacity(0.01)
+                    }
+                }
+                .ignoresSafeArea()
+            }
         }
+        .presentationCornerRadius(24)
     }
 }
 
@@ -187,7 +199,9 @@ struct ModeButton: View {
     let mode: FeedMode
     let isSelected: Bool
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         Button(action: action) {
             HStack {
@@ -195,22 +209,32 @@ struct ModeButton: View {
                     Text(mode.displayName)
                         .font(.subheadline.weight(.medium))
                         .foregroundColor(isSelected ? .white : .primary)
-                    
+
                     Text(mode.description)
                         .font(.caption)
                         .foregroundColor(isSelected ? .white.opacity(0.9) : .secondary)
                 }
-                
+
                 Spacer()
-                
+
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.white)
                 }
             }
             .padding(12)
-            .background(isSelected ? Color.blue : Color(.systemGray6))
-            .cornerRadius(10)
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected
+                          ? AnyShapeStyle(Color.blue)
+                          : (reduceTransparency
+                             ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                             : AnyShapeStyle(.ultraThinMaterial)))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(isSelected ? Color.clear : AmenTheme.Colors.glassStroke, lineWidth: 0.5)
+                    )
+            }
         }
         .buttonStyle(.plain)
     }
@@ -247,7 +271,9 @@ struct DebateLevelButton: View {
     let level: DebateLevel
     let isSelected: Bool
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         Button(action: action) {
             HStack {
@@ -255,22 +281,32 @@ struct DebateLevelButton: View {
                     Text(level.displayName)
                         .font(.subheadline.weight(.medium))
                         .foregroundColor(isSelected ? .white : .primary)
-                    
+
                     Text(level.description)
                         .font(.caption)
                         .foregroundColor(isSelected ? .white.opacity(0.9) : .secondary)
                 }
-                
+
                 Spacer()
-                
+
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.white)
                 }
             }
             .padding(10)
-            .background(isSelected ? Color.blue : Color(.systemGray6))
-            .cornerRadius(8)
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected
+                          ? AnyShapeStyle(Color.blue)
+                          : (reduceTransparency
+                             ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                             : AnyShapeStyle(.ultraThinMaterial)))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(isSelected ? Color.clear : AmenTheme.Colors.glassStroke, lineWidth: 0.5)
+                    )
+            }
         }
         .buttonStyle(.plain)
     }
@@ -282,7 +318,9 @@ struct SensitivityFilterButton: View {
     let filter: SensitivityFilter
     let isSelected: Bool
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         Button(action: action) {
             HStack {
@@ -290,22 +328,32 @@ struct SensitivityFilterButton: View {
                     Text(filter.displayName)
                         .font(.subheadline.weight(.medium))
                         .foregroundColor(isSelected ? .white : .primary)
-                    
+
                     Text(filter.description)
                         .font(.caption)
                         .foregroundColor(isSelected ? .white.opacity(0.9) : .secondary)
                 }
-                
+
                 Spacer()
-                
+
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.white)
                 }
             }
             .padding(10)
-            .background(isSelected ? Color.blue : Color(.systemGray6))
-            .cornerRadius(8)
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected
+                          ? AnyShapeStyle(Color.blue)
+                          : (reduceTransparency
+                             ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                             : AnyShapeStyle(.ultraThinMaterial)))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(isSelected ? Color.clear : AmenTheme.Colors.glassStroke, lineWidth: 0.5)
+                    )
+            }
         }
         .buttonStyle(.plain)
     }
@@ -317,7 +365,9 @@ struct RefreshPacingButton: View {
     let pacing: RefreshPacing
     let isSelected: Bool
     let action: () -> Void
-    
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         Button(action: action) {
             HStack {
@@ -325,22 +375,32 @@ struct RefreshPacingButton: View {
                     Text(pacing.displayName)
                         .font(.subheadline.weight(.medium))
                         .foregroundColor(isSelected ? .white : .primary)
-                    
+
                     Text(pacing.description)
                         .font(.caption)
                         .foregroundColor(isSelected ? .white.opacity(0.9) : .secondary)
                 }
-                
+
                 Spacer()
-                
+
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.white)
                 }
             }
             .padding(10)
-            .background(isSelected ? Color.blue : Color(.systemGray6))
-            .cornerRadius(8)
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected
+                          ? AnyShapeStyle(Color.blue)
+                          : (reduceTransparency
+                             ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                             : AnyShapeStyle(.ultraThinMaterial)))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(isSelected ? Color.clear : AmenTheme.Colors.glassStroke, lineWidth: 0.5)
+                    )
+            }
         }
         .buttonStyle(.plain)
     }

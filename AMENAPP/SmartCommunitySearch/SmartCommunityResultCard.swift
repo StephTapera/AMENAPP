@@ -6,6 +6,7 @@ struct SmartCommunityResultCard: View {
     let onAskBerean: (SmartCommunityRankedResult) -> Void
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ObservedObject private var libraryService = DiscussionGroupLibraryService.shared
     @State private var saveInFlight = false
 
@@ -128,7 +129,10 @@ struct SmartCommunityResultCard: View {
                         .font(.caption2)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color(.systemGray6), in: Capsule())
+                        .background(reduceTransparency
+                                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                    : AnyShapeStyle(.ultraThinMaterial),
+                                    in: Capsule())
                         .foregroundStyle(.secondary)
                 }
             }
@@ -159,8 +163,10 @@ struct SmartCommunityResultCard: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(isSaved
-                              ? Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.12)
-                              : Color(.systemGray6))
+                              ? AnyShapeStyle(Color(red: 0.44, green: 0.26, blue: 0.80).opacity(0.12))
+                              : (reduceTransparency
+                                 ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                 : AnyShapeStyle(.ultraThinMaterial)))
                         .frame(width: 40, height: 40)
 
                     if saveInFlight {
@@ -189,7 +195,10 @@ struct SmartCommunityResultCard: View {
                         .font(.system(size: 18))
                         .foregroundStyle(.secondary)
                         .frame(width: 40, height: 40)
-                        .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .background(reduceTransparency
+                                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                    : AnyShapeStyle(.ultraThinMaterial),
+                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .accessibilityLabel("Get directions")
             }
@@ -202,7 +211,10 @@ struct SmartCommunityResultCard: View {
                     .font(.system(size: 18))
                     .foregroundStyle(.secondary)
                     .frame(width: 40, height: 40)
-                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .background(reduceTransparency
+                                ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                : AnyShapeStyle(.ultraThinMaterial),
+                                in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .accessibilityLabel("Ask Berean about this community")
         }

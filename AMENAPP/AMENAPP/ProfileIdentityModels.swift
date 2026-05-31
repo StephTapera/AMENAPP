@@ -129,7 +129,10 @@ struct OpenToSignal: Codable, Hashable, Identifiable {
 
 // MARK: - Denomination / Tradition
 
-enum Denomination: String, Codable, CaseIterable {
+/// Profile-level denomination preference (faith background, not church search taxonomy).
+/// Renamed to ProfileDenomination to avoid ambiguity with Phase0Contracts.Denomination
+/// which is the canonical church-search enum. Both enums exist in the same module.
+enum ProfileDenomination: String, Codable, CaseIterable {
     case nonDenominational  = "nonDenominational"
     case baptist            = "baptist"
     case pentecostal        = "pentecostal"

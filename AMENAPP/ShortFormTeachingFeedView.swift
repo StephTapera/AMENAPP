@@ -144,6 +144,8 @@ struct TeachingClipCard: View {
     var isActive: Bool = false
     @State private var isPlaying: Bool = false
     @State private var hasEncouraged: Bool = false
+    @State private var showBereanSheet: Bool = false
+    @State private var showShareSheet: Bool = false
 
     var body: some View {
         GeometryReader { geo in
@@ -175,6 +177,14 @@ struct TeachingClipCard: View {
                 isPlaying = false
                 // TODO: Pause actual AVPlayer here via video player service
             }
+        }
+        .sheet(isPresented: $showBereanSheet) {
+            BereanAIAssistantView(
+                initialQuery: "I'm watching: \(clip.title) by \(clip.authorName).\(clip.scriptureRef.map { " Scripture: \($0)." } ?? "") Give me context and reflection questions."
+            )
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ActivityViewController(activityItems: [clip.videoURL ?? "Check out this teaching on AMEN: \(clip.title) by \(clip.authorName)"])
         }
     }
 
@@ -371,17 +381,15 @@ struct TeachingClipCard: View {
 
             // Ask Berean (AI)
             actionButton(icon: "sparkles", label: "Ask Berean") {
-                // TODO: Open Berean AI sheet contextualised with this clip
+                showBereanSheet = true
             }
-            .disabled(true)
-            .accessibilityHint("Berean AI context coming soon")
+            .accessibilityHint("Open Berean AI for scripture context on this teaching")
 
             // Share
             actionButton(icon: "square.and.arrow.up", label: "Share") {
-                // TODO: Present ShareSheet for clip.videoURL or deep link
+                showShareSheet = true
             }
-            .disabled(true)
-            .accessibilityHint("Share coming soon")
+            .accessibilityHint("Share this teaching")
         }
     }
 

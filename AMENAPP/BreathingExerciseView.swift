@@ -134,8 +134,8 @@ struct BreathingExerciseView: View {
                 setupView
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: showMoodCheck)
-        .animation(.easeInOut(duration: 0.4), value: isRunning)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: showMoodCheck)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.4), value: isRunning)
         .onDisappear {
             sessionTask?.cancel()
             synth.stopSpeaking(at: .immediate)
@@ -513,12 +513,12 @@ struct BreathingExerciseView: View {
         let duration = Double(phase.seconds)
         guard let expanding = phase.isExpanding else {
             // Hold — keep current scale, dim glow
-            withAnimation(.easeInOut(duration: 0.3)) { glowRadius = 12 }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { glowRadius = 12 }
             return
         }
         let target: CGFloat = expanding ? 1.0 : 0.5
         let opacityTarget: Double = expanding ? 0.9 : 0.55
-        withAnimation(.easeInOut(duration: duration)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: duration)) {
             circleScale = target
             circleOpacity = opacityTarget
             glowRadius = expanding ? 28 : 8

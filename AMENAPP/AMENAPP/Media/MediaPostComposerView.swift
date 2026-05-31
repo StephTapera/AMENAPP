@@ -53,6 +53,7 @@ struct MediaPostComposerView: View {
     @State private var selectedTopicIds: [String] = []
     @State private var showMusicPicker: Bool = false
     @State private var showCommunityPicker: Bool = false
+    @State private var showTranslation: Bool = false
 
     private let captionLimit = 2000
 
@@ -94,9 +95,14 @@ struct MediaPostComposerView: View {
                     // Audience picker
                     audienceSection
 
-                    // Translate chip
+                    // Translate chip + inline translation overlay
                     if !caption.isEmpty {
                         translateChip
+                        if showTranslation {
+                            PostTranslationButton(originalText: caption)
+                                .padding(.top, 4)
+                                .transition(.opacity)
+                        }
                     }
 
                     // Bottom spacing so toolbar doesn't overlap content
@@ -393,13 +399,15 @@ struct MediaPostComposerView: View {
 
     private var translateChip: some View {
         Button {
-            // TODO: wire to TranslateButton / TranslationService
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showTranslation.toggle()
+            }
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "globe")
                     .font(.system(size: 13))
                     .accessibilityHidden(true)
-                Text("Translate before posting")
+                Text(showTranslation ? "Hide translation" : "Translate before posting")
                     .font(.system(size: 13, weight: .medium))
             }
             .foregroundColor(AmenTheme.Colors.amenBlue)
@@ -407,7 +415,7 @@ struct MediaPostComposerView: View {
             .padding(.vertical, 9)
             .background(
                 Capsule()
-                    .fill(AmenTheme.Colors.amenBlue.opacity(0.10))
+                    .fill(AmenTheme.Colors.amenBlue.opacity(showTranslation ? 0.18 : 0.10))
                     .overlay(
                         Capsule()
                             .strokeBorder(AmenTheme.Colors.amenBlue.opacity(0.25), lineWidth: 0.5)
@@ -415,9 +423,8 @@ struct MediaPostComposerView: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(true)
-        .accessibilityLabel("Translate caption before posting")
-        .accessibilityHint("Translation coming soon")
+        .accessibilityLabel(showTranslation ? "Hide translation" : "Translate caption before posting")
+        .accessibilityHint("Shows a translated preview of your caption using UniversalTranslationService")
     }
 
     // MARK: - Attachment Chip Row

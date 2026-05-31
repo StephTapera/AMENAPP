@@ -549,7 +549,7 @@ private struct FCPressButtonStyle: ButtonStyle {
 /// extension, to avoid "ambiguous type" errors at the call site.
 struct FindChurchFilterRow: View {
     @Binding var openNow: Bool
-    @Binding var denomination: Denomination?         // Phase0Contracts.Denomination
+    @Binding var denomination: ChurchSearchDenomination?         // Phase0Contracts.ChurchSearchDenomination
     @Binding var sortOrder: ChurchSortOrder          // Phase0Contracts.ChurchSortOrder
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -580,7 +580,7 @@ struct FindChurchFilterRow: View {
                         }
                     }
                     Divider()
-                    ForEach(Denomination.allCases, id: \.self) { denom in
+                    ForEach(ChurchSearchDenomination.allCases, id: \.self) { denom in
                         Button(denomLabel(denom)) {
                             withAnimation(reduceMotion ? .none : Motion.popToggle) {
                                 denomination = denom
@@ -642,7 +642,7 @@ struct FindChurchFilterRow: View {
 
     /// Human-readable label for a Phase0Contracts.Denomination case.
     /// Kept private here to avoid ambiguity with the same-named enum in ProfileIdentityModels.
-    private func denomLabel(_ d: Denomination) -> String {
+    private func denomLabel(_ d: ChurchSearchDenomination) -> String {
         switch d {
         case .nonDenominational: return "Non-Denominational"
         case .baptist:           return "Baptist"

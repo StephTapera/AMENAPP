@@ -197,6 +197,8 @@ struct PrayerArcCard: View {
     @StateObject private var vm = PrayerArcViewModel()
     @State private var bereanQuery = ""
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     private let gold  = Color(red: 0.831, green: 0.627, blue: 0.090)
     private let navy  = Color(red: 0.051, green: 0.106, blue: 0.243)
 
@@ -345,7 +347,9 @@ struct PrayerArcCard: View {
         let rowContent = HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
+                    .fill(reduceTransparency
+                          ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                          : AnyShapeStyle(.ultraThinMaterial))
                     .frame(width: 38, height: 38)
                 Image(systemName: icon)
                     .font(.systemScaled(16))

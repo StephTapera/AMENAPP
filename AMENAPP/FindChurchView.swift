@@ -220,7 +220,7 @@ struct FindChurchView: View {
 
     // A4 — Typed filter state (Phase0Contracts types; bridges to legacy state where needed)
     @State private var showOpenNowOnly: Bool = false
-    @State private var filterDenomination: Denomination? = nil
+    @State private var filterDenomination: ChurchSearchDenomination? = nil
     @State private var filterSortOrder: ChurchSortOrder = .bestMatch
 
     /// Typed filter struct used by the search execution path and `FindChurchFilterRow`.
@@ -1122,7 +1122,7 @@ struct FindChurchView: View {
     // A4 — Human-readable label for a Phase0Contracts.Denomination case.
     // Defined here (rather than as an extension on Denomination) to avoid the
     // "ambiguous type" error caused by the same-named enum in ProfileIdentityModels.swift.
-    private func churchFilterDenominationLabel(_ d: Denomination) -> String {
+    private func churchFilterDenominationLabel(_ d: ChurchSearchDenomination) -> String {
         switch d {
         case .nonDenominational: return "Non-Denominational"
         case .baptist:           return "Baptist"

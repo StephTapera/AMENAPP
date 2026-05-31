@@ -148,6 +148,16 @@ struct StudioWriteView: View {
     @State private var isAIGenerating = false
     @State private var aiSuggestionScale: CGFloat = 0.92
 
+    // STUDIO-03: stored task handle so the in-flight CF call can be cancelled
+    @State private var aiGenerationTask: Task<Void, Never>?
+
+    // STUDIO-08: per-minute retry rate-limit (max 3 per 60 s)
+    @State private var aiRetryCount = 0
+    @State private var aiLastRetryReset = Date()
+
+    // STUDIO-19: show paywall when entitlement is absent
+    @State private var showStudioPaywall = false
+
     // MARK: - Auto-suggest debounce
     @State private var autoSuggestTask: Task<Void, Never>?
     @State private var lastAutoSuggestLength = 0
@@ -203,10 +213,15 @@ struct StudioWriteView: View {
             .onDisappear {
                 autoSaveTimer?.invalidate()
                 autoSuggestTask?.cancel()
+                aiGenerationTask?.cancel()
                 saveDraft()
             }
             .sheet(isPresented: $showShareSheet) {
                 ShareSheet(items: [documentText])
+            }
+            // STUDIO-19: paywall presented when user lacks entitlement
+            .sheet(isPresented: $showStudioPaywall) {
+                StudioPaywallView()
             }
         }
     }
@@ -782,6 +797,30 @@ struct StudioWriteView: View {
         let trimmed = documentText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        // STUDIO-19: entitlement gate — show paywall if free-tier quota is exhausted
+        let subscriptionService = StudioSubscriptionService.shared
+        if subscriptionService.requiresUpgrade(for: .create) {
+            showStudioPaywall = true
+            return
+        }
+
+        // STUDIO-08: per-minute retry rate limit (max 3 per 60 s)
+        let now = Date()
+        if now.timeIntervalSince(aiLastRetryReset) > 60 {
+            aiRetryCount = 0
+            aiLastRetryReset = now
+        }
+        guard aiRetryCount < 3 else {
+            aiSuggestionText = "Please wait before generating again."
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
+                showAISuggestion = true
+                aiSuggestionScale = 1.0
+            }
+            isAIGenerating = false
+            return
+        }
+        aiRetryCount += 1
+
         isAIGenerating = true
         withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
             showAISuggestion = true
@@ -794,7 +833,10 @@ struct StudioWriteView: View {
 
         let tool = writingType.studioTool
 
-        Task {
+        // STUDIO-03: store task handle so Dismiss can cancel the in-flight call
+        aiGenerationTask?.cancel()
+        aiGenerationTask = Task {
+            defer { aiGenerationTask = nil }
             do {
                 // STUDIO-09: backend selects system prompt from server-side allowlist via ai_mode + writing_type.
                 // Never pass client-controlled system_override — would bypass GUARDIAN content policy.
@@ -822,18 +864,46 @@ struct StudioWriteView: View {
                     }
                 }
             } catch {
-                await MainActor.run {
-                    aiSuggestionText = "AI is unavailable right now. Please try again later."
-                    isAIGenerating = false
+                // Suppress cancellation noise; surface real errors
+                if !(error is CancellationError) {
+                    await MainActor.run {
+                        aiSuggestionText = "AI is unavailable right now. Please try again later."
+                        isAIGenerating = false
+                    }
+                    dlog("\u{26A0}\u{FE0F} [StudioWrite] AI suggestion error: \(error)")
+                } else {
+                    await MainActor.run { isAIGenerating = false }
                 }
-                dlog("\u{26A0}\u{FE0F} [StudioWrite] AI suggestion error: \(error)")
             }
         }
     }
-
     private func triggerClosingPrayer() {
         let trimmed = documentText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+
+        // STUDIO-19: entitlement gate — show paywall if free-tier quota is exhausted
+        let subscriptionService = StudioSubscriptionService.shared
+        if subscriptionService.requiresUpgrade(for: .create) {
+            showStudioPaywall = true
+            return
+        }
+
+        // STUDIO-08: share the same per-minute retry budget as triggerAISuggestion
+        let now = Date()
+        if now.timeIntervalSince(aiLastRetryReset) > 60 {
+            aiRetryCount = 0
+            aiLastRetryReset = now
+        }
+        guard aiRetryCount < 3 else {
+            aiSuggestionText = "Please wait before generating again."
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
+                showAISuggestion = true
+                aiSuggestionScale = 1.0
+            }
+            isAIGenerating = false
+            return
+        }
+        aiRetryCount += 1
 
         isAIGenerating = true
         withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
@@ -841,7 +911,10 @@ struct StudioWriteView: View {
             aiSuggestionScale = 1.0
         }
 
-        Task {
+        // STUDIO-03: store task handle so Dismiss can cancel the in-flight call
+        aiGenerationTask?.cancel()
+        aiGenerationTask = Task {
+            defer { aiGenerationTask = nil }
             do {
                 let payload: [String: Any] = [
                     "tool": writingType.studioTool.rawValue,
@@ -867,14 +940,17 @@ struct StudioWriteView: View {
                     }
                 }
             } catch {
-                await MainActor.run {
-                    aiSuggestionText = "AI is unavailable right now."
-                    isAIGenerating = false
+                if !(error is CancellationError) {
+                    await MainActor.run {
+                        aiSuggestionText = "AI is unavailable right now."
+                        isAIGenerating = false
+                    }
+                } else {
+                    await MainActor.run { isAIGenerating = false }
                 }
             }
         }
     }
-
     private func insertAISuggestion() {
         guard !aiSuggestionText.isEmpty else { return }
         if documentText.isEmpty || documentText.hasSuffix("\n") {
@@ -886,6 +962,10 @@ struct StudioWriteView: View {
     }
 
     private func dismissAISuggestion() {
+        // STUDIO-03: cancel any in-flight generation task when the user dismisses
+        aiGenerationTask?.cancel()
+        aiGenerationTask = nil
+        isAIGenerating = false
         withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
             aiSuggestionScale = 0.92
         }
