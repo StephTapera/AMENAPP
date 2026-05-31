@@ -5,6 +5,7 @@ import FirebaseFirestore
 struct HeyFeedComposerView: View {
     let post: Post
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedType: HeyFeedRequest.HeyFeedRequestType = .prayer
     @State private var isSubmitting = false
     @State private var showSuccess = false
@@ -56,6 +57,9 @@ struct HeyFeedComposerView: View {
         }
         .task {
             service.startListening()
+        }
+        .onDisappear {
+            service.stopListening()
         }
     }
 
@@ -126,7 +130,7 @@ struct HeyFeedComposerView: View {
         let isSelected = selectedType == type
 
         return Button {
-            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
+            withAnimation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                 selectedType = type
             }
         } label: {
@@ -249,7 +253,7 @@ struct HeyFeedComposerView: View {
                 )
                 await MainActor.run {
                     isSubmitting = false
-                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
+                    withAnimation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                         showSuccess = true
                     }
                 }
