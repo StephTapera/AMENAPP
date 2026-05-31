@@ -358,11 +358,15 @@ struct TeachingClipCard: View {
             actionButton(icon: "sparkles", label: "Ask Berean") {
                 // TODO: Open Berean AI sheet contextualised with this clip
             }
+            .disabled(true)
+            .accessibilityHint("Berean AI context coming soon")
 
             // Share
             actionButton(icon: "square.and.arrow.up", label: "Share") {
                 // TODO: Present ShareSheet for clip.videoURL or deep link
             }
+            .disabled(true)
+            .accessibilityHint("Share coming soon")
         }
     }
 
