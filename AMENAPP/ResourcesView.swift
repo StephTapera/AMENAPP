@@ -704,6 +704,7 @@ struct ResourcesView: View {
                         .buttonStyle(ResourceCardPressStyle())
 
                         if featureFlags.contextualExperiencesEnabled {
+                            // NAV-02: organizationId must be a real org ID — disabled until a valid ID is passed
                             NavigationLink(destination: AmenContextualExperienceDashboardView(organizationId: "")) {
                                 CompactResourceRow(
                                     icon: "building.2.fill",
@@ -712,6 +713,7 @@ struct ResourcesView: View {
                                     subtitle: "Church, school & org contextual hubs"
                                 )
                             }
+                            .disabled(true)
                             .buttonStyle(ResourceCardPressStyle())
                         }
 
