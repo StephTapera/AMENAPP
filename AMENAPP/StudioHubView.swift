@@ -114,16 +114,20 @@ struct StudioHubView: View {
                         .offset(y: cardsVisible ? 0 : 20)
                         .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.35), value: cardsVisible)
 
-                        // Blueprint
+                        // Blueprint — coming soon, not yet interactive
                         DarkGlassBlueprintCard()
+                            .disabled(true)
+                            .accessibilityLabel("Blueprint, coming soon")
                             .padding(.horizontal, 20)
                             .padding(.top, 14)
                             .opacity(cardsVisible ? 1 : 0)
                             .offset(y: cardsVisible ? 0 : 20)
                             .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.8).delay(0.40), value: cardsVisible)
 
-                        // Collab
+                        // Collab — coming soon, not yet interactive
                         DarkGlassCollabCard()
+                            .disabled(true)
+                            .accessibilityLabel("Collab, coming soon")
                             .padding(.horizontal, 20)
                             .padding(.top, 14)
                             .opacity(cardsVisible ? 1 : 0)
