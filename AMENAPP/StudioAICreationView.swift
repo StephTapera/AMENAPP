@@ -112,8 +112,25 @@ final class StudioAICreationViewModel: ObservableObject {
     private let functions = Functions.functions(region: "us-central1")
     private let subscriptionService = StudioSubscriptionService.shared
 
+    // STUDIO-08: per-minute retry rate-limit state
+    private var generateAttemptCount: Int = 0
+    private var generateLastResetDate: Date = Date()
+
     func generate(tool: StudioTool) {
         guard !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        // STUDIO-08: per-minute retry rate limit (max 3 per 60 s)
+        let now = Date()
+        if now.timeIntervalSince(generateLastResetDate) > 60 {
+            generateAttemptCount = 0
+            generateLastResetDate = now
+        }
+        guard generateAttemptCount < 3 else {
+            errorMessage = "Please wait a moment before generating again."
+            return
+        }
+        generateAttemptCount += 1
+
         isGenerating = true
         errorMessage = nil
         generatedText = ""
