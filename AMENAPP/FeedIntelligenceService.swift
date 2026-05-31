@@ -229,7 +229,7 @@ final class FeedSessionQualityTracker {
     private func logSessionQuality() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let quality = computeQuality()
-        lazy var db = Firestore.firestore()
+        let db = Firestore.firestore()
         Task.detached(priority: .background) {
             try? await db
                 .collection("users").document(uid)
@@ -419,7 +419,7 @@ final class FeedIntelligenceService: ObservableObject {
         // Doomscroll detection
         if flags.antiDoomscrollEnabled {
             if let prompt = sessionTracker.pacePrompt() {
-                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
+                withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                     currentPacingPrompt = prompt
                 }
             }
@@ -466,19 +466,19 @@ final class FeedIntelligenceService: ObservableObject {
     private func injectReflectionPrompt() {
         postsScrolledSinceReflection = 0
         reflectionPromptScrollPosition = Int.random(in: 25...40)  // Vary to feel organic
-        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
+        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             currentReflectionPrompt = FeedReflectionPrompt.random()
         }
     }
 
     func dismissReflectionPrompt() {
-        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
             currentReflectionPrompt = nil
         }
     }
 
     func dismissPacingPrompt() {
-        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
             currentPacingPrompt = nil
         }
     }
