@@ -43,11 +43,9 @@ struct EmailVerificationGateView: View {
                         .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.white.opacity(0.6))
                     
-                    if let email = Auth.auth().currentUser?.email {
-                        Text(email)
-                            .font(.custom("OpenSans-SemiBold", size: 16))
-                            .foregroundStyle(.white)
-                    }
+                    Text(Auth.auth().currentUser?.email ?? "your email address")
+                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .foregroundStyle(.white)
                     
                     Text("Check your email and click the verification link. It may take a few moments to arrive.")
                         .font(.custom("OpenSans-Regular", size: 14))
