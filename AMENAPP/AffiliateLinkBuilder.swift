@@ -15,8 +15,15 @@ import UIKit
 // MARK: - Config
 
 enum AffiliateConfig {
-    static let amazonTag: String = Bundle.main.object(
-        forInfoDictionaryKey: "AMAZON_AFFILIATE_TAG") as? String ?? "amenapp-20"
+    // Reads tag from Config.xcconfig → Info.plist. Returns empty string if unset,
+    // which causes amazonURL() to return nil (no affiliate link emitted).
+    // DEBUG builds assert loudly so the key is never silently missing in dev.
+    static let amazonTag: String = {
+        let tag = Bundle.main.object(forInfoDictionaryKey: "AMAZON_AFFILIATE_TAG") as? String ?? ""
+        assert(!tag.isEmpty, "AMAZON_AFFILIATE_TAG not set in Config.xcconfig — affiliate links are disabled until it is.")
+        return tag
+    }()
+
     static let appleToken: String = Bundle.main.object(
         forInfoDictionaryKey: "APPLE_AFFILIATE_TOKEN") as? String ?? ""
 
@@ -32,6 +39,7 @@ enum AffiliateLinkBuilder {
 
     static func amazonURL(for book: WLBook) -> URL? {
         let tag = AffiliateConfig.amazonTag
+        guard !tag.isEmpty else { return nil }
         if let isbn = book.isbn13 ?? book.isbn10 {
             var c = URLComponents(string: "https://www.amazon.com/dp/\(isbn)")!
             c.queryItems = [.init(name: "tag", value: tag)]
