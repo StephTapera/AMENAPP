@@ -903,6 +903,7 @@ struct BereanAIAssistantView: View {
             }
         }
         .onAppear {
+            placeholderTimerActive = true
             checkOnboardingStatus()
             setupKeyboardObservers()
             // Initialize speech recognizer
@@ -950,6 +951,7 @@ struct BereanAIAssistantView: View {
             }
         }
         .onDisappear {
+            placeholderTimerActive = false
             removeKeyboardObservers()
             // ✅ P0-3: Cancel any ongoing generation when view disappears
             viewModel.stopGeneration()
