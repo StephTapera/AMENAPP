@@ -38,7 +38,6 @@ private struct AmenGlassComposerExpansionModifier: ViewModifier {
     let isExpanded: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.amenMotionProfile) private var profile
 
     func body(content: Content) -> some View {
         content
@@ -53,7 +52,7 @@ private struct AmenGlassComposerExpansionModifier: ViewModifier {
             .animation(
                 reduceMotion
                     ? .easeOut(duration: LiquidGlassTokens.motionFast)
-                    : profile.animation(),
+                    : .spring(response: 0.32, dampingFraction: 0.82),
                 value: isExpanded
             )
     }
