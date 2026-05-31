@@ -369,7 +369,6 @@ struct PrayerRequestsTabView: View {
 
     @State private var requests: [GroupPrayerRequest] = []
     @State private var isLoading = true
-    @State private var listener: ListenerRegistration?
 
     var body: some View {
         Group {
@@ -390,7 +389,9 @@ struct PrayerRequestsTabView: View {
             }
         }
         .task { await loadRequests() }
-        .onDisappear { listener?.remove() }
+        .onDisappear {
+            BereanSmartChannelHook.shared.stopListening(groupId: spaceId)
+        }
         .safeAreaInset(edge: .bottom) {
             AddPrayerRequestButton(spaceId: spaceId)
         }
@@ -398,8 +399,8 @@ struct PrayerRequestsTabView: View {
 
     private func loadRequests() async {
         isLoading = true
-        listener?.remove()
-        listener = BereanSmartChannelHook.shared.listenChannelPrayerRequests(groupId: spaceId) { channelRequests in
+        BereanSmartChannelHook.shared.stopListening(groupId: spaceId)
+        BereanSmartChannelHook.shared.listenChannelPrayerRequests(groupId: spaceId) { channelRequests in
             requests = channelRequests.map { cr in
                 GroupPrayerRequest(
                     id: cr.id ?? UUID().uuidString,
