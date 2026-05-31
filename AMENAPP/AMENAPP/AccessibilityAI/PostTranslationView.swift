@@ -13,10 +13,10 @@ private enum TranslationState {
     case error(String)
 }
 
-// MARK: - C2PAAIContributionBadge
+// MARK: - AIContributionBadge
 
 /// Small pill badge: "✦ AI Assisted" — appears after any AI-generated content.
-struct C2PAAIContributionBadge: View {
+struct AIContributionBadge: View {
     var label: String = "AI Assisted"
 
     var body: some View {
@@ -121,7 +121,7 @@ struct PostTranslationButton: View {
             }
 
             HStack(spacing: 8) {
-                C2PAAIContributionBadge()
+                AIContributionBadge()
 
                 Button {
                     withAnimation(Motion.adaptive(.easeInOut(duration: 0.2))) {
