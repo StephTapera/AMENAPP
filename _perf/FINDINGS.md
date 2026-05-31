@@ -3,17 +3,111 @@
 Format: `[SEVERITY] LAYER | File:line | Pattern | Fix | Expected Win`
 Severity: LOW | MEDIUM | HIGH
 
-Status: POPULATING (Phase 1 agents running)
+Status: POPULATING (Phase 1 agents running) — Launch + Render audit appended 2026-05-31
 
 ---
 
 ## LAUNCH LAYER
 
+<!-- ─────────────────────────────────────────────────────────────────────────
+     LAUNCH LAYER — Audit 2026-05-31
+     Auditor: overnight/perf-pass-20260531
+     ───────────────────────────────────────────────────────────────────────── -->
+
+[HIGH] LAUNCH | AMENAPPApp.swift:95-97 | `Task { Self.setupRemoteConfig() }` is spawned during `App.init()`, scheduling a RemoteConfig network fetch before the first frame is painted. Although async, this competes with Firestore, AppCheck, and FCM for the first network slot on cold launch. | Move `setupRemoteConfig()` into `AMENAPPApp.body.onAppear` (after `AppReadyStateManager.signalReady()`), so it fires after the first frame renders. | ~100–200ms launch improvement on cold start.
+
+[HIGH] LAUNCH | AMENAPPApp.swift:34 | `@StateObject private var killSwitch = RemoteKillSwitch.shared` — `RemoteKillSwitch.init()` immediately calls `loadFlags()` which accesses `RemoteConfig.remoteConfig()`. This fires synchronously during SwiftUI App struct property initialization, before `AppDelegate.didFinishLaunchingWithOptions` completes. The Firebase guard prevents a crash but silently skips flag loading on first run. | Defer `loadFlags()` to `RemoteConfig.remoteConfig().addOnConfigUpdateListener` or call it explicitly from `AMENAPPApp.body.onAppear`. | Closes a config-miss window on cold launch; removes init-time RC access.
+
+[HIGH] LAUNCH | AppDelegate.swift:95 | `Task { @MainActor in ServiceBootstrapper.shared.bootstrap() }` runs Tier 0-1 singleton init on the main actor during `didFinishLaunchingWithOptions`. Currently safe (lightweight), but any future service added to `bootstrap()` that touches UIKit or does I/O will block first frame. | Add a `#if DEBUG` time-budget assertion inside `bootstrap()` that panics if execution exceeds 5ms, to enforce the lightweight contract. | No immediate perf gain; prevents future regressions.
+
+[HIGH] LAUNCH | AppDelegate.swift:106-116 | `AppCheck.appCheck().token(forcingRefresh: false)` pre-warm Task fires during `didFinishLaunchingWithOptions`. On real devices with App Attest, first attestation can take 0.5–2 s and competes with the first render pass. | Yield one frame before starting App Check: schedule with `.background` priority or add `Task.yield()` before the attestation call so it does not contend with ContentView init. | ~100ms perceived launch improvement on first install.
+
+[MEDIUM] LAUNCH | ContentView.swift:17-18 | `@StateObject private var authViewModel: AuthenticationViewModel` — AuthVM.init() calls `setupAuthStateListener()` synchronously, which immediately registers a Firebase auth listener that fires and spawns additional Tasks (FollowService.load × 2, PostInteractionsService.prepareForNewUser, SecureMessaging key bundle). All fire as a consequence of ContentView's StateObject initialization before the first frame. | `checkOnboardingStatus` is already called from the auth listener — the explicit `Task { await checkOnboardingStatus() }` in init() (line 140-144) is redundant given the `checkOnboardingTaskCount` counter guard. Remove the direct init call and rely solely on the listener, reducing the concurrent Task burst at first frame. | Simplifies init path; reduces concurrent Task count at launch.
+
+[MEDIUM] LAUNCH | ContentView.swift:103 | `@StateObject private var welcomeManager = WelcomeScreenManager()` allocated for all users, including authenticated users who have completed onboarding and will never see the welcome screen. Eight total StateObjects are allocated during ContentView init. | Evaluate which StateObjects can use conditional allocation (e.g., create WelcomeScreenManager only when `!authViewModel.hasCompletedOnboarding`). | Reduces allocations on the hot returning-user path.
+
+[MEDIUM] LAUNCH | AMENAPPApp.swift:230-333 | `onAppear` task group fires on every foreground transition. It includes `preloadCacheSync()` and `startFollowServiceListeners()` on each re-appear, without a session-level guard (unlike ContentView which has `hasStartedCoreServices`). On rapid background/foreground cycling these tasks re-run unnecessarily. | Add a `private var hasStartedStartupTasks = false` guard to the onAppear block (analogous to ContentView line 105) so the startup group runs once per session. | Eliminates redundant Firestore reads on background/foreground cycles.
+
 ## RENDER LAYER
+
+<!-- ─────────────────────────────────────────────────────────────────────────
+     RENDER LAYER — Audit 2026-05-31
+     Auditor: overnight/perf-pass-20260531
+     ───────────────────────────────────────────────────────────────────────── -->
+
+[HIGH] RENDER | ContentView.swift:639-644 + 544-633 | `keepMountedTab` mounts ALL 8 tabs simultaneously in a ZStack and hides inactive tabs with `.opacity(0)`. Every tab's ViewModels, Firestore listeners, and `onAppear` handlers are live from app open. MessagesView (7 @ObservedObject singletons), AMENNotificationsView, ProfileView, ResourcesView, AmenGatheringsHomeView, SpacesRootView, and ChurchNotesView are ALL fully allocated when the app opens. MessagesView.onAppear (line 387) fires even when Messages is not the active tab — SwiftUI fires onAppear when a view enters the hierarchy, not when it becomes visible. | Replace with true lazy-tab initialization: mount only the active tab's view; on first navigation to a new tab, mount and keep it alive (to preserve scroll position). Pattern: `@State private var mountedTabs: Set<Int> = [0]`; inside the ZStack, wrap each tab with `if mountedTabs.contains(i)` before the opacity pattern. | HIGH impact — eliminates 7 simultaneous root-view inits at launch; ~200–400ms launch reduction; ~30–80MB RSS reduction.
+
+[HIGH] RENDER | PostCard.swift:2229-2409 | Three chained `AnyView` wrappers (`cardWithSheets` → `cardWithAlerts` → `cardWithMuteBlockAlerts`). Each AnyView erases PostCard's concrete type, preventing SwiftUI from diffing the subtree — the entire card tree is re-allocated on every parent invalidation. PostCard is displayed in a LazyVStack with 20+ visible cells, so each re-render creates O(visible-cells) AnyView heap boxes. | Replace `AnyView` with `@ViewBuilder` computed properties returning `some View`. The "expression too complex" problem can be solved by splitting into smaller helper views rather than type-erasing the entire card. | Restores SwiftUI identity diffing for all feed cards; eliminates per-card heap allocation for type erasure.
+
+[HIGH] RENDER | OpenTableView.swift:4-11 | OpenTableView subscribes to 9 @ObservedObject singletons: PostsManager, HomeFeedAlgorithm, ScrollBudgetManager, FeedSessionManager, CaughtUpService, FirebasePostService, AMENUserPreferencesService, AMENFeatureFlags, AMENNetworkMonitor. Any @Published change in any of these 9 objects triggers a full OpenTableView body re-evaluation. FirebasePostService alone has 9 @Published properties — a single Firestore snapshot fires multiple publishes, causing multiple full-body redraws per snapshot. | Extract each singleton observation into a targeted child view that only reads the specific properties it needs. Prioritize `firebasePostService` and `feedAlgorithm` — use `onReceive` with `removeDuplicates()` for properties that change together. | Reduces per-snapshot redraw count from 9 full-body re-evaluations to targeted child updates; eliminates cascade redraws.
+
+[HIGH] RENDER | PostCard.swift:675, 2145, 2181, 3163, 3791, 6055 | Six GeometryReader instances inside a PostCard cell in the feed LazyVStack. GeometryReader at list-cell level forces SwiftUI to run a geometry pass on each visible card during layout, breaking the normal lazy-cell size estimation and potentially causing re-layout of surrounding rows. Line 675 is in the action bar, 3163 is in media attachment, 3791 in the card footer. | Replace GeometryReader with `.overlay(alignment:)` + fixed frame constants where possible. Keep GeometryReader only where dynamic size is truly unresolvable. | Eliminates per-cell geometry measurement overhead during scroll; improves scroll frame rate.
+
+[MEDIUM] RENDER | ProfileView.swift:460 | `.animation(scrollOffset > AmenHero.profileBannerHeight || reduceMotion ? .none : Motion.liquidSpring, value: scrollOffset)` — condition re-evaluated on every scroll pixel since `scrollOffset` is a continuous CGFloat updated via `onPreferenceChange`. Drives animation state comparison at 60–120fps during hero scroll. | Debounce `scrollOffset` updates (only publish when delta > 4pt) or use `scrollOffset.rounded(toPlaces: 0)` to reduce update frequency. | Reduces main-thread animation work during profile hero scroll.
+
+[MEDIUM] RENDER | AMENNotificationsView.swift:219, 282, 297 | Three raw `AsyncImage` instances in notification row cells for actor avatars and content thumbnails. Raw `AsyncImage` bypasses the app's `ImageCache` (NSCache), so avatar images are re-fetched from network on every scroll-off/scroll-back. | Replace with `CachedAsyncImage` (used in PostCard and ProfileView) so images persist in the NSCache 150-image pool. | Eliminates redundant URLSession hits for notification avatars; images survive scroll without re-decode.
+
+[MEDIUM] RENDER | ProfileView.swift:1819, 1832 | Two raw `AsyncImage` in `profileHeroBannerView` — banner image and blurred avatar hero. Both bypass ImageCache. The blurred avatar applies `.blur(radius: 22)` + `.saturation(1.15)` to a full-resolution image fetched fresh on each profile open. | (1) Replace with `CachedAsyncImage`. (2) For the blurred hero, request a 200-wide downsampled variant of the image URL — blurring a 200px image to radius 22 is visually identical to blurring a 1200px image. | Saves one uncached URLSession round-trip per profile open; reduces GPU blur cost ~36×.
+
+[MEDIUM] RENDER | AMENNotificationsView.swift:517, 551 | `UrgentSection` and `TimeBucketSection` use regular `ForEach` inside `VStack` (not LazyVStack). All rows in each section are created eagerly when the section enters the hierarchy. An inbox with 50 notifications creates all 50 row views at once. The outer `LazyVStack` at line 683 provides laziness at the section level, not the row level. | Wrap the `ForEach` inside `TimeBucketSection` and `UrgentSection` with `LazyVStack` so individual rows are created on demand as the user scrolls. | Eliminates off-screen notification row creation.
+
+[LOW] RENDER | PostCard.swift:2577-2581 | `let _ = Self._printChanges()` inside the main `body` computed property, compiled in all DEBUG builds. With 20+ visible cards in the feed, this logs to stdout on every parent invalidation during scroll. Stdout I/O from 20 concurrent cells adds ~2–5ms per frame in the simulator and obscures legitimate logging. | Guard with `#if DEBUG && AMEN_VERBOSE_RENDER` flag, or remove after the optimization pass. | Recovers 2–5ms per frame in DEBUG builds; no release impact.
 
 ## GLASS/BLUR LAYER
 
+<!-- ─────────────────────────────────────────────────────────────────────────
+     GLASS/BLUR LAYER — Audit 2026-05-31
+     ───────────────────────────────────────────────────────────────────────── -->
+
+[MEDIUM] GLASS | ProfileView.swift:1832 | `.blur(radius: 22, opaque: true)` applied to a full-resolution `AsyncImage` used as the profile hero background. On iPhone Max / iPad this can mean blurring a 1242px image on every profile appear. | Request a thumbnail variant of the profile image (e.g., Firebase Storage `_200x200` suffix) before applying blur. A 200px-wide image blurred to radius 22 is visually indistinguishable from a 1200px blurred image. | Reduces GPU blur pass cost ~36×; reduces transferred image size.
+
+[LOW] GLASS | AMENTabBar.swift:25-85 | `LiquidGlassTabBarBackground` composites 4 overlay layers per frame: capsuleSurface (glass/material), innerSheen, refractionStroke (4-stop LinearGradient), and a specular highlight. On older devices (A14, A15), multi-layer compositing over a live scrolling feed surface can reduce scroll frame rate. | Apply `.drawingGroup()` to `LiquidGlassTabBarBackground` to rasterize the static glass surface into a single GPU layer, eliminating per-frame re-compositing. | Stabilizes scroll frame rate on A14/A15 chips.
+
+[HIGH] GLASS | PostCard.swift:6015–6086 | AmenGlassContainer — per-cell layer explosion in feed LazyVStack. Each PostCard hosts: (1) .fill(.ultraThinMaterial) [material pass], (2) LinearGradient color overlay, (3) border stroke overlay, (4) .background(.blur(radius:14)) shape — all inside .compositingGroup(). Then TWO more overlays are added POST-compositingGroup: (5) animated shine with .blur(radius:11) (lines 6054–6078), (6) bottom-edge glow .blur(radius:20) (lines 6079–6086). .compositingGroup() at line 6051 flattens only layers 1–4; layers 5–6 are separate GPU compositing passes. At 10–15 cells visible = 40–60 GPU compositing operations per scroll frame. The shine animation (line 6089: .easeInOut 0.95s) plays concurrently on every on-screen cell during feed load — a burst of simultaneous GPU animations. | Move both post-compositingGroup overlay blocks inside the ZStack before .compositingGroup() so all decorative layers flatten into a single texture. Guard the shine so it plays once and its render slot is freed. | Estimated 25–35% scroll fps improvement on A15 and below; eliminates concurrent multi-blur GPU spike at feed load.
+
+[HIGH] GLASS | ChurchNotesView.swift:1040–1058 + 1076–1460 | LiquidGlassNoteCard in LazyVStack(spacing:16). Each card body stacks: 4–6 raw .thinMaterial/.ultraThinMaterial shapes (lines 492, 547, 620, 675, 732, 812, 934), 3 stacked shadows per card (lines 527–528, 664–665, 962–963), an animated favorite-button circle backed by .thinMaterial (line 1159) that triggers a compositing repaint on every toggle, and a scripture badge ZStack with two material shapes (lines 1249–1355). No drawingGroup() or compositingGroup() on the card background. At 8 visible cells = ~48 simultaneous GPU material passes per scroll frame. | Wrap LiquidGlassNoteCard's decorative background ZStack in .drawingGroup(). Reduce shadow count per card from 3 to 1 high-radius shadow. Merge scripture badge's two material shapes into one. | Estimated 20–30% smoother LazyVStack scroll for users with large note archives.
+
+[HIGH] GLASS | BereanChatView.swift (message list ForEach) + BereanAIAssistantView.swift (chatMessageList) | BereanChatView has 25 separate .ultraThinMaterial fills (lines 1527, 1554, 1590, 1622, 1693, 2096, 2348, 2382, 2450, 2519, 2576, 2800, 2831, 2845, 2990, 3032, 3076, 3341, 3416, 3458+). Message list ForEach(viewModel.messages) is NOT in a LazyVStack — all bubbles instantiate simultaneously on chat open. No drawingGroup() on any bubble. A 50-message conversation = 50+ simultaneous material passes on first render. BereanAIAssistantView (47 shadow calls, 26 .ultraThinMaterial fills) has the same pattern in its chatMessageList with no flattening. | Migrate both message lists to LazyVStack. Add .drawingGroup() to each message bubble background. Switch non-hero cells (timestamp separators, reaction bars) from .ultraThinMaterial to solid color + opacity. | Estimated 40–60% faster initial render of long conversations; lower memory bandwidth during scroll.
+
+[MEDIUM] GLASS | AMENDiscoveryView.swift (LazyVStack lines 460–643) | 31 .ultraThinMaterial calls throughout. Rail cards at lines 2024 and 2122 double-stack material: Color(.secondarySystemBackground).opacity(0.6).background(.ultraThinMaterial) — the Color layer forces an extra paint pass before the material samples the blurred backdrop. 2-layer compositing chain per cell where 1 suffices. | Replace double-stacked backgrounds with a single .background(.ultraThinMaterial).opacity(0.9) or solid color where underlying content is invisible. | ~10% fps improvement in Discovery feed, most noticeable on A14 and below.
+
+[MEDIUM] GLASS | MessagesView.swift (inbox LazyVStack) + UnifiedChatView.swift (message LazyVStack) | MessagesView inbox rows double-stack .ultraThinMaterial (lines 3097–3101: two separate .fill(.ultraThinMaterial) in same ZStack) plus neumorphic double-shadow (lines 2669–2670, 3243–3244: both black AND white shadows). 50 conversations = 100 material passes in the inbox. UnifiedChatView message bubbles (lines 1207, 1298, 1324) each carry independent .ultraThinMaterial + shadow with no drawingGroup(). | Collapse double-material ZStacks to single .background(.ultraThinMaterial) + opacity overlay. Replace neumorphic double-shadow with a single directional shadow. | Estimated 10–15% smoother inbox and chat scroll.
+
+[MEDIUM] GLASS | SettingsDestinationViews.swift (14 section cards, plain ScrollView) | 14 section cards use .background(.regularMaterial, in: RoundedRectangle(cornerRadius:16)) + .shadow(radius:12, y:4) at lines 81, 175, 263, 311, 429, 449, 533, 607, 656, 690, 746, 773, 882, 903, 945. All 14 render simultaneously on sheet open (plain ScrollView, not LazyVStack). .regularMaterial uses a wider backdrop-sampling radius than .ultraThinMaterial on iOS 17+. Settings content is displayed over a static background — the blur provides zero visual benefit. | Replace all settings section card materials with Color(.secondarySystemGroupedBackground) (solid). Eliminates all 14 blur passes from Settings sheet open. | Estimated 80–120ms faster Settings sheet presentation.
+
+[MEDIUM] GLASS | PostCard.swift:5858 + 5910 (action-bar buttons, always-visible per cell) | AmenPostCardPlusButton and AmenPostCardOverflowButton each apply .ultraThinMaterial + 2 LinearGradient overlays + 1 shadow to a 40x40pt button, always visible in every feed cell. AmenPostCardPlusButton's shadow animates between two radius/offset states on .animation(value: isExpanded) — a shadow-radius change forces compositing recalculation every frame of the transition. | Cache gradient overlays as static let constants. Use opacity animation instead of shadow-radius animation. Consider merging both button backgrounds into a shared Canvas-drawn surface. | Eliminates per-frame compositing recalc during expand transition; minor per-cell GPU savings across the feed.
+
+[LOW] GLASS | BereanHomeView.swift:292–313 (auraLayer, large Gaussian blurs animated on mode change) | Three Circle().blur(radius:72) ambient blobs with .animation(.easeInOut(duration:0.55), value: viewModel.auraMode). blur(radius:72) is a very large Gaussian kernel. Every mode-tab switch triggers simultaneous re-compositing of all 3 circles during a 550ms animation. | Reduce kernel to radius:24 with a proportionally larger circle frame (same soft-edge appearance). Cache the aura as a cross-fading image layer rather than re-blurring each animation frame. | Eliminates GPU spike on Berean mode switch.
+
+[LOW] GLASS | AmenLiquidGlassSurface.swift:147–177 (4 overlay layers, no drawingGroup) | backgroundShape stacks 4 RoundedRectangle overlays (material fill, gradient glow, strokeBorder, optional tint) + 1 shadow with no drawingGroup(). GlassEffectModifier (GlassEffectModifiers.swift:225–266) already demonstrates the correct pattern: consolidate decorative layers into a Canvas pass + .drawingGroup(). AmenLiquidGlassSurface is used in AmenSmartPills and AmenGlassKit today. | Consolidate overlays 2–4 into Canvas block + add .drawingGroup() to backgroundShape ZStack, mirroring GlassEffectModifier. | Small benefit now; prevents compounding cost as surface usage scales.
+
+
 ## NAVIGATION LAYER
+<!-- ─────────────────────────────────────────────────────────────────────────
+     NAVIGATION / SCREEN-OPEN SPEED — 2026-05-31
+     Auditor: perf-pass agent
+     ───────────────────────────────────────────────────────────────────────── -->
+
+[HIGH] NAV | UserProfileView.swift:610–617 | .task fires loadProfileData() on EVERY push to any user profile. Guard at line 612 (!hasLoadedInitially) prevents within-mount duplicates, but hasLoadedInitially resets on every new struct creation (each navigation push). loadProfileData() at line 991 performs 4 Firestore operations with no cross-session cache: (a) user getDocument, (b) follower-count listener, (c) posts fetch + listener, (d) reposts listener. | Add session-scoped UserProfileCache singleton [String: CachedProfile] with 30-second TTL. On task entry: cache hit → populate state synchronously + skip fetch; re-establish listeners in background. | Estimated 200–400ms faster profile open on repeated visits; eliminates 4 Firestore round-trips per visit.
+
+[HIGH] NAV | ProfileView.swift:205–207 (own-profile cache bust, no userId filter) | "profileDataUpdated" NotificationCenter observer at line 205 sets lastProfileLoad = nil and calls loadProfileData() on every receipt. No userId payload filtering visible — any app-wide profile-edit notification bypasses the 240-second TTL guard and forces a full own-profile Firestore reload on next tab-switch. | Carry a userId payload in "profileDataUpdated". Guard: only bust cache when notification.userInfo?["userId"] as? String == Auth.auth().currentUser?.uid. | Eliminates spurious own-profile Firestore fetches from non-self edit events.
+
+[HIGH] NAV | BereanChatView.swift:270–272 (VM init fires Firestore read before sheet presents) | BereanChatViewModel.init() calls loadMessageCount() (line 271) synchronously. loadMessageCount() at line 885 performs a Firestore getDocument() — TTL is checked at call time so the very first init always fires a cold Firestore read before the Berean sheet animation completes. This read competes with loadExistingSession() for the Firestore connection and delays chat history. | Move loadMessageCount() from init() into the .task { await initialSetupTask() } block (line 1306), deferring it until after sheet presentation. | Eliminates a Firestore read blocking the Berean sheet open animation; estimated 100–150ms faster presentation.
+
+[HIGH] NAV | AMENDiscoveryView.swift:634–637 (feedService.loadAll on every tab return) | DiscoveryLandingFeedService.init() at line 2391 calls Task { await loadAll() } on construction (correct). Then .onAppear at line 634 calls Task { await feedService.loadAll() } AGAIN on every tab-switch return. loadAll() spawns 6 concurrent network calls (YouTube, Bible API, news, discussions, images, daily verse) with no staleness guard. Every Discovery tab return triggers 6 parallel network requests. | Add isLoaded: Bool to DiscoveryLandingFeedService. In .onAppear, guard !feedService.isLoaded or compare 5-minute TTL. | Eliminates 6 redundant network calls per tab-switch; ~200–300ms faster Discovery tab-open on slow connections.
+
+[MEDIUM] NAV | CreatePostView.swift:1686–1706 (onAppear synchronous work + timer double-schedule) | .onAppear calls updateHashtagSuggestions() (line 1693) and checkForDraftRecovery() (line 1699) synchronously on the main thread. If PostsManager holds thousands of posts, iterating recent-post content in updateHashtagSuggestions() can stall the main thread during sheet presentation. startAutoSaveTimer() (line 1701) schedules a repeating timer on every appear with no guard against double-scheduling. | Defer updateHashtagSuggestions() and checkForDraftRecovery() to a .task block so they run after the sheet animation. Guard startAutoSaveTimer() with an autoSaveTask == nil check. | Estimated 30–60ms faster compose sheet appearance.
+
+[MEDIUM] NAV | ChurchNotesView.swift:274–301 (listener restart on push/pop + uncached Firestore query) | notesService.startListening() fires every .onAppear; stopListening() every onDisappear. On note-tap-and-back navigation cycles this creates repeated listener teardown + reconnect. loadUserChurchForPersonalization() at line 308 fires an uncached Firestore query (db.collection("userChurchRelations")) on EVERY appear with no staleness guard. | Cache loadUserChurchForPersonalization() in @AppStorage or in-memory with session TTL. Keep notes listener alive across push/pop; stop only on tab-level disappear or logout. | Eliminates 2 Firestore queries per note-detail round-trip navigation.
+
+[MEDIUM] NAV | BereanHomeView.swift:141 + 266 (refreshSessions on every appear) | BereanHomeViewModel.init() calls loadRecentSessions() synchronously. .onAppear { viewModel.refreshSessions() } at line 266 calls it AGAIN on every appear including returns from chat sessions, creating an Array(prefix(8)) slice each time even when sessions are unchanged. | Guard refreshSessions() with a change token: only update recentSessions when BereanChatSessionManager.shared.sessions count or first-session ID has mutated since last check. | Eliminates redundant array copies; prevents unnecessary SwiftUI diffing.
+
+[MEDIUM] NAV | MessagesView.swift:387–395 (BadgeCountManager.clearMessages without active-tab guard) | .onAppear calls BadgeCountManager.shared.clearMessages() unconditionally at line 395. keepMountedTab mounts all tabs simultaneously so onAppear fires even when Messages is not visible — badge counts are cleared before the user has seen messages. The active-tab guard at line 392 gates tab-bar visibility but NOT the badge clear. | Wrap BadgeCountManager.shared.clearMessages() inside the existing if mainTabSelection.wrappedValue == 2 guard. | Prevents incorrect badge clearing on background mount.
+
+[LOW] NAV | ProfileView.swift:254–258 (digest fetch, correctly deferred) | Digest fetch deferred 1.5 seconds via Task.sleep and correctly cancelled in onDisappear. Pattern is sound — no change needed.
+
+[LOW] NAV | CreatePostView.swift:335–344 (init, lightweight) | init(initialCategory:) only sets @State initial values. No Firestore, no network, no heavy object allocation. @StateObject VMs are lazily created by SwiftUI on first body evaluation. No change to init() needed.
+
 
 ## FIRESTORE LAYER
 
@@ -85,7 +179,124 @@ Status: POPULATING (Phase 1 agents running)
 
 ## MEDIA LAYER
 
+<!-- ─────────────────────────────────────────────────────────────────────────
+     MEDIA LAYER — Audit 2026-05-31
+     Auditor: perf-pass agent
+     ───────────────────────────────────────────────────────────────────────── -->
+
+<!-- ── RAW AsyncImage IN SCROLLABLE FEEDS ─────────────────────────────────── -->
+
+[HIGH] MEDIA | SpaceFeedView.swift:65,292,370 | Raw `AsyncImage` for post thumbnail and author avatar in a vertical paging feed — bypasses `ImageCache` and `CachedAsyncImage`; every scroll cycle re-fetches the same URL from URLSession with no deduplication | Replace with `CachedAsyncImage(url:)` or `ImageCache.shared.loadImage(url:size:)` | NSCache hit is ~0 µs vs 50–300 ms network round-trip; eliminates repeated fetches per scroll
+
+[HIGH] MEDIA | AMENAPP/SelahMediaHomeView.swift:415,460 | Raw `AsyncImage` for media thumbnails inside a horizontally-scrolling `ForEach` — no deduplication or downsampling | Replace with `CachedAsyncImage`; pass explicit `targetSize` matching the display frame | Cuts repeated downloads on back-swipe; avoids full-res decode for small cells
+
+[HIGH] MEDIA | Discussions/DiscussionMoreFromOrgShelf.swift:86 & Discussions/DiscussionTopPicksCard.swift:71 | Raw `AsyncImage` in shelf/carousel card cells rendered in feed scroll context | Replace with `CachedAsyncImage(url:)` | Cache miss multiplied by post count per scroll event in both rails
+
+[HIGH] MEDIA | MediaCard.swift:135 | Raw `AsyncImage` for a 120x120 thumbnail in a feed list card — no resize path, decodes full-res image for a small cell | Replace with `CachedAsyncImage`; target size `CGSize(width: 240, height: 240)` at @2x | Full-res decode for a small thumbnail can use 4-10 MB per cell; `preparingThumbnail` reduces to ~230 KB
+
+[HIGH] MEDIA | RepostQuoteComponents.swift:367,624 | Raw `AsyncImage` for author avatar in repost/quote cells inside `PostCard` feed rows | Replace with `CachedAsyncImage(url:)` | Avatars repeat across many posts; NSCache hit eliminates per-cell fetches on same URL
+
+[HIGH] MEDIA | SuggestedAccountCard.swift:235 & SuggestedForYouModule.swift:332 | Raw `AsyncImage` for user avatars in people-discovery horizontally scrolling rails | Replace with `CachedAsyncImage` | Discovery rails recycle cells on swipe; repeated fetches of same avatar URL common
+
+[MEDIUM] MEDIA | SearchSuggestionsView.swift:31 | Raw `AsyncImage` for user avatar in search suggestion rows (live-updated on each keystroke) | Replace with `CachedAsyncImage` | Without caching, same avatar URL re-fetches for each character of a search query
+
+[MEDIUM] MEDIA | NowPlayingBar.swift:30 | Raw `AsyncImage` for album art in the persistent now-playing bar — re-renders on every playback state tick | Replace with `CachedAsyncImage` | Bar body re-evaluates on 30 Hz time observer publishes; uncached `AsyncImage` can re-initiate a fetch each evaluation
+
+[MEDIUM] MEDIA | Discussions/DiscussionHeroHeader.swift:215,249 | Raw `AsyncImage` for hero background and logo — large images decoded at full-res with no downsampling | Replace with `CachedAsyncImage`; downsample to device-width using `ImageCache.loadImage(url:size:)` | Full-res hero decode can spike RAM 20-40 MB for one screen
+
+[MEDIUM] MEDIA | MediaPlayerView.swift:50,394 | Raw `AsyncImage` for album art and related-item thumbnails in audio player and related shelf | Replace with `CachedAsyncImage` | Related shelf re-renders on playback progress; uncached loads can flicker
+
+[MEDIUM] MEDIA | Spaces/SharedComponents/SpaceAvatarView.swift:68 | Raw `AsyncImage` for space avatar used as a cell in `SpaceFeedView` list | Replace with `CachedAsyncImage` | Cache miss per space cell in feed
+
+[MEDIUM] MEDIA | SpaceCardView.swift:163 | Raw `AsyncImage` in `SpaceCardView` inside horizontally scrolling space rails | Replace with `CachedAsyncImage` | Same avatar URLs re-fetched on fast rail scroll
+
+[MEDIUM] MEDIA | AMENTabBar.swift:519 | Raw `AsyncImage` for current user's avatar in the tab bar — tab bar body re-renders on any tab change | Replace with `CachedAsyncImage` or pre-load via `ImageCache` at app launch and store `UIImage` in local `@State` | Tab bar re-evaluation is frequent; avatar load must be instant
+
+[LOW] MEDIA | SettingsView.swift:368 & ProfileView.swift:1819,1832 | Raw `AsyncImage` for profile photo in Settings and own Profile header | Replace with `CachedAsyncImage` | Low scroll frequency but breaks caching contract; same URL cached in some screens but not others
+
+<!-- ── FULL-RES DECODE WITHOUT DOWNSAMPLING ─────────────────────────────── -->
+
+[MEDIUM] MEDIA | MediaCard.swift:135 + MediaPlayerView.swift:50 | `AsyncImage` decodes full-res Firebase Storage images with `.resizable().scaledToFill()` and no `targetSize` — full PNG/JPEG decoded into memory | Route through `ImageCache.loadImage(url:size:)` which calls `image.preparingThumbnail(of:)` on a background queue | Full-res image for a 120 pt thumbnail can be 4-10 MB decoded; `preparingThumbnail` reduces to ~230 KB
+
+[LOW] MEDIA | AMENAPP/SelahMediaDetailView.swift:831 | Raw `AsyncImage` for sidebar thumbnail strip with `.scaledToFill()` — each strip item decodes full-res | Downsample via `CachedAsyncImage` with explicit target size | Minor; only on detail screen
+
+<!-- ── THREE REDUNDANT IMAGE CACHE SYSTEMS ──────────────────────────────── -->
+
+[MEDIUM] MEDIA | ProfileImageCache.swift + NotificationImageCache.swift + ImageCache.swift | Three separate `NSCache` singletons: `ProfileImageCache` caches `SwiftUI.Image` (150 entries), `NotificationImageCache` has its own 50 MB disk layer and URLSession (200 entries), and `ImageCache` is the primary 75 MB/150 entry cache. All three can independently hold copies of the same profile URL; no dedup or coordination across caches | Consolidate: route `NotificationImageCache` and `ProfileImageCache` callers through `ImageCache.shared.loadImage(url:size:)` and convert result to `Image(uiImage:)` at the call site | Reduces total NSCache ceiling from ~200 MB combined to one shared 75 MB pool; eliminates triple in-flight task duplication for the same URL
+
+<!-- ── VIDEO — NEW AVPlayer PER PRESENTATION ────────────────────────────── -->
+
+[HIGH] MEDIA | VideoAttachmentHandler.swift:317 | `VideoPlayerSheet` creates `VideoPlayer(player: AVPlayer(url: url))` as an inline expression — new `AVPlayer` constructed every sheet presentation, no stored reference, no `onDisappear` pause, no `replaceCurrentItem` reuse | Extract to `@State private var player: AVPlayer?`; create in `.onAppear`, pause in `.onDisappear`, `replaceCurrentItem(with:)` for URL changes | `AVPlayer` init allocates ~8-15 MB including HLS playlists; repeated alloc/dealloc in message list causes memory spikes and jank
+
+[HIGH] MEDIA | AmenVideoEditorView.swift:21 | `VideoPlayer(player: AVPlayer(url: videoURL))` inline in view body — player re-created on every `@State` change causing body re-evaluation | Hoist to `@State private var player: AVPlayer?`; initialize once in `.task(id: videoURL)` | AVPlayer re-init on every body render is a top source of playback interruptions and memory growth
+
+[HIGH] MEDIA | AMENAPP/PinnedProfileHeroSurface.swift:611 | `VideoPlayer(player: AVPlayer(url: url))` inline inside a conditional `Group` — Hero surface re-evaluates on `collapseProgress` scroll updates at ~60 fps, meaning `AVPlayer()` can be re-allocated dozens of times per scroll second | Extract to a `@StateObject` view model that lazily creates and owns the player; destroy in `deinit` | collapseProgress drives 60 fps body re-evaluations; inline `AVPlayer()` allocates on each frame during scroll
+
+[MEDIUM] MEDIA | WitnessCameraView.swift:342 | `VideoPlayer(player: AVPlayer(url: url))` inline in camera review conditional | Move to `@State private var reviewPlayer: AVPlayer?`; create in `.onAppear`, pause on dismiss | Modal, lower frequency — medium priority
+
+[MEDIUM] MEDIA | FullscreenMediaViewer.swift:401-413 | `setupPlayer()` creates a new `AVPlayer(url:)` in `.onAppear` without checking if one already exists; player paused in `.onDisappear` but not nil'd, keeping the instance alive after disappear | Add `guard player == nil else { return }` in `setupPlayer`; set `player = nil` in teardown | Prevents double-player on rapid appear/disappear
+
+<!-- ── VIDEO — NO preferredForwardBufferDuration ─────────────────────────── -->
+
+[MEDIUM] MEDIA | All 14 AVPlayer instantiation sites | `AVPlayerItem.preferredForwardBufferDuration` is never set — default is 0 (system-chosen), which on cellular or slow Wi-Fi causes mid-feed stalls and buffering spinners | Set `item.preferredForwardBufferDuration = 3.0` on all `AVPlayerItem` instances in feed/player contexts (Apple's recommendation for short-form video) | Reduces stall events; measurable improvement on LTE/4G connections
+
+<!-- ── VIDEO — NO VISIBILITY-DRIVEN PAUSE IN SHORT-FORM FEED ──────────── -->
+
+[HIGH] MEDIA | ShortFormTeachingFeedView.swift (TeachingClipCard) | `ShortFormTeachingFeedView` uses `TabView(.page)` for vertical video feed with no connection to `VisibilityPlaybackManager` or `AmenMediaPlaybackCoordinator` — off-screen pages continue playing | Wire cells to `AmenMediaPlaybackCoordinator.shared`; on `TabView.onChange(of: currentIndex)` pause previous index and play new one | Off-screen `AVPlayer` instances waste CPU, GPU decode, and network bandwidth; measurable battery drain in a paging feed
+
 ## CONCURRENCY/MEMORY LAYER
+
+<!-- ─────────────────────────────────────────────────────────────────────────
+     CONCURRENCY / MEMORY LAYER — Audit 2026-05-31
+     Auditor: perf-pass agent
+     ───────────────────────────────────────────────────────────────────────── -->
+
+<!-- ── MAIN-THREAD SYNC BLOCKS ────────────────────────────────────────────── -->
+
+[HIGH] CONCURRENCY | ScreenCrashLogger.swift:199 | `shared.queue.sync { ... }` in `recentLogs(count:)` — if called from main thread (debug overlay, crash handler), blocks the main thread until the background queue drains | Change to `queue.async` with completion closure; or document as background-only and add `assert(!Thread.isMainThread)` in DEBUG | `.sync` from the main thread on any queue = guaranteed jank frame; crash handlers calling this on main are at risk
+
+[HIGH] CONCURRENCY | WriteOpTracer.swift:56 | `queue.sync { buffer }` in `Breadcrumb.trail()` — may be called from `Breadcrumb.dump()` on the main thread from crash handlers or debug UIs | Guard with conditional async dispatch or document as background-only | Same risk: sync from main on dedicated queue = jank
+
+[MEDIUM] CONCURRENCY | BereanScriptureCitationViews.swift:241 | `queue.sync { store[key] }` in `BereanVerseCache.get()` — called on every scripture citation render; concurrent queue with barrier writes can briefly block the sync read under burst scripture loads | Pattern is mostly correct (`.concurrent` + barrier writes); consider an `actor` for zero-contention reads | Low probability of dropped frame but worth eliminating; the cache is read on every `BereanScriptureCitationView` body render
+
+<!-- ── UNBALANCED TASK PROLIFERATION IN VIEW FILES ─────────────────────── -->
+
+[HIGH] CONCURRENCY | UnifiedChatView.swift | 58 `Task { }` blocks — highest count in the codebase. Many are fire-and-forget inside `onAppear` handlers without stored task references, making cancellation impossible on view disappear | Replace `onAppear { Task { ... } }` with `.task { }` modifier (auto-cancelled on disappear); store critical tasks in `@State` with cancel in `onDisappear` | Leaked async work after chat dismiss drives unnecessary Firestore reads, memory retention, and background CPU usage
+
+[HIGH] CONCURRENCY | PostCard.swift | 40 `Task { }` blocks in a view struct instantiated for every feed post (potentially 50+ simultaneously). Tasks referencing `PostsManager.shared`, `interactionsService`, etc. capture singletons strongly without `[weak]` | Audit Tasks for implicit class captures; ensure services are weakly captured; use `.task { }` for view-lifecycle-bound work | 50 visible posts x 40 Tasks = up to 2,000 concurrent async operations; most fire on `onAppear` without cancellation on scroll-off
+
+[HIGH] CONCURRENCY | CreatePostView.swift | 45 `Task { }` blocks in a modal composer presented and dismissed frequently. Fire-and-forget Tasks without cancellation continue running after sheet dismissal | Store upload/analysis tasks in `@State private var activeTask: Task<Void, Never>?`; cancel in `onDisappear` | Dismissed composer with in-flight Tasks = ghost work and potential duplicate Firestore writes if user re-opens composer
+
+[MEDIUM] CONCURRENCY | CommentsView.swift | 33 `Task { }` blocks. Comments are pushed frequently and users navigate away quickly; un-cancelled Tasks continue loading comment pages after back-navigation | Migrate pagination Tasks to `.task(id: postId) { }` pattern | Background pagination after navigation wastes bandwidth and keeps comment objects in memory
+
+[MEDIUM] CONCURRENCY | PostDetailView.swift | 23 `Task { }` blocks — detail view is pushed and popped frequently in feed browsing | Migrate data fetches to `.task(id: postId)` | Prevents Tasks from previous post detail racing with a new post detail load on rapid navigation
+
+<!-- ── RETAINED TASK IN UPLOAD PATH ─────────────────────────────────────── -->
+
+[HIGH] CONCURRENCY | VideoAttachmentHandler.swift:125 | `Task { ... }` in `VideoAttachmentService.uploadAndSend()` is fire-and-forget — no stored reference, no cancellation path. Dismissing the message composer during upload leaves the Task running, completing the Firestore write and Storage upload with no associated UI | Return `Task<Void, Never>` from `uploadAndSend`; caller stores it and cancels on dismiss | Prevents orphan uploads writing Firestore documents with no UI; prevents duplicate writes on re-tap Send
+
+<!-- ── MISSING [weak] IN TASK CLOSURE ──────────────────────────────────── -->
+
+[HIGH] CONCURRENCY | MediaPlayerView.swift:185-195 | `Task { }` in `setupPlayer()` captures `vm` (`ChristianMediaViewModel: ObservableObject`) strongly without `[weak vm]`. If the view disappears before `AVAsset.load(.duration)` completes, the ViewModel is kept alive by the in-flight Task | Change to `Task { [weak vm] in ... }`; guard on `vm` before updating state | Prevents ViewModel from being kept alive by orphaned duration-load tasks after view dismissal
+
+<!-- ── FIRESTORE SNAPSHOT LISTENERS WITHOUT SERVICE-LEVEL CLEANUP ─────── -->
+
+[HIGH] CONCURRENCY | AMENAPP/Spaces/SpacesService.swift:173,244,365,547 | Four `addSnapshotListener` calls return `ListenerRegistration` objects for callers to manage, but `SpacesService` has no `deinit`, no internal tracking, and no `reset()` method — caller compliance is the only safeguard | Add `private var listeners: [ListenerRegistration] = []` and a `func stopAllListeners()` called at logout; or adopt `ListenerRegistry.shared` | Each orphaned listener holds a Firestore socket open; 4 per Space x multiple open Spaces = significant socket and battery overhead
+
+[HIGH] CONCURRENCY | AMENAPP/BereanSmarts/BereanSmartChannelHook.swift:82 | `listenChannelPrayerRequests()` returns a `ListenerRegistration` from a singleton (`BereanSmartChannelHook.shared`) with no internal tracking or cleanup method | Store the returned `ListenerRegistration` in a singleton property; provide `stopListening(groupId:)`; call on group exit | Open-ended listener on `prayerRequests` with no removal path leaks indefinitely for the app session
+
+[MEDIUM] CONCURRENCY | AMENAPP/Meetings/MeetingService.swift:53 | `listenMeetingsForGroup()` returns `ListenerRegistration` — `LiveMeetingView` must retain and remove it but does not appear to store the returned registration | Add `@State private var meetingListener: ListenerRegistration?` in `LiveMeetingView`; call `.remove()` in `.onDisappear` | Live meeting listener stays open after user closes the meeting view
+
+[MEDIUM] CONCURRENCY | AMENAPP/ContextualExperiences/Services/ContextualExperienceService.swift:492 | `startListeningToOrgExperiences()` is well-designed (caller manages `ListenerRegistration`), but `ContextualExperienceViewModel` must be confirmed to call `.remove()` in `deinit` | Verify `ContextualExperienceViewModel.deinit` calls `listener?.remove()`; add if missing | Service contract is correct; risk is in ViewModel teardown compliance
+
+<!-- ── NOTIFICATION CACHE — SINGLETON AS @ObservedObject ──────────────── -->
+
+[MEDIUM] CONCURRENCY | NotificationImageCache.swift:244 | `CachedNotificationProfileImage` declares `@ObservedObject private var cache = NotificationImageCache.shared` — using a singleton as `@ObservedObject` means any future `@Published` property added to the cache will re-render ALL `CachedNotificationProfileImage` instances app-wide simultaneously | Change to a plain stored reference (not `@ObservedObject`) since the cache is interrogated via async methods, not reactive properties | Eliminates global render-storm risk if a `@Published` property is ever added to the singleton
+
+<!-- ── ImageCache — @MainActor SERIALIZES BURST CHECKS ───────────────── -->
+
+[MEDIUM] CONCURRENCY | ImageCache.swift:23,82-122 | `inFlightTasks: [String: Task<UIImage?, Never>]` lives on a `@MainActor` class. Every `loadImage()` call hops to MainActor to check/insert/remove the dict before detaching background work. Under burst load (50 cells appearing simultaneously), 50 sequential MainActor hops serialize in-flight-task bookkeeping on the main queue | Isolate `inFlightTasks` to a `nonisolated(unsafe)` property guarded by `OSAllocatedUnfairLock`, or move the cache to a dedicated background actor | Under rapid scroll with cache misses, 50 sequential MainActor hops can block UI for 1-3 ms per batch — visible as dropped frames on first-load scroll
+
 
 ## CREATE-POST FLOW
 
