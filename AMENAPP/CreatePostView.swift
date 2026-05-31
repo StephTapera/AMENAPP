@@ -4133,17 +4133,23 @@ struct CreatePostView: View {
             // botChallengeCleared mutation must happen exactly once in order.
             let preflightEnabled = AmenSafetyFeatureFlags.shared.contentPreflightEnabled
                 && !AmenSafetyFeatureFlags.shared.trustSafetyKillSwitch
+            // Capture botChallengeCleared as a value-typed local so it can be
+            // safely referenced from the nonisolated async closure below.
+            let challengeAlreadyCleared = botChallengeCleared
 
             async let preSubmitResultTask = ModerationIngestService.shared.check(
                 text: sanitizedContent,
                 contentType: ingestContentType,
                 authorId: authorId
             )
-            // Only start the bot-defense task when the feature flag is live and
+            // Only start the bot-defense call when the feature flag is live and
             // the challenge hasn't already been cleared — mirrors original logic.
-            async let botOutcomeTask: BotEvaluationOutcome = preflightEnabled && !botChallengeCleared
-                ? AmenBotDefenseService.shared.evaluateBeforeAction(type: .post)
-                : .proceed
+            // The closure wrapper produces a proper async expression so async let
+            // can bind it concurrently with preSubmitResultTask.
+            async let botOutcomeTask: BotEvaluationOutcome = { () async -> BotEvaluationOutcome in
+                guard preflightEnabled && !challengeAlreadyCleared else { return .proceed }
+                return await AmenBotDefenseService.shared.evaluateBeforeAction(type: .post)
+            }()
 
             let (preSubmitResult, botOutcome) = await (preSubmitResultTask, botOutcomeTask)
 

@@ -41,8 +41,8 @@ struct OpenTableView: View {
     // S3-7: Debounce rapid post-count changes so personalization fires at most once per 500ms.
     @State private var personalizationDebounceTask: Task<Void, Never>?
 
-    // Network error state
-    @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
+    // Network error state — drive from publisher via onReceive; no @ObservedObject needed
+    // because networkMonitor.isConnected is never read in the body directly.
     @State private var showOfflineBanner = false
 
     // MARK: - Feed Filter
@@ -182,16 +182,9 @@ struct OpenTableView: View {
                         }
                     }
 
-                    // Loading indicator for pagination
-                    if isLoadingMore || firebasePostService.isLoadingMore {
-                        HStack {
-                            Spacer()
-                            AMENLoader.inline
-                                .padding(.vertical, 20)
-                            Spacer()
-                        }
-                        .accessibilityLabel("Loading more posts")
-                    }
+                    // Loading indicator for pagination — extracted to a child view so that
+                    // FirebasePostService.isLoadingMore changes don't re-evaluate OpenTableView.body.
+                    PaginationLoadingIndicator(localIsLoading: isLoadingMore)
 
                     // Caught-up card: shown when all 72-hour posts have been seen
                     if !isInitialLoad && caughtUpService.isCaughtUp && !showingOlderPosts {
@@ -270,7 +263,9 @@ struct OpenTableView: View {
                 }
             }
         }
-        .onChange(of: networkMonitor.isConnected) { _, isConnected in
+        // P-PERF: Use onReceive instead of @ObservedObject to avoid re-evaluating
+        // OpenTableView.body on every network-state change.
+        .onReceive(AMENNetworkMonitor.shared.$isConnected) { isConnected in
             withAnimation(Motion.adaptive(.easeOut(duration: 0.25))) {
                 showOfflineBanner = !isConnected
             }
@@ -703,6 +698,27 @@ struct OpenTableView: View {
                     caughtUpService.onPaginationFinished()
                 }
             }
+        }
+    }
+}
+
+// MARK: - Pagination Loading Indicator (perf: isolated @ObservedObject scope)
+
+/// Owns the @ObservedObject on FirebasePostService so that isLoadingMore changes
+/// only re-evaluate this small child view instead of all of OpenTableView.body.
+private struct PaginationLoadingIndicator: View {
+    let localIsLoading: Bool
+    @ObservedObject private var postService = FirebasePostService.shared
+
+    var body: some View {
+        if localIsLoading || postService.isLoadingMore {
+            HStack {
+                Spacer()
+                AMENLoader.inline
+                    .padding(.vertical, 20)
+                Spacer()
+            }
+            .accessibilityLabel("Loading more posts")
         }
     }
 }
