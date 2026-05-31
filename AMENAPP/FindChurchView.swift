@@ -217,7 +217,22 @@ struct FindChurchView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var churchAssist = ChurchAssistViewModel.shared
-    
+
+    // A4 — Typed filter state (Phase0Contracts types; bridges to legacy state where needed)
+    @State private var showOpenNowOnly: Bool = false
+    @State private var filterDenomination: Denomination? = nil
+    @State private var filterSortOrder: ChurchSortOrder = .bestMatch
+
+    /// Typed filter struct used by the search execution path and `FindChurchFilterRow`.
+    var activeFilters: ChurchSearchFilters {
+        ChurchSearchFilters(
+            openNow: showOpenNowOnly ? true : nil,
+            denomination: filterDenomination,
+            maxDistanceMeters: searchRadius > 0 ? searchRadius : nil,
+            sortBy: filterSortOrder
+        )
+    }
+
     // AI Recommendations
     @State private var aiRecommendations: [ChurchRecommendation] = []
     @State private var isLoadingAIRecommendations = false
@@ -975,11 +990,29 @@ struct FindChurchView: View {
             churches = applyQuickFilter(quickFilter, to: churches)
         }
         
-        // Filter by denomination
+        // Filter by denomination (legacy ChurchDenomination picker)
         if selectedDenomination != .all {
             churches = churches.filter { $0.denomination == selectedDenomination.rawValue }
         }
-        
+
+        // A4 — typed Open Now filter
+        if showOpenNowOnly {
+            churches = churches.filter { isChurchOpenNow($0) }
+        }
+
+        // A4 — typed denomination filter (Phase0Contracts Denomination enum).
+        // Match against the Phase0Contracts raw value AND the human-readable display
+        // name (e.g. "nonDenominational" + "Non-Denominational") so legacy Church
+        // denomination strings are caught regardless of which format they use.
+        if let denom = filterDenomination {
+            let denomRaw = denom.rawValue
+            let denomDisplay = churchFilterDenominationLabel(denom)
+            churches = churches.filter {
+                $0.denomination.localizedCaseInsensitiveContains(denomDisplay) ||
+                $0.denomination.localizedCaseInsensitiveContains(denomRaw)
+            }
+        }
+
         // Filter by search text (search name, address, and denomination)
         if !searchText.isEmpty {
             let lowercasedQuery = searchText.lowercased()
@@ -992,7 +1025,26 @@ struct FindChurchView: View {
             }
         }
         
-        // Apply sorting based on sort mode
+        // A4 — typed sort order overrides legacy sortMode when explicitly set.
+        // .bestMatch falls through so the smart-match algorithm (below) runs.
+        switch filterSortOrder {
+        case .distance:
+            return churches.sorted { $0.distanceValue < $1.distanceValue }
+        case .rating:
+            return churches.sorted { c1, c2 in
+                let s1 = savedChurchIds.contains(c1.id)
+                let s2 = savedChurchIds.contains(c2.id)
+                let v1 = userPreferences.visitedChurches.contains(c1.id)
+                let v2 = userPreferences.visitedChurches.contains(c2.id)
+                if s1 != s2 { return s1 && !s2 }
+                if v1 != v2 { return v1 && !v2 }
+                return c1.distanceValue < c2.distanceValue
+            }
+        case .bestMatch:
+            break  // continue to legacy sortMode switch below
+        }
+
+        // Apply sorting based on sort mode (legacy path — used when filterSortOrder == .bestMatch)
         switch sortMode {
         case .smartMatch:
             // Use smart matching algorithm (cached for performance)
@@ -1017,7 +1069,7 @@ struct FindChurchView: View {
                 let church2Saved = savedChurchIds.contains(church2.id)
                 let church1Visited = userPreferences.visitedChurches.contains(church1.id)
                 let church2Visited = userPreferences.visitedChurches.contains(church2.id)
-                
+
                 if church1Saved != church2Saved {
                     return church1Saved && !church2Saved
                 } else if church1Visited != church2Visited {
@@ -1067,12 +1119,59 @@ struct FindChurchView: View {
         }
     }
     
+    // A4 — Human-readable label for a Phase0Contracts.Denomination case.
+    // Defined here (rather than as an extension on Denomination) to avoid the
+    // "ambiguous type" error caused by the same-named enum in ProfileIdentityModels.swift.
+    private func churchFilterDenominationLabel(_ d: Denomination) -> String {
+        switch d {
+        case .nonDenominational: return "Non-Denominational"
+        case .baptist:           return "Baptist"
+        case .methodist:         return "Methodist"
+        case .presbyterian:      return "Presbyterian"
+        case .lutheran:          return "Lutheran"
+        case .pentecostal:       return "Pentecostal"
+        case .catholic:          return "Catholic"
+        case .anglican:          return "Anglican"
+        case .reformed:          return "Reformed"
+        case .adventist:         return "Adventist"
+        case .orthodox:          return "Orthodox"
+        case .other:             return "Other"
+        }
+    }
+
+    // A4 — Open-Now predicate: today is Sunday AND hour falls within a typical
+    // morning-service window (8 AM – 1 PM). Phase 1 A8 can replace this with
+    // the real `isOpenNow` boolean from `ChurchRecord`.
+    private func isChurchOpenNow(_ church: Church) -> Bool {
+        let cal     = Calendar.current
+        let now     = Date()
+        let weekday = cal.component(.weekday, from: now)  // 1 = Sunday
+        let hour    = cal.component(.hour,    from: now)
+        return weekday == 1 && hour >= 8 && hour < 13
+    }
+
+    // A4 — Debounced search execution.
+    // Uses local filtering for now; Phase 1 A8 will swap in the remote proxy.
+    // Called via .onChange on each filter binding in the view body.
+    @MainActor
+    func executeSearch() async {
+        guard !searchText.isEmpty || showOpenNowOnly || filterDenomination != nil || filterSortOrder != .bestMatch else {
+            return  // All filters at default — existing results show through computed filteredChurches
+        }
+        hasSearchedOnce = true
+        // filteredChurches is a computed property; no re-fetch needed for local mode.
+        // A8 remote proxy hook-in point:
+        //   let items = try? await SmartChurchSearchService.shared
+        //       .search(query: searchText, userLocation: userLocation!, radiusMiles: nil)
+        //   churchSearchService.searchResults = items?.map(\.legacyChurch) ?? []
+    }
+
     private func calculateDistance(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
         let fromLocation = CLLocation(latitude: from.latitude, longitude: from.longitude)
         let toLocation = CLLocation(latitude: to.latitude, longitude: to.longitude)
         return fromLocation.distance(from: toLocation) / 1609.34 // Convert meters to miles
     }
-    
+
     private var shouldShowRefresh: Bool {
         locationManager.isAuthorized && !churchSearchService.isSearching
     }
@@ -1119,6 +1218,28 @@ struct FindChurchView: View {
                             compressionProgress: filterCompressionProgress
                         )
                         
+                        // A4 — Typed filter chip row: Open Now · Denomination ▾ · Sort ▾
+                        // Shown when the advanced filter panel (showFilters) is collapsed.
+                        if !showFilters {
+                            FindChurchFilterRow(
+                                openNow: $showOpenNowOnly,
+                                denomination: $filterDenomination,
+                                sortOrder: $filterSortOrder
+                            )
+                            .padding(.top, 6)
+                            .padding(.bottom, 2)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .onChange(of: showOpenNowOnly) { _, _ in
+                                Task { await executeSearch() }
+                            }
+                            .onChange(of: filterDenomination) { _, _ in
+                                Task { await executeSearch() }
+                            }
+                            .onChange(of: filterSortOrder) { _, _ in
+                                Task { await executeSearch() }
+                            }
+                        }
+
                         // Minimal filter chips (shown when expanded)
                         if showFilters {
                             MinimalFilterRow(
@@ -1133,7 +1254,7 @@ struct FindChurchView: View {
                             )
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
-                        
+
                         // Quick Action Filters (Smart & Interactive)
                         // Compresses progressively as user scrolls into the church list
                         if !filteredChurches.isEmpty && !showFilters {
@@ -6259,36 +6380,100 @@ struct FindChurchMapView: View {
         return results
     }
 
+    // MARK: - A3: ChurchAnnotation array for GlassPin annotations
+
+    /// Builds ChurchAnnotation items for the current map-filtered result set.
+    /// isVerified uses website presence as a proxy; real verification uses a Firestore field.
+    private var churchAnnotations: [ChurchAnnotation] {
+        mapFilteredChurches.map { church in
+            ChurchAnnotation(
+                church: church,
+                isVerified: church.website != nil,
+                isSelected: selectedChurch?.id == church.id
+            )
+        }
+    }
+
+    // MARK: - A3: Cluster items — churches grouped into 0.01 degree (~1 km) grid cells
+
+    /// Returns cluster annotation items for cells that contain more than 3 churches.
+    private var clusterItems: [ChurchClusterItem] {
+        var buckets: [String: (lat: Double, lon: Double, count: Int)] = [:]
+        let step: Double = 0.01
+        for ann in churchAnnotations {
+            let latKey = (ann.coordinate.latitude / step).rounded(.down) * step
+            let lonKey = (ann.coordinate.longitude / step).rounded(.down) * step
+            let key = "\(latKey),\(lonKey)"
+            if var existing = buckets[key] {
+                existing.count += 1
+                buckets[key] = existing
+            } else {
+                buckets[key] = (lat: latKey + step / 2, lon: lonKey + step / 2, count: 1)
+            }
+        }
+        return buckets.values
+            .filter { $0.count > 3 }
+            .map { ChurchClusterItem(lat: $0.lat, lon: $0.lon, count: $0.count) }
+    }
+
+    // MARK: - A3: Camera framing
+
+    /// Fits the map region to enclose all filtered church coordinates and the user dot.
+    /// Respects accessibilityReduceMotion — omits spring animation when reduce-motion is on.
+    private func frameCameraToResults(animated: Bool = true) {
+        var coords = mapFilteredChurches.map(\.coordinate)
+        if let userLoc = userLocation { coords.append(userLoc) }
+        guard let fitted = MKCoordinateRegion.fitting(coordinates: coords) else { return }
+        if animated && !reduceMotion {
+            withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.82))) {
+                region = fitted
+            }
+        } else {
+            region = fitted
+        }
+    }
+
     var body: some View {
         ZStack {
-            // Map fills full screen — pins stagger in on appear
-            Map(coordinateRegion: $region, showsUserLocation: true, annotationItems: churches) { church in
-                MapAnnotation(coordinate: church.coordinate) {
-                    ChurchMapPin(
-                        church: church,
-                        isLive: isServiceLive(church),
-                        isVisible: pinsVisible[church.id] ?? false
-                    )
-                    .onTapGesture {
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                            selectedChurch = church
-                            region = MKCoordinateRegion(
-                                center: church.coordinate,
-                                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-                            )
-                        }
-                    }
-                    .onAppear {
-                        let idx = churches.firstIndex(where: { $0.id == church.id }) ?? 0
-                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(idx) * 0.08) {
-                            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
-                                pinsVisible[church.id] = true
+            // Map fills full screen — user dot on + GlassPin church annotations stagger in
+            Map(coordinateRegion: $region, showsUserLocation: true, annotationItems: churchAnnotations) { annotation in
+                MapAnnotation(coordinate: annotation.coordinate) {
+                    // A3: GlassPin annotation — verified=amenGold, standard=amenBlue
+                    ChurchAnnotationView(annotation: annotation)
+                        .onTapGesture {
+                            let church = annotation.church
+                            let animation: Animation = reduceMotion
+                                ? .easeInOut(duration: 0.15)
+                                : Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))
+                            withAnimation(animation) {
+                                selectedChurch = church
+                                region = MKCoordinateRegion(
+                                    center: church.coordinate,
+                                    span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                                )
                             }
                         }
-                    }
+                        .onAppear {
+                            let idx = churches.firstIndex(where: { $0.id == annotation.church.id }) ?? 0
+                            DispatchQueue.main.asyncAfter(deadline: .now() + Double(idx) * 0.08) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
+                                    pinsVisible[annotation.church.id] = true
+                                }
+                            }
+                        }
+                        .opacity(pinsVisible[annotation.church.id] == true ? 1 : 0)
+                        .scaleEffect(pinsVisible[annotation.church.id] == true ? 1 : 0.4)
                 }
             }
             .ignoresSafeArea()
+            .onAppear {
+                // A3: Frame camera to fit all result pins on first load (no animation)
+                frameCameraToResults(animated: false)
+            }
+            .onChange(of: mapFilteredChurches.map(\.id)) { _, _ in
+                // A3: Re-frame whenever the filtered set changes
+                frameCameraToResults(animated: true)
+            }
 
             // Apple Maps-style bottom sheet overlay: search + filter chips + result list
             ChurchDiscoveryBottomSheet(state: $sheetState) { _ in

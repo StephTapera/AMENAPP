@@ -530,6 +530,144 @@ private struct FCPressButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Find Church Filter Row (A4)
+
+/// Horizontal scrollable filter chip row for the main Find a Church list view.
+///
+/// - "Open Now" toggles an open-hours filter.
+/// - "Denomination ▾" opens a menu picker backed by `Denomination.allCases`
+///   (Phase0Contracts enum — 12 cases, no `.charismatic`/`.preferNotToSay`).
+/// - "Sort ▾" cycles through `ChurchSortOrder` values.
+///
+/// All chips use `GlassChip` from `AmenGlassKit` — no bespoke glass materials.
+/// VoiceOver labels and reduce-motion guards are applied to every interactive element.
+///
+/// Note: `Denomination` is defined in both Phase0Contracts.swift and
+/// ProfileIdentityModels.swift. The display-name logic is therefore kept as a
+/// private method on this struct (anchored to the Phase0Contracts type via the
+/// `@Binding var denomination: Denomination?` binding) rather than a top-level
+/// extension, to avoid "ambiguous type" errors at the call site.
+struct FindChurchFilterRow: View {
+    @Binding var openNow: Bool
+    @Binding var denomination: Denomination?         // Phase0Contracts.Denomination
+    @Binding var sortOrder: ChurchSortOrder          // Phase0Contracts.ChurchSortOrder
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+
+                // ── Open Now chip ──────────────────────────────────────────────
+                GlassChip(
+                    icon: openNow ? "clock.fill" : "clock",
+                    label: "Open Now",
+                    isSelected: openNow,
+                    accentColor: AmenTheme.Colors.amenGold
+                ) {
+                    withAnimation(reduceMotion ? .none : Motion.popToggle) {
+                        openNow.toggle()
+                    }
+                }
+                .accessibilityLabel(openNow ? "Open Now filter active" : "Open Now filter")
+                .accessibilityHint("Double tap to toggle")
+
+                // ── Denomination menu chip ─────────────────────────────────────
+                Menu {
+                    Button("All Denominations") {
+                        withAnimation(reduceMotion ? .none : Motion.popToggle) {
+                            denomination = nil
+                        }
+                    }
+                    Divider()
+                    ForEach(Denomination.allCases, id: \.self) { denom in
+                        Button(denomLabel(denom)) {
+                            withAnimation(reduceMotion ? .none : Motion.popToggle) {
+                                denomination = denom
+                            }
+                        }
+                    }
+                } label: {
+                    // Trailing-chevron badge indicates this chip opens a menu
+                    ZStack(alignment: .trailing) {
+                        GlassChip(
+                            icon: "building.columns",
+                            label: denomination.map { denomLabel($0) + "  " } ?? "Denomination  ",
+                            isSelected: denomination != nil,
+                            accentColor: AmenTheme.Colors.amenPurple
+                        ) {}
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(denomination != nil ? .white : AmenTheme.Colors.textSecondary)
+                            .padding(.trailing, 12)
+                    }
+                }
+                .accessibilityLabel(denomination.map { "Denomination: \(denomLabel($0))" } ?? "Denomination filter")
+                .accessibilityHint("Double tap to choose a denomination")
+
+                // ── Sort order chip ────────────────────────────────────────────
+                Menu {
+                    Button("Best Match") {
+                        withAnimation(reduceMotion ? .none : Motion.popToggle) { sortOrder = .bestMatch }
+                    }
+                    Button("Nearest First") {
+                        withAnimation(reduceMotion ? .none : Motion.popToggle) { sortOrder = .distance }
+                    }
+                    Button("Highest Rated") {
+                        withAnimation(reduceMotion ? .none : Motion.popToggle) { sortOrder = .rating }
+                    }
+                } label: {
+                    ZStack(alignment: .trailing) {
+                        GlassChip(
+                            icon: "arrow.up.arrow.down",
+                            label: sortLabel + "  ",
+                            isSelected: sortOrder != .bestMatch,
+                            accentColor: AmenTheme.Colors.amenBlue
+                        ) {}
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(sortOrder != .bestMatch ? .white : AmenTheme.Colors.textSecondary)
+                            .padding(.trailing, 12)
+                    }
+                }
+                .accessibilityLabel("Sort order: \(sortLabel)")
+                .accessibilityHint("Double tap to change sort order")
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: Private helpers
+
+    /// Human-readable label for a Phase0Contracts.Denomination case.
+    /// Kept private here to avoid ambiguity with the same-named enum in ProfileIdentityModels.
+    private func denomLabel(_ d: Denomination) -> String {
+        switch d {
+        case .nonDenominational: return "Non-Denominational"
+        case .baptist:           return "Baptist"
+        case .methodist:         return "Methodist"
+        case .presbyterian:      return "Presbyterian"
+        case .lutheran:          return "Lutheran"
+        case .pentecostal:       return "Pentecostal"
+        case .catholic:          return "Catholic"
+        case .anglican:          return "Anglican"
+        case .reformed:          return "Reformed"
+        case .adventist:         return "Adventist"
+        case .orthodox:          return "Orthodox"
+        case .other:             return "Other"
+        }
+    }
+
+    private var sortLabel: String {
+        switch sortOrder {
+        case .bestMatch: return "Best Match"
+        case .distance:  return "Nearest"
+        case .rating:    return "Top Rated"
+        }
+    }
+}
+
 // MARK: - Glass Filter Pill (Menu variant)
 
 /// A glass-styled filter pill that opens a menu.

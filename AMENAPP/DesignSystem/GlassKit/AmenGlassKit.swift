@@ -1157,3 +1157,72 @@ private extension Color {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// MARK: - AmenGlassLoadingSkeleton
+// ─────────────────────────────────────────────────────────────────
+
+/// A shimmering glass-tinted skeleton placeholder used while content loads.
+/// Animates a highlight sweep from leading to trailing edge.
+struct AmenGlassLoadingSkeleton: View {
+    var cornerRadius: CGFloat = 14
+    var height: CGFloat = 80
+
+    @State private var phase: CGFloat = -1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay {
+                if !reduceMotion {
+                    GeometryReader { geo in
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0),
+                                Color.white.opacity(0.25),
+                                Color.white.opacity(0)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: geo.size.width * 0.5)
+                        .offset(x: phase * geo.size.width * 1.5)
+                        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    }
+                }
+            }
+            .frame(height: height)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MARK: - AmenFloatingGlassBackButton
+// ─────────────────────────────────────────────────────────────────
+
+/// Floating circular glass back button — used by full-screen media viewers
+/// (PhotoZoomView, ViewOnceViewerView) that need a custom back control.
+struct AmenFloatingGlassBackButton: View {
+    var action: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+        }
+        .buttonStyle(GlassKitPressStyle(reduceMotion: reduceMotion))
+        .accessibilityLabel("Back")
+    }
+}

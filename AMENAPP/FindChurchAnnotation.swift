@@ -62,7 +62,6 @@ struct ChurchAnnotationView: View {
 /// Renders a glass badge with a numeric count.
 struct ClusterAnnotationView: View {
     let count: Int
-    let coordinate: CLLocationCoordinate2D
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -83,6 +82,22 @@ struct ClusterAnnotationView: View {
         }
         .accessibilityLabel("\(count) churches in this area")
         .accessibilityHint("Double tap to zoom in and see individual pins")
+    }
+}
+
+// MARK: - ChurchClusterItem
+
+/// A lightweight Identifiable model representing a cluster of >3 nearby churches.
+/// Used by FindChurchMapView.clusterItems to pass into a second MapAnnotation pass.
+struct ChurchClusterItem: Identifiable {
+    let id: String
+    let coordinate: CLLocationCoordinate2D
+    let count: Int
+
+    init(lat: Double, lon: Double, count: Int) {
+        self.id = "\(lat),\(lon)"
+        self.coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        self.count = count
     }
 }
 
