@@ -1,9 +1,9 @@
 # AMEN — Overnight Audit Morning Report
 **Branch:** `audit/overnight-20260531`  
 **Baseline commit:** `e3f6827`  
-**Final commit:** `38ccd84`  
-**Total commits:** 44  
-**Build at close:** ✅ PASSING (`xcodebuild -sdk iphonesimulator` — 0 errors)  
+**Final commit:** `c4b862a`  
+**Total commits:** 47  
+**Build at close:** ✅ PASSING (`xcodebuild -sdk iphonesimulator` — 0 errors, verified post-context-resume)  
 **Date:** 2026-05-31
 
 ---
@@ -16,7 +16,7 @@
 
 ## Fixes Applied
 
-### Accessibility — 7 fixes
+### Accessibility — 8 fixes
 
 | Commit | Fix |
 |--------|-----|
@@ -26,6 +26,7 @@
 | `3793d98` | UnifiedChatView: missing labels + dark-mode contrast |
 | `6ebd44b` | A11yCoPilotView/FaithIntelView: type mismatch repairs |
 | `38ccd84` | PostTranslationView: restore `AIContributionBadge` name |
+| `c4b862a` | BereanAIAssistantView: user bubble `.accessibilityElement(children:.combine)` + "You: …" label |
 
 ### Reduce Motion — 3 commits (10+ files)
 
@@ -45,7 +46,7 @@
 | Auto | C3: BGTask `setTaskCompleted` via `defer`+`Task.isCancelled`; expiration handler cancel-only |
 | Auto | C6: deep link `commentId`/`replyId` validated with `isValidDocumentId` before focus |
 
-### Design & Type System — 5 fixes
+### Design & Type System — 6 fixes
 
 | Commit | Fix |
 |--------|-----|
@@ -53,7 +54,8 @@
 | `0d55e42` | `Color.blue` → AMEN brand tokens in PostCard |
 | `c1708da` | Dynamic Type in ProfileView (remove hardcoded sizes) |
 | `e7d1029` | Dynamic Type in pill nav + dropdown |
-| `698ddd3` | Rename `ProvenanceDetailSheet` → `MediaAuthenticityDetailSheet` |
+| `698ddd3` | Rename `ProvenanceDetailSheet` → `MediaAuthenticityDetailSheet` (build conflict) |
+| `581517f` | `OpenTableView` offline + pinned banners: `regularMaterial` → `amenGlassCard(shadow:false)` |
 
 ### Auth & Security — 6 fixes
 
@@ -113,6 +115,14 @@
 | HR-3 | Camera/mic not declared in `PrivacyInfo.xcprivacy` → App Store rejection | `PrivacyInfo.xcprivacy` |
 | HR-4 | `reportContent` CF may not exist; reports silently dropped | `ReportContentView.swift` |
 | HR-5 | Client-side 2FA TTL only; clock-skew replay possible | `AuthenticationViewModel.swift:642` |
+| HR-21 | `systemPromptSuffix` entirely client-built — Berean injection surface | `ClaudeService.swift` |
+| HR-22 | No crisis intercept in `sendMessage()` — safety gap | `BereanAIAssistantView.swift` |
+| HR-23 | Duplicate rows: UUID vs Firestore ID dedup mismatch in feed | `OpenTableView.swift` / `FirebasePostService.swift` |
+| HR-24 | DM listener queries `"timestamp"` but writes `"createdAt"` — messages lost | `FirebaseMessagingService.swift` |
+| HR-25 | `ImageModerationService.moderateImage()` is a stub — images unmoderated | `ImageModerationService.swift` |
+| HR-26 | Apple/Google Sign-In bypasses COPPA age-gate | `AuthenticationViewModel.swift` |
+| HR-27 | Anonymous prayer `authorId` written in plaintext | `PrayerView.swift` |
+| HR-28 | `PremiumManager.hasProAccess` in UserDefaults — jailbreak bypass | `PremiumManager.swift` |
 
 ### P1 — Next sprint
 

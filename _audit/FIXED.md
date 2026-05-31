@@ -115,6 +115,23 @@ No way to abort generation once started (`isGenerating=true`, no cancel). Added 
 
 ---
 
+### Wave 3 (context-resume session — 2026-05-31 morning)
+| Commit | Finding | Domain | File(s) |
+|--------|---------|--------|---------|
+| `698ddd3` | Build | Infra | AmenTrustSafetyComponents.swift |
+| `581517f` | DS-Glass | Design | AMENAPP/OpenTableView.swift |
+| `c4b862a` | A11y-Berean | Accessibility | BereanAIAssistantView.swift |
+
+### Contextual detail
+
+**`698ddd3`** — `private struct ProvenanceDetailSheet` in `AmenTrustSafetyComponents.swift` conflicted with the newly-committed standalone `ProvenanceDetailSheet.swift`. Renamed private type to `MediaAuthenticityDetailSheet`. Build restored.
+
+**`581517f`** — Offline banner and pinned-post banner in `OpenTableView` used bare `.background(.regularMaterial, in: RoundedRectangle(...))`. Replaced with `.amenGlassCard(cornerRadius: 12, shadow: false)` (uses `ultraThinMaterial` + `glassFill` + glass stroke). Pinned-post banner's custom `amenGold` overlay + shadow preserved.
+
+**`c4b862a`** — `BereanMessageBubbleView` user-message VStack had no accessibility label; VoiceOver read only the raw text with no sender context. Added `.accessibilityElement(children: .combine)` + `.accessibilityLabel("You: \(message.content)")` to the inner VStack.
+
+---
+
 ## False Positives (findings confirmed already correct)
 
 | Finding | Reason |

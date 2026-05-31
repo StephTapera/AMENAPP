@@ -70,4 +70,56 @@ These require human decision before applying.
 **Proposed fix:** Either (a) pass `reduceMotion: Bool` from the caller View, or (b) use `UIAccessibility.isReduceMotionEnabled` directly.
 **NOT auto-fixed** — requires caller-side change; small scope but needs human decision on approach.
 
+---
+
+## P0/P1 Items Added — Context-Resume Session (2026-05-31 morning)
+
+### RQ-10 | CRITICAL | Berean AI injection surface
+**File:** `ClaudeService.swift`
+**Risk:** `systemPromptSuffix` is entirely client-built and sent to the CF. A user can intercept and replace it to bypass guardrails or extract doctrinal prompt content.
+**Proposed fix:** Move `systemPromptSuffix` construction to the `bereanChatProxy` CF; reject any client-supplied suffix field.
+**NOT auto-fixed** — CF callable contract change.
+
+### RQ-11 | CRITICAL | No crisis intercept in Berean `sendMessage()`
+**File:** `BereanAIAssistantView.swift` / `BereanViewModel.sendMessage()`
+**Risk:** Users expressing suicidal ideation, self-harm, or abuse receive no crisis resource card; Berean responds as a spiritual chatbot.
+**Proposed fix:** Add client-side regex pre-scan (matching `AmenCrisisDetector` patterns) before submitting to proxy; inject a crisis resource banner if detected. CF-side intercept is the longer-term fix.
+**NOT auto-fixed** — safety-critical; requires human-authored crisis copy + legal review.
+
+### RQ-12 | P0 | Duplicate rows: UUID vs Firestore ID dedup mismatch
+**File:** `OpenTableView.swift` / `FirebasePostService.swift`
+**Risk:** Feed dedup key is `post.id` which may be a locally-generated UUID on optimistic inserts, then replaced by Firestore document ID on confirmation — same post appears twice.
+**Proposed fix:** Generate the Firestore doc ID client-side before write (`db.collection("posts").document()`) so the ID is stable end-to-end. Verify all optimistic-insert paths.
+**NOT auto-fixed** — requires tracing the full optimistic-insert flow before changing ID assignment.
+
+### RQ-13 | P0 | DM field name mismatch — messages silently lost
+**File:** `FirebaseMessagingService.swift`
+**Risk:** Listener orders by `"timestamp"` but `sendMessage()` writes `"createdAt"`. New messages land outside the listener's sort window and never appear without a manual refresh.
+**Proposed fix:** Standardize on `"createdAt"` everywhere; migrate the listener query; run a one-time Firestore migration to backfill `"createdAt"` on existing docs.
+**NOT auto-fixed** — data migration required; risk of breaking existing DM threads.
+
+### RQ-14 | P0 | `ImageModerationService.moderateImage()` stub
+**File:** `ImageModerationService.swift`
+**Risk:** All image uploads bypass moderation. CSAM, graphic violence, and hate imagery pass through unchecked.
+**Proposed fix:** Wire to the `moderateImageContent` CF callable (backend exists). Gate upload confirmation on moderation approval.
+**NOT auto-fixed** — CF integration + UX for rejection state needed; content safety critical path.
+
+### RQ-15 | P0 | Apple/Google Sign-In bypasses COPPA age-gate
+**File:** `AuthenticationViewModel.swift`
+**Risk:** Social sign-in goes directly to account creation without `AgeGateView`. Under-13 users created via social login have no age verification.
+**Proposed fix:** After social credential resolution, redirect new social users to `AgeGateView` before completing account setup; persist verified DOB to `users/{uid}/userSecurity`.
+**NOT auto-fixed** — COPPA compliance; requires legal review.
+
+### RQ-16 | P1 | Anonymous prayer `authorId` plaintext
+**File:** `PrayerView.swift`
+**Risk:** "Anonymous" prayers still write `authorId = Auth.currentUser.uid`. Anyone with read access can link the prayer to the user.
+**Proposed fix:** Omit `authorId` field for anonymous prayers; use a CF to enforce ownership via request document + token, not authorId.
+**NOT auto-fixed** — privacy impact; Firestore rule changes needed.
+
+### RQ-17 | P1 | `PremiumManager.hasProAccess` in UserDefaults
+**File:** `PremiumManager.swift`
+**Risk:** Jailbroken devices can set `hasProAccess = true` without a valid purchase.
+**Proposed fix:** Verify entitlement server-side via StoreKit2 `Transaction.currentEntitlements` + CF verification on each gated feature. Do not use UserDefaults as sole source of truth.
+**NOT auto-fixed** — StoreKit2 migration required; revenue impact.
+
 <!-- Populated by Phase 1 & 2 -->
