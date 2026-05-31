@@ -64,7 +64,7 @@ struct AgeGateView: View {
             DatePicker(
                 "Date of birth",
                 selection: $birthDate,
-                in: ...Date(),
+                in: ...Calendar.current.date(byAdding: .year, value: -AppConfig.Legal.minimumAge, to: Date())!,
                 displayedComponents: .date
             )
             .datePickerStyle(.wheel)
