@@ -348,7 +348,7 @@ class NewAccountRestrictionService: ObservableObject {
             
         } catch {
             dlog("⚠️ Could not fetch account age: \(error.localizedDescription)")
-            return TimeInterval(90 * 86400) // Default to mature on error (fail open)
+            return 0 // Fail closed: unverifiable age = newborn tier restrictions
         }
     }
     
