@@ -15,12 +15,20 @@ struct AmenVideoEditorView: View {
     @State private var endTime: Double = 0
     @State private var duration: Double = 0
     @State private var isExporting = false
+    @State private var player: AVPlayer?
 
     var body: some View {
         VStack(spacing: 16) {
-            VideoPlayer(player: AVPlayer(url: videoURL))
-                .frame(height: 240)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+            if let player {
+                VideoPlayer(player: player)
+                    .frame(height: 240)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemFill))
+                    .frame(height: 240)
+                    .overlay(ProgressView())
+            }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Trim Start")
@@ -40,6 +48,7 @@ struct AmenVideoEditorView: View {
         }
         .padding(24)
         .task {
+            player = AVPlayer(url: videoURL)
             let asset = AVAsset(url: videoURL)
             duration = asset.duration.seconds
             endTime = duration
