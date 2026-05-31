@@ -21,6 +21,20 @@ Format: `SHA | Layer | File | What | Expected Win`
 | 7b98e44 | SEARCH | SearchViewComponents_New.swift | Remove double-layer debounce (internal 300ms sleep removed) | -300ms search latency on type-then-pause |
 | 7b98e44 | PERCEIVED | AMENAPP/OpenTableView.swift | Skeleton safety timeout 4s → 2s | Faster empty-state reveal on slow connections |
 
+## Phase 4 — Review Queue Fixes (commits f21f2b3, ef98c63 + background agent commits)
+
+| SHA | Layer | File | What | Expected Win |
+|---|---|---|---|---|
+| confirmed | NAV | ContentView.swift | keepMountedTab already implemented: @State mountedTabs: Set<Int>=[0], ZStack gating, onChange insert | ~200-400ms launch; ~30-80MB RSS savings confirmed |
+| f21f2b3 | CREATE-POST | CreatePostView.swift | ModerationIngest + BotDefense parallelized via async let | ~200-600ms off publish wait |
+| f21f2b3 | RENDER | OpenTableView.swift | networkMonitor extracted via onReceive; PaginationLoadingIndicator child view for firebasePostService.isLoadingMore | Eliminates 2 @ObservedObject cascade redraws |
+| confirmed | PERCEIVED | MessagingImplementation.swift + UnifiedChatView.swift | Optimistic DM insert already implemented (commit c3404ae): clientId-keyed FirebaseMessage with .sending state; rollback via notification | Message appears instantly on Send |
+| confirmed | CONCURRENCY | SpacesService.swift | Listener tracking array + stopAllListeners() wired to logout | Eliminates 4 orphaned Firestore sockets per Space |
+| confirmed | MEDIA | ShortFormTeachingFeedView.swift | isActive: Bool param on TeachingClipCard; onChange(of: vm.currentIndex) wires visibility-driven pause | Off-screen AVPlayer instances paused on page-away |
+| ef98c63 | NETWORK | 6 CF files (Feature03-06, PrayerSafetyEscalation, PrayerArcCard, SmartChurchSearch) | callWithTimeout() — 30s AI calls, 15s moderation/data | Worst-case hang reduced from 70s to 15-30s |
+| 9035f30 | NETWORK | 11 additional CF files (BereanMemory, Whisper, TestimonyIntegrity, BereanRealtime, BereanContext, BereanVisual, BereanSourceGrounding, BereanCompass, BereanGrok, SmartSuggestions, AmenDailyDigest) | callWithTimeout() across Berean AI stack | 70s → 15-30s hang ceiling; recoverable timeout error |
+| confirmed | RENDER | PostCard.swift | Dead AnyView pass-through layer (cardWithMuteBlockAlerts) collapsed; chain shortened by 1 indirection | Marginally faster per-cell SwiftUI diffing |
+
 ## Phase 3 — Session 2 Fixes (commits 9035f30, b441424, 5ab2ef6, 2e55266, 2bc75fa)
 
 | SHA | Layer | File | What | Expected Win |

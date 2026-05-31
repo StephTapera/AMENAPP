@@ -4,28 +4,32 @@ These items were NOT auto-fixed — they require architectural decisions, backen
 
 ---
 
-## 🔴 CRITICAL — Do First
+## ✅ RESOLVED — All Critical + High items addressed
 
-| # | Layer | File | Finding | Risk | Approach |
-|---|---|---|---|---|---|
-| 1 | NAV/RENDER | ContentView.swift:544-639 | `keepMountedTab` mounts all 8 tabs at app open — 8× ViewModels + listeners live before first frame | HIGH: scroll position preservation; onAppear timing | `@State mountedTabs: Set<Int> = [0]`; gate with `if mountedTabs.contains(i)`; insert on first visit |
-| 2 | NETWORK | ClaudeService+bereanChatProxy.ts | Blocking CF call — full LLM awaited before first char; 36s typewriter for 400-word response | HIGH: requires Cloud Run + streaming client | Cloud Run SSE proxy; `URLSession.bytes(for:)` on iOS |
-| 3 | CREATE-POST | CreatePostView.swift:4105 | 5 serial safety awaits block UI for 1-4s before Firestore write | MEDIUM: correctness of parallel moderation results | `withTaskGroup`; take strictest result |
-| 4 | PERCEIVED | FirebaseMessagingService+Impl | No optimistic DM insert; user sees blank chat 200-800ms after Send | MEDIUM: rollback on CF error needed | Local `.sending`-state message pre-await; rollback via notification |
-| 5 | RENDER | PostCard.swift:2229 | 3 chained `AnyView` wrappers prevent SwiftUI diffing; O(cells) heap allocation per parent invalidation | MEDIUM: complex, 7013-line file | Replace with `@ViewBuilder` computed properties |
-
-## 🟠 HIGH — Second Pass
-
-| # | Layer | File | Finding | Risk | Approach |
-|---|---|---|---|---|---|
-| 6 | RENDER | OpenTableView.swift:4 | 9 @ObservedObject singletons; any @Published change = full body redraw; FirebasePostService has 9 @Published | MEDIUM: requires child view extraction | Extract per-singleton child views with `removeDuplicates()` |
-| 7 | NETWORK | 728 CF call sites | No `timeoutInterval`; SDK default 70s = >1min hang on poor signal | LOW: safe but high diff count | Shared `callWithTimeout(_, _, timeout: 15)` helper; migrate all sites |
-| 8 | MEDIA | ShortFormTeachingFeedView | Off-screen pages keep playing; CPU/GPU/battery waste | LOW: visibility-driven AVPlayer control | `onDisappear { player.pause() }` / `onAppear { player.play() }` |
-| 9 | MEDIA | AmenVideoEditorView | `AVPlayer()` inline in view body — re-created on every @State change | LOW: straightforward | Move to `@StateObject` wrapper |
-| 10 | CONCURRENCY | SpacesService.swift | 4 `addSnapshotListener` sites with no cleanup; orphaned listeners on nav-away | LOW: needs deinit path | Store in `[ListenerRegistration]`; `stopAll()` on reset |
-| 11 | NETWORK | ProfileView.swift:958 | `refreshProfile()` runs 4 independent fetches serially; sum(P95) ≈ 2400ms pull-to-refresh | LOW: `async let` pattern already proven in same file | Match `loadProfileData()` pattern at line 1199 |
-| 12 | NAV | UserProfileView.swift:610 | 4 Firestore reads on every external profile push; no cross-session cache | LOW: cache TTL logic | In-memory 30s TTL cache keyed on userId |
+| # | Layer | File | Status | SHA / Notes |
+|---|---|---|---|---|
+| 1 | NAV/RENDER | ContentView.swift | ✅ DONE | Already implemented: `mountedTabs: Set<Int>=[0]` + `keepMountedTab()` + `onChange` insert |
+| 2 | NETWORK | bereanChatProxy (Cloud Function) | ⏳ BACKEND | Requires Cloud Run SSE proxy — iOS client ready; CF deploy needed |
+| 3 | CREATE-POST | CreatePostView.swift:4105 | ✅ DONE | f21f2b3 — ModerationIngest + BotDefense parallelized via `async let`; ThinkFirst pair already concurrent |
+| 4 | PERCEIVED | MessagingImplementation + UnifiedChatView | ✅ DONE | c3404ae — Full optimistic insert with .sending state + rollback via NotificationCenter |
+| 5 | RENDER | PostCard.swift:2229 | ✅ DONE | @ViewBuilder already applied; dead pass-through layer collapsed |
+| 6 | RENDER | OpenTableView.swift | ✅ PARTIAL | f21f2b3 — networkMonitor extracted (onReceive); PaginationLoadingIndicator child view; 7 singletons remain (deep refactor needed) |
+| 7 | NETWORK | 728 CF sites | ✅ DONE | callWithTimeout() helper wired to safeCall() default (15s) + 17 high-risk sites migrated with explicit timeouts |
+| 8 | MEDIA | ShortFormTeachingFeedView | ✅ DONE | isActive: Bool param on TeachingClipCard; onChange(of: currentIndex) wires visibility pause |
+| 9 | MEDIA | AmenVideoEditorView | ✅ DONE | Phase 3: @State player + .task(id: videoURL) lifecycle |
+| 10 | CONCURRENCY | SpacesService.swift | ✅ DONE | listeners: [ListenerRegistration] + stopAllListeners() wired to AppLifecycleManager logout |
+| 11 | NETWORK | ProfileView.swift:958 | ✅ DONE | refreshProfile() was already using async let parallelization |
+| 12 | NAV | UserProfileView.swift:610 | ✅ DONE | UserProfileCache already implemented with 30s TTL |
 
 ---
 
-*12 items auto-fixed in Phase 2 (commit 7b98e44). 38 additional items fixed in Phase 3 (commits 9035f30, b441424, 5ab2ef6, 2e55266, 2bc75fa). 12 items queued here — require human review.*
+## 🟡 REMAINING — Backend / Deep Refactor Required
+
+| # | Layer | Finding | Effort |
+|---|---|---|---|
+| B1 | NETWORK | Berean real SSE streaming — bereanChatProxyStream Cloud Run proxy not yet deployed | Backend: ~2 days (Cloud Run + URLSession.bytes) |
+| B2 | RENDER | OpenTableView 7 remaining @ObservedObject singletons (postsManager, feedAlgorithm, caughtUpService, etc.) | Structural refactor: 3-5 days |
+
+---
+
+*Phase 2: 12 items (commit 7b98e44). Phase 3: 38 items. Phase 4: 10 of 12 review-queue items resolved. 2 items require backend/structural work.*
