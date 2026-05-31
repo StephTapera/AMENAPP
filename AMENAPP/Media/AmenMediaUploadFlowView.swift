@@ -529,6 +529,9 @@ private struct PublishStep: View {
     let draft: AIMetadataDraft
     let onPublish: () -> Void
 
+    @State private var isPreflighting = false
+    @State private var uploadError: String? = nil
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -566,15 +569,40 @@ private struct PublishStep: View {
                 .padding(18)
                 .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
 
-                // Publish button
-                Button(action: onPublish) {
-                    Text("Share to AMEN")
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(AmenTheme.Colors.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color(red: 0.4, green: 0.9, blue: 0.7), in: RoundedRectangle(cornerRadius: 14))
+                // Preflight error banner
+                if let errorMsg = uploadError {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 14))
+                        Text(errorMsg)
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .foregroundStyle(Color(red: 1.0, green: 0.4, blue: 0.3))
+                    .padding(14)
+                    .background(Color(red: 1.0, green: 0.2, blue: 0.1).opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(red: 1.0, green: 0.3, blue: 0.2).opacity(0.4), lineWidth: 1))
                 }
+
+                // Publish button
+                Button {
+                    Task { await runPreflightAndPublish() }
+                } label: {
+                    ZStack {
+                        Text("Share to AMEN")
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundStyle(AmenTheme.Colors.textPrimary)
+                            .opacity(isPreflighting ? 0 : 1)
+                        if isPreflighting {
+                            ProgressView()
+                                .tint(AmenTheme.Colors.textPrimary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color(red: 0.4, green: 0.9, blue: 0.7), in: RoundedRectangle(cornerRadius: 14))
+                }
+                .disabled(isPreflighting)
 
                 Text("Your media will be reviewed for community guidelines before appearing in discovery.")
                     .font(.custom("OpenSans-Regular", size: 12))
@@ -583,6 +611,28 @@ private struct PublishStep: View {
             }
             .padding(20)
         }
+    }
+
+    @MainActor
+    private func runPreflightAndPublish() async {
+        uploadError = nil
+        isPreflighting = true
+        defer { isPreflighting = false }
+
+        let captionText = draft.captionApproved ? draft.captionSuggestion : nil
+        let contentId = UUID().uuidString
+        let canPublish = await AmenContentPreflightService.shared.runFinalPreflight(
+            text: captionText,
+            surface: .post,
+            contentId: contentId
+        )
+        guard canPublish else {
+            let reason = AmenTrustSafetyService.shared.lastDecision?.userFacingReason
+                ?? "This post could not be published."
+            uploadError = reason
+            return
+        }
+        onPublish()
     }
 
     @ViewBuilder
