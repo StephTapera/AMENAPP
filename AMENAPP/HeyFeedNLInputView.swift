@@ -85,13 +85,14 @@ struct HeyFeedNLInputView: View {
                         .foregroundStyle(.primary)
                 }
             }
-            .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: parsedIntent != nil)
-            .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: nlService.activePreferences.count)
+            .animation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: parsedIntent != nil)
+            .animation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: nlService.activePreferences.count)
         }
         .presentationDetents([.medium, .large])
         .presentationCornerRadius(22)
         .presentationBackground(.regularMaterial)
         .onAppear { nlService.startListening() }
+        .onDisappear { nlService.stopListening() }
     }
 
     // MARK: - Input Section
