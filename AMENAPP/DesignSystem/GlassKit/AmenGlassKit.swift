@@ -34,7 +34,7 @@ import SwiftUI
 /// - `thin`    → ultraThin material. Use for HUDs, floating pills, tooltip chrome.
 /// - `regular` → thin material (slightly more opaque). Use for cards, sheets, action rows.
 /// - `thick`   → regular material. Use for modal bottom sheets where full legibility matters.
-public enum GlassLevel {
+enum GlassLevel {
     case thin
     case regular
     case thick
@@ -227,7 +227,7 @@ private struct AmenGlassScrimModifier: ViewModifier {
 
 // MARK: Public View extensions
 
-public extension View {
+extension View {
 
     /// Applies the canonical AMEN Liquid Glass surface at the given level.
     /// Feature views must use this instead of composing raw material layers.
@@ -242,6 +242,29 @@ public extension View {
     func amenGlassScrim() -> some View {
         modifier(AmenGlassScrimModifier())
     }
+
+    // MARK: - amenGlassEffect overloads
+    // Compatibility shims used at existing call sites. Prefer amenGlass() for new code.
+
+    /// Glass with no explicit tint — equivalent to amenGlass(.regular).
+    func amenGlassEffect() -> some View {
+        amenGlass(.regular)
+    }
+
+    /// Glass with cornerRadius only — no tint.
+    func amenGlassEffect(cornerRadius: CGFloat) -> some View {
+        amenGlass(.regular, cornerRadius: cornerRadius)
+    }
+
+    /// Glass with a Color tint over a RoundedRectangle.
+    func amenGlassEffect(_ tint: Color, cornerRadius: CGFloat = 18) -> some View {
+        glassEffect(GlassEffectStyle.regular.tint(tint), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    /// Glass with a Color tint over any Shape (Circle, Capsule, etc.).
+    func amenGlassEffect<S: Shape>(_ tint: Color, in shape: S) -> some View {
+        glassEffect(GlassEffectStyle.subtle.tint(tint), in: shape)
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -249,17 +272,17 @@ public extension View {
 // ─────────────────────────────────────────────────────────────────
 
 /// A tab bar item descriptor for use with `LiquidGlassTabBar`.
-public struct GlassTabItem {
+struct GlassTabItem {
     /// SF Symbol name when this tab is NOT selected.
-    public let icon: String
+    let icon: String
     /// SF Symbol name when this tab IS selected (usually the ".fill" variant).
-    public let activeIcon: String
+    let activeIcon: String
     /// Accessibility + display label for this tab.
-    public let label: String
+    let label: String
     /// Optional badge count. 0 = no badge.
-    public let badge: Int
+    let badge: Int
 
-    public init(icon: String, activeIcon: String, label: String, badge: Int = 0) {
+    init(icon: String, activeIcon: String, label: String, badge: Int = 0) {
         self.icon = icon
         self.activeIcon = activeIcon
         self.label = label
@@ -282,17 +305,17 @@ public struct GlassTabItem {
 ///     isCompressed: scrollVelocity > 300
 /// )
 /// ```
-public struct LiquidGlassTabBar: View {
-    public let items: [GlassTabItem]
+struct LiquidGlassTabBar: View {
+    let items: [GlassTabItem]
     @Binding public var selection: Int
-    public var isColorfulContentBehind: Bool = false
-    public var isCompressed: Bool = false
+    var isColorfulContentBehind: Bool = false
+    var isCompressed: Bool = false
 
     @Environment(\.accessibilityReduceMotion)       private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Namespace private var activeTabNamespace
 
-    public init(
+    init(
         items: [GlassTabItem],
         selection: Binding<Int>,
         isColorfulContentBehind: Bool = false,
@@ -304,7 +327,7 @@ public struct LiquidGlassTabBar: View {
         self.isCompressed = isCompressed
     }
 
-    public var body: some View {
+    var body: some View {
         HStack(spacing: 4) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 tabButton(index: index, item: item)
@@ -495,15 +518,15 @@ public struct LiquidGlassTabBar: View {
 ///     FilterOptionsView()
 /// }
 /// ```
-public struct GlassSheet<Content: View>: View {
-    public let title: String
-    public let subtitle: String?
+struct GlassSheet<Content: View>: View {
+    let title: String
+    let subtitle: String?
     @ViewBuilder public let content: () -> Content
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.dismiss) private var dismiss
 
-    public init(
+    init(
         title: String,
         subtitle: String? = nil,
         @ViewBuilder content: @escaping () -> Content
@@ -513,7 +536,7 @@ public struct GlassSheet<Content: View>: View {
         self.content = content
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(spacing: 0) {
             // Drag indicator
             RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -611,16 +634,16 @@ public struct GlassSheet<Content: View>: View {
 ///     VerifiedBadgeRow()
 /// }
 /// ```
-public struct GlassCard<Content: View>: View {
-    public let accentTint: Color?
-    public let cornerRadius: CGFloat
-    @ViewBuilder public let content: () -> Content
+struct GlassCard<Content: View>: View {
+    let accentTint: Color?
+    let cornerRadius: CGFloat
+    @ViewBuilder let content: () -> Content
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    public init(
+    init(
         accentTint: Color? = nil,
-        cornerRadius: CGFloat = AmenTheme.CornerRadius.glass,
+        cornerRadius: CGFloat = 18,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.accentTint = accentTint
@@ -628,7 +651,7 @@ public struct GlassCard<Content: View>: View {
         self.content = content
     }
 
-    public var body: some View {
+    var body: some View {
         content()
             .amenGlass(.regular, cornerRadius: cornerRadius)
             .overlay {
@@ -659,27 +682,27 @@ public struct GlassCard<Content: View>: View {
 /// GlassPin(style: .verified, label: "First Baptist")
 ///     .onTapGesture { ... }
 /// ```
-public struct GlassPin: View {
+struct GlassPin: View {
 
     public enum Style {
         case verified   // amenGold — official / verified churches
         case standard   // amenBlue — standard search results
     }
 
-    public let style: Style
-    public let label: String
-    public var isSelected: Bool = false
+    let style: Style
+    let label: String
+    var isSelected: Bool = false
 
     @Environment(\.accessibilityReduceMotion)       private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    public init(style: Style = .standard, label: String, isSelected: Bool = false) {
+    init(style: Style = .standard, label: String, isSelected: Bool = false) {
         self.style = style
         self.label = label
         self.isSelected = isSelected
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 5) {
                 Image(systemName: style == .verified ? "checkmark.seal.fill" : "mappin.circle.fill")
@@ -753,18 +776,18 @@ private struct Triangle: Shape {
 ///
 /// GlassChip(icon: "music.note", label: "Music", isSelected: false) { }
 /// ```
-public struct GlassChip: View {
-    public let icon: String?
-    public let label: String
-    public var isSelected: Bool
-    public var accentColor: Color
-    public let action: () -> Void
+struct GlassChip: View {
+    let icon: String?
+    let label: String
+    var isSelected: Bool
+    var accentColor: Color
+    let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion)       private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @GestureState private var isPressed = false
 
-    public init(
+    init(
         icon: String? = nil,
         label: String,
         isSelected: Bool = false,
@@ -778,7 +801,7 @@ public struct GlassChip: View {
         self.action = action
     }
 
-    public var body: some View {
+    var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
                 if let icon {
@@ -849,21 +872,21 @@ public struct GlassChip: View {
 ///     savePost()
 /// }
 /// ```
-public struct GlassActionRow: View {
+struct GlassActionRow: View {
     public enum RowRole {
         case standard
         case destructive
     }
 
-    public let icon: String
-    public let label: String
-    public var subtitle: String?
-    public var role: RowRole
-    public let action: () -> Void
+    let icon: String
+    let label: String
+    var subtitle: String?
+    var role: RowRole
+    let action: () -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    public init(
+    init(
         icon: String,
         label: String,
         subtitle: String? = nil,
@@ -877,7 +900,7 @@ public struct GlassActionRow: View {
         self.action = action
     }
 
-    public var body: some View {
+    var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
@@ -946,7 +969,7 @@ public struct GlassActionRow: View {
 ///     addPrayer()
 /// }
 /// ```
-public struct GlassButton: View {
+struct GlassButton: View {
 
     public enum Variant {
         case primary
@@ -954,19 +977,19 @@ public struct GlassButton: View {
         case tinted(Color)
     }
 
-    public let label: String
-    public let icon: String?
-    public var style: Variant
-    public var isLoading: Bool
-    public var isDisabled: Bool
-    public var hint: String?
-    public let action: () -> Void
+    let label: String
+    let icon: String?
+    var style: Variant
+    var isLoading: Bool
+    var isDisabled: Bool
+    var hint: String?
+    let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion)       private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @GestureState private var isPressed = false
 
-    public init(
+    init(
         _ label: String,
         icon: String? = nil,
         style: Variant = .primary,
@@ -984,7 +1007,7 @@ public struct GlassButton: View {
         self.action = action
     }
 
-    public var body: some View {
+    var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 let effectiveIcon = isLoading ? "hourglass" : icon
@@ -1121,7 +1144,7 @@ private extension Color {
     /// Returns true if this color is perceptually bright (luminance > 0.6).
     /// Used by GlassButton to pick black vs white label foreground on tinted backgrounds.
     var isBright: Bool {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, _: CGFloat = 0
         guard let uiColor = UIColor(self).cgColor.components else { return false }
         if uiColor.count >= 3 {
             r = uiColor[0]; g = uiColor[1]; b = uiColor[2]

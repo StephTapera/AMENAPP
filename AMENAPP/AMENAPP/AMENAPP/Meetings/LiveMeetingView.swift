@@ -59,7 +59,7 @@ struct LiveMeetingView: View {
 
                 // Agenda
                 if !meeting.agendaBlocks.isEmpty {
-                    GlassCard {
+                    LiveMeetingGlassCard {
                         VStack(alignment: .leading, spacing: 12) {
                             Label("Agenda", systemImage: "list.bullet.rectangle")
                                 .font(.subheadline.weight(.semibold))
@@ -311,9 +311,9 @@ private struct HostQuestionsSheet: View {
     }
 }
 
-// MARK: - GlassCard
+// MARK: - LiveMeetingGlassCard
 
-private struct GlassCard<Content: View>: View {
+private struct LiveMeetingGlassCard<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {
         content.padding(16).background {

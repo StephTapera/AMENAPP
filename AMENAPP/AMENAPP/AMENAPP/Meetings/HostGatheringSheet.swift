@@ -21,7 +21,7 @@ struct HostGatheringSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    GlassCard {
+                    MeetingGlassCard {
                         VStack(alignment: .leading, spacing: 14) {
                             sectionLabel("Gathering Details", icon: "calendar")
 
@@ -37,7 +37,7 @@ struct HostGatheringSheet: View {
                         }
                     }
 
-                    GlassCard {
+                    MeetingGlassCard {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 sectionLabel("Agenda", icon: "list.bullet.rectangle")
@@ -171,9 +171,9 @@ private struct AgendaBlockRow: View {
     }
 }
 
-// MARK: - GlassCard
+// MARK: - MeetingGlassCard
 
-private struct GlassCard<Content: View>: View {
+private struct MeetingGlassCard<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {

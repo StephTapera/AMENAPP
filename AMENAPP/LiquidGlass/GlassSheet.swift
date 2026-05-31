@@ -28,7 +28,7 @@ enum GlassSheetDetent {
     }
 }
 
-struct GlassSheet<SheetContent: View>: ViewModifier {
+struct LiquidGlassSheetModifier<SheetContent: View>: ViewModifier {
     @Binding var isPresented: Bool
     var detent: GlassSheetDetent = .medium
     var cornerRadius: CGFloat = 28
@@ -52,7 +52,7 @@ extension View {
         cornerRadius: CGFloat = 28,
         @ViewBuilder content: @escaping () -> SheetContent
     ) -> some View {
-        modifier(GlassSheet(
+        modifier(LiquidGlassSheetModifier(
             isPresented: isPresented,
             detent: detent,
             cornerRadius: cornerRadius,
