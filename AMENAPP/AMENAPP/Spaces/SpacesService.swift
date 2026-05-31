@@ -53,7 +53,18 @@ final class SpacesService {
     static let shared = SpacesService()
     private let db = Firestore.firestore()
 
+    /// Tracks all active Firestore snapshot listeners so they can be removed
+    /// on logout / reset to prevent orphaned sockets.
+    private var listeners: [ListenerRegistration] = []
+
     private init() {}
+
+    /// Remove all active Firestore snapshot listeners and clear the registry.
+    /// Call this on user sign-out or when the service is no longer needed.
+    func stopAllListeners() {
+        listeners.forEach { $0.remove() }
+        listeners.removeAll()
+    }
 
     // MARK: - Helpers
 
@@ -169,7 +180,7 @@ final class SpacesService {
         onUpdate: @escaping @MainActor (AmenSpace) -> Void,
         onError: @escaping @MainActor (Error) -> Void
     ) -> ListenerRegistration {
-        Firestore.firestore().collection("spaces").document(spaceId)
+        let registration = Firestore.firestore().collection("spaces").document(spaceId)
             .addSnapshotListener { snapshot, error in
                 if let error {
                     Task { @MainActor in onError(error) }
@@ -179,6 +190,8 @@ final class SpacesService {
                     Task { @MainActor in onUpdate(space) }
                 }
             }
+        Task { @MainActor in self.listeners.append(registration) }
+        return registration
     }
 
     // MARK: - Space Members
@@ -239,7 +252,7 @@ final class SpacesService {
         onUpdate: @escaping @MainActor ([SpaceThread]) -> Void,
         onError: @escaping @MainActor (Error) -> Void
     ) -> ListenerRegistration {
-        Firestore.firestore().collection("spaces").document(spaceId)
+        let registration = Firestore.firestore().collection("spaces").document(spaceId)
             .collection("threads")
             .order(by: "lastMessageAt", descending: true)
             .addSnapshotListener { snapshot, error in
@@ -252,6 +265,8 @@ final class SpacesService {
                 } ?? []
                 Task { @MainActor in onUpdate(threads) }
             }
+        Task { @MainActor in self.listeners.append(registration) }
+        return registration
     }
 
     // MARK: - Messages
@@ -358,7 +373,7 @@ final class SpacesService {
         onUpdate: @escaping @MainActor ([SpaceMessage]) -> Void,
         onError: @escaping @MainActor (Error) -> Void
     ) -> ListenerRegistration {
-        Firestore.firestore().collection("spaces").document(spaceId)
+        let registration = Firestore.firestore().collection("spaces").document(spaceId)
             .collection("threads").document(threadId)
             .collection("messages")
             .order(by: "createdAt", descending: false)
@@ -373,6 +388,8 @@ final class SpacesService {
                 } ?? []
                 Task { @MainActor in onUpdate(messages) }
             }
+        Task { @MainActor in self.listeners.append(registration) }
+        return registration
     }
 
     // MARK: - Studies
@@ -544,7 +561,7 @@ final class SpacesService {
         onUpdate: @escaping @MainActor (SpaceEntitlement?) -> Void,
         onError: @escaping @MainActor (Error) -> Void
     ) -> ListenerRegistration {
-        Firestore.firestore().collection("entitlements")
+        let registration = Firestore.firestore().collection("entitlements")
             .document("\(userId)_\(spaceId)")
             .addSnapshotListener { snapshot, error in
                 if let error {
@@ -554,6 +571,8 @@ final class SpacesService {
                 let entitlement = try? snapshot?.data(as: SpaceEntitlement.self)
                 Task { @MainActor in onUpdate(entitlement) }
             }
+        Task { @MainActor in self.listeners.append(registration) }
+        return registration
     }
 
     /// Check whether the current user has active access to a space.

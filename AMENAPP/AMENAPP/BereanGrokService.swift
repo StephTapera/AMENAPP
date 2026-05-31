@@ -96,7 +96,7 @@ final class BereanGrokService {
         Analytics.logEvent("berean_summary_pill_tapped", parameters: nil)
         do {
             let result = try await functions.httpsCallable("bereanHelperSummarizePrompt")
-                .safeCall(["text": text, "operation": "simplify"])
+                .safeCall(["text": text, "operation": "simplify"], timeout: 30)
             guard let data = result.data as? [String: Any],
                   let simplified = data["simplified"] as? String else { return nil }
             let themes = data["keyThemes"] as? [String] ?? []
@@ -121,7 +121,7 @@ final class BereanGrokService {
         Analytics.logEvent("berean_link_detected", parameters: ["url_domain": urlDomain(url)])
         do {
             let result = try await functions.httpsCallable("bereanHelperAnalyzeLink")
-                .safeCall(["url": url])
+                .safeCall(["url": url], timeout: 30)
             guard let data = result.data as? [String: Any],
                   let summary = data["summary"] as? String else { return nil }
             Analytics.logEvent("berean_link_summary_created", parameters: nil)
@@ -149,7 +149,7 @@ final class BereanGrokService {
         Analytics.logEvent("berean_external_context_started", parameters: nil)
         do {
             let result = try await functions.httpsCallable("bereanHelperExternalContext")
-                .safeCall(["query": query])
+                .safeCall(["query": query], timeout: 30)
             guard let data = result.data as? [String: Any],
                   let publicSummary = data["publicSummary"] as? String else { return nil }
             let rawClusters = data["viewpointClusters"] as? [[String: Any]] ?? []
@@ -182,7 +182,7 @@ final class BereanGrokService {
         Analytics.logEvent("berean_study_outline_created", parameters: nil)
         do {
             let result = try await functions.httpsCallable("bereanHelperStudyOutline")
-                .safeCall(["topic": topic])
+                .safeCall(["topic": topic], timeout: 30)
             guard let data = result.data as? [String: Any],
                   let title = data["title"] as? String,
                   let mainQuestion = data["mainQuestion"] as? String else { return nil }

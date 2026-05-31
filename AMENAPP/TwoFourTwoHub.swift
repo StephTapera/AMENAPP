@@ -26,7 +26,11 @@ struct TwoFourTwoHub: View {
                     pillarTabRow
                         .padding(.top, 32)
                         .padding(.horizontal, 20)
-                    if tierLoadError {
+                    if isTierLoading {
+                        ProgressView()
+                            .tint(.white)
+                            .padding(.top, 24)
+                    } else if tierLoadError {
                         Text("Could not load your tier. Pull to refresh.")
                             .font(.systemScaled(13, design: .rounded))
                             .foregroundStyle(.secondary)

@@ -259,7 +259,7 @@ struct TipSheetView: View {
                             height: heartBurst ? CGFloat(100 + i * 40) : 60
                         )
                         .animation(
-                            .easeOut(duration: 0.8).delay(Double(i) * 0.15),
+                            reduceMotion ? .none : .easeOut(duration: 0.8).delay(Double(i) * 0.15),
                             value: heartBurst
                         )
                 }
@@ -268,7 +268,7 @@ struct TipSheetView: View {
                     .font(.systemScaled(heartBurst ? 72 : 40))
                     .scaleEffect(heartBurst ? 1.0 : 0.5)
                     .opacity(heartBurst ? 1.0 : 0.0)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.6), value: heartBurst)
+                    .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.6), value: heartBurst)
             }
             .frame(height: 130)
             .onAppear {

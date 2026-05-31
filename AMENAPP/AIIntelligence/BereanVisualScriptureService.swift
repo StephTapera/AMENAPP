@@ -150,7 +150,7 @@ final class BereanVisualScriptureService: ObservableObject {
             "version":   version.rawValue
         ]
 
-        let result = try await functions.httpsCallable("bereanBibleQA").call(payload)
+        let result = try await functions.callWithTimeout("bereanBibleQA", data: payload, timeout: 30)
         guard let dict = result.data as? [String: Any] else {
             throw BereanVisualScriptureError.invalidResponse
         }

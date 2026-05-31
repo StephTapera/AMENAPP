@@ -117,7 +117,7 @@ struct HeyFeedActiveRequestsView: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isSelected ? 1.03 : 1.0)
-        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: isSelected)
     }
 
     // MARK: - Request List

@@ -179,6 +179,7 @@ final class SmartReplySuggestionService {
             payload["draft"] = clean
         }
 
+        fn.timeoutInterval = 15
         let result = try await fn.call(payload)
 
         // Parse: { "suggestions": ["...", "...", "..."] }

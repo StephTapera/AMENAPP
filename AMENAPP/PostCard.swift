@@ -2332,7 +2332,7 @@ struct PostCard: View {
     }
 
     @ViewBuilder private var cardWithAlerts: some View {
-            cardWithMuteBlockAlerts
+            cardWithSheets
                 .alert(item: $activeAlert) { alert in
                     switch alert {
                     case .notInterested:
@@ -2399,10 +2399,6 @@ struct PostCard: View {
                         )
                     }
                 }
-    }
-
-    @ViewBuilder private var cardWithMuteBlockAlerts: some View {
-        cardWithSheets
     }
 
     private var postCardAccessibilityLabel: String {

@@ -59,7 +59,7 @@ struct StarRatingRow: View {
         }
         .buttonStyle(PlainButtonStyle())
         .scaleEffect(index == rating ? 1.15 : 1.0) // Subtle scale on selected
-        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: rating)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6)), value: rating)
         .accessibilityLabel("\(index) stars")
         .accessibilityAddTraits(index == rating ? [.isSelected] : [])
     }

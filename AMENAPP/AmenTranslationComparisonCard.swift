@@ -135,7 +135,7 @@ struct AmenTranslationComparisonCard: View {
                 ForEach(orderedTranslations(comp), id: \.self) { key in
                     let isSelected = (selectedTranslation ?? orderedTranslations(comp).first) == key
                     Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                             selectedTranslation = key
                         }
                     } label: {
@@ -179,7 +179,7 @@ struct AmenTranslationComparisonCard: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: selectedTranslation)
+                        .animation(Motion.adaptive(.easeInOut(duration: 0.2)), value: selectedTranslation)
 
                     Text("— \(reference) (\(key))")
                         .font(.caption)
@@ -198,7 +198,7 @@ struct AmenTranslationComparisonCard: View {
                 .padding(.horizontal, 16)
 
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                     showCommentary.toggle()
                 }
             } label: {

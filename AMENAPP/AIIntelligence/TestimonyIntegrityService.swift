@@ -135,7 +135,7 @@ final class TestimonyIntegrityService: ObservableObject {
             ]
         ]
 
-        let result = try await functions.httpsCallable("bereanPostAssist").call(payload)
+        let result = try await functions.callWithTimeout("bereanPostAssist", data: payload, timeout: 30)
         guard let dict = result.data as? [String: Any],
               let suggestions = dict["suggestions"] as? [[String: Any]] else {
             return []
@@ -174,7 +174,7 @@ final class TestimonyIntegrityService: ObservableObject {
             "labels": ["scripture_vs_interpretation": true]
         ]
 
-        let result = try await functions.httpsCallable("bereanBibleQA").call(payload)
+        let result = try await functions.callWithTimeout("bereanBibleQA", data: payload, timeout: 30)
         guard let dict = result.data as? [String: Any] else {
             return (theme: "", scriptures: [], captions: [])
         }
@@ -193,7 +193,7 @@ final class TestimonyIntegrityService: ObservableObject {
             "task": "TESTIMONY_REFLECTION",
             "text": draft.editedText
         ]
-        let result = try await functions.httpsCallable("bereanNoteSummary").call(payload)
+        let result = try await functions.callWithTimeout("bereanNoteSummary", data: payload, timeout: 30)
         return (result.data as? [String: Any])?["reflection"] as? String ?? ""
     }
 }

@@ -273,7 +273,7 @@ struct AmenMediaReflectionSheet: View {
             ]
             if let id = mediaId   { payload["mediaId"] = id }
             if let id = sessionId { payload["sessionId"] = id }
-            _ = try await Functions.functions().httpsCallable("createMediaReflection").call(payload)
+            _ = try await Functions.functions().callWithTimeout("createMediaReflection", data: payload, timeout: 15)
             savedSuccessfully = true
             onSaved?()
             try? await Task.sleep(for: .seconds(0.7))

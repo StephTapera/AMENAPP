@@ -30,10 +30,10 @@ final class BereanContextActionEngine: ObservableObject {
         AMENAnalyticsService.shared.track(.bereanStudyActionStarted(action: action.rawValue))
 
         do {
-            let result = try await functions.httpsCallable("routeBereanContextualAction").call([
+            let result = try await functions.callWithTimeout("routeBereanContextualAction", data: [
                 "action": action.rawValue,
                 "payload": payload.dictionaryValue
-            ])
+            ], timeout: 30)
             guard let data = result.data as? [String: Any] else {
                 throw BereanContextActionError.invalidResponse
             }

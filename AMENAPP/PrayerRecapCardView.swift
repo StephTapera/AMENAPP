@@ -38,9 +38,9 @@ final class PrayerRecapViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private lazy var db = Firestore.firestore()
-    private var userId: String { Auth.auth().currentUser?.uid ?? "demo_user" }
 
     func load() {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
         db.collection("users").document(userId)
             .collection("weeklyRecaps")
             .order(by: "generatedAt", descending: true)

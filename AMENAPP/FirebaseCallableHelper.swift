@@ -48,13 +48,22 @@ extension Functions {
 
 extension HTTPSCallable {
     /// Call this Firebase Cloud Function safely, isolating it from Swift
-    /// Concurrency task cancellation to prevent asyncLet_finish_after_task_completion.
+    /// Concurrency task cancellation to prevent asyncLet_finish_after_task_completion,
+    /// AND applying a short timeout so a poor-signal stall never hangs the UI for
+    /// the 70-second SDK default.
+    ///
+    /// - Parameters:
+    ///   - data: Optional request payload.
+    ///   - timeout: Maximum seconds to wait (default 15 s).  Use 30 s for Berean LLM
+    ///     calls, 15 s for moderation/safety calls, 10 s for read-only data calls.
     ///
     /// Replaces the broken `withTaskCancellationHandler { try await call(data) }` pattern
     /// which appeared to guard against cancellation but actually did nothing — the empty
     /// `onCancel` fired as a notification only, and cancellation continued propagating
     /// into Firebase's internal async-let, causing a fatal Swift Concurrency abort.
-    @preconcurrency func safeCall(_ data: Any? = nil) async throws -> HTTPSCallableResult {
+    @preconcurrency func safeCall(_ data: Any? = nil, timeout: TimeInterval = 15) async throws -> HTTPSCallableResult {
+        // Apply the short timeout before handing off to the unstructured task.
+        self.timeoutInterval = timeout
         // Task.init creates an UNSTRUCTURED task:
         //   - Inherits current actor (stays on MainActor if called from @MainActor)
         //   - Does NOT inherit the calling task's cancellation token (SE-0304)

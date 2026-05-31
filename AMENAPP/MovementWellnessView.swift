@@ -72,8 +72,8 @@ struct MovementWellnessView: View {
                 setupView
             }
         }
-        .animation(.easeInOut(duration: 0.35), value: completed)
-        .animation(.easeInOut(duration: 0.35), value: started)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.35), value: completed)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.35), value: started)
     }
 
     private var setupView: some View {

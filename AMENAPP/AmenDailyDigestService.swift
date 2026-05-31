@@ -65,7 +65,7 @@ final class AmenDailyDigestService: ObservableObject {
         if let weather {
             payload["weather"] = weather.asPayload
         }
-        let result = try await functions.httpsCallable("getAmenDailyDigest").call(payload)
+        let result = try await functions.callWithTimeout("getAmenDailyDigest", data: payload, timeout: 15)
         let object = result.data as? [String: Any] ?? [:]
         let data = try JSONSerialization.data(withJSONObject: object, options: [])
         let decoder = JSONDecoder()

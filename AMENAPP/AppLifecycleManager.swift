@@ -156,6 +156,14 @@ final class AppLifecycleManager {
             ChurchVisitReminderService.shared.cancelAllReminders()
         }
 
+        // ── Spaces real-time listeners ───────────────────────────────────────
+        // Removes all 4 Firestore snapshot listeners (space, threads, messages,
+        // entitlement) registered via SpacesService so they don't hold sockets
+        // open under a stale auth credential after sign-out.
+        runStep("SpacesService.stopAllListeners") {
+            SpacesService.shared.stopAllListeners()
+        }
+
         // ── Jobs & Opportunities platform ────────────────────────────────────
         runStep("JobService.stopListening") {
             JobService.shared.stopListening()

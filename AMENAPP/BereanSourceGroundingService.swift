@@ -38,13 +38,13 @@ final class BereanSourceGroundingService: ObservableObject {
             "linkedEntityId": entityId
         ]
         if let notes { payload["notes"] = notes }
-        _ = try await functions.httpsCallable("linkBereanContext").call(payload)
+        _ = try await functions.callWithTimeout("linkBereanContext", data: payload, timeout: 10)
     }
 
     func unlinkContext(linkId: String) async throws {
-        _ = try await functions.httpsCallable("unlinkBereanContext").call([
+        _ = try await functions.callWithTimeout("unlinkBereanContext", data: [
             "linkId": linkId
-        ])
+        ], timeout: 10)
     }
 
     // MARK: - Local Citation Validation
@@ -71,9 +71,9 @@ final class BereanSourceGroundingService: ObservableObject {
         guard AMENFeatureFlags.shared.bereanSafetyClassifierEnabled else {
             return ("safe", nil)
         }
-        let result = try await functions.httpsCallable("classifyBereanSafety").call([
+        let result = try await functions.callWithTimeout("classifyBereanSafety", data: [
             "text": text
-        ])
+        ], timeout: 15)
         let data = result.data as? [String: Any] ?? [:]
         return (
             safetyClass: data["safetyClass"] as? String ?? "safe",

@@ -4121,12 +4121,33 @@ struct CreatePostView: View {
                 }
             }()
 
-            let preSubmitResult = await ModerationIngestService.shared.check(
+            // ── Stages 1 + BotDefense fired concurrently ─────────────────────
+            // ModerationIngestService (local + doxxing + grooming) and
+            // BotDefenseService (CF call) share no data dependency: both need
+            // only sanitizedContent/ingestContentType/authorId which are already
+            // computed. We fire them with async let so the main actor can
+            // interleave their network suspensions. The strictest result wins:
+            // any hard block from either halts the publish immediately.
+            // ContentPreflight is intentionally kept serial after BotDefense
+            // because (a) it must only run when BotDefense passes, and (b) the
+            // botChallengeCleared mutation must happen exactly once in order.
+            let preflightEnabled = AmenSafetyFeatureFlags.shared.contentPreflightEnabled
+                && !AmenSafetyFeatureFlags.shared.trustSafetyKillSwitch
+
+            async let preSubmitResultTask = ModerationIngestService.shared.check(
                 text: sanitizedContent,
                 contentType: ingestContentType,
                 authorId: authorId
             )
+            // Only start the bot-defense task when the feature flag is live and
+            // the challenge hasn't already been cleared — mirrors original logic.
+            async let botOutcomeTask: BotEvaluationOutcome = preflightEnabled && !botChallengeCleared
+                ? AmenBotDefenseService.shared.evaluateBeforeAction(type: .post)
+                : .proceed
 
+            let (preSubmitResult, botOutcome) = await (preSubmitResultTask, botOutcomeTask)
+
+            // ── Evaluate ModerationIngest result (strictest first) ────────────
             switch preSubmitResult {
             case .block(let reason, _):
                 await MainActor.run {
@@ -4160,25 +4181,25 @@ struct CreatePostView: View {
             }
 
             // ── Trust + Safety backend preflight (authoritative) ──────────────
-            if AmenSafetyFeatureFlags.shared.contentPreflightEnabled,
-               !AmenSafetyFeatureFlags.shared.trustSafetyKillSwitch {
-                if !botChallengeCleared {
-                    let botOutcome = await AmenBotDefenseService.shared.evaluateBeforeAction(type: .post)
-                    if botOutcome != .proceed {
-                        await MainActor.run {
-                            stopPublishAttempt()
-                            if botOutcome == .challengeRequired {
-                                showBotChallenge = true
-                            } else {
-                                showError(
-                                    title: "Slow Down",
-                                    message: "Please slow down before posting again."
-                                )
-                            }
+            if preflightEnabled {
+                // Evaluate bot outcome collected concurrently above.
+                if botOutcome != .proceed {
+                    await MainActor.run {
+                        stopPublishAttempt()
+                        if botOutcome == .challengeRequired {
+                            showBotChallenge = true
+                        } else {
+                            showError(
+                                title: "Slow Down",
+                                message: "Please slow down before posting again."
+                            )
                         }
-                        return
                     }
+                    return
                 }
+                // BotDefense passed — reset the cleared flag and run ContentPreflight.
+                // ContentPreflight must be serial here: it mutates shared T&S state
+                // (lastDecision) and only runs after BotDefense clears.
                 botChallengeCleared = false
                 let tsCanPost = await AmenContentPreflightService.shared.runFinalPreflight(
                     text: sanitizedContent.isEmpty ? nil : sanitizedContent,
@@ -4445,7 +4466,7 @@ struct CreatePostView: View {
             }
 
             do {
-                let result = try await Functions.functions().httpsCallable("moderateMediaCaption").call([
+                let result = try await Functions.functions().callWithTimeout("moderateMediaCaption", data: [
                     "mediaIndex": index,
                     "mediaId": mediaMetadataDraft.frameCaptions[index].id,
                     "type": "image",
@@ -4454,7 +4475,7 @@ struct CreatePostView: View {
                     "altText": altText,
                     "scriptureRefs": Array(draft.scriptureRefs.prefix(10)),
                     "reflectionPrompt": reflection
-                ])
+                ], timeout: 15)
                 let data = result.data as? [String: Any]
                 let statusRaw = data?["status"] as? String ?? "pending"
                 let status = MediaCaptionModerationState(rawValue: statusRaw) ?? .pending
@@ -4508,12 +4529,12 @@ struct CreatePostView: View {
         defer { perMediaCaptionGeneratingAltIndex = nil }
 
         do {
-            let result = try await Functions.functions().httpsCallable("generateAltText").call([
+            let result = try await Functions.functions().callWithTimeout("generateAltText", data: [
                 "mediaId": mediaMetadataDraft.frameCaptions[index].id,
                 "mediaIndex": index,
                 "type": "image",
                 "url": "draft://local/\(index)"
-            ])
+            ], timeout: 15)
             let data = result.data as? [String: Any]
             let suggestion = (data?["altText"] as? String ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -7866,7 +7887,7 @@ struct TopicTagSheet: View {
     }
 
     private static func loadRemoteCustomTopicTags() async throws -> [String] {
-        let result = try await Functions.functions().httpsCallable("listCustomTopicTags").call([:])
+        let result = try await Functions.functions().callWithTimeout("listCustomTopicTags", data: [:], timeout: 10)
         guard let data = result.data as? [String: Any],
               let tags = data["tags"] as? [String] else {
             return []
@@ -7875,9 +7896,9 @@ struct TopicTagSheet: View {
     }
 
     private static func createRemoteCustomTopicTag(_ label: String) async throws -> String {
-        let result = try await Functions.functions().httpsCallable("createCustomTopicTag").call([
+        let result = try await Functions.functions().callWithTimeout("createCustomTopicTag", data: [
             "label": label
-        ])
+        ], timeout: 10)
         guard let data = result.data as? [String: Any],
               let tag = data["tag"] as? String else {
             return label

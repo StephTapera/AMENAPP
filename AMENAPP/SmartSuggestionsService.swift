@@ -122,7 +122,7 @@ class SmartSuggestionsService {
 
         let payload: [String: Any] = ["prompt": prompt, "maxTokens": 20]
 
-        let result = try await functions.httpsCallable("smartSuggestionsProxy").call(payload)
+        let result = try await functions.callWithTimeout("smartSuggestionsProxy", data: payload, timeout: 15)
         guard let data = result.data as? [String: Any],
               let content = data["text"] as? String else {
             return ""

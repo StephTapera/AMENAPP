@@ -105,14 +105,14 @@ final class BereanTranslationCoordinator: ObservableObject {
         sourceId: String? = nil,
         visibility: String = "private"
     ) async throws -> BereanTranslationResult {
-        let result = try await functions.httpsCallable("translateMultilingualContent").call([
+        let result = try await functions.callWithTimeout("translateMultilingualContent", data: [
             "text": text,
             "sourceLanguage": sourceLanguage.rawValue,
             "targetLanguage": targetLanguage.rawValue,
             "contentType": contentType,
             "sourceId": sourceId ?? "",
             "visibility": visibility,
-        ])
+        ], timeout: 30)
         guard let data = result.data as? [String: Any],
               let translatedText = data["translatedText"] as? String else {
             throw BereanRealtimeError.invalidBrokerResponse
@@ -139,11 +139,11 @@ final class BereanScriptureResolutionEngine: ObservableObject {
         language: BereanSupportedLanguage = .english,
         sessionId: String? = nil
     ) async throws -> [BereanResolvedScriptureRef] {
-        let result = try await functions.httpsCallable("resolveScriptureReferences").call([
+        let result = try await functions.callWithTimeout("resolveScriptureReferences", data: [
             "text": text,
             "language": language.rawValue,
             "sessionId": sessionId ?? "",
-        ])
+        ], timeout: 15)
         guard let data = result.data as? [String: Any],
               let items = data["references"] as? [[String: Any]] else { return [] }
         let resolved = items.enumerated().map { index, item in
@@ -159,10 +159,10 @@ final class BereanRealtimeModerationService {
     private let functions = Functions.functions()
 
     func validateTranscript(_ transcript: String, sessionId: String) async throws -> Bool {
-        let result = try await functions.httpsCallable("moderateRealtimeTranscript").call([
+        let result = try await functions.callWithTimeout("moderateRealtimeTranscript", data: [
             "transcript": transcript,
             "sessionId": sessionId,
-        ])
+        ], timeout: 15)
         let data = result.data as? [String: Any]
         return data?["allowed"] as? Bool ?? false
     }
@@ -175,14 +175,14 @@ final class BereanRealtimeModerationService {
         targetLanguage: BereanSupportedLanguage? = nil,
         isFinal: Bool = true
     ) async throws {
-        _ = try await functions.httpsCallable("persistRealtimeTranscriptChunk").call([
+        _ = try await functions.callWithTimeout("persistRealtimeTranscriptChunk", data: [
             "sessionId": sessionId,
             "text": text,
             "kind": kind,
             "language": language.rawValue,
             "targetLanguage": (targetLanguage ?? language).rawValue,
             "isFinal": isFinal,
-        ])
+        ], timeout: 10)
     }
 }
 

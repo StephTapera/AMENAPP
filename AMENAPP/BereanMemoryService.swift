@@ -72,13 +72,13 @@ final class BereanMemoryService: ObservableObject {
         category: String = "insight"
     ) async throws -> String {
         do {
-            let result = try await functions.httpsCallable("saveBereanInsight").call([
+            let result = try await functions.callWithTimeout("saveBereanInsight", data: [
                 "sessionId": sessionId,
                 "text": text,
                 "linkedVerses": linkedVerses,
                 "tags": tags,
                 "category": category
-            ])
+            ], timeout: 15)
             let data = result.data as? [String: Any] ?? [:]
             return data["entryId"] as? String ?? UUID().uuidString
         } catch {
@@ -89,10 +89,10 @@ final class BereanMemoryService: ObservableObject {
 
     func update(entryId: String, updates: [String: Any]) async throws {
         do {
-            _ = try await functions.httpsCallable("updateBereanMemory").call([
+            _ = try await functions.callWithTimeout("updateBereanMemory", data: [
                 "entryId": entryId,
                 "updates": updates
-            ])
+            ], timeout: 10)
         } catch {
             saveError = error.localizedDescription
             throw error
@@ -101,9 +101,9 @@ final class BereanMemoryService: ObservableObject {
 
     func delete(entryId: String) async throws {
         do {
-            _ = try await functions.httpsCallable("deleteBereanMemory").call([
+            _ = try await functions.callWithTimeout("deleteBereanMemory", data: [
                 "entryId": entryId
-            ])
+            ], timeout: 10)
             insights.removeAll { $0.id == entryId }
         } catch {
             saveError = error.localizedDescription

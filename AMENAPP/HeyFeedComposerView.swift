@@ -162,7 +162,7 @@ struct HeyFeedComposerView: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isSelected ? 1.02 : 1.0)
-        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isSelected)
+        .animation(reduceMotion ? .none : .spring(response: 0.38, dampingFraction: 0.72), value: isSelected)
     }
 
     // MARK: - Submit Button
@@ -196,7 +196,7 @@ struct HeyFeedComposerView: View {
         .buttonStyle(.plain)
         .disabled(isSubmitting)
         .opacity(isSubmitting ? 0.7 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: isSubmitting)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isSubmitting)
     }
 
     // MARK: - Success Overlay

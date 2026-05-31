@@ -137,7 +137,7 @@ final class BereanCompassService: ObservableObject {
         do {
             let result = try await functions
                 .httpsCallable("bereanCompassAnalyze")
-                .safeCall(["messages": messagePayload])
+                .safeCall(["messages": messagePayload], timeout: 30)
 
             guard let data = result.data as? [String: Any] else {
                 return .noSignal

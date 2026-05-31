@@ -9,6 +9,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
+import FirebaseFunctions
 
 // MARK: - SafeSearch Result Model
 
@@ -112,13 +113,30 @@ class ImageModerationService {
     // MARK: - Main Moderation Function
 
     /// Moderate an image before allowing upload.
-    /// Direct Vision API calls are disabled on the client; all images are held for
-    /// server-side Cloud Function moderation (moderateImage callable) to process.
+    /// Calls the `moderateImageContent` Cloud Function with the image data encoded
+    /// as base64. Returns `.approved`, `.review`, or `.blocked` based on the CF response.
     func moderateImage(imageData: Data, userId: String, context: ImageContext) async throws -> ImageModerationDecision {
-        dlog("🛡️ [IMAGE MOD] Moderating \(context.rawValue) image for user: \(userId)")
-        dlog("ℹ️ [IMAGE MOD] Deferring to Cloud Function for image safety check")
-        // Hold for server-side processing rather than calling Vision API directly from client.
-        return .review(reasons: ["Image safety check pending server-side moderation"])
+        let base64 = imageData.base64EncodedString()
+        let payload: [String: Any] = [
+            "imageBase64": base64,
+            "userId": userId,
+            "context": context.rawValue
+        ]
+        let result = try await Functions.functions().httpsCallable("moderateImageContent").call(payload)
+        guard let data = result.data as? [String: Any],
+              let statusRaw = data["status"] as? String else {
+            throw ImageModerationError.parsingError
+        }
+        switch statusRaw {
+        case "approved":
+            return .approved
+        case "blocked":
+            let reasons = data["reasons"] as? [String] ?? ["Content policy violation"]
+            return .blocked(reasons: reasons)
+        default:
+            let reasons = data["reasons"] as? [String] ?? ["Image safety check pending server-side moderation"]
+            return .review(reasons: reasons)
+        }
     }
 
     // MARK: - (Disabled) Vision API Integration

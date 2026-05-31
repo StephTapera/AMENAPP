@@ -290,7 +290,7 @@ actor WhisperVoiceService {
         ]
 
         do {
-            let result = try await functions.httpsCallable("whisperProxy").call(payload)
+            let result = try await functions.callWithTimeout("whisperProxy", data: payload, timeout: 30)
             guard let data = result.data as? [String: Any],
                   let text = data["text"] as? String else {
                 throw WhisperError.whisperFailed("Failed to parse proxy response")

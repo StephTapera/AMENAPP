@@ -81,13 +81,17 @@ struct ShortFormTeachingFeedView: View {
 
             TabView(selection: $vm.currentIndex) {
                 ForEach(Array(vm.clips.enumerated()), id: \.element.id) { index, clip in
-                    TeachingClipCard(clip: clip, vm: vm)
+                    TeachingClipCard(clip: clip, vm: vm, isActive: index == vm.currentIndex)
                         .tag(index)
                         .ignoresSafeArea()
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea()
+            .onChange(of: vm.currentIndex) { _, _ in
+                // currentIndex change is already observed inside each TeachingClipCard
+                // via the isActive binding — no additional action needed here.
+            }
 
             // Top bar
             HStack {
@@ -135,6 +139,9 @@ struct ShortFormTeachingFeedView: View {
 struct TeachingClipCard: View {
     let clip: TeachingClip
     @ObservedObject var vm: ShortFormTeachingViewModel
+    /// True when this card is the currently-visible page. Drives auto-pause
+    /// so off-screen pages do not continue playing in the background.
+    var isActive: Bool = false
     @State private var isPlaying: Bool = false
     @State private var hasEncouraged: Bool = false
 
@@ -160,6 +167,14 @@ struct TeachingClipCard: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .clipped()
+        }
+        // Visibility-driven pause: when this card is swiped off-screen (isActive
+        // transitions false) stop playback immediately so background pages are silent.
+        .onChange(of: isActive) { _, active in
+            if !active {
+                isPlaying = false
+                // TODO: Pause actual AVPlayer here via video player service
+            }
         }
     }
 
