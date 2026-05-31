@@ -3405,6 +3405,8 @@ struct BereanMessageBubbleView: View {
                     .foregroundStyle(Color(white: 0.52))
                     .padding(.trailing, 2)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("You: \(message.content)")
         }
         .padding(.horizontal, 18)
         .opacity(appeared ? 1 : 0)
