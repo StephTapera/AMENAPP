@@ -201,8 +201,10 @@ struct ProfileView: View {
 
     private var profileRootView: some View {
         profilePresentationHost(profileBaseView)
-            // P1-6: Bust profile cache when EditProfileView saves changes
-            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("profileDataUpdated"))) { _ in
+            // P1-6: Bust profile cache when EditProfileView saves changes.
+            // userId guard prevents a foreign profile triggering a reload of the current user's view.
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("profileDataUpdated"))) { notification in
+                guard (notification.userInfo?["userId"] as? String) == Auth.auth().currentUser?.uid else { return }
                 lastProfileLoad = nil
                 Task { await loadProfileData() }
             }

@@ -295,6 +295,25 @@
 		EF62A55B2FCC6A69002212E9 /* AccessibilityContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContracts.swift; sourceTree = "<group>"; };
 		EF62A55C2FCC6A77002212E9 /* TrustAccessibilityFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustAccessibilityFeatureFlags.swift; sourceTree = "<group>"; };
 		EF62A55D2FCC6A8C002212E9 /* GenerativePolicyGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerativePolicyGate.swift; sourceTree = "<group>"; };
+		EF62A5602FCC6B8F002212E9 /* SyntheticDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticDetectionService.swift; sourceTree = "<group>"; };
+		EF62A5612FCC6B9B002212E9 /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
+		EF62A5622FCC6B9C002212E9 /* UniversalTranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalTranslationService.swift; sourceTree = "<group>"; };
+		EF62A5632FCC6B9E002212E9 /* SyntheticDetectionPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticDetectionPipeline.swift; sourceTree = "<group>"; };
+		EF62A5642FCC6BA4002212E9 /* ProvenanceCredentialService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvenanceCredentialService.swift; sourceTree = "<group>"; };
+		EF62A5652FCC6BA4002212E9 /* SimplificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimplificationService.swift; sourceTree = "<group>"; };
+		EF62A5662FCC6BA4002212E9 /* FaithIntelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaithIntelService.swift; sourceTree = "<group>"; };
+		EF62A5672FCC6BB0002212E9 /* UploadManifestPreserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadManifestPreserver.swift; sourceTree = "<group>"; };
+		EF62A5682FCC6BB4002212E9 /* AltTextService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltTextService.swift; sourceTree = "<group>"; };
+		EF62A5692FCC6BB4002212E9 /* AccessibilityProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityProfileService.swift; sourceTree = "<group>"; };
+		EF62A56A2FCC6BC2002212E9 /* ProvenanceBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvenanceBadgeView.swift; sourceTree = "<group>"; };
+		EF62A56B2FCC6BC7002212E9 /* VideoCaptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCaptionsView.swift; sourceTree = "<group>"; };
+		EF62A56C2FCC6BC8002212E9 /* PostTranslationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostTranslationView.swift; sourceTree = "<group>"; };
+		EF62A56E2FCC6BCB002212E9 /* AltTextEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltTextEditorView.swift; sourceTree = "<group>"; };
+		EF62A56F2FCC6BCE002212E9 /* VoiceNavigationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceNavigationService.swift; sourceTree = "<group>"; };
+		EF62A5702FCC6BD0002212E9 /* EmotionalSafetyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmotionalSafetyService.swift; sourceTree = "<group>"; };
+		EF62A5712FCC6BD3002212E9 /* SimplificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimplificationView.swift; sourceTree = "<group>"; };
+		EF62A5722FCC6BD3002212E9 /* FaithIntelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaithIntelView.swift; sourceTree = "<group>"; };
+		EF62A5732FCC6BDC002212E9 /* ProvenanceDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvenanceDetailSheet.swift; sourceTree = "<group>"; };
 		EF6854572FAB95B9000B840E /* AMENAPPUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENAPPUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		EF6854582FAB95B9000B840E /* ContextualReactionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualReactionUITests.swift; sourceTree = "<group>"; };
 		EF6854A72FAD7480000B840E /* Phase34DiscoveryComposerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase34DiscoveryComposerUITests.swift; sourceTree = "<group>"; };
@@ -774,6 +793,25 @@
 				EF62A55B2FCC6A69002212E9 /* AccessibilityContracts.swift */,
 				EF62A55C2FCC6A77002212E9 /* TrustAccessibilityFeatureFlags.swift */,
 				EF62A55D2FCC6A8C002212E9 /* GenerativePolicyGate.swift */,
+				EF62A5602FCC6B8F002212E9 /* SyntheticDetectionService.swift */,
+				EF62A5612FCC6B9B002212E9 /* TranscriptionService.swift */,
+				EF62A5622FCC6B9C002212E9 /* UniversalTranslationService.swift */,
+				EF62A5632FCC6B9E002212E9 /* SyntheticDetectionPipeline.swift */,
+				EF62A5642FCC6BA4002212E9 /* ProvenanceCredentialService.swift */,
+				EF62A5652FCC6BA4002212E9 /* SimplificationService.swift */,
+				EF62A5662FCC6BA4002212E9 /* FaithIntelService.swift */,
+				EF62A5672FCC6BB0002212E9 /* UploadManifestPreserver.swift */,
+				EF62A5682FCC6BB4002212E9 /* AltTextService.swift */,
+				EF62A5692FCC6BB4002212E9 /* AccessibilityProfileService.swift */,
+				EF62A56A2FCC6BC2002212E9 /* ProvenanceBadgeView.swift */,
+				EF62A56B2FCC6BC7002212E9 /* VideoCaptionsView.swift */,
+				EF62A56C2FCC6BC8002212E9 /* PostTranslationView.swift */,
+				EF62A56E2FCC6BCB002212E9 /* AltTextEditorView.swift */,
+				EF62A56F2FCC6BCE002212E9 /* VoiceNavigationService.swift */,
+				EF62A5702FCC6BD0002212E9 /* EmotionalSafetyService.swift */,
+				EF62A5712FCC6BD3002212E9 /* SimplificationView.swift */,
+				EF62A5722FCC6BD3002212E9 /* FaithIntelView.swift */,
+				EF62A5732FCC6BDC002212E9 /* ProvenanceDetailSheet.swift */,
 			);
 			path = AccessibilityAI;
 			sourceTree = "<group>";

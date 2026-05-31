@@ -132,23 +132,12 @@ struct MediaCard: View {
     @ViewBuilder
     private var thumbnailLayer: some View {
         if let url = URL(string: item.thumbnailURL) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
-                    Color(hex: item.dominantColor)
-                case .empty:
-                    Color(hex: item.dominantColor)
-                        .overlay(
-                            ProgressView()
-                                .tint(.white.opacity(0.6))
-                        )
-                @unknown default:
-                    Color(hex: item.dominantColor)
-                }
+            CachedAsyncImage(url: url, size: CGSize(width: 240, height: 240)) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+            } placeholder: {
+                Color(hex: item.dominantColor)
             }
         } else {
             Color(hex: item.dominantColor)

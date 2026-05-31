@@ -670,6 +670,14 @@ export * from "./calmControl";
 // Replace each stub with a real implementation when the feature ships.
 export * from "./stubs/missingFunctions";
 
+// Trust Layer + Universal Accessibility Engine (13 callables)
+// trustVerifyProxy, trustDetectSynthetic, registerMediaProvenanceCredential,
+// a11yTranscribeProxy, a11yTranslateProxy, a11yAltTextProxy, a11ySummarizeProxy,
+// a11yChaptersProxy, a11yCaptionProxy, a11ySimplifyProxy,
+// a11yNarrateProxy (CRITICAL: fixed voice library — never clones real persons),
+// a11yContextProxy, scriptureResolveProxy
+export * from "./trustA11yFunctions";
+
 // Spiritual Rhythm OS — streak tracking, verse candidates, spiritual digests
 // Callables: recordSpiritualActivity, recoverStreak,
 //            generateDailyVerseCandidate, generateSpiritualDigest

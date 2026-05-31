@@ -103,17 +103,23 @@ final class ChannelService: ObservableObject {
     func listenCommunalMessages(channelId: String, handler: @escaping ([CommunalMessage]) -> Void) -> ListenerRegistration {
         db.collection("channels").document(channelId).collection("messages")
             .whereField("isDelivered", isEqualTo: true)
-            .order(by: "createdAt")
+            .order(by: "createdAt", descending: true)
+            .limit(to: 100)
             .addSnapshotListener { snap, _ in
-                handler(snap?.documents.compactMap { try? $0.data(as: CommunalMessage.self) } ?? [])
+                let sorted = (snap?.documents.compactMap { try? $0.data(as: CommunalMessage.self) } ?? [])
+                    .sorted { $0.createdAt < $1.createdAt }
+                handler(sorted)
             }
     }
 
     func listenSacredMessages(channelId: String, handler: @escaping ([SacredMessage]) -> Void) -> ListenerRegistration {
         db.collection("channels").document(channelId).collection("sacredMessages")
-            .order(by: "createdAt")
+            .order(by: "createdAt", descending: true)
+            .limit(to: 100)
             .addSnapshotListener { snap, _ in
-                handler(snap?.documents.compactMap { try? $0.data(as: SacredMessage.self) } ?? [])
+                let sorted = (snap?.documents.compactMap { try? $0.data(as: SacredMessage.self) } ?? [])
+                    .sorted { $0.createdAt < $1.createdAt }
+                handler(sorted)
             }
     }
 

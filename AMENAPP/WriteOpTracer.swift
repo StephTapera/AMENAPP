@@ -53,6 +53,7 @@ struct Breadcrumb {
     /// Return a copy of the current breadcrumb trail (newest last).
     static func trail() -> [Breadcrumb] {
         #if DEBUG
+        assert(!Thread.isMainThread, "Breadcrumb.trail() must not be called from the main thread")
         return queue.sync { buffer }
         #else
         return []

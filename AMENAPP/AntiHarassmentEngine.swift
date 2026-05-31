@@ -193,6 +193,7 @@ class AntiHarassmentEngine {
             .whereField("userId", isEqualTo: userId)
             .whereField("timestamp", isGreaterThan: Timestamp(date: cutoffDate))
             .order(by: "timestamp", descending: true)
+            .limit(to: 100)
             .getDocuments()
 
         return snapshot.documents.compactMap { doc in
@@ -309,6 +310,7 @@ class AntiHarassmentEngine {
             .collection("enforcementHistory")
             .whereField("targetUserId", isEqualTo: userId)
             .whereField("timestamp", isGreaterThan: Timestamp(date: sevenDaysAgo))
+            .limit(to: 100)
             .getDocuments()
 
         let targetingCount = targeting.documents.count
@@ -626,6 +628,7 @@ class AntiHarassmentEngine {
             .collection("appeals")
             .whereField("userId", isEqualTo: userId)
             .order(by: "submittedAt", descending: true)
+            .limit(to: 20)
             .getDocuments()
 
         return snapshot.documents.compactMap { doc in
@@ -694,6 +697,7 @@ class AntiHarassmentEngine {
             .whereField("targetUserId", isEqualTo: targetUserId)
             .whereField("timestamp", isGreaterThan: Timestamp(date: thirtyDaysAgo))
             .order(by: "timestamp", descending: false)
+            .limit(to: 100)
             .getDocuments()
 
         guard !records.documents.isEmpty else {
@@ -952,6 +956,7 @@ extension AntiHarassmentEngine {
             .collection("userRestrictions")
             .whereField("userId", isEqualTo: userId)
             .whereField("endDate", isGreaterThan: Timestamp(date: Date()))
+            .limit(to: 50)
             .getDocuments()
 
         return snapshot.documents.compactMap { doc in

@@ -212,20 +212,17 @@ struct DiscussionHeroHeader: View {
     private var heroBackground: some View {
         let accentTint = groupAccentTint(for: groupId)
         if let url = coverImageURL, !url.isEmpty {
-            AsyncImage(url: URL(string: url)) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFill()
-                        .overlay(
-                            LinearGradient(
-                                colors: [.clear, Color(.systemBackground).opacity(0.95)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
+            CachedAsyncImage(url: URL(string: url)) { img in
+                img.resizable().scaledToFill()
+                    .overlay(
+                        LinearGradient(
+                            colors: [.clear, Color(.systemBackground).opacity(0.95)],
+                            startPoint: .top,
+                            endPoint: .bottom
                         )
-                default:
-                    gradientBackground(tint: accentTint)
-                }
+                    )
+            } placeholder: {
+                gradientBackground(tint: accentTint)
             }
         } else {
             gradientBackground(tint: accentTint)
@@ -246,17 +243,14 @@ struct DiscussionHeroHeader: View {
     @ViewBuilder
     private var heroArt: some View {
         if let url = coverImageURL, !url.isEmpty {
-            AsyncImage(url: URL(string: url)) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable()
-                        .scaledToFill()
-                        .frame(width: 120, height: 120)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .shadow(color: .black.opacity(0.28), radius: 16, x: 0, y: 6)
-                default:
-                    GroupGradientArtView(groupId: groupId, groupName: groupName, size: 120)
-                }
+            CachedAsyncImage(url: URL(string: url)) { img in
+                img.resizable()
+                    .scaledToFill()
+                    .frame(width: 120, height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: .black.opacity(0.28), radius: 16, x: 0, y: 6)
+            } placeholder: {
+                GroupGradientArtView(groupId: groupId, groupName: groupName, size: 120)
             }
         } else {
             GroupGradientArtView(groupId: groupId, groupName: groupName, size: 120)

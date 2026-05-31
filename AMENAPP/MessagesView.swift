@@ -391,8 +391,8 @@ struct MessagesView: View {
                 // disappears on every cold launch.
                 if mainTabSelection.wrappedValue == 2 {
                     tabBarVisible.wrappedValue = false
+                    BadgeCountManager.shared.clearMessages()
                 }
-                BadgeCountManager.shared.clearMessages()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     rowsVisible = true
                 }

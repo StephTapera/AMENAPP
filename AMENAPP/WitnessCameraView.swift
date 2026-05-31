@@ -335,11 +335,17 @@ private struct WitnessReviewView: View {
     let onRetake: () -> Void
     let onAccept: () -> Void
 
+    @State private var reviewPlayer: AVPlayer?
+
     var body: some View {
         VStack(spacing: 0) {
             Group {
-                if reviewState.attachment.isVideo, let url = reviewState.attachment.finalFileURL {
-                    VideoPlayer(player: AVPlayer(url: url))
+                if reviewState.attachment.isVideo, let _ = reviewState.attachment.finalFileURL {
+                    if let reviewPlayer {
+                        VideoPlayer(player: reviewPlayer)
+                    } else {
+                        Color.black
+                    }
                 } else if let url = reviewState.attachment.finalFileURL,
                           let image = UIImage(contentsOfFile: url.path) {
                     Image(uiImage: image)
@@ -366,6 +372,17 @@ private struct WitnessReviewView: View {
             .padding(.bottom, 26)
         }
         .background(Color.black.ignoresSafeArea())
+        .onAppear {
+            if reviewState.attachment.isVideo, let url = reviewState.attachment.finalFileURL {
+                let item = AVPlayerItem(url: url)
+                item.preferredForwardBufferDuration = 3.0
+                reviewPlayer = AVPlayer(playerItem: item)
+            }
+        }
+        .onDisappear {
+            reviewPlayer?.pause()
+            reviewPlayer = nil
+        }
     }
 
     private func reviewButton(title: String, filled: Bool, action: @escaping () -> Void) -> some View {

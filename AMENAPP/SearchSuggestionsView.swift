@@ -28,21 +28,16 @@ struct SearchSuggestionsView: View {
                             
                             if let profileImageURL = suggestion.profileImageURL,
                                let url = URL(string: profileImageURL) {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 40, height: 40)
-                                            .clipShape(Circle())
-                                    case .failure(_), .empty:
-                                        Text(String(suggestion.displayName.prefix(1)))
-                                            .font(.custom("OpenSans-Bold", size: 16))
-                                            .foregroundStyle(.white)
-                                    @unknown default:
-                                        EmptyView()
-                                    }
+                                CachedAsyncImage(url: url) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 40, height: 40)
+                                        .clipShape(Circle())
+                                } placeholder: {
+                                    Text(String(suggestion.displayName.prefix(1)))
+                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .foregroundStyle(.white)
                                 }
                             } else {
                                 Text(String(suggestion.displayName.prefix(1)))

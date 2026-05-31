@@ -68,13 +68,10 @@ struct DiscussionTopPicksCard: View {
     @ViewBuilder
     private var artLayer: some View {
         if let url = group.coverImageURL, !url.isEmpty {
-            AsyncImage(url: URL(string: url)) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFill()
-                default:
-                    GroupGradientHeroView(groupId: group.id, groupName: group.name)
-                }
+            CachedAsyncImage(url: URL(string: url)) { img in
+                img.resizable().scaledToFill()
+            } placeholder: {
+                GroupGradientHeroView(groupId: group.id, groupName: group.name)
             }
         } else {
             GroupGradientHeroView(groupId: group.id, groupName: group.name)

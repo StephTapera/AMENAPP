@@ -88,6 +88,7 @@ final class SacredChatViewModel: ObservableObject {
     }
 
     func start() async {
+        guard listener == nil else { return }
         guard let channelId = channel.id else { return }
         try? await ChannelService.shared.bootstrapIdentityKeyIfNeeded()
         listener = ChannelService.shared.listenSacredMessages(channelId: channelId) { [weak self] msgs in

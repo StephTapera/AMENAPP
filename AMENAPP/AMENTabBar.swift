@@ -517,14 +517,12 @@ struct AMENTabBar: View {
     @ViewBuilder
     private func profileContent(isSelected: Bool) -> some View {
         if let url = profilePhotoURL, !url.isEmpty {
-            AsyncImage(url: URL(string: url)) { phase in
-                if case .success(let image) = phase {
-                    image.resizable().scaledToFill()
-                        .frame(width: barHeight - 18, height: barHeight - 18)
-                        .clipShape(Circle())
-                } else {
-                    profileIcon(isSelected: isSelected)
-                }
+            CachedAsyncImage(url: URL(string: url)) { image in
+                image.resizable().scaledToFill()
+                    .frame(width: barHeight - 18, height: barHeight - 18)
+                    .clipShape(Circle())
+            } placeholder: {
+                profileIcon(isSelected: isSelected)
             }
             .accessibilityHidden(true)
         } else {

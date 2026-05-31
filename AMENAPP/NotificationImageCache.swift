@@ -241,7 +241,7 @@ struct CachedNotificationProfileImage: View {
     let size: CGFloat
     let fallbackName: String?
     
-    @ObservedObject private var cache = NotificationImageCache.shared // PERF: singleton → @ObservedObject
+    private let cache = NotificationImageCache.shared // PERF: plain let — no @Published properties observed; async methods only
     @State private var image: UIImage?
     @State private var isLoading = false
     

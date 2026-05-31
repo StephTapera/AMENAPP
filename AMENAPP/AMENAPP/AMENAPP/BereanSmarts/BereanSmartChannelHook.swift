@@ -20,6 +20,9 @@ final class BereanSmartChannelHook: ObservableObject {
     private let db = Firestore.firestore()
     private lazy var functions = Functions.functions()
 
+    /// Stores active prayer-request listeners keyed by groupId to prevent leaks.
+    private var prayerRequestListeners: [String: ListenerRegistration] = [:]
+
     private init() {}
 
     // MARK: - 1. Prayer Request Detection
@@ -73,8 +76,12 @@ final class BereanSmartChannelHook: ObservableObject {
         return snap.documents.compactMap { try? $0.data(as: ChannelPrayerRequest.self) }
     }
 
-    func listenChannelPrayerRequests(groupId: String, handler: @escaping ([ChannelPrayerRequest]) -> Void) -> ListenerRegistration {
-        db.collection("prayerRequests")
+    /// Starts listening for open prayer requests in a group. Replaces any existing
+    /// listener for the same groupId to prevent duplicate registrations.
+    func listenChannelPrayerRequests(groupId: String, handler: @escaping ([ChannelPrayerRequest]) -> Void) {
+        // Remove any existing listener for this group before attaching a new one
+        prayerRequestListeners[groupId]?.remove()
+        let listener = db.collection("prayerRequests")
             .whereField("groupId", isEqualTo: groupId)
             .whereField("status", isEqualTo: PrayerStatus.open.rawValue)
             .order(by: "createdAt", descending: true)
@@ -86,6 +93,19 @@ final class BereanSmartChannelHook: ObservableObject {
                 }
                 handler(snap?.documents.compactMap { try? $0.data(as: ChannelPrayerRequest.self) } ?? [])
             }
+        prayerRequestListeners[groupId] = listener
+    }
+
+    /// Stop listening for prayer requests in a specific group.
+    func stopListening(groupId: String) {
+        prayerRequestListeners[groupId]?.remove()
+        prayerRequestListeners.removeValue(forKey: groupId)
+    }
+
+    /// Stop all active prayer-request listeners (call on sign-out or dealloc).
+    func stopAllListeners() {
+        prayerRequestListeners.values.forEach { $0.remove() }
+        prayerRequestListeners.removeAll()
     }
 
     // MARK: - 2. Scripture Auto-linking

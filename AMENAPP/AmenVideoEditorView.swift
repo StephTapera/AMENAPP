@@ -47,11 +47,16 @@ struct AmenVideoEditorView: View {
             .accessibilityLabel("Apply trim")
         }
         .padding(24)
-        .task {
-            player = AVPlayer(url: videoURL)
+        .task(id: videoURL) {
+            let item = AVPlayerItem(url: videoURL)
+            item.preferredForwardBufferDuration = 3.0
+            player = AVPlayer(playerItem: item)
             let asset = AVAsset(url: videoURL)
             duration = asset.duration.seconds
             endTime = duration
+        }
+        .onDisappear {
+            player?.pause()
         }
     }
 

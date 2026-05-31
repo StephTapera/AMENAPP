@@ -65,15 +65,12 @@ struct SpaceAvatarView: View {
     private var avatarCircle: some View {
         Group {
             if let urlString = avatarURL, !urlString.isEmpty, let url = URL(string: urlString) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    default:
-                        initialsCircle
-                    }
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    initialsCircle
                 }
             } else {
                 initialsCircle

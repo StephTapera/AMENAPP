@@ -116,6 +116,7 @@ final class CommunalChatViewModel: ObservableObject {
     }
 
     func start() async {
+        guard listener == nil else { return }
         guard let channelId = channel.id else { return }
         listener = ChannelService.shared.listenCommunalMessages(channelId: channelId) { [weak self] msgs in
             withAnimation(.spring(response: 0.35)) { self?.messages = msgs }

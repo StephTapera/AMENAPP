@@ -364,7 +364,7 @@ struct QuotePostComposerView: View {
                 .frame(width: 44, height: 44)
 
             if let url = resolvedURL {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
                         .frame(width: 44, height: 44)
                         .clipShape(Circle())
@@ -621,7 +621,7 @@ struct QuotePostComposerView: View {
 
                     if let urlString = originalPost.authorProfileImageURL,
                        let url = URL(string: urlString) {
-                        AsyncImage(url: url) { image in
+                        CachedAsyncImage(url: url) { image in
                             image.resizable().scaledToFill()
                                 .frame(width: 22, height: 22)
                                 .clipShape(Circle())

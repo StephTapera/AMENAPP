@@ -27,17 +27,12 @@ struct NowPlayingBar: View {
 
                 HStack(spacing: 12) {
                     // Thumbnail
-                    AsyncImage(url: URL(string: item.thumbnailURL)) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        case .failure, .empty:
-                            Color(hex: item.dominantColor)
-                        @unknown default:
-                            Color(hex: item.dominantColor)
-                        }
+                    CachedAsyncImage(url: URL(string: item.thumbnailURL)) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        Color(hex: item.dominantColor)
                     }
                     .frame(width: 36, height: 36)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))

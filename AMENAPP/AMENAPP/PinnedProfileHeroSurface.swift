@@ -581,6 +581,8 @@ private struct PinnedProfileFocusedMediaOverlay: View {
     let namespace: Namespace.ID
     let onDismiss: () -> Void
 
+    @State private var heroPlayer: AVPlayer?
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Rectangle()
@@ -607,8 +609,12 @@ private struct PinnedProfileFocusedMediaOverlay: View {
                 Spacer(minLength: 0)
 
                 Group {
-                    if item.type == .video, let url = URL(string: item.url) {
-                        VideoPlayer(player: AVPlayer(url: url))
+                    if item.type == .video {
+                        if let heroPlayer {
+                            VideoPlayer(player: heroPlayer)
+                        } else {
+                            Color.black
+                        }
                     } else {
                         PinnedProfileMediaTile(item: item, namespace: namespace)
                     }
@@ -621,6 +627,16 @@ private struct PinnedProfileFocusedMediaOverlay: View {
 
                 Spacer(minLength: 0)
             }
+        }
+        .task(id: item.url) {
+            guard item.type == .video, let url = URL(string: item.url) else { return }
+            let avItem = AVPlayerItem(url: url)
+            avItem.preferredForwardBufferDuration = 3.0
+            heroPlayer = AVPlayer(playerItem: avItem)
+        }
+        .onDisappear {
+            heroPlayer?.pause()
+            heroPlayer = nil
         }
     }
 }

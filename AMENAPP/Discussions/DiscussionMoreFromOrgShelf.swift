@@ -83,15 +83,12 @@ struct DiscussionMoreFromOrgShelf: View {
             // Art
             ZStack {
                 if let url = group.coverImageURL, !url.isEmpty {
-                    AsyncImage(url: URL(string: url)) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img.resizable().scaledToFill()
-                        default:
-                            GroupGradientArtView(groupId: group.id,
-                                                groupName: group.name,
-                                                size: 140)
-                        }
+                    CachedAsyncImage(url: URL(string: url)) { img in
+                        img.resizable().scaledToFill()
+                    } placeholder: {
+                        GroupGradientArtView(groupId: group.id,
+                                            groupName: group.name,
+                                            size: 140)
                     }
                     .frame(width: 140, height: 140)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

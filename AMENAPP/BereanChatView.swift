@@ -268,7 +268,7 @@ final class BereanChatViewModel: ObservableObject {
         isStudyModeEnabled = storedStudyMode
         studyModeState = storedStudyMode ? .idle : .off
         reasoningNodes = defaultReasoningNodes()
-        loadMessageCount()
+        // loadMessageCount() moved to initialSetupTask() to avoid async Firestore work in init.
     }
 
     // MARK: Resume existing session from Firestore
@@ -870,7 +870,7 @@ final class BereanChatViewModel: ObservableObject {
     private var msgCountTimeKey: String { "bereanMsgCountTime_\(userId)" }
     private let msgCountCacheTTL: TimeInterval = 60
 
-    private func loadMessageCount() {
+    func loadMessageCount() {
         guard !userId.isEmpty else { return }
 
         // ✅ PERF: 60-second TTL cache — skip Firestore if count was fetched recently.
@@ -1437,6 +1437,9 @@ struct BereanChatView: View {
     private func initialSetupTask() async {
         guard !hasPreparedInitialPrompt else { return }
         hasPreparedInitialPrompt = true
+
+        // PERF: Load message count here (deferred from init) so Firestore work stays off the init path.
+        vm.loadMessageCount()
 
         // COPPA-FIX: Check age gate before doing any setup or showing AI features.
         // AgeAssuranceService.shared is @MainActor-isolated; canAccess is async.

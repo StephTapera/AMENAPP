@@ -124,7 +124,7 @@ enum VideoAttachmentService {
         onComplete: @escaping (AppMessage) -> Void,
         onError: @escaping (Error) -> Void
     ) -> Task<Void, Never> {
-        Task {
+        return Task {
             do {
                 // 1. Compress
                 let compressedURL = await compress(videoURL)

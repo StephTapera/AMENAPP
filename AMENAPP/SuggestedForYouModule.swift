@@ -329,13 +329,10 @@ struct SuggestedAccountCardView: View {
     private var mutualAvatarStack: some View {
         HStack(spacing: -6) {
             ForEach(Array(item.mutualAvatarURLs.prefix(3).enumerated()), id: \.offset) { index, urlString in
-                AsyncImage(url: URL(string: urlString)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        Circle().fill(Color(.systemGray5))
-                    }
+                CachedAsyncImage(url: URL(string: urlString)) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Circle().fill(Color(.systemGray5))
                 }
                 .frame(width: 16, height: 16)
                 .clipShape(Circle())

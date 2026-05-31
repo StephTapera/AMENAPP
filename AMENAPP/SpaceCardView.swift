@@ -160,7 +160,7 @@ struct SpaceCardView: View {
         HStack(spacing: 6) {
             ZStack {
                 ForEach(Array(space.recentPosterPhotoURLs.prefix(3).enumerated()), id: \.offset) { index, urlString in
-                    AsyncImage(url: URL(string: urlString)) { image in
+                    CachedAsyncImage(url: URL(string: urlString)) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
                         Circle().fill(accent.opacity(0.16))

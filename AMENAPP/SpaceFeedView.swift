@@ -62,13 +62,10 @@ struct SpaceFeedView: View {
             // Cover image or gradient placeholder
             Group {
                 if let urlString = space.coverImageURL, let url = URL(string: urlString) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        default:
-                            gradientPlaceholder
-                        }
+                    CachedAsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        gradientPlaceholder
                     }
                 } else {
                     gradientPlaceholder
@@ -289,18 +286,16 @@ private struct SpacePostRow: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 // Author avatar
-                AsyncImage(url: URL(string: post.authorPhotoURL ?? "")) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().scaledToFill()
-                    } else {
-                        Circle()
-                            .fill(Color(red: 0.6, green: 0.35, blue: 1.0).opacity(0.25))
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.systemScaled(14))
-                                    .foregroundStyle(Color(red: 0.6, green: 0.35, blue: 1.0))
-                            )
-                    }
+                CachedAsyncImage(url: URL(string: post.authorPhotoURL ?? "")) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Circle()
+                        .fill(Color(red: 0.6, green: 0.35, blue: 1.0).opacity(0.25))
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.systemScaled(14))
+                                .foregroundStyle(Color(red: 0.6, green: 0.35, blue: 1.0))
+                        )
                 }
                 .frame(width: 36, height: 36)
                 .clipShape(Circle())
@@ -367,13 +362,11 @@ private struct MediaCellView: View {
         GeometryReader { geo in
             ZStack {
                 if let urlString = post.mediaURLs.first, let url = URL(string: urlString) {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let image) = phase {
-                            image.resizable().scaledToFill()
-                        } else {
-                            Rectangle()
-                                .fill(Color(red: 0.1, green: 0.07, blue: 0.2))
-                        }
+                    CachedAsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color(red: 0.1, green: 0.07, blue: 0.2))
                     }
                 } else {
                     Rectangle()

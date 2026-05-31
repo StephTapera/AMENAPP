@@ -392,6 +392,7 @@ private struct VideoPlayerFullscreen: View {
             }
             .onDisappear {
                 player?.pause()
+                player = nil
                 if postId != nil {
                     MediaSessionCoordinator.shared.endSession()
                 }
@@ -399,8 +400,11 @@ private struct VideoPlayerFullscreen: View {
     }
     
     private func setupPlayer() {
+        guard player == nil else { return }
         guard let videoURL = URL(string: url) else { return }
-        player = AVPlayer(url: videoURL)
+        let item = AVPlayerItem(url: videoURL)
+        item.preferredForwardBufferDuration = 3.0
+        player = AVPlayer(playerItem: item)
 
         // Integrate with media session coordinator for resume tracking
         if let pId = postId, let mId = mediaItemId, let p = player {

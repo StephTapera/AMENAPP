@@ -47,18 +47,15 @@ struct AVPlayerControllerWrapper: View {
     var body: some View {
         VStack(spacing: 20) {
             // Album art / thumbnail placeholder
-            AsyncImage(url: URL(string: item.thumbnailURL)) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    Color(hex: item.dominantColor)
-                        .overlay(
-                            Image(systemName: "headphones")
-                                .font(.systemScaled(48))
-                                .foregroundStyle(.white.opacity(0.5))
-                        )
-                }
+            CachedAsyncImage(url: URL(string: item.thumbnailURL)) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                Color(hex: item.dominantColor)
+                    .overlay(
+                        Image(systemName: "headphones")
+                            .font(.systemScaled(48))
+                            .foregroundStyle(.white.opacity(0.5))
+                    )
             }
             .frame(height: 200)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -181,9 +178,10 @@ struct AVPlayerControllerWrapper: View {
             avPlayer.rate = vm.playbackSpeed
         }
 
-        // Observe duration
-        Task {
-            if let asset = avPlayer.currentItem?.asset {
+        // Observe duration — [weak vm] prevents the Task from extending the view model's lifetime
+        Task { [weak vm] in
+            guard let vm else { return }
+            if let asset = vm.player?.currentItem?.asset {
                 do {
                     let duration = try await asset.load(.duration)
                     await MainActor.run {
@@ -391,13 +389,10 @@ struct MediaPlayerView: View {
 
     private func relatedRow(_ relatedItem: MediaItem) -> some View {
         HStack(spacing: 10) {
-            AsyncImage(url: URL(string: relatedItem.thumbnailURL)) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    Color(hex: relatedItem.dominantColor)
-                }
+            CachedAsyncImage(url: URL(string: relatedItem.thumbnailURL)) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                Color(hex: relatedItem.dominantColor)
             }
             .frame(width: 44, height: 44)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))

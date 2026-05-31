@@ -341,6 +341,17 @@ struct StudioAICreationView: View {
         }
 
         try? modelContext.save()
+
+        // STUDIO-04: cloud backup so device reset / migration doesn't lose work.
+        DraftSyncService.shared.sync(
+            sessionId: sessionID,
+            tool: selectedTool.rawValue,
+            userInput: vm.userInput,
+            scriptureRef: vm.scriptureRef,
+            tone: vm.tone,
+            generatedText: vm.generatedText,
+            version: draft.version
+        )
     }
 
     // MARK: - Image Export (Day 11)
