@@ -109,12 +109,13 @@ final class ScreenCrashLogger: @unchecked Sendable {
     private var recentEvents: [(Date, String)] = []
     private let queue = DispatchQueue(label: "com.amen.screenCrashLogger", qos: .utility)
     
-    /// File URL for the persistent crash log (nil if document directory is unavailable)
+    /// File URL for the persistent crash log (nil if caches directory is unavailable).
+    /// Uses cachesDirectory so the file is excluded from iCloud backups.
     private let logFileURL: URL? = {
-        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
             return nil
         }
-        return docs.appendingPathComponent("amen_screen_crash_log.txt")
+        return caches.appendingPathComponent("amen_screen_crash_log.txt")
     }()
     
     private init() {
