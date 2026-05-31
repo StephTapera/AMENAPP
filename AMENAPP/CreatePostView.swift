@@ -1096,7 +1096,6 @@ struct CreatePostView: View {
                 }
             }
         }
-        .accessibilityIdentifier("create_post_view")
         .accessibilityIdentifier("screen.composer.post")
         .overlay(alignment: .top) {
             if showingDraftSavedNotice {
