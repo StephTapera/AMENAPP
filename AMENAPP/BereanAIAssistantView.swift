@@ -49,7 +49,7 @@ struct BereanAIAssistantView: View {
     @AppStorage("bereanCalmModeEnabled") private var isCalmModeEnabled = false
     @State private var placeholderIndex = 0
     private let placeholderOptions = ["Ask anything", "Paste a verse", "Reflect on this"]
-    private let placeholderTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    @State private var placeholderTimerActive = false
     
     // ✅ New state variables for enhancements
     @State private var showTranslationPicker = false
@@ -1985,10 +1985,16 @@ struct BereanAIAssistantView: View {
                 .frame(maxWidth: .infinity)
                 .animation(reduceMotion ? .none : .spring(response: 0.50, dampingFraction: 0.80), value: messageText)
         }
-        .onReceive(placeholderTimer) { _ in
-            guard messageText.isEmpty && !isInputFocused else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) {
-                placeholderIndex = (placeholderIndex + 1) % placeholderOptions.count
+        .task(id: placeholderTimerActive) {
+            guard placeholderTimerActive else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                guard !Task.isCancelled else { return }
+                if messageText.isEmpty && !isInputFocused {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) {
+                        placeholderIndex = (placeholderIndex + 1) % placeholderOptions.count
+                    }
+                }
             }
         }
     }
