@@ -2226,8 +2226,7 @@ struct PostCard: View {
     // Break up the modifier chain into intermediate steps so the Swift type-checker
     // can resolve each piece independently (avoids "expression too complex" timeout).
 
-    private var cardWithSheets: AnyView {
-        AnyView(
+    @ViewBuilder private var cardWithSheets: some View {
             cardContent
                 .onLongPressGesture(minimumDuration: 0.4) {
                     guard !isTextSelecting else { return }
@@ -2330,11 +2329,9 @@ struct PostCard: View {
                     expectedRepostState: $expectedRepostState,
                     hasCommented: $hasCommented
                 ))
-        )
     }
-    
-    private var cardWithAlerts: AnyView {
-        AnyView(
+
+    @ViewBuilder private var cardWithAlerts: some View {
             cardWithMuteBlockAlerts
                 .alert(item: $activeAlert) { alert in
                     switch alert {
@@ -2402,11 +2399,10 @@ struct PostCard: View {
                         )
                     }
                 }
-        )
     }
-    
-    private var cardWithMuteBlockAlerts: AnyView {
-        AnyView(cardWithSheets)
+
+    @ViewBuilder private var cardWithMuteBlockAlerts: some View {
+        cardWithSheets
     }
 
     private var postCardAccessibilityLabel: String {

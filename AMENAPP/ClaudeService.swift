@@ -223,6 +223,7 @@ final class ClaudeService: ObservableObject {
         }
         
         let callable = functions.httpsCallable("bereanChatProxy")
+        callable.timeoutInterval = 15  // Fail fast — 70 s SDK default causes blank-screen hangs on Berean ask path
         // bereanChatProxy v2 expects: message, systemPromptSuffix, maxTokens, mode
         let params: [String: Any] = [
             "message": userMessage,

@@ -1,7 +1,14 @@
-# REVIEW QUEUE — Overnight Audit 2026-05-30
+# REVIEW QUEUE — Overnight Audit 2026-05-30 / 2026-05-31
 
 Items that are HIGH-risk, touch frozen contracts, or where confidence < 90%.
 These require human decision before applying.
+
+**RQ-09 RESOLVED** — `cb21f68` (VerseAttachmentViewModel — UIAccessibility guard applied)
+**CF-03 PARTIAL** — `11a15f1` (bereanChatProxy, acceptAccessPass, createRealtimeSession error handling added; remaining 375 callers still unhandled)
+
+---
+
+## Remaining Items Requiring Human Decision
 
 | # | Finding ID | Domain | Risk Level | File:Line | Description | Proposed Diff / Notes |
 |---|-----------|--------|-----------|-----------|-------------|----------------------|

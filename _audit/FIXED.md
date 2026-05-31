@@ -3,8 +3,9 @@
 
 ---
 
-## Summary: 20 discrete fixes, 21 commits, 0 build errors
+## Summary: 29 discrete fixes, 30 commits, 0 build errors
 
+### Wave 1 (overnight Phase 2)
 | Commit | Finding | Domain | File(s) |
 |--------|---------|--------|---------|
 | `6623cd7` | COL-01 | Infra | AmenObjectHubViewModel.swift |
@@ -27,6 +28,18 @@
 | `b3b707e` | FEED-09 (lazy) | HeyFeed | ActivityFeedView.swift |
 | `d84b2e3` | FEED-11 | HeyFeed | HeyFeedService.swift |
 | `1062310` | UI-PillNav | UI | AMENPillNav.swift |
+
+### Wave 2 (review-queue + backlog clearance)
+| Commit | Finding | Domain | File(s) |
+|--------|---------|--------|---------|
+| `cb21f68` | RQ-09 / DS-A11 | A11y | VerseAttachmentViewModel.swift |
+| `5d3c78c` | NAV-02 | Navigation | ResourcesView.swift |
+| `11a15f1` | CF-03 partial | Backend/Error | ClaudeAPIService.swift, AmenAccessPassService.swift, BereanRealtimeSessionManager.swift |
+| `89be671` | UI-06 | Media | MediaPostComposerView.swift |
+| `622839c` | UI-07 / MEDIA-01/02 | Media | ShortFormTeachingFeedView.swift |
+| `a9edd73` | STUDIO-13 | Studio | StudioHubView.swift |
+| `6c7c98c` | PUSH-01 | Push | NotificationQuickActions.swift, NotificationsView.swift |
+| `87d5063` | Infra | Infra | FirebaseCallableHelper.swift |
 
 ---
 

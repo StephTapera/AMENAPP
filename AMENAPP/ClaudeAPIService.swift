@@ -114,7 +114,9 @@ actor ClaudeAPIService {
         ]
         let result: HTTPSCallableResult
         do {
-            result = try await functions.httpsCallable("bereanChatProxy").call(data)
+            let callable = functions.httpsCallable("bereanChatProxy")
+            callable.timeoutInterval = 15  // Fail fast — 70 s SDK default causes blank-screen hangs on Berean ask path
+            result = try await callable.call(data)
         } catch {
             // CF-03: surface user-facing message for backend unavailability
             let nsErr = error as NSError

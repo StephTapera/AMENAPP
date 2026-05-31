@@ -270,6 +270,44 @@ extension View {
     }
 }
 
+// MARK: - UserProfileCache
+
+/// Shared in-memory TTL cache for external profile loads.
+/// Survives push/pop navigation so repeated visits within the TTL window
+/// don't fire redundant Firestore reads.
+private final class UserProfileCache {
+    static let shared = UserProfileCache()
+    private init() {}
+
+    struct CachedProfileData {
+        let profile: UserProfile
+        let posts: [ProfilePost]
+        let reposts: [UserProfileRepost]
+        let isFollowing: Bool
+        let viewerRelationship: ViewerRelationship
+    }
+
+    private var cache: [String: (timestamp: Date, data: CachedProfileData)] = [:]
+    private let ttl: TimeInterval = 30  // 30 seconds
+
+    func get(userId: String) -> CachedProfileData? {
+        guard let entry = cache[userId] else { return nil }
+        guard Date().timeIntervalSince(entry.timestamp) < ttl else {
+            cache.removeValue(forKey: userId)
+            return nil
+        }
+        return entry.data
+    }
+
+    func set(userId: String, data: CachedProfileData) {
+        cache[userId] = (timestamp: Date(), data: data)
+    }
+
+    func invalidate(userId: String) {
+        cache.removeValue(forKey: userId)
+    }
+}
+
 /// User Profile View - For viewing other users' profiles
 /// Liquid Glass Design System
 ///
@@ -990,7 +1028,21 @@ struct UserProfileView: View {
     
     @MainActor
     private func loadProfileData(forceServerFetch: Bool = false) async {
-        // P1-3: Check cache TTL (5 minutes)
+        // Cross-navigation TTL cache: skip all Firestore reads when we just viewed
+        // this profile within the last 30 seconds (e.g. back-swipe and re-push).
+        if !forceServerFetch, let hit = UserProfileCache.shared.get(userId: userId) {
+            dlog("✅ UserProfileCache hit for \(userId) — skipping Firestore reads")
+            profileData          = hit.profile
+            posts                = hit.posts
+            reposts              = hit.reposts
+            isFollowing          = hit.isFollowing
+            viewerRelationship   = hit.viewerRelationship
+            buildUnifiedFeed()
+            isLoading = false
+            return
+        }
+
+        // P1-3: Check instance-level cache TTL (5 minutes)
         if let cachedAt = profileCachedAt,
            profileData != nil,
            Date().timeIntervalSince(cachedAt) < 300 { // 5 minutes
@@ -1184,6 +1236,23 @@ struct UserProfileView: View {
 
             // ✅ NEW: Set up real-time listeners for posts and reposts
             setupRealtimeListeners()
+
+            // Write the shared cross-navigation cache so a back-swipe + re-push within
+            // 30 s skips all Firestore reads.  Only cache external profiles — own-profile
+            // data changes too frequently and isFollowing is meaningless for self.
+            if userId != Auth.auth().currentUser?.uid, let profile = profileData {
+                UserProfileCache.shared.set(
+                    userId: userId,
+                    data: UserProfileCache.CachedProfileData(
+                        profile: profile,
+                        posts: posts,
+                        reposts: reposts,
+                        isFollowing: isFollowing,
+                        viewerRelationship: viewerRelationship
+                    )
+                )
+                dlog("✅ UserProfileCache written for \(userId)")
+            }
 
             currentPage = 1
             hasMorePosts = posts.count >= 20
