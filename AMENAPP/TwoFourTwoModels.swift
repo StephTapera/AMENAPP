@@ -124,7 +124,8 @@ struct TwoFourTwoFeature: Identifiable {
             iconName: "checkmark.seal.fill",
             iconColor: Color(red: 0.08, green: 0.62, blue: 0.92),
             pillar: .teaching,
-            requiredTier: .free
+            requiredTier: .free,
+            isComingSoon: true   // HUB-02: reviewCovenantApp CF exists but has no iOS caller yet
         ),
         // ── Fellowship ──
         TwoFourTwoFeature(
@@ -176,7 +177,8 @@ struct TwoFourTwoFeature: Identifiable {
             iconName: "briefcase.fill",
             iconColor: Color(red: 0.95, green: 0.55, blue: 0.18),
             pillar: .table,
-            requiredTier: .free
+            requiredTier: .free,
+            isComingSoon: true   // HUB-02: matchKingdomCommerce CF exists but has no iOS caller yet
         ),
         TwoFourTwoFeature(
             id: "community-events",

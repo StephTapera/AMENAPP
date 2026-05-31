@@ -704,17 +704,29 @@ struct ResourcesView: View {
                         .buttonStyle(ResourceCardPressStyle())
 
                         if featureFlags.contextualExperiencesEnabled {
-                            // NAV-02: organizationId must be a real org ID — disabled until a valid ID is passed
-                            NavigationLink(destination: AmenContextualExperienceDashboardView(organizationId: "")) {
+                            // NAV-02: guard against empty orgId — NavigationLink is suppressed until
+                            // a real organizationId is available. Rendered as a disabled row instead.
+                            let orgId = ""
+                            if !orgId.isEmpty {
+                                NavigationLink(destination: AmenContextualExperienceDashboardView(organizationId: orgId)) {
+                                    CompactResourceRow(
+                                        icon: "building.2.fill",
+                                        iconColors: [Color(hex: "7C3AED"), Color(hex: "A78BFA")],
+                                        title: "Organization Experiences",
+                                        subtitle: "Church, school & org contextual hubs"
+                                    )
+                                }
+                                .buttonStyle(ResourceCardPressStyle())
+                            } else {
                                 CompactResourceRow(
                                     icon: "building.2.fill",
                                     iconColors: [Color(hex: "7C3AED"), Color(hex: "A78BFA")],
                                     title: "Organization Experiences",
-                                    subtitle: "Church, school & org contextual hubs"
+                                    subtitle: "Coming soon"
                                 )
+                                .opacity(0.5)
+                                .accessibilityLabel("Organization Experiences, coming soon")
                             }
-                            .disabled(true)
-                            .buttonStyle(ResourceCardPressStyle())
                         }
 
                         if featureFlags.gatheringsEnabled {
