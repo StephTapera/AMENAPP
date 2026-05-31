@@ -18,6 +18,7 @@ struct TipView: View {
     @StateObject private var vm = CreatorViewModel()
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var selectedAmount: Double = 3.0
     @State private var customAmount            = ""
@@ -51,7 +52,10 @@ struct TipView: View {
             }
             .navigationTitle("Support \(creatorName)")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            .toolbarBackground(
+                reduceTransparency ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated) : AnyShapeStyle(.ultraThinMaterial),
+                for: .navigationBar
+            )
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -66,6 +70,7 @@ struct TipView: View {
         }
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
+        .presentationCornerRadius(24)
         .preferredColorScheme(.dark)
     }
 
@@ -111,7 +116,9 @@ struct TipView: View {
                 .padding(14)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                        .fill(reduceTransparency
+                            ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                            : AnyShapeStyle(.ultraThinMaterial))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
@@ -125,7 +132,9 @@ struct TipView: View {
                     .padding(14)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(.ultraThinMaterial)
+                            .fill(reduceTransparency
+                                ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                : AnyShapeStyle(.ultraThinMaterial))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(Color.white.opacity(0.1), lineWidth: 1)

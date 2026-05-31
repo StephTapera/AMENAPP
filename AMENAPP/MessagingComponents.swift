@@ -613,6 +613,7 @@ struct NeumorphicSegmentedControl: View {
 
 struct ModernChatInputBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Binding var messageText: String
     @FocusState var isInputFocused: Bool
     @Binding var selectedImages: [UIImage]
@@ -733,12 +734,28 @@ struct ModernChatInputBar: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
             }
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.09), radius: 22, x: 0, y: -5)
-                    .shadow(color: .black.opacity(0.04), radius: 4,  x: 0, y: -1)
-            )
+            .background {
+                ZStack {
+                    if reduceTransparency {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(AmenTheme.Colors.backgroundElevated)
+                    } else {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.70), .white.opacity(0.18)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 0.75
+                            )
+                    }
+                }
+                .shadow(color: .black.opacity(0.09), radius: 22, x: 0, y: -5)
+                .shadow(color: .black.opacity(0.04), radius: 4,  x: 0, y: -1)
+            }
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
         }

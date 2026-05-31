@@ -13,6 +13,7 @@ struct SpotlightCard: View {
     let post: Post
     let explanation: String?
     
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @StateObject private var successChips = SuccessChipCenter()
     @State private var isPressed = false
     @State private var showPostDetail = false
@@ -313,36 +314,40 @@ struct SpotlightCard: View {
     
     private var darkFrostedCardBackground: some View {
         ZStack {
-            // Base frosted glass
+            // Base: adaptive glass or solid elevated background
             RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
-            
-            // Dark tinted overlay
-            RoundedRectangle(cornerRadius: 20)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.15),
-                            Color.white.opacity(0.08)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(.thinMaterial))
+
+            if !reduceTransparency {
+                // Dark tinted overlay
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.15),
+                                Color.white.opacity(0.08)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-            
-            // Subtle inner glow
-            RoundedRectangle(cornerRadius: 20)
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(0.05),
-                            Color.clear
-                        ],
-                        center: .topLeading,
-                        startRadius: 0,
-                        endRadius: 200
+
+                // Subtle inner glow
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .topLeading,
+                            startRadius: 0,
+                            endRadius: 200
+                        )
                     )
-                )
+            }
         }
     }
     

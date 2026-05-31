@@ -238,7 +238,13 @@ struct BereanVoiceCompanionView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(10)
-        .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
+        .background(Group {
+            if reduceTransparency {
+                Capsule().fill(AmenTheme.Colors.backgroundElevated)
+            } else {
+                Capsule().fill(.thinMaterial)
+            }
+        })
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.trailing, 4)
     }
@@ -253,7 +259,13 @@ struct BereanVoiceCompanionView: View {
                 .accessibilityLabel("Berean response")
         }
         .padding(10)
-        .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
+        .background(Group {
+            if reduceTransparency {
+                Capsule().fill(AmenTheme.Colors.backgroundElevated)
+            } else {
+                Capsule().fill(.thinMaterial)
+            }
+        })
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

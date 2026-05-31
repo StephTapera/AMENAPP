@@ -243,7 +243,12 @@ struct AmenAccessPassLandingView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(.ultraThinMaterial, in: Capsule())
+        .background(
+            Capsule()
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(.ultraThinMaterial))
+        )
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
     }
 
@@ -324,7 +329,12 @@ struct AmenAccessPassLandingView: View {
             TextField("Introduce yourself...", text: $requestMessage, axis: .vertical)
                 .lineLimit(3...6)
                 .padding(10)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(reduceTransparency
+                            ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                            : AnyShapeStyle(.ultraThinMaterial))
+                )
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
         }
         .padding(.top, 12)

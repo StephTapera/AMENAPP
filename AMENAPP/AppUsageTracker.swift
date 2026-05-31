@@ -255,234 +255,50 @@ class AppUsageTracker: ObservableObject {
 struct DailyLimitReachedDialog: View {
     @EnvironmentObject var tracker: AppUsageTracker
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    // Atmospheric orb animations — mirror the app's onboarding/Berean aesthetic
     @State private var orbLeft = false
     @State private var orbRight = false
+    @State private var cardAppeared = false
+    @State private var statsAppeared = false
+    @State private var verseIndex = 0
+    @State private var breakPressed = false
+    @State private var continuePressed = false
+
+    private let verses: [(quote: String, ref: String)] = [
+        ("Be still, and know that I am God", "Psalm 46:10"),
+        ("He gives strength to the weary and increases the power of the weak", "Isaiah 40:29"),
+        ("Come to me, all who are weary and burdened, and I will give you rest", "Matthew 11:28"),
+        ("He makes me lie down in green pastures; He leads me beside quiet waters", "Psalm 23:2"),
+    ]
+
+    private var usageRatio: Double {
+        guard tracker.dailyLimitMinutes > 0 else { return 0 }
+        return min(1.0, Double(tracker.snapshotUsageMinutes) / Double(tracker.dailyLimitMinutes))
+    }
+
+    private var arcColor: Color {
+        usageRatio >= 1.0 ? Color.amenPurple : (usageRatio >= 0.75 ? Color.amenGold : Color.amenBlue)
+    }
 
     var body: some View {
         ZStack {
-            // MARK: Backdrop — matches app's near-white atmospheric background
             Color(red: 0.949, green: 0.949, blue: 0.969)
                 .ignoresSafeArea()
 
-            // Atmospheric blobs (same palette as BereanOnboardingView)
-            ZStack {
-                // Bottom-left — warm red/coral
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(red: 1.0, green: 0.35, blue: 0.35).opacity(0.25),
-                                Color(red: 1.0, green: 0.45, blue: 0.30).opacity(0.10),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 220
-                        )
-                    )
-                    .frame(width: 440, height: 440)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                    .offset(x: -80, y: 100)
-                    .blur(radius: 70)
-                    .scaleEffect(orbLeft ? 1.06 : 1.0)
-                    .animation(.easeInOut(duration: 9).repeatForever(autoreverses: true), value: orbLeft)
-                    .allowsHitTesting(false)
+            atmosphericOrbs
 
-                // Bottom-right — violet/purple
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(red: 0.55, green: 0.35, blue: 1.0).opacity(0.20),
-                                Color(red: 0.40, green: 0.25, blue: 0.90).opacity(0.08),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 200
-                        )
-                    )
-                    .frame(width: 400, height: 400)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .offset(x: 80, y: 80)
-                    .blur(radius: 65)
-                    .scaleEffect(orbRight ? 1.05 : 1.0)
-                    .animation(.easeInOut(duration: 11).repeatForever(autoreverses: true), value: orbRight)
-                    .allowsHitTesting(false)
-            }
-            .ignoresSafeArea()
-
-            // MARK: Card content
             VStack(spacing: 0) {
                 Spacer()
-
-                VStack(spacing: 26) {
-                    // Icon — glass circle matching the app's icon treatment
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: 88, height: 88)
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.6),
-                                                Color.white.opacity(0.15)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                            )
-                            .shadow(color: .black.opacity(0.06), radius: 12, y: 6)
-
-                        Image(systemName: "clock.badge.exclamationmark.fill")
-                            .font(.systemScaled(36, weight: .light))
-                            .foregroundStyle(.black.opacity(0.65))
-                    }
-
-                    // Title
-                    Text("Time for a Break")
-                        .font(.systemScaled(30, weight: .light, design: .serif))
-                        .foregroundStyle(.primary)
-                        .tracking(0.3)
-
-                    // Message
-                    Text("You've spent **\(tracker.snapshotUsageMinutes) minutes** in the app today. We encourage a break to pray, reflect, or be with loved ones.")
-                        .font(.systemScaled(15, weight: .regular))
-                        .foregroundStyle(.black.opacity(0.65))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(5)
-                        .padding(.horizontal, 8)
-
-                    // Stats row — ultraThinMaterial pill
-                    HStack(spacing: 0) {
-                        VStack(spacing: 3) {
-                            Text("\(tracker.snapshotUsageMinutes)")
-                                .font(.systemScaled(26, weight: .thin, design: .rounded))
-                                .foregroundStyle(.primary)
-                            Text("Minutes Used")
-                                .font(.systemScaled(10, weight: .regular))
-                                .foregroundStyle(.black.opacity(0.45))
-                                .textCase(.uppercase)
-                                .tracking(0.6)
-                        }
-                        .frame(maxWidth: .infinity)
-
-                        Rectangle()
-                            .fill(Color.black.opacity(0.08))
-                            .frame(width: 1, height: 36)
-
-                        VStack(spacing: 3) {
-                            Text("\(tracker.dailyLimitMinutes)")
-                                .font(.systemScaled(26, weight: .thin, design: .rounded))
-                                .foregroundStyle(.primary)
-                            Text("Daily Limit")
-                                .font(.systemScaled(10, weight: .regular))
-                                .foregroundStyle(.black.opacity(0.45))
-                                .textCase(.uppercase)
-                                .tracking(0.6)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .padding(.vertical, 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18)
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.5),
-                                                Color.white.opacity(0.1)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                            )
+                cardContent
+                    .padding(.horizontal, 20)
+                    .scaleEffect(cardAppeared ? 1 : 0.93)
+                    .opacity(cardAppeared ? 1 : 0)
+                    .animation(
+                        reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.46, dampingFraction: 0.82),
+                        value: cardAppeared
                     )
-
-                    // Bible verse
-                    VStack(spacing: 5) {
-                        Text("\"Be still, and know that I am God\"")
-                            .font(.systemScaled(13, weight: .light, design: .serif))
-                            .foregroundStyle(.black.opacity(0.75))
-                            .italic()
-                        Text("Psalm 46:10")
-                            .font(.systemScaled(10, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.4))
-                            .textCase(.uppercase)
-                            .tracking(1.2)
-                    }
-
-                    // Buttons
-                    VStack(spacing: 10) {
-                        // Primary — Take a Break
-                        Button {
-                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                tracker.showLimitReachedDialog = false
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                if UIApplication.shared.connectedScenes.first is UIWindowScene {
-                                    UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
-                                }
-                            }
-                        } label: {
-                            Text("Take a Break")
-                                .font(.systemScaled(16, weight: .medium))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .fill(.black)
-                                )
-                        }
-
-                        // Secondary — Continue Anyway (ghost/glass style)
-                        Button {
-                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                tracker.showLimitReachedDialog = false
-                            }
-                        } label: {
-                            Text("Continue Anyway")
-                                .font(.systemScaled(15, weight: .regular))
-                                .foregroundStyle(.black.opacity(0.5))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                        }
-                    }
-                }
-                .padding(.horizontal, 28)
-                .padding(.vertical, 36)
-                .background(
-                    RoundedRectangle(cornerRadius: 28)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 28)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.7),
-                                            Color.white.opacity(0.2)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(color: .black.opacity(0.08), radius: 40, y: 16)
-                )
-                .padding(.horizontal, 20)
-
                 Spacer()
             }
         }
@@ -490,6 +306,341 @@ struct DailyLimitReachedDialog: View {
         .onAppear {
             orbLeft = true
             orbRight = true
+            withAnimation(reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.46, dampingFraction: 0.82)) {
+                cardAppeared = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                withAnimation(reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.5, dampingFraction: 0.84)) {
+                    statsAppeared = true
+                }
+            }
+            verseIndex = Calendar.current.component(.minute, from: Date()) % verses.count
         }
+    }
+
+    // MARK: Card
+
+    private var cardContent: some View {
+        VStack(spacing: 26) {
+            iconWithArc
+                .opacity(cardAppeared ? 1 : 0)
+                .offset(y: cardAppeared ? 0 : 8)
+                .animation(
+                    reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.44, dampingFraction: 0.84).delay(0.06),
+                    value: cardAppeared
+                )
+
+            titleBlock
+                .opacity(cardAppeared ? 1 : 0)
+                .offset(y: cardAppeared ? 0 : 8)
+                .animation(
+                    reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.44, dampingFraction: 0.84).delay(0.10),
+                    value: cardAppeared
+                )
+
+            statsPill
+                .opacity(statsAppeared ? 1 : 0)
+                .scaleEffect(statsAppeared ? 1 : 0.94)
+                .animation(
+                    reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.44, dampingFraction: 0.84),
+                    value: statsAppeared
+                )
+
+            verseQuote
+                .opacity(statsAppeared ? 1 : 0)
+                .animation(.easeOut(duration: 0.3).delay(0.05), value: statsAppeared)
+
+            actionButtons
+                .opacity(statsAppeared ? 1 : 0)
+                .offset(y: statsAppeared ? 0 : 6)
+                .animation(
+                    reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.44, dampingFraction: 0.84).delay(0.08),
+                    value: statsAppeared
+                )
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 36)
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+            if reduceTransparency {
+                shape.fill(Color.white)
+                    .overlay(shape.strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+            } else {
+                shape.fill(.thinMaterial)
+                    .overlay(shape.fill(Color.white.opacity(0.14)))
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.48), lineWidth: 0.8))
+                    .overlay(
+                        shape.stroke(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.28), Color.white.opacity(0.02), Color.black.opacity(0.04)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                        .blendMode(.screen)
+                        .allowsHitTesting(false)
+                    )
+            }
+        }
+        .saturation(reduceTransparency ? 1 : 1.08)
+        .shadow(color: .black.opacity(0.10), radius: 40, y: 16)
+    }
+
+    // MARK: Icon with Progress Arc
+
+    private var iconWithArc: some View {
+        ZStack {
+            // Soft glow behind arc
+            Circle()
+                .fill(arcColor.opacity(0.12))
+                .frame(width: 112, height: 112)
+                .blur(radius: 18)
+                .allowsHitTesting(false)
+
+            // Track ring
+            Circle()
+                .stroke(Color.black.opacity(0.07), lineWidth: 4)
+                .frame(width: 92, height: 92)
+
+            // Progress arc — animates from 0 when stats appear
+            Circle()
+                .trim(from: 0, to: statsAppeared ? usageRatio : 0)
+                .stroke(arcColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .frame(width: 92, height: 92)
+                .rotationEffect(.degrees(-90))
+                .animation(
+                    reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.72, dampingFraction: 0.82),
+                    value: statsAppeared
+                )
+
+            // Glass icon circle
+            ZStack {
+                if reduceTransparency {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 72, height: 72)
+                } else {
+                    Circle()
+                        .fill(.thinMaterial)
+                        .frame(width: 72, height: 72)
+                        .overlay(Circle().fill(Color.white.opacity(0.18)))
+                }
+
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.52), lineWidth: 0.8)
+                    .frame(width: 72, height: 72)
+
+                Image(systemName: "clock.badge.exclamationmark.fill")
+                    .font(.systemScaled(30, weight: .light))
+                    .foregroundStyle(arcColor)
+            }
+            .shadow(color: arcColor.opacity(0.20), radius: 14, y: 6)
+        }
+    }
+
+    // MARK: Title Block
+
+    private var titleBlock: some View {
+        VStack(spacing: 10) {
+            Text("Time for a Break")
+                .font(.systemScaled(30, weight: .light, design: .serif))
+                .foregroundStyle(.primary)
+                .tracking(0.3)
+                .accessibilityAddTraits(.isHeader)
+
+            Text("You've spent **\(tracker.snapshotUsageMinutes) minutes** in the app today. We encourage a break to pray, reflect, or be with loved ones.")
+                .font(.systemScaled(15, weight: .regular))
+                .foregroundStyle(.black.opacity(0.62))
+                .multilineTextAlignment(.center)
+                .lineSpacing(5)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    // MARK: Stats Pill
+
+    private var statsPill: some View {
+        HStack(spacing: 0) {
+            statCell(value: "\(tracker.snapshotUsageMinutes)", label: "Minutes Used", accent: arcColor)
+
+            Rectangle()
+                .fill(Color.black.opacity(0.08))
+                .frame(width: 1, height: 36)
+
+            statCell(value: "\(tracker.dailyLimitMinutes)", label: "Daily Limit", accent: Color.amenGold)
+        }
+        .padding(.vertical, 18)
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+            if reduceTransparency {
+                shape.fill(Color(.secondarySystemBackground))
+                    .overlay(shape.strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+            } else {
+                shape.fill(.ultraThinMaterial)
+                    .overlay(shape.fill(Color.white.opacity(0.12)))
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.40), lineWidth: 0.8))
+            }
+        }
+    }
+
+    private func statCell(value: String, label: String, accent: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.systemScaled(28, weight: .thin, design: .rounded))
+                .foregroundStyle(accent)
+            Text(label)
+                .font(.systemScaled(10, weight: .regular))
+                .foregroundStyle(.black.opacity(0.45))
+                .textCase(.uppercase)
+                .tracking(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value) minutes")
+    }
+
+    // MARK: Verse Quote
+
+    private var verseQuote: some View {
+        let verse = verses[verseIndex]
+        return VStack(spacing: 5) {
+            Text("\"\(verse.quote)\"")
+                .font(.systemScaled(13, weight: .light, design: .serif))
+                .foregroundStyle(.black.opacity(0.72))
+                .italic()
+                .multilineTextAlignment(.center)
+            Text(verse.ref)
+                .font(.systemScaled(10, weight: .regular))
+                .foregroundStyle(.black.opacity(0.38))
+                .textCase(.uppercase)
+                .tracking(1.2)
+        }
+        .padding(.horizontal, 8)
+    }
+
+    // MARK: Action Buttons
+
+    private var actionButtons: some View {
+        VStack(spacing: 10) {
+            // Primary — gradient amenBlack→amenPurple pill
+            Button {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    tracker.showLimitReachedDialog = false
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    if UIApplication.shared.connectedScenes.first is UIWindowScene {
+                        UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
+                    }
+                }
+            } label: {
+                Text("Take a Break")
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(red: 0.06, green: 0.06, blue: 0.07), Color.amenPurple.opacity(0.90)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .shadow(color: Color.amenPurple.opacity(0.25), radius: 12, y: 5)
+                    )
+                    .scaleEffect(breakPressed ? 0.97 : 1.0)
+                    .animation(
+                        reduceMotion ? .easeOut(duration: 0.1) : .spring(response: 0.28, dampingFraction: 0.82),
+                        value: breakPressed
+                    )
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in breakPressed = true }
+                    .onEnded { _ in breakPressed = false }
+            )
+            .accessibilityLabel("Take a Break")
+
+            // Secondary — ghost glass pill
+            Button {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    tracker.showLimitReachedDialog = false
+                }
+            } label: {
+                Text("Continue Anyway")
+                    .font(.systemScaled(15, weight: .regular))
+                    .foregroundStyle(.black.opacity(0.52))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background {
+                        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        if reduceTransparency {
+                            shape.fill(Color(.secondarySystemBackground))
+                                .overlay(shape.strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+                        } else {
+                            shape.fill(.ultraThinMaterial)
+                                .overlay(shape.fill(Color.white.opacity(0.10)))
+                                .overlay(shape.strokeBorder(Color.white.opacity(0.38), lineWidth: 0.8))
+                        }
+                    }
+                    .scaleEffect(continuePressed ? 0.97 : 1.0)
+                    .animation(
+                        reduceMotion ? .easeOut(duration: 0.1) : .spring(response: 0.28, dampingFraction: 0.82),
+                        value: continuePressed
+                    )
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in continuePressed = true }
+                    .onEnded { _ in continuePressed = false }
+            )
+            .accessibilityLabel("Continue Anyway")
+        }
+    }
+
+    // MARK: Atmospheric Orbs
+
+    @ViewBuilder
+    private var atmosphericOrbs: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.amenPurple.opacity(0.22), Color.amenPurple.opacity(0.08), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 220
+                    )
+                )
+                .frame(width: 440, height: 440)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .offset(x: -80, y: 100)
+                .blur(radius: 70)
+                .scaleEffect(orbLeft ? 1.06 : 1.0)
+                .animation(.easeInOut(duration: 9).repeatForever(autoreverses: true), value: orbLeft)
+                .allowsHitTesting(false)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.amenGold.opacity(0.18), Color.amenGold.opacity(0.06), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 200
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .offset(x: 80, y: 80)
+                .blur(radius: 65)
+                .scaleEffect(orbRight ? 1.05 : 1.0)
+                .animation(.easeInOut(duration: 11).repeatForever(autoreverses: true), value: orbRight)
+                .allowsHitTesting(false)
+        }
+        .ignoresSafeArea()
     }
 }

@@ -144,6 +144,7 @@ struct FaithReelStudioView: View {
 
 private struct FaithReelMainCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     let icon: String
     let iconColor: Color
     let title: String
@@ -162,7 +163,9 @@ private struct FaithReelMainCard: View {
         }) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.04))
+                    .fill(reduceTransparency
+                        ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                        : AnyShapeStyle(.thinMaterial))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)

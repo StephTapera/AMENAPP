@@ -33,6 +33,7 @@ private enum SD {
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @EnvironmentObject private var authViewModel: AuthenticationViewModel
 
     @State private var showSignOutConfirmation = false
@@ -210,7 +211,9 @@ struct SettingsView: View {
                     } label: {
                         ZStack {
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(reduceTransparency
+                                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                    : AnyShapeStyle(.ultraThinMaterial))
                                 .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
                                 .frame(width: 30, height: 30)
                             Image(systemName: "xmark")
@@ -413,7 +416,9 @@ struct SettingsView: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
-                .fill(.thinMaterial)
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(.thinMaterial))
                 .overlay {
                     RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.6)
@@ -434,7 +439,9 @@ struct SettingsView: View {
         }()
         return ZStack {
             Circle()
-                .fill(.thinMaterial)
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(.thinMaterial))
                 .frame(width: 52, height: 52)
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.20), lineWidth: 0.6))
             Text(initials)
@@ -460,6 +467,7 @@ struct SettingsView: View {
 
 struct SDGroup<Content: View>: View {
     @ViewBuilder let content: () -> Content
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(spacing: 0) {
@@ -467,7 +475,9 @@ struct SDGroup<Content: View>: View {
         }
         .background(
             RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
-                .fill(.thinMaterial)
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(.thinMaterial))
                 .overlay {
                     RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.6)

@@ -12,6 +12,7 @@ struct AmenSyncStudioView: View {
     let intent: SyncIntent
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var activeTab: SyncStudioTab = .compose
     @State private var showPlatformPicker = false
@@ -529,7 +530,15 @@ struct AmenSyncStudioView: View {
                 }
             }
             .padding(.vertical, 12)
-            .background(.regularMaterial)
+            .background(Group {
+                if reduceTransparency {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(AmenTheme.Colors.backgroundElevated)
+                } else {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(.regularMaterial)
+                }
+            })
         }
     }
 }

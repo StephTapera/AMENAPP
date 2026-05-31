@@ -174,6 +174,7 @@ struct ChurchLiveModeView: View {
 
     @StateObject private var vm = ChurchLiveModeViewModel()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var showPrayerQueue: Bool = false
     @State private var showEndConfirm: Bool = false
     @State private var messageText: String = ""
@@ -316,8 +317,13 @@ struct ChurchLiveModeView: View {
                         .monospacedDigit()
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Capsule())
+                        .background(Group {
+                            if reduceTransparency {
+                                Capsule().fill(Color.black.opacity(0.75))
+                            } else {
+                                Capsule().fill(.ultraThinMaterial)
+                            }
+                        })
                 }
             }
             .padding(.horizontal, 16)
@@ -353,8 +359,13 @@ struct ChurchLiveModeView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Capsule())
+                        .background(Group {
+                            if reduceTransparency {
+                                Capsule().fill(Color.black.opacity(0.65))
+                            } else {
+                                Capsule().fill(.ultraThinMaterial)
+                            }
+                        })
                 }
 
                 // End Live button
@@ -372,7 +383,7 @@ struct ChurchLiveModeView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(.ultraThinMaterial)
+            .background(reduceTransparency ? AnyShapeStyle(Color.black.opacity(0.85)) : AnyShapeStyle(.ultraThinMaterial))
 
             Spacer()
         }
@@ -394,8 +405,14 @@ struct ChurchLiveModeView: View {
                             .font(.systemScaled(22))
                             .foregroundColor(.white)
                             .frame(width: 52, height: 52)
-                            .background(.ultraThinMaterial)
-                            .background(Color.white.opacity(0.12))
+                            .background(Group {
+                                if reduceTransparency {
+                                    Circle().fill(Color.black.opacity(0.75))
+                                } else {
+                                    Circle().fill(.ultraThinMaterial)
+                                        .overlay(Circle().fill(Color.white.opacity(0.12)))
+                                }
+                            })
                             .clipShape(Circle())
                             .shadow(color: .black.opacity(0.18), radius: 12, x: 0, y: 4)
 
@@ -443,7 +460,7 @@ struct ChurchLiveModeView: View {
                         }
                     }
                 }
-                .background(.ultraThinMaterial)
+                .background(reduceTransparency ? AnyShapeStyle(Color.black.opacity(0.85)) : AnyShapeStyle(.ultraThinMaterial))
 
                 Divider().background(Color.white.opacity(0.12))
 
@@ -460,7 +477,7 @@ struct ChurchLiveModeView: View {
                 }
                 .frame(height: 260)
             }
-            .background(.ultraThinMaterial)
+            .background(reduceTransparency ? AnyShapeStyle(Color.black.opacity(0.9)) : AnyShapeStyle(.ultraThinMaterial))
             .background(Color.black.opacity(0.55))
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(

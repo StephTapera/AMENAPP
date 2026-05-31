@@ -104,6 +104,7 @@ private struct GlassSection<Content: View>: View {
     let title: String
     let icon: String
     @ViewBuilder let content: Content
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -116,7 +117,9 @@ private struct GlassSection<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(.ultraThinMaterial))
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5)
@@ -135,6 +138,7 @@ struct MissedMessageBadge: View {
     let groupId: String
 
     @State private var showCatchUp = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         Button {
@@ -150,7 +154,9 @@ struct MissedMessageBadge: View {
             .padding(.vertical, 6)
             .background {
                 Capsule()
-                    .fill(.ultraThinMaterial)
+                    .fill(reduceTransparency
+                        ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                        : AnyShapeStyle(.ultraThinMaterial))
                     .overlay {
                         Capsule()
                             .strokeBorder(AmenTheme.Colors.accentPrimary.opacity(0.35), lineWidth: 0.5)

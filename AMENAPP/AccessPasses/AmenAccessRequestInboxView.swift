@@ -14,6 +14,7 @@ struct AmenAccessRequestInboxView: View {
     @State private var isLoading = false
     @State private var error: String?
     @State private var filter: AmenAccessRequestStatus? = .pending
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var filteredRequests: [AmenAccessRequest] {
         guard let filter else { return requests }
@@ -83,7 +84,11 @@ struct AmenAccessRequestInboxView: View {
         .padding(.vertical, 6)
         .background {
             Capsule()
-                .fill(isSelected ? AnyShapeStyle(Color.primary) : AnyShapeStyle(.ultraThinMaterial))
+                .fill(isSelected
+                    ? AnyShapeStyle(Color.primary)
+                    : (reduceTransparency
+                        ? AnyShapeStyle(Color(.systemFill))
+                        : AnyShapeStyle(.ultraThinMaterial)))
         }
         .overlay(isSelected ? nil : Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
         .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
@@ -128,12 +133,15 @@ private struct RequestDetailRow: View {
     let request: AmenAccessRequest
     var onApprove: () -> Void
     var onDeny: () -> Void
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .fill(reduceTransparency
+                        ? AnyShapeStyle(Color(.systemFill))
+                        : AnyShapeStyle(.ultraThinMaterial))
                     .frame(width: 40, height: 40)
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
                     .overlay(

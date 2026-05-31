@@ -12,6 +12,7 @@ struct VergeCreateRoomSheet: View {
     @ObservedObject var vm: VergeViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     // Form state
     @State private var title           = ""
@@ -333,12 +334,16 @@ struct VergeCreateRoomSheet: View {
     }
 
     private var glassFieldBackground: some ShapeStyle {
-        AnyShapeStyle(.ultraThinMaterial)
+        reduceTransparency
+            ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+            : AnyShapeStyle(.ultraThinMaterial)
     }
 
     private var glassCardBackground: some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(.ultraThinMaterial)
+            .fill(reduceTransparency
+                ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                : AnyShapeStyle(.regularMaterial))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(Color.white.opacity(0.07), lineWidth: 0.5)

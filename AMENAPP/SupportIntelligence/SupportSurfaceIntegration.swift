@@ -280,6 +280,8 @@ struct SupportChipsRowView: View {
     let onTap: (SupportAction) -> Void
     let onDismiss: (() -> Void)?
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -294,7 +296,9 @@ struct SupportChipsRowView: View {
                             .padding(.vertical, 8)
                             .background(
                                 Capsule()
-                                    .fill(AmenTheme.Colors.surfaceGrouped)
+                                    .fill(reduceTransparency
+                                        ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                        : AnyShapeStyle(.ultraThinMaterial))
                                     .overlay(
                                         Capsule()
                                             .stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.8)

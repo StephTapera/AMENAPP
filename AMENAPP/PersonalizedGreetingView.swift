@@ -11,6 +11,7 @@ struct PersonalizedGreetingView: View {
     @ObservedObject private var greetingService = GreetingService.shared
     @ObservedObject private var userService = UserService.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     
     @State private var appeared = false
     
@@ -136,24 +137,28 @@ struct PersonalizedGreetingView: View {
     
     private var greetingBackground: some View {
         ZStack {
-            // Base white background
+            // Base: adaptive glass or solid elevated background
             Rectangle()
-                .fill(Color.white)
-            
-            // Subtle liquid glass effect
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.5),
-                            Color.white.opacity(0.2)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(.ultraThinMaterial))
+
+            if !reduceTransparency {
+                // Subtle liquid glass shimmer overlay
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.5),
+                                Color.white.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .blur(radius: 20)
-            
+                    .blur(radius: 20)
+            }
+
             // Subtle border
             VStack {
                 Spacer()

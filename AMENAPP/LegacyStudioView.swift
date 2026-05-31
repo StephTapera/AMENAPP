@@ -176,6 +176,7 @@ final class LegacyStudioViewModel: ObservableObject {
 
 struct LegacyStudioView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @StateObject private var vm = LegacyStudioViewModel()
 
     enum LegacyTab: String, CaseIterable {
@@ -241,7 +242,12 @@ struct LegacyStudioView: View {
                     .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(10)
-                    .background(Circle().fill(.ultraThinMaterial))
+                    .background(
+                        Circle()
+                            .fill(reduceTransparency
+                                ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                : AnyShapeStyle(.ultraThinMaterial))
+                    )
             }
             .buttonStyle(.plain)
 

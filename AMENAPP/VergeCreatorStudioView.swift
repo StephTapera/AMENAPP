@@ -14,6 +14,7 @@ struct VergeCreatorStudioView: View {
     @ObservedObject var vm: VergeViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var subscriptionPriceText = ""
     @State private var tipsEnabled           = true
@@ -389,7 +390,9 @@ struct VergeCreatorStudioView: View {
 
     private var glassCard: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(.ultraThinMaterial)
+            .fill(reduceTransparency
+                ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                : AnyShapeStyle(.ultraThinMaterial))
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(Color.white.opacity(0.08), lineWidth: 0.5)

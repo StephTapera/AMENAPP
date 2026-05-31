@@ -6,6 +6,7 @@ struct AmenCreatorKitHome: View {
     @State private var showBerean = false
     @State private var bereanQuery: String = ""
     @State private var showVoice = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(spacing: 12) {
