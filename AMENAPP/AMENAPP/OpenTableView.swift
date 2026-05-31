@@ -213,7 +213,7 @@ struct OpenTableView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .amenGlassCard(cornerRadius: 12, shadow: false)
                         .padding(.horizontal, 20)
                         .padding(.top, 16)
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -456,7 +456,7 @@ struct OpenTableView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .amenGlassCard(cornerRadius: 12, shadow: false)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(AmenTheme.Colors.amenGold.opacity(0.25), lineWidth: 1)
