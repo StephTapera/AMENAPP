@@ -68,7 +68,8 @@ struct ClusterAnnotationView: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(reduceTransparency ? Color(uiColor: .systemBackground) : .ultraThinMaterial)
+                .fill(Color(uiColor: .systemBackground).opacity(reduceTransparency ? 1 : 0))
+                .background(.ultraThinMaterial, in: Circle())
                 .frame(width: 40, height: 40)
                 .overlay(
                     Circle()
