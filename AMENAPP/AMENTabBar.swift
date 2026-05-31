@@ -30,59 +30,41 @@ struct LiquidGlassTabBarBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        capsuleSurface
-            .overlay { Capsule(style: .continuous).fill(innerSheen) }
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(refractionStroke, lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.8)
-            }
-            .overlay(alignment: .topLeading) {
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.white.opacity(reduceTransparency ? 0.5 : 0.7), lineWidth: 1)
-                    .blur(radius: 0.4)
-                    .mask(LinearGradient(colors: [.white, .clear, .clear],
-                                        startPoint: .topLeading, endPoint: .bottomTrailing))
-            }
-            .drawingGroup()  // Rasterize multi-layer glass into single GPU layer; prevents per-frame re-compositing on scroll
-            .shadow(color: .black.opacity(reduceTransparency ? 0.10 : 0.16),
-                    radius: isCompressed ? 12 : 20, x: 0, y: isCompressed ? 5 : 11)
-    }
-
-    private var innerSheen: Color {
-        if reduceTransparency {
-            return colorScheme == .dark ? Color.white.opacity(0.04) : Color.white.opacity(0.10)
-        }
-        return colorScheme == .dark ? Color.white.opacity(0.06) : Color.white.opacity(0.14)
-    }
-
-    private var refractionStroke: LinearGradient {
-        if colorSchemeContrast == .increased {
-            return LinearGradient(colors: [Color.white.opacity(0.85), Color.white.opacity(0.4), Color.white.opacity(0.7)],
-                                  startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-        return LinearGradient(
-            colors: [
-                Color.white.opacity(reduceTransparency ? 0.6 : 0.8),
-                Color.cyan.opacity(reduceTransparency ? 0.08 : 0.16),
-                Color.pink.opacity(reduceTransparency ? 0.06 : 0.14),
-                Color.white.opacity(reduceTransparency ? 0.45 : 0.6)
-            ],
-            startPoint: .topLeading, endPoint: .bottomTrailing
-        )
-    }
-
-    @ViewBuilder
-    private var capsuleSurface: some View {
-        if reduceTransparency {
-            Capsule(style: .continuous)
-                .fill(colorScheme == .dark ? Color(white: 0.14) : Color(white: 0.97))
-        } else if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !reduceTransparency {
+            // Real Liquid Glass: let the system handle refraction — no extra overlay layers.
             Capsule(style: .continuous)
                 .fill(Color.clear)
                 .glassEffect(Glass.regular.interactive(), in: Capsule(style: .continuous))
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(Color.white.opacity(colorSchemeContrast == .increased ? 0.6 : 0.35),
+                                      lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.5)
+                }
+                .shadow(color: .black.opacity(0.14), radius: isCompressed ? 12 : 20,
+                        x: 0, y: isCompressed ? 5 : 11)
         } else {
-            Capsule(style: .continuous).fill(.ultraThinMaterial)
+            // Pre-iOS 26 / Reduce Transparency: multi-layer rasterised fallback.
+            Capsule(style: .continuous)
+                .fill(solidFill)
+                .overlay {
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.10))
+                }
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(Color.white.opacity(colorSchemeContrast == .increased ? 0.7 : 0.45),
+                                      lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.6)
+                }
+                .drawingGroup()
+                .shadow(color: .black.opacity(reduceTransparency ? 0.10 : 0.16),
+                        radius: isCompressed ? 12 : 20, x: 0, y: isCompressed ? 5 : 11)
         }
+    }
+
+    private var solidFill: Color {
+        reduceTransparency
+            ? (colorScheme == .dark ? Color(white: 0.14) : Color(white: 0.97))
+            : (colorScheme == .dark ? Color(white: 0.16).opacity(0.92) : Color(white: 0.96).opacity(0.88))
     }
 }
 
@@ -96,31 +78,39 @@ struct LiquidGlassOrbBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        surface
-            .overlay { Circle().fill(Color.white.opacity(reduceTransparency ? 0.06 : 0.14)) }
-            .overlay {
-                Circle().strokeBorder(
-                    colorSchemeContrast == .increased ? Color.white.opacity(0.85) : Color.white.opacity(0.6),
-                    lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.8
-                )
-            }
-            .shadow(color: .black.opacity(reduceTransparency ? 0.10 : 0.16),
-                    radius: isCompressed ? 9 : 14, x: 0, y: isCompressed ? 3 : 7)
+        if #available(iOS 26.0, *), !reduceTransparency {
+            Circle()
+                .fill(Color.clear)
+                .glassEffect(Glass.regular.interactive(), in: Circle())
+                .overlay {
+                    Circle().strokeBorder(Color.white.opacity(colorSchemeContrast == .increased ? 0.6 : 0.35),
+                                          lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.5)
+                }
+                .shadow(color: .black.opacity(0.14), radius: isCompressed ? 9 : 14,
+                        x: 0, y: isCompressed ? 3 : 7)
+        } else {
+            Circle()
+                .fill(solidFill)
+                .overlay { Circle().fill(Color.white.opacity(0.10)) }
+                .overlay {
+                    Circle().strokeBorder(Color.white.opacity(colorSchemeContrast == .increased ? 0.7 : 0.45),
+                                          lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.6)
+                }
+                .shadow(color: .black.opacity(reduceTransparency ? 0.10 : 0.16),
+                        radius: isCompressed ? 9 : 14, x: 0, y: isCompressed ? 3 : 7)
+        }
     }
 
-    @ViewBuilder
-    private var surface: some View {
-        if reduceTransparency {
-            Circle().fill(colorScheme == .dark ? Color(white: 0.16) : Color(white: 0.97))
-        } else if #available(iOS 26.0, *) {
-            Circle().fill(Color.clear).glassEffect(Glass.regular.interactive(), in: Circle())
-        } else {
-            Circle().fill(.ultraThinMaterial)
-        }
+    private var solidFill: Color {
+        reduceTransparency
+            ? (colorScheme == .dark ? Color(white: 0.16) : Color(white: 0.97))
+            : (colorScheme == .dark ? Color(white: 0.16).opacity(0.92) : Color(white: 0.96).opacity(0.88))
     }
 }
 
-// MARK: - Selection Pill (frosted glass lift behind the active center tab)
+// MARK: - Selection Pill (solid elevated surface behind the active center tab)
+// Solid fill — not glass-on-glass. Glass cannot sample other glass; a solid
+// lifted surface (like Threads) reads cleanly inside the glass bar.
 
 struct LiquidGlassActiveTabCapsule: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -128,55 +118,15 @@ struct LiquidGlassActiveTabCapsule: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        if #available(iOS 26.0, *), !reduceTransparency {
-            Capsule(style: .continuous)
-                .fill(Color.clear)
-                .glassEffect(Glass.regular, in: Capsule(style: .continuous))
-                .overlay {
-                    Capsule(style: .continuous)
-                        .strokeBorder(pillStroke, lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.9)
-                }
-                // Pattern 10: specular top-edge highlight
-                .overlay(alignment: .top) {
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(reduceTransparency ? 0.55 : 0.38))
-                        .frame(height: 1.5)
-                        .padding(.horizontal, 8)
-                        .padding(.top, 2)
-                        .blendMode(.plusLighter)
-                }
-                .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
-        } else {
-            Capsule(style: .continuous)
-                .fill(colorScheme == .dark ? Color.white.opacity(0.16) : Color.black.opacity(0.06))
-                .overlay {
-                    Capsule(style: .continuous)
-                        .strokeBorder(
-                            colorScheme == .dark ? Color.white.opacity(0.22) : Color.black.opacity(0.05),
-                            lineWidth: colorSchemeContrast == .increased ? 1.0 : 0.6
-                        )
-                }
-                // Pattern 10: specular top-edge highlight (fallback)
-                .overlay(alignment: .top) {
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.30))
-                        .frame(height: 1.5)
-                        .padding(.horizontal, 8)
-                        .padding(.top, 2)
-                }
-        }
+        Capsule(style: .continuous)
+            .fill(selectionFill)
+            .shadow(color: .black.opacity(0.10), radius: 4, x: 0, y: 2)
     }
 
-    private var pillStroke: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.white.opacity(0.72),
-                Color.white.opacity(0.30),
-                Color.white.opacity(0.55)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+    private var selectionFill: Color {
+        colorScheme == .dark
+            ? Color(white: colorSchemeContrast == .increased ? 0.32 : 0.26)
+            : Color(white: colorSchemeContrast == .increased ? 0.84 : 0.90)
     }
 }
 
