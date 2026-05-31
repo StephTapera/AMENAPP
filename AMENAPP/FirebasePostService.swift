@@ -802,11 +802,17 @@ class FirebasePostService: ObservableObject {
             }
         }()
         
-        // 🚀 STEP 2: Create optimistic post object with temporary ID
+        // RQ-12 FIX: Pre-create the Firestore document reference so that the local
+        // optimistic-insert ID and the Firestore document ID are always the same string.
+        // Using addDocument(data:) would generate the ID server-side AFTER the optimistic
+        // insert, making dedup keys diverge and producing a duplicate post in the feed.
+        let docRef = db.collection(FirebaseManager.CollectionPath.posts).document()
+
+        // 🚀 STEP 2: Create optimistic post object with pre-assigned Firestore doc ID
         let tempId = UUID()
         var optimisticPost = Post(
             id: tempId,
-            firebaseId: nil,
+            firebaseId: docRef.documentID,
             authorId: userId,
             authorName: displayName,
             authorUsername: username,
@@ -882,7 +888,9 @@ class FirebasePostService: ObservableObject {
         )
         
         // Background save - don't wait for it
-        let _db = db
+        // RQ-12: _docRef is the pre-created reference; use setData (not addDocument)
+        // so the document ID matches the one already set on the optimistic post's firebaseId.
+        let _docRef = docRef
         let _idempotencyKey = idempotencyKey
         Task(priority: .userInitiated) { @MainActor in
             do {
@@ -943,12 +951,15 @@ class FirebasePostService: ObservableObject {
                 defer { PerfEnd(_writeToken, threshold: 500) }
                 let _traceToken = WriteOpTracer.begin("createPost", key: _idempotencyKey)
                 Breadcrumb.record("createPost_write_start")
-                let docRef = try await _db.collection(FirebaseManager.CollectionPath.posts)
-                    .addDocument(data: postData)
-                WriteOpTracer.succeed(_traceToken, docId: docRef.documentID)
+                // RQ-12: Use the pre-created _docRef (not addDocument) so the Firestore
+                // document ID matches the one already set on the optimistic post's firebaseId.
+                // This ensures dedup keys (post.firebaseId) agree across the optimistic entry
+                // and any Firestore-listener-delivered copy, eliminating duplicate feed rows.
+                try await _docRef.setData(postData)
+                WriteOpTracer.succeed(_traceToken, docId: _docRef.documentID)
                 
                 #if DEBUG
-                dlog("✅ Post saved to Firestore: \(docRef.documentID)")
+                dlog("✅ Post saved to Firestore: \(_docRef.documentID)")
                 #endif
 
                 // Write moderation audit log entry (non-blocking)
@@ -968,7 +979,7 @@ class FirebasePostService: ObservableObject {
                     )
                     ModerationAuditLogService.shared.recordPostDecision(
                         userId: userId,
-                        postId: docRef.documentID,
+                        postId: _docRef.documentID,
                         content: content,
                         decision: allowDecision
                     )
@@ -979,7 +990,7 @@ class FirebasePostService: ObservableObject {
 
                 let confirmedPost = Post(
                     id: tempId,
-                    firebaseId: docRef.documentID,
+                    firebaseId: _docRef.documentID,
                     authorId: userId,
                     authorName: displayName,
                     authorUsername: username,
@@ -1016,7 +1027,7 @@ class FirebasePostService: ObservableObject {
                             "isOptimistic": false
                         ]
                     )
-                    dlog("📬 Sent newPostCreated notification for post: \(docRef.documentID)")
+                    dlog("📬 Sent newPostCreated notification for post: \(_docRef.documentID)")
                 }
                 
                 // Update user's post count (background)
@@ -1032,7 +1043,7 @@ class FirebasePostService: ObservableObject {
                 // Create mention notifications (background)
                 Task {
                     try? await self.createMentionNotifications(
-                        postId: docRef.documentID,
+                        postId: _docRef.documentID,
                         postContent: content,
                         fromUserId: userId
                     )

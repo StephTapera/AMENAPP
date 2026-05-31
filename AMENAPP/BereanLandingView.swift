@@ -67,8 +67,10 @@ struct BereanLandingView: View {
     @State private var greeting: BereanGreeting = BereanGreetingManager.greeting()
     @State private var hasAnimatedThisSession = false
 
-    // AI consent gate — mirrors BereanVoiceCompanionView:305 pattern
-    @State private var hasAIConsent: Bool = false
+    // AI consent gate — live observation mirrors BereanVoiceCompanionView:305 pattern.
+    // @ObservedObject ensures the view re-renders immediately if consent is granted or
+    // revoked while BereanLandingView is already on screen (e.g. from Settings).
+    @ObservedObject private var consentStore = AmenAIConsentStore.shared
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -145,7 +147,7 @@ struct BereanLandingView: View {
             VStack(spacing: 10) {
 
                 // AI consent banner — shown when consent has not been granted
-                if !hasAIConsent {
+                if !consentStore.hasConsent(for: .bereanQuickAnswer) {
                     HStack(spacing: 8) {
                         Image(systemName: "hand.raised.fill")
                             .font(.systemScaled(13, weight: .medium))
@@ -174,7 +176,7 @@ struct BereanLandingView: View {
                     HStack(spacing: 8) {
                         ForEach(quickChips, id: \.label) { chip in
                             Button {
-                                guard hasAIConsent else { return }
+                                guard consentStore.hasConsent(for: .bereanQuickAnswer) else { return }
                                 onInputSubmit(chip.prompt)
                                 inputText = ""
                                 inputFocused = false
@@ -210,26 +212,26 @@ struct BereanLandingView: View {
                     text: $inputText,
                     isFocused: $inputFocused,
                     onSubmit: {
-                        guard hasAIConsent else { return }
+                        guard consentStore.hasConsent(for: .bereanQuickAnswer) else { return }
                         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                         onInputSubmit(inputText)
                         inputText = ""
                     },
-                    onVoiceTap: hasAIConsent ? onVoiceTap : nil,
+                    onVoiceTap: consentStore.hasConsent(for: .bereanQuickAnswer) ? onVoiceTap : nil,
                     onFocusChange: { focused in
                         withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.82))) {
                             suggestionsVisible = focused
                         }
                     }
                 )
-                .disabled(!hasAIConsent)
+                .disabled(!consentStore.hasConsent(for: .bereanQuickAnswer))
                 .padding(.horizontal, 16)
             }
             .padding(.bottom, 16)
         }
         .onAppear {
             greeting = BereanGreetingManager.greeting()
-            hasAIConsent = AmenAIConsentStore.shared.hasConsent(for: .bereanQuickAnswer)
+            // Consent is read live from consentStore (@ObservedObject); no snapshot needed.
             if reduceMotion {
                 hasAnimatedThisSession = true
                 statusCardVisible = true

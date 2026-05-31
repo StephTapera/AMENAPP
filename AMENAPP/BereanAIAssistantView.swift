@@ -249,6 +249,12 @@ struct BereanAIAssistantView: View {
     @State private var inputBarExpanded = false    // true when user has typed text
     @State private var shimmerOffset: CGFloat = -1 // animates 0→1 for the searching shimmer
     @State private var inputPulseOn = false        // breathing border pulse when idle
+
+    // ── Crisis safety banner (RQ-11) ──────────────────────────────────────
+    // Set to true when the user's message contains crisis signals.
+    // The banner persists above the input bar until manually dismissed,
+    // while the AI response continues in the chat below.
+    @State private var showCrisisBanner = false
     
     private func startWelcomeTextRotation() {
         // ✅ Change welcome text only on view appear (not continuously)
@@ -596,7 +602,20 @@ struct BereanAIAssistantView: View {
                 }
                 
                 Spacer(minLength: 0)
-                
+
+                // Crisis safety banner — shown when a crisis signal is detected.
+                // Persists until dismissed; does NOT block the AI response.
+                if showCrisisBanner {
+                    BereanCrisisInterceptBanner {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+                            showCrisisBanner = false
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 // Input Bar - Always at bottom
                 inputBarView
 
@@ -2796,6 +2815,8 @@ struct BereanAIAssistantView: View {
             )
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 viewModel.appendMessage(crisisCard)
+                // Also show the persistent crisis banner above the input bar (RQ-11).
+                showCrisisBanner = true
             }
         }
 
@@ -9396,6 +9417,69 @@ struct BereanGroundedPromptRow: View {
     }
 }
 
+
+// MARK: - BereanCrisisInterceptBanner (RQ-11)
+/// Persistent safety banner shown above the input bar when crisis signals are detected.
+/// Does NOT block the AI response — it surfaces resources alongside spiritual support.
+struct BereanCrisisInterceptBanner: View {
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "heart.circle.fill")
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(.red)
+                Text("We care about you")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(6)
+                        .background(Circle().fill(Color(.tertiarySystemFill)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss crisis banner")
+            }
+            Text("If you're in crisis, please reach out for immediate support.")
+                .font(.systemScaled(13))
+                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Link(destination: URL(string: "tel:988")!) {
+                    Label("Call or text 988", systemImage: "phone.fill")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.red))
+                }
+                .accessibilityLabel("Call or text 988, Suicide and Crisis Lifeline")
+                Link(destination: URL(string: "sms:741741&body=HOME")!) {
+                    Label("Text HOME to 741741", systemImage: "message.fill")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.red.opacity(0.10)))
+                }
+                .accessibilityLabel("Text HOME to 741741, Crisis Text Line")
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.red.opacity(0.07))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(.red.opacity(0.22), lineWidth: 1)
+                )
+        )
+        .accessibilityElement(children: .contain)
+    }
+}
 
 // MARK: - BereanFeaturePill
 /// Compact glass pill button for surfacing orphaned feature modals (Devotional, Study Plan, Analyze).

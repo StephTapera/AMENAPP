@@ -395,7 +395,7 @@ struct WellnessBreakReminderView: View {
                 Color.black.opacity(0.12)
                     .ignoresSafeArea()
 
-                GlassCard {
+                WellnessGlassCard {
                     VStack(spacing: 0) {
                         headerRow
                         progressRing
@@ -612,7 +612,7 @@ struct WellnessBreakReminderView: View {
     }
 }
 
-private struct GlassCard<Content: View>: View {
+private struct WellnessGlassCard<Content: View>: View {
     let content: Content
 
     init(@ViewBuilder content: () -> Content) {

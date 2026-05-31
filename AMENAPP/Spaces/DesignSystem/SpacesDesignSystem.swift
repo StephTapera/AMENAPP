@@ -432,14 +432,17 @@ struct SpaceRailView<Item: Identifiable, CardContent: View>: View {
 
                 Spacer()
 
-                Button(action: onSeeAll ?? {}) {
-                    Text("See All ›")
-                        .font(.subheadline.weight(.semibold))
+                // UI-01: Only render the button when a handler is actually wired.
+                // Showing a tappable button with no action causes user confusion.
+                if let onSeeAll {
+                    Button(action: onSeeAll) {
+                        Text("See All ›")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .buttonStyle(.glass)
+                    .tint(AmenTheme.Colors.amenGold)
+                    .accessibilityLabel("See all \(title)")
                 }
-                .buttonStyle(.glass)
-                .tint(AmenTheme.Colors.amenGold)
-                .accessibilityLabel("See all \(title)")
-                .disabled(onSeeAll == nil)
             }
             .padding(.horizontal, 20)
 

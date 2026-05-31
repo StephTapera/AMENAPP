@@ -1554,3 +1554,15 @@ exports.hourlyAnomalyCheck = anomalyMonitor.hourlyAnomalyCheck;
 const importFns = require('./importFunctions');
 exports.ingestImportArchive      = importFns.ingestImportArchive;
 exports.classifyImportCandidates = importFns.classifyImportCandidates;
+
+// ============================================================================
+// FIND A CHURCH — churchSearchProxy (Phase 1 / Master Run A8)
+//   churchSearchProxy — callable: proxies church search to Algolia + Firestore
+//                       App Check + Auth enforced; no search credentials on device.
+//                       Currently returns mock data for emulator testing.
+//
+// [NEEDS HUMAN DEPLOY] — emulator only until Algolia secrets are provisioned.
+// Deploy: firebase deploy --only functions:churchSearchProxy
+// ============================================================================
+const churchSearchProxyFns = require('./src/church/churchSearchProxy');
+exports.churchSearchProxy = churchSearchProxyFns.churchSearchProxy;

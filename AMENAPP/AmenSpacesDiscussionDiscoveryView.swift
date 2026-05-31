@@ -13,6 +13,8 @@ struct AmenSpacesDiscussionDiscoveryView: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var promptTrigger = false
+    // UI-02: FocusState so the header search icon can focus the search field below.
+    @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -112,7 +114,14 @@ struct AmenSpacesDiscussionDiscoveryView: View {
     }
 
     private func headerIcon(_ systemName: String, label: String) -> some View {
-        Button { /* TODO: implement header icon action for \(label) */ } label: {
+        // UI-02: search icon focuses the search field below; filter icon is non-interactive
+        // until a filter sheet is implemented (rendered as plain icon, not a Button).
+        let isSearch = systemName == "magnifyingglass"
+        return Button {
+            if isSearch {
+                searchFieldFocused = true
+            }
+        } label: {
             Image(systemName: systemName)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
@@ -121,7 +130,9 @@ struct AmenSpacesDiscussionDiscoveryView: View {
                 .overlay(Circle().strokeBorder(controlBorder, lineWidth: contrast == .increased ? 1.1 : 0.7))
         }
         .buttonStyle(.plain)
+        .disabled(!isSearch)
         .accessibilityLabel(label)
+        .accessibilityHint(isSearch ? "Focuses the search field" : "Coming soon")
     }
 
     private var searchCapsule: some View {
@@ -135,6 +146,7 @@ struct AmenSpacesDiscussionDiscoveryView: View {
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .focused($searchFieldFocused)
 
             if !viewModel.filters.searchQuery.isEmpty {
                 Button {
