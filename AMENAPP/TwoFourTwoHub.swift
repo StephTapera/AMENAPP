@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - 242 Hub
 // Acts 2:42 — The four pillars of early church life
@@ -10,6 +12,8 @@ struct TwoFourTwoHub: View {
     @State private var selectedFeature: TwoFourTwoFeature? = nil
     @State private var headerAppeared = false
     @State private var userTier: AMENSubscriptionTier = .free
+    @State private var isTierLoading = false
+    @State private var tierLoadError = false
 
     var body: some View {
         ZStack {
@@ -22,6 +26,14 @@ struct TwoFourTwoHub: View {
                     pillarTabRow
                         .padding(.top, 32)
                         .padding(.horizontal, 20)
+                    if tierLoadError {
+                        Text("Could not load your tier. Pull to refresh.")
+                            .font(.systemScaled(13, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
+                    }
                     featureList
                         .padding(.top, 8)
                         .padding(.horizontal, 20)
@@ -55,6 +67,7 @@ struct TwoFourTwoHub: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .task { await loadUserTier() }
         .sheet(item: $selectedFeature) { feature in
             FeatureDetailSheet(feature: feature, userTier: userTier, onUpgrade: { showSubscription = true })
         }
@@ -94,6 +107,25 @@ struct TwoFourTwoHub: View {
                 }
             }
         }
+    }
+
+    // MARK: - Tier Fetch
+
+    private func loadUserTier() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isTierLoading = true
+        tierLoadError = false
+        do {
+            let doc = try await Firestore.firestore()
+                .collection("users").document(uid).getDocument()
+            if let raw = doc.data()?["subscriptionTier"] as? Int,
+               let tier = AMENSubscriptionTier(rawValue: raw) {
+                userTier = tier
+            }
+        } catch {
+            tierLoadError = true
+        }
+        isTierLoading = false
     }
 
     private var featureList: some View {
