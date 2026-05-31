@@ -17,6 +17,7 @@ struct TipView: View {
 
     @StateObject private var vm = CreatorViewModel()
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedAmount: Double = 3.0
     @State private var customAmount            = ""
@@ -101,9 +102,9 @@ struct TipView: View {
                         .keyboardType(.decimalPad)
                         .onChange(of: customAmount) { val in
                             if !val.isEmpty {
-                                withAnimation { selectedAmount = -1 }
+                                withAnimation(reduceMotion ? nil : .default) { selectedAmount = -1 }
                             } else {
-                                withAnimation { selectedAmount = 3.0 }
+                                withAnimation(reduceMotion ? nil : .default) { selectedAmount = 3.0 }
                             }
                         }
                 }
@@ -142,7 +143,7 @@ struct TipView: View {
                 // ── Send Button ───────────────────────────────────────
                 Button {
                     guard effectiveAmount > 0 else {
-                        withAnimation { errorMessage = "Please select or enter an amount." }
+                        withAnimation(reduceMotion ? nil : .default) { errorMessage = "Please select or enter an amount." }
                         return
                     }
                     errorMessage = nil
@@ -161,7 +162,7 @@ struct TipView: View {
                             onSuccess()
                         } catch {
                             isSending = false
-                            withAnimation { errorMessage = error.localizedDescription }
+                            withAnimation(reduceMotion ? nil : .default) { errorMessage = error.localizedDescription }
                         }
                     }
                 } label: {

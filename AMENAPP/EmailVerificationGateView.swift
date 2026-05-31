@@ -10,6 +10,7 @@ import FirebaseAuth
 
 struct EmailVerificationGateView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isCheckingVerification = false
     @State private var resendCooldown = 0
     @State private var canResend = true
@@ -187,7 +188,7 @@ struct EmailVerificationGateView: View {
             await authViewModel.sendEmailVerification()
 
             guard !Task.isCancelled else { return }
-            withAnimation { showSuccessMessage = true }
+            withAnimation(reduceMotion ? nil : .default) { showSuccessMessage = true }
 
             // Tick the countdown using Task.sleep — auto-cancelled when view disappears
             // (no Timer leak). Each sleep is 1 s; we stop when cancelled or at 0.
@@ -202,7 +203,7 @@ struct EmailVerificationGateView: View {
             canResend = true
 
             // Auto-hide the success banner after the cooldown
-            withAnimation { showSuccessMessage = false }
+            withAnimation(reduceMotion ? nil : .default) { showSuccessMessage = false }
         }
     }
 }

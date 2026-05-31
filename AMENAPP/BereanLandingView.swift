@@ -113,7 +113,7 @@ struct BereanLandingView: View {
                             .padding(.top, 28)
                             .opacity(statusCardVisible ? 1 : 0)
                             .offset(y: statusCardVisible ? 0 : 10)
-                            .animation(.spring(response: 0.52, dampingFraction: 0.82), value: statusCardVisible)
+                            .animation(reduceMotion ? .none : .spring(response: 0.52, dampingFraction: 0.82), value: statusCardVisible)
                         } else if hasPreviousConversation && !suggestionsVisible {
                             // Fallback: generic "continue last conversation" card
                             BereanContinueCard(onTap: onContinuePrevious ?? {})
@@ -290,6 +290,7 @@ private struct BereanContinuityCard: View {
     let entry: BereanContinuityEntry
     var onTap: () -> Void
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -337,7 +338,7 @@ private struct BereanContinuityCard: View {
                     .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 4)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
@@ -355,6 +356,7 @@ struct BereanContinueCard: View {
     var onTap: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -400,7 +402,7 @@ struct BereanContinueCard: View {
                     .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 4)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
@@ -417,6 +419,7 @@ struct BereanQuickActionSection: View {
     let actions: [BereanQuickAction]
     var isVisible: Bool
     var onActionTap: (BereanQuickAction) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -444,7 +447,7 @@ struct BereanQuickActionSection: View {
                     .opacity(isVisible ? 1 : 0)
                     .offset(y: isVisible ? 0 : 14)
                     .animation(
-                        .spring(response: 0.5, dampingFraction: 0.80)
+                        reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.80)
                             .delay(isVisible ? Double(index) * 0.04 : 0),
                         value: isVisible
                     )
@@ -462,6 +465,7 @@ struct BereanActionCard: View {
     var onTap: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -497,7 +501,7 @@ struct BereanActionCard: View {
                             radius: isPressed ? 6 : 14, x: 0, y: isPressed ? 2 : 4)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
+            .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
@@ -517,6 +521,7 @@ struct BereanInputBar: View {
     var onVoiceTap: (() -> Void)?
     var onFocusChange: ((Bool) -> Void)? = nil
     var placeholder: String = "Ask Berean about Scripture, prayer, wisdom…"
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let focused = isFocused.wrappedValue
@@ -528,7 +533,7 @@ struct BereanInputBar: View {
                 .font(.systemScaled(15, weight: .medium))
                 .foregroundColor(focused ? Color(.label) : Color(.tertiaryLabel))
                 .scaleEffect(focused ? 1.06 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: focused)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: focused)
                 .padding(.leading, 14)
 
             // Text field
@@ -569,7 +574,7 @@ struct BereanInputBar: View {
                 .accessibilityLabel("Send message")
                 .buttonStyle(.plain)
                 .disabled(!hasText)
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: hasText)
+                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8), value: hasText)
             }
             .padding(.trailing, 10)
 
@@ -618,7 +623,7 @@ struct BereanInputBar: View {
                 )
         )
         .offset(y: focused ? -4 : 0)
-        .animation(.spring(response: 0.42, dampingFraction: 0.80), value: focused)
+        .animation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.80), value: focused)
         .onChange(of: focused) { _, newValue in
             onFocusChange?(newValue)
         }
@@ -685,7 +690,7 @@ struct BereanStatusCard: View {
         )
         .opacity(isVisible ? 1 : 0)
         .scaleEffect(isVisible ? 1 : 0.97)
-        .animation(.spring(response: 0.4, dampingFraction: 0.82), value: isVisible)
+        .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.82), value: isVisible)
     }
 }
 
@@ -757,6 +762,7 @@ struct BereanInsightCard: View {
     var onTap: (() -> Void)? = nil
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let cardContent = HStack(spacing: 12) {
@@ -801,7 +807,7 @@ struct BereanInsightCard: View {
                 .shadow(color: .black.opacity(isPressed ? 0.03 : 0.05), radius: isPressed ? 6 : 12, x: 0, y: isPressed ? 1 : 3)
         )
         .scaleEffect(isPressed ? 0.97 : 1)
-        .animation(.spring(response: 0.28, dampingFraction: 0.8), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.28, dampingFraction: 0.8), value: isPressed)
 
         if let tap = onTap {
             Button(action: tap) { cardContent }

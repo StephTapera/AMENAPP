@@ -13,6 +13,7 @@ import FirebaseAuth
 
 struct ContactSearchView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var searchText = ""
     @State private var searchResults: [SearchableUser] = []
     @State private var isSearching = false
@@ -92,7 +93,7 @@ struct ContactSearchView: View {
                 
                 if !searchText.isEmpty {
                     Button {
-                        withAnimation {
+                        withAnimation(reduceMotion ? nil : .default) {
                             searchText = ""
                             searchResults = []
                         }
@@ -587,9 +588,10 @@ struct CategoryBrowseCard: View {
 
 struct UserProfileSheet: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let user: SearchableUser
     let onMessage: () -> Void
-    
+
     @State private var isFollowing = false
     
     var body: some View {
@@ -647,7 +649,7 @@ struct UserProfileSheet: View {
                             }
                             
                             Button {
-                                withAnimation {
+                                withAnimation(reduceMotion ? nil : .default) {
                                     isFollowing.toggle()
                                 }
                             } label: {

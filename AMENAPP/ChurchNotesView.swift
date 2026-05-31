@@ -5491,13 +5491,13 @@ struct MinimalTypographyHeader: View {
                 } label: {
                     Image(systemName: "sparkle.magnifyingglass")
                         .font(.systemScaled(15, weight: .semibold))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(AmenTheme.Colors.amenPurple)
                         .frame(width: 34, height: 34)
                         .background(
                             Circle()
                                 .fill(.thinMaterial)
-                                .overlay(Circle().fill(Color.purple.opacity(0.08)))
-                                .overlay(Circle().strokeBorder(Color.purple.opacity(0.18), lineWidth: 0.75))
+                                .overlay(Circle().fill(AmenTheme.Colors.amenPurple.opacity(0.10)))
+                                .overlay(Circle().strokeBorder(AmenTheme.Colors.amenPurple.opacity(0.22), lineWidth: 0.75))
                         )
                         .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
                 }
@@ -5897,16 +5897,14 @@ struct MinimalEmptyState: View {
                 Button(action: onCreateNote) {
                     Text("Create First Note")
                         .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(Color.amenGoldText)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 14)
                         .background(
                             Capsule()
-                                .fill(.thinMaterial)
-                                .overlay(Capsule().fill(Color.white.opacity(0.70)))
-                                .overlay(Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 1))
+                                .fill(AmenTheme.Colors.amenGold)
+                                .shadow(color: AmenTheme.Colors.amenGold.opacity(0.35), radius: 12, y: 5)
                         )
-                        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
                 }
                 .opacity(appeared ? 1.0 : 0)
             }

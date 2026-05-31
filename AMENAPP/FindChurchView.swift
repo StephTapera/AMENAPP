@@ -1096,21 +1096,13 @@ struct FindChurchView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                // Minimal white background with subtle gradient
-                LinearGradient(
-                    colors: [
-                        Color(white: 0.98),
-                        Color(white: 1.0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                Color(.systemBackground)
+                    .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     VStack(spacing: 0) {
-                        // Minimal header - no clutter
-                        MinimalChurchHeader(
+                        // Hero Liquid Glass header
+                        ChurchHeroHeader(
                             searchText: $searchText,
                             locationText: currentLocationName,
                             isLocationAuthorized: locationManager.isAuthorized,
@@ -1386,7 +1378,7 @@ struct FindChurchView: View {
                                             onCheckIn: { checkInToChurch(church) },
                                             isPlanned: plannedAttendanceChurchId == church.id,
                                             onPlanAttendance: {
-                                                withAnimation {
+                                                withAnimation(reduceMotion ? nil : .default) {
                                                     if plannedAttendanceChurchId == church.id {
                                                         plannedAttendanceChurchId = nil
                                                     } else {
@@ -1585,7 +1577,7 @@ struct FindChurchView: View {
         }
         .onChange(of: userLocation) { oldValue, newLocation in
             if let newLoc = newLocation {
-                withAnimation {
+                withAnimation(reduceMotion ? nil : .default) {
                     region.center = newLoc
                 }
                 reverseGeocodeLocation(newLoc)
@@ -2016,7 +2008,7 @@ struct FindChurchView: View {
     }
     
     func toggleSave(_ church: Church) {
-        withAnimation {
+        withAnimation(reduceMotion ? nil : .default) {
             if savedChurchIds.contains(church.id) {
                 persistenceManager.removeChurch(church)
                 churchAssist.syncMonitoredChurches(persistenceManager.savedChurches.filter { $0.id != church.id })
@@ -6222,6 +6214,7 @@ struct FindChurchMapView: View {
     let onCheckIn: (Church) -> Void
     let onGetDirections: (Church) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var region: MKCoordinateRegion
     @State private var selectedMapItem: MKMapItem?
     @State private var showMiniSheet = false
@@ -6266,7 +6259,7 @@ struct FindChurchMapView: View {
             }
             .ignoresSafeArea(edges: .bottom)
             .onTapGesture {
-                withAnimation { showMiniSheet = false }
+                withAnimation(reduceMotion ? nil : .default) { showMiniSheet = false }
             }
 
             if showMiniSheet, let church = selectedChurch {
@@ -6275,7 +6268,7 @@ struct FindChurchMapView: View {
                     isLive: isServiceLive(church),
                     onCheckIn: { onCheckIn(church); showMiniSheet = false },
                     onGetDirections: { onGetDirections(church) },
-                    onDismiss: { withAnimation { showMiniSheet = false } }
+                    onDismiss: { withAnimation(reduceMotion ? nil : .default) { showMiniSheet = false } }
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -6609,6 +6602,189 @@ struct ChurchCheckInSheet: View {
             Spacer()
         }
         .padding(.top, 28)
+    }
+}
+
+// MARK: - Hero Glass Church Header (Apple Music / Maps style)
+
+struct ChurchHeroHeader: View {
+    @Binding var searchText: String
+    let locationText: String
+    let isLocationAuthorized: Bool
+    var onSearchSubmit: () -> Void
+    var onFilterTap: () -> Void
+    var onRefresh: (() -> Void)?
+    var onBack: () -> Void
+    var isMapMode: Bool = false
+    var onMapToggle: () -> Void = {}
+    var compressionProgress: CGFloat = 0
+
+    @FocusState private var isSearchFocused: Bool
+    @State private var ambientPhase: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var heroHeight: CGFloat {
+        max(134 - compressionProgress * 58, 80)
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // Ambient gradient hero
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        AmenTheme.Colors.amenPurple.opacity(0.46),
+                        AmenTheme.Colors.amenBlue.opacity(0.26),
+                        Color(.systemBackground).opacity(0)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea(edges: .top)
+
+                // Soft breathing orb — top leading
+                Circle()
+                    .fill(AmenTheme.Colors.amenGold.opacity(0.20))
+                    .frame(width: 190, height: 190)
+                    .blur(radius: 56)
+                    .offset(x: -72, y: -28)
+                    .scaleEffect(1.0 + (reduceMotion ? 0 : sin(ambientPhase) * 0.07))
+
+                // Soft breathing orb — trailing
+                Circle()
+                    .fill(AmenTheme.Colors.amenPurple.opacity(0.15))
+                    .frame(width: 130, height: 130)
+                    .blur(radius: 44)
+                    .offset(x: 88, y: 14)
+                    .scaleEffect(1.0 + (reduceMotion ? 0 : cos(ambientPhase * 0.72) * 0.06))
+
+                // Location status pill — fades away as header collapses
+                if isLocationAuthorized && compressionProgress < 0.55 {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 5) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text(locationText)
+                                .font(.systemScaled(11, weight: .medium))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(.white.opacity(0.88))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(.white.opacity(0.13))
+                                .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.5))
+                        )
+                        .padding(.bottom, 52)
+                        .opacity(max(0, 1.0 - compressionProgress * 2.8))
+                    }
+                }
+            }
+            .frame(height: heroHeight)
+            .clipped()
+
+            // Gradient fade from hero into page background
+            LinearGradient(
+                colors: [.clear, Color(.systemBackground)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 54)
+            .allowsHitTesting(false)
+
+            // Floating glass control row
+            HStack(spacing: 10) {
+                heroGlassCircle(symbol: "chevron.left", action: onBack)
+                    .accessibilityLabel("Back")
+
+                // Wide search capsule
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color(.label).opacity(0.55))
+
+                    TextField("Search churches...", text: $searchText)
+                        .font(.systemScaled(15))
+                        .foregroundStyle(.primary)
+                        .focused($isSearchFocused)
+                        .submitLabel(.search)
+                        .onSubmit(onSearchSubmit)
+
+                    if !searchText.isEmpty {
+                        Button {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
+                                searchText = ""
+                            }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background {
+                    ZStack {
+                        Capsule().fill(.ultraThinMaterial)
+                        Capsule().strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.70), Color.white.opacity(0.18)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.75
+                        )
+                    }
+                }
+                .shadow(color: .black.opacity(0.10), radius: 16, x: 0, y: 6)
+
+                heroGlassCircle(symbol: isMapMode ? "list.bullet" : "map", action: onMapToggle)
+                    .accessibilityLabel(isMapMode ? "Switch to list" : "Switch to map")
+
+                heroGlassCircle(symbol: "line.3.horizontal.decrease", action: onFilterTap)
+                    .accessibilityLabel("Filter")
+
+                if let refresh = onRefresh, isLocationAuthorized {
+                    heroGlassCircle(symbol: "arrow.clockwise", action: refresh)
+                        .accessibilityLabel("Refresh search")
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.linear(duration: 5.0).repeatForever(autoreverses: false)) {
+                ambientPhase = .pi * 2
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func heroGlassCircle(symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: { HapticManager.impact(style: .light); action() }) {
+            ZStack {
+                Circle().fill(.ultraThinMaterial)
+                Circle().strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.68), Color.white.opacity(0.20)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.75
+                )
+                Image(systemName: symbol)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color(.label))
+            }
+            .frame(width: 40, height: 40)
+            .shadow(color: .black.opacity(0.10), radius: 12, x: 0, y: 5)
+        }
+        .buttonStyle(FindChurchTactileButtonStyle())
     }
 }
 

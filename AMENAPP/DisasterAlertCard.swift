@@ -271,6 +271,7 @@ struct DisasterAlertCard: View {
 struct PrayerIntentSheet: View {
     let disaster: DisasterAlert
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var prayerNote = ""
     @State private var submitted = false
     var body: some View {
@@ -377,7 +378,7 @@ struct PrayerIntentSheet: View {
     private func submitPrayer() {
         guard let uid = FirebaseAuth.Auth.auth().currentUser?.uid,
               let disasterId = disaster.id else { return }
-        withAnimation { submitted = true }
+        withAnimation(reduceMotion ? nil : .default) { submitted = true }
 
         let prayerData: [String: Any] = [
             "uid": uid,

@@ -148,7 +148,7 @@ struct ChurchNotesPremiumEditor: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             // Background
-            Color(.systemBackground)
+            Color(.systemGroupedBackground)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -408,14 +408,14 @@ struct ChurchNotesPremiumEditor: View {
                 .fill(.thinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color(.systemBackground).opacity(0.7))
+                        .fill(Color.white.opacity(0.55))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
                 )
         )
-        .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
     }
 
     private var metadataSummary: String {
@@ -656,14 +656,14 @@ struct ChurchNotesPremiumEditor: View {
             .fill(.thinMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.systemBackground).opacity(0.75))
+                    .fill(Color.white.opacity(0.55))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .strokeBorder(
                         editorIsFirstResponder || focusedField == .title
-                            ? Color.primary.opacity(0.12)
-                            : Color.primary.opacity(0.06),
+                            ? Color.primary.opacity(0.18)
+                            : Color.primary.opacity(0.10),
                         lineWidth: 0.5
                     )
             )

@@ -11,6 +11,7 @@ struct VergeCreateRoomSheet: View {
 
     @ObservedObject var vm: VergeViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Form state
     @State private var title           = ""
@@ -269,7 +270,7 @@ struct VergeCreateRoomSheet: View {
     private var goLiveButton: some View {
         Button {
             guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
-                withAnimation { errorMessage = "Please enter a room title." }
+                withAnimation(reduceMotion ? nil : .default) { errorMessage = "Please enter a room title." }
                 return
             }
             errorMessage = nil
@@ -292,7 +293,7 @@ struct VergeCreateRoomSheet: View {
                     dismiss()
                 } catch {
                     isCreating = false
-                    withAnimation { errorMessage = error.localizedDescription }
+                    withAnimation(reduceMotion ? nil : .default) { errorMessage = error.localizedDescription }
                 }
             }
         } label: {

@@ -383,12 +383,12 @@ struct SelahScriptureReaderView: View {
                             showSelahReflectionComposer = true
                         },
                         onPray: {
-                            withAnimation { activeMode = .pray }
+                            withAnimation(reduceMotion ? nil : .default) { activeMode = .pray }
                         },
                         onAddToSession: { showGuidedSelahSession = true },
                         onCrossRefs: { showDeeperStudy = true },
                         onDismiss: {
-                            withAnimation { selectedVerseNumber = nil }
+                            withAnimation(reduceMotion ? nil : .default) { selectedVerseNumber = nil }
                         }
                     )
                     .padding(.horizontal, 16)
@@ -1302,7 +1302,7 @@ struct SelahScriptureReaderView: View {
         toast = message
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            withAnimation(.easeOut(duration: 0.25)) { toast = nil }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { toast = nil }
         }
     }
 

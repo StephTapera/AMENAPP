@@ -12,18 +12,20 @@ import SwiftUI
 struct StarRatingRow: View {
     /// Number of stars selected (0-5)
     @Binding var rating: Int
-    
+
     /// Star size (default: 40pt for easy tapping)
     var starSize: CGFloat = 40
-    
+
     /// Star color (iOS blue by default)
     var starColor: Color = .blue
-    
+
     /// Spacing between stars
     var spacing: CGFloat = 12
-    
+
     /// Callback when a star is tapped
     var onRatingChanged: ((Int) -> Void)?
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         HStack(spacing: spacing) {
@@ -57,7 +59,7 @@ struct StarRatingRow: View {
         }
         .buttonStyle(PlainButtonStyle())
         .scaleEffect(index == rating ? 1.15 : 1.0) // Subtle scale on selected
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: rating)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.6), value: rating)
         .accessibilityLabel("\(index) stars")
         .accessibilityAddTraits(index == rating ? [.isSelected] : [])
     }

@@ -75,6 +75,7 @@ struct BreathPhase {
 
 struct BreathingExerciseView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Settings
     @State private var selectedPattern: BreathingPattern = .box
@@ -390,7 +391,7 @@ struct BreathingExerciseView: View {
                     isLoading: false,
                     isDisabled: false,
                     hint: "Opens the post-session mood check-in",
-                    action: { withAnimation { showMoodCheck = true } }
+                    action: { withAnimation(reduceMotion ? nil : .default) { showMoodCheck = true } }
                 )
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 24)

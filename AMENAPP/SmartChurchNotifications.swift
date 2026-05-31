@@ -154,7 +154,8 @@ struct ChurchNotificationPreferencesView: View {
 struct SmartNotificationBanner: View {
     let notification: InAppNotification
     @Binding var isPresented: Bool
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 14) {
             ZStack {
@@ -183,7 +184,7 @@ struct SmartNotificationBanner: View {
             if let action = notification.action {
                 Button(action: {
                     action()
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         isPresented = false
                     }
                 }) {
@@ -194,7 +195,7 @@ struct SmartNotificationBanner: View {
             }
             
             Button {
-                withAnimation {
+                withAnimation(reduceMotion ? nil : .default) {
                     isPresented = false
                 }
             } label: {

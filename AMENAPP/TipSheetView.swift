@@ -17,6 +17,7 @@ struct TipSheetView: View {
     let roomTitle:   String
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedAmount: Double  = 5.0
     @State private var customAmountText        = ""
@@ -189,9 +190,9 @@ struct TipSheetView: View {
                 .keyboardType(.decimalPad)
                 .onChange(of: customAmountText) { val in
                     if !val.isEmpty {
-                        withAnimation { selectedAmount = -1 }
+                        withAnimation(reduceMotion ? nil : .default) { selectedAmount = -1 }
                     } else {
-                        withAnimation { selectedAmount = 5.0 }
+                        withAnimation(reduceMotion ? nil : .default) { selectedAmount = 5.0 }
                     }
                 }
         }
@@ -204,7 +205,7 @@ struct TipSheetView: View {
     private var sendButton: some View {
         Button {
             guard effectiveAmount > 0 else {
-                withAnimation { errorMessage = "Please select or enter an amount." }
+                withAnimation(reduceMotion ? nil : .default) { errorMessage = "Please select or enter an amount." }
                 return
             }
             errorMessage = nil
@@ -271,7 +272,7 @@ struct TipSheetView: View {
             }
             .frame(height: 130)
             .onAppear {
-                withAnimation { heartBurst = true }
+                withAnimation(reduceMotion ? nil : .default) { heartBurst = true }
                 Task {
                     try? await Task.sleep(nanoseconds: 1_500_000_000)
                     dismiss()
@@ -301,7 +302,7 @@ struct TipSheetView: View {
 
     private func submitTip() async {
         guard let uid = Auth.auth().currentUser?.uid else {
-            withAnimation { errorMessage = "You must be signed in to send a tip." }
+            withAnimation(reduceMotion ? nil : .default) { errorMessage = "You must be signed in to send a tip." }
             isSending = false
             return
         }
@@ -320,7 +321,7 @@ struct TipSheetView: View {
             }
         } catch {
             isSending = false
-            withAnimation { errorMessage = error.localizedDescription }
+            withAnimation(reduceMotion ? nil : .default) { errorMessage = error.localizedDescription }
         }
     }
 

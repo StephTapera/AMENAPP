@@ -16,6 +16,7 @@ struct AmenTranslationComparisonCard: View {
     @State private var loadError: String? = nil
     @State private var selectedTranslation: String? = nil
     @State private var showCommentary = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -178,7 +179,7 @@ struct AmenTranslationComparisonCard: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .animation(.easeInOut(duration: 0.2), value: selectedTranslation)
+                        .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: selectedTranslation)
 
                     Text("— \(reference) (\(key))")
                         .font(.caption)

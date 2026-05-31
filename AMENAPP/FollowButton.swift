@@ -11,12 +11,12 @@ import SwiftUI
 struct SocialFollowButton: View {
     let userId: String
     let username: String
-    
+
     @State private var isFollowing = false
     @State private var isLoading = false
-    
+
     private let followService = FollowService.shared
-    
+
     var body: some View {
         Button {
             handleFollowToggle()
@@ -30,7 +30,7 @@ struct SocialFollowButton: View {
                     Image(systemName: isFollowing ? "person.fill.checkmark" : "person.fill.badge.plus")
                         .font(.systemScaled(14, weight: .semibold))
                 }
-                
+
                 Text(isFollowing ? "Following" : "Follow")
                     .font(AMENFont.bold(14))
             }
@@ -59,20 +59,20 @@ struct SocialFollowButton: View {
             await checkFollowStatus()
         }
     }
-    
+
     private func checkFollowStatus() async {
         isFollowing = await followService.isFollowing(userId: userId)
     }
-    
+
     private func handleFollowToggle() {
         // P0 FIX: Prevent duplicate follow operations from rapid taps
         guard !isLoading else {
             dlog("⚠️ Follow action already in progress")
             return
         }
-        
+
         isLoading = true
-        
+
         Task {
             do {
                 if isFollowing {
@@ -80,7 +80,7 @@ struct SocialFollowButton: View {
                 } else {
                     try await followService.followUser(userId: userId)
                 }
-                
+
                 await MainActor.run {
                     withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isFollowing.toggle()
@@ -108,10 +108,12 @@ struct SocialFollowButton: View {
 
 /// Animated follow button with shimmer, checkmark spring, and particle burst.
 /// Usage: AnimatedFollowButton(isFollowing: $isFollowing, isInProgress: $isInProgress) { toggleFollow() }
+/// Pass `isRequested: true` to show the "Requested" state for pending follow requests on private accounts.
 struct AnimatedFollowButton: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isFollowing: Bool
     @Binding var isInProgress: Bool
+    var isRequested: Bool = false
     let onToggle: () -> Void
 
     @State private var isPressed      = false
@@ -143,11 +145,19 @@ struct AnimatedFollowButton: View {
                             .overlay(
                                 Capsule().strokeBorder(.white.opacity(0.6), lineWidth: 0.5)
                             )
+                    } else if isRequested {
+                        // "Requested" state: outlined capsule with amenGold border
+                        Capsule()
+                            .fill(Color.clear)
+                            .overlay(
+                                Capsule().strokeBorder(Color.amenGold, lineWidth: 1.5)
+                            )
                     } else {
                         Capsule().fill(Color.black)
                     }
                 }
                 .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.75), value: isFollowing)
+                .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.75), value: isRequested)
 
                 // Shimmer
                 LinearGradient(
@@ -176,7 +186,19 @@ struct AnimatedFollowButton: View {
                     if isInProgress {
                         ProgressView()
                             .scaleEffect(0.7)
-                            .tint(isFollowing ? Color.primary : Color.white)
+                            .tint(isFollowing ? Color.primary : (isRequested ? Color.amenGold : Color.white))
+                    } else if isRequested {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.systemScaled(11, weight: .semibold))
+                                .foregroundStyle(Color.amenGold)
+                            Text("Requested")
+                                .font(.systemScaled(14, weight: .bold))
+                                .foregroundStyle(Color.amenGold)
+                        }
+                        .opacity(labelOpacity)
+                        .offset(y: labelOffset)
+                        .animation(reduceMotion ? .none : .spring(response: 0.3), value: isRequested)
                     } else {
                         Text(isFollowing ? "Following" : "Follow")
                             .font(.systemScaled(14, weight: .bold))

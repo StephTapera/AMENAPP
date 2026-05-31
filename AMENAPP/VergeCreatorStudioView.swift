@@ -13,6 +13,7 @@ struct VergeCreatorStudioView: View {
 
     @ObservedObject var vm: VergeViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var subscriptionPriceText = ""
     @State private var tipsEnabled           = true
@@ -406,11 +407,11 @@ struct VergeCreatorStudioView: View {
         ]) { _ in
             Task { @MainActor in
                 isSavingPrice = false
-                withAnimation {
+                withAnimation(reduceMotion ? nil : .default) {
                     saveSuccess = true
                 }
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
-                withAnimation { saveSuccess = false }
+                withAnimation(reduceMotion ? nil : .default) { saveSuccess = false }
                 await vm.loadCreatorProfile(userId: uid)
             }
         }

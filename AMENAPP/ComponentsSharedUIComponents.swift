@@ -28,6 +28,7 @@ struct AMENLoadingIndicator: View {
     @State private var dot1Up = false
     @State private var dot2Up = false
     @State private var dot3Up = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: spacing) {
@@ -44,25 +45,25 @@ struct AMENLoadingIndicator: View {
             .frame(width: dotSize, height: dotSize)
             .offset(y: isUp ? -bounceHeight : 0)
             .animation(
-                .easeInOut(duration: animDuration).repeatForever(autoreverses: true),
+                reduceMotion ? .none : .easeInOut(duration: animDuration).repeatForever(autoreverses: true),
                 value: isUp
             )
     }
 
     private func startBouncing() {
         let stagger = animDuration * 0.55
-        withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
             dot1Up = true
         }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(stagger))
-            withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
                 dot2Up = true
             }
         }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(stagger * 2))
-            withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
                 dot3Up = true
             }
         }
@@ -167,7 +168,7 @@ struct PostSkeletonView: View {
         .background(Color(.systemBackground))
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(
-            .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
+            reduceMotion ? .none : .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
             value: isAnimating
         )
         .accessibilityHidden(true)
@@ -220,7 +221,7 @@ struct CompactSkeletonView: View {
         .padding()
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(
-            .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
+            reduceMotion ? .none : .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
             value: isAnimating
         )
         .onAppear {
@@ -357,17 +358,18 @@ struct ToastView: View {
 
 struct ToastModifier: ViewModifier {
     @Binding var toast: Toast?
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func body(content: Content) -> some View {
         ZStack {
             content
-            
+
             if let toast = toast {
                 VStack {
                     ToastView(toast: toast)
                         .padding(.top, 50)
                         .transition(.move(edge: .top).combined(with: .opacity))
-                    
+
                     Spacer()
                 }
                 .zIndex(999)
@@ -381,7 +383,7 @@ struct ToastModifier: ViewModifier {
                 }
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: toast)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.7), value: toast)
     }
 }
 

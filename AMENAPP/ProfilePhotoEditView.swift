@@ -14,6 +14,7 @@ import AVFoundation
 
 struct ProfilePhotoEditView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var socialService = SocialService.shared
     @StateObject private var userService = UserService()
     
@@ -439,12 +440,12 @@ struct ProfilePhotoEditView: View {
             do {
                 // Upload to Firebase Storage
                 let imageURL = try await socialService.uploadProfilePicture(selectedImage)
-                
+
                 await MainActor.run {
                     isUploading = false
-                    
+
                     // Show success message
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         showSuccessMessage = true
                     }
                     
@@ -487,12 +488,12 @@ struct ProfilePhotoEditView: View {
         Task {
             do {
                 try await socialService.deleteProfilePicture()
-                
+
                 await MainActor.run {
                     isUploading = false
-                    
+
                     // Show success message
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         showSuccessMessage = true
                     }
                     

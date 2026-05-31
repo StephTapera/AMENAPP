@@ -10,6 +10,7 @@ import HealthKit
 
 struct MovementWellnessView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let healthStore = HKHealthStore()
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private let accent = Color(red: 0.22, green: 0.52, blue: 0.38)
@@ -155,7 +156,7 @@ struct MovementWellnessView: View {
 
             Button {
                 stepIndex = 0
-                withAnimation { started = true }
+                withAnimation(reduceMotion ? nil : .default) { started = true }
             } label: {
                 Text("Begin \(selectedMode.rawValue)")
                     .font(.custom("OpenSans-SemiBold", size: 17))
@@ -175,9 +176,9 @@ struct MovementWellnessView: View {
             HStack {
                 Button {
                     if stepIndex > 0 {
-                        withAnimation { stepIndex -= 1 }
+                        withAnimation(reduceMotion ? nil : .default) { stepIndex -= 1 }
                     } else {
-                        withAnimation { started = false }
+                        withAnimation(reduceMotion ? nil : .default) { started = false }
                     }
                 } label: {
                     Image(systemName: "chevron.left")
@@ -235,7 +236,7 @@ struct MovementWellnessView: View {
                 } else {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     Task { await writeHealthKit() }
-                    withAnimation { completed = true }
+                    withAnimation(reduceMotion ? nil : .default) { completed = true }
                 }
             } label: {
                 Text(stepIndex < steps.count - 1 ? "Next" : "Complete")

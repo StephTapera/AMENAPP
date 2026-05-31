@@ -24,6 +24,7 @@ import FirebaseFirestore
 struct GivingInAppSheet: View {
     let nonprofit: ChristianNonprofit
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let accent: Color
     private let presets: [Double] = [5, 10, 25, 50, 100, 250]
@@ -272,7 +273,7 @@ struct GivingInAppSheet: View {
             // Apple Pay
             if PKPaymentAuthorizationController.canMakePayments(usingNetworks: [.visa, .masterCard, .amex]) {
                 ApplePayButton(amount: totalCharge, nonprofit: nonprofit, recurringMode: recurringMode) {
-                    withAnimation { showSuccess = true }
+                    withAnimation(reduceMotion ? nil : .default) { showSuccess = true }
                 }
                 .frame(height: 54)
             } else {
@@ -285,7 +286,7 @@ struct GivingInAppSheet: View {
                 ) {
                     guard effectiveAmount > 0 else { return }
                     // TODO: Present Stripe payment sheet for non-Apple Pay users
-                    withAnimation { showSuccess = true }
+                    withAnimation(reduceMotion ? nil : .default) { showSuccess = true }
                 }
             }
         }

@@ -151,6 +151,7 @@ struct BereanSaveToChurchNotesSheet: View {
     let conversationId: String
     @Binding var isPresented: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedCategory: BereanChurchNoteCategory = .scriptureStudy
     @State private var noteTitle: String = ""
     @State private var isSaving = false
@@ -334,7 +335,7 @@ struct BereanSaveToChurchNotesSheet: View {
         isSaving = false
         switch result {
         case .success:
-            withAnimation { didSave = true }
+            withAnimation(reduceMotion ? nil : .default) { didSave = true }
         case .failure(let reason):
             saveError = reason
         case .notAuthenticated:

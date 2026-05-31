@@ -139,7 +139,7 @@ struct MentorCardView: View {
         .shadow(color: .black.opacity(isPressed ? 0.04 : 0.06), radius: isPressed ? 4 : 12, y: isPressed ? 1 : 4)
         .scaleEffect(isPressed ? 0.97 : 1.0)
         .offset(y: liftOffset)
-        .animation(.spring(response: 0.3, dampingFraction: 0.55), value: isPressed)
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.55), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -154,7 +154,7 @@ struct MentorCardView: View {
         // Stagger appear
         .opacity(isAppeared ? 1 : 0)
         .offset(y: isAppeared ? 0 : 16)
-        .animation(.spring(response: 0.45, dampingFraction: 0.75).delay(Double(index) * 0.08), value: isAppeared)
+        .animation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.75).delay(Double(index) * 0.08), value: isAppeared)
         .onAppear {
             if mentor.availabilityStatus == .limited && !reduceMotion {
                 withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {

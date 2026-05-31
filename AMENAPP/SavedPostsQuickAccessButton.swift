@@ -11,6 +11,7 @@ import SwiftUI
 
 struct SavedPostsQuickAccessButton: View {
     @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var savedCount = 0
     @State private var showBadgePulse = false
     
@@ -79,7 +80,7 @@ struct SavedPostsQuickAccessButton: View {
                 }
                 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         showBadgePulse = false
                     }
                 }

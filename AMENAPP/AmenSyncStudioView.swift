@@ -11,6 +11,7 @@ struct AmenSyncStudioView: View {
     @ObservedObject var vm: AmenSyncViewModel
     let intent: SyncIntent
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var activeTab: SyncStudioTab = .compose
     @State private var showPlatformPicker = false
@@ -94,7 +95,7 @@ struct AmenSyncStudioView: View {
 
             // Destination count badge
             Button {
-                withAnimation {
+                withAnimation(reduceMotion ? nil : .default) {
                     activeTab = .platforms
                 }
             } label: {

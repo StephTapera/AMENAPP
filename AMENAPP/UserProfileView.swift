@@ -2479,7 +2479,8 @@ struct UserProfileView: View {
                             if !shouldShowToolbarButtons {
                                 AnimatedFollowButton(
                                     isFollowing: $isFollowing,
-                                    isInProgress: $isFollowActionInProgress
+                                    isInProgress: $isFollowActionInProgress,
+                                    isRequested: followRequestPending
                                 ) {
                                     toggleFollow()
                                 }

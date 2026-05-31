@@ -1244,6 +1244,7 @@ private struct FeedAdjustmentExplanationSheet: View {
 struct WellnessComparisonHarmBanner: View {
 
     @ObservedObject private var feedMode = WellnessFeedModeService.shared // PERF: singleton → @ObservedObject
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dismissed = false
 
     var body: some View {
@@ -1263,7 +1264,7 @@ struct WellnessComparisonHarmBanner: View {
                 HStack(spacing: 8) {
                     Button {
                         feedMode.activateMode(.comparisonReset, durationHours: 2)
-                        withAnimation { dismissed = true }
+                        withAnimation(reduceMotion ? nil : .default) { dismissed = true }
                     } label: {
                         Text("Yes")
                             .font(AMENFont.semiBold(13))
@@ -1274,7 +1275,7 @@ struct WellnessComparisonHarmBanner: View {
                     }
 
                     Button {
-                        withAnimation { dismissed = true }
+                        withAnimation(reduceMotion ? nil : .default) { dismissed = true }
                     } label: {
                         Text("Not now")
                             .font(AMENFont.regular(13))

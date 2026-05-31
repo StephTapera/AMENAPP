@@ -173,6 +173,7 @@ struct ChurchLiveModeView: View {
     // MARK: State
 
     @StateObject private var vm = ChurchLiveModeViewModel()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showPrayerQueue: Bool = false
     @State private var showEndConfirm: Bool = false
     @State private var messageText: String = ""
@@ -498,7 +499,7 @@ struct ChurchLiveModeView: View {
                 }
                 .onChange(of: vm.chatMessages.count) { _ in
                     if let last = vm.chatMessages.last {
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                        withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
             }

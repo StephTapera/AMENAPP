@@ -88,13 +88,13 @@ struct PersonalizedGreetingView: View {
             value: appeared
         )
         .onAppear {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 appeared = true
             }
         }
         .onChange(of: greetingService.currentGreeting) { oldValue, newValue in
             // Smooth transition when greeting changes
-            withAnimation(.easeInOut(duration: 0.4)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.4)) {
                 // Content updates automatically via @ObservedObject
             }
         }
@@ -220,7 +220,7 @@ struct CompactGreetingView: View {
             value: appeared
         )
         .onAppear {
-            withAnimation {
+            withAnimation(reduceMotion ? nil : .default) {
                 appeared = true
             }
         }

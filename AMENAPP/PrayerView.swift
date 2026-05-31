@@ -1602,7 +1602,7 @@ struct PrayerPostCard: View {
         }
         .sheet(isPresented: $showEncouragementSheet) {
             EncouragementSheet(post: post, onSent: {
-                withAnimation { encouragementSent = true }
+                withAnimation(reduceMotion ? nil : .default) { encouragementSent = true }
             })
             .presentationDetents([.height(320)])
         }

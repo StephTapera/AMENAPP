@@ -299,6 +299,7 @@ private struct InterviewTab: View {
     @ObservedObject var vm: LegacyStudioViewModel
     @State private var input: String = ""
     @FocusState private var inputFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -314,7 +315,7 @@ private struct InterviewTab: View {
                     .padding(.vertical, 16)
                 }
                 .onChange(of: vm.interviewMessages.count) { _, _ in
-                    withAnimation {
+                    withAnimation(reduceMotion ? nil : .default) {
                         proxy.scrollTo(vm.interviewMessages.last?.id, anchor: .bottom)
                     }
                 }

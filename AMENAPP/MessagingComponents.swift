@@ -1186,12 +1186,14 @@ struct DiaEmptyStateView: View {
     
     private var demoInputBar: some View {
         HStack(spacing: 12) {
-            // Plus button
+            // Plus button — decorative placeholder in demo input bar
             Button {} label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.systemScaled(24))
                     .foregroundStyle(.secondary)
             }
+            .disabled(true)
+            .accessibilityHidden(true)
             
             // Input field
             HStack(spacing: 12) {

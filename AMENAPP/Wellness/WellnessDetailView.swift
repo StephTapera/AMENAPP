@@ -178,7 +178,7 @@ struct WellnessDetailView: View {
             } label: {
                 Label(isSaved ? "Saved" : "Save", systemImage: isSaved ? "bookmark.fill" : "bookmark")
                     .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(isSaved ? Color(red: 0.83, green: 0.69, blue: 0.22) : AmenTheme.Colors.textSecondary)
+                    .foregroundStyle(isSaved ? AmenTheme.Colors.amenGold : AmenTheme.Colors.textSecondary)
             }
             .accessibilityLabel(isSaved ? "Remove from saved" : "Save this content")
 

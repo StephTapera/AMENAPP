@@ -112,7 +112,7 @@ struct AmenSpacesDiscussionDiscoveryView: View {
     }
 
     private func headerIcon(_ systemName: String, label: String) -> some View {
-        Button { } label: {
+        Button { /* TODO: implement header icon action for \(label) */ } label: {
             Image(systemName: systemName)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
@@ -648,6 +648,7 @@ struct AmenSpacesJoinButton: View {
 
 struct AmenSpacesOrganizationSpotlight: View {
     let organization: AmenSpacesOrganizationSpotlightItem
+    var onView: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -677,7 +678,7 @@ struct AmenSpacesOrganizationSpotlight: View {
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .lineLimit(2)
 
-            Button { } label: {
+            Button(action: onView ?? {}) {
                 Text("View")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
@@ -685,6 +686,7 @@ struct AmenSpacesOrganizationSpotlight: View {
                     .background(AmenTheme.Colors.surfaceChip, in: Capsule())
             }
             .buttonStyle(.plain)
+            .disabled(onView == nil)
             .accessibilityLabel("View organization: \(organization.name)")
         }
         .frame(width: 214, alignment: .topLeading)

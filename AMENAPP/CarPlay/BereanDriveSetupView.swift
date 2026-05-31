@@ -22,6 +22,7 @@ struct BereanDriveSetupView: View {
     @State private var preferences = BereanDrivePreferences.load()
     @State private var showSaved = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let translations = ["NIV", "ESV", "KJV", "NLT", "CSB", "NASB", "MSG", "NKJV"]
     private let radiusOptions: [Double] = [5, 10, 15, 25, 50]
@@ -154,10 +155,10 @@ struct BereanDriveSetupView: View {
 
     private func savePreferences() {
         preferences.save()
-        withAnimation { showSaved = true }
+        withAnimation(reduceMotion ? nil : .default) { showSaved = true }
         Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
-            await MainActor.run { withAnimation { showSaved = false } }
+            await MainActor.run { withAnimation(reduceMotion ? nil : .default) { showSaved = false } }
         }
     }
 }

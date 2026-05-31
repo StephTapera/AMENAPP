@@ -473,7 +473,7 @@ private struct SupportDestinationSheetModifier: ViewModifier {
         case .mentalHealth:
             MentalHealthDetailView()
         case .nonprofits:
-            GivingNonprofitsDetailView()
+            GivingHomeView()
         case .trustedCircle:
             TrustedCircleView()
         case .churchNotes:

@@ -419,6 +419,7 @@ struct SpaceRailView<Item: Identifiable, CardContent: View>: View {
 
     let title: String
     let items: [Item]
+    var onSeeAll: (() -> Void)? = nil
     @ViewBuilder var card: (Item) -> CardContent
 
     var body: some View {
@@ -431,13 +432,14 @@ struct SpaceRailView<Item: Identifiable, CardContent: View>: View {
 
                 Spacer()
 
-                Button {} label: {
+                Button(action: onSeeAll ?? {}) {
                     Text("See All ›")
                         .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.glass)
                 .tint(AmenTheme.Colors.amenGold)
                 .accessibilityLabel("See all \(title)")
+                .disabled(onSeeAll == nil)
             }
             .padding(.horizontal, 20)
 

@@ -57,6 +57,7 @@ struct ContentView: View {
     @State private var showBereanQuickActions = false
     @State private var showBereanAssistantFromMenu = false
     @State private var tabBarBadges = AMENBadgeCounts()
+    @StateObject private var followRequestsViewModel = FollowRequestsViewModel.shared
     @AppStorage("currentUserProfileImageURL") private var currentUserProfileImageURL: String = ""
     @State private var postingBarState: PostingBarState = .hidden
     @State private var postingBarCategory: String = ""
@@ -861,6 +862,9 @@ struct ContentView: View {
         }
         .onReceive(BadgeCountManager.shared.$unreadNotifications) { count in
             tabBarBadges.notifications = count
+        }
+        .onReceive(followRequestsViewModel.$requests) { requests in
+            tabBarBadges.profile = requests.count
         }
         .onReceive(SundayChurchFocusManager.shared.$showSundayPrompt) { show in
             if show {

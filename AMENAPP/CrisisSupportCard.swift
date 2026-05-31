@@ -22,6 +22,7 @@ struct CrisisSupportCard: View {
     
     @State private var showDontShowAgain = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(spacing: 0) {
@@ -238,7 +239,8 @@ struct CrisisGroundingExerciseView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var currentStep = 0
     @State private var isComplete = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -289,11 +291,11 @@ struct CrisisGroundingExerciseView: View {
                         // Next button
                         Button {
                             if currentStep < exercise.steps.count - 1 {
-                                withAnimation {
+                                withAnimation(reduceMotion ? nil : .default) {
                                     currentStep += 1
                                 }
                             } else {
-                                withAnimation {
+                                withAnimation(reduceMotion ? nil : .default) {
                                     isComplete = true
                                 }
                             }
