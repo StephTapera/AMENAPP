@@ -121,7 +121,7 @@ final class ClaudeService: ObservableObject {
                     for char in result {
                         try Task.checkCancellation()
                         continuation.yield(String(char))
-                        try? await Task.sleep(nanoseconds: self.typewriterDelayNs)
+                        try await Task.sleep(nanoseconds: self.typewriterDelayNs)
                     }
 
                     continuation.finish()

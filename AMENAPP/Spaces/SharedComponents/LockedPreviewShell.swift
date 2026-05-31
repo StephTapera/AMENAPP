@@ -120,17 +120,14 @@ struct LockedPreviewShell: View {
     @ViewBuilder
     private var lockBackground: some View {
         if let avatarURL = space.avatarURL, !avatarURL.isEmpty {
-            AsyncImage(url: URL(string: avatarURL)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .blur(radius: 28)
-                        .overlay(Color.black.opacity(0.45))
-                default:
-                    gradientBackground
-                }
+            CachedAsyncImage(url: URL(string: avatarURL)) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .blur(radius: 28)
+                    .overlay(Color.black.opacity(0.45))
+            } placeholder: {
+                gradientBackground
             }
             .ignoresSafeArea()
         } else {

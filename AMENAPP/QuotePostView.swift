@@ -174,13 +174,11 @@ struct QuotePostView: View {
         VStack(alignment: .leading, spacing: 10) {
             // Header: author + reaction badge
             HStack(spacing: 8) {
-                AsyncImage(url: URL(string: quotedPost.authorProfileImageURL ?? "")) { phase in
-                    if case .success(let img) = phase {
-                        img.resizable().scaledToFill()
-                    } else {
-                        Color(.systemGray5)
-                            .overlay(Text(quotedPost.authorInitials).font(.caption.bold()).foregroundStyle(.secondary))
-                    }
+                CachedAsyncImage(url: URL(string: quotedPost.authorProfileImageURL ?? "")) { img in
+                    img.resizable().scaledToFill()
+                } placeholder: {
+                    Color(.systemGray5)
+                        .overlay(Text(quotedPost.authorInitials).font(.caption.bold()).foregroundStyle(.secondary))
                 }
                 .frame(width: 28, height: 28)
                 .clipShape(Circle())

@@ -171,16 +171,13 @@ struct SpacesRootView: View {
             showCommunitySwitcherSheet = true
         } label: {
             if let url = URL(string: profileImageURL), !profileImageURL.isEmpty {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                            .frame(width: 32, height: 32)
-                            .clipShape(Circle())
-                            .overlay(Circle().strokeBorder(AmenTheme.Colors.amenPurple.opacity(0.3), lineWidth: 1))
-                    default:
-                        profileAvatarFallback
-                    }
+                CachedAsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(AmenTheme.Colors.amenPurple.opacity(0.3), lineWidth: 1))
+                } placeholder: {
+                    profileAvatarFallback
                 }
             } else {
                 profileAvatarFallback

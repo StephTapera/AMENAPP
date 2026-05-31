@@ -129,7 +129,7 @@ struct ExpandableDeck<Detail: View>: View {
     @ViewBuilder
     private func cardArtwork(_ item: FeaturedItem) -> some View {
         if let url = item.imageURL {
-            AsyncImage(url: url) { img in
+            CachedAsyncImage(url: url) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 item.accent.opacity(0.5)

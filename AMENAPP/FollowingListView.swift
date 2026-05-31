@@ -228,15 +228,12 @@ struct FollowingRow: View {
             Group {
                 if let profileImageURL = user.profileImageURL,
                    let url = URL(string: profileImageURL) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        default:
-                            avatarPlaceholder
-                        }
+                    CachedAsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        avatarPlaceholder
                     }
                 } else {
                     avatarPlaceholder

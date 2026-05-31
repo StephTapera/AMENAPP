@@ -139,18 +139,15 @@ struct ConnectNetworkView: View {
 
     private func personRow(_ person: NetworkPerson) -> some View {
         HStack(spacing: 12) {
-            AsyncImage(url: URL(string: person.photoURL)) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    Circle().fill(accentColor.opacity(0.15))
-                        .overlay(
-                            Text(String(person.displayName.prefix(1)).uppercased())
-                                .font(.systemScaled(16, weight: .bold))
-                                .foregroundStyle(accentColor)
-                        )
-                }
+            CachedAsyncImage(url: URL(string: person.photoURL)) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                Circle().fill(accentColor.opacity(0.15))
+                    .overlay(
+                        Text(String(person.displayName.prefix(1)).uppercased())
+                            .font(.systemScaled(16, weight: .bold))
+                            .foregroundStyle(accentColor)
+                    )
             }
             .frame(width: 48, height: 48)
             .clipShape(Circle())
