@@ -6317,5 +6317,26 @@ service cloud.firestore {
       allow read, write: if false; // server-managed
     }
 
+    // ── Post Provenance (Phase 3 / Master Run) ────────────────────────────────
+    // Records why a post was surfaced to a specific user. Only the target user
+    // can read their own provenance records. All writes go through the
+    // postProvenanceProxy Cloud Function — no direct client writes.
+    match /postProvenance/{provenanceId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+
+    // ── Selah Stories (Phase 3 / Master Run) ──────────────────────────────────
+    // Ephemeral faith-story cards visible only to the author or explicit audience.
+    // Author can create, update, and delete their own stories.
+    match /selahStories/{storyId} {
+      allow read: if request.auth != null && (
+        resource.data.authorId == request.auth.uid ||
+        request.auth.uid in resource.data.audienceIds
+      );
+      allow write: if request.auth != null && request.auth.uid == resource.data.authorId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+
   }
 }
