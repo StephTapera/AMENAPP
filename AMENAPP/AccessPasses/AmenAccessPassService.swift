@@ -107,7 +107,20 @@ final class AmenAccessPassService: ObservableObject {
         ]
         if let msg = requestMessage { payload["requestMessage"] = msg }
 
-        let result = try await functions.httpsCallable("acceptAccessPass").call(payload)
+        let result: HTTPSCallableResult
+        do {
+            result = try await functions.httpsCallable("acceptAccessPass").call(payload)
+        } catch {
+            // CF-03: surface user-facing message for backend unavailability
+            let nsErr = error as NSError
+            if nsErr.domain == FunctionsErrorDomain {
+                let code = FunctionsErrorCode(rawValue: nsErr.code)
+                if code == .unimplemented || code == .`internal` {
+                    throw AmenAccessPassError.unknown("Access pass service is temporarily unavailable. Please try again.")
+                }
+            }
+            throw error
+        }
         guard let data = result.data as? [String: Any] else {
             throw CloudFunctionsError.invalidResponse
         }

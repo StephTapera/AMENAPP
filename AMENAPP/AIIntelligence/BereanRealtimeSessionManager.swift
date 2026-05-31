@@ -35,16 +35,30 @@ final class BereanRealtimeSessionManager: ObservableObject {
         defer { isConnecting = false }
 
         let callable = functions.httpsCallable("createRealtimeSession")
-        let result = try await callable.call([
-            "sessionType": type.rawValue,
-            "sourceLanguage": sourceLanguage.rawValue,
-            "targetLanguages": targetLanguages.map(\.rawValue),
-            "selectedLanguage": (selectedLanguage ?? targetLanguages.first ?? sourceLanguage).rawValue,
-            "churchId": churchId ?? "",
-            "sermonId": sermonId ?? "",
-            "prayerRoomId": prayerRoomId ?? "",
-            "conversationId": conversationId ?? "",
-        ])
+        let result: HTTPSCallableResult
+        do {
+            result = try await callable.call([
+                "sessionType": type.rawValue,
+                "sourceLanguage": sourceLanguage.rawValue,
+                "targetLanguages": targetLanguages.map(\.rawValue),
+                "selectedLanguage": (selectedLanguage ?? targetLanguages.first ?? sourceLanguage).rawValue,
+                "churchId": churchId ?? "",
+                "sermonId": sermonId ?? "",
+                "prayerRoomId": prayerRoomId ?? "",
+                "conversationId": conversationId ?? "",
+            ])
+        } catch {
+            // CF-03: surface user-facing message for backend unavailability
+            let nsErr = error as NSError
+            if nsErr.domain == FunctionsErrorDomain {
+                let code = FunctionsErrorCode(rawValue: nsErr.code)
+                if code == .unimplemented || code == .`internal` {
+                    lastError = "Live session service is temporarily unavailable. Please try again."
+                    throw BereanRealtimeError.serviceUnavailable
+                }
+            }
+            throw error
+        }
 
         guard let data = result.data as? [String: Any],
               let sessionId = data["sessionId"] as? String,
@@ -146,11 +160,14 @@ final class BereanRealtimeSessionManager: ObservableObject {
 
 enum BereanRealtimeError: LocalizedError {
     case invalidBrokerResponse
+    case serviceUnavailable
 
     var errorDescription: String? {
         switch self {
         case .invalidBrokerResponse:
             return "Realtime session broker returned an invalid response."
+        case .serviceUnavailable:
+            return "Live session service is temporarily unavailable. Please try again."
         }
     }
 }

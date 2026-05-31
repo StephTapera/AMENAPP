@@ -112,7 +112,20 @@ actor ClaudeAPIService {
             "userMessage": userMessage,
             "maxTokens": maxTokens
         ]
-        let result = try await functions.httpsCallable("bereanChatProxy").call(data)
+        let result: HTTPSCallableResult
+        do {
+            result = try await functions.httpsCallable("bereanChatProxy").call(data)
+        } catch {
+            // CF-03: surface user-facing message for backend unavailability
+            let nsErr = error as NSError
+            if nsErr.domain == FunctionsErrorDomain {
+                let code = FunctionsErrorCode(rawValue: nsErr.code)
+                if code == .unimplemented || code == .`internal` {
+                    throw ClaudeError.networkError("Berean AI is temporarily unavailable. Please try again.")
+                }
+            }
+            throw error
+        }
         guard let dict = result.data as? [String: Any],
               let text = dict["text"] as? String else {
             throw ClaudeError.emptyResponse
