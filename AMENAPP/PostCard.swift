@@ -1799,7 +1799,7 @@ struct PostCard: View {
         HStack(spacing: 6) {
             Image(systemName: hasSaidAmen ? "hands.clap.fill" : "hands.clap")
                 .font(.systemScaled(20, weight: .semibold))
-                .foregroundStyle(hasSaidAmen ? Color.blue : Color.secondary)
+                .foregroundStyle(hasSaidAmen ? AmenTheme.Colors.amenGold : Color.secondary)
             
             // Amen count is private — not shown publicly.
             // Icon state (filled/outlined) reflects user's own amen only.
@@ -4908,7 +4908,7 @@ struct PostCard: View {
                 if prayingNowCount > 0 {
                     Text("\(prayingNowCount)")
                         .font(AMENFont.semiBold(11))
-                        .foregroundStyle(isPraying ? Color.blue : Color.secondary)
+                        .foregroundStyle(isPraying ? AmenTheme.Colors.amenPurple : Color.secondary)
                         .contentTransition(.numericText())
                 }
             }
@@ -4916,12 +4916,12 @@ struct PostCard: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(isPraying ? Color.blue.opacity(0.15) : Color(.tertiarySystemFill))
-                    .shadow(color: isPraying ? Color.blue.opacity(0.2) : Color.clear, radius: 8, y: 2)
+                    .fill(isPraying ? AmenTheme.Colors.amenPurple.opacity(0.15) : Color(.tertiarySystemFill))
+                    .shadow(color: isPraying ? AmenTheme.Colors.amenPurple.opacity(0.2) : Color.clear, radius: 8, y: 2)
             )
             .overlay(
                 Capsule()
-                    .stroke(isPraying ? Color.blue.opacity(0.3) : Color(.separator).opacity(0.25), lineWidth: isPraying ? 1.5 : 1)
+                    .stroke(isPraying ? AmenTheme.Colors.amenPurple.opacity(0.3) : Color(.separator).opacity(0.25), lineWidth: isPraying ? 1.5 : 1)
             )
         }
         .buttonStyle(.instantFeedback)  // ✅ P0 FIX: INSTANT touch-down feedback
@@ -6840,32 +6840,32 @@ struct PostLinkButton: View {
                 // Link icon
                 ZStack {
                     Circle()
-                        .fill(Color.blue.opacity(0.15))
+                        .fill(AmenTheme.Colors.amenBlue.opacity(0.15))
                         .frame(width: 36, height: 36)
-                    
+
                     Image(systemName: "link")
                         .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(AmenTheme.Colors.amenBlue)
                 }
-                
+
                 // URL text (shortened)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Open Link")
                         .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
-                    
+
                     Text(displayURL)
                         .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                
+
                 Spacer()
-                
+
                 // External link indicator
                 Image(systemName: "arrow.up.right")
                     .font(.systemScaled(14, weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(AmenTheme.Colors.amenBlue)
             }
             .padding(12)
             .background(
@@ -6874,7 +6874,7 @@ struct PostLinkButton: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                    .stroke(AmenTheme.Colors.amenBlue.opacity(0.2), lineWidth: 1)
             )
             .scaleEffect(isPressed ? 0.98 : 1.0)
         }
