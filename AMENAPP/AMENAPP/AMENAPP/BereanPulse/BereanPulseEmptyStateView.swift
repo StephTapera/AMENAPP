@@ -33,6 +33,7 @@ struct BereanPulseEmptyStateView: View {
                     .background(Color.primary, in: Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Refresh Berean Pulse")
             .accessibilityHint(Text("Checks for newly available Berean Pulse cards."))
         }
         .padding(24)

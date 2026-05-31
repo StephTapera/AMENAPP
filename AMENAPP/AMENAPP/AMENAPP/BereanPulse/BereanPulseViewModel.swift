@@ -68,6 +68,10 @@ final class BereanPulseViewModel: ObservableObject {
             }
         } catch {
             lastErrorMessage = error.localizedDescription
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 6_000_000_000)
+                self.lastErrorMessage = nil
+            }
             feedState = .error(error.localizedDescription)
         }
     }
@@ -102,6 +106,10 @@ final class BereanPulseViewModel: ObservableObject {
             try await service.updatePreferences(updated)
         } catch {
             lastErrorMessage = error.localizedDescription
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 6_000_000_000)
+                self.lastErrorMessage = nil
+            }
         }
     }
 
@@ -130,6 +138,10 @@ final class BereanPulseViewModel: ObservableObject {
                 }
             } catch {
                 lastErrorMessage = error.localizedDescription
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 6_000_000_000)
+                    self.lastErrorMessage = nil
+                }
             }
         }
     }
@@ -145,6 +157,10 @@ final class BereanPulseViewModel: ObservableObject {
                 await track(cardId: card.id, card.mode, .hidden)
             } catch {
                 lastErrorMessage = error.localizedDescription
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 6_000_000_000)
+                    self.lastErrorMessage = nil
+                }
             }
         }
     }
@@ -223,6 +239,10 @@ final class BereanPulseViewModel: ObservableObject {
                 }
             } catch {
                 self.lastErrorMessage = error.localizedDescription
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 6_000_000_000)
+                    self.lastErrorMessage = nil
+                }
                 self.feedState = .error(error.localizedDescription)
             }
         }

@@ -1091,6 +1091,8 @@ class PrayerGroupsService: ObservableObject {
     }
 
     func createGroup(name: String, description: String, category: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isSaving = true
         defer { isSaving = false }

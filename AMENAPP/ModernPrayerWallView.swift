@@ -17,6 +17,7 @@ struct ModernPrayerWallView: View {
     @StateObject private var viewModel = PrayerWallViewModel()
     @State private var showNewPrayer = false
     @State private var selectedCategory: PrayerWallCategory = .all
+    @State private var isRetrying = false
     
     var body: some View {
         NavigationStack {
@@ -87,10 +88,16 @@ struct ModernPrayerWallView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Button("Retry") {
-                                Task { await viewModel.loadPrayers() }
+                            Button(isRetrying ? "Retrying…" : "Retry") {
+                                guard !isRetrying else { return }
+                                isRetrying = true
+                                Task {
+                                    await viewModel.loadPrayers()
+                                    isRetrying = false
+                                }
                             }
                             .font(.subheadline.bold())
+                            .disabled(isRetrying)
                         }
                         .padding()
                         .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
