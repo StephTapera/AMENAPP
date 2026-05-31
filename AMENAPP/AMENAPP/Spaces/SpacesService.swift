@@ -126,7 +126,7 @@ final class SpacesService {
 
     /// Fetch all members of a community.
     func fetchCommunityMembers(communityId: String) async throws -> [CommunityMember] {
-        let snap = try await communityRef(communityId).collection("members").getDocuments()
+        let snap = try await communityRef(communityId).collection("members").limit(to: 200).getDocuments()
         return snap.documents.compactMap { try? $0.data(as: CommunityMember.self) }
     }
 
@@ -193,7 +193,7 @@ final class SpacesService {
 
     /// Fetch all members of a space.
     func fetchSpaceMembers(spaceId: String) async throws -> [SpaceMember] {
-        let snap = try await spaceRef(spaceId).collection("members").getDocuments()
+        let snap = try await spaceRef(spaceId).collection("members").limit(to: 500).getDocuments()
         return snap.documents.compactMap { try? $0.data(as: SpaceMember.self) }
     }
 
@@ -212,6 +212,7 @@ final class SpacesService {
         let snap = try await spaceRef(spaceId)
             .collection("threads")
             .order(by: "lastMessageAt", descending: true)
+            .limit(to: 50)
             .getDocuments()
         return snap.documents.compactMap { try? $0.data(as: SpaceThread.self) }
     }
@@ -381,6 +382,7 @@ final class SpacesService {
         let snap = try await spaceRef(spaceId)
             .collection("studies")
             .order(by: "createdAt", descending: false)
+            .limit(to: 100)
             .getDocuments()
         return snap.documents.compactMap { try? $0.data(as: SpaceStudy.self) }
     }

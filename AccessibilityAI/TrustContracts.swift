@@ -1,12 +1,15 @@
 // TrustContracts.swift
 // AMEN Trust Layer — Frozen Shared Contracts (Phase 0)
-// DO NOT MODIFY without versioning through the Orchestrator.
+// C2PA-aligned capture-chain types. Prefixed with C2PA / Content to
+// distinguish from the server-verification types in AccessibilityContracts.swift.
 
 import Foundation
 
-// MARK: - Provenance State
+// MARK: - Content Origin State (C2PA capture chain)
 
-enum ProvenanceState: String, Codable {
+/// The origin and edit history of a media item in the C2PA sense.
+/// Not to be confused with MediaVerificationState (server-side check result).
+enum ContentOriginState: String, Codable {
     case verifiedOriginal   // captured in Amen camera, C2PA manifest signed at capture, intact
     case edited             // crop / color / trim / stabilize — tracked, manifest chained
     case aiAssisted         // AI transcription / translation / summary / a11y enhancement attached
@@ -57,9 +60,9 @@ enum AIContributionType: String, Codable {
     case scriptureDetect
 }
 
-// MARK: - AI Contribution (the audit trail that earns the badge)
+// MARK: - C2PA AI Contribution (the audit trail that earns the badge)
 
-struct AIContribution: Codable {
+struct C2PAAIContribution: Codable {
     let type: AIContributionType
     let model: String
     let jobId: String         // ties to the callable-proxy invocation
@@ -67,23 +70,23 @@ struct AIContribution: Codable {
     let humanEdited: Bool     // true once a human revises (Alt Text Editor learning loop)
 }
 
-// MARK: - Media Credential (C2PA-aligned manifest wrapper)
+// MARK: - C2PA Media Credential (C2PA-aligned manifest wrapper)
 
-struct MediaCredential: Codable {
+struct C2PAMediaCredential: Codable {
     let mediaId: String
-    var state: ProvenanceState
+    var originState: ContentOriginState
     let c2paManifestPresent: Bool
     let signerType: SignerType
     let captureAttestation: CaptureAttestation?
     var editChain: [EditRecord]          // append-only
-    var aiContributions: [AIContribution]
+    var aiContributions: [C2PAAIContribution]
     let sourceVerified: Bool
     var metadataIntact: Bool
 }
 
-// MARK: - Authenticity Score (signals only — NEVER engagement metrics)
+// MARK: - Media Authenticity Score (signals only — NEVER engagement metrics)
 
-struct AuthenticityScore: Codable {
+struct MediaAuthenticityScore: Codable {
     let originalCapture: Bool
     let provenanceIntact: Bool
     let sourceVerified: Bool
