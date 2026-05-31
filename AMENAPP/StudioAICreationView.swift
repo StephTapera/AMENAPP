@@ -112,9 +112,18 @@ final class StudioAICreationViewModel: ObservableObject {
     private let functions = Functions.functions(region: "us-central1")
     private let subscriptionService = StudioSubscriptionService.shared
 
+    // STUDIO-03: stored task handle for cancellation
+    private(set) var generateTask: Task<Void, Never>? = nil
+
     // STUDIO-08: per-minute retry rate-limit state
     private var generateAttemptCount: Int = 0
     private var generateLastResetDate: Date = Date()
+
+    func cancelGeneration() {
+        generateTask?.cancel()
+        generateTask = nil
+        isGenerating = false
+    }
 
     func generate(tool: StudioTool) {
         guard !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -136,8 +145,12 @@ final class StudioAICreationViewModel: ObservableObject {
         generatedText = ""
         phase = .result
 
-        Task {
-            defer { isGenerating = false }
+        // STUDIO-03: store task so the cancel button can stop it
+        generateTask = Task {
+            defer {
+                isGenerating = false
+                generateTask = nil
+            }
             do {
                 let payload: [String: Any] = [
                     "tool": tool.rawValue,
@@ -156,7 +169,10 @@ final class StudioAICreationViewModel: ObservableObject {
                     errorMessage = "Couldn't read the response. Please try again."
                 }
             } catch {
-                errorMessage = error.localizedDescription
+                // Suppress cancellation noise; surface real errors
+                if !(error is CancellationError) {
+                    errorMessage = error.localizedDescription
+                }
             }
         }
     }
@@ -725,9 +741,16 @@ struct StudioAICreationView: View {
             Text("Crafting your \(selectedTool.outputLabel.lowercased())…")
                 .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
+            // STUDIO-03: cancel button so user is never stuck mid-generation
+            Button("Cancel") {
+                vm.cancelGeneration()
+            }
+            .font(.systemScaled(13, weight: .medium))
+            .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 160)
+        .frame(height: 180)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial)
