@@ -815,8 +815,14 @@ struct MinimalAuthenticationView: View {
             return
         }
 
-        // Age verification collected but no blocking
-        // All ages are allowed to sign up
+        // COPPA: must be 13+ to create an account
+        if !isLogin {
+            let age = Calendar.current.dateComponents([.year], from: birthDate, to: Date()).year ?? 0
+            guard age >= 13 else {
+                showError("You must be 13 or older to create an account.")
+                return
+            }
+        }
 
         isLoading = true
         errorMessage = nil
