@@ -14,23 +14,7 @@ import UserNotifications
 // MARK: - Push Notification Setup
 
 extension AppDelegate {
-    
-    /// Setup push notifications and FCM
-    func setupMessaging() {
-        let center = UNUserNotificationCenter.current()
-        
-        // Use composite delegate that handles both Firebase and Church notifications
-        center.delegate = CompositeNotificationDelegate.shared
-        
-        // Set FCM delegate - PushNotificationManager conforms to MessagingDelegate
-        Messaging.messaging().delegate = PushNotificationManager.shared as MessagingDelegate
-        
-        // Setup FCM token
-        PushNotificationManager.shared.setupFCMToken()
-        
-        dlog("✅ Push notifications configured")
-    }
-    
+
     /// Handle successful APNS token registration
     func application(_ application: UIApplication, 
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
