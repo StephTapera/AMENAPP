@@ -415,7 +415,9 @@ struct MediaPostComposerView: View {
             )
         }
         .buttonStyle(.plain)
+        .disabled(true)
         .accessibilityLabel("Translate caption before posting")
+        .accessibilityHint("Translation coming soon")
     }
 
     // MARK: - Attachment Chip Row
