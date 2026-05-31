@@ -261,10 +261,10 @@ struct OpenTableView: View {
             if !postsManager.openTablePosts.isEmpty {
                 isInitialLoad = false
             } else {
-                // Safety timeout: if no posts arrive within 4 seconds (new user, truly
+                // Safety timeout: if no posts arrive within 2 seconds (new user, truly
                 // empty feed, slow connection), drop the skeleton so the empty state shows.
                 // The fetch continues in the background — pull-to-refresh still works.
-                try? await Task.sleep(nanoseconds: 4_000_000_000)
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
                 if isInitialLoad {
                     withAnimation(reduceMotion ? .none : .easeOut(duration: 0.25)) { isInitialLoad = false }
                 }

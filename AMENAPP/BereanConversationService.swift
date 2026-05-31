@@ -244,6 +244,7 @@ final class BereanConversationService: ObservableObject {
 
         messageListener = messagesRef(uid: uid, convId: conversationId)
             .order(by: "createdAt", descending: false)
+            .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self, let snapshot else { return }
                 self.activeMessages = snapshot.documents.compactMap {

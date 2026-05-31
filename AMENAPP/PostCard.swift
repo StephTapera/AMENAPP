@@ -2575,7 +2575,7 @@ struct PostCard: View {
     }
 
     var body: some View {
-        #if DEBUG
+        #if DEBUG && AMEN_VERBOSE_RENDER
         let _ = Self._printChanges()
         #endif
         return cardBodyEventHandlers

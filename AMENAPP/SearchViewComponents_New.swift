@@ -358,15 +358,10 @@ struct DiscoverPeopleView: View {
             isSearching = false
             return
         }
-        
+
         isSearching = true
-        
-        // Debounce: wait 300ms, then check if we were superseded by a newer search.
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        guard !Task.isCancelled else {
-            isSearching = false
-            return
-        }
+        // Debounce is handled by the onChange cancel-and-recreate pattern at the call
+        // site — no additional sleep needed here.
 
         do {
             // Use Algolia via UserSearchService

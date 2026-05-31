@@ -481,7 +481,7 @@ struct BereanAIAssistantView: View {
 
     // Extracted chat message list to avoid compiler type-check timeout in ScrollView body.
     private var chatMessageList: some View {
-        VStack(spacing: 14) {
+        LazyVStack(spacing: 14) {
             if viewModel.messages.isEmpty {
                 GeometryReader { geo in
                     bereanEmptyStateView

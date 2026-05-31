@@ -95,7 +95,7 @@ final class DiscoveryService: ObservableObject {
         // Cancel previous suggestions task
         suggestionsTask?.cancel()
         suggestionsTask = Task {
-            try? await Task.sleep(nanoseconds: 200_000_000) // 200ms debounce
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
             guard !Task.isCancelled else { return }
             await loadTypeaheadSuggestions(query: trimmed)
         }

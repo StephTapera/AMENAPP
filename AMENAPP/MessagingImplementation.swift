@@ -251,6 +251,7 @@ extension FirebaseMessagingService {
         let existing = try await db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .whereField("isGroup", isEqualTo: false)
+            .limit(to: 200)
             .getDocuments()
 
         for doc in existing.documents {

@@ -43,6 +43,7 @@ struct LiquidGlassTabBarBackground: View {
                     .mask(LinearGradient(colors: [.white, .clear, .clear],
                                         startPoint: .topLeading, endPoint: .bottomTrailing))
             }
+            .drawingGroup()  // Rasterize multi-layer glass into single GPU layer; prevents per-frame re-compositing on scroll
             .shadow(color: .black.opacity(reduceTransparency ? 0.10 : 0.16),
                     radius: isCompressed ? 12 : 20, x: 0, y: isCompressed ? 5 : 11)
     }
@@ -589,7 +590,7 @@ struct AMENTabBar: View {
             showRestModeSheet = true
             return
         }
-        PerformanceLog.event("tab_switch", tab.rawValue)
+        PerformanceLog.event("tab_switch", String(tab.rawValue))
         withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : Motion.liquidSpring) {
             selectedTab = tab.rawValue
         }

@@ -633,7 +633,11 @@ struct AMENDiscoveryView: View {
         }
         .onAppear {
             disasterVM.loadDisasters()
-            Task { await feedService.loadAll() }
+            // Only reload if content is absent — avoids 6 parallel network requests
+            // on every tab-switch return when data is already fresh.
+            if feedService.dailyVerse == nil && feedService.youtubeVideos.isEmpty {
+                Task { await feedService.loadAll() }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .searchTabTapped)) { _ in
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {

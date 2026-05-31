@@ -823,6 +823,7 @@ struct UserProfileView: View {
             db.collection("posts")
                 .whereField("authorId", isEqualTo: userId)
                 .order(by: "createdAt", descending: true)
+                .limit(to: 50)
                 .addSnapshotListener { querySnapshot, error in
                 if let error = error {
                     dlog("❌ Firestore listener error: \(error)")

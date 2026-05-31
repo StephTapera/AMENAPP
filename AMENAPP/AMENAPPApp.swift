@@ -49,6 +49,9 @@ struct AMENAPPApp: App {
     // P0-C FIX: Track startup tasks so they can be cancelled on disappear,
     // preventing retain cycles across background/foreground transitions.
     @State private var startupTasks: [Task<Void, Never>] = []
+    // Prevents preloadCacheSync + startFollowServiceListeners from re-firing
+    // on every background/foreground cycle — only needs to run once per session.
+    @State private var hasStartedStartupTasks = false
     
     // P1 FIX: Observe scene phase to drive BehavioralAwarenessEngine session lifecycle.
     // Without this, beginSession/endSession are never called on foreground/background transitions.
@@ -270,6 +273,11 @@ struct AMENAPPApp: App {
                     // when the parent task is cancelled in onDisappear. Using async let
                     // tuples causes a Swift Concurrency fatal error (swift_task_dealloc)
                     // when the parent task is cancelled before all children complete.
+                    // PERF FIX: Guard prevents preload + follow-listener re-fire on every
+                    // background/foreground cycle — these only need to run once per session.
+                    guard !hasStartedStartupTasks else { return }
+                    hasStartedStartupTasks = true
+
                     let criticalTask = Task(priority: .userInitiated) {
                         await withTaskGroup(of: Void.self) { group in
                             group.addTask { await fetchCurrentUserForWelcome() }
@@ -768,6 +776,7 @@ struct AMENAPPApp: App {
                     // P0-D FIX: Reset fcmSetupDone so the next sign-in within the same
                     // session re-registers the FCM token for the new user account.
                     self.fcmSetupDone = false
+                    self.hasStartedStartupTasks = false
                     dlog("👋 User logged out, unregistering device token")
                     await DeviceTokenManager.shared.unregisterDeviceToken()
                     AgeAssuranceService.shared.clearCache()

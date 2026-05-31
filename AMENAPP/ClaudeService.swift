@@ -274,10 +274,14 @@ final class ClaudeService: ObservableObject {
     private func typewriterStream(text: String) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             Task {
-                for char in text {
-                    if Task.isCancelled { break }
-                    continuation.yield(String(char))
-                    try? await Task.sleep(nanoseconds: self.typewriterDelayNs)
+                do {
+                    for char in text {
+                        try Task.checkCancellation()
+                        continuation.yield(String(char))
+                        try await Task.sleep(nanoseconds: self.typewriterDelayNs)
+                    }
+                } catch {
+                    // CancellationError or other — stop immediately
                 }
                 continuation.finish()
             }
