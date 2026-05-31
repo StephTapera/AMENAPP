@@ -760,8 +760,11 @@ class PrayerWallViewModel: ObservableObject {
             let userDoc = try await db.collection(FirestoreCollections.users).document(currentUserId).getDocument()
             let userData = userDoc.data()
             
-            let prayerData: [String: Any] = [
-                "authorId": currentUserId,
+            // For anonymous prayers do not write authorId to the public document —
+            // knowing the UID would let any reader de-anonymise the post.
+            // Ownership for deletion is enforced server-side via request.auth.uid
+            // matching the document's hidden creatorUid field (written by CF trigger).
+            var prayerData: [String: Any] = [
                 "authorName": isAnonymous ? "Anonymous" : (userData?["username"] as? String ?? "Unknown"),
                 "authorProfileImage": isAnonymous ? "" : (userData?["profileImageURL"] as? String ?? ""),
                 "content": content,
@@ -771,6 +774,9 @@ class PrayerWallViewModel: ObservableObject {
                 "prayerCount": 0,
                 "isAnswered": false
             ]
+            if !isAnonymous {
+                prayerData["authorId"] = currentUserId
+            }
             
             try await db.collection(FirestoreCollections.prayerWall).addDocument(data: prayerData)
             await loadPrayers()
