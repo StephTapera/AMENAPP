@@ -1249,7 +1249,7 @@ struct UnifiedChatView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.systemScaled(18, weight: .semibold))
-                    .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
@@ -1313,7 +1313,7 @@ struct UnifiedChatView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(conversation.name)
                     .font(.systemScaled(16, weight: .semibold))
-                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    .foregroundColor(.primary)
 
                 let status = chatHeaderStatus
                 AmenChatStatusChip(
@@ -1341,7 +1341,7 @@ struct UnifiedChatView: View {
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                        .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
@@ -1367,7 +1367,7 @@ struct UnifiedChatView: View {
             } label: {
                 Image(systemName: conversation.isGroup ? "person.3.fill" : "info.circle")
                     .font(.systemScaled(18, weight: .semibold))
-                    .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
@@ -4621,7 +4621,7 @@ struct ChatUserProfileSheet: View {
                             } label: {
                                 Image(systemName: "xmark")
                                     .font(.systemScaled(16, weight: .semibold))
-                                    .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                                    .foregroundStyle(.primary)
                                     .frame(width: 32, height: 32)
                                     .background(
                                         Circle()
@@ -4638,7 +4638,7 @@ struct ChatUserProfileSheet: View {
                             } label: {
                                 Image(systemName: "square.and.arrow.up")
                                     .font(.systemScaled(16, weight: .semibold))
-                                    .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                                    .foregroundStyle(.primary)
                                     .frame(width: 32, height: 32)
                                     .background(
                                         Circle()
@@ -4672,7 +4672,7 @@ struct ChatUserProfileSheet: View {
                             VStack(spacing: 4) {
                                 Text(userProfile.displayName)
                                     .font(.systemScaled(32, weight: .bold))
-                                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
+                                    .foregroundColor(.primary)
                                 
                                 Text("@\(userProfile.username)")
                                     .font(.systemScaled(16, weight: .medium))
@@ -4864,7 +4864,7 @@ struct ChatUserProfileSheet: View {
                                         
                                         Image(systemName: "ellipsis")
                                             .font(.systemScaled(20, weight: .semibold))
-                                            .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                                            .foregroundStyle(.primary)
                                     }
                                 }
                                 } // end HStack (Continue Chat row)
@@ -4908,7 +4908,7 @@ struct ChatUserProfileSheet: View {
                     
                     Text("Unable to load profile")
                         .font(.systemScaled(18, weight: .semibold))
-                        .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
+                        .foregroundColor(.primary)
                     
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
@@ -5116,11 +5116,11 @@ struct ProfileStatItem: View {
             HStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.systemScaled(16, weight: .semibold))
-                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    .foregroundColor(.primary)
                 
                 Text(value)
                     .font(.systemScaled(20, weight: .bold))
-                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    .foregroundColor(.primary)
             }
             
             Text(label)
