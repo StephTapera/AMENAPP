@@ -313,7 +313,7 @@ class HeyFeedService: ObservableObject {
             "type": type.rawValue,
             "createdAt": Timestamp(date: now)
         ]
-        try await resonanceRef.setData(resonanceData, merge: false)
+        try await resonanceRef.setData(resonanceData, merge: true)
 
         // Increment resonanceCount and recompute resonanceScore
         try await requestRef.updateData([
