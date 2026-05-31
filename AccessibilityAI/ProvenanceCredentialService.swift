@@ -53,9 +53,9 @@ actor ProvenanceCredentialService {
         }
 
         let params: [String: Any] = [
-            "mediaId":       credential.mediaId,
-            "state":         credential.state.rawValue,
-            "signerType":    credential.signerType.rawValue,
+            "mediaId":        credential.mediaId,
+            "state":          credential.state.rawValue,
+            "signerType":     credential.signerType.rawValue,
             "metadataIntact": credential.metadataIntact
         ]
 
@@ -71,10 +71,8 @@ actor ProvenanceCredentialService {
             throw ProvenanceCredentialError.upstream(error.localizedDescription)
         }
 
-        // Persist locally so fetchCredential can work without hitting the function again.
-        let encoder = Firestore.Encoder()
-        let data = try encoder.encode(credential)
-        try await credentialDoc(mediaId: credential.mediaId).setData(data, merge: true)
+        // Persist locally so fetchCredential can work without a second function round-trip.
+        try await credentialDoc(mediaId: credential.mediaId).setData(from: credential, merge: true)
     }
 
     // MARK: - Fetch
@@ -82,13 +80,10 @@ actor ProvenanceCredentialService {
     /// Reads a MediaCredential from Firestore. Returns nil when no document exists.
     func fetchCredential(mediaId: String) async throws -> MediaCredential? {
         let snapshot = try await credentialDoc(mediaId: mediaId).getDocument()
-        guard snapshot.exists, let rawData = snapshot.data() else {
-            return nil
-        }
+        guard snapshot.exists else { return nil }
 
         do {
-            let decoder = Firestore.Decoder()
-            return try decoder.decode(MediaCredential.self, from: rawData)
+            return try snapshot.data(as: MediaCredential.self)
         } catch {
             throw ProvenanceCredentialError.decodingFailed
         }
@@ -102,9 +97,7 @@ actor ProvenanceCredentialService {
             throw ProvenanceCredentialError.unauthenticated
         }
 
-        let encoder = Firestore.Encoder()
-        let recordData = try encoder.encode(record)
-
+        let recordData = try Firestore.Encoder().encode(record)
         try await credentialDoc(mediaId: mediaId).updateData([
             "editChain": FieldValue.arrayUnion([recordData])
         ])
@@ -118,9 +111,7 @@ actor ProvenanceCredentialService {
             throw ProvenanceCredentialError.unauthenticated
         }
 
-        let encoder = Firestore.Encoder()
-        let contributionData = try encoder.encode(contribution)
-
+        let contributionData = try Firestore.Encoder().encode(contribution)
         try await credentialDoc(mediaId: mediaId).updateData([
             "aiContributions": FieldValue.arrayUnion([contributionData])
         ])

@@ -210,17 +210,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     private func setupPushNotifications() {
         let center = UNUserNotificationCenter.current()
 
-        // Use composite delegate that handles both Firebase and Church notifications
+        // CompositeNotificationDelegate is the sole UNUserNotificationCenterDelegate —
+        // it handles message suppression, blocked-user filtering, and church notification
+        // routing. Do NOT assign a second delegate here; it would overwrite this one.
         center.delegate = CompositeNotificationDelegate.shared
-
-        // H-13 FIX: Also assign PushNotificationHandler as the UNUserNotificationCenter
-        // delegate so its willPresent / didReceive conformances actually fire.
-        // CompositeNotificationDelegate.shared should forward to PushNotificationHandler;
-        // if it does not, PushNotificationHandler.shared is wired here as a fallback.
-        // Check whether CompositeNotificationDelegate already delegates to PushNotificationHandler;
-        // if not, set PushNotificationHandler as the primary delegate.
-        // For now we ensure PushNotificationHandler.shared is set so the conformances are live:
-        UNUserNotificationCenter.current().delegate = PushNotificationHandler.shared
 
         // H-13 FIX: Also assign PushNotificationHandler as the FCM MessagingDelegate so its
         // messaging(_:didReceiveRegistrationToken:) conformance fires and saves tokens to
