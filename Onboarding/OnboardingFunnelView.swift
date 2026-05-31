@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 import FirebaseFirestore
 import FirebaseAuth
 import FirebaseFunctions
@@ -8,6 +9,10 @@ struct OnboardingFunnelView: View {
     @State private var step: OnboardingStep = .welcome
     @State private var selectedInterests: Set<UserInterest> = []
     @State private var churchName = ""
+    @State private var churchSuggestions: [SmartChurchSummary] = []
+    @State private var selectedChurchId: String = ""
+    @State private var isSearchingChurch = false
+    @State private var churchSearchTask: Task<Void, Never>?
     @State private var showCompletionOrbit = false
     @State private var profileCompletionScore: Int?
     @State private var missingProfileItemIds: Set<String> = []
@@ -139,19 +144,126 @@ struct OnboardingFunnelView: View {
     }
 
     private var churchPage: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Image(systemName: "building.columns.fill").font(.system(size: 48)).foregroundStyle(Color(red: 0.83, green: 0.69, blue: 0.22))
-            Text("Your Church")
-                .font(.custom("OpenSans-Bold", size: 24)).foregroundStyle(AmenTheme.Colors.textPrimary)
-            Text("Connect with your church community for local content and events.")
-                .font(.custom("OpenSans-Regular", size: 15)).foregroundStyle(AmenTheme.Colors.textSecondary).multilineTextAlignment(.center).padding(.horizontal, 32)
-            TextField("Search for your church...", text: $churchName)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .padding(12).background(AmenTheme.Colors.surfaceInput).cornerRadius(12).padding(.horizontal, 20)
-                .accessibilityLabel("Church name search")
-            Spacer()
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                Spacer().frame(height: 28)
+
+                AmenOnboardingHeroIcon(systemName: "building.columns.fill", accent: ONB.accentGold)
+                    .padding(.leading, ONB.pagePadding)
+
+                Spacer().frame(height: 20)
+
+                ONBHeroText(
+                    headline: "Find your church community.",
+                    subheadline: "We'll show you people from your church first."
+                )
+                .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 28)
+
+                ONBGlassCard(padding: .init(top: 0, leading: 0, bottom: 0, trailing: 0)) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(ONB.inkTertiary)
+                            .padding(.leading, 16)
+                        TextField("Search your church name…", text: $churchName)
+                            .font(.systemScaled(16, weight: .regular))
+                            .foregroundStyle(ONB.inkPrimary)
+                            .submitLabel(.search)
+                            .autocorrectionDisabled()
+                            .onChange(of: churchName) { _, newVal in
+                                selectedChurchId = ""
+                                scheduleChurchSearch(query: newVal)
+                            }
+                            .accessibilityLabel("Church name search")
+                        if !churchName.isEmpty {
+                            Button {
+                                churchName = ""
+                                churchSuggestions = []
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.systemScaled(15))
+                                    .foregroundStyle(ONB.inkTertiary)
+                            }
+                            .padding(.trailing, 12)
+                        }
+                    }
+                    .frame(height: 52)
+                }
+                .padding(.horizontal, ONB.pagePadding)
+
+                if !churchSuggestions.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(churchSuggestions.prefix(5)) { church in
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                churchName = church.name
+                                selectedChurchId = church.id
+                                churchSuggestions = []
+                            } label: {
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle().fill(ONB.accentGold.opacity(0.12))
+                                            .frame(width: 34, height: 34)
+                                        Image(systemName: "building.columns.fill")
+                                            .font(.systemScaled(13, weight: .medium))
+                                            .foregroundStyle(ONB.accentGold)
+                                    }
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(church.name)
+                                            .font(.systemScaled(14, weight: .semibold))
+                                            .foregroundStyle(ONB.inkPrimary)
+                                        if !church.shortLocation.isEmpty {
+                                            Text(church.shortLocation)
+                                                .font(.systemScaled(12, weight: .regular))
+                                                .foregroundStyle(ONB.inkTertiary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                    Spacer()
+                                    if selectedChurchId == church.id {
+                                        Image(systemName: "checkmark")
+                                            .font(.systemScaled(12, weight: .semibold))
+                                            .foregroundStyle(ONB.accent)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            if church.id != churchSuggestions.prefix(5).last?.id {
+                                Divider().padding(.leading, 62)
+                            }
+                        }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: ONB.cardRadius, style: .continuous)
+                            .fill(.thinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: ONB.cardRadius).fill(ONB.glassFill))
+                            .overlay(RoundedRectangle(cornerRadius: ONB.cardRadius).strokeBorder(ONB.glassBorder, lineWidth: 1))
+                    )
+                    .shadow(color: ONB.glassShadow, radius: 10, y: 3)
+                    .padding(.horizontal, ONB.pagePadding)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                } else if isSearchingChurch {
+                    HStack(spacing: 8) {
+                        ProgressView().scaleEffect(0.75)
+                        Text("Searching…")
+                            .font(.systemScaled(13))
+                            .foregroundStyle(ONB.inkTertiary)
+                    }
+                    .padding(.horizontal, ONB.pagePadding)
+                    .padding(.top, 10)
+                }
+
+                Spacer().frame(height: 40)
+                Spacer()
+            }
+            .padding(.bottom, 20)
         }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var featureTourPage: some View {
@@ -336,10 +448,45 @@ struct OnboardingFunnelView: View {
         UserDefaults.standard.set(true, forKey: "onboardingComplete")
         UserDefaults.standard.set(selectedInterests.map { $0.rawValue }, forKey: "userInterests")
         Task {
+            // Write church to Firestore user profile for cross-device sync
+            if !selectedChurchId.isEmpty {
+                let update: [String: Any] = [
+                    "churchId": selectedChurchId,
+                    "churchName": churchName
+                ]
+                try? await Firestore.firestore().collection("users").document(uid).setData(update, merge: true)
+            }
             _ = try? await functions.httpsCallable("advanceOnboardingStep").call([
                 "userId": uid, "nextStep": OnboardingStep.complete.rawValue,
-                "data": ["interests": selectedInterests.map { $0.rawValue }, "church": churchName]
+                "data": [
+                    "interests": selectedInterests.map { $0.rawValue },
+                    "church": churchName,
+                    "churchId": selectedChurchId
+                ]
             ])
+        }
+    }
+
+    private func scheduleChurchSearch(query: String) {
+        churchSearchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            churchSuggestions = []
+            return
+        }
+        churchSearchTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { isSearchingChurch = true }
+            do {
+                let items = try await SmartChurchSearchService.shared.keywordSearch(query: trimmed)
+                await MainActor.run {
+                    churchSuggestions = items.map(\.church)
+                    isSearchingChurch = false
+                }
+            } catch {
+                await MainActor.run { isSearchingChurch = false }
+            }
         }
     }
 }

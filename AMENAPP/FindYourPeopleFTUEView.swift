@@ -16,6 +16,7 @@
 //
 
 import SwiftUI
+import CoreLocation
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -46,7 +47,7 @@ struct FindYourPeopleFTUEView: View {
 
     // Step 0 — Church
     @State private var churchQuery: String = ""
-    @State private var churchSuggestions: [ChurchEntity] = []
+    @State private var churchSuggestions: [SmartChurchSummary] = []
     @State private var selectedChurchName: String = ""
     @State private var selectedChurchId: String = ""
     @State private var isSearchingChurch = false
@@ -395,20 +396,11 @@ struct FindYourPeopleFTUEView: View {
         churchSearchTask = Task {
             try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
             guard !Task.isCancelled else { return }
-            isSearchingChurch = true
+            await MainActor.run { isSearchingChurch = true }
             do {
-                let lower = trimmed.lowercased()
-                let snap = try await Firestore.firestore()
-                    .collection("churches")
-                    .whereField("nameLower", isGreaterThanOrEqualTo: lower)
-                    .whereField("nameLower", isLessThan: lower + "\u{f8ff}")
-                    .limit(to: 5)
-                    .getDocuments()
-                let results = snap.documents.compactMap { doc -> ChurchEntity? in
-                    try? doc.data(as: ChurchEntity.self)
-                }
+                let items = try await SmartChurchSearchService.shared.keywordSearch(query: trimmed)
                 await MainActor.run {
-                    churchSuggestions = results
+                    churchSuggestions = items.map(\.church)
                     isSearchingChurch = false
                 }
             } catch {
