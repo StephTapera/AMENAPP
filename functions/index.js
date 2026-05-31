@@ -1579,3 +1579,18 @@ exports.churchSearchProxy = churchSearchProxyFns.churchSearchProxy;
 // ============================================================================
 const postProvenanceProxyFns = require('./src/provenance/postProvenanceProxy');
 exports.postProvenanceProxy = postProvenanceProxyFns.postProvenanceProxy;
+
+// ============================================================================
+// SELAH STORIES — selahStoryProxy (Phase 5 / Master Run A8)
+//   selahStoryProxy — callable: handles all Selah Stories AI operations
+//                     actions: recognizeVerse | generateReflectionPrompt |
+//                              matchAudio | createStory | deleteStory
+//                     App Check + Auth enforced; no AI credentials on device.
+//                     Currently returns mock data for emulator testing.
+//
+// [NEEDS HUMAN DEPLOY] — emulator only until Vertex AI / Pinecone secrets
+//                         are provisioned in the production Firebase project.
+// Deploy: firebase deploy --only functions:selahStoryProxy
+// ============================================================================
+const selahStoryProxyFns = require('./src/selahStories/selahStoryProxy');
+exports.selahStoryProxy = selahStoryProxyFns.selahStoryProxy;
