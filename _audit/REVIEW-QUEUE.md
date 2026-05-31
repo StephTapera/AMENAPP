@@ -36,4 +36,20 @@ All client-side items are now RESOLVED. One backend action remains.
 
 ---
 
-*Updated: 2026-05-31 — all client-side items resolved*
+---
+
+## 🔴 OPEN — Additional Backend / Architecture Items
+
+### RQ-13 | MEDIUM | DM field name mismatch
+**File:** `MessagingImplementation.swift` + Firestore `conversations/{id}/messages` collection
+**Status:** OPEN — client-side reads now tolerate both `timestamp` and `createdAt` fields, but historical Firestore documents still use the old name.
+**Action required:** Run a Firestore migration script to copy `timestamp` → `createdAt` for all existing messages.
+
+### RQ-17 | MEDIUM | PremiumManager — StoreKit 1 → StoreKit 2 migration
+**File:** `AMENAPP/PremiumManager.swift`
+**Status:** OPEN — still uses deprecated StoreKit 1 `SKProductsRequest`/`SKPaymentTransaction` APIs.
+**Action required:** Migrate to StoreKit 2 (`Product.products(for:)`, `Transaction.updates`, `AppStore.sync()`). App Store Connect configuration unchanged.
+
+---
+
+*Updated: 2026-05-31 — all client-side items resolved; 3 backend items remain open*

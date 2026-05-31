@@ -132,6 +132,50 @@ No way to abort generation once started (`isGenerating=true`, no cancel). Added 
 
 ---
 
+### Wave 4 (FIX ALL session — 2026-05-31 afternoon)
+| Commit | Finding | Domain | File(s) |
+|--------|---------|--------|---------|
+| `6513576` | RQ-11, RQ-12, BEREAN-12, UI-01/02 | Crisis/Post/Consent/UI | BereanAIAssistantView, BereanLandingView, FirebasePostService, SpacesDesignSystem, AmenSpacesDiscussionDiscoveryView, WellnessGuardianService |
+| `9ed1019` | Build — Phase0Contracts type conflicts | Infra | Phase0Contracts.swift, FindChurchSearchService.swift |
+| `f632cfd` | P0 — COPPA OAuth, DM field, feed dedup, PrivacyInfo | Auth/Comms/Feed | MinimalAuthenticationView, AMENAuthLandingView, MessagingImplementation, FirebasePostService, PrivacyInfo.xcprivacy |
+| `b11ad87` | STUDIO-03/08 (StudioWriteView), MEDIA-01/02/03, glass, reduce-motion | Studio/Media/DS | StudioWriteView, ShortFormTeachingFeedView, MediaPostComposerView, Phase0Contracts (case typo), HeyFeedControlsSheet, PrayerArcCard, SmartCommunityResultCard, BreathingExerciseView, MovementWellnessView |
+
+### Contextual detail — Wave 4
+
+**`6513576`**
+- **RQ-11**: `BereanAIAssistantView` — non-blocking crisis intercept banner (988 call, 741741 SMS, dismiss X) shown alongside AI response when crisis keywords detected. AI still responds.
+- **RQ-12**: `FirebasePostService` — pre-created `let docRef = db.collection("posts").document()` before optimistic insert so `firebaseId` is stable end-to-end; eliminates duplicate posts on retry.
+- **BEREAN-12**: `BereanLandingView` — replaced stale `@State hasAIConsent` snapshot (set in `.onAppear`) with `@ObservedObject consentStore`; live consent gate.
+- **UI-01**: `SpacesDesignSystem` — "See All ›" `Button {}` now only rendered when `onSeeAll` handler is non-nil; no more tappable dead UI.
+- **UI-02**: `AmenSpacesDiscussionDiscoveryView` — search icon focuses `TextField` via `@FocusState`; filter icon `.disabled(true)` with "Coming soon" accessibility hint.
+- **WellnessGlassCard**: renamed `private struct GlassCard` → `WellnessGlassCard` to resolve redeclaration with `AmenGlassKit`.
+
+**`9ed1019`**
+`Phase0Contracts.swift` redeclared three types already defined elsewhere. Renamed:
+- `enum Denomination` → `ChurchSearchDenomination` (was also in ProfileIdentityModels; that copy renamed to `ProfileDenomination`)
+- `enum LiturgicalSeason` → `LiturgicalSeasonKind` (was also in LiturgicalCalendarEngine)
+- `ChurchServiceTime` → `ChurchJourneyServiceTime` (was already in ChurchServiceTime.swift with different shape)
+Updated `FindChurchSearchService.swift` callers.
+
+**`f632cfd`**
+- COPPA OAuth gate: `MinimalAuthenticationView` / `AMENAuthLandingView` — DOB check enforced before `handleAuthentication()` proceeds to signup.
+- DM field unification: `MessagingImplementation` — resolved `timestamp` vs `createdAt` field mismatch on client side (backend Firestore migration still needed for historical records).
+- Feed dedup: `FirebasePostService` — additional guard to prevent double-submission on rapid taps.
+- `PrivacyInfo.xcprivacy` — added missing NSPrivacyAccessedAPITypes entries for filesystem API.
+
+**`b11ad87`**
+- **STUDIO-03** (`StudioWriteView`): Added `aiGenerationTask: Task?` handle, assigned on `triggerAISuggestion`/`triggerClosingPrayer`; cancel fires `aiGenerationTask?.cancel()` + sets flag. `CancellationError` silenced.
+- **STUDIO-08** (`StudioWriteView`): `aiRetryCount`/`aiLastRetryReset` rate limit — max 3 CF calls per 60s. Excess shows "Please wait before generating again." in suggestion card.
+- **STUDIO-19** (`StudioWriteView`): `StudioSubscriptionService.shared.requiresUpgrade(for: .create)` guard at entry of both generation paths; presents `StudioPaywallView` on upgrade prompt.
+- **MEDIA-01** (`ShortFormTeachingFeedView`): "Ask Berean" button now presents `BereanAIAssistantView(initialQuery:)` sheet with clip context (title, author, scriptureRef).
+- **MEDIA-02** (`ShortFormTeachingFeedView`): Share button presents `UIActivityViewController` (existing `ActivityViewController` wrapper) with `clip.videoURL` or fallback string.
+- **MEDIA-03** (`MediaPostComposerView`): Translate chip now toggles `showTranslation` → shows `PostTranslationButton(originalText: caption)` inline.
+- **Phase0Contracts case typo**: `nonChurchSearchDenominational` → `nonDenominational`.
+- **Glass surfaces**: `HeyFeedControlsSheet` — added `reduceTransparency` env guard + `regularMaterial` + `presentationCornerRadius(24)`. `PrayerArcCard` icon tray: `systemGray6` → `ultraThinMaterial`/`backgroundElevated` under reduce-transparency. `SmartCommunityResultCard`: 4 chip fills use glass pattern.
+- **Reduce-motion**: `BreathingExerciseView` (4 calls), `MovementWellnessView` (1 remaining call).
+
+---
+
 ## False Positives (findings confirmed already correct)
 
 | Finding | Reason |
