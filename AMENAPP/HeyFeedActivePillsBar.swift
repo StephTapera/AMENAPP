@@ -13,6 +13,7 @@ import SwiftUI
 // MARK: - Active Pills Bar
 
 struct HeyFeedActivePillsBar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var nlService = HeyFeedNLPreferencesService.shared
 
     var body: some View {
@@ -39,7 +40,7 @@ struct HeyFeedActivePillsBar: View {
                 }
             }
             .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78)), value: active.map(\.id))
+            .animation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78)), value: active.map(\.id))
         }
     }
 }
