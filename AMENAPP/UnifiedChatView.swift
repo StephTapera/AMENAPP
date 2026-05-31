@@ -995,6 +995,55 @@ struct UnifiedChatView: View {
                     }
                 }
             }
+            // MARK: — Optimistic DM insert / rollback
+            // Observes notifications posted by `sendMessageWithPermissions` so that
+            // callers who go through that path (e.g. direct-call sites outside of the
+            // in-view sendMessage() function) also get instant message display.
+            .onReceive(NotificationCenter.default.publisher(for: .dmOptimisticInsert)) { notification in
+                guard
+                    let userInfo = notification.userInfo,
+                    let clientId       = userInfo["clientId"]       as? String,
+                    let convId         = userInfo["conversationId"] as? String,
+                    convId == conversation.id,                     // only our conversation
+                    let text           = userInfo["text"]           as? String,
+                    let senderId       = userInfo["senderId"]       as? String,
+                    let timestamp      = userInfo["timestamp"]      as? Date,
+                    // Don't double-insert if sendMessage() already added this id
+                    pendingMessages[clientId] == nil,
+                    !messages.contains(where: { $0.id == clientId })
+                else { return }
+
+                let optimistic = AppMessage(
+                    id: clientId,
+                    text: text,
+                    isFromCurrentUser: true,
+                    timestamp: timestamp,
+                    senderId: senderId,
+                    senderName: messagingService.currentUserName,
+                    isSent: false,
+                    isDelivered: false,
+                    isSendFailed: false
+                )
+                pendingMessages[clientId] = optimistic
+                messages.append(optimistic)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .dmOptimisticRollback)) { notification in
+                guard
+                    let userInfo = notification.userInfo,
+                    let clientId = userInfo["clientId"] as? String,
+                    let convId   = userInfo["conversationId"] as? String,
+                    convId == conversation.id
+                else { return }
+
+                // Remove the optimistic row
+                pendingMessages.removeValue(forKey: clientId)
+                messages.removeAll { $0.id == clientId }
+
+                // Surface the error so the user knows the send failed
+                let err = userInfo["error"] as? Error
+                errorMessage = err?.localizedDescription ?? "Message could not be sent. Please try again."
+                showErrorAlert = true
+            }
     }
 
     // MARK: - Body decomposition (extracted to reduce type-checker complexity)

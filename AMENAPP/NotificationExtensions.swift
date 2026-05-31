@@ -108,4 +108,26 @@ extension Notification.Name {
     /// Posted when Firebase Remote Config activates a newly fetched config.
     /// Feature flag services observe this to re-apply remote values.
     static let remoteConfigActivated = Notification.Name("amen.remoteConfigActivated")
+
+    // MARK: - Optimistic DM insert / rollback
+
+    /// Posted by `sendMessageWithPermissions` immediately before any async work,
+    /// so the chat view can display the message optimistically.
+    ///
+    /// UserInfo keys:
+    ///   - "clientId"       : String  — UUID used as the temporary Firestore document ID
+    ///   - "conversationId" : String
+    ///   - "text"           : String
+    ///   - "senderId"       : String  — current user UID
+    ///   - "timestamp"      : Date
+    static let dmOptimisticInsert = Notification.Name("amen.dmOptimisticInsert")
+
+    /// Posted by `sendMessageWithPermissions` when `batch.commit()` fails, so the
+    /// chat view can roll back the optimistic message and surface an error.
+    ///
+    /// UserInfo keys:
+    ///   - "clientId"       : String  — matches the ID in the matching `dmOptimisticInsert`
+    ///   - "conversationId" : String
+    ///   - "error"          : Error
+    static let dmOptimisticRollback = Notification.Name("amen.dmOptimisticRollback")
 }

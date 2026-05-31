@@ -277,62 +277,113 @@ extension FirebaseMessagingService {
         return conversationRef.documentID
     }
     
-    /// Send a message with permission checking
+    /// Send a message with permission checking.
+    ///
+    /// Optimistic-insert flow:
+    ///   1. A temporary `clientId` (UUID) is generated immediately.
+    ///   2. `.dmOptimisticInsert` is posted on `NotificationCenter.default` so any
+    ///      observing chat view can show the message *before* any network round-trip.
+    ///   3. Permission checks + batch write happen in the background.
+    ///   4. On `batch.commit()` failure, `.dmOptimisticRollback` is posted so the
+    ///      observer can remove the optimistic row and surface the error.
+    ///   5. On success, the real-time Firestore listener fires and the confirmed
+    ///      document (keyed by the same `clientId`) replaces the optimistic row.
     func sendMessageWithPermissions(to conversationId: String, text: String) async throws {
         let _dmToken = PerfBegin("dm_send")
         defer { PerfEnd(_dmToken, threshold: 300) }
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
-        
+
+        // ── STEP 1: Optimistic insert ─────────────────────────────────────────
+        // Generate the client-side document ID before any async work so the chat
+        // view can display the message immediately. Using this UUID as the Firestore
+        // document ID makes the write idempotent on retry.
+        let clientId = UUID().uuidString
+        let optimisticTimestamp = Date()
+
+        NotificationCenter.default.post(
+            name: .dmOptimisticInsert,
+            object: nil,
+            userInfo: [
+                "clientId"       : clientId,
+                "conversationId" : conversationId,
+                "text"           : text,
+                "senderId"       : currentUserId,
+                "timestamp"      : optimisticTimestamp
+            ]
+        )
+        // ── END optimistic insert ─────────────────────────────────────────────
+
         lazy var db = Firestore.firestore()
-        
+
         // Get conversation
         let conversation = try await db.collection("conversations")
             .document(conversationId)
             .getDocument()
-        
+
         guard let conversationData = conversation.data() else {
-            throw NSError(domain: "Firestore", code: -1, userInfo: [NSLocalizedDescriptionKey: "Conversation not found"])
+            let err = NSError(domain: "Firestore", code: -1, userInfo: [NSLocalizedDescriptionKey: "Conversation not found"])
+            NotificationCenter.default.post(
+                name: .dmOptimisticRollback,
+                object: nil,
+                userInfo: ["clientId": clientId, "conversationId": conversationId, "error": err]
+            )
+            throw err
         }
-        
+
         let participantIds = conversationData["participantIds"] as? [String] ?? []
         let otherUserId = participantIds.first { $0 != currentUserId } ?? ""
-        
+
         // Check permissions
         let (canMessage, isLimited) = try await MessagingPermissionService.shared.canMessageUser(otherUserId)
-        
+
         guard canMessage else {
-            throw NSError(domain: "Permission", code: -1, userInfo: [NSLocalizedDescriptionKey: "You cannot message this user"])
+            let err = NSError(domain: "Permission", code: -1, userInfo: [NSLocalizedDescriptionKey: "You cannot message this user"])
+            NotificationCenter.default.post(
+                name: .dmOptimisticRollback,
+                object: nil,
+                userInfo: ["clientId": clientId, "conversationId": conversationId, "error": err]
+            )
+            throw err
         }
-        
+
         // Check message count for message requests
         if isLimited {
             let messageCounts = conversationData["messageCounts"] as? [String: Int] ?? [:]
             let currentCount = messageCounts[currentUserId] ?? 0
-            
+
             if currentCount >= 1 {
-                throw NSError(domain: "Permission", code: -1,
+                let err = NSError(domain: "Permission", code: -1,
                     userInfo: [NSLocalizedDescriptionKey: "Message request already sent. Wait for them to follow you back."])
+                NotificationCenter.default.post(
+                    name: .dmOptimisticRollback,
+                    object: nil,
+                    userInfo: ["clientId": clientId, "conversationId": conversationId, "error": err]
+                )
+                throw err
             }
         }
-        
-        // Create message and update conversation in a batch
+
+        // Create message and update conversation in a batch.
+        // Use `clientId` as the Firestore document ID so:
+        //   a) the chat view can de-duplicate the server snapshot against pendingMessages, and
+        //   b) retries with the same clientId are idempotent (setData is an upsert).
         let batch = db.batch()
-        
-        // Add message
+
+        // Add message — use clientId as document ID for idempotency + de-dup
         let messageRef = db.collection("conversations")
             .document(conversationId)
             .collection("messages")
-            .document()
-        
+            .document(clientId)
+
         batch.setData([
             "senderId": currentUserId,
             "text": text,
             "createdAt": FieldValue.serverTimestamp(),
             "isRead": false
         ], forDocument: messageRef)
-        
+
         // Update conversation metadata
         let conversationRef = db.collection("conversations").document(conversationId)
         batch.updateData([
@@ -342,8 +393,18 @@ extension FirebaseMessagingService {
             "updatedAt": FieldValue.serverTimestamp(),
             "messageCounts.\(currentUserId)": FieldValue.increment(Int64(1))
         ], forDocument: conversationRef)
-        
-        try await batch.commit()
+
+        do {
+            try await batch.commit()
+        } catch {
+            // ── STEP 4: Rollback on commit failure ────────────────────────────
+            NotificationCenter.default.post(
+                name: .dmOptimisticRollback,
+                object: nil,
+                userInfo: ["clientId": clientId, "conversationId": conversationId, "error": error]
+            )
+            throw error
+        }
     }
 }
 
