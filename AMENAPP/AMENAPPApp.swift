@@ -371,18 +371,16 @@ struct AMENAPPApp: App {
                 // It also forwards the legacy "amenDeepLink" NotificationCenter broadcast
                 // internally, so Siri / Spotlight deep links are caught here too.
                 Task { @MainActor in
-                    // Always try the canonical router first for amen:// URLs.
+                    // Canonical router handles amen:// URLs (tab routing, auth gating).
+                    // Only fall through to notification coordinator when amen:// is NOT handled,
+                    // preventing double-navigation for the same URL.
                     if url.scheme == "amen", AppDestination(url: url) != nil {
                         AppNavigationRouter.shared.navigate(to: url)
-                    }
-
-                    // ✅ NEW: Handle notification/deep-link intents through the
-                    // production routing coordinator first. If the URL is not one of
-                    // the supported notification-style destinations, fall back to the
-                    // legacy deep-link router for the rest of the app.
-                    let handledByNotificationCoordinator = await NotificationOpenCoordinator.shared.handleURL(url)
-                    if !handledByNotificationCoordinator {
-                        NotificationDeepLinkRouter.shared.handleURL(url)
+                    } else {
+                        let handledByNotificationCoordinator = await NotificationOpenCoordinator.shared.handleURL(url)
+                        if !handledByNotificationCoordinator {
+                            NotificationDeepLinkRouter.shared.handleURL(url)
+                        }
                     }
                 }
 
