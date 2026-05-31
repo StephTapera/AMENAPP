@@ -128,6 +128,12 @@ final class StudioAICreationViewModel: ObservableObject {
     func generate(tool: StudioTool) {
         guard !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
+        // STUDIO-19: entitlement gate — block if free-tier quota is exhausted
+        guard !subscriptionService.requiresUpgrade(for: .create) else {
+            errorMessage = "Creator Studio requires a subscription."
+            return
+        }
+
         // STUDIO-08: per-minute retry rate limit (max 3 per 60 s)
         let now = Date()
         if now.timeIntervalSince(generateLastResetDate) > 60 {
