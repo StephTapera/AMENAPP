@@ -713,7 +713,7 @@ struct AMENAPPApp: App {
     // MARK: - Auth State Listener
     
     private func setupAuthStateListener() {
-        // PERFORMANCE: Store handle for cleanup
+        guard authStateHandle == nil else { return }
         authStateHandle = Auth.auth().addStateDidChangeListener { auth, user in
             Task { @MainActor in
                 let incomingUserId = user?.uid
