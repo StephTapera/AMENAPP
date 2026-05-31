@@ -10,7 +10,7 @@ import SwiftUI
 struct FaithIntelOverlay: View {
     let result: FaithIntelResult?
 
-    @State private var selectedRef: DetectedScriptureRef?
+    @State private var selectedRef: FaithIntelScriptureRef?
     @ObservedObject private var flags = TrustAccessibilityFeatureFlags.shared
 
     var body: some View {
@@ -41,7 +41,7 @@ struct FaithIntelOverlay: View {
 
 /// Small pill showing a book icon and canonical reference label.
 struct ScriptureRefChip: View {
-    let ref: DetectedScriptureRef
+    let ref: FaithIntelScriptureRef
     let onTap: () -> Void
 
     var body: some View {
@@ -71,8 +71,8 @@ struct ScriptureRefChip: View {
 
 /// Full sheet showing verse text, canonical reference, related passages, and AI badge.
 struct ScriptureRefCard: View {
-    let ref: DetectedScriptureRef
-    let relatedPassages: [DetectedScriptureRef]
+    let ref: FaithIntelScriptureRef
+    let relatedPassages: [FaithIntelScriptureRef]
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -114,7 +114,7 @@ struct ScriptureRefCard: View {
                     // AI Assisted badge at bottom
                     HStack {
                         Spacer()
-                        AIAssistedBadge()
+                        AIContributionBadge()
                         Spacer()
                     }
                     .padding(.top, 4)
@@ -137,7 +137,7 @@ struct ScriptureRefCard: View {
 // MARK: - RelatedPassageRow
 
 private struct RelatedPassageRow: View {
-    let passage: DetectedScriptureRef
+    let passage: FaithIntelScriptureRef
 
     @State private var isExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -179,14 +179,9 @@ private struct RelatedPassageRow: View {
     }
 }
 
-// MARK: - DetectedScriptureRef + Identifiable
+// MARK: - FaithIntelScriptureRef + Identifiable
 
-extension DetectedScriptureRef: Identifiable {
+extension FaithIntelScriptureRef: Identifiable {
     var id: String { canonicalRef }
 }
 
-// MARK: - Color Extension
-
-private extension Color {
-    static let amenPurple = Color("amenPurple")
-}

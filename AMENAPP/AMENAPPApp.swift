@@ -1020,21 +1020,15 @@ struct AMENAPPApp: App {
         scheduleBackgroundFeedRefresh()
 
         let refreshTask = Task {
-            guard Auth.auth().currentUser != nil else {
-                task.setTaskCompleted(success: true)
-                return
-            }
-            // Prefetch latest posts into Firestore local cache so the feed
-            // appears instant when the user next opens the app.
+            // setTaskCompleted called exactly once via defer — never in both task and handler.
+            defer { task.setTaskCompleted(success: !Task.isCancelled) }
+            guard Auth.auth().currentUser != nil else { return }
             await FirebasePostService.shared.preloadCacheSync()
-            task.setTaskCompleted(success: true)
             dlog("✅ BGAppRefreshTask completed — feed cache updated")
         }
 
-        // Set expiration handler AFTER creating the Task so it can cancel it.
         task.expirationHandler = {
             refreshTask.cancel()
-            task.setTaskCompleted(success: false)
         }
     }
 
@@ -1064,18 +1058,14 @@ struct AMENAPPApp: App {
         scheduleVersePrefetch()
 
         let prefetchTask = Task {
-            guard let user = Auth.auth().currentUser else {
-                task.setTaskCompleted(success: true)
-                return
-            }
+            defer { task.setTaskCompleted(success: !Task.isCancelled) }
+            guard let user = Auth.auth().currentUser else { return }
             _ = await DailyVerseGenkitService.shared.generatePersonalizedDailyVerse()
-            task.setTaskCompleted(success: true)
             dlog("✅ Verse prefetch BGTask completed for user \(user.uid)")
         }
 
         task.expirationHandler = {
             prefetchTask.cancel()
-            task.setTaskCompleted(success: false)
         }
     }
 }

@@ -106,8 +106,8 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
         case "comment":
             if let postId = userInfo["postId"] as? String, Self.isValidDocumentId(postId) {
-                let commentId = userInfo["commentId"] as? String
-                // Pre-load comment focus so PostDetailView scrolls to target on appear
+                let rawId = userInfo["commentId"] as? String
+                let commentId = rawId.flatMap { Self.isValidDocumentId($0) ? $0 : nil }
                 if let commentId {
                     CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
                 }
@@ -118,8 +118,10 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
         case "reply":
             if let postId = userInfo["postId"] as? String, Self.isValidDocumentId(postId) {
-                let replyId = userInfo["commentId"] as? String
-                let parentId = userInfo["parentCommentId"] as? String
+                let rawReply = userInfo["commentId"] as? String
+                let rawParent = userInfo["parentCommentId"] as? String
+                let replyId = rawReply.flatMap { Self.isValidDocumentId($0) ? $0 : nil }
+                let parentId = rawParent.flatMap { Self.isValidDocumentId($0) ? $0 : nil }
                 if let replyId {
                     CommentFocusCoordinator.shared.set(
                         scrollTarget: replyId,
@@ -134,7 +136,8 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
         case "mention":
             if let postId = userInfo["postId"] as? String, Self.isValidDocumentId(postId) {
-                let commentId = userInfo["commentId"] as? String
+                let rawId = userInfo["commentId"] as? String
+                let commentId = rawId.flatMap { Self.isValidDocumentId($0) ? $0 : nil }
                 if let commentId {
                     CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
                 }

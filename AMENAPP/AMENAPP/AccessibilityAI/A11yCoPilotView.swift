@@ -5,47 +5,23 @@ import SwiftUI
 
 // MARK: - Co-Pilot Panel (bottom-leading FAB)
 
-/// Expandable FAB panel that surfaces up to 3 assistive hints at a time.
-/// Only renders when `a11yCoPilotEnabled` is on.
+/// Expandable FAB panel that surfaces the current assistive suggestion.
+/// Only renders when `a11yCoPilotEnabled` is on and a suggestion is pending.
 struct A11yCoPilotPanel: View {
     @ObservedObject private var service = A11yCoPilotService.shared
     @ObservedObject private var flags = TrustAccessibilityFeatureFlags.shared
     @Environment(\.accessibilityReduceMotion) private var reducedMotion
 
-    var userId: String
-    var onAction: (A11yCoPilotService.CoPilotHint.CoPilotAction) -> Void
-
     @State private var isExpanded = false
 
     var body: some View {
-        if flags.a11yCoPilotEnabled {
+        if flags.a11yCoPilotEnabled, let suggestion = service.pendingSuggestion {
             VStack(alignment: .leading, spacing: 8) {
-                // Hint rows (shown only when expanded, max 3)
                 if isExpanded {
-                    let visibleHints = Array(service.hints.prefix(3))
-                    ForEach(visibleHints) { hint in
-                        CoPilotHintRow(
-                            hint: hint,
-                            userId: userId,
-                            onAction: onAction
-                        )
+                    AccessibilitySuggestionRow(suggestion: suggestion)
                         .transition(.opacity.combined(with: .move(edge: .leading)))
-                    }
-
-                    // Quick settings link
-                    NavigationLink {
-                        // Placeholder — caller provides destination via NavigationStack.
-                        EmptyView()
-                    } label: {
-                        Label("Accessibility settings", systemImage: "gearshape")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.leading, 4)
-                    .transition(.opacity)
                 }
 
-                // Collapse/Expand button
                 Button {
                     let animation: Animation = reducedMotion
                         ? .easeInOut(duration: 0.15)
@@ -65,48 +41,50 @@ struct A11yCoPilotPanel: View {
                 }
                 .accessibilityLabel(isExpanded ? "Close accessibility panel" : "Open accessibility co-pilot")
             }
+            .onChange(of: suggestion) { _ in
+                // Auto-collapse when suggestion changes so user sees the new one
+                isExpanded = false
+            }
         }
     }
 }
 
-// MARK: - Hint Row
+// MARK: - Suggestion Row
 
-struct CoPilotHintRow: View {
-    let hint: A11yCoPilotService.CoPilotHint
-    let userId: String
-    let onAction: (A11yCoPilotService.CoPilotHint.CoPilotAction) -> Void
+private struct AccessibilitySuggestionRow: View {
+    let suggestion: AccessibilitySuggestion
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            // Hint text
-            Text(hint.text)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(suggestion.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(suggestion.message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Optional action button
-            if let actionLabel = hint.actionLabel, let action = hint.action {
-                Button(actionLabel) {
-                    onAction(action)
+            VStack(spacing: 6) {
+                Button(suggestion.actionLabel) {
+                    A11yCoPilotService.shared.acceptSuggestion(suggestion)
                 }
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.amenPurple)
+                .foregroundStyle(Color.amenPurple)
+                .buttonStyle(.plain)
+
+                Button {
+                    A11yCoPilotService.shared.suppress(type: suggestion.type)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Dismiss suggestion")
                 .buttonStyle(.plain)
             }
-
-            // Dismiss button
-            Button {
-                Task {
-                    try? await A11yCoPilotService.shared.dismissHint(id: hint.id, userId: userId)
-                }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityLabel("Dismiss hint")
-            .buttonStyle(.plain)
         }
         .padding(10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
@@ -116,8 +94,6 @@ struct CoPilotHintRow: View {
 // MARK: - Emotional Safety Notice
 
 /// Banner shown when a thread contains content that may be emotionally intense.
-/// Visibility is controlled by the caller via `isIntenseContent` and the
-/// `emotionalSafetyEnabled` feature flag.
 struct EmotionalSafetyNotice: View {
     let isIntenseContent: Bool
     let onSummary: () -> Void
@@ -150,12 +126,12 @@ struct EmotionalSafetyNotice: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Button("View summary instead", action: onSummary)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.amenPurple)
+                        .foregroundStyle(Color.amenPurple)
                         .buttonStyle(.plain)
 
                     Button("Lower stimulation", action: onLowerStimulation)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.amenBlue)
+                        .foregroundStyle(Color.amenBlue)
                         .buttonStyle(.plain)
                 }
             }
@@ -168,12 +144,4 @@ struct EmotionalSafetyNotice: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
-}
-
-// MARK: - Color Tokens
-
-private extension Color {
-    static var amenPurple: Color { Color("amenPurple", bundle: nil) }
-    static var amenGold: Color   { Color("amenGold",   bundle: nil) }
-    static var amenBlue: Color   { Color("amenBlue",   bundle: nil) }
 }
