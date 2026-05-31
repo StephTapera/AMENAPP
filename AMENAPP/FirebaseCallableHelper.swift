@@ -21,7 +21,30 @@
 //  the next suspension point after the Firebase call completes.
 //
 
+import Foundation
 import FirebaseFunctions
+
+extension Functions {
+    /// Call a Cloud Function by name with a short timeout (default 15 s instead of
+    /// the SDK default of 70 s).  On the user-facing Berean AI ask path a 70-second
+    /// hang produces a blank screen; fail fast and let the caller show an error.
+    ///
+    /// - Parameters:
+    ///   - name: The Cloud Function name (e.g. "bereanChatProxy").
+    ///   - data: Optional request payload passed through to the callable.
+    ///   - timeout: Maximum time to wait for a response (default 15 seconds).
+    /// - Returns: The raw `HTTPSCallableResult` — caller casts `.data` as needed.
+    @discardableResult
+    func callWithTimeout(
+        _ name: String,
+        data: Any? = nil,
+        timeout: TimeInterval = 15
+    ) async throws -> HTTPSCallableResult {
+        let callable = httpsCallable(name)
+        callable.timeoutInterval = timeout
+        return try await callable.call(data)
+    }
+}
 
 extension HTTPSCallable {
     /// Call this Firebase Cloud Function safely, isolating it from Swift
