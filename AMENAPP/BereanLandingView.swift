@@ -67,6 +67,9 @@ struct BereanLandingView: View {
     @State private var greeting: BereanGreeting = BereanGreetingManager.greeting()
     @State private var hasAnimatedThisSession = false
 
+    // AI consent gate — mirrors BereanVoiceCompanionView:305 pattern
+    @State private var hasAIConsent: Bool = false
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Quick-suggestion chips shown in the empty state — a single horizontal
@@ -141,11 +144,37 @@ struct BereanLandingView: View {
             // ── Bottom chrome stack ─────────────────────────────────────
             VStack(spacing: 10) {
 
+                // AI consent banner — shown when consent has not been granted
+                if !hasAIConsent {
+                    HStack(spacing: 8) {
+                        Image(systemName: "hand.raised.fill")
+                            .font(.systemScaled(13, weight: .medium))
+                        Text("Enable AI features in Settings to use Berean.")
+                            .font(.systemScaled(13, weight: .regular))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(Color(.secondaryLabel))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(AmenTheme.Colors.glassFill))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
+                    )
+                    .padding(.horizontal, 16)
+                    .accessibilityLabel("AI consent required. Enable AI features in Settings to use Berean.")
+                }
+
                 // (5) Suggestion chip row — always visible, fades on focus
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(quickChips, id: \.label) { chip in
                             Button {
+                                guard hasAIConsent else { return }
                                 onInputSubmit(chip.prompt)
                                 inputText = ""
                                 inputFocused = false
@@ -181,23 +210,26 @@ struct BereanLandingView: View {
                     text: $inputText,
                     isFocused: $inputFocused,
                     onSubmit: {
+                        guard hasAIConsent else { return }
                         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                         onInputSubmit(inputText)
                         inputText = ""
                     },
-                    onVoiceTap: onVoiceTap,
+                    onVoiceTap: hasAIConsent ? onVoiceTap : nil,
                     onFocusChange: { focused in
                         withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.82))) {
                             suggestionsVisible = focused
                         }
                     }
                 )
+                .disabled(!hasAIConsent)
                 .padding(.horizontal, 16)
             }
             .padding(.bottom, 16)
         }
         .onAppear {
             greeting = BereanGreetingManager.greeting()
+            hasAIConsent = AmenAIConsentStore.shared.hasConsent(for: .bereanQuickAnswer)
             if reduceMotion {
                 hasAnimatedThisSession = true
                 statusCardVisible = true
