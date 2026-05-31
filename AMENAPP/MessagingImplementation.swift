@@ -380,7 +380,7 @@ extension FirebaseMessagingService {
         batch.setData([
             "senderId": currentUserId,
             "text": text,
-            "createdAt": FieldValue.serverTimestamp(),
+            "timestamp": FieldValue.serverTimestamp(),
             "isRead": false
         ], forDocument: messageRef)
 

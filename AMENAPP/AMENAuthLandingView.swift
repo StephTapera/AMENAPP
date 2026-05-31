@@ -40,6 +40,11 @@ struct AMENAuthLandingView: View {
     // Apple Sign In nonce
     @State private var currentNonce: String?
 
+    // COPPA: age gate for new Google / Apple sign-in accounts
+    @State private var showSocialAgeGate = false
+    @State private var socialDOB: Date = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+    @State private var pendingSocialUser: FirebaseAuth.User? = nil
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -115,6 +120,37 @@ struct AMENAuthLandingView: View {
             }
         }
         .onAppear { runEntryAnimation() }
+        .sheet(isPresented: $showSocialAgeGate) {
+            SocialAgeGateSheet(
+                selectedDate: $socialDOB,
+                onConfirm: {
+                    let age = Calendar.current.dateComponents([.year], from: socialDOB, to: Date()).year ?? 0
+                    if age >= AppConfig.Legal.minimumAge {
+                        showSocialAgeGate = false
+                        pendingSocialUser = nil
+                    } else {
+                        Task {
+                            try? await pendingSocialUser?.delete()
+                            await MainActor.run {
+                                showSocialAgeGate = false
+                                pendingSocialUser = nil
+                                // App-level error handling: user will be redirected to auth
+                            }
+                        }
+                    }
+                },
+                onCancel: {
+                    Task {
+                        try? await pendingSocialUser?.delete()
+                        await MainActor.run {
+                            showSocialAgeGate = false
+                            pendingSocialUser = nil
+                        }
+                    }
+                }
+            )
+            .presentationDetents([.height(360)])
+        }
     }
 
     // MARK: - Simulator bypass (debug only)
@@ -261,27 +297,39 @@ struct AMENAuthLandingView: View {
                 print("❌ Missing Apple credential data")
                 return
             }
-            
+
             do {
-                _ = try await FirebaseManager.shared.signInWithApple(
+                let appleUser = try await FirebaseManager.shared.signInWithApple(
                     idToken: idTokenString,
                     nonce: nonce,
                     fullName: appleIDCredential.fullName
                 )
                 print("✅ Apple sign-in successful")
+                // COPPA: gate new accounts on age before admitting them
+                let isNew = appleUser.metadata.creationDate.map { Date().timeIntervalSince($0) < 60 } ?? false
+                if isNew {
+                    pendingSocialUser = appleUser
+                    showSocialAgeGate = true
+                }
             } catch {
                 print("❌ Apple sign-in failed: \(error.localizedDescription)")
             }
-            
+
         case .failure(let error):
             print("❌ Apple sign-in error: \(error.localizedDescription)")
         }
     }
-    
+
     private func handleGoogleSignIn() async {
         do {
-            _ = try await FirebaseManager.shared.signInWithGoogle()
+            let googleUser = try await FirebaseManager.shared.signInWithGoogle()
             print("✅ Google sign-in successful")
+            // COPPA: gate new accounts on age before admitting them
+            let isNew = googleUser.metadata.creationDate.map { Date().timeIntervalSince($0) < 60 } ?? false
+            if isNew {
+                pendingSocialUser = googleUser
+                showSocialAgeGate = true
+            }
         } catch {
             print("❌ Google sign-in failed: \(error.localizedDescription)")
         }

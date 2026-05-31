@@ -1580,7 +1580,7 @@ private struct AMENIconMark: View {
 
 // MARK: - Social Age Gate Sheet (COPPA)
 
-private struct SocialAgeGateSheet: View {
+struct SocialAgeGateSheet: View {
     @Binding var selectedDate: Date
     var onConfirm: () -> Void
     var onCancel: () -> Void

@@ -12,6 +12,37 @@ import FirebaseCore
 import FirebaseFirestore
 import FirebaseAuth
 import Combine
+import CryptoKit
+
+// MARK: - Deterministic UUID helper
+//
+// Firestore auto-generated document IDs are alphanumeric strings (e.g. "XpL3kQ7mNr…")
+// and are NOT valid UUID strings.  Calling UUID(uuidString:) on them always returns nil,
+// which previously caused `?? UUID()` to generate a brand-new random UUID on every decode.
+// The same Firestore document therefore produced a different Post.id each time it was
+// decoded, breaking SwiftUI ForEach identity and preventing UUID-based dedup checks from
+// working (the optimistic post and the listener-delivered confirmed post had different UUIDs
+// even though they referred to the same underlying Firestore document).
+//
+// This helper converts any string into a stable, collision-resistant UUID by hashing it
+// with SHA-256 and copying the first 16 bytes into the UUID byte layout, then setting
+// the variant/version bits to conform to RFC 4122 v4 format.  Given the same Firestore
+// document ID the output is always identical, so Post.id is now a stable identity token
+// tied 1:1 to the Firestore document.
+private func deterministicUUID(from firestoreId: String) -> UUID {
+    let hash = SHA256.hash(data: Data(firestoreId.utf8))
+    var bytes = Array(hash.prefix(16))
+    // Set version 4 (random) bits
+    bytes[6] = (bytes[6] & 0x0F) | 0x40
+    // Set variant bits (10xxxxxx)
+    bytes[8] = (bytes[8] & 0x3F) | 0x80
+    return UUID(uuid: (
+        bytes[0], bytes[1], bytes[2],  bytes[3],
+        bytes[4], bytes[5], bytes[6],  bytes[7],
+        bytes[8], bytes[9], bytes[10], bytes[11],
+        bytes[12], bytes[13], bytes[14], bytes[15]
+    ))
+}
 
 // MARK: - Firestore Post Model
 
@@ -347,8 +378,19 @@ struct FirestorePost: Codable, Identifiable {
         
         let timeAgo = FirestorePost.formatTimeAgo(from: createdAt)
         
+        // P0 DEDUP FIX: Use a deterministic UUID derived from the Firestore document ID so that
+        // the same document always decodes to the same Post.id.  Previously, Firestore auto-IDs
+        // are NOT valid UUID strings, so UUID(uuidString:) returned nil and the fallback UUID()
+        // generated a NEW random UUID on every decode — making ForEach identity unstable and
+        // UUID-based dedup checks in OpenTableView fail (optimistic post != listener-delivered post).
+        let stableId: UUID = {
+            if let firestoreDocId = id {
+                return deterministicUUID(from: firestoreDocId)
+            }
+            return UUID()
+        }()
         var post = Post(
-            id: UUID(uuidString: id ?? UUID().uuidString) ?? UUID(),
+            id: stableId,
             firebaseId: id,
             authorId: authorId,
             authorName: authorName,

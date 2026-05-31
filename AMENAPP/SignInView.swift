@@ -72,6 +72,11 @@ struct SignInView: View {
     @State private var showDOBCollection = false
     @State private var dateOfBirth = Date()
 
+    // COPPA: age gate for new Google / Apple sign-in accounts
+    @State private var showSocialAgeGate = false
+    @State private var socialDOB: Date = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+    @State private var pendingSocialUser: FirebaseAuth.User? = nil
+
     enum SignUpMethod {
         case email
         case phone
@@ -100,6 +105,39 @@ struct SignInView: View {
                         await createAccountWithDOB(selectedDate: selectedDate)
                     }
                 }
+            }
+            .sheet(isPresented: $showSocialAgeGate) {
+                SocialAgeGateSheet(
+                    selectedDate: $socialDOB,
+                    onConfirm: {
+                        let age = Calendar.current.dateComponents([.year], from: socialDOB, to: Date()).year ?? 0
+                        if age >= AppConfig.Legal.minimumAge {
+                            showSocialAgeGate = false
+                            pendingSocialUser = nil
+                        } else {
+                            // Under 13: delete the just-created account and surface an error
+                            Task {
+                                try? await pendingSocialUser?.delete()
+                                await MainActor.run {
+                                    showSocialAgeGate = false
+                                    pendingSocialUser = nil
+                                    viewModel.errorMessage = "You must be \(AppConfig.Legal.minimumAge) or older to join AMEN."
+                                    viewModel.showError = true
+                                }
+                            }
+                        }
+                    },
+                    onCancel: {
+                        Task {
+                            try? await pendingSocialUser?.delete()
+                            await MainActor.run {
+                                showSocialAgeGate = false
+                                pendingSocialUser = nil
+                            }
+                        }
+                    }
+                )
+                .presentationDetents([.height(360)])
             }
             .modifier(SheetsModifier(
                 showPasswordReset: $showPasswordReset,
@@ -1173,28 +1211,37 @@ struct SignInView: View {
             do {
                 viewModel.isLoading = true
                 dlog("🔵 Google Sign-In initiated")
-                
-                let _ = try await FirebaseManager.shared.signInWithGoogle()
-                
+
+                let user = try await FirebaseManager.shared.signInWithGoogle()
+
                 dlog("✅ Google Sign-In successful")
-                
+
+                // COPPA: new accounts created within the last 60 s haven't verified age
+                let isNewAccount = user.metadata.creationDate.map { Date().timeIntervalSince($0) < 60 } ?? false
                 await MainActor.run {
-                    viewModel.isAuthenticated = true
-                    viewModel.needsOnboarding = true
                     viewModel.isLoading = false
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    if isNewAccount {
+                        // Show age gate before admitting the new user
+                        pendingSocialUser = user
+                        showSocialAgeGate = true
+                    } else {
+                        viewModel.isAuthenticated = true
+                        viewModel.needsOnboarding = true
+                    }
                 }
-                
+
                 // Cache user name for messaging
                 await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
                 dlog("✅ User name cached for messaging")
-                
+
             } catch {
                 let nsError = error as NSError
                 dlog("❌ Google Sign-In failed")
                 dlog("   Error domain: \(nsError.domain)")
                 dlog("   Error code: \(nsError.code)")
                 dlog("   Description: \(error.localizedDescription)")
-                
+
                 await MainActor.run {
                     // Provide more specific error messages
                     if nsError.domain == "FIRAuthErrorDomain" {
@@ -1215,7 +1262,7 @@ struct SignInView: View {
                         viewModel.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
                         viewModel.showError = true
                     }
-                    
+
                     viewModel.isLoading = false
                 }
             }
@@ -1389,23 +1436,32 @@ struct SignInView: View {
         Task {
             do {
                 dlog("🔄 Attempting Firebase authentication...")
-                let _ = try await FirebaseManager.shared.signInWithApple(
+                let appleUser = try await FirebaseManager.shared.signInWithApple(
                     idToken: idTokenString,
                     nonce: nonce,
                     fullName: appleIDCredential.fullName
                 )
-                
+
                 dlog("✅ Firebase authentication successful")
-                
+
+                // COPPA: new accounts created within the last 60 s haven't verified age
+                let isNewAppleAccount = appleUser.metadata.creationDate.map { Date().timeIntervalSince($0) < 60 } ?? false
                 await MainActor.run {
-                    viewModel.isAuthenticated = true
-                    viewModel.needsOnboarding = true
-                    
                     // Clear nonce after successful auth
                     currentNonce = nil
                     nonceGeneratedAt = nil
+
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    if isNewAppleAccount {
+                        // Show age gate before admitting the new user
+                        pendingSocialUser = appleUser
+                        showSocialAgeGate = true
+                    } else {
+                        viewModel.isAuthenticated = true
+                        viewModel.needsOnboarding = true
+                    }
                 }
-                
+
                 // Cache user name for messaging
                 await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
                 dlog("✅ User name cached for messaging")
