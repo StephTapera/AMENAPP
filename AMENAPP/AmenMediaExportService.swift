@@ -33,7 +33,7 @@ struct AmenMediaExportService {
                 case .completed:
                     continuation.resume(returning: outputURL)
                 default:
-                    continuation.resume(throwing: AmenMediaExportError.exportFailed)
+                    continuation.resume(throwing: exporter.error ?? AmenMediaExportError.exportFailed)
                 }
             }
         }
