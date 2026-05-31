@@ -315,7 +315,11 @@ class PremiumManager: ObservableObject {
     }
 
     private func loadPremiumStatus() {
-        hasProAccess = UserDefaults.standard.bool(forKey: "hasProAccess")
+        // Do not seed hasProAccess from UserDefaults — a jailbroken device can
+        // write this key and gain free premium. Always start false; the async
+        // checkSubscriptionStatus() call in init() sets the authoritative value
+        // from Transaction.currentEntitlements (StoreKit2) within milliseconds.
+        hasProAccess = false
     }
 
     private func loadUsageData() {
