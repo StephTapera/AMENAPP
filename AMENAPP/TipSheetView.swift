@@ -27,10 +27,10 @@ struct TipSheetView: View {
     @State private var heartBurst              = false
     @State private var errorMessage: String?
 
-    private let amenPurple = Color(hex: "6B48FF")
-    private let amenViolet = Color(hex: "C084FC")
-    private let amenGold   = Color(hex: "F59E0B")
-    private let bg         = Color(hex: "0A0A0F")
+    private let amenPurple = AmenTheme.Colors.amenPurple
+    private let amenViolet = AmenTheme.Colors.amenPurple.opacity(0.65)
+    private let amenGold   = AmenTheme.Colors.amenGold
+    private let bg         = AmenTheme.Colors.amenBlack
     private let presets: [Double] = [1, 3, 5, 10]
 
     private var effectiveAmount: Double {
@@ -231,7 +231,7 @@ struct TipSheetView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [amenPurple, Color(hex: "C084FC")],
+                            colors: [amenPurple, amenViolet],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
