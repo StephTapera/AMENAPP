@@ -28,4 +28,4 @@ These items were NOT auto-fixed — they require architectural decisions, backen
 
 ---
 
-*12 items auto-fixed in Phase 2 (commit 7b98e44). 12 items queued here.*
+*12 items auto-fixed in Phase 2 (commit 7b98e44). 38 additional items fixed in Phase 3 (commits 9035f30, b441424, 5ab2ef6, 2e55266, 2bc75fa). 12 items queued here — require human review.*
