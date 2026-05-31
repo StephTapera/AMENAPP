@@ -6,6 +6,7 @@ import FirebaseFirestore
 
 struct HeyFeedActiveRequestsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var service = HeyFeedService.shared
     @State private var selectedType: HeyFeedRequest.HeyFeedRequestType? = nil
     @State private var isRefreshing = false
@@ -85,7 +86,7 @@ struct HeyFeedActiveRequestsView: View {
         let isSelected = selectedType == type
 
         return Button {
-            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
+            withAnimation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                 selectedType = type
             }
         } label: {
