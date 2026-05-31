@@ -955,6 +955,7 @@ struct BereanAIAssistantView: View {
             removeKeyboardObservers()
             // ✅ P0-3: Cancel any ongoing generation when view disappears
             viewModel.stopGeneration()
+            ClaudeService.shared.cancelCurrentRequest()
             // Cancel suggestion debounce task
             suggestionDebounceTask?.cancel()
             suggestionDebounceTask = nil
