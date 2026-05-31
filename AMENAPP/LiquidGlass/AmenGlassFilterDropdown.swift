@@ -140,7 +140,7 @@ struct AmenGlassFilterDropdown: View {
                 // Leading icon (optional)
                 if let icon = option.icon {
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(isSelected ? AmenTheme.Colors.amenGold : Color.secondary)
                         .frame(width: 20)
                 }
@@ -156,7 +156,7 @@ struct AmenGlassFilterDropdown: View {
                 // Trailing checkmark for selected state
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.amenGold)
                 }
             }

@@ -90,7 +90,7 @@ private struct AMENPillNavBadge: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .font(AMENFont.bold(10))
             .foregroundStyle(.white)
             .padding(.horizontal, count > 9 ? 4 : 0)
             .frame(minWidth: 16, minHeight: 16)
