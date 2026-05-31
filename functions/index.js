@@ -1566,3 +1566,16 @@ exports.classifyImportCandidates = importFns.classifyImportCandidates;
 // ============================================================================
 const churchSearchProxyFns = require('./src/church/churchSearchProxy');
 exports.churchSearchProxy = churchSearchProxyFns.churchSearchProxy;
+
+// ============================================================================
+// POST PROVENANCE — postProvenanceProxy (Phase 3 / Master Run A8)
+//   postProvenanceProxy — callable: returns feed-ranking signals for a post
+//                         ("Why you're seeing this" disclosure)
+//                         App Check + Auth enforced; no raw ML signals on device.
+//                         Currently returns mock data for emulator testing.
+//
+// [NEEDS HUMAN DEPLOY] — emulator only until Intelligence Engine is wired.
+// Deploy: firebase deploy --only functions:postProvenanceProxy
+// ============================================================================
+const postProvenanceProxyFns = require('./src/provenance/postProvenanceProxy');
+exports.postProvenanceProxy = postProvenanceProxyFns.postProvenanceProxy;

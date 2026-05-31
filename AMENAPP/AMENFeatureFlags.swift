@@ -1116,6 +1116,18 @@ final class AMENFeatureFlags: ObservableObject {
     /// Gates org subscription / billing surfaces (Stripe checkout, plan picker).
     @Published private(set) var orgSubscriptionsEnabled: Bool = true
 
+    // MARK: - Master Run Feature Flags (all default OFF)
+    /// Phase 1: Find a Church map+search experience (master-run A8).
+    @Published private(set) var findAChurch: Bool = false
+    /// Phase 2: Liquid Glass migration for Posts surfaces (master-run A8).
+    @Published private(set) var postsLiquidGlass: Bool = false
+    /// Phase 3: "Why you're seeing this" provenance disclosure (master-run A8).
+    @Published private(set) var whySeeingThis: Bool = false
+    /// Phase 5: Selah Stories free composer tier (master-run A8).
+    @Published private(set) var selahStories: Bool = false
+    /// Phase 5: Selah Stories premium AI features — subscription-gated (master-run A8).
+    @Published private(set) var selahStoriesPremiumAI: Bool = false
+
     private init() {
         applyUITestOverrides()
         let config = RemoteConfig.remoteConfig()
@@ -1842,6 +1854,13 @@ final class AMENFeatureFlags: ObservableObject {
 
             // Berean Drive / CarPlay CFs (B-23) — OFF until 5 drive CFs are deployed
             "berean_drive_enabled": false as NSObject,
+
+            // Master Run Feature Flags — all OFF until each phase ships
+            "find_a_church": false as NSObject,
+            "posts_liquid_glass": false as NSObject,
+            "why_seeing_this": false as NSObject,
+            "selah_stories": false as NSObject,
+            "selah_stories_premium_ai": false as NSObject,
 
         ]
     }
@@ -2640,6 +2659,13 @@ final class AMENFeatureFlags: ObservableObject {
 
         // Berean Drive / CarPlay CFs (B-23)
         bereanDriveEnabled = config["berean_drive_enabled"].boolValue
+
+        // Master Run Feature Flags (Phase 1–5, all default OFF)
+        findAChurch = config["find_a_church"].boolValue
+        postsLiquidGlass = config["posts_liquid_glass"].boolValue
+        whySeeingThis = config["why_seeing_this"].boolValue
+        selahStories = config["selah_stories"].boolValue
+        selahStoriesPremiumAI = config["selah_stories_premium_ai"].boolValue
     }
 
     private func applyUITestOverrides() {
