@@ -693,6 +693,8 @@ struct GlassFilterMenuPill<MenuContent: View>: View {
             .padding(.vertical, 8)
             .glassEffect(.subtle, in: Capsule())
         }
+        .accessibilityLabel(label)
+        .accessibilityHint("Double tap to open options")
     }
 }
 
@@ -850,6 +852,7 @@ struct CompressedChurchHeader: View {
                             .foregroundStyle(.secondary)
                             .frame(width: 32, height: 32)
                     }
+                    .accessibilityLabel("Back")
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Find Church")
@@ -860,6 +863,7 @@ struct CompressedChurchHeader: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "location.fill")
                                     .font(.systemScaled(11, weight: .medium))
+                                    .accessibilityHidden(true)
                                 Text(locationText)
                                     .font(.systemScaled(13, weight: .medium))
                                     .lineLimit(1)
@@ -877,6 +881,7 @@ struct CompressedChurchHeader: View {
                                     .font(.systemScaled(18, weight: .medium))
                                     .foregroundStyle(.secondary)
                             }
+                            .accessibilityLabel("Refresh search")
                         }
 
                         Button(action: onMapToggle) {
@@ -884,12 +889,14 @@ struct CompressedChurchHeader: View {
                                 .font(.systemScaled(20, weight: .medium))
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityLabel(isMapMode ? "Switch to list view" : "Switch to map view")
 
                         Button(action: onFilterTap) {
                             Image(systemName: "line.3.horizontal.decrease.circle")
                                 .font(.systemScaled(24, weight: .regular))
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityLabel("Filter churches")
                     }
                 }
                 .transition(.opacity)
@@ -903,6 +910,7 @@ struct CompressedChurchHeader: View {
                             .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Back")
                 }
 
                 Image(systemName: "magnifyingglass")
@@ -935,6 +943,7 @@ struct CompressedChurchHeader: View {
                             .font(.systemScaled(18, weight: .regular))
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Filter churches")
                 }
             }
             .padding(.horizontal, isCompressed ? 12 : 16)
@@ -1082,6 +1091,7 @@ struct ChurchNotePostCardActionBlock: View {
                         Image(systemName: hasNote ? "note.text" : "note.text.badge.plus")
                             .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(hasNote ? Color.indigo : Color.secondary)
+                            .accessibilityHidden(true)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -1098,6 +1108,7 @@ struct ChurchNotePostCardActionBlock: View {
                     Image(systemName: hasNote ? "arrow.right.circle.fill" : "chevron.right")
                         .font(.systemScaled(14, weight: hasNote ? .semibold : .regular))
                         .foregroundStyle(hasNote ? Color.indigo : Color(.systemGray3))
+                        .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -1114,6 +1125,8 @@ struct ChurchNotePostCardActionBlock: View {
                 )
             }
             .buttonStyle(FCPressButtonStyle())
+            .accessibilityLabel(hasNote ? "Continue Church Note for \(churchName)" : "Send to Church Notes for \(churchName)")
+            .accessibilityHint(hasNote ? "Double tap to continue your note in progress" : "Double tap to capture sermon and reflections")
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 6)
 
@@ -1127,6 +1140,7 @@ struct ChurchNotePostCardActionBlock: View {
                         Image(systemName: hasPostCard ? "envelope.fill" : "envelope.badge.person.crop")
                             .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(hasPostCard ? Color.pink : Color.secondary)
+                            .accessibilityHidden(true)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -1143,6 +1157,7 @@ struct ChurchNotePostCardActionBlock: View {
                     Image(systemName: hasPostCard ? "arrow.right.circle.fill" : "chevron.right")
                         .font(.systemScaled(14, weight: hasPostCard ? .semibold : .regular))
                         .foregroundStyle(hasPostCard ? Color.pink : Color(.systemGray3))
+                        .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -1159,6 +1174,8 @@ struct ChurchNotePostCardActionBlock: View {
                 )
             }
             .buttonStyle(FCPressButtonStyle())
+            .accessibilityLabel(hasPostCard ? "Open PostCard Draft for \(churchName)" : "Prepare PostCard for \(churchName)")
+            .accessibilityHint(hasPostCard ? "Double tap to open your waiting draft" : "Double tap to invite a friend or share gratitude")
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 6)
         }
@@ -1331,6 +1348,8 @@ struct ChurchMapSheetFilterBar: View {
                         Button(denom) { localDenomination = denom }
                     }
                 }
+                .accessibilityLabel(localDenomination.map { "Denomination: \($0)" } ?? "Denomination filter")
+                .accessibilityHint("Double tap to choose a denomination")
 
                 GlassFilterMenuPill(
                     icon: "arrow.up.arrow.down",
@@ -1339,6 +1358,8 @@ struct ChurchMapSheetFilterBar: View {
                     Button("Best Match") { sortByDistance = false }
                     Button("Nearest First") { sortByDistance = true }
                 }
+                .accessibilityLabel("Sort order: \(sortByDistance ? "Nearest First" : "Best Match")")
+                .accessibilityHint("Double tap to change sort order")
             }
             .padding(.horizontal, 16)
         }

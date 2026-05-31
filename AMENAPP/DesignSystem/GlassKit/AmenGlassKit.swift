@@ -544,6 +544,7 @@ struct GlassSheet<Content: View>: View {
                 .frame(width: 36, height: 5)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
+                .accessibilityHidden(true)
 
             // Title bar
             VStack(alignment: .leading, spacing: 4) {
@@ -929,6 +930,7 @@ struct GlassActionRow: View {
         }
         .buttonStyle(GlassKitPressStyle())
         .accessibilityLabel(label)
+        .accessibilityHint(subtitle ?? "Double tap to activate")
     }
 
     private var iconColor: Color {

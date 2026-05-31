@@ -1421,7 +1421,9 @@ struct FindChurchView: View {
                                                 )
                                             }
                                             .buttonStyle(FindChurchTactileButtonStyle())
-                                            
+                                            .accessibilityLabel(showAIRecommendations ? "AI Recommendations, expanded" : "AI Recommendations, collapsed")
+                                            .accessibilityHint("Double tap to \(showAIRecommendations ? "collapse" : "expand") personalized church matches")
+
                                             if showAIRecommendations {
                                                 if isLoadingAIRecommendations {
                                                     HStack {
@@ -1520,10 +1522,12 @@ struct FindChurchView: View {
                                             insertion: .scale(scale: 0.95).combined(with: .opacity),
                                             removal: .opacity
                                         ).animation(reduceMotion ? nil : .easeOut(duration: 0.2)))
-                                        .scrollTransition(.animated(.spring(response: 0.3, dampingFraction: 0.8))) { content, phase in
+                                        .scrollTransition(
+                                            reduceMotion ? .identity : .animated(.spring(response: 0.3, dampingFraction: 0.8))
+                                        ) { content, phase in
                                             content
-                                                .scaleEffect(phase.isIdentity ? 1.0 : 0.94)
-                                                .opacity(phase.isIdentity ? 1.0 : 0.58)
+                                                .scaleEffect(reduceMotion || phase.isIdentity ? 1.0 : 0.94)
+                                                .opacity(reduceMotion || phase.isIdentity ? 1.0 : 0.58)
                                         }
                                     }
                                 }
@@ -6454,15 +6458,19 @@ struct FindChurchMapView: View {
                             }
                         }
                         .onAppear {
-                            let idx = churches.firstIndex(where: { $0.id == annotation.church.id }) ?? 0
-                            DispatchQueue.main.asyncAfter(deadline: .now() + Double(idx) * 0.08) {
-                                withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
-                                    pinsVisible[annotation.church.id] = true
+                            if reduceMotion {
+                                pinsVisible[annotation.church.id] = true
+                            } else {
+                                let idx = churches.firstIndex(where: { $0.id == annotation.church.id }) ?? 0
+                                DispatchQueue.main.asyncAfter(deadline: .now() + Double(idx) * 0.08) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
+                                        pinsVisible[annotation.church.id] = true
+                                    }
                                 }
                             }
                         }
                         .opacity(pinsVisible[annotation.church.id] == true ? 1 : 0)
-                        .scaleEffect(pinsVisible[annotation.church.id] == true ? 1 : 0.4)
+                        .scaleEffect(pinsVisible[annotation.church.id] == true ? 1 : (reduceMotion ? 1 : 0.4))
                 }
             }
             .ignoresSafeArea()
