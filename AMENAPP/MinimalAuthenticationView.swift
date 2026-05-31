@@ -57,6 +57,11 @@ struct MinimalAuthenticationView: View {
     // Landing card → email form transition
     @State private var showEmailForm = false
 
+    // COPPA: age verification for new social sign-in accounts (Google / Apple)
+    @State private var showSocialAgeGate = false
+    @State private var socialDOB: Date = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+    @State private var pendingSocialUser: FirebaseAuth.User? = nil
+
     init(
         initialMode: AppLaunchView.AuthMode = .login,
         showsEmailFormOnAppear: Bool = false
@@ -178,6 +183,39 @@ struct MinimalAuthenticationView: View {
             icon: "checkmark.circle.fill",
             primaryButton: LiquidGlassAlertButton("OK", tone: .spiritual) { }
         ))
+        .sheet(isPresented: $showSocialAgeGate) {
+            SocialAgeGateSheet(
+                selectedDate: $socialDOB,
+                onConfirm: {
+                    let age = Calendar.current.dateComponents([.year], from: socialDOB, to: Date()).year ?? 0
+                    if age >= AppConfig.Legal.minimumAge {
+                        showSocialAgeGate = false
+                        pendingSocialUser = nil
+                        dismiss()
+                    } else {
+                        // Under 13: delete the account and explain
+                        Task {
+                            try? await pendingSocialUser?.delete()
+                            await MainActor.run {
+                                showSocialAgeGate = false
+                                pendingSocialUser = nil
+                                showError("You must be \(AppConfig.Legal.minimumAge) or older to join AMEN.")
+                            }
+                        }
+                    }
+                },
+                onCancel: {
+                    Task {
+                        try? await pendingSocialUser?.delete()
+                        await MainActor.run {
+                            showSocialAgeGate = false
+                            pendingSocialUser = nil
+                        }
+                    }
+                }
+            )
+            .presentationDetents([.height(360)])
+        }
     }
 
     // MARK: - Landing Card
@@ -964,11 +1002,18 @@ struct MinimalAuthenticationView: View {
         errorMessage = nil
         Task {
             do {
-                _ = try await FirebaseManager.shared.signInWithGoogle()
+                let user = try await FirebaseManager.shared.signInWithGoogle()
+                // COPPA: new accounts created within the last 60 s haven't verified age
+                let isNewAccount = user.metadata.creationDate.map { Date().timeIntervalSince($0) < 60 } ?? false
                 await MainActor.run {
                     isLoading = false
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    dismiss()
+                    if isNewAccount {
+                        pendingSocialUser = user
+                        showSocialAgeGate = true
+                    } else {
+                        dismiss()
+                    }
                 }
             } catch let error as NSError {
                 await MainActor.run {
@@ -1000,15 +1045,21 @@ struct MinimalAuthenticationView: View {
                 isLoading = true
                 Task {
                     do {
-                        _ = try await FirebaseManager.shared.signInWithApple(
+                        let appleUser = try await FirebaseManager.shared.signInWithApple(
                             idToken: idToken,
                             nonce: nonce,
                             fullName: credential.fullName
                         )
+                        let isNewAppleAccount = appleUser.metadata.creationDate.map { Date().timeIntervalSince($0) < 60 } ?? false
                         await MainActor.run {
                             isLoading = false
                             UINotificationFeedbackGenerator().notificationOccurred(.success)
-                            dismiss()
+                            if isNewAppleAccount {
+                                pendingSocialUser = appleUser
+                                showSocialAgeGate = true
+                            } else {
+                                dismiss()
+                            }
                         }
                     } catch {
                         await MainActor.run {
@@ -1524,6 +1575,63 @@ private struct AMENIconMark: View {
                 .font(.systemScaled(26, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
         }
+    }
+}
+
+// MARK: - Social Age Gate Sheet (COPPA)
+
+private struct SocialAgeGateSheet: View {
+    @Binding var selectedDate: Date
+    var onConfirm: () -> Void
+    var onCancel: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var maxDate: Date {
+        Calendar.current.date(byAdding: .year, value: -AppConfig.Legal.minimumAge, to: Date()) ?? Date()
+    }
+
+    var body: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 8) {
+                Image(systemName: "person.badge.shield.checkmark")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundStyle(AmenTheme.Colors.amenPurple)
+
+                Text("One last step")
+                    .font(AMENFont.bold(20))
+                    .foregroundStyle(.primary)
+
+                Text("To meet AMEN's age requirement, please confirm your birthday.")
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+
+            DatePicker(
+                "Birthday",
+                selection: $selectedDate,
+                in: ...maxDate,
+                displayedComponents: .date
+            )
+            .datePickerStyle(.wheel)
+            .labelsHidden()
+
+            VStack(spacing: 10) {
+                Button("Confirm", action: onConfirm)
+                    .font(AMENFont.semiBold(16))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(AmenTheme.Colors.amenPurple, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(.white)
+
+                Button("Cancel", action: onCancel)
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+        }
+        .padding(.vertical, 28)
     }
 }
 

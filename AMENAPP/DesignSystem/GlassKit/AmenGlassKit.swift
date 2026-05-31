@@ -706,7 +706,7 @@ public struct GlassPin: View {
             Triangle()
                 .fill(
                     reduceTransparency
-                        ? Color(uiColor: .systemBackground)
+                        ? AnyShapeStyle(Color(uiColor: .systemBackground))
                         : AnyShapeStyle(.ultraThinMaterial)
                 )
                 .frame(width: 10, height: 6)
@@ -801,7 +801,7 @@ public struct GlassChip: View {
                 } else {
                     Capsule()
                         .fill(reduceTransparency
-                              ? Color(uiColor: .systemBackground)
+                              ? AnyShapeStyle(Color(uiColor: .systemBackground))
                               : AnyShapeStyle(.ultraThinMaterial))
                         .overlay {
                             Capsule()
@@ -948,7 +948,7 @@ public struct GlassActionRow: View {
 /// ```
 public struct GlassButton: View {
 
-    public enum ButtonStyle {
+    public enum Variant {
         case primary
         case secondary
         case tinted(Color)
@@ -956,7 +956,7 @@ public struct GlassButton: View {
 
     public let label: String
     public let icon: String?
-    public var style: ButtonStyle
+    public var style: Variant
     public var isLoading: Bool
     public var isDisabled: Bool
     public var hint: String?
@@ -969,7 +969,7 @@ public struct GlassButton: View {
     public init(
         _ label: String,
         icon: String? = nil,
-        style: ButtonStyle = .primary,
+        style: Variant = .primary,
         isLoading: Bool = false,
         isDisabled: Bool = false,
         hint: String? = nil,
@@ -987,16 +987,13 @@ public struct GlassButton: View {
     public var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                if #available(iOS 17, *) {
-                    Image(systemName: isLoading ? "hourglass" : (icon ?? ""))
-                        .symbolEffect(.bounce, value: isPressed)
-                        .opacity(icon == nil ? 0 : 1)
-                        .frame(width: icon == nil ? 0 : nil)
-                } else {
-                    if let icon, !isLoading {
-                        Image(systemName: icon)
-                    } else if isLoading {
-                        Image(systemName: "hourglass")
+                let effectiveIcon = isLoading ? "hourglass" : icon
+                if let symbolName = effectiveIcon {
+                    if #available(iOS 17, *) {
+                        Image(systemName: symbolName)
+                            .symbolEffect(.bounce, value: isPressed)
+                    } else {
+                        Image(systemName: symbolName)
                     }
                 }
                 Text(label)
@@ -1066,7 +1063,7 @@ public struct GlassButton: View {
             Capsule()
                 .fill(
                     reduceTransparency
-                        ? color
+                        ? AnyShapeStyle(color)
                         : AnyShapeStyle(.ultraThinMaterial)
                 )
                 .overlay {
