@@ -1,3 +1,8 @@
+// AmenLiquidGlassMotionQAView.swift
+// Scaffolded QA harness for planned Liquid Glass motion APIs.
+// Disabled until AmenTrustMotionState / AmenMotionSignals / AmenLiquidGlassSurfaceRole
+// and related types are implemented in LiquidGlassMotion.swift.
+#if false
 import SwiftUI
 
 struct AmenLiquidGlassMotionQAView: View {
@@ -133,3 +138,4 @@ struct AmenLiquidGlassMotionQAView: View {
 #Preview {
     AmenLiquidGlassMotionQAView()
 }
+#endif
