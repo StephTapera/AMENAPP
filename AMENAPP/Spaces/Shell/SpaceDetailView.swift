@@ -216,13 +216,10 @@ struct SpaceDetailView: View {
         ZStack(alignment: .bottom) {
             Group {
                 if let avatarURL = space.avatarURL, !avatarURL.isEmpty {
-                    AsyncImage(url: URL(string: avatarURL)) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        default:
-                            avatarGradient
-                        }
+                    CachedAsyncImage(url: URL(string: avatarURL)) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        avatarGradient
                     }
                 } else {
                     avatarGradient
