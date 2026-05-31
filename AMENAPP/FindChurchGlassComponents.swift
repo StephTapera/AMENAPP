@@ -1037,20 +1037,39 @@ struct ChurchNotePostCardActionBlock: View {
 // MARK: - Apple Maps-style Church Result Card
 
 /// Full-width result card matching the Apple Maps POI card pattern.
-/// Shows church icon, name + distance + address + service time, trailing Directions capsule.
+/// Shows church icon, name + distance + address + next service time + optional rating,
+/// with a trailing Directions button that opens Apple Maps driving directions.
+///
+/// A5 augmentation (2026-05-31):
+///   - Optional rating star row (shown when rating > 0)
+///   - Directions hand-off via maps:// URL (driving mode, https fallback)
+///   - Full VoiceOver label: name + distance + address + service time + rating
+///   - 0.97 scale pressed spring feedback via FCPressButtonStyle
+///   - accessibilityReduceMotion guard on selection highlight animation
 struct ChurchAppleMapResultCard: View {
     let church: Church
     var isSelected: Bool = false
     var isLive: Bool = false
+    /// Optional star rating 0–5. Pass nil or 0 to hide the rating row.
+    var rating: Double? = nil
     let onTap: () -> Void
-    let onDirections: () -> Void
+    /// Tap handler for the Directions button.
+    /// When nil the built-in Maps URL hand-off fires automatically.
+    var onDirections: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var voiceOverLabel: String {
+        var parts: [String] = [church.name, church.distance, church.address]
+        parts.append(isLive ? "Service live now" : church.serviceTime)
+        if let r = rating, r > 0 { parts.append(String(format: "%.1f stars", r)) }
+        return parts.joined(separator: ", ")
+    }
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 14) {
-                // Church icon
+                // Church icon badge
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .fill(isSelected ? Color.amenGold.opacity(0.18) : Color.amenGold.opacity(0.10))
@@ -1064,7 +1083,7 @@ struct ChurchAppleMapResultCard: View {
                 }
                 .frame(width: 44, height: 44)
 
-                // Name + meta
+                // Name + distance/address + service time + optional rating
                 VStack(alignment: .leading, spacing: 3) {
                     Text(church.name)
                         .font(.systemScaled(15, weight: .semibold))
@@ -1091,12 +1110,27 @@ struct ChurchAppleMapResultCard: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
+
+                    // Rating stars — only shown when rating > 0
+                    if let r = rating, r > 0 {
+                        ChurchResultCardRatingStars(rating: r)
+                            .padding(.top, 1)
+                    }
                 }
 
                 Spacer(minLength: 6)
 
-                // Directions button — matching Apple Maps trailing capsule
-                Button(action: onDirections) {
+                // Directions button — Apple Maps driving hand-off
+                Button {
+                    if let custom = onDirections {
+                        custom()
+                    } else {
+                        ChurchAppleMapResultCard.openMapsDirections(
+                            latitude: church.latitude,
+                            longitude: church.longitude
+                        )
+                    }
+                } label: {
                     VStack(spacing: 2) {
                         Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
                             .font(.systemScaled(22))
@@ -1108,6 +1142,7 @@ struct ChurchAppleMapResultCard: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Directions to \(church.name)")
+                .accessibilityHint("Opens Apple Maps with driving directions")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
@@ -1115,9 +1150,12 @@ struct ChurchAppleMapResultCard: View {
         }
         .buttonStyle(FCPressButtonStyle())
         .background(isSelected ? Color.amenGold.opacity(0.04) : Color.clear)
-        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.8), value: isSelected)
+        .animation(
+            reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.8),
+            value: isSelected
+        )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(church.name), \(church.distance), \(isLive ? "service live now" : church.serviceTime)")
+        .accessibilityLabel(voiceOverLabel)
         .accessibilityHint("Double-tap to focus on map")
     }
 }
@@ -1165,6 +1203,355 @@ struct ChurchMapSheetFilterBar: View {
                 }
             }
             .padding(.horizontal, 16)
+        }
+    }
+}
+
+// MARK: - Rating Stars (A5 internal helper)
+
+/// Compact 0–5 star row for church result cards.
+/// Displays filled, half, and empty stars using SF Symbols.
+private struct ChurchResultCardRatingStars: View {
+    let rating: Double   // 0.0 – 5.0
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<5, id: \.self) { index in
+                Image(systemName: starSymbol(for: index))
+                    .font(.systemScaled(10, weight: .medium))
+                    .foregroundStyle(Color.amenGold)
+            }
+            Text(String(format: "%.1f", rating))
+                .font(.systemScaled(10, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func starSymbol(for index: Int) -> String {
+        let threshold = rating - Double(index)
+        if threshold >= 0.75 { return "star.fill" }
+        if threshold >= 0.25 { return "star.leadinghalf.filled" }
+        return "star"
+    }
+}
+
+// MARK: - Find Church Load State (A5)
+
+/// Driving enum for the bottom sheet content area.
+/// Passed to FindChurchSheetContent to render the correct state UI.
+enum FindChurchLoadState: Equatable {
+    case loading
+    case results([Church])   // non-empty result set
+    case empty               // fetch succeeded but no results
+    case error(String)       // fetch failed — carries user-facing message
+    case offline             // device has no network
+}
+
+// MARK: - Find Church Sheet Content (A5)
+
+/// Stateful interior of the church result bottom sheet.
+/// Switches on FindChurchLoadState to show distinct loading / results / empty / error / offline UIs.
+/// A4 owns the filter chip row above this view — do NOT add filter chips here.
+struct FindChurchSheetContent: View {
+    let state: FindChurchLoadState
+    var onSelectChurch: (Church) -> Void = { _ in }
+    var onRetry: () -> Void = {}
+    /// Optional limit for the displayed card count (used in .medium sheet detent: first 5 only).
+    var resultLimit: Int? = nil
+
+    var body: some View {
+        Group {
+            switch state {
+            case .loading:
+                loadingView
+            case .results(let churches):
+                let displayed = resultLimit.map { Array(churches.prefix($0)) } ?? churches
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(displayed) { church in
+                            ChurchAppleMapResultCard(
+                                church: church,
+                                isSelected: false,
+                                isLive: false,
+                                onTap: { onSelectChurch(church) },
+                                onDirections: {
+                                    let mapsURL = URL(
+                                        string: "maps://?daddr=\(church.latitude),\(church.longitude)&dirflg=d"
+                                    )!
+                                    if UIApplication.shared.canOpenURL(mapsURL) {
+                                        UIApplication.shared.open(mapsURL)
+                                    } else {
+                                        UIApplication.shared.open(
+                                            URL(string: "https://maps.apple.com/?daddr=\(church.latitude),\(church.longitude)&dirflg=d")!
+                                        )
+                                    }
+                                }
+                            )
+                            if church.id != displayed.last?.id {
+                                Divider().padding(.leading, 74)
+                            }
+                        }
+                    }
+                }
+            case .empty:
+                emptyView
+            case .error(let message):
+                errorView(message: message)
+            case .offline:
+                offlineView
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: State views
+
+    private var loadingView: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            ProgressView()
+                .scaleEffect(1.2)
+                .tint(Color.amenGold)
+            Text("Searching nearby...")
+                .font(.systemScaled(14, weight: .medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Searching for nearby churches")
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "xmark.circle")
+                .font(.systemScaled(36, weight: .light))
+                .foregroundStyle(.secondary)
+            Text("No churches found")
+                .font(.systemScaled(15, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text("Try widening your search or adjusting your filters.")
+                .font(.systemScaled(13, weight: .regular))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No churches found. Try widening your search or adjusting your filters.")
+    }
+
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.systemScaled(36, weight: .light))
+                .foregroundStyle(Color.amenGold)
+            Text(message)
+                .font(.systemScaled(14, weight: .medium))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Button(action: onRetry) {
+                Text("Retry")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(Capsule().fill(Color.amenGold))
+            }
+            .buttonStyle(FCPressButtonStyle())
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var offlineView: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "wifi.slash")
+                .font(.systemScaled(36, weight: .light))
+                .foregroundStyle(.secondary)
+            Text("You're offline")
+                .font(.systemScaled(15, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text("Check your connection and try again.")
+                .font(.systemScaled(13, weight: .regular))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("You're offline. Check your connection and try again.")
+    }
+}
+
+// MARK: - Find Church Result Sheet (A5)
+
+/// Draggable bottom sheet that shows the church result list.
+///
+/// Three detent positions controlled by sheetState:
+///   .collapsed      — "N churches nearby" summary pill; tap expands to .medium
+///   .medium         — filter chip row (A4 injects via filterContent) + first 5 result cards
+///   .expanded       — filter chip row + full scrollable result list
+///   .searchFocused  — same as expanded
+///
+/// Usage:
+///   FindChurchResultSheet(state: $sheetState, loadState: vm.loadState,
+///       onSelectChurch: { … }, onRetry: { … }) { ChurchMapSheetFilterBar(…) }
+struct FindChurchResultSheet<FilterContent: View>: View {
+    @Binding var state: ChurchDiscoverySheetState
+    var loadState: FindChurchLoadState
+    var onSelectChurch: (Church) -> Void
+    var onRetry: () -> Void
+    @ViewBuilder var filterContent: () -> FilterContent
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var nearestDistance: String {
+        if case .results(let churches) = loadState {
+            return churches.min(by: { $0.distanceValue < $1.distanceValue })?.distance ?? ""
+        }
+        return ""
+    }
+
+    var body: some View {
+        ChurchDiscoveryBottomSheet(state: $state) { _ in
+            VStack(spacing: 0) {
+                ChurchDiscoverySheetHandle()
+                switch state {
+                case .collapsed:
+                    collapsedPill
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+                        .onTapGesture {
+                            withAnimation(
+                                Motion.adaptive(.interactiveSpring(response: 0.32, dampingFraction: 0.82))
+                            ) { state = .medium }
+                        }
+                case .medium:
+                    filterContent().padding(.bottom, 10)
+                    Divider()
+                    FindChurchSheetContent(
+                        state: loadState,
+                        onSelectChurch: onSelectChurch,
+                        onRetry: onRetry,
+                        resultLimit: 5
+                    )
+                case .expanded, .searchFocused:
+                    filterContent().padding(.bottom, 10)
+                    Divider()
+                    FindChurchSheetContent(
+                        state: loadState,
+                        onSelectChurch: onSelectChurch,
+                        onRetry: onRetry,
+                        resultLimit: nil
+                    )
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Church search results")
+    }
+
+    @ViewBuilder
+    private var collapsedPill: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "building.columns.fill")
+                .font(.systemScaled(14, weight: .semibold))
+                .foregroundStyle(Color.amenGold)
+            Group {
+                switch loadState {
+                case .loading:
+                    Text("Searching...")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                case .results(let churches):
+                    HStack(spacing: 4) {
+                        Text("\(churches.count) church\(churches.count == 1 ? "" : "es") nearby")
+                            .font(.systemScaled(14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        if !nearestDistance.isEmpty {
+                            Text("· nearest \(nearestDistance)")
+                                .font(.systemScaled(13, weight: .regular))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                case .empty:
+                    Text("No churches found")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                case .error:
+                    Text("Couldn't load results")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                case .offline:
+                    Text("Offline")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Image(systemName: "chevron.up")
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .amenGlass(.thin, cornerRadius: 16)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(collapsedPillA11yLabel)
+        .accessibilityHint("Double-tap to expand church list")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var collapsedPillA11yLabel: String {
+        switch loadState {
+        case .loading: return "Searching for churches"
+        case .results(let churches):
+            let suffix = nearestDistance.isEmpty ? "" : ", nearest \(nearestDistance)"
+            return "\(churches.count) church\(churches.count == 1 ? "" : "es") nearby\(suffix)"
+        case .empty: return "No churches found"
+        case .error: return "Could not load results"
+        case .offline: return "Offline, no results available"
+        }
+    }
+}
+
+// MARK: - ChurchAppleMapResultCard augmentation (A5): rating + Maps hand-off
+// The existing ChurchAppleMapResultCard defined above already handles the Directions
+// tap via onDirections closure. The augmented card below adds an optional rating
+// parameter and a built-in Maps hand-off so callers can use either variant.
+
+extension ChurchAppleMapResultCard {
+
+    /// Returns the canonical VoiceOver label combining all visible metadata.
+    internal static func a11yLabel(for church: Church, isLive: Bool, rating: Double?) -> String {
+        var parts: [String] = [church.name, church.distance, church.address]
+        parts.append(isLive ? "Service live now" : church.serviceTime)
+        if let r = rating, r > 0 {
+            parts.append(String(format: "%.1f stars", r))
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    /// Opens Apple Maps with driving directions to the church coordinate.
+    internal static func openMapsDirections(latitude: Double, longitude: Double) {
+        let mapsURL = URL(string: "maps://?daddr=\(latitude),\(longitude)&dirflg=d")!
+        if UIApplication.shared.canOpenURL(mapsURL) {
+            UIApplication.shared.open(mapsURL)
+        } else {
+            let fallback = URL(string: "https://maps.apple.com/?daddr=\(latitude),\(longitude)&dirflg=d")!
+            UIApplication.shared.open(fallback)
         }
     }
 }
