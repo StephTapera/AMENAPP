@@ -3657,6 +3657,7 @@ struct PrayerWallCard: View {
                         .fill(hasPrayed ? Color.black : Color.black.opacity(0.08))
                 )
             }
+            .accessibilityLabel(hasPrayed ? "Prayed for \(post.title)" : "Pray for \(post.title)")
         }
         .padding(14)
         .frame(height: 240)
