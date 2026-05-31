@@ -955,32 +955,26 @@ struct ProfileView: View {
             return
         }
         
-        // Reload all data from Firestore (where posts are actually saved) and Realtime Database
+        // Reload all data from Firestore and Realtime Database concurrently.
+        // All 4 fetches are independent — fire them in parallel via async let.
+        // Replies and reposts use the same non-throwing safe wrappers as loadProfileData()
+        // so a Realtime DB permission-denied never aborts the Firestore post fetch.
         do {
-            // 1. Refresh posts from FIRESTORE (where createPost saves them)
-            let postService = FirebasePostService.shared
-            let refreshedPosts = try await postService.fetchUserPosts(userId: userId)
-            userPosts = refreshedPosts
-            dlog("   ✅ Posts refreshed from Firestore: \(refreshedPosts.count)")
-            
-            // 2. Refresh saved posts
-            let savedPostsService: RealtimeSavedPostsService = .shared
-            let refreshedSavedPosts = try await savedPostsService.fetchSavedPosts()
-            savedPosts = refreshedSavedPosts
-            dlog("   ✅ Saved posts refreshed: \(refreshedSavedPosts.count)")
-            
-            // 3. Refresh replies (including replies user receives)
-            let commentsService = AMENAPP.RealtimeCommentsService.shared
-            let refreshedReplies = try await commentsService.fetchUserCommentInteractions(userId: userId)
+            async let postsTask   = FirebasePostService.shared.fetchUserPosts(userId: userId)
+            async let savedTask   = RealtimeSavedPostsService.shared.fetchSavedPosts()
+            async let repliesTask = ProfileView.fetchRepliesSafe(userId: userId)
+            async let repostsTask = ProfileView.fetchRepostsSafe(userId: userId)
+
+            let (refreshedPosts, refreshedSaved, refreshedReplies, refreshedReposts) = try await (postsTask, savedTask, repliesTask, repostsTask)
+            userPosts   = refreshedPosts
+            savedPosts  = refreshedSaved
             userReplies = refreshedReplies
+            reposts     = refreshedReposts
+            dlog("   ✅ Posts refreshed from Firestore: \(refreshedPosts.count)")
+            dlog("   ✅ Saved posts refreshed: \(refreshedSaved.count)")
             dlog("   ✅ Replies refreshed: \(refreshedReplies.count) (own comments + replies received)")
-            
-            // 4. Refresh reposts
-            let repostsService: RealtimeRepostsService = .shared
-            let refreshedReposts = try await repostsService.fetchUserReposts(userId: userId)
-            reposts = refreshedReposts
             dlog("   ✅ Reposts refreshed: \(refreshedReposts.count)")
-            
+
         } catch {
             dlog("❌ Error refreshing profile data: \(error)")
         }

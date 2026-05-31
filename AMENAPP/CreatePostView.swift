@@ -4212,21 +4212,22 @@ struct CreatePostView: View {
                     return .normalPost
                 }
             }()
-            
-            let checkResult = await ThinkFirstGuardrailsService.shared.checkContent(
+
+            // ── Phase P1-4: on-device + server checks fired concurrently ────────
+            // checkContent is local/fast; validate is a CF call. Both consume only
+            // sanitizedContent/context/surface and share no data dependency, so we
+            // fire them in parallel and collect both results before acting on either.
+            // Fail-closed: ANY block/requireEdit/serverError from either check halts
+            // the publish. We honor the stricter of (client, server).
+            async let checkResultTask  = ThinkFirstGuardrailsService.shared.checkContent(
                 sanitizedContent,
                 context: context
             )
-
-            // ── Phase P1-4: server-authoritative second pass ─────────────────────
-            // The on-device check above is advisory. The validateThinkFirstCheck
-            // Cloud Function is the authoritative gate. We honor the stricter of
-            // (client, server) and fail-closed on any server error so the publish
-            // path cannot silently bypass the server when offline or under abuse.
-            let serverOutcome = await ThinkFirstServerValidator.shared.validate(
+            async let serverOutcomeTask = ThinkFirstServerValidator.shared.validate(
                 sanitizedContent,
                 surface: .createPost
             )
+            let (checkResult, serverOutcome) = await (checkResultTask, serverOutcomeTask)
 
             // Treat server errors and input-rejection as a hard halt with a
             // user-readable message. No "proceed anyway" affordance.
