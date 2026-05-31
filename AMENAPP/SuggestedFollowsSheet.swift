@@ -40,7 +40,7 @@ struct SuggestedFollowsSheet: View {
                         }
                     }
                 }
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: burstCoordinator.frictionState)
+                .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85)), value: burstCoordinator.frictionState)
             }
             .navigationTitle("Suggested")
             .navigationBarTitleDisplayMode(.inline)

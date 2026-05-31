@@ -43,8 +43,8 @@ struct SuggestionFollowButton: View {
             .frame(height: 30)
             .background { buttonBackground }
             .scaleEffect(isPressed ? 0.96 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isPressed)
-            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: state)
+            .animation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.8)), value: isPressed)
+            .animation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8)), value: state)
         }
         .buttonStyle(.plain)
         ._onButtonGesture(pressing: { isPressed = $0 }, perform: {})

@@ -216,13 +216,10 @@ private struct ActivityActorStack: View {
 
         Group {
             if let url {
-                CachedAsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable().scaledToFill()
-                    default:
-                        initialsCircle(name: name, size: size)
-                    }
+                CachedAsyncImage(url: url) { img in
+                    img.resizable().scaledToFill()
+                } placeholder: {
+                    initialsCircle(name: name, size: size)
                 }
             } else {
                 initialsCircle(name: name, size: size)
@@ -279,30 +276,24 @@ private struct ActivityPreviewThumbnail: View {
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
             case .postImage(let url):
                 if let url {
-                    CachedAsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img.resizable().scaledToFill()
-                                .frame(width: 46, height: 46)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                        default:
-                            previewCell(icon: "photo", color: AmenTheme.Colors.iconSecondary)
-                        }
+                    CachedAsyncImage(url: url) { img in
+                        img.resizable().scaledToFill()
+                            .frame(width: 46, height: 46)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    } placeholder: {
+                        previewCell(icon: "photo", color: AmenTheme.Colors.iconSecondary)
                     }
                 } else {
                     EmptyView()
                 }
             case .churchLogo(let url):
                 if let url {
-                    CachedAsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img.resizable().scaledToFill()
-                                .frame(width: 46, height: 46)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                        default:
-                            previewCell(icon: "building.columns.fill", color: .gray)
-                        }
+                    CachedAsyncImage(url: url) { img in
+                        img.resizable().scaledToFill()
+                            .frame(width: 46, height: 46)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    } placeholder: {
+                        previewCell(icon: "building.columns.fill", color: .gray)
                     }
                 } else {
                     previewCell(icon: "building.columns.fill", color: .gray)

@@ -404,7 +404,7 @@ private struct InAppNotificationBannerModifier: ViewModifier {
                             removal:   .move(edge: .top).combined(with: .opacity)
                         )
                     )
-                    .animation(.spring(response: 0.45, dampingFraction: 0.82), value: banner.isVisible)
+                    .animation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.82)), value: banner.isVisible)
                     .padding(.top, safeAreaTop + 8)
                     .zIndex(1000)
                 }

@@ -916,7 +916,7 @@ struct BereanInputOverlay: View {
     private func fadeSlideTransition(delay: Double) -> AnyTransition {
         .asymmetric(
             insertion: .move(edge: .bottom).combined(with: .opacity)
-                       .animation(.spring(response: 0.42, dampingFraction: 0.76).delay(delay)),
+                       .animation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.76)).delay(delay)),
             removal: .opacity.animation(.easeOut(duration: 0.14))
         )
     }

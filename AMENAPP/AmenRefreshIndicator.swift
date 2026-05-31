@@ -349,7 +349,7 @@ private struct AmenRefreshModifier: ViewModifier {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isRefreshing)
+            .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: isRefreshing)
     }
 }
 

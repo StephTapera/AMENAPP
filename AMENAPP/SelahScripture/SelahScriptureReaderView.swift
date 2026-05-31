@@ -395,7 +395,7 @@ struct SelahScriptureReaderView: View {
                     .padding(.bottom, 90)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.spring(response: 0.38, dampingFraction: 0.8), value: selectedVerseNumber)
+                .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.8)), value: selectedVerseNumber)
             }
 
             toastOverlay

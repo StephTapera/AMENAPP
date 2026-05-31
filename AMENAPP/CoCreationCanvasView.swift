@@ -31,7 +31,7 @@ struct CoCreationCanvasView: View {
                                 lineWidth: isFocused ? 1.5 : 1
                             )
                     )
-                    .animation(.spring(response: 0.4, dampingFraction: 0.75), value: isFocused)
+                    .animation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)), value: isFocused)
 
                 // Placeholder
                 if vm.canvasText.isEmpty && !isFocused {

@@ -78,7 +78,7 @@ struct AccountTypeSettingsView: View {
                         }
                     }
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -172,7 +172,7 @@ struct MutedAccountsView: View {
                             }
                         }
                     }
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     .padding(.horizontal, 16)
@@ -260,7 +260,7 @@ struct HiddenWordsSettingsView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -308,7 +308,7 @@ struct HiddenWordsSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -426,7 +426,7 @@ struct MessageControlsSettingsView: View {
                         }
                     }
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -446,7 +446,7 @@ struct MessageControlsSettingsView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -530,7 +530,7 @@ struct ActivityStatusSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -604,7 +604,7 @@ struct SensitiveContentSettingsView: View {
                         }
                     }
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -653,7 +653,7 @@ struct QuietModeSettingsView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -687,7 +687,7 @@ struct QuietModeSettingsView: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
                     }
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     .padding(.horizontal, 16)
@@ -743,7 +743,7 @@ struct DownloadDataView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -770,7 +770,7 @@ struct DownloadDataView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -879,7 +879,7 @@ struct DefaultPostSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -900,7 +900,7 @@ struct DefaultPostSettingsView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -942,7 +942,7 @@ struct DefaultPostSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -978,7 +978,7 @@ struct DefaultPostSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1045,7 +1045,7 @@ struct DefaultPostSettingsView: View {
                         .padding(.vertical, 14)
                     }
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1149,7 +1149,7 @@ struct SundayFocusModeSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1199,7 +1199,7 @@ struct SundayFocusModeSettingsView: View {
                             .padding(.vertical, 14)
                     }
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1245,7 +1245,7 @@ struct TakeABreakSettingsView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1271,7 +1271,7 @@ struct TakeABreakSettingsView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                     }
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     .padding(.horizontal, 16)
@@ -1350,7 +1350,7 @@ struct BereanAISettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1377,7 +1377,7 @@ struct BereanAISettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1404,7 +1404,7 @@ struct BereanAISettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1453,7 +1453,7 @@ struct BereanAISettingsView: View {
                     .buttonStyle(.plain)
                     .disabled(isDeletingHistory)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1598,7 +1598,7 @@ struct ReportProblemView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1618,7 +1618,7 @@ struct ReportProblemView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1651,7 +1651,7 @@ struct ReportProblemView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1753,7 +1753,7 @@ struct AccessibilitySettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1795,7 +1795,7 @@ struct AccessibilitySettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1824,7 +1824,7 @@ struct AccessibilitySettingsView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1849,7 +1849,7 @@ struct TextSizeSettingsView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1865,7 +1865,7 @@ struct TextSizeSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1912,7 +1912,7 @@ struct CaptionsAltTextSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -1939,7 +1939,7 @@ struct CaptionsAltTextSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -2007,7 +2007,7 @@ struct ProfileVisibilitySettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -2081,7 +2081,7 @@ struct DestinationAppearanceSettingsView: View {
                         }
                     }
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -2156,7 +2156,7 @@ struct DestinationStorageDataSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -2200,7 +2200,7 @@ struct DestinationStorageDataSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -2229,7 +2229,7 @@ struct DestinationStorageDataSettingsView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -2313,7 +2313,7 @@ struct DestinationFamilySafetySettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -2359,7 +2359,7 @@ struct DestinationFamilySafetySettingsView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
@@ -2388,7 +2388,7 @@ struct DestinationFamilySafetySettingsView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)

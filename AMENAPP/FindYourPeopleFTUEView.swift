@@ -447,7 +447,7 @@ private struct InterestChipButton: View {
                     )
                     .shadow(color: isSelected ? ONB.accent.opacity(0.25) : ONB.glassShadow, radius: 6, y: 2)
             )
-            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isSelected)
+            .animation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72)), value: isSelected)
         }
         .buttonStyle(ScaleButtonStyle())
         .accessibilityLabel(label)

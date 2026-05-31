@@ -52,7 +52,7 @@ struct SteelManCardView: View {
                         .font(.systemScaled(12, weight: .semibold))
                         .foregroundColor(.black.opacity(0.5))
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: isExpanded)
+                        .animation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)), value: isExpanded)
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 12)

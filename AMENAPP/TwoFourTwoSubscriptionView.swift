@@ -54,7 +54,7 @@ struct TwoFourTwoSubscriptionView: View {
                                 }
                                 .opacity(appeared ? 1 : 0)
                                 .offset(y: appeared ? 0 : 20)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.75).delay(Double(index) * 0.08 + 0.15), value: appeared)
+                                .animation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75).delay(Double(index) * 0.08 + 0.15)), value: appeared)
                             }
                         }
                         .padding(.horizontal, 20).padding(.bottom, 40)

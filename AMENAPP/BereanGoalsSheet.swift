@@ -383,7 +383,7 @@ struct BereanAddGoalSheet: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isSelected ? 1.05 : 1.0)
-        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isSelected)
+        .animation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72)), value: isSelected)
         .frame(maxWidth: .infinity)
     }
 

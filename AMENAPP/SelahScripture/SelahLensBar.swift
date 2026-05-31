@@ -57,7 +57,7 @@ struct SelahLensBar: View {
         .transition(
             .move(edge: .top).combined(with: .opacity)
         )
-        .animation(.spring(response: 0.36, dampingFraction: 0.72), value: viewModel.state)
+        .animation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.72)), value: viewModel.state)
         .onAppear {
             haptic.prepare()
             Task {

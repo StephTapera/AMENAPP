@@ -26,7 +26,7 @@ struct MorphingComposerView<Content: View>: View {
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: state)
+        .animation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85)), value: state)
     }
 
     private var cornerRadius: CGFloat {

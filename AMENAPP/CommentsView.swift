@@ -725,19 +725,21 @@ struct CommentsView: View {
                 }
                 .onAppear {
                     scrollProxy = proxy
+                }
+                .task(id: highlightedCommentIds.first) {
                     // If opened from a dynamic reply preview chip, scroll to
                     // and briefly highlight the specific reply after load settles.
-                    if let targetId = highlightedCommentIds.first {
-                        Task { @MainActor in
-                            try? await Task.sleep(nanoseconds: 600_000_000)
-                            transientHighlightedCommentIds = Set(highlightedCommentIds)
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
-                                proxy.scrollTo("\(targetId)-main", anchor: .center)
-                            }
-                            try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            transientHighlightedCommentIds.removeAll()
-                        }
+                    // Using .task so the work is cancelled automatically when the view disappears.
+                    guard let targetId = highlightedCommentIds.first else { return }
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    guard !Task.isCancelled else { return }
+                    transientHighlightedCommentIds = Set(highlightedCommentIds)
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
+                        proxy.scrollTo("\(targetId)-main", anchor: .center)
                     }
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    guard !Task.isCancelled else { return }
+                    transientHighlightedCommentIds.removeAll()
                 }
             }
             .overlay(alignment: .bottomTrailing) {

@@ -607,9 +607,13 @@ struct NotificationsView: View {
         // the suppression window must already be set or the stale count wins the race).
         clearBadgeCount()
         dlog("🔔 [NOTIF] Badge cleared immediately on appear (suppression window started)")
-        // Auto-mark all notifications as read when the screen is opened (like Instagram/Threads).
-        markAllAsRead()
-        dlog("🔔 [NOTIF] markAllAsRead called (badge already cleared)")
+        // Auto-mark all notifications as read only when there are unread items —
+        // avoids an unnecessary Firestore batch write on every tab-switch return
+        // when everything is already read.
+        if notificationService.unreadCount > 0 {
+            markAllAsRead()
+            dlog("🔔 [NOTIF] markAllAsRead called (badge already cleared)")
+        }
         
         // Load follow requests and priority scores
         Task { @MainActor in

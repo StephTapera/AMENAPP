@@ -144,7 +144,7 @@ struct ReactionTrayOverlay: View {
                         )
                     )
             }
-            .animation(.spring(response: 0.32, dampingFraction: 0.72), value: state.isPresented)
+            .animation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.72)), value: state.isPresented)
             .ignoresSafeArea()
             .zIndex(999)
         }
@@ -372,7 +372,7 @@ struct ReactionBadgeRow: View {
                 }
                 if alignment == .leading { Spacer(minLength: 0) }
             }
-            .animation(.spring(response: 0.28, dampingFraction: 0.65), value: orderedEmojis)
+            .animation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.65)), value: orderedEmojis)
         }
     }
 }
@@ -461,7 +461,7 @@ struct ReactionPickerModifier: ViewModifier {
                 radius: state.activeAnchorID == id ? 12 : 0,
                 y: state.activeAnchorID == id ? 4 : 0
             )
-            .animation(.spring(response: 0.30, dampingFraction: 0.70), value: state.activeAnchorID == id)
+            .animation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.70)), value: state.activeAnchorID == id)
             .background(
                 GeometryReader { geo in
                     Color.clear

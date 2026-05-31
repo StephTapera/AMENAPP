@@ -154,7 +154,7 @@ struct VergeCreateRoomSheet: View {
             HStack {
                 sectionLabel("Schedule")
                 Spacer()
-                Toggle("", isOn: $isScheduled.animation(.spring(response: 0.4, dampingFraction: 0.75)))
+                Toggle("", isOn: $isScheduled.animation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))))
                     .labelsHidden()
                     .tint(amenPurple)
             }
@@ -205,7 +205,7 @@ struct VergeCreateRoomSheet: View {
                 .padding(14)
                 .background(glassCardBackground)
                 .transition(.move(edge: .top).combined(with: .opacity))
-                .animation(.spring(response: 0.4, dampingFraction: 0.75), value: monetization)
+                .animation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)), value: monetization)
             }
         }
     }

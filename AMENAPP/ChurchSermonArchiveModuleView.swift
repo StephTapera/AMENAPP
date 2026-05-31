@@ -167,7 +167,7 @@ private struct SermonCard: View {
         )
         .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
         .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isPressed)
+        .animation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.72)), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }

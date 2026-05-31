@@ -140,7 +140,7 @@ private struct WellnessLocalInsightCard: View {
                 RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall)
                     .stroke(.white.opacity(0.26), lineWidth: 1)
             )
-            .animation(.spring(response: 0.35, dampingFraction: 0.82), value: insightEngine.isEnabled)
+            .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82)), value: insightEngine.isEnabled)
         }
         .padding(16)
         .background(.regularMaterial)

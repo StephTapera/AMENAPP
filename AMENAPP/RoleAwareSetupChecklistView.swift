@@ -42,7 +42,7 @@ struct RoleAwareSetupChecklistView: View {
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
                             .fill(Color.black)
                             .frame(width: geo.size.width * pct, height: 4)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.82), value: pct)
+                            .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82)), value: pct)
                     }
                 }
                 .frame(height: 4)

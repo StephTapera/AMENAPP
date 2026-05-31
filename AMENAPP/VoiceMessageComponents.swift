@@ -231,8 +231,8 @@ struct VoiceMessageRecorderButton: View {
                 micButton
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: vm.isRecording)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: vm.isUploading)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7)), value: vm.isRecording)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7)), value: vm.isUploading)
         .onAppear {
             vm.onComplete = { url, dur in
                 onComplete?(url, dur)

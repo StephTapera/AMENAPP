@@ -47,7 +47,7 @@ struct FindFriendsOnboardingView: View {
                                 )
                             )
                             .frame(width: geometry.size.width * CGFloat(currentStep + 1) / CGFloat(totalSteps), height: 6)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: currentStep)
+                            .animation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7)), value: currentStep)
                     }
                 }
                 .frame(height: 6)

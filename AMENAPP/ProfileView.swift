@@ -1812,28 +1812,22 @@ struct ProfileView: View {
                 if let bannerURL = profileData.bannerImageURL,
                    !bannerURL.isEmpty,
                    let url = URL(string: bannerURL) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        default:
-                            Color(uiColor: .secondarySystemBackground)
-                        }
+                    CachedAsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Color(uiColor: .secondarySystemBackground)
                     }
                 } else if let photoURL = profileData.profileImageURL,
                           !photoURL.isEmpty,
                           let url = URL(string: photoURL),
                           !reduceTransparency {
                     // Blurred profile photo — skipped when Reduce Transparency is on
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                                .blur(radius: 22, opaque: true)
-                                .saturation(1.15)
-                        default:
-                            Color(uiColor: .secondarySystemBackground)
-                        }
+                    CachedAsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                            .blur(radius: 22, opaque: true)
+                            .saturation(1.15)
+                    } placeholder: {
+                        Color(uiColor: .secondarySystemBackground)
                     }
                 } else {
                     // AMEN gradient fallback

@@ -248,7 +248,7 @@ struct PostDetailView: View {
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isPostExpanded)
+                        .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85)), value: isPostExpanded)
 
                         // Show collapse option only for long posts
                         if !isPostExpanded {
@@ -786,7 +786,7 @@ struct PostDetailView: View {
                           ? Color.white.opacity(0.96)
                           : Color.white.opacity(0.40))
                     .frame(width: i == carouselPage ? 18 : 6, height: 6)
-                    .animation(.spring(response: 0.28, dampingFraction: 0.72), value: carouselPage)
+                    .animation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72)), value: carouselPage)
             }
         }
         .padding(.horizontal, 12)
@@ -1720,7 +1720,7 @@ struct CommentRowView: View {
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showReplies)
+                .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8)), value: showReplies)
             }
         }
         .opacity(isDeleting ? 0.4 : 1.0)

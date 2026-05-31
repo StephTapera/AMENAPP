@@ -59,7 +59,7 @@ struct BereanDriveSetupView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(.spring(response: 0.4), value: showSaved)
+            .animation(Motion.adaptive(.spring(response: 0.4)), value: showSaved)
         }
     }
 

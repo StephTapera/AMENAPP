@@ -4024,12 +4024,6 @@ struct CreatePostView: View {
             return
         }
 
-        if shouldPresentSupportDraftGate(for: sanitizedContent) {
-            stopPublishAttempt()
-            showSupportDraftSheet = true
-            return
-        }
-
         if let trigger = safetyOSDraftTriggers.first(where: \.shouldShowDiscernmentSheet), !bypassSpiritualDiscernmentGate {
             stopPublishAttempt()
             activeSafetyOSTrigger = trigger
@@ -4106,6 +4100,12 @@ struct CreatePostView: View {
         let _publishPerfToken = PerfBegin("post_safety_gauntlet")
         Task {
             defer { PerfEnd(_publishPerfToken, threshold: 500) }
+            // ── Support gate: check before any network/moderation work ──
+            if shouldPresentSupportDraftGate(for: sanitizedContent) {
+                stopPublishAttempt()
+                showSupportDraftSheet = true
+                return
+            }
             // ── Stage 1: ModerationIngestService (local guard + doxxing + grooming) ──
             guard let authorId = Auth.auth().currentUser?.uid else {
                 await MainActor.run {
@@ -5305,44 +5305,6 @@ struct CreatePostView: View {
                     ]
                 }
 
-                // P0-4 FIX: Check if post already exists (idempotency)
-                dlog("   🔍 Checking for existing post (idempotency)...")
-                let existingPost = try? await FirebaseManager.shared.firestore
-                    .collection("posts")
-                    .document(postId.uuidString)
-                    .getDocument()
-                
-                if let existing = existingPost, existing.exists {
-                    dlog("⏭️ [P0-4] Post already created (idempotency): \(postId.uuidString)")
-                    // Post already exists, skip creation but still show success
-                    await MainActor.run {
-                        inFlightPostId = nil
-                        linkController.reset()
-                        UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
-                        draftVM.markPublished()
-                        shouldPersistDraftOnExit = false
-                        clearPendingPublishSession()
-                        clearPendingUploadCleanupPaths()
-                        if hasAttachedMedia {
-                            markAllUploadCapsuleMediaReady()
-                            completeUploadCapsuleSession()
-                        } else {
-                            cameraCoordinator.removeAttachedMedia()
-                            mediaMetadataDraft = CreatePostMediaMetadataDraft()
-                            publishFailureBannerMessage = nil
-                            withAnimation(reduceMotion ? nil : .default) { showingSuccessNotice = true }
-                        }
-                        // P0-2 FIX: Critical - cancellable dismiss task
-                        scheduleDelayedAction(seconds: hasAttachedMedia ? 1.0 : 0.15) {
-                            cameraCoordinator.removeAttachedMedia()
-                            mediaMetadataDraft = CreatePostMediaMetadataDraft()
-                            dismiss()
-                        }
-                        isPublishing = false
-                    }
-                    return
-                }
-                
                 // P0-1: Run crisis detection BEFORE writing to Firestore for prayer posts
                 if category == .prayer, !content.isEmpty {
                     do {

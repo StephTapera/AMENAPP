@@ -65,7 +65,7 @@ struct SpotlightCard: View {
             )
             .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
             .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+            .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7)), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(

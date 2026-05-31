@@ -173,7 +173,7 @@ struct ChurchNotesQuickStartView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 4)
                             .padding(.top, 2)
-                            .animation(.spring(response: 0.22, dampingFraction: 0.82), value: highlightedTemplate)
+                            .animation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.82)), value: highlightedTemplate)
                             .transition(.opacity)
                     }
                     .padding(.horizontal, 20)

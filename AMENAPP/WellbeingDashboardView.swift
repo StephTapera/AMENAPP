@@ -86,7 +86,7 @@ struct WellbeingDashboardView: View {
                     .trim(from: 0, to: min(todayPercent, 1))
                     .stroke(ringColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: todayPercent)
+                    .animation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8)), value: todayPercent)
                 VStack(spacing: 2) {
                     Text("\(tracker.todayUsageMinutes)")
                         .font(.title2.weight(.semibold).monospacedDigit())
