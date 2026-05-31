@@ -77,6 +77,10 @@ struct ContentView: View {
     @State private var showFirstPostPrompt = false
     @State private var showCompulsiveReopenRedirect = false
     @State private var compulsiveReopenCount = 0
+    /// Lazy-tab mount set: a tab is rendered ONLY after first visit.
+    /// Tab 0 (Home) is pre-mounted so the app opens instantly.
+    /// Once mounted, a tab is never removed — preserving scroll position.
+    @State private var mountedTabs: Set<Int> = [0]
     
     // ✅ SHEET COORDINATION: Prevents simultaneous modal presentation conflicts
     enum ActiveModal: Identifiable {
@@ -542,7 +546,7 @@ struct ContentView: View {
                 .animation(nil, value: viewModel.selectedTab)
         } else {
             ZStack {
-                    keepMountedTab(isActive: viewModel.selectedTab == 0) {
+                    keepMountedTab(tab: 0, isActive: viewModel.selectedTab == 0) {
                         HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu, selectedPostCategory: $selectedPostCategory)
                             .onAppear {
                                 if viewModel.selectedTab == 0 {
@@ -556,7 +560,7 @@ struct ContentView: View {
                             }
                     }
 
-                    keepMountedTab(isActive: viewModel.selectedTab == 1) {
+                    keepMountedTab(tab: 1, isActive: viewModel.selectedTab == 1) {
                         AMENDiscoveryView()
                             .id("discovery")
                             .task {
@@ -564,7 +568,7 @@ struct ContentView: View {
                             }
                     }
 
-                    keepMountedTab(isActive: viewModel.selectedTab == 2) {
+                    keepMountedTab(tab: 2, isActive: viewModel.selectedTab == 2) {
                         MessagesView()
                             .id("messages")
                             .environmentObject(messagingCoordinator)
@@ -575,7 +579,7 @@ struct ContentView: View {
                             .ageGated(feature: .directMessages)
                     }
 
-                    keepMountedTab(isActive: viewModel.selectedTab == 3) {
+                    keepMountedTab(tab: 3, isActive: viewModel.selectedTab == 3) {
                         ResourcesView()
                             .id("resources")
                             .task {
@@ -583,7 +587,7 @@ struct ContentView: View {
                             }
                     }
 
-                    keepMountedTab(isActive: viewModel.selectedTab == 4) {
+                    keepMountedTab(tab: 4, isActive: viewModel.selectedTab == 4) {
                         AMENNotificationsView()
                             .id("notifications")
                             .task {
@@ -591,7 +595,7 @@ struct ContentView: View {
                             }
                     }
 
-                    keepMountedTab(isActive: viewModel.selectedTab == 5) {
+                    keepMountedTab(tab: 5, isActive: viewModel.selectedTab == 5) {
                         ProfileView()
                             .environmentObject(authViewModel)
                             .id("profile")
@@ -602,7 +606,7 @@ struct ContentView: View {
                     }
 
                     // Tab 6: Gatherings — gated on AMENFeatureFlags.gatheringsEnabled (default ON).
-                    keepMountedTab(isActive: viewModel.selectedTab == AMENTab.gatherings.rawValue) {
+                    keepMountedTab(tab: AMENTab.gatherings.rawValue, isActive: viewModel.selectedTab == AMENTab.gatherings.rawValue) {
                         AmenGatheringsHomeView()
                             .id("gatherings")
                             .task {
@@ -612,7 +616,7 @@ struct ContentView: View {
 
                     // Tab 7: Spaces — gated on SpacesFeatureFlags.spacesLiquidGlassEnabled (default OFF).
                     // AMENTabBar only shows the Spaces tab when the flag is enabled.
-                    keepMountedTab(isActive: viewModel.selectedTab == AMENTab.spaces.rawValue) {
+                    keepMountedTab(tab: AMENTab.spaces.rawValue, isActive: viewModel.selectedTab == AMENTab.spaces.rawValue) {
                         SpacesRootView()
                             .id("spaces")
                             .task {
@@ -621,7 +625,7 @@ struct ContentView: View {
                     }
 
                     // Tab 8: Notes — merged with Church Notes.
-                    keepMountedTab(isActive: viewModel.selectedTab == AMENTab.communityNotes.rawValue) {
+                    keepMountedTab(tab: AMENTab.communityNotes.rawValue, isActive: viewModel.selectedTab == AMENTab.communityNotes.rawValue) {
                         NavigationStack {
                             ChurchNotesView()
                         }
@@ -636,11 +640,13 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private func keepMountedTab<Content: View>(isActive: Bool, @ViewBuilder content: () -> Content) -> some View {
-        content()
-            .opacity(isActive ? 1 : 0)
-            .allowsHitTesting(isActive)
-            .accessibilityHidden(!isActive)
+    private func keepMountedTab<Content: View>(tab: Int, isActive: Bool, @ViewBuilder content: () -> Content) -> some View {
+        if mountedTabs.contains(tab) {
+            content()
+                .opacity(isActive ? 1 : 0)
+                .allowsHitTesting(isActive)
+                .accessibilityHidden(!isActive)
+        }
     }
     
     // ✅ Shabbat Mode: Check if tab is allowed during focus window
@@ -743,7 +749,10 @@ struct ContentView: View {
             )
             .offset(y: showTabBar ? 0 : 150) // Move offscreen when keyboard appears
             .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: showTabBar)
-            .onChange(of: viewModel.selectedTab) { _, _ in
+            .onChange(of: viewModel.selectedTab) { _, newTab in
+                // Lazy-tab: mark the newly-selected tab as mounted BEFORE it becomes
+                // visible so keepMountedTab renders it on this same frame.
+                mountedTabs.insert(newTab)
                 tabScrollBridge.expand()
             }
         }
