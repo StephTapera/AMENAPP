@@ -24,14 +24,13 @@ struct AMENPillNav: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 0) {
             ForEach(tabs, id: \.rawValue) { tab in
-                pillButton(tab).frame(maxWidth: .infinity)
+                pillButton(tab).frame(width: 46)
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 4)
         .frame(height: barHeight)
-        .frame(maxWidth: .infinity)
         .background {
             LiquidGlassTabBarBackground(isCompressed: isMinimized)
                 .clipShape(Capsule(style: .continuous))
