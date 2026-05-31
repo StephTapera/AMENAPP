@@ -2783,10 +2783,26 @@ struct BereanAIAssistantView: View {
             isGenerating = true  // ✅ Set generating state
         }
         
+        // Crisis intercept: surface resources before AI responds when distress signals present.
+        // Keywords match SpiritualStateModeService.crisisKeywords.
+        let crisisTerms = ["suicidal", "kill myself", "end it all", "can't go on",
+                           "give up on life", "no reason to live", "end my life",
+                           "hurt myself", "self harm", "self-harm", "want to die"]
+        if crisisTerms.contains(where: { trimmedText.lowercased().contains($0) }) {
+            let crisisCard = BereanMessage(
+                content: "Before anything else — I want to make sure you're safe.\n\n**📱 988 Suicide & Crisis Lifeline** — Call or text **988** (US, 24/7)\n**💬 Crisis Text Line** — Text HOME to **741741**\n**🌐 International resources** — iasp.info/resources/Crisis_Centres\n\nYou are not alone. Help is available right now, and I'm here with you too.",
+                role: .assistant,
+                timestamp: Date()
+            )
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+                viewModel.appendMessage(crisisCard)
+            }
+        }
+
         // Subtle haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
-        
+
         // Create placeholder message for streaming response
         let placeholderMessage = BereanMessage(
             content: "",
