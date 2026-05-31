@@ -415,7 +415,7 @@ struct InteractionButton: View {
                 }
             }
             .scaleEffect(isPressed ? 1.15 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isPressed)
+            .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5)), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(

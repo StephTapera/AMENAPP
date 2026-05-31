@@ -9,14 +9,14 @@ import SwiftUI
 private enum TranslationState {
     case idle
     case loading
-    case translated(text: String, contribution: AIContribution)
+    case translated(text: String, contribution: C2PAAIContribution)
     case error(String)
 }
 
-// MARK: - AIContributionBadge
+// MARK: - C2PAAIContributionBadge
 
 /// Small pill badge: "✦ AI Assisted" — appears after any AI-generated content.
-struct AIContributionBadge: View {
+struct C2PAAIContributionBadge: View {
     var label: String = "AI Assisted"
 
     var body: some View {
@@ -105,7 +105,7 @@ struct PostTranslationButton: View {
 
     // MARK: - Translated
 
-    private func translatedView(text: String, contribution: AIContribution) -> some View {
+    private func translatedView(text: String, contribution: C2PAAIContribution) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             // Always show translated by default; "Show original" toggle reveals source
             if showOriginal {
@@ -121,7 +121,7 @@ struct PostTranslationButton: View {
             }
 
             HStack(spacing: 8) {
-                AIContributionBadge()
+                C2PAAIContributionBadge()
 
                 Button {
                     withAnimation(Motion.adaptive(.easeInOut(duration: 0.2))) {

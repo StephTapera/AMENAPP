@@ -110,7 +110,15 @@ struct AccessibilityProfile: Codable, Equatable {
     var preferredFontSize: FontSizePreference
     var voiceNavigationEnabled: Bool
     var faithGlossaryEnabled: Bool
+    var narration: NarrationPreferences
+    var fontPrefs: FontPreferences
     var updatedAt: Date
+
+    /// Alias for `targetReadingLevel` — used by reading companion UI.
+    var readingLevel: ReadingLevel {
+        get { targetReadingLevel }
+        set { targetReadingLevel = newValue }
+    }
 
     static var `default`: AccessibilityProfile {
         AccessibilityProfile(
@@ -124,20 +132,63 @@ struct AccessibilityProfile: Codable, Equatable {
             preferredFontSize: .medium,
             voiceNavigationEnabled: false,
             faithGlossaryEnabled: true,
+            narration: NarrationPreferences(),
+            fontPrefs: FontPreferences(),
             updatedAt: Date()
         )
     }
 }
 
 enum ReadingLevel: String, Codable, CaseIterable {
-    case elementary = "elementary"  // Grade 3–5
-    case standard   = "standard"    // Grade 6–8
-    case advanced   = "advanced"    // Grade 9+
-    case scholarly  = "scholarly"   // Seminary/academic
+    case elementary  = "elementary"   // Grade 3–5
+    case middleSchool = "middleSchool" // Grade 6–8
+    case plain       = "plain"        // Plain language (accessible)
+    case standard    = "standard"     // Standard adult reading
+    case academic    = "academic"     // College+
+    case esl         = "esl"          // ESL-friendly simplified
+    case advanced    = "advanced"     // Grade 9+ (legacy)
+    case scholarly   = "scholarly"    // Seminary/academic (legacy)
 }
 
 enum FontSizePreference: String, Codable, CaseIterable {
     case small, medium, large, extraLarge
+}
+
+// MARK: - A4: Narration Preferences
+
+enum NarrationVoice: String, Codable, CaseIterable, Hashable {
+    case conversational
+    case calm
+    case expressive
+    case standard
+    case gentle
+
+    var displayName: String {
+        switch self {
+        case .conversational: return "Conversational"
+        case .calm:           return "Calm"
+        case .expressive:     return "Expressive"
+        case .standard:       return "Standard"
+        case .gentle:         return "Gentle"
+        }
+    }
+}
+
+struct NarrationPreferences: Codable, Equatable {
+    var voice: NarrationVoice = .conversational
+    var speed: Double = 1.0
+}
+
+struct FontPreferences: Codable, Equatable {
+    var dyslexiaOptimized: Bool = false
+    var lineHeightMultiplier: Double = 1.0
+    var wordSpacing: Double = 0.0
+}
+
+/// Static helpers for the narration voice picker.
+struct A11yVoiceLibrary {
+    static let voices: [NarrationVoice] = NarrationVoice.allCases
+    static let disclaimer = "AI narration. Accuracy may vary for scripture and theological terminology."
 }
 
 // MARK: - T4: Constitutional Constraint Violation
