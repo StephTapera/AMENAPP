@@ -194,31 +194,25 @@ class FirebaseOfflineHelper {
 @MainActor
 class OfflineWriteQueue: ObservableObject {
     static let shared = OfflineWriteQueue()
-    
+
     @Published var pendingWrites: [(path: String, value: Any)] = []
-    
+    private var cancellables = Set<AnyCancellable>()
+
     private init() {
-        // Observe network changes
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(networkStatusChanged),
-            name: NSNotification.Name("NetworkStatusChanged"),
-            object: nil
-        )
+        loadPendingWrites()
+        // Flush queue when network comes back online.
+        AMENNetworkMonitor.shared.$isConnected
+            .filter { $0 }
+            .sink { [weak self] _ in
+                Task { await self?.processQueue() }
+            }
+            .store(in: &cancellables)
     }
-    
+
     func queue(path: String, value: Any) {
         pendingWrites.append((path, value))
         savePendingWrites()
         dlog("📥 Queued write: \(path) (\(pendingWrites.count) pending)")
-    }
-    
-    @objc private func networkStatusChanged() {
-        guard AMENNetworkMonitor.shared.isConnected else { return }
-        
-        Task {
-            await processQueue()
-        }
     }
     
     func processQueue() async {

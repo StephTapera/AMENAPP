@@ -1,6 +1,6 @@
 // ProvenanceBadgeView.swift
 // AMEN Trust Layer — T1 Provenance
-// Liquid Glass capsule badges that surface provenance state on any media card.
+// Liquid Glass capsule badges that surface content origin state on any media card.
 // Flag-gated behind TrustAccessibilityFeatureFlags.provenanceBadgesEnabled.
 
 import SwiftUI
@@ -13,7 +13,7 @@ private struct BadgeConfig {
     let tint: Color
 }
 
-private extension ProvenanceState {
+private extension ContentOriginState {
     var badgeConfig: BadgeConfig {
         switch self {
         case .verifiedOriginal:
@@ -42,17 +42,17 @@ private extension ProvenanceState {
 
 // MARK: - ProvenanceBadge
 
-/// A single Liquid Glass capsule that displays one ProvenanceState.
-/// Tapping it presents a ProvenanceDetailSheet with the full MediaCredential.
+/// A single Liquid Glass capsule that displays one ContentOriginState.
+/// Tapping it presents a ProvenanceDetailSheet with the full C2PAMediaCredential.
 struct ProvenanceBadge: View {
 
-    let credential: MediaCredential
+    let credential: C2PAMediaCredential
     @State private var showDetail = false
     @ObservedObject private var flags = TrustAccessibilityFeatureFlags.shared
 
     var body: some View {
         if flags.provenanceBadgesEnabled {
-            let config = credential.state.badgeConfig
+            let config = credential.originState.badgeConfig
             Button {
                 showDetail = true
             } label: {
@@ -86,12 +86,11 @@ struct ProvenanceBadge: View {
 
 // MARK: - ProvenanceBadgeRow
 
-/// A horizontal row combining a ProvenanceBadge with an optional authenticity
-/// score pill. Pass nil for `score` to omit the score pill.
+/// A horizontal row combining a ProvenanceBadge with an optional authenticity score pill.
 struct ProvenanceBadgeRow: View {
 
-    let credential: MediaCredential
-    var score: AuthenticityScore?
+    let credential: C2PAMediaCredential
+    var score: MediaAuthenticityScore?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -110,9 +109,9 @@ struct ProvenanceBadgeRow: View {
 
 #if DEBUG
 #Preview {
-    let credential = MediaCredential(
+    let credential = C2PAMediaCredential(
         mediaId: "preview-001",
-        state: .verifiedOriginal,
+        originState: .verifiedOriginal,
         c2paManifestPresent: true,
         signerType: .amenAppSigned,
         captureAttestation: nil,
@@ -124,15 +123,15 @@ struct ProvenanceBadgeRow: View {
 
     VStack(spacing: 16) {
         ForEach([
-            ProvenanceState.verifiedOriginal,
+            ContentOriginState.verifiedOriginal,
             .edited,
             .aiAssisted,
             .aiGenerated,
             .unverified
         ], id: \.rawValue) { state in
-            let c = MediaCredential(
+            let c = C2PAMediaCredential(
                 mediaId: "prev-\(state.rawValue)",
-                state: state,
+                originState: state,
                 c2paManifestPresent: true,
                 signerType: .amenAppSigned,
                 captureAttestation: nil,
@@ -145,8 +144,5 @@ struct ProvenanceBadgeRow: View {
         }
     }
     .padding()
-    .onAppear {
-        // Force-enable flag for preview purposes only.
-    }
 }
 #endif
