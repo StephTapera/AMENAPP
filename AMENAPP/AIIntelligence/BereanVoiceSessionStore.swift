@@ -85,12 +85,10 @@ final class BereanVoiceStudySessionStore: ObservableObject {
 
     func addTurn(_ turn: BereanVoiceTurn) {
         guard currentSession != nil else { return }
-        currentSession!.turns.append(turn)
-        currentSession!.updatedAt = Date()
-
-        // Update spiritual context from last Berean turn
-        if turn.role == .berean && !turn.scriptureRefs.isEmpty {
-            currentSession!.lastScriptureRef = turn.scriptureRefs.last
+        currentSession?.turns.append(turn)
+        currentSession?.updatedAt = Date()
+        if turn.role == .berean, let ref = turn.scriptureRefs.last {
+            currentSession?.lastScriptureRef = ref
         }
     }
 
