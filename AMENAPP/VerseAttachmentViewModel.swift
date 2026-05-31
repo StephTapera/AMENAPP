@@ -279,7 +279,7 @@ final class VerseAttachmentViewModel: ObservableObject {
         // Skip if unchanged or too short
         guard trimmed.count >= 8, trimmed != lastAnalyzedDraft else {
             if trimmed.count < 8 {
-                withAnimation { showInlineSuggestion = false }
+                withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .default) { showInlineSuggestion = false }
             }
             return
         }
@@ -294,7 +294,7 @@ final class VerseAttachmentViewModel: ObservableObject {
             let result = intentDetector.detect(in: trimmed)
             
             guard !Task.isCancelled, result.confidence >= 0.7 else {
-                withAnimation { showInlineSuggestion = false }
+                withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .default) { showInlineSuggestion = false }
                 return
             }
             
