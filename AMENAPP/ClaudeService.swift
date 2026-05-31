@@ -109,7 +109,8 @@ final class ClaudeService: ObservableObject {
                     let result = try await self.callProxy(
                         systemPrompt: systemPrompt,
                         userMessage: userMessage,
-                        maxTokens: min(maxTokens, 2000)
+                        maxTokens: min(maxTokens, 2000),
+                        mode: mode
                     )
 
                     if conversationHistory.isEmpty, !result.isEmpty {
@@ -194,7 +195,8 @@ final class ClaudeService: ObservableObject {
             try await self.callProxy(
                 systemPrompt: systemPrompt,
                 userMessage: userMessage,
-                maxTokens: 2000
+                maxTokens: 2000,
+                mode: mode
             )
         }
     }
@@ -204,7 +206,8 @@ final class ClaudeService: ObservableObject {
     private func callProxy(
         systemPrompt: String,
         userMessage: String,
-        maxTokens: Int
+        maxTokens: Int,
+        mode: BereanPersonalityMode = .shepherd
     ) async throws -> String {
         // ✅ Verify user is authenticated before calling the function
         guard let currentUser = Auth.auth().currentUser else {
@@ -229,6 +232,7 @@ final class ClaudeService: ObservableObject {
             "message": userMessage,
             "systemPromptSuffix": systemPrompt,
             "maxTokens": maxTokens,
+            "mode": mode.rawValue,
         ]
         do {
             let result = try await callable.call(params)
