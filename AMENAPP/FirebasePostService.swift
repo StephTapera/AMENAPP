@@ -940,11 +940,11 @@ class FirebasePostService: ObservableObject {
                 postData["updatedAt"] = FieldValue.serverTimestamp()
 
                 let _writeToken = PerfBegin("createPost_write")
+                defer { PerfEnd(_writeToken, threshold: 500) }
                 let _traceToken = WriteOpTracer.begin("createPost", key: _idempotencyKey)
                 Breadcrumb.record("createPost_write_start")
                 let docRef = try await _db.collection(FirebaseManager.CollectionPath.posts)
                     .addDocument(data: postData)
-                PerfEnd(_writeToken, threshold: 500)
                 WriteOpTracer.succeed(_traceToken, docId: docRef.documentID)
                 
                 #if DEBUG
