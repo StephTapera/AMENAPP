@@ -90,7 +90,7 @@ class SecurityService: ObservableObject {
                 await sendSecurityAlert(type: .suspiciousLogin, details: "Login from new location: \(location?.city ?? "Unknown")")
             }
         } catch {
-            print("Error recording login: \(error.localizedDescription)")
+            dlog("[SecurityService] recording login: \(error.localizedDescription)")
         }
     }
     
@@ -128,7 +128,7 @@ class SecurityService: ObservableObject {
                 location: location
             )
         } catch {
-            print("Error creating session: \(error.localizedDescription)")
+            dlog("[SecurityService] creating session: \(error.localizedDescription)")
         }
     }
     
@@ -145,7 +145,7 @@ class SecurityService: ObservableObject {
                 try? doc.data(as: ActiveSession.self)
             }.filter { !$0.isExpired }
         } catch {
-            print("Error fetching sessions: \(error.localizedDescription)")
+            dlog("[SecurityService] fetching sessions: \(error.localizedDescription)")
         }
     }
     
@@ -160,7 +160,7 @@ class SecurityService: ObservableObject {
             await recordSecurityEvent(type: .sessionRevoked, metadata: ["sessionId": sessionId])
             await fetchActiveSessions()
         } catch {
-            print("Error revoking session: \(error.localizedDescription)")
+            dlog("[SecurityService] revoking session: \(error.localizedDescription)")
         }
     }
     
@@ -182,7 +182,7 @@ class SecurityService: ObservableObject {
             await recordSecurityEvent(type: .allSessionsRevoked)
             await fetchActiveSessions()
         } catch {
-            print("Error revoking all sessions: \(error.localizedDescription)")
+            dlog("[SecurityService] revoking all sessions: \(error.localizedDescription)")
         }
     }
     
@@ -215,7 +215,7 @@ class SecurityService: ObservableObject {
                 .collection("securityEvents").document(event.id)
                 .setData(from: event)
         } catch {
-            print("Error recording security event: \(error.localizedDescription)")
+            dlog("[SecurityService] recording security event: \(error.localizedDescription)")
         }
     }
     
@@ -233,7 +233,7 @@ class SecurityService: ObservableObject {
                 try? doc.data(as: SecurityEvent.self)
             }
         } catch {
-            print("Error fetching security events: \(error.localizedDescription)")
+            dlog("[SecurityService] fetching security events: \(error.localizedDescription)")
         }
     }
     
@@ -253,7 +253,7 @@ class SecurityService: ObservableObject {
                 try? doc.data(as: LoginRecord.self)
             }
         } catch {
-            print("Error fetching login history: \(error.localizedDescription)")
+            dlog("[SecurityService] fetching login history: \(error.localizedDescription)")
         }
     }
     
@@ -271,7 +271,7 @@ class SecurityService: ObservableObject {
                 try? doc.data(as: ContactMethod.self)
             }
         } catch {
-            print("Error fetching contact methods: \(error.localizedDescription)")
+            dlog("[SecurityService] fetching contact methods: \(error.localizedDescription)")
         }
     }
     
@@ -324,7 +324,7 @@ class SecurityService: ObservableObject {
     
     private func sendSecurityAlert(type: SecurityAlertType, details: String) async {
         // Send email/push notification to user
-        print("🔔 Security Alert: \(type) - \(details)")
+        dlog("[SecurityService] 🔔 Security Alert: \(type) - \(details)")
         
         // TODO: Implement actual email/push notification
         // - Use Firebase Cloud Messaging for push
