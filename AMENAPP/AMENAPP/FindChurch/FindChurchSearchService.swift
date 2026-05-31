@@ -211,7 +211,7 @@ private extension FindChurchSearchService {
         let church = item.church
 
         // Map denomination string to enum (best-effort; unknown → .other).
-        let denomination = Denomination(rawValue: church.denomination.lowercased()) ?? .other
+        let denomination = ChurchSearchDenomination(rawValue: church.denomination.lowercased()) ?? .other
 
         // Apply denomination filter if requested.
         if let filterDenom = filters.denomination, denomination != filterDenom {
@@ -220,13 +220,13 @@ private extension FindChurchSearchService {
 
         let coordinate = ChurchGeoPoint(latitude: church.latitude, longitude: church.longitude)
 
-        // Convert SmartChurchServiceTime → ChurchServiceTime.
-        let serviceTimes: [ChurchServiceTime] = church.serviceTimes.compactMap { st in
+        // Convert SmartChurchServiceTime → ChurchJourneyServiceTime (Int weekday + Date start).
+        let serviceTimes: [ChurchJourneyServiceTime] = church.serviceTimes.compactMap { st in
             // SmartChurchServiceTime uses day: String + time: String (e.g. "Sunday", "10:00 AM").
             // Map day name to ISO weekday integer (1=Sunday … 7=Saturday).
             let weekday = weekdayNumber(from: st.day)
             guard let time = parseTimeString(st.time) else { return nil }
-            return ChurchServiceTime(weekday: weekday, start: time, label: st.displayText)
+            return ChurchJourneyServiceTime(weekday: weekday, start: time, label: st.displayText)
         }
 
         return ChurchRecord(

@@ -7,7 +7,7 @@
 //   Phase 1 — Find a Church (ChurchRecord, ChurchSearchServiceProtocol)
 //   Phase 3 — Posts Provenance (PostProvenance, PostProvenanceServiceProtocol)
 //   Phase 5 — Selah Stories (SelahStory, SelahStoryServiceProtocol)
-//   Cross-cutting — LiturgicalSeason, MasterRunFeatureFlags stub
+//   Cross-cutting — LiturgicalSeasonKind, MasterRunFeatureFlags stub
 //
 // Naming decisions (A1 gap reconciliation):
 //   - Church: A `Church` struct already exists in FindChurchView.swift as a legacy
@@ -17,7 +17,7 @@
 //     Neither is compatible with the master-run spec. Contract type is therefore
 //     named `ChurchRecord` to avoid a redeclaration conflict with the legacy
 //     `Church` struct. All Phase 1 agents must use `ChurchRecord`.
-//   - Denomination: new enum; SmartChurch uses a plain String for denomination.
+//   - ChurchSearchDenomination: new enum; SmartChurch uses a plain String for denomination.
 //   - ServiceTime: `ChurchEntity.ServiceTime` in ChurchModels.swift is similar but
 //     uses dayOfWeek:Int + time:String rather than weekday:Int + start:Date + label.
 //     Contract defines `ChurchServiceTime` to avoid ambiguity.
@@ -32,10 +32,10 @@
 //     a nested enum inside UserMiniReason (UserProfileMiniModel.swift) with different
 //     cases. This contract defines top-level `FeedSource` and `ProvenanceReasonKind`
 //     to avoid shadowing the nested type.
-//   - LiturgicalSeason: `LiturgicalSeasonType` already exists in LiturgicalCalendarEngine.swift
+//   - LiturgicalSeasonKind: `LiturgicalSeasonKindType` already exists in LiturgicalCalendarEngine.swift
 //     with finer granularity (ordinaryTimeEarly/Late split). Contract defines
-//     `LiturgicalSeason` as a simpler canonical enum for cross-phase use; it does NOT
-//     replace LiturgicalSeasonType.
+//     `LiturgicalSeasonKind` as a simpler canonical enum for cross-phase use; it does NOT
+//     replace LiturgicalSeasonKindType.
 //   - Feature flags: `findAChurch`, `posts_liquidGlass`, `whySeeingThis`,
 //     `selahStories`, `selahStoriesPremiumAI` do NOT exist in any flags file.
 //     Stubs are noted here for A9 to wire into the appropriate flags provider.
@@ -48,12 +48,12 @@ import CoreLocation
 // MARK: - Phase 1: Find a Church
 // ─────────────────────────────────────────────────────────────────
 
-// MARK: Denomination
+// MARK: ChurchSearchDenomination
 
 /// Canonical denomination taxonomy for Phase 1 church search.
 /// SmartChurch uses a plain String; ChurchRecord uses this enum.
-enum Denomination: String, Codable, CaseIterable, Hashable {
-    case nonDenominational
+enum ChurchSearchDenomination: String, Codable, CaseIterable, Hashable {
+    case nonChurchSearchDenominational
     case baptist
     case methodist
     case presbyterian
@@ -67,13 +67,12 @@ enum Denomination: String, Codable, CaseIterable, Hashable {
     case other
 }
 
-// MARK: ChurchServiceTime
+// MARK: ChurchJourneyServiceTime
 
-/// A single recurring service time for a church.
-/// Named `ChurchServiceTime` to avoid conflict with `ChurchEntity.ServiceTime`
-/// (which uses `dayOfWeek: Int` + `time: String`) and `SmartChurchServiceTime`
-/// (which uses `day: String` + `time: String`).
-struct ChurchServiceTime: Codable, Hashable {
+/// A single recurring service time for a church, used in the journey/planning flow.
+/// Uses Int weekday + Date start to support calendar scheduling.
+/// Distinct from ChurchServiceTime (ChurchServiceTime.swift) which uses String fields.
+struct ChurchJourneyServiceTime: Codable, Hashable {
     /// Day of week, 1 = Sunday … 7 = Saturday (ISO 8601 style: 1-based, Sunday = 1).
     let weekday: Int
     /// Absolute Date representing the scheduled start time (time components only; date portion is ignored at display time).
@@ -104,10 +103,10 @@ struct ChurchGeoPoint: Codable, Hashable {
 struct ChurchRecord: Identifiable, Codable, Hashable {
     let id: String
     let name: String
-    let denomination: Denomination
+    let denomination: ChurchSearchDenomination
     let coordinate: ChurchGeoPoint
     let address: String
-    let serviceTimes: [ChurchServiceTime]
+    let serviceTimes: [ChurchJourneyServiceTime]
     let distanceMeters: Double?
     let rating: Double?
     let isOpenNow: Bool?
@@ -118,7 +117,7 @@ struct ChurchRecord: Identifiable, Codable, Hashable {
 
 struct ChurchSearchFilters: Codable {
     var openNow: Bool?
-    var denomination: Denomination?
+    var denomination: ChurchSearchDenomination?
     var maxDistanceMeters: Double?
     var sortBy: ChurchSortOrder
 }
@@ -256,7 +255,7 @@ struct StoryMedia: Codable, Hashable, Identifiable {
 
 /// A text or scripture overlay rendered on top of a StoryMedia item.
 /// Stub — full definition to be provided by the Phase 5 agent.
-struct StoryOverlay: Codable, Hashable, Identifiable {
+struct StoryOverlay: Codable, Identifiable {
     let id: String
     let text: String
     let positionX: Double
@@ -296,7 +295,7 @@ enum StoryKind: String, Codable, Hashable {
 
 /// Multimedia ephemeral story for the Selah Stories feature (Phase 5).
 /// Distinct from `SelahReflectionDocument` (text-only private journal) in SelahContracts.swift.
-struct SelahStory: Identifiable, Codable, Hashable {
+struct SelahStory: Identifiable, Codable {
     let id: String
     let ownerUid: String
     let kind: StoryKind
@@ -306,7 +305,7 @@ struct SelahStory: Identifiable, Codable, Hashable {
     let audio: StoryAudio?
     let scriptureRef: ScriptureRef?
     let caption: String?
-    let liturgicalSeason: LiturgicalSeason?
+    let liturgicalSeason: LiturgicalSeasonKind?
     let createdAt: Date
     /// Stories expire after 24 hours. nil = no expiry (e.g. saved/archived stories).
     let expiresAt: Date?
@@ -331,20 +330,20 @@ protocol SelahStoryServiceProtocol {
     func generateReflectionPrompt(for ref: ScriptureRef) async throws -> String
 
     /// Recommends ambient/worship audio that complements the scripture and liturgical season.
-    func matchAudio(for ref: ScriptureRef, season: LiturgicalSeason?) async throws -> StoryAudio?
+    func matchAudio(for ref: ScriptureRef, season: LiturgicalSeasonKind?) async throws -> StoryAudio?
 }
 
 // ─────────────────────────────────────────────────────────────────
-// MARK: - Cross-cutting: LiturgicalSeason
+// MARK: - Cross-cutting: LiturgicalSeasonKind
 // ─────────────────────────────────────────────────────────────────
 
 /// Simplified canonical liturgical season for cross-phase use (P1, P3, P5).
 ///
-/// DISTINCT from `LiturgicalSeasonType` in LiturgicalCalendarEngine.swift, which
+/// DISTINCT from `LiturgicalSeasonKindType` in LiturgicalCalendarEngine.swift, which
 /// splits ordinary time into `ordinaryTimeEarly` and `ordinaryTimeLate`.
-/// `LiturgicalSeason` uses a single `ordinary` case for simplicity.
+/// `LiturgicalSeasonKind` uses a single `ordinary` case for simplicity.
 /// Features that need finer granularity should import LiturgicalCalendarEngine directly.
-enum LiturgicalSeason: String, Codable, CaseIterable, Hashable {
+enum LiturgicalSeasonKind: String, Codable, CaseIterable, Hashable {
     case ordinary
     case advent
     case christmas
@@ -357,7 +356,7 @@ enum LiturgicalSeason: String, Codable, CaseIterable, Hashable {
     /// Returns the approximate current liturgical season based on the Gregorian calendar.
     /// This is a heuristic for UI affordances only — not a liturgical authority.
     /// For authoritative computation use `LiturgicalCalendarEngine.shared.currentSeason()`.
-    static var current: LiturgicalSeason {
+    static var current: LiturgicalSeasonKind {
         let now = Date()
         let cal = Calendar(identifier: .gregorian)
         let month = cal.component(.month, from: now)
