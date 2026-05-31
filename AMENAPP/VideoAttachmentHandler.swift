@@ -113,6 +113,8 @@ enum VideoAttachmentService {
 
     /// Upload a video file to Firebase Storage and write the Firestore message document.
     /// Progress is reported via the `onProgress` callback (0.0 – 1.0).
+    /// Returns the underlying Task so callers can cancel or await it if needed.
+    @discardableResult
     static func uploadAndSend(
         videoURL: URL,
         conversationId: String,
@@ -121,7 +123,7 @@ enum VideoAttachmentService {
         onProgress: @escaping (Double) -> Void,
         onComplete: @escaping (AppMessage) -> Void,
         onError: @escaping (Error) -> Void
-    ) {
+    ) -> Task<Void, Never> {
         Task {
             do {
                 // 1. Compress
@@ -311,11 +313,15 @@ private struct VideoPlayerSheet: View {
     @Environment(\.dismiss) private var dismiss
     let url: URL
 
+    @State private var player: AVPlayer?
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
-            VideoPlayer(player: AVPlayer(url: url))
-                .ignoresSafeArea()
+            if let player {
+                VideoPlayer(player: player)
+                    .ignoresSafeArea()
+            }
             Button {
                 dismiss()
             } label: {
@@ -324,6 +330,15 @@ private struct VideoPlayerSheet: View {
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(20)
             }
+        }
+        .onAppear {
+            let item = AVPlayerItem(url: url)
+            item.preferredForwardBufferDuration = 3.0
+            player = AVPlayer(playerItem: item)
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
         }
     }
 }

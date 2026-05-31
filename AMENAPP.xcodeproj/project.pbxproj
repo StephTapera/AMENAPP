@@ -291,6 +291,10 @@
 		EF5FB00E2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
 		EF5FB0102F50EE7E004D2993 /* ToastManagerExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastManagerExtensions.swift; sourceTree = "<group>"; };
 		EF5FB0122F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INTERACTIONS_FINAL_DELIVERY.md; sourceTree = "<group>"; };
+		EF62A55A2FCC6A56002212E9 /* TrustContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustContracts.swift; sourceTree = "<group>"; };
+		EF62A55B2FCC6A69002212E9 /* AccessibilityContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContracts.swift; sourceTree = "<group>"; };
+		EF62A55C2FCC6A77002212E9 /* TrustAccessibilityFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustAccessibilityFeatureFlags.swift; sourceTree = "<group>"; };
+		EF62A55D2FCC6A8C002212E9 /* GenerativePolicyGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerativePolicyGate.swift; sourceTree = "<group>"; };
 		EF6854572FAB95B9000B840E /* AMENAPPUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENAPPUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		EF6854582FAB95B9000B840E /* ContextualReactionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualReactionUITests.swift; sourceTree = "<group>"; };
 		EF6854A72FAD7480000B840E /* Phase34DiscoveryComposerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase34DiscoveryComposerUITests.swift; sourceTree = "<group>"; };
@@ -761,6 +765,17 @@
 				E64F45D293E1B44B076FE726 /* AMENShareExtension.entitlements */,
 			);
 			path = AMENShareExtension;
+			sourceTree = "<group>";
+		};
+		EF62A5592FCC6A3C002212E9 /* AccessibilityAI */ = {
+			isa = PBXGroup;
+			children = (
+				EF62A55A2FCC6A56002212E9 /* TrustContracts.swift */,
+				EF62A55B2FCC6A69002212E9 /* AccessibilityContracts.swift */,
+				EF62A55C2FCC6A77002212E9 /* TrustAccessibilityFeatureFlags.swift */,
+				EF62A55D2FCC6A8C002212E9 /* GenerativePolicyGate.swift */,
+			);
+			path = AccessibilityAI;
 			sourceTree = "<group>";
 		};
 		EF68538B2FA839CE000B840E /* livingEntries */ = {
@@ -1260,6 +1275,7 @@
 				EFFAA61B2FC99BAB004D4A2D /* NearbyUsersService.swift */,
 				EFFAA62C2FC99DB2004D4A2D /* NearbyPermissionSheet.swift */,
 				EFFAA6302FC9A2EE004D4A2D /* NearbyPeopleView.swift */,
+				EF62A5592FCC6A3C002212E9 /* AccessibilityAI */,
 			);
 			sourceTree = "<group>";
 		};

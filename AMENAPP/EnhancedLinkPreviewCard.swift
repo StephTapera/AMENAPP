@@ -106,6 +106,15 @@ struct EnhancedLinkPreviewCard: View {
         }
     }
 
+    // MARK: - Affiliate Detection
+
+    /// True when the URL is an Amazon affiliate link (host contains amazon. and has a `tag` query param).
+    private var isAffiliateLink: Bool {
+        guard let host = url.host?.lowercased(), host.contains("amazon.") else { return false }
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        return items.contains { $0.name == "tag" }
+    }
+
     // MARK: - Card Content
 
     @ViewBuilder
@@ -113,7 +122,17 @@ struct EnhancedLinkPreviewCard: View {
         if metadata == nil {
             skeletonCard
         } else {
-            richCard
+            VStack(alignment: .leading, spacing: 4) {
+                richCard
+                // FTC required: clear affiliate disclosure before user taps the link.
+                if isAffiliateLink {
+                    Text(AffiliateConfig.disclosure)
+                        .font(AMENFont.regular(10))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                        .accessibilityLabel("Affiliate disclosure: \(AffiliateConfig.disclosure)")
+                }
+            }
         }
     }
 

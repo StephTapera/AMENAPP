@@ -195,6 +195,7 @@ final class ScreenCrashLogger: @unchecked Sendable {
     
     /// Get the last N log entries (for displaying in a debug view)
     static func recentLogs(count: Int = 50) -> [String] {
+        assert(!Thread.isMainThread, "recentLogs(count:) must not be called from the main thread")
         var result: [String] = []
         shared.queue.sync {
             let start = max(0, shared.recentEvents.count - count)

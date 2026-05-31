@@ -793,22 +793,18 @@ struct StudioWriteView: View {
         }
 
         let tool = writingType.studioTool
-        let systemInstruction = """
-        You are Berean, a faith-grounded AI writing assistant for AMEN.
-        Writing type: \(writingType.displayName).
-        AI mode: \(mode.title).
-        \(mode.systemPromptSuffix)
-        Keep your response concise (2-4 sentences max). Be warm but not preachy.
-        """
 
         Task {
             do {
+                // STUDIO-09: backend selects system prompt from server-side allowlist via ai_mode + writing_type.
+                // Never pass client-controlled system_override — would bypass GUARDIAN content policy.
                 let payload: [String: Any] = [
                     "tool": tool.rawValue,
                     "user_input": trimmed,
                     "scripture_ref": "",
                     "tone": "reflective",
-                    "system_override": systemInstruction
+                    "ai_mode": mode.rawValue,
+                    "writing_type": writingType.rawValue
                 ]
                 let result = try await functions
                     .httpsCallable("studioGenerateContent")
@@ -845,13 +841,6 @@ struct StudioWriteView: View {
             aiSuggestionScale = 1.0
         }
 
-        let systemInstruction = """
-        You are Berean, a faith-grounded AI writing assistant.
-        Generate a closing prayer that matches the tone and themes of the following writing.
-        Writing type: \(writingType.displayName).
-        The prayer should be 2-4 sentences, heartfelt, and appropriate for the content's tone.
-        """
-
         Task {
             do {
                 let payload: [String: Any] = [
@@ -859,7 +848,8 @@ struct StudioWriteView: View {
                     "user_input": trimmed,
                     "scripture_ref": "",
                     "tone": "gentle",
-                    "system_override": systemInstruction
+                    "ai_mode": "closing_prayer",
+                    "writing_type": writingType.rawValue
                 ]
                 let result = try await functions
                     .httpsCallable("studioGenerateContent")
