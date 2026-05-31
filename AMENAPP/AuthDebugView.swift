@@ -12,6 +12,7 @@ import FirebaseCore
 import FirebaseFirestore
 
 struct AuthDebugView: View {
+    @EnvironmentObject private var authViewModel: AuthenticationViewModel
     @State private var testResults: [String] = []
     @State private var isRunning = false
     
@@ -597,15 +598,9 @@ struct AuthDebugView: View {
     private func signOutUser() {
         testResults.removeAll()
         log("🔍 Signing out current user...")
-        
-        do {
-            try Auth.auth().signOut()
-            log("✅ Sign out successful!")
-            log("   You can now test sign up/sign in again")
-        } catch {
-            log("❌ Sign out failed")
-            log("   Error: \(error.localizedDescription)")
-        }
+        authViewModel.signOut()
+        log("✅ Sign out successful!")
+        log("   You can now test sign up/sign in again")
     }
     
     private func clearSamplePosts() {
@@ -807,5 +802,6 @@ struct AuthDebugView: View {
 
 #Preview {
     AuthDebugView()
+        .environmentObject(AuthenticationViewModel())
 }
 #endif
