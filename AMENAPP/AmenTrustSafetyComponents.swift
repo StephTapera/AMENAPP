@@ -109,7 +109,7 @@ struct ProvenanceBadge: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Source: \(status.displayLabel)")
         .sheet(isPresented: $showDetail) {
-            ProvenanceDetailSheet(status: status)
+            MediaAuthenticityDetailSheet(status: status)
                 .presentationDetents([.height(260)])
         }
     }
@@ -139,7 +139,7 @@ struct ProvenanceBadge: View {
     }
 }
 
-private struct ProvenanceDetailSheet: View {
+private struct MediaAuthenticityDetailSheet: View {
     let status: MediaAuthenticityStatus
     @Environment(\.dismiss) private var dismiss
 
