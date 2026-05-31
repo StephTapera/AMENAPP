@@ -165,7 +165,11 @@ final class AccountDeletionService: ObservableObject {
 
         // 9. Delete Firebase Auth account — MUST be last.
         //    Reached only if ALL steps above completed without throwing.
-        try await Auth.auth().currentUser?.delete()
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(domain: "AccountDeletion", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "Not authenticated — cannot delete Auth account"])
+        }
+        try await user.delete()
         dlog("✅ [AccountDeletion] Firebase Auth account deleted")
 
         // 10. Clear all local app state
