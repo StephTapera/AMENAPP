@@ -55,9 +55,34 @@
       "defaultValue": { "value": "true" },
       "description": "Block AI access to prayer_room, leadership_room, and admin_channel unless explicitly opted in. MUST default true.",
       "valueType": "BOOLEAN"
+    },
+    "find_a_church": {
+      "defaultValue": { "value": "false" },
+      "description": "Phase 1 master-run: Find a Church — MapKit map, clustering, filter chips, bottom sheet. Enable only after churchSearchProxy CF is wired with real Algolia data.",
+      "valueType": "BOOLEAN"
+    },
+    "posts_liquid_glass": {
+      "defaultValue": { "value": "false" },
+      "description": "Phase 2 master-run: Posts Liquid Glass migration — switches Posts surfaces to AmenGlassKit components.",
+      "valueType": "BOOLEAN"
+    },
+    "why_seeing_this": {
+      "defaultValue": { "value": "false" },
+      "description": "Phase 3 master-run: 'Why this is in your feed' provenance disclosure sheet + agency actions. Enable after postProvenanceProxy CF is wired with real Intelligence Engine data.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_stories": {
+      "defaultValue": { "value": "false" },
+      "description": "Phase 5 master-run: Selah Stories free composer — ephemeral formation stories with private audience only. Enable after selahStoryProxy CF CRUD is wired.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_stories_premium_ai": {
+      "defaultValue": { "value": "false" },
+      "description": "Phase 5 master-run: Selah Stories premium AI features (subscription-gated) — verse recognition, Berean reflection prompts, semantic audio matching. Enable only after Vertex AI Vision + Pinecone are provisioned in Firebase Secret Manager.",
+      "valueType": "BOOLEAN"
     }
   },
   "version": {
-    "description": "Intelligent Conversation OS — Phase 1 defaults"
+    "description": "Master Run 2026-05-31 — Find a Church, Posts Glass, Provenance, Selah Stories (all OFF)"
   }
 }
