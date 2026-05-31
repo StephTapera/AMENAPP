@@ -59,9 +59,9 @@ struct PostWhyThisSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(computedReasons, id: \.self) { reason in
                 HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "checkmark.circle")
+                    Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.amenGold)
                         .frame(width: 20)
                         .padding(.top, 1)
                     Text(reason)
@@ -72,10 +72,7 @@ struct PostWhyThisSheet: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(.systemGray6))
-                )
+                .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
     }
@@ -277,12 +274,12 @@ private struct PostFeedActionButton: View {
                 HStack {
                     Image(systemName: isApplied ? "checkmark.circle.fill" : action.icon)
                         .font(.system(size: 20, weight: .light))
-                        .foregroundStyle(isApplied ? .green : .primary)
+                        .foregroundStyle(isApplied ? Color.amenGold : .primary)
                     Spacer()
                 }
                 Text(action.title)
                     .font(AMENFont.semiBold(14))
-                    .foregroundStyle(isApplied ? .green : .primary)
+                    .foregroundStyle(isApplied ? Color.amenGold : .primary)
                 Text(action.subtitle)
                     .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
@@ -290,13 +287,15 @@ private struct PostFeedActionButton: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
+            .glassEffect(
+                isApplied
+                    ? GlassEffectStyle.subtle.tint(Color.amenGold.opacity(0.12))
+                    : .subtle,
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+            .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isApplied ? Color.green.opacity(0.08) : Color(.systemGray6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(isApplied ? Color.green.opacity(0.3) : Color.clear, lineWidth: 1)
-                    )
+                    .strokeBorder(isApplied ? Color.amenGold.opacity(0.35) : Color.clear, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

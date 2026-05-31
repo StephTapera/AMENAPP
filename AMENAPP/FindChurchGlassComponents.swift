@@ -1033,3 +1033,138 @@ struct ChurchNotePostCardActionBlock: View {
         .onDisappear { appeared = false }
     }
 }
+
+// MARK: - Apple Maps-style Church Result Card
+
+/// Full-width result card matching the Apple Maps POI card pattern.
+/// Shows church icon, name + distance + address + service time, trailing Directions capsule.
+struct ChurchAppleMapResultCard: View {
+    let church: Church
+    var isSelected: Bool = false
+    var isLive: Bool = false
+    let onTap: () -> Void
+    let onDirections: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                // Church icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(isSelected ? Color.amenGold.opacity(0.18) : Color.amenGold.opacity(0.10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .strokeBorder(Color.amenGold.opacity(isSelected ? 0.35 : 0.18), lineWidth: 0.9)
+                        )
+                    Image(systemName: "building.columns.fill")
+                        .font(.systemScaled(17, weight: .semibold))
+                        .foregroundStyle(Color.amenGold)
+                }
+                .frame(width: 44, height: 44)
+
+                // Name + meta
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(church.name)
+                        .font(.systemScaled(15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    Text("\(church.distance) · \(church.address)")
+                        .font(.systemScaled(12, weight: .regular))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    if isLive {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 6, height: 6)
+                            Text("Service live now")
+                                .font(.systemScaled(12, weight: .medium))
+                                .foregroundStyle(Color.red)
+                        }
+                    } else {
+                        Text(church.serviceTime)
+                            .font(.systemScaled(12, weight: .regular))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 6)
+
+                // Directions button — matching Apple Maps trailing capsule
+                Button(action: onDirections) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
+                            .font(.systemScaled(22))
+                            .foregroundStyle(Color.amenBlue)
+                        Text("Go")
+                            .font(.systemScaled(10, weight: .semibold))
+                            .foregroundStyle(Color.amenBlue)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Directions to \(church.name)")
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FCPressButtonStyle())
+        .background(isSelected ? Color.amenGold.opacity(0.04) : Color.clear)
+        .animation(reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.8), value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(church.name), \(church.distance), \(isLive ? "service live now" : church.serviceTime)")
+        .accessibilityHint("Double-tap to focus on map")
+    }
+}
+
+// MARK: - Map Sheet Filter Bar
+
+/// Horizontal filter chip row for the Apple Maps-style bottom sheet.
+/// Chips: Open Now · Denomination ⌄ · Sort by Best ⌄
+struct ChurchMapSheetFilterBar: View {
+    @Binding var showOpenNowOnly: Bool
+    @Binding var localDenomination: String?
+    @Binding var sortByDistance: Bool
+
+    private let denominations = ["Non-Denominational", "Baptist", "Methodist", "Pentecostal", "Presbyterian", "Catholic", "Episcopal", "Lutheran"]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                GlassFilterPill(
+                    icon: "clock",
+                    label: "Open Now",
+                    isActive: showOpenNowOnly
+                ) {
+                    showOpenNowOnly.toggle()
+                }
+                .accessibilityHint(showOpenNowOnly ? "Currently filtering to open churches" : "Filter to currently open churches")
+
+                GlassFilterMenuPill(
+                    icon: "building.columns",
+                    label: localDenomination ?? "Denomination"
+                ) {
+                    Button("All Denominations") { localDenomination = nil }
+                    Divider()
+                    ForEach(denominations, id: \.self) { denom in
+                        Button(denom) { localDenomination = denom }
+                    }
+                }
+
+                GlassFilterMenuPill(
+                    icon: "arrow.up.arrow.down",
+                    label: sortByDistance ? "Nearest" : "Sort by Best"
+                ) {
+                    Button("Best Match") { sortByDistance = false }
+                    Button("Nearest First") { sortByDistance = true }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+}

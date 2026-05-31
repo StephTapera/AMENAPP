@@ -6216,9 +6216,15 @@ struct FindChurchMapView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var region: MKCoordinateRegion
-    @State private var selectedMapItem: MKMapItem?
-    @State private var showMiniSheet = false
     @State private var pinsVisible: [UUID: Bool] = [:]
+
+    // Apple Maps-style bottom sheet state
+    @State private var sheetState: ChurchDiscoverySheetState = .medium
+    @State private var localSearch = ""
+    @State private var searchFocused = false
+    @State private var showOpenNowOnly = false
+    @State private var localDenomination: String? = nil
+    @State private var sortByDistance = false
 
     init(churches: [Church], appleMapResults: [MKMapItem], userLocation: CLLocationCoordinate2D?,
          selectedChurch: Binding<Church?>, onCheckIn: @escaping (Church) -> Void, onGetDirections: @escaping (Church) -> Void) {
@@ -6232,8 +6238,30 @@ struct FindChurchMapView: View {
         self._region = State(initialValue: MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)))
     }
 
+    private var mapFilteredChurches: [Church] {
+        var results = churches
+        if !localSearch.isEmpty {
+            results = results.filter {
+                $0.name.localizedCaseInsensitiveContains(localSearch) ||
+                $0.denomination.localizedCaseInsensitiveContains(localSearch) ||
+                $0.address.localizedCaseInsensitiveContains(localSearch)
+            }
+        }
+        if showOpenNowOnly {
+            results = results.filter { isServiceLive($0) }
+        }
+        if let denom = localDenomination {
+            results = results.filter { $0.denomination.localizedCaseInsensitiveContains(denom) }
+        }
+        if sortByDistance {
+            results = results.sorted { $0.distanceValue < $1.distanceValue }
+        }
+        return results
+    }
+
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
+            // Map fills full screen — pins stagger in on appear
             Map(coordinateRegion: $region, showsUserLocation: true, annotationItems: churches) { church in
                 MapAnnotation(coordinate: church.coordinate) {
                     ChurchMapPin(
@@ -6244,7 +6272,10 @@ struct FindChurchMapView: View {
                     .onTapGesture {
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedChurch = church
-                            showMiniSheet = true
+                            region = MKCoordinateRegion(
+                                center: church.coordinate,
+                                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                            )
                         }
                     }
                     .onAppear {
@@ -6257,20 +6288,85 @@ struct FindChurchMapView: View {
                     }
                 }
             }
-            .ignoresSafeArea(edges: .bottom)
-            .onTapGesture {
-                withAnimation(reduceMotion ? nil : .default) { showMiniSheet = false }
-            }
+            .ignoresSafeArea()
 
-            if showMiniSheet, let church = selectedChurch {
-                ChurchMapMiniSheet(
-                    church: church,
-                    isLive: isServiceLive(church),
-                    onCheckIn: { onCheckIn(church); showMiniSheet = false },
-                    onGetDirections: { onGetDirections(church) },
-                    onDismiss: { withAnimation(reduceMotion ? nil : .default) { showMiniSheet = false } }
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            // Apple Maps-style bottom sheet overlay: search + filter chips + result list
+            ChurchDiscoveryBottomSheet(state: $sheetState) { _ in
+                VStack(spacing: 0) {
+                    ChurchDiscoverySheetHandle()
+
+                    // Search field
+                    ChurchSearchGlassCapsule(
+                        text: $localSearch,
+                        isFocused: $searchFocused,
+                        placeholder: "Search churches...",
+                        onSubmit: {}
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                    .onChange(of: localSearch) { _, _ in
+                        // Expand sheet so results are visible when user types
+                        if sheetState == .collapsed {
+                            withAnimation(Motion.adaptive(.interactiveSpring(response: 0.3, dampingFraction: 0.82))) {
+                                sheetState = .medium
+                            }
+                        }
+                    }
+
+                    // Filter chips: Open Now · Denomination ⌄ · Sort by Best ⌄
+                    ChurchMapSheetFilterBar(
+                        showOpenNowOnly: $showOpenNowOnly,
+                        localDenomination: $localDenomination,
+                        sortByDistance: $sortByDistance
+                    )
+                    .padding(.bottom, 10)
+
+                    Divider()
+
+                    // Result list or empty state
+                    if mapFilteredChurches.isEmpty {
+                        VStack(spacing: 10) {
+                            Spacer()
+                            Image(systemName: "building.2")
+                                .font(.systemScaled(32))
+                                .foregroundStyle(.secondary)
+                            Text("No churches match")
+                                .font(.systemScaled(15, weight: .semibold))
+                            Text("Try clearing filters or widening your search")
+                                .font(.systemScaled(13))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 0) {
+                                ForEach(mapFilteredChurches) { church in
+                                    ChurchAppleMapResultCard(
+                                        church: church,
+                                        isSelected: selectedChurch?.id == church.id,
+                                        isLive: isServiceLive(church),
+                                        onTap: {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                                                selectedChurch = church
+                                                region = MKCoordinateRegion(
+                                                    center: church.coordinate,
+                                                    span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                                                )
+                                            }
+                                        },
+                                        onDirections: { onGetDirections(church) }
+                                    )
+                                    if church.id != mapFilteredChurches.last?.id {
+                                        Divider().padding(.leading, 74)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

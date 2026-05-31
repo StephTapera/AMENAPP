@@ -155,7 +155,7 @@ final class VoiceDevotionalManager: NSObject, ObservableObject {
             ]],
         ]
 
-        let result = try await functions.httpsCallable("bereanGenericProxy").call(payload)
+        let result = try await functions.callWithTimeout("bereanGenericProxy", data: payload, timeout: 30)
         guard let dict = result.data as? [String: Any],
               let text = dict["text"] as? String,
               let data = text.data(using: .utf8),

@@ -169,7 +169,7 @@ final class PrayerSafetyEscalationService: ObservableObject {
         ]
 
         // Feeds Security Agent 10 review queue (appeals + human-in-the-loop)
-        _ = try? await functions.httpsCallable("moderateContent").call(payload)
+        _ = try? await functions.callWithTimeout("moderateContent", data: payload, timeout: 15)
     }
 
     // MARK: - Solicitation Block

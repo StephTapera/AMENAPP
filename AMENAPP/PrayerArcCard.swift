@@ -129,11 +129,11 @@ final class PrayerArcViewModel: ObservableObject {
         guard days > 0 || stones > 0 else { return "" }
 
         do {
-            let result = try await functions.httpsCallable("generateArcInsight").call([
+            let result = try await functions.callWithTimeout("generateArcInsight", data: [
                 "days":   days,
                 "stones": stones,
                 "postId": postId
-            ])
+            ], timeout: 15)
             let phrase = (result.data as? [String: Any])?["phrase"] as? String ?? ""
             return phrase
         } catch {

@@ -80,12 +80,12 @@ final class SmartChurchSearchService {
         if let radiusMiles {
             payload["radiusMiles"] = radiusMiles
         }
-        let result = try await functions.httpsCallable("smartChurchSearch").call(payload)
+        let result = try await functions.callWithTimeout("smartChurchSearch", data: payload, timeout: 15)
         return try decodeSearchItems(from: result.data)
     }
 
     func keywordSearch(query: String) async throws -> [SmartChurchSearchItem] {
-        let result = try await functions.httpsCallable("searchChurchesByKeyword").call(["query": query])
+        let result = try await functions.callWithTimeout("searchChurchesByKeyword", data: ["query": query], timeout: 15)
         return try decodeSearchItems(from: result.data)
     }
 
