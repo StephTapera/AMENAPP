@@ -423,7 +423,7 @@ final class UnifiedSafetyGate {
         // Skip for search queries, typing hints, or when caller opts out
         let skipServerCheck = !useServerCheck ||
             surface == .searchQuery ||
-            text.count < 10  // Too short to warrant a cloud call
+            text.count < 3   // Too short to warrant a cloud call (min 3 to catch short slurs)
 
         if !skipServerCheck {
             do {
