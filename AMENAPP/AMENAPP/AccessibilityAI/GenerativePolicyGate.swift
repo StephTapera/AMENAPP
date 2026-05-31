@@ -54,11 +54,11 @@ enum GenerativePolicyGate {
     }
 
     /// Non-throwing variant — returns all violations (fatal + warning).
-    static func evaluate(request: GenerativeRequest) -> [PolicyViolation] {
+    static func evaluate(request: GenerativeRequest) -> [GenerativePolicyViolation] {
         switch request {
         case .testimony(_, let isHumanAuthored):
             return isHumanAuthored ? [] : [
-                PolicyViolation(
+                GenerativePolicyViolation(
                     rule: .noAITestimonyPosingAsHuman,
                     reason: "Testimony must be human-authored or explicitly disclosed as AI-generated.",
                     isFatal: true
@@ -67,7 +67,7 @@ enum GenerativePolicyGate {
 
         case .prayer(_, let isHumanAuthored):
             return isHumanAuthored ? [] : [
-                PolicyViolation(
+                GenerativePolicyViolation(
                     rule: .noAIPrayerPosingAsHuman,
                     reason: "Prayer must be human-authored or explicitly disclosed as AI-generated.",
                     isFatal: true
@@ -76,7 +76,7 @@ enum GenerativePolicyGate {
 
         case .sermonPrep(_, let attributedToRealPastor):
             return attributedToRealPastor ? [
-                PolicyViolation(
+                GenerativePolicyViolation(
                     rule: .noDeepfakeSermon,
                     reason: "AI-generated sermon content cannot be attributed to a specific real pastor.",
                     isFatal: true
@@ -85,7 +85,7 @@ enum GenerativePolicyGate {
 
         case .imageGeneration(_, let includesFaces):
             return includesFaces ? [
-                PolicyViolation(
+                GenerativePolicyViolation(
                     rule: .noAIFaceGeneration,
                     reason: "AI-generated images containing human faces are not permitted.",
                     isFatal: true
@@ -94,7 +94,7 @@ enum GenerativePolicyGate {
 
         case .voiceover(_, let isCloningRealPerson):
             return isCloningRealPerson ? [
-                PolicyViolation(
+                GenerativePolicyViolation(
                     rule: .noVoiceCloning,
                     reason: "Cloning the voice of a real person is not permitted.",
                     isFatal: true
@@ -103,7 +103,7 @@ enum GenerativePolicyGate {
 
         case .profilePhoto(let isDisclosedAsAI):
             return isDisclosedAsAI ? [] : [
-                PolicyViolation(
+                GenerativePolicyViolation(
                     rule: .noDefaultAIProfilePhoto,
                     reason: "AI-generated profile photos must carry an explicit AI disclosure.",
                     isFatal: true
@@ -112,7 +112,7 @@ enum GenerativePolicyGate {
 
         case .aiAssistedContent(_, let hasDisclosure):
             return hasDisclosure ? [] : [
-                PolicyViolation(
+                GenerativePolicyViolation(
                     rule: .noUndisclosedAIContent,
                     reason: "AI-generated or AI-assisted content must include an AI disclosure before sharing.",
                     isFatal: false   // Warning — display a disclosure prompt, don't hard block.
@@ -128,7 +128,7 @@ enum GenerativePolicyGate {
 // MARK: - PolicyGateError
 
 enum PolicyGateError: LocalizedError {
-    case blocked(violations: [PolicyViolation])
+    case blocked(violations: [GenerativePolicyViolation])
 
     var errorDescription: String? {
         switch self {
@@ -137,7 +137,7 @@ enum PolicyGateError: LocalizedError {
         }
     }
 
-    var violations: [PolicyViolation] {
+    var violations: [GenerativePolicyViolation] {
         switch self {
         case .blocked(let v): return v
         }

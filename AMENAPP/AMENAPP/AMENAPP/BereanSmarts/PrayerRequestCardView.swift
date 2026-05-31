@@ -116,7 +116,6 @@ struct GroupPrayerListView: View {
     let groupId: String
 
     @State private var requests: [ChannelPrayerRequest] = []
-    @State private var listener: ListenerRegistration?
 
     var body: some View {
         Group {
@@ -147,10 +146,12 @@ struct GroupPrayerListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .background(AmenTheme.Colors.backgroundPrimary.ignoresSafeArea())
         .onAppear {
-            listener = BereanSmartChannelHook.shared.listenChannelPrayerRequests(groupId: groupId) { reqs in
+            BereanSmartChannelHook.shared.listenChannelPrayerRequests(groupId: groupId) { reqs in
                 withAnimation { requests = reqs }
             }
         }
-        .onDisappear { listener?.remove() }
+        .onDisappear {
+            BereanSmartChannelHook.shared.stopListening(groupId: groupId)
+        }
     }
 }

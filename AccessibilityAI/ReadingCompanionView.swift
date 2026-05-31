@@ -3,6 +3,7 @@
 // Floating launch button + full settings/playback sheet for reading companion.
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - ReadingCompanionButton
 
@@ -270,14 +271,7 @@ struct ReadingCompanionSheet: View {
 
     @MainActor
     private func resolveCurrentUserId() async -> String? {
-        // Lazy import avoids a hard dependency in this file.
-        // Falls back to nil if not authenticated.
-        return await withCheckedContinuation { continuation in
-            // Using NotificationCenter trick-free: just read Auth.auth().currentUser
-            // This file does not import FirebaseAuth directly; the caller should
-            // inject userId if needed. For now we leave a safe nil return path.
-            continuation.resume(returning: nil)
-        }
+        return Auth.auth().currentUser?.uid
     }
 }
 

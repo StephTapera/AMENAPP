@@ -16,7 +16,7 @@ import SwiftUI
 // MARK: - PolicyGateView
 
 struct PolicyGateView: View {
-    let violations: [PolicyViolation]
+    let violations: [GenerativePolicyViolation]
     var onDismiss: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -105,7 +105,7 @@ struct PolicyGateView: View {
 // MARK: - PolicyGateModifier
 
 private struct PolicyGateModifier: ViewModifier {
-    @Binding var violations: [PolicyViolation]
+    @Binding var violations: [GenerativePolicyViolation]
     @Binding var isPresented: Bool
 
     func body(content: Content) -> some View {
@@ -119,7 +119,7 @@ private struct PolicyGateModifier: ViewModifier {
 }
 
 extension View {
-    func policyGateSheet(violations: Binding<[PolicyViolation]>, isPresented: Binding<Bool>) -> some View {
+    func policyGateSheet(violations: Binding<[GenerativePolicyViolation]>, isPresented: Binding<Bool>) -> some View {
         modifier(PolicyGateModifier(violations: violations, isPresented: isPresented))
     }
 }

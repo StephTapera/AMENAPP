@@ -38,6 +38,7 @@ final class A11yCoPilotService: ObservableObject {
 
     /// Calls the `a11yContextProxy` Cloud Function and updates `hints`.
     /// No-ops if `a11yCoPilotEnabled` is off.
+    /// Records `.contextCardOpened` when the call returns at least one hint.
     func refreshHints(context: String) async {
         guard TrustAccessibilityFeatureFlags.shared.a11yCoPilotEnabled else { return }
         guard !context.trimmingCharacters(in: .whitespaces).isEmpty else { return }
@@ -62,9 +63,40 @@ final class A11yCoPilotService: ObservableObject {
             }
 
             hints = decoded
+
+            // Record a context-card signal when hints are actually surfaced so the
+            // adaptive engine can learn the user benefits from co-pilot assistance.
+            if !decoded.isEmpty {
+                AccessibilitySignalCollector.shared.recordSignal(.contextCardOpened)
+            }
         } catch {
             // Non-critical: silently fail so the main content flow is unaffected.
         }
+    }
+
+    // MARK: - Record Hint Action
+
+    /// Maps a CoPilotAction to the corresponding `AccessibilitySignal` and records
+    /// it. Call this from the view's `onAction` handler immediately before (or after)
+    /// dispatching the real action so the adaptive engine stays in sync.
+    func recordHintAction(_ action: CoPilotHint.CoPilotAction) {
+        let signal: AccessibilitySignal
+        switch action {
+        case .translate:       signal = .translated
+        case .simplify:        signal = .simplified
+        case .readAloud:       signal = .listenedToPost
+        case .openFaithIntel:  signal = .contextCardOpened
+        case .addToHighlights: return   // no corresponding adaptive signal — no-op
+        }
+        AccessibilitySignalCollector.shared.recordSignal(signal)
+    }
+
+    // MARK: - Translate Count (convenience for suggestion engine)
+
+    /// Exposes the current translate-usage count from the on-device signal store so
+    /// callers can derive proactive suggestions without importing the collector directly.
+    var translateCount: Int {
+        AccessibilitySignalCollector.shared.signals.translateCount
     }
 
     // MARK: - Dismiss Hint

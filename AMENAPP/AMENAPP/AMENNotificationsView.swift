@@ -216,7 +216,7 @@ private struct ActivityActorStack: View {
 
         Group {
             if let url {
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let img):
                         img.resizable().scaledToFill()
@@ -279,7 +279,7 @@ private struct ActivityPreviewThumbnail: View {
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
             case .postImage(let url):
                 if let url {
-                    AsyncImage(url: url) { phase in
+                    CachedAsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let img):
                             img.resizable().scaledToFill()
@@ -294,7 +294,7 @@ private struct ActivityPreviewThumbnail: View {
                 }
             case .churchLogo(let url):
                 if let url {
-                    AsyncImage(url: url) { phase in
+                    CachedAsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let img):
                             img.resizable().scaledToFill()
@@ -493,7 +493,7 @@ private struct NeedsAttentionPanel: View {
     let onAction: (ActivitySmartAction, GroupedNotification) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
+        LazyVStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
@@ -547,7 +547,7 @@ private struct TimeBucketSection: View {
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .padding(.leading, 2)
 
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                     ActivityNotificationRow(
                         item: item,

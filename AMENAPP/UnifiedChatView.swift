@@ -1307,7 +1307,8 @@ struct UnifiedChatView: View {
                 }
             }
             .buttonStyle(ScaleButtonStyle())
-            
+            .accessibilityLabel("View \(conversation.name)'s profile")
+
             // Name with cleaner typography and network status
             VStack(alignment: .leading, spacing: 2) {
                 Text(conversation.name)
@@ -1379,6 +1380,7 @@ struct UnifiedChatView: View {
                     )
             }
             .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel(conversation.isGroup ? "Group info" : "View \(conversation.name)'s profile")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -2262,6 +2264,7 @@ struct UnifiedChatView: View {
                 .highlightSweep(trigger: sendSweepTrigger)
                 .buttonStyle(SpringButtonStyle())
                 .disabled(isSendingMessage || isBereanStreaming)
+                .accessibilityLabel(isRecording ? "Stop recording" : isMessageEmpty ? "Record voice message" : "Send message")
                 .successSeal(
                     isActive: messageSeal.isVisible,
                     label: "Sent",

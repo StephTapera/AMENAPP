@@ -169,7 +169,7 @@ struct SimplificationView: View {
                         if let verse = term.relatedVerse {
                             Text(verse)
                                 .font(AMENFont.regular(13).italic())
-                                .foregroundStyle(AmenTheme.Colors.amenGold)
+                                .foregroundStyle(AmenTheme.Colors.amenGoldText)
                                 .padding(.top, 2)
                         }
                     }

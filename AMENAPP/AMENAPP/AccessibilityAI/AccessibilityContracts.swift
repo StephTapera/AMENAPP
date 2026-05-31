@@ -22,7 +22,7 @@ enum ProvenanceState: String, Codable {
 }
 
 /// Creator's declaration of how the content was produced.
-enum CreatorDeclaration: String, Codable {
+enum ProvenanceCreatorDeclaration: String, Codable {
     case originalCapture    // Directly captured by this person
     case editedCapture      // Edited from an original they own
     case curatedRepublish   // Republished with rights
@@ -40,7 +40,7 @@ struct MediaCredential: Codable, Equatable, Identifiable {
     let originalHash: String        // SHA-256 of the raw file before any processing
     let mimeType: String
     let fileSizeBytes: Int
-    let creatorDeclaration: CreatorDeclaration
+    let creatorDeclaration: ProvenanceCreatorDeclaration
     let sourceChain: [String]       // Ordered list of prior provenance IDs (for remixes)
     let registeredAt: Date
     var state: ProvenanceState
@@ -143,7 +143,7 @@ enum FontSizePreference: String, Codable, CaseIterable {
 // MARK: - T4: Constitutional Constraint Violation
 
 /// Violation record produced by GenerativePolicyGate.
-struct PolicyViolation: Equatable {
+struct GenerativePolicyViolation: Equatable {
     let rule: GenerativeRule
     let reason: String
     let isFatal: Bool    // True = hard block; false = warning only

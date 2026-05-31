@@ -43,12 +43,14 @@ struct PrayerBreakModalView: View {
                         value: breatheAnimation
                     )
                     .padding(.top, 8)
-                
+                    .accessibilityHidden(true)
+
                 // Compact title
                 Text("Time for a Break")
                     .font(.systemScaled(28, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
                 
                 // Concise message
                 Text("Take a moment to step away and reconnect with God in prayer.")
