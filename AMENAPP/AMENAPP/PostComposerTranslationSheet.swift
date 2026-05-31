@@ -175,7 +175,7 @@ struct PostComposerTranslationSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(.regularMaterial)
+        .presentationBackground(.thinMaterial)
     }
 
     // MARK: - Sub-views

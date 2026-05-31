@@ -469,7 +469,7 @@ struct CommentsView: View {
                             ZStack {
                                 // Glass morphic background
                                 Circle()
-                                    .fill(.ultraThinMaterial)
+                                    .amenGlass(.thin, cornerRadius: 999)
                                     .opacity(0.8)
                                 
                                 // Subtle gradient overlay
@@ -961,11 +961,11 @@ struct CommentsView: View {
                                     requestBereanRewrite()
                                 } label: {
                                     ZStack {
-                                        // Match other Berean AI buttons: ultraThinMaterial so
+                                        // Match other Berean AI buttons: amenGlass(.thin) so
                                         // .multiply blendMode reveals the dark logo correctly in
                                         // both light and dark mode.
                                         Circle()
-                                            .fill(.ultraThinMaterial)
+                                            .amenGlass(.thin, cornerRadius: 999)
                                             .frame(width: 28, height: 28)
                                             .overlay(
                                                 Circle()
@@ -3791,7 +3791,7 @@ struct EmojiQuickPickerView: View {
                                 ZStack {
                                     // Glass morphic background
                                     RoundedRectangle(cornerRadius: 16)
-                                        .fill(.ultraThinMaterial)
+                                        .amenGlass(.thin, cornerRadius: 16)
                                         .opacity(0.8)
                                     
                                     // Subtle gradient overlay
@@ -4055,7 +4055,7 @@ struct CommentReactionPicker: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(.ultraThinMaterial, in: Capsule())
+            .amenGlass(.thin, cornerRadius: 999)
             .overlay(Capsule().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 4)
             .onTapGesture { } // Intentional: absorbs tap on the capsule background so it does not dismiss the reaction tray overlay

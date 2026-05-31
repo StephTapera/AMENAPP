@@ -1104,7 +1104,7 @@ struct CreatePostView: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(.regularMaterial, in: Capsule())
+                    .amenGlass(.regular, cornerRadius: 999)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .padding(.top, 8)
             }
@@ -2551,7 +2551,7 @@ struct CreatePostView: View {
                     .foregroundColor(Color(hex: "6B48FF"))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(.ultraThinMaterial)
+                    .amenGlass(.thin, cornerRadius: 999)
                     .overlay(Capsule().strokeBorder(Color(hex: "6B48FF").opacity(0.3), lineWidth: 0.5))
                     .clipShape(Capsule())
                 }
@@ -2628,7 +2628,7 @@ struct CreatePostView: View {
                         .foregroundStyle(Color.primary.opacity(0.80))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+                        .amenGlass(.thin, cornerRadius: 999)
                         .overlay(Capsule(style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
@@ -2648,7 +2648,7 @@ struct CreatePostView: View {
                     .foregroundStyle(Color.primary.opacity(0.80))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+                    .amenGlass(.thin, cornerRadius: 999)
                     .overlay(Capsule(style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
@@ -2710,22 +2710,19 @@ struct CreatePostView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(
+        .amenGlass(.regular, cornerRadius: 0)
+        .overlay(
             Rectangle()
-                .fill(.regularMaterial)
-                .overlay(
-                    Rectangle()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.5
                 )
-                .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
         )
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
         .opacity(insightEngine.result.readinessState == .empty ? 0.85 : 1.0)
         .overlay(alignment: .bottomLeading) {
             if showPostAICard {
@@ -2847,13 +2844,10 @@ struct CreatePostView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(14)
-        .background(
+        .amenGlass(.thin, cornerRadius: 12)
+        .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
-                )
+                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
         )
     }
 
@@ -3251,23 +3245,16 @@ struct CreatePostView: View {
             }
             .padding(.bottom, 4)
         }
-        .background(
+        .amenGlass(.thin, cornerRadius: 14)
+        .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.white.opacity(0.12))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8)
-                }
-                .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
-        )
+                .strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8)
+        }
+        .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
         .transition(.asymmetric(
             insertion: .move(edge: .top).combined(with: .opacity),
             removal: .opacity
@@ -7353,26 +7340,23 @@ struct GlassCategoryBar: View {
         .padding(.vertical, 5)
         .frame(height: 48)
         // Outer pill — glass container
-        .background(
+        .amenGlass(.thin, cornerRadius: 999)
+        .overlay(
             Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.55),
-                                    Color.white.opacity(0.10)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.55),
+                            Color.white.opacity(0.10)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
                 )
-                .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 1)
         )
+        .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 1)
         .clipShape(Capsule())
         // Static neon-red border around the outer capsule
         .overlay(
@@ -7405,7 +7389,7 @@ private struct GlassCategorySegment: View {
                 // Sliding selection lens — matched geometry so it travels between segments
                 if isSelected {
                     Capsule()
-                        .fill(.regularMaterial)
+                        .amenGlass(.regular, cornerRadius: 999)
                         .overlay(
                             Capsule()
                                 .strokeBorder(
@@ -7722,11 +7706,8 @@ struct TopicTagSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black.opacity(0.1), lineWidth: 0.5))
-        )
+        .amenGlass(.thin, cornerRadius: 12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black.opacity(0.1), lineWidth: 0.5))
         .padding(.horizontal)
     }
 
@@ -8537,25 +8518,22 @@ struct ConsolidatedToolbar: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(
+        .amenGlass(.thin, cornerRadius: 999)
+        .overlay(
             Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.4),
-                                    Color.white.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.4),
+                            Color.white.opacity(0.1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
                 )
-                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         )
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
     }
 }
 
@@ -8625,9 +8603,9 @@ struct GlassmorphicButton: View {
             ZStack {
                 // Liquid glass base
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .amenGlass(.thin, cornerRadius: 999)
                     .frame(width: 40, height: 40)
-                
+
                 // Border with gradient
                 Circle()
                     .strokeBorder(
@@ -8739,15 +8717,12 @@ struct ComposerSchedulePill: View {
                 .buttonStyle(.plain)
             }
         }
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(isScheduled ? Color.white.opacity(0.80) : Color.white.opacity(0.55)))
-                .overlay(Capsule().strokeBorder(
-                    isScheduled ? Color.black.opacity(0.18) : Color(white: 0.88).opacity(0.5),
-                    lineWidth: isScheduled ? 1.0 : 0.5
-                ))
-        )
+        .amenGlass(.thin, cornerRadius: 999)
+        .overlay(Capsule().fill(isScheduled ? Color.white.opacity(0.80) : Color.white.opacity(0.55)))
+        .overlay(Capsule().strokeBorder(
+            isScheduled ? Color.black.opacity(0.18) : Color(white: 0.88).opacity(0.5),
+            lineWidth: isScheduled ? 1.0 : 0.5
+        ))
         .shadow(color: isScheduled ? Color.black.opacity(0.08) : Color.black.opacity(0.04), radius: isScheduled ? 8 : 4, x: 0, y: 2)
         .scaleEffect(appeared ? 1.0 : 0.88)
         .opacity(appeared ? 1.0 : 0)
@@ -9211,11 +9186,8 @@ private struct UploadRingCapsule: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
-        )
+        .amenGlass(.thin, cornerRadius: 999)
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
     }
 }
 
@@ -9395,7 +9367,7 @@ private struct BereanToneButton: View {
         }) {
             ZStack {
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .amenGlass(.thin, cornerRadius: 999)
                     .frame(width: 34, height: 34)
                     .overlay(
                         Circle().stroke(
@@ -10142,7 +10114,7 @@ struct LiquidGlassPostButtonAnimated: View {
     private func postCapsule(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
         ZStack {
             Capsule()
-                .fill(.ultraThinMaterial)
+                .amenGlass(.thin, cornerRadius: 999)
                 .overlay(
                     Capsule()
                         .fill(
@@ -10192,7 +10164,7 @@ struct LiquidGlassPostButtonAnimated: View {
     private func progressGlass(progress: CGFloat, size: CGFloat) -> some View {
         ZStack {
             Circle()
-                .fill(.ultraThinMaterial)
+                .amenGlass(.thin, cornerRadius: 999)
                 .overlay(
                     Circle()
                         .fill(
@@ -10226,7 +10198,7 @@ struct LiquidGlassPostButtonAnimated: View {
     private func successCapsule(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
         ZStack {
             Capsule()
-                .fill(.ultraThinMaterial)
+                .amenGlass(.thin, cornerRadius: 999)
                 .overlay(
                     Capsule()
                         .fill(
@@ -10320,19 +10292,16 @@ private struct ComposerCuePill: View {
             .foregroundStyle(Color.primary.opacity(0.72))
             .padding(.horizontal, AmenSpacing.chipH)
             .padding(.vertical, AmenSpacing.chipV)
-            .background(
+            .amenGlass(.thin, cornerRadius: 999)
+            .overlay(
                 Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 0.5
-                            )
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
                     )
             )
             .clipShape(Capsule())
@@ -10439,8 +10408,7 @@ private struct PostAIGlassCard: View {
                 }
         } else {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.regularMaterial)
-                .amenGlassEffect(Color(.systemBackground).opacity(0.35), cornerRadius: 18)
+                .amenGlass(.regular, cornerRadius: 18)
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.6)

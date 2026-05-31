@@ -305,7 +305,7 @@ struct PostDetailView: View {
                     engagementBar
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .amenGlass(.regular, cornerRadius: 16)
                         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                         .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                         .padding(.horizontal, 16)
@@ -671,7 +671,7 @@ struct PostDetailView: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .background {
                         Circle()
-                            .fill(.regularMaterial)
+                            .amenGlass(.regular, cornerRadius: 999)
                             .overlay {
                                 Circle().strokeBorder(Color.white.opacity(0.38), lineWidth: 0.6)
                             }
@@ -791,11 +791,8 @@ struct PostDetailView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 0.8))
-        )
+        .amenGlass(.thin, cornerRadius: 999)
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 0.8))
         .shadow(color: .black.opacity(0.22), radius: 6, y: 2)
     }
 
@@ -945,7 +942,7 @@ struct PostDetailView: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
+                        .amenGlass(.thin, cornerRadius: 999)
                         .frame(width: 34, height: 34)
                         .overlay(
                             Circle()
@@ -1239,7 +1236,7 @@ struct PostDetailView: View {
                 }
                 .padding(.vertical, 14)
                 .padding(.horizontal, 16)
-                .background(.ultraThinMaterial)
+                .amenGlass(.thin, cornerRadius: 0)
             }
         }
     }

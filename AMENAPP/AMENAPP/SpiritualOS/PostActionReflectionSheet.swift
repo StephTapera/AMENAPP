@@ -96,7 +96,7 @@ struct PostActionReflectionSheet: View {
                     .scrollContentBackground(.hidden)
             }
             .padding(16)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+            .amenGlass(.thin, cornerRadius: 18)
 
             Spacer()
         }
@@ -112,7 +112,7 @@ struct PostActionReflectionSheet: View {
                     Image(systemName: "chevron.left")
                         .font(.body.weight(.semibold))
                         .frame(width: 44, height: 44)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .amenGlass(.thin, cornerRadius: 999)
                 }
                 .accessibilityLabel("Previous question")
             }
@@ -186,7 +186,7 @@ struct IntentVsOutcomeCard: View {
             }
         }
         .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .amenGlass(.thin, cornerRadius: 18)
         .accessibilityElement(children: .contain)
     }
 

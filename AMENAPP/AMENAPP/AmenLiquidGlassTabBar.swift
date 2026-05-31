@@ -142,7 +142,7 @@ struct AmenLiquidGlassTabBar: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }
-            .foregroundStyle(isSelected ? Color(uiColor: .systemBlue) : Color.black.opacity(0.88))
+            .foregroundStyle(isSelected ? AmenTheme.Colors.amenBlue : Color.black.opacity(0.88))
             .frame(maxWidth: .infinity)
             .frame(minHeight: 52)
             .padding(.horizontal, 4)

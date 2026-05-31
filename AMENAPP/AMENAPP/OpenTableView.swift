@@ -482,7 +482,7 @@ struct OpenTableView: View {
         }
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(initialCategory: selectedPostCategory)
-                .presentationBackground(.regularMaterial)
+                .presentationBackground(.thinMaterial)
                 .presentationDragIndicator(.visible)
         }
         // Feed filter dropdown — overlaid top-trailing, above all feed content

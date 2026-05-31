@@ -36,7 +36,7 @@ struct ThreadsPostingBar: View {
             // Left: app icon circle
             ZStack {
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .amenGlass(.thin, cornerRadius: 999)
                     .frame(width: 36, height: 36)
                 Image("amen-logo")
                     .resizable()
@@ -88,19 +88,16 @@ struct ThreadsPostingBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(
+        .amenGlass(.thin, cornerRadius: 20)
+        .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.35), Color.white.opacity(0.08)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.35), Color.white.opacity(0.08)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
                 )
         )
         .shadow(color: .black.opacity(0.18), radius: 24, y: 6)
@@ -151,7 +148,7 @@ struct PostSuccessToast: View {
                 
                 // Inner circle with glassmorphic effect
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .amenGlass(.thin, cornerRadius: 999)
                     .frame(width: 36, height: 36)
                     .overlay(
                         Circle()
@@ -200,8 +197,8 @@ struct PostSuccessToast: View {
             ZStack {
                 // Glassmorphic background
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-                
+                    .amenGlass(.thin, cornerRadius: 16)
+
                 // Subtle gradient overlay
                 RoundedRectangle(cornerRadius: 16)
                     .fill(

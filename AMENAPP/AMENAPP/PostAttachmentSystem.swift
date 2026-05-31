@@ -50,10 +50,10 @@ struct PostAttachmentPayload {
 // MARK: - Shared Glass Background
 
 /// Reusable Liquid Glass background — matches the established ChurchNotePreviewCard direction.
-/// .ultraThinMaterial + white overlay + hairline border.
+/// amenGlass(.thin) + white overlay + hairline border.
 func attachmentGlassBackground(radius: CGFloat = 14) -> some View {
     RoundedRectangle(cornerRadius: radius, style: .continuous)
-        .fill(.ultraThinMaterial)
+        .amenGlass(.thin, cornerRadius: radius)
         .overlay(
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(Color.white.opacity(0.30))
@@ -579,11 +579,8 @@ struct ChurchNoteAttachmentDetailView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(Capsule().stroke(Color(.separator).opacity(0.5), lineWidth: 0.6))
-            )
+            .amenGlass(.thin, cornerRadius: 999)
+            .overlay(Capsule().stroke(Color(.separator).opacity(0.5), lineWidth: 0.6))
 
             Text(note.title)
                 .font(.systemScaled(26, weight: .bold))

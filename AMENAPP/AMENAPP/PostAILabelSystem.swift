@@ -52,7 +52,7 @@ struct PostAILabelPill: View {
                 AILabelDetailSheet(label: label, aiUsage: aiUsage)
                     .presentationDetents([.height(320)])
                     .presentationDragIndicator(.visible)
-                    .presentationBackground(.ultraThinMaterial)
+                    .presentationBackground(.thinMaterial)
             }
         }
     }
