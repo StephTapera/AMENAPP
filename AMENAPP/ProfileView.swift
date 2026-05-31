@@ -1739,12 +1739,12 @@ struct ProfileView: View {
                 } label: {
                     HStack(spacing: isActive ? 5 : 0) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 13, weight: isActive ? .semibold : .medium))
+                            .font(.footnote.weight(isActive ? .semibold : .medium))
                             .foregroundStyle(isActive ? AmenTheme.Colors.amenGold : Color.primary.opacity(0.45))
 
                         if isActive {
                             Text(tab.rawValue)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.caption.weight(.semibold))
                                 .foregroundStyle(AmenTheme.Colors.amenGold)
                                 .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
                         }
@@ -3408,7 +3408,7 @@ struct EditProfileView: View {
             } else {
                 PhotosPicker(selection: $bannerPickerItem, matching: .images) {
                     Image(systemName: bannerImageURL.isEmpty ? "camera" : "pencil")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(.regularMaterial))
