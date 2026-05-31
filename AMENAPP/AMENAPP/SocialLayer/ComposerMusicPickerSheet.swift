@@ -143,7 +143,6 @@ struct ComposerMusicPickerSheet: View {
                 attachBar
             }
         }
-        .background(.ultraThinMaterial)
         .presentationDetents([.medium, .large])
         .presentationBackground(.ultraThinMaterial)
         .presentationDragIndicator(.hidden)

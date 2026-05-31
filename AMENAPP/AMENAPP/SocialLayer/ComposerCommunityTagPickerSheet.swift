@@ -119,7 +119,6 @@ struct ComposerCommunityTagPickerSheet: View {
                 .foregroundStyle(AmenTheme.Colors.separatorSubtle)
             content
         }
-        .background(.ultraThinMaterial)
         .presentationDetents([.medium, .large])
         .presentationBackground(.ultraThinMaterial)
         .presentationCornerRadius(32)
