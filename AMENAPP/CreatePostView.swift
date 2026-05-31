@@ -5998,8 +5998,8 @@ struct CreatePostView: View {
                     updateUploadCapsuleMediaStatus(for: uploadCapsuleImageId(for: index), to: .failed)
                 }
                 
-                // If more than half the images fail, throw error
-                if failedUploads > totalImages / 2 {
+                // Any upload failure aborts the post to prevent partial media
+                if failedUploads >= 1 {
                     await MainActor.run {
                         isUploadingImages = false
                         uploadProgress = 0.0
