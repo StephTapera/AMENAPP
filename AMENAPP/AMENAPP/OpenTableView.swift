@@ -266,12 +266,12 @@ struct OpenTableView: View {
                 // The fetch continues in the background — pull-to-refresh still works.
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 if isInitialLoad {
-                    withAnimation(reduceMotion ? .none : .easeOut(duration: 0.25)) { isInitialLoad = false }
+                    withAnimation(Motion.adaptive(.easeOut(duration: 0.25))) { isInitialLoad = false }
                 }
             }
         }
         .onChange(of: networkMonitor.isConnected) { _, isConnected in
-            withAnimation(reduceMotion ? .none : .easeOut(duration: 0.25)) {
+            withAnimation(Motion.adaptive(.easeOut(duration: 0.25))) {
                 showOfflineBanner = !isConnected
             }
         }
@@ -427,11 +427,11 @@ struct OpenTableView: View {
             showLocked = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .feedSuggestionsPersonalized)) { _ in
-            withAnimation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 showPersonalizationToast = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
-                withAnimation(reduceMotion ? .none : .easeOut(duration: 0.25)) {
+                withAnimation(Motion.adaptive(.easeOut(duration: 0.25))) {
                     showPersonalizationToast = false
                 }
             }
