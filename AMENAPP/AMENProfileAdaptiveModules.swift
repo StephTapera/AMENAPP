@@ -13,7 +13,7 @@ import SwiftUI
 
 // MARK: - Liquid Glass Helpers (local to this file)
 
-private struct GlassCard<Content: View>: View {
+private struct ProfileGlassCard<Content: View>: View {
     let content: Content
     var cornerRadius: CGFloat = 16
 
@@ -236,7 +236,7 @@ struct ChurchServiceTimesModuleView: View {
     }
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Service Times")
                     .font(AMENFont.bold(15))
@@ -301,7 +301,7 @@ struct ChurchVisitCTAView: View {
     let onDirections: () -> Void
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Plan your visit")
@@ -348,7 +348,7 @@ struct ChurchMutualSignalView: View {
     let areaDescription: String?
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             VStack(alignment: .leading, spacing: 10) {
                 if mutualCount > 0 {
                     HStack(spacing: 8) {
@@ -407,7 +407,7 @@ struct ChurchVerificationBadgeView: View {
     let onVerify: () -> Void
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             if isVerified {
                 HStack(spacing: 10) {
                     ZStack {
@@ -479,7 +479,7 @@ struct PersonalFaithJourneyModuleView: View {
     }
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Faith Journey")
@@ -559,7 +559,7 @@ struct PersonalPrayerFocusModuleView: View {
     let onAdd: () -> Void
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             if let focus = prayerFocus {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "hands.and.sparkles.fill")
@@ -608,7 +608,7 @@ struct PersonalTestimonyModuleView: View {
     let onView: () -> Void
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Testimony")
                     .font(AMENFont.bold(15))
@@ -661,7 +661,7 @@ struct BusinessMissionModuleView: View {
     let onVisitSite: () -> Void
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             VStack(alignment: .leading, spacing: 12) {
                 // Category chip
                 Text(category)
@@ -714,7 +714,7 @@ struct BusinessLinksModuleView: View {
     let links: [(label: String, icon: String)]
 
     var body: some View {
-        GlassCard {
+        ProfileGlassCard {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Links & Resources")
                     .font(AMENFont.bold(15))
@@ -766,7 +766,7 @@ struct BusinessFeaturedOfferingModuleView: View {
     let onView: () -> Void
 
     var body: some View {
-        GlassCard(cornerRadius: 18) {
+        ProfileGlassCard(cornerRadius: 18) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Featured")
                     .font(AMENFont.semiBold(11))

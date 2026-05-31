@@ -245,7 +245,7 @@ final class PostSchedulingService: ObservableObject {
 
 // MARK: - Glass Background ViewModifier
 
-private struct GlassCard: ViewModifier {
+private struct ScheduleGlassCard: ViewModifier {
     var cornerRadius: CGFloat = 14
 
     func body(content: Content) -> some View {
@@ -268,7 +268,7 @@ private struct GlassCard: ViewModifier {
 
 private extension View {
     func glassCard(cornerRadius: CGFloat = 14) -> some View {
-        modifier(GlassCard(cornerRadius: cornerRadius))
+        modifier(ScheduleGlassCard(cornerRadius: cornerRadius))
     }
 }
 

@@ -247,7 +247,7 @@ private extension View {
     }
 }
 
-private struct GlassCard: ViewModifier {
+private struct ChurchExpGlassCard: ViewModifier {
     var cornerRadius: CGFloat = 18
     func body(content: Content) -> some View {
         content
@@ -266,7 +266,7 @@ private struct GlassCard: ViewModifier {
 
 private extension View {
     func glassCard(cornerRadius: CGFloat = 18) -> some View {
-        modifier(GlassCard(cornerRadius: cornerRadius))
+        modifier(ChurchExpGlassCard(cornerRadius: cornerRadius))
     }
 }
 
