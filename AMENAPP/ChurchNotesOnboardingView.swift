@@ -209,6 +209,7 @@ private struct FeatureCard: View {
     let feature: ChurchNotesFeature
     let index: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isPressed = false
 
     var body: some View {
@@ -241,7 +242,7 @@ private struct FeatureCard: View {
 
                 Text(feature.description)
                     .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.black.opacity(0.7))
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -249,8 +250,10 @@ private struct FeatureCard: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.white)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(.ultraThinMaterial))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
                 .shadow(color: .black.opacity(0.02), radius: 2, x: 0, y: 1)
         )

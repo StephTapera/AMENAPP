@@ -173,14 +173,17 @@ private struct AmenGlassTokens {
 private struct AmenGlassSurfaceLayer: View {
     let shape: AnyShape
     let tokens: AmenGlassResolvedTokens
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         ZStack {
-            if let material = tokens.material {
+            if reduceTransparency {
+                shape.fill(AmenTheme.Colors.backgroundElevated)
+            } else if let material = tokens.material {
                 shape.fill(material)
             }
 
-            shape.fill(Color.white.opacity(tokens.baseOpacity))
+            shape.fill(Color.white.opacity(reduceTransparency ? 0 : tokens.baseOpacity))
 
             shape.stroke(
                 LinearGradient(

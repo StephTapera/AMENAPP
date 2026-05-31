@@ -13,13 +13,20 @@ struct AmenGlassSurface: View {
     var shadowRadius: CGFloat = 20
     var shadowY: CGFloat      = 6
     var shadowOpacity: CGFloat = AmenOpacity.shadowIdle
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.white.opacity(fillOpacity))
+            .fill(reduceTransparency
+                ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                : AnyShapeStyle(Color.white.opacity(fillOpacity)))
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                Group {
+                    if !reduceTransparency {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    }
+                }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -47,6 +54,7 @@ struct AmenGlassIconButton: View {
     let action: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         Button(action: {
@@ -54,8 +62,10 @@ struct AmenGlassIconButton: View {
         }) {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.82))
-                    .background(Circle().fill(.ultraThinMaterial))
+                    .fill(reduceTransparency
+                        ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                        : AnyShapeStyle(Color.white.opacity(0.82)))
+                    .background(reduceTransparency ? nil : Circle().fill(.ultraThinMaterial))
                     .overlay(Circle().stroke(Color.white.opacity(0.30), lineWidth: 0.75))
                     .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
                     .frame(width: AmenSpacing.quickActionSize, height: AmenSpacing.quickActionSize)
@@ -80,6 +90,7 @@ struct BereanActionChip: View {
 
     @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         Button(action: {
@@ -100,11 +111,17 @@ struct BereanActionChip: View {
             .padding(.vertical, AmenSpacing.chipV)
             .background(
                 Capsule()
-                    .fill(isActive ? AmenColor.chipActive : Color.white.opacity(0.84))
+                    .fill(isActive
+                        ? AnyShapeStyle(AmenColor.chipActive)
+                        : (reduceTransparency
+                            ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                            : AnyShapeStyle(Color.white.opacity(0.84))))
                     .background(
-                        Capsule()
-                            .fill(isActive ? AmenColor.chipActive : Color.clear)
-                            .background(.ultraThinMaterial)
+                        Group {
+                            if !isActive && !reduceTransparency {
+                                Capsule().fill(.ultraThinMaterial)
+                            }
+                        }
                     )
                     .overlay(
                         Capsule()
@@ -130,6 +147,7 @@ struct BereanModePill: View {
     @Binding var selectedMode: BereanQuickMode
     @State private var showPicker = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         Button {
@@ -154,8 +172,10 @@ struct BereanModePill: View {
             .padding(.vertical, 7)
             .background(
                 Capsule()
-                    .fill(Color.white.opacity(0.90))
-                    .background(Capsule().fill(.ultraThinMaterial))
+                    .fill(reduceTransparency
+                        ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                        : AnyShapeStyle(Color.white.opacity(0.90)))
+                    .background(reduceTransparency ? nil : Capsule().fill(.ultraThinMaterial))
                     .overlay(Capsule().stroke(Color.white.opacity(0.40), lineWidth: 0.75))
                     .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
             )
@@ -262,6 +282,7 @@ struct BereanMicButton: View {
     @State private var ring2Opacity: Double = 0.5
     @State private var coreScale: CGFloat = 1.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         ZStack {
@@ -284,10 +305,18 @@ struct BereanMicButton: View {
             Button(action: action) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(isRecording ? Color(hex: "DC3232") : Color.white.opacity(0.90))
+                        .fill(isRecording
+                            ? AnyShapeStyle(Color(hex: "DC3232"))
+                            : (reduceTransparency
+                                ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                                : AnyShapeStyle(Color.white.opacity(0.90))))
                         .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.ultraThinMaterial)
+                            Group {
+                                if !isRecording && !reduceTransparency {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(.ultraThinMaterial)
+                                }
+                            }
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)

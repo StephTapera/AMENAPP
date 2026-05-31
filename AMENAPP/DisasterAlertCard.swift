@@ -83,6 +83,8 @@ struct DisasterAlertCard: View {
     @State private var prayerCount: Int
     @State private var pulseRing = false
     @StateObject private var vm = DisasterCardViewModel()
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(disaster: DisasterAlert) {
         self.disaster = disaster
@@ -107,19 +109,23 @@ struct DisasterAlertCard: View {
 
             // Background — dark red/orange glassmorphic
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(
-                    LinearGradient(
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(AmenTheme.Colors.backgroundElevated)
+                    : AnyShapeStyle(LinearGradient(
                         colors: [
                             disaster.urgencyLevel.color.opacity(0.18),
                             Color.black.opacity(0.6)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
-                    )
-                )
+                    )))
                 .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                    Group {
+                        if !reduceTransparency {
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                        }
+                    }
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -137,7 +143,7 @@ struct DisasterAlertCard: View {
                 )
 
             // Pulse ring on critical
-            if disaster.urgencyLevel == .critical {
+            if disaster.urgencyLevel == .critical && !reduceMotion {
                 Circle()
                     .stroke(disaster.urgencyLevel.color.opacity(pulseRing ? 0.0 : 0.5), lineWidth: 2)
                     .frame(width: pulseRing ? 90 : 40, height: pulseRing ? 90 : 40)
