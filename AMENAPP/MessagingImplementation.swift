@@ -278,6 +278,8 @@ extension FirebaseMessagingService {
     
     /// Send a message with permission checking
     func sendMessageWithPermissions(to conversationId: String, text: String) async throws {
+        let _dmToken = PerfBegin("dm_send")
+        defer { PerfEnd(_dmToken, threshold: 300) }
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }

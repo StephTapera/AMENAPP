@@ -160,6 +160,7 @@ struct YourFeedView: View {
             Text("This will restore all previously hidden topic labels to your feed. Your other feed preferences won't be affected.")
         }
         .onAppear {
+            PerformanceLog.event("feed_appear", "YourFeedView")
             nlSvc.startListening()
             sessionExpanded = sessionSvc.isActive
             AmenWellbeingService.shared.onSessionStart()

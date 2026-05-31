@@ -215,6 +215,7 @@ final class UniversalSearchViewModel: ObservableObject {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         searchTask?.cancel()
+        let _searchToken = PerfBegin("search_execute")
         isLoading = true
         addRecentSearch(trimmed)
 
@@ -276,6 +277,7 @@ final class UniversalSearchViewModel: ObservableObject {
                 books:       SearchRankingService.rankSimpleItems(books, query: trimmed),
                 events:      SearchRankingService.rankSimpleItems(events, query: trimmed)
             )
+            PerfEnd(_searchToken, threshold: 500) // log if search takes ≥ 500ms
             isLoading = false
         }
     }

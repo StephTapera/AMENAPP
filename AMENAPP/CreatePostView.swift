@@ -4103,7 +4103,9 @@ struct CreatePostView: View {
 
         // P1-5: Show loading state immediately so the user gets feedback during safety evaluation
         isPublishing = true
+        let _publishPerfToken = PerfBegin("post_safety_gauntlet")
         Task {
+            defer { PerfEnd(_publishPerfToken, threshold: 500) }
             // ── Stage 1: ModerationIngestService (local guard + doxxing + grooming) ──
             guard let authorId = Auth.auth().currentUser?.uid else {
                 await MainActor.run {

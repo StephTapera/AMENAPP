@@ -589,6 +589,7 @@ struct AMENTabBar: View {
             showRestModeSheet = true
             return
         }
+        PerformanceLog.event("tab_switch", tab.rawValue)
         withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : Motion.liquidSpring) {
             selectedTab = tab.rawValue
         }

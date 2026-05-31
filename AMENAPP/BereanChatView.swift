@@ -395,6 +395,7 @@ final class BereanChatViewModel: ObservableObject {
         guard !text.isEmpty, !isThinking, streamTask == nil, !isAtLimit else { return }
 
         isThinking = true
+        let _bereanAskToken = PerfBegin("berean_ask")
 
         AMENAnalyticsService.shared.track(.bereanChatMessageSent(
             tier: BereanModelStore.shared.selectedMode.backendValue,
@@ -557,8 +558,14 @@ final class BereanChatViewModel: ObservableObject {
                         // rather than publishing on every token character (~50 diffs/s).
                         var streamBuffer = ""
                         var lastFlush = Date()
+                        var _firstTokenLogged = false
                         for try await chunk in stream {
                             try Task.checkCancellation()
+                            if !_firstTokenLogged {
+                                _firstTokenLogged = true
+                                PerfEnd(_bereanAskToken, threshold: 200) // logs ask→first-token if ≥ 200ms
+                                PerformanceLog.event("berean_first_token", "ask→token")
+                            }
                             streamBuffer += chunk
                             let elapsed = Date().timeIntervalSince(lastFlush)
                             if elapsed >= 0.08 {
