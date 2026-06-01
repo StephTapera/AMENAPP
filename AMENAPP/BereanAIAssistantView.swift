@@ -5113,7 +5113,7 @@ class BereanViewModel: ObservableObject {
     /// Cloud wins for any conversation not present locally.
     private func fetchConversationsFromFirestore() {
         guard let col = firestoreCollection else { return }
-        Task.detached(priority: .background) {
+        Task(priority: .background) {
             guard let snapshot = try? await col
                 .order(by: "date", descending: true)
                 .limit(to: 50)
