@@ -3634,6 +3634,41 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Giving — catalog data (server-managed) ────────────────────────────────
+    // Disaster events and benevolence requests are admin/CF-curated public catalogs.
+    // Any signed-in user may read active records; no client writes ever.
+
+    match /disaster_events/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /benevolence_requests/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Giving — user-owned data ──────────────────────────────────────────────
+    // giving_profiles: doc ID == userId; owner reads and writes their own profile.
+    // receipts: queried by userId field; owner reads only (server-issued, never client-written).
+    // annual_reviews: doc ID == "{userId}_{year}"; server-generated, owner reads only.
+
+    match /giving_profiles/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+    match /receipts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /annual_reviews/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
     match /charityRatings/{docId} {
       allow read: if isSignedIn();
       allow write: if false;

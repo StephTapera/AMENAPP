@@ -261,6 +261,8 @@ struct GivingHomeView: View {
                 ForEach(0..<3, id: \.self) { _ in
                     skeletonOrgCard
                 }
+            } else if let errorMsg = vm.errorMessage {
+                errorFeedView(message: errorMsg)
             } else if vm.filteredOrgs.isEmpty {
                 emptyFeedView
             } else {
@@ -427,11 +429,51 @@ struct GivingHomeView: View {
     // MARK: - Empty States
 
     private var emptyFeedView: some View {
-        emptyStateView(
-            icon: "heart.circle",
-            title: "No matches yet",
-            body: "Complete your values intake to see personalized organizations."
-        )
+        VStack(spacing: 16) {
+            emptyStateView(
+                icon: "heart.circle",
+                title: vm.hasCompletedIntentFlow ? "No organizations found" : "Tell us what moves you",
+                body: vm.hasCompletedIntentFlow
+                    ? "No verified organizations match your current filters. Try adjusting your values preferences."
+                    : "Set your giving values to see personalized, vetted organizations for your causes."
+            )
+            if !vm.hasCompletedIntentFlow {
+                Button {
+                    vm.showIntentFlow = true
+                } label: {
+                    Text("Set Up Preferences")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AmenTheme.Colors.textInverse)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(AmenTheme.Colors.amenGold, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Set up giving preferences")
+            }
+        }
+    }
+
+    private func errorFeedView(message: String) -> some View {
+        VStack(spacing: 16) {
+            emptyStateView(
+                icon: "exclamationmark.triangle",
+                title: "Could not load organizations",
+                body: message
+            )
+            Button {
+                vm.onAppear()
+            } label: {
+                Text("Try Again")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AmenTheme.Colors.textInverse)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(AmenTheme.Colors.amenGold, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Retry loading organizations")
+        }
     }
 
     private func emptyStateView(icon: String, title: String, body: String) -> some View {

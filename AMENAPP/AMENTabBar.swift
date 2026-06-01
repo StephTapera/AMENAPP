@@ -15,7 +15,7 @@ import SwiftUI
 
 private extension Color {
     // Forward the canonical brand token so this file needs no magic number.
-    static let amenTabAccent = Color.blue
+    static let amenTabAccent = AmenTheme.Colors.amenBlue
 }
 
 private let useAccentForSelection = true

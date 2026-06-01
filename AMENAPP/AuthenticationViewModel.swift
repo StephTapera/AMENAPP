@@ -440,11 +440,13 @@ class AuthenticationViewModel: ObservableObject {
         // Sign in anonymously so request.auth is non-nil in Firestore rules,
         // allowing the simulator to load real feed data.
         //
-        // Retry logic: the simulator keychain (SecItemCopyMatching) is sometimes
-        // unavailable for ~1 s on a fresh install. Three attempts with 600 ms
-        // back-off clears the error without delaying a warm launch noticeably.
+        // Retry logic: the Simulator keychain (SecItemCopyMatching -34018) is
+        // unavailable for up to ~5 s after a fresh Simulator boot because the
+        // Secure Enclave emulation races the app launch. Five attempts with
+        // exponential back-off (0 → 0.5 s → 1 s → 2 s → 4 s, total ≈ 7.5 s)
+        // gives the keychain time to become ready without blocking warm launches.
         Task {
-            let delays: [UInt64] = [0, 600_000_000, 1_200_000_000] // 0, 0.6 s, 1.2 s
+            let delays: [UInt64] = [0, 500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000]
             var signedIn = false
             for (attempt, delay) in delays.enumerated() {
                 if delay > 0 {
@@ -459,17 +461,29 @@ class AuthenticationViewModel: ObservableObject {
                     dlog("🔧 [Simulator] Anonymous sign-in attempt \(attempt + 1) failed: \(error.localizedDescription)")
                 }
             }
-            if !signedIn {
-                dlog("🔧 [Simulator] All anonymous sign-in attempts failed — running without Firebase auth (Firestore reads will return 403)")
-            }
             await MainActor.run {
-                isAuthenticated = true
-                dlog("🔧 [Simulator] Auth bypass complete — home screen shown\(signedIn ? " with Firebase anonymous session" : " (no auth)")")
-                // onChange(isAuthenticated) fires signalSignIn() on the next view update cycle.
-                // Wait long enough for that cycle to complete, then clear the loading screen
-                // so the simulator bypass doesn't sit behind a 3-second feed-ready wait.
-                Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 150_000_000) // 150 ms — after onChange fires
+                if signedIn {
+                    isAuthenticated = true
+                    dlog("🔧 [Simulator] Auth bypass complete — home screen shown with Firebase anonymous session")
+                    // onChange(isAuthenticated) fires signalSignIn() on the next view update cycle.
+                    // Wait long enough for that cycle to complete, then clear the loading screen
+                    // so the simulator bypass doesn't sit behind a 3-second feed-ready wait.
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 150_000_000) // 150 ms — after onChange fires
+                        AppReadyStateManager.shared.signalReady()
+                    }
+                } else {
+                    // All attempts exhausted — the keychain is genuinely unavailable.
+                    // Do NOT force isAuthenticated = true; that would let Firestore reads
+                    // run unauthenticated and produce silent 403 errors everywhere.
+                    // Instead, surface a user-facing prompt so the developer knows to
+                    // either restart the Simulator or sign in manually.
+                    dlog("🔧 [Simulator] All anonymous sign-in attempts failed — showing sign-in prompt")
+                    errorMessage = "Simulator keychain unavailable. Try restarting the Simulator, or sign in manually."
+                    showError = true
+                    // Leave isAuthenticated = false so AMENAuthLandingView is shown.
+                    // The developer can tap the bypass button again once the Simulator
+                    // keychain becomes ready, or use email/Apple/Google sign-in.
                     AppReadyStateManager.shared.signalReady()
                 }
             }

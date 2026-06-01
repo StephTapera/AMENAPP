@@ -166,6 +166,14 @@ struct ChurchNotesSessionView: View {
                 )
             }
         }
+        .sheet(isPresented: $vm.showVerseAttach) {
+            AttachVerseSheet { verse in
+                vm.addHighlight(type: .keyVerse, text: "\(verse.reference) — \(verse.text)")
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(28)
+        }
         .onDisappear {
             supportDraftTask?.cancel()
             supportDraftTask = nil
