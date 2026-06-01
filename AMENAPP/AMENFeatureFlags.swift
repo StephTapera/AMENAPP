@@ -39,7 +39,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var paymentsEnabled: Bool = true
 
     // MARK: - Berean Drive / CarPlay (B-23)
-    @Published private(set) var bereanDriveEnabled: Bool = true
+    @Published private(set) var bereanDriveEnabled: Bool = false
 
     // MARK: - System 2: Berean RAG
     @Published private(set) var bereanRAGEnabled: Bool = true
@@ -106,7 +106,7 @@ final class AMENFeatureFlags: ObservableObject {
     // MARK: - System 8: Action Threads (Care Workflows)
     @Published private(set) var actionThreadsEnabled: Bool = true
     @Published private(set) var actionSuggestionsEnabled: Bool = true
-    @Published private(set) var careFollowupsEnabled: Bool = true
+    @Published private(set) var careFollowupsEnabled: Bool = false
     @Published private(set) var mentorshipEnabled: Bool = true
 
     // MARK: - System 9: Compound Identity Graph
@@ -999,7 +999,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var catchUpIntelligenceEnabled: Bool = true
     @Published private(set) var ambientAIEnabled: Bool = true
     @Published private(set) var smartSidebarEnabled: Bool = true
-    @Published private(set) var emotionalContextEngineEnabled: Bool = true
+    @Published private(set) var emotionalContextEngineEnabled: Bool = false
     @Published private(set) var spiritualContinuityEngineEnabled: Bool = true
     @Published private(set) var intentAwareSearchEnabled: Bool = true
     @Published private(set) var multiThreadBranchingEnabled: Bool = true
@@ -1054,7 +1054,7 @@ final class AMENFeatureFlags: ObservableObject {
     // from https://developer.apple.com/contact/request/carplay before enabling.
     // Remote Config activates these after entitlement is provisioned.
     /// Master gate: enables the CarPlay Berean Drive scene delegate and coordinator.
-    @Published private(set) var carPlayBereanEnabled: Bool = true
+    @Published private(set) var carPlayBereanEnabled: Bool = false
     /// Gates CPNowPlayingTemplate — requires com.apple.developer.carplay-audio entitlement.
     @Published private(set) var carPlayAudioEnabled: Bool = true
     /// Gates CPMessageListItem — requires com.apple.developer.carplay-communication entitlement.

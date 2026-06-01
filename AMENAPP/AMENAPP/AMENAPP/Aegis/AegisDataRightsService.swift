@@ -47,7 +47,7 @@ actor AegisDataRightsService {
 
     /// Fetches what data is collected for this user and why, from the backend manifest.
     func getTrackingMinimizationReport(userId: String) async throws -> [String: String] {
-        guard AegisFeatureFlags.shared.isEnabled(.trackingMinimization) else {
+        guard await AegisFeatureFlags.shared.isEnabled(.trackingMinimization) else {
             return ["status": "Tracking minimization capability is not yet enabled."]
         }
 
@@ -82,7 +82,7 @@ actor AegisDataRightsService {
 
     /// Verifies with the backend that no shadow profile exists for this email address.
     func checkShadowProfileExists(email: String) async throws -> Bool {
-        guard AegisFeatureFlags.shared.isEnabled(.shadowProfilePrevention) else {
+        guard await AegisFeatureFlags.shared.isEnabled(.shadowProfilePrevention) else {
             return false // Assume clean when flag is off
         }
 
@@ -102,7 +102,7 @@ actor AegisDataRightsService {
     /// Submits a true deletion request for all user data across Firestore, Storage,
     /// Pinecone embeddings, and derived data caches. Returns the confirmed manifest.
     func requestTrueDeletion(userId: String) async throws -> AegisDeletionManifest {
-        guard AegisFeatureFlags.shared.isEnabled(.trueRightToBeForgotten) else {
+        guard await AegisFeatureFlags.shared.isEnabled(.trueRightToBeForgotten) else {
             throw AegisDataRightsError.capabilityDisabled(.trueRightToBeForgotten)
         }
 
@@ -147,7 +147,7 @@ actor AegisDataRightsService {
     /// Transitions the account to a memorialised state and transfers legacy access
     /// to the nominated legacy contact.
     func memorializeAccount(userId: String, legacyContactId: String) async throws {
-        guard AegisFeatureFlags.shared.isEnabled(.digitalLegacy) else {
+        guard await AegisFeatureFlags.shared.isEnabled(.digitalLegacy) else {
             throw AegisDataRightsError.capabilityDisabled(.digitalLegacy)
         }
 
@@ -174,7 +174,7 @@ actor AegisDataRightsService {
 
     /// Requests a full data export and returns the signed download URL.
     func requestDataExport(userId: String) async throws -> URL? {
-        guard AegisFeatureFlags.shared.isEnabled(.dataPortability) else {
+        guard await AegisFeatureFlags.shared.isEnabled(.dataPortability) else {
             throw AegisDataRightsError.capabilityDisabled(.dataPortability)
         }
 
@@ -211,14 +211,20 @@ actor AegisDataRightsService {
             shadowClear = true
         }
 
+        // Resolve flags async (MainActor-isolated) before building the summary
+        let trackingEnabled   = await flags.isEnabled(.trackingMinimization)
+        let portabilityEnabled = await flags.isEnabled(.dataPortability)
+        let deletionEnabled   = await flags.isEnabled(.trueRightToBeForgotten)
+        let legacyEnabled     = await flags.isEnabled(.digitalLegacy)
+
         return AegisDataRightsSummary(
             noSellActive:         true, // Unconditional — always active per AMEN policy (C51)
-            trackingMinimized:    flags.isEnabled(.trackingMinimization),
+            trackingMinimized:    trackingEnabled,
             shadowProfileClear:   shadowClear,
-            dataExportAvailable:  flags.isEnabled(.dataPortability),
-            deletionAvailable:    flags.isEnabled(.trueRightToBeForgotten),
-            memorialAvailable:    flags.isEnabled(.digitalLegacy),
-            portabilityAvailable: flags.isEnabled(.dataPortability)
+            dataExportAvailable:  portabilityEnabled,
+            deletionAvailable:    deletionEnabled,
+            memorialAvailable:    legacyEnabled,
+            portabilityAvailable: portabilityEnabled
         )
     }
 }

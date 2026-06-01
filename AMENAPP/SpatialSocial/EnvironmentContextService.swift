@@ -19,6 +19,7 @@ final class EnvironmentContextService: ObservableObject {
     private init() {}
 
     func classifyEnvironment(location: LocationContext, placeName: String? = nil) async {
+        guard AmenAIConsentStore.shared.hasFabricConsent(for: .personalization) else { return }
         let type = await classify(location: location, placeName: placeName)
         let env = SpatialEnvironment(
             type: type,

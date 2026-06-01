@@ -68,14 +68,21 @@ final class LocationContextService: NSObject, ObservableObject {
         let state = placemark.administrativeArea ?? ""
         let country = placemark.isoCountryCode ?? ""
 
-        let lastCity = UserDefaults.standard.string(forKey: lastCityKey) ?? ""
-        let lastState = UserDefaults.standard.string(forKey: lastStateKey) ?? ""
-        let isNewArea = !city.isEmpty && (city != lastCity || state != lastState)
-
-        if isNewArea {
-            UserDefaults.standard.set(city, forKey: lastCityKey)
-            UserDefaults.standard.set(state, forKey: lastStateKey)
-            UserDefaults.standard.set(country, forKey: lastCountryKey)
+        // Only compare and write location history when the user has granted personalization consent.
+        // Without consent: isNewArea stays false so the new-city prompt is never triggered
+        // and no city/state history is persisted. Basic location coordinates are still available.
+        let isNewArea: Bool
+        if AmenAIConsentStore.shared.hasFabricConsent(for: .personalization) {
+            let lastCity = UserDefaults.standard.string(forKey: lastCityKey) ?? ""
+            let lastState = UserDefaults.standard.string(forKey: lastStateKey) ?? ""
+            isNewArea = !city.isEmpty && (city != lastCity || state != lastState)
+            if isNewArea {
+                UserDefaults.standard.set(city, forKey: lastCityKey)
+                UserDefaults.standard.set(state, forKey: lastStateKey)
+                UserDefaults.standard.set(country, forKey: lastCountryKey)
+            }
+        } else {
+            isNewArea = false
         }
 
         let isInternational = country != "US" && !country.isEmpty

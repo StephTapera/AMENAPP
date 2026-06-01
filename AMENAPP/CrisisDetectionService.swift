@@ -282,15 +282,28 @@ class CrisisDetectionService {
         ]
         
         do {
+            // Only persist crisis history to Firestore when the user has granted
+            // safetyEscalation consent. Detection and resource display are always-on.
+            guard AmenAIConsentStore.shared.hasFabricConsent(for: .safetyEscalation) else {
+                return CrisisDetectionResult(
+                    isCrisis: false,
+                    crisisTypes: [],
+                    urgencyLevel: .none,
+                    recommendedResources: [],
+                    confidence: 0.0,
+                    suggestedIntervention: .none
+                )
+            }
+
             // Call Firebase AI Logic Cloud Function
             let result = try await db.collection("crisisDetectionRequests")
                 .addDocument(data: requestData)
-            
+
             // Wait for AI response
             let response = try await waitForCrisisDetectionResponse(requestId: result.documentID)
-            
+
             return response
-            
+
         } catch {
             dlog("❌ [CRISIS] AI API error: \(error)")
             

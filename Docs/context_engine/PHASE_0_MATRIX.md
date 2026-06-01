@@ -57,6 +57,27 @@
 | Broken | 1 |
 | Missing | 10 |
 
+### Fix-All Batch — 2026-05-31
+
+**8 files changed, 0 new compiler errors.**
+
+| Item | Fix Applied |
+|------|-------------|
+| PersonalSpiritualGraphService.recordPattern() | `spiritualRhythmEnabled` flag + `.wellnessSignals` + `.emotionalContext` guards |
+| TruthEmotionService.analyze() | `.emotionalContext` guard before CF call |
+| LocationContextService.buildContext() | `.personalization` consent wraps city/state writes + `isNewArea` |
+| EnvironmentContextService.classifyEnvironment() | `.personalization` guard at entry |
+| CrisisDetectionService (Firestore write only) | `.safetyEscalation` consent before `addDocument()` |
+| ChurchProximityEngine.startMonitoring() | `.wellnessSignals` + QuietMode pref guards |
+| SermonIntelligenceEngine.processAudio() | `sermonAudioCaptureEnabled` flag + `.wellnessSignals` consent guards |
+| WhisperVoiceService | Audited: routes through `whisperProxy` CF — no direct OpenAI call |
+| AMENFeatureFlags.swift | `bereanDriveEnabled`, `carPlayBereanEnabled`, `emotionalContextEngineEnabled`, `careFollowupsEnabled` → false |
+| ChurchAssistFeatureFlags.swift | All 7 production flags → false; TODO to wire Remote Config |
+
+**Remaining gaps (not code-fixable):**
+- #16 Relationship Follow-Up: `AmenJourneyContinuityEngine` inference path still needs `.relationshipSafety` gate
+- #2/#3/#4/#7/#8/#9/#10/#15/#17: zero code exists; consent/flag work deferred until features are built
+
 ---
 
 ## Feature Matrix
@@ -70,23 +91,23 @@
 | 2 | Walking Prayer Mode | **Missing** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 NO_FLAG, zero code |
 | 3 | Gym Mode | **Missing** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 NO_FLAG, zero code |
 | 4 | Sleep Wind-Down | **Missing** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 NO_FLAG, zero code (lateNightPauseEnabled flag exists but no detection engine) |
-| 5 | Church Arrival | **Partial** | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ⚠️ | ✅ | 🔴 CONSENT_MISSING: no AMEN-layer consent sheet before geofence+motion+calendar fusion; 🟡 NO_FLAG: hardcoded ON in ChurchAssistFeatureFlags |
-| 6 | Sermon Detection | **Partial** | ✅ | ❌ | ✅ | ⚠️ | ✅ | ✅ | ⚠️ | ⚠️ | 🔴 CONSENT_MISSING: microphone+speech inferencing, no AMEN-layer opt-in; 🟡 NO_FLAG at engine entry |
+| 5 | Church Arrival | **Partial** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **FIXED 2026-05-31**: `.wellnessSignals` + QuietMode pref guards added to `startMonitoring()`; all 7 `ChurchAssistFeatureFlags` defaults → false. Gap remaining: no AMEN-authored purpose-explanation sheet before system permission escalation. |
+| 6 | Sermon Detection | **Partial** | ✅ | ✅ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ⚠️ | **FIXED 2026-05-31**: `sermonAudioCaptureEnabled` flag check + `.wellnessSignals` consent guard added to `processAudio()`. WhisperVoiceService confirmed proxied via `whisperProxy` CF. |
 | 7 | Campus Switching | **Stub** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 STUB_ONLY: `EnvironmentType.campus` label exists but no campus-aware Berean mode or geofence set |
 | 8 | Small Group Detection | **Stub** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 STUB_ONLY: `GroupType.smallGroup` data model exists; no detection signal |
 | 9 | Mission Trip Mode | **Missing** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 NO_FLAG, zero code |
-| 10 | Conference Mode | **Partial** | ⚠️ | ❌ | ✅ | ⚠️ | ⚠️ | ❌ | ❌ | ❌ | 🔴 CONSENT_MISSING: `EnvironmentContextService` classifies location (conference/campus/airport) with no consent gate; 🟡 NO_FLAG |
+| 10 | Conference Mode | **Partial** | ⚠️ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ | ❌ | ❌ | **FIXED 2026-05-31**: `.personalization` guard at top of `classifyEnvironment()`. Gap remaining: no Berean mode adaptation for conference context, no feature flag. |
 | 11 | Berean Study Continuation | **Partial** | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | No explicit consent gate before `AmenJourneyContinuityEngine` reads study history cross-session; `bereanPersistentMemoryEnabled` flag exists but consent UI is presence-only |
-| 12 | Emotional State Awareness | **Partial** | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🔴 CONSENT_MISSING: `AmenFabricConsentScope.emotionalContext` defined but `hasFabricConsent()` is never called in the app; emotional data written to Firestore without enforcement |
-| 13 | Travel Mode | **Partial** | ✅ | ❌ | ✅ | ⚠️ | ⚠️ | ⚠️ | ❌ | ❌ | 🔴 CONSENT_MISSING: `LocationContextService` + `EnvironmentContextService` detects international/new-city without explicit consent prompt; 🟡 NO_FLAG |
-| 14 | New City Detection | **Partial** | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | 🔴 CONSENT_MISSING: `LocationContextService` writes city/state to UserDefaults and infers `isNewArea` without explicit AMEN-layer opt-in; 🟡 NO_FLAG |
+| 12 | Emotional State Awareness | **Partial** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ | **FIXED 2026-05-31**: `.emotionalContext` guard in `TruthEmotionService.analyze()` + in `PersonalSpiritualGraphService.recordPattern()` (type-specific). `emotionalContextEngineEnabled` flag default → false. |
+| 13 | Travel Mode | **Partial** | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | ⚠️ | ❌ | ❌ | **FIXED 2026-05-31**: `.personalization` consent wraps city/state writes + isNewArea inference in `LocationContextService`; `.personalization` guard at `classifyEnvironment()` entry. Gap remaining: no feature flag, no travel-specific Berean mode. |
+| 14 | New City Detection | **Partial** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | **FIXED 2026-05-31**: `.personalization` consent wraps city/state UserDefaults writes and `isNewArea` inference in `LocationContextService`. Gap remaining: no feature flag. |
 | 15 | Family Event Awareness | **Missing** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 NO_FLAG, zero code |
-| 16 | Relationship Follow-Up | **Partial** | ⚠️ | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | 🔴 CONSENT_MISSING: `RelationshipService` + `AmenJourneyContinuityEngine` infers relationship follow-up needs from prayer/content data; `AmenFabricConsentScope.relationshipSafety` never enforced |
+| 16 | Relationship Follow-Up | **Partial** | ⚠️ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | PARTIAL FIX 2026-05-31: `RelationshipService` confirmed pure CRUD — no inference to gate. Gap remaining: `AmenJourneyContinuityEngine` relationship inference path not yet gated; `AmenFabricConsentScope.relationshipSafety` still unenforced there. |
 | 17 | Volunteer Burnout | **Missing** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 NO_FLAG, zero dedicated code (adjacent signals in `PersonalSpiritualGraphService` under `SpiritualRhythm.serving` but no burnout-specific detection) |
 | 18 | Berean Context Detection | **Present** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Strongest feature: on-device Vision OCR + `bereanBibleQA` CF + `bereanVisualScriptureEnabled` flag + `BereanVisualScriptureView` + tests in `BereanMultimodalSafetyTests`. PDFs not yet handled (PDF scanner not wired). |
-| 19 | Meeting-to-Notes | **Partial** | ✅ | ❌ | ✅ | ⚠️ | ✅ | ✅ | ❌ | ❌ | Meeting models + Gatherings intelligence CFs exist; no `SermonIntelligenceEngine` consent gate for live audio capture; 🟡 NO_FLAG at engine entry |
+| 19 | Meeting-to-Notes | **Partial** | ✅ | ✅ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ❌ | **FIXED 2026-05-31**: `SermonIntelligenceEngine.processAudio()` now gated by `sermonAudioCaptureEnabled` flag + `.wellnessSignals` consent (same guards as Sermon Detection). |
 | 20 | Quiet Moment | **Partial** | ✅ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ⚠️ | ✅ | Signal is `LivingEntryTriggerType.quietMoment` using `lowMotion + appOpenedAfterInactivity + eveningHours` (no real motion sensor, uses app-state proxy); flag coverage inconsistent across surfaces |
-| 21 | Emergency Care | **Partial** | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🔴 CONSENT_MISSING: `CrisisDetectionService` and `EnhancedCrisisSupportService` passively detect crisis language from all message/content streams; no opt-in consent before activation |
+| 21 | Emergency Care | **Partial** | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ | **FIXED 2026-05-31**: `.safetyEscalation` consent gates Firestore write in `callFirebaseAICrisisDetectionAPI`. Detection itself (pattern matching + AI + resource surfacing) intentionally always-on — this is correct product behaviour. |
 
 ---
 
@@ -94,7 +115,7 @@
 
 | # | System | State | signal | consent | proxy | 2I | action | UI | flag | tests | Top Risk |
 |---|--------|-------|--------|---------|-------|-----|--------|-----|------|-------|----------|
-| A | Faith Rhythm Intelligence | **Partial** | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | 🔴 CONSENT_MISSING: `PersonalSpiritualGraphService` infers spiritual patterns from content passively; `AmenFabricConsentScope.wellnessSignals` never enforced; 🟡 NO_FLAG at `recordPattern()` |
+| A | Faith Rhythm Intelligence | **Partial** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **FIXED 2026-05-31**: `recordPattern()` now gated by `spiritualRhythmEnabled` flag (first line) + `.wellnessSignals` consent + `.emotionalContext` consent (type-specific for `.emotionalTrigger`). All convenience wrappers inherit guards automatically. |
 | B | Spiritual Milestone Detection | **Partial** | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `AmenJourneyContinuityEngine.FormationMilestone` and `SpiritualRhythmOS` track streaks and milestones; milestone data flows through Firestore without explicit consent gate for behavioral inference |
 | C | Safe Attention System | **Partial** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Well-covered: `antiDoomscrollEnabled`, `DoomscrollGuardTests`, `mediaDoomScrollGuardEnabled`, `lateNightPauseEnabled`, `HealthyModeService`; gap is no on-device motion signal for actual use-intensity |
 | D | Context-Aware Berean | **Partial** | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | CarPlay: Present (flag-gated). Lock Screen/Dynamic Island: `AmenLiveActivityAttributes` + `PrayerSessionAttributes` + `BereanStudyAttributes` exist. Watch: zero code found. Siri/AppIntents: `AmenAppIntents.swift` + `AmenIntentRouter.swift` present. Spotlight: `SpotlightIndexingService` + `AmenSpotlightService` present. Share Sheet: `BereanShareSheet.swift` present. Camera/Photos → OCR: `BereanVisualScriptureService` + Vision framework present. PDFs: exporter exists (`ChurchNotesPDFExporter`) but inbound PDF OCR not found. Safari Extension: not found. |

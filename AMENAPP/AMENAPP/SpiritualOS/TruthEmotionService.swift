@@ -15,6 +15,7 @@ final class TruthEmotionService: ObservableObject {
     private init() {}
 
     func analyze(text: String) async {
+        guard AmenAIConsentStore.shared.hasFabricConsent(for: .emotionalContext) else { return } // consent gate
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isAnalyzing = true
         defer { isAnalyzing = false }

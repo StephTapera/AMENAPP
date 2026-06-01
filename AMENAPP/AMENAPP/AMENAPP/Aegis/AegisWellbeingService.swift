@@ -57,8 +57,18 @@ final class AegisWellbeingService: ObservableObject {
             }
         } catch {
             // Non-fatal: use defaults
-            state.userId = userId
-            state.sessionStartedAt = Date()
+            state = AegisWellbeingState(
+                userId: userId,
+                hiddenMetrics: false,
+                antiRageEnabled: false,
+                doomscrollGuardEnabled: false,
+                lateNightFrictionEnabled: false,
+                memoryControlsEnabled: false,
+                mutedDates: [],
+                mutedUserIds: [],
+                sessionStartedAt: Date(),
+                scrollDepthToday: 0
+            )
         }
 
         scheduleMidnightReset()

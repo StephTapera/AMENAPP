@@ -277,6 +277,7 @@ actor WhisperVoiceService {
 
     // MARK: - Whisper via Cloud Function Proxy
 
+    // ✓ Routes through Firebase CF — server-side proxy confirmed
     /// Converts audio file to base64 and calls the "whisperProxy" Firebase callable.
     /// The OPENAI_API_KEY never leaves the server.
     private func callWhisperAPI(audioFileURL: URL, durationSeconds: Double) async throws -> WhisperTranscriptionResult {

@@ -34,7 +34,7 @@ actor AegisVisionDetector {
 
         // ── C13: EXIF/GPS strip ─────────────────────────────────────────────
         // Run first so callers can swap the stripped image if needed.
-        if AegisFeatureFlags.shared.isEnabled(.exifGpsStrip),
+        if await AegisFeatureFlags.shared.isEnabled(.exifGpsStrip),
            let data = image.jpegData(compressionQuality: 0.95) {
             let stripped = stripExif(from: data)
             let wasStripped = stripped.count != data.count || !dataContainsGPS(data)
@@ -58,7 +58,7 @@ actor AegisVisionDetector {
         }
 
         // ── C11: Real-time location via EXIF timestamp ───────────────────────
-        if AegisFeatureFlags.shared.isEnabled(.realtimeLocation),
+        if await AegisFeatureFlags.shared.isEnabled(.realtimeLocation),
            let data = image.jpegData(compressionQuality: 0.95) {
             if let locationResult = detectRealtimeLocation(from: data) {
                 results.append(locationResult)
@@ -66,19 +66,25 @@ actor AegisVisionDetector {
         }
 
         // ── Text recognition pass (C2, C3, C4, C5, C6, C7, C8, C9) ─────────
-        let textCapabilities: [AegisCapability] = [
+        let textCapabilityList: [AegisCapability] = [
             .schoolExposure, .homeAddress, .licensePlate,
             .sensitiveDocs, .idPassport, .medicalDocs, .financialInfo, .sensitiveBackground
         ]
-        let enabledTextCaps = textCapabilities.filter { AegisFeatureFlags.shared.isEnabled($0) }
+        var enabledTextCaps: [AegisCapability] = []
+        for cap in textCapabilityList {
+            if await AegisFeatureFlags.shared.isEnabled(cap) { enabledTextCaps.append(cap) }
+        }
         if !enabledTextCaps.isEmpty {
             let textResults = await runTextRecognition(on: cgImage, for: enabledTextCaps)
             results.append(contentsOf: textResults)
         }
 
         // ── Face detection pass (C1, C10) ────────────────────────────────────
-        let faceCapabilities: [AegisCapability] = [.childMinorPresence, .multiPersonFace]
-        let enabledFaceCaps = faceCapabilities.filter { AegisFeatureFlags.shared.isEnabled($0) }
+        let faceCapabilityList: [AegisCapability] = [.childMinorPresence, .multiPersonFace]
+        var enabledFaceCaps: [AegisCapability] = []
+        for cap in faceCapabilityList {
+            if await AegisFeatureFlags.shared.isEnabled(cap) { enabledFaceCaps.append(cap) }
+        }
         if !enabledFaceCaps.isEmpty {
             let faceResults = await runFaceDetection(on: cgImage, for: enabledFaceCaps)
             results.append(contentsOf: faceResults)
@@ -223,7 +229,7 @@ actor AegisVisionDetector {
                         "\\bms\\b.*school", "\\bes\\b.*school"
                     ]
                     let schoolRegex = schoolPatterns.joined(separator: "|")
-                    if matchesPattern(schoolRegex, in: fullText, caseInsensitive: true) {
+                    if self.matchesPattern(schoolRegex, in: fullText, caseInsensitive: true) {
                         results.append(AegisDetectionResult.make(
                             capability: .schoolExposure,
                             severity: .warn,
@@ -247,8 +253,8 @@ actor AegisVisionDetector {
                     // Matches patterns like "123 Main Street", "4B Oak Ave", zip codes
                     let addressPattern = "\\b\\d{1,5}\\s+[A-Za-z]+(?:\\s+[A-Za-z]+){0,3}\\s+(?:st(?:reet)?|ave(?:nue)?|blvd|boulevard|rd|road|dr(?:ive)?|ln|lane|ct|court|pl(?:ace)?|way|cir(?:cle)?|terr(?:ace)?|pkwy|parkway)\\b"
                     let zipPattern = "\\b\\d{5}(?:-\\d{4})?\\b"
-                    let hasAddress = matchesPattern(addressPattern, in: fullText, caseInsensitive: true)
-                    let hasZip = matchesPattern(zipPattern, in: fullText, caseInsensitive: false)
+                    let hasAddress = self.matchesPattern(addressPattern, in: fullText, caseInsensitive: true)
+                    let hasZip = self.matchesPattern(zipPattern, in: fullText, caseInsensitive: false)
                     if hasAddress || (hasZip && fullText.count > 20) {
                         results.append(AegisDetectionResult.make(
                             capability: .homeAddress,
@@ -272,7 +278,7 @@ actor AegisVisionDetector {
                 if capabilities.contains(.licensePlate) {
                     // US + international plate patterns
                     let platePattern = "\\b[A-Z0-9]{1,3}[\\s-]?[A-Z0-9]{2,4}[\\s-]?[A-Z0-9]{1,4}\\b"
-                    if matchesPattern(platePattern, in: fullText, caseInsensitive: false) {
+                    if self.matchesPattern(platePattern, in: fullText, caseInsensitive: false) {
                         results.append(AegisDetectionResult.make(
                             capability: .licensePlate,
                             severity: .warn,
@@ -299,7 +305,7 @@ actor AegisVisionDetector {
                         "employee id", "tax return", "w-2", "1099", "ssn",
                         "social security", "account number", "case number"
                     ]
-                    if containsKeyword(from: docKeywords, in: fullText) {
+                    if self.containsKeyword(from: docKeywords, in: fullText) {
                         results.append(AegisDetectionResult.make(
                             capability: .sensitiveDocs,
                             severity: .warn,
@@ -326,7 +332,7 @@ actor AegisVisionDetector {
                         "nationality", "place of birth", "mrz", "<<", // MRZ line marker
                         "license no", "lic no", "id no", "id number"
                     ]
-                    if containsKeyword(from: idKeywords, in: fullText) {
+                    if self.containsKeyword(from: idKeywords, in: fullText) {
                         results.append(AegisDetectionResult.make(
                             capability: .idPassport,
                             severity: .block,
@@ -353,7 +359,7 @@ actor AegisVisionDetector {
                         "medical record", "hospital", "clinic", "pharmacy",
                         "lab result", "blood type", "hiv", "covid", "radiology"
                     ]
-                    if containsKeyword(from: medKeywords, in: fullText) {
+                    if self.containsKeyword(from: medKeywords, in: fullText) {
                         results.append(AegisDetectionResult.make(
                             capability: .medicalDocs,
                             severity: .warn,
@@ -381,10 +387,10 @@ actor AegisVisionDetector {
                     let bankKeywords = ["visa", "mastercard", "american express", "amex",
                                         "discover", "checking account", "savings account",
                                         "iban", "swift", "wire transfer"]
-                    let hasCardPattern = matchesPattern(cardPattern, in: fullText, caseInsensitive: false)
-                    let hasRoutingPattern = matchesPattern(routingPattern, in: fullText, caseInsensitive: true)
-                    let hasAccountPattern = matchesPattern(accountPattern, in: fullText, caseInsensitive: true)
-                    let hasBankKeyword = containsKeyword(from: bankKeywords, in: fullText)
+                    let hasCardPattern = self.matchesPattern(cardPattern, in: fullText, caseInsensitive: false)
+                    let hasRoutingPattern = self.matchesPattern(routingPattern, in: fullText, caseInsensitive: true)
+                    let hasAccountPattern = self.matchesPattern(accountPattern, in: fullText, caseInsensitive: true)
+                    let hasBankKeyword = self.containsKeyword(from: bankKeywords, in: fullText)
 
                     if hasCardPattern || hasRoutingPattern || hasAccountPattern || hasBankKeyword {
                         let severity: AegisSeverity = (hasCardPattern || hasRoutingPattern) ? .block : .warn
@@ -411,7 +417,7 @@ actor AegisVisionDetector {
                     // Trigger if we see rectangle shapes that look like screens/docs
                     // AND those regions contain PII-like text
                     let hasScreenRect = !rectangleObservations.isEmpty
-                    let hasPiiHint = containsKeyword(from: [
+                    let hasPiiHint = self.containsKeyword(from: [
                         "password", "ssn", "account", "private", "confidential",
                         "bank", "pin", "secret", "login", "credentials"
                     ], in: fullText)
@@ -532,11 +538,10 @@ actor AegisVisionDetector {
             }
         }
 
-        CGImageDestinationAddImageFromSource(destination, source, 0,
-            (filteredProps.isEmpty ? copyOptions : filteredProps.merging(
-                copyOptions as [String: Any], uniquingKeysWith: { _, new in new }
-            )) as CFDictionary
-        )
+        let mergedProps: [String: Any] = filteredProps.isEmpty
+            ? copyOptions as [String: Any]
+            : filteredProps.merging(copyOptions as [String: Any], uniquingKeysWith: { _, new in new })
+        CGImageDestinationAddImageFromSource(destination, source, 0, mergedProps as CFDictionary)
 
         guard CGImageDestinationFinalize(destination) else { return data }
         return output as Data
@@ -544,14 +549,14 @@ actor AegisVisionDetector {
 
     // MARK: - Pattern Matching Helpers
 
-    private func matchesPattern(_ pattern: String, in text: String, caseInsensitive: Bool) -> Bool {
+    nonisolated private func matchesPattern(_ pattern: String, in text: String, caseInsensitive: Bool) -> Bool {
         let options: NSRegularExpression.Options = caseInsensitive ? [.caseInsensitive] : []
         guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else { return false }
         let range = NSRange(text.startIndex..., in: text)
         return regex.firstMatch(in: text, range: range) != nil
     }
 
-    private func containsKeyword(from keywords: [String], in text: String) -> Bool {
+    nonisolated private func containsKeyword(from keywords: [String], in text: String) -> Bool {
         let lowered = text.lowercased()
         return keywords.contains { lowered.contains($0.lowercased()) }
     }

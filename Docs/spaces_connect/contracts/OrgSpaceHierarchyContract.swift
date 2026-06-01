@@ -69,6 +69,13 @@
 //    from SpaceMemberRole (which uses owner/admin/member) — SpaceRole adds
 //    moderator and guest roles required by the org hierarchy.
 //
+//  COLLISION (P0 — must fix before adding to Xcode target):
+//    `enum SpaceRole { case member, moderator, admin }` (non-Codable) also exists in
+//    AMENAPP/AMENAPP/AMENAPP/MessagingOS/AmenCommunitySpaceTabs.swift
+//    That type must be renamed to `MessagingSpaceRole` before this contract file
+//    is added to the Xcode project target. The contracts agent has flagged this
+//    in GATE_MINUS_1.md — a human or the Spaces Agent must resolve it.
+//
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Foundation

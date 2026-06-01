@@ -90,6 +90,12 @@ final class SermonIntelligenceEngine: ObservableObject {
 
     /// Full pipeline: audio file → Church Notes.
     func processAudio(url: URL, churchName: String = "", speakerName: String = "") async {
+        // Feature flag gate: sermon audio capture must be enabled via Remote Config.
+        guard AMENFeatureFlags.shared.sermonAudioCaptureEnabled else { return }
+        // Consent gate: user must have granted wellnessSignals fabric consent
+        // before any audio capture or AI processing begins.
+        guard AmenAIConsentStore.shared.hasFabricConsent(for: .wellnessSignals) else { return }
+
         var recording = SermonRecording(audioURL: url, churchName: churchName, speakerName: speakerName)
         currentRecording = recording
         isTranscribing = true

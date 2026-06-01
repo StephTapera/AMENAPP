@@ -11,6 +11,7 @@
 // callWithTimeout is defined on Functions in FirebaseCallableHelper.swift.
 
 import Foundation
+import UIKit
 import FirebaseAuth
 import FirebaseFunctions
 

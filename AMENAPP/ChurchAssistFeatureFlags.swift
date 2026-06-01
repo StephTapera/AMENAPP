@@ -4,17 +4,19 @@
 
 import Foundation
 
+// TODO: Wire to AMENFeatureFlags.shared for Remote Config kill-switch support
+
 // MARK: - ChurchAssistFeatureFlags
 
 struct ChurchAssistFeatureFlags {
 
-    static var enableChurchAssistPill: Bool = true
-    static var enableArrivalPrompts: Bool = true
-    static var enableServiceMode: Bool = true
-    static var enablePostVisitReflection: Bool = true
-    static var enableVisitMemory: Bool = true
-    static var enableFirstVisitCompanion: Bool = true
-    static var enableRevisitSuggestions: Bool = true
+    static var enableChurchAssistPill: Bool = false
+    static var enableArrivalPrompts: Bool = false
+    static var enableServiceMode: Bool = false
+    static var enablePostVisitReflection: Bool = false
+    static var enableVisitMemory: Bool = false
+    static var enableFirstVisitCompanion: Bool = false
+    static var enableRevisitSuggestions: Bool = false
 
     #if DEBUG
     static var debugForceAllEnabled: Bool = true

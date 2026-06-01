@@ -13,6 +13,7 @@
 
 import SwiftUI
 import PhotosUI
+import FirebaseAuth
 
 // MARK: - SelahStoryComposerView
 
@@ -678,7 +679,7 @@ final class SelahStoryComposerViewModel: ObservableObject {
             showError(message: "Please add a photo or video before sharing.")
             return
         }
-        guard let uid = FirebaseAuth.Auth.auth().currentUser?.uid else {
+        guard let uid = Auth.auth().currentUser?.uid else {
             showError(message: "Please sign in to share a story.")
             return
         }

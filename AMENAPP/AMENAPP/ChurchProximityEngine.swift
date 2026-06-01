@@ -149,6 +149,12 @@ final class ChurchProximityEngine: NSObject, ObservableObject {
         for serviceWindow: ChurchServiceWindow,
         priorAttendanceCount: Int = 0
     ) {
+        // Consent gate: user must have granted wellnessSignals fabric consent
+        // before any geofence, motion, or calendar fusion can begin.
+        guard AmenAIConsentStore.shared.hasFabricConsent(for: .wellnessSignals) else { return }
+        // Preference gate: if the user has explicitly disabled quiet mode, skip monitoring.
+        guard QuietModePreferenceService.shared.preference != .off else { return }
+
         stopMonitoring()
 
         activeWindow = serviceWindow

@@ -277,6 +277,11 @@ final class PersonalSpiritualGraphService: ObservableObject {
         intensity: Double,
         source: SpiritualPatternEntry.PatternSource
     ) async {
+        guard AMENFeatureFlags.shared.spiritualRhythmEnabled else { return }
+        guard AmenAIConsentStore.shared.hasFabricConsent(for: .wellnessSignals) else { return } // consent gate
+        if type == .emotionalTrigger {
+            guard AmenAIConsentStore.shared.hasFabricConsent(for: .emotionalContext) else { return } // consent gate
+        }
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         let now = Date()

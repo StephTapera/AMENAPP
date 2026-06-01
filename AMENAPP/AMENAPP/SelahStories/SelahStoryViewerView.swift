@@ -353,7 +353,7 @@ struct SelahStoryViewerView: View {
                     if #available(iOS 17, *) {
                         Image(systemName: kind.icon)
                             .font(.system(size: 22, weight: .semibold))
-                            .symbolEffect(reacted ? .bounce : .pulse.byLayer, value: reacted)
+                            .symbolEffect(.bounce, value: reacted)
                     } else {
                         Image(systemName: kind.icon)
                             .font(.system(size: 22, weight: .semibold))
@@ -587,7 +587,7 @@ struct SelahStoryViewerView: View {
                 try await ref.setData([
                     "reactorUid": uid,
                     "kind": kind.rawValue,
-                    "createdAt": Firestore.FieldValue.serverTimestamp()
+                    "createdAt": FieldValue.serverTimestamp()
                 ])
             } else {
                 try await ref.delete()

@@ -116,9 +116,16 @@ Covers ChurchRecord (Find a Church), PostProvenance (feed provenance), SelahStor
 **OrgType vs OrganizationType (HIGH PRIORITY)**
 `OrganizationType` in `ContextualExperiences/Models/ContextualExperienceModels.swift` and `ConversationOSOrgType` in `ConversationOS/AmenConversationOSModels.swift` have overlapping but non-identical case sets. SpacesConnect agents MUST use `OrgType` from OrgSpaceHierarchyContract. The onboarding wizard (`OrgSpaceType`) must be updated to map to `OrgType` when writing to Firestore.
 
-**SpaceRole vs SpaceMemberRole**
+**SpaceRole vs SpaceMemberRole vs AmenCommunitySpaceTabs.SpaceRole (P0 COLLISION)**
 `SpaceMemberRole` (owner | admin | member) exists in `Spaces/SpacesModels.swift`.
-`SpaceRole` (this contract) adds moderator and guest. They are for different collections: `SpaceMemberRole` governs `spaces/{spaceId}/members` in the Slack-like Spaces module; `SpaceRole` governs `/orgs/{orgId}/spaces/{spaceId}/members` in the org hierarchy layer.
+`enum SpaceRole { case member, moderator, admin }` (no Codable, no CaseIterable) exists in
+`AMENAPP/AMENAPP/AMENAPP/MessagingOS/AmenCommunitySpaceTabs.swift`.
+This is a **direct name collision** — both the contract and the MessagingOS file define `SpaceRole`.
+When SpacesConnect files are added to the Xcode target, this will cause a redeclaration compiler error.
+**Required action before Phase 0:** rename `AmenCommunitySpaceTabs.SpaceRole` to
+`MessagingSpaceRole` (or a local private enum) to clear the collision. The contracts agent
+has noted this but cannot edit existing Swift files per task scope.
+`SpaceRole` (this contract) adds owner and guest on top of the MessagingOS cases, and is Codable + CaseIterable.
 
 **BereanMode vs BereanPersonalityMode (CRITICAL)**
 `BereanPersonalityMode` (15 cases) in `AMENAPP/BereanAIAssistantView.swift` is a conversational persona.

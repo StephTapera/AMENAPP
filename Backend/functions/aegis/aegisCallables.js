@@ -9,7 +9,21 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const { callWithTimeout } = require('../lib/callWithTimeout');
+
+// callWithTimeout — inline helper (also used by trustSafety pipeline).
+// Wraps a promise factory with a hard timeout; rejects with a structured
+// error so callers can surface a clean HttpsError rather than a cold hang.
+function callWithTimeout(promiseFn, timeoutMs) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error(`Operation timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+        Promise.resolve()
+            .then(() => promiseFn())
+            .then(result => { clearTimeout(timer); resolve(result); })
+            .catch(err => { clearTimeout(timer); reject(err); });
+    });
+}
 
 // Lazy-load moderation helpers to avoid cold-start cost for unrelated functions.
 let _imagePreflightFn, _videoPreflightFn, _audioPreflightFn, _textPreflightFn;

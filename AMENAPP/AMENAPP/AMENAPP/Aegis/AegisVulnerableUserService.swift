@@ -19,7 +19,7 @@ actor AegisVulnerableUserService {
 
     /// Detects grief signals in post text and auto-restricts DMs from strangers for 72h.
     func assessGriefVulnerability(postText: String, userId: String) async -> AegisDetectionResult? {
-        guard AegisFeatureFlags.shared.isEnabled(.griefTargeting) else { return nil }
+        guard await AegisFeatureFlags.shared.isEnabled(.griefTargeting) else { return nil }
 
         let keywords = ["funeral", "loss", "passed away", "memorial", "grieving", "in memoriam",
                         "rest in peace", "gone too soon", "bereavement", "mourning"]
@@ -75,7 +75,7 @@ actor AegisVulnerableUserService {
 
     /// Detects elder or new-believer vulnerability signals and warns when romantic or financial approaches occur.
     func assessElderNewBeliever(accountAge: TimeInterval, interactionPatterns: [String]) async -> AegisDetectionResult? {
-        guard AegisFeatureFlags.shared.isEnabled(.elderNewBeliever) else { return nil }
+        guard await AegisFeatureFlags.shared.isEnabled(.elderNewBeliever) else { return nil }
 
         let isNewAccount = accountAge < (90 * 24 * 3600) // < 90 days
         let elderSignals = ["senior", "retired", "grandparent", "elderly", "widow", "widower"]
@@ -136,7 +136,7 @@ actor AegisVulnerableUserService {
 
     /// Detects crisis signals followed by financial solicitation from non-connections.
     func assessCrisisFinancial(postText: String, userId: String) async -> AegisDetectionResult? {
-        guard AegisFeatureFlags.shared.isEnabled(.crisisFinancial) else { return nil }
+        guard await AegisFeatureFlags.shared.isEnabled(.crisisFinancial) else { return nil }
 
         let crisisKeywords = ["lost my job", "divorce", "bankruptcy", "can't pay", "medical bills",
                               "evicted", "foreclosure", "laid off", "homeless", "desperate need"]
