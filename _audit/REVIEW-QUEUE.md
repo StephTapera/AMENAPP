@@ -45,11 +45,12 @@ All client-side items are now RESOLVED. One backend action remains.
 **Status:** OPEN — client-side reads now tolerate both `timestamp` and `createdAt` fields, but historical Firestore documents still use the old name.
 **Action required:** Run a Firestore migration script to copy `timestamp` → `createdAt` for all existing messages.
 
-### RQ-17 | MEDIUM | PremiumManager — StoreKit 1 → StoreKit 2 migration
+### ~~RQ-17~~ | FALSE POSITIVE | PremiumManager — already on StoreKit 2
 **File:** `AMENAPP/PremiumManager.swift`
-**Status:** OPEN — still uses deprecated StoreKit 1 `SKProductsRequest`/`SKPaymentTransaction` APIs.
-**Action required:** Migrate to StoreKit 2 (`Product.products(for:)`, `Transaction.updates`, `AppStore.sync()`). App Store Connect configuration unchanged.
+**Status:** CLOSED — `PremiumManager` already uses `Product.products(for:)`, `Transaction.updates`,
+`AppStore.sync()`, and `Transaction.currentEntitlements`. No SK1 APIs (`SKProductsRequest`,
+`SKPaymentTransaction`) exist anywhere in the iOS codebase. Finding was stale.
 
 ---
 
-*Updated: 2026-05-31 — all client-side items resolved; 3 backend items remain open*
+*Updated: 2026-06-01 — RQ-17 closed (false positive); 2 backend items remain open (RQ-01, RQ-13)*
