@@ -17,3 +17,7 @@ Stopped during Phase 0 safety baseline. No fixes were attempted.
 
 None. The run stopped before Phase 1 because the baseline was not green.
 
+## Preservation Commits
+
+- `385951b` recorded the baseline failure journals.
+- `2f3dbca` preserved post-baseline workspace changes so no local files were deleted or discarded.

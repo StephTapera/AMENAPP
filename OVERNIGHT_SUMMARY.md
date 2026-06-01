@@ -6,6 +6,8 @@ The unattended audit-and-fix run stopped during Phase 0 because the baseline Xco
 
 No audit agents were dispatched, no fixes were attempted, and no production or remote state was touched.
 
+After the failed baseline build, local workspace changes were preserved in commits on the isolated audit branch rather than deleted or discarded.
+
 ## Recovery Anchors
 
 - Audit branch: `audit/overnight-20260601`
@@ -26,6 +28,11 @@ Nothing. The baseline was red, so fixes were not allowed.
 
 Nothing.
 
+## Preservation Commits
+
+- `385951b` recorded the baseline failure journals.
+- `2f3dbca` preserved post-baseline workspace changes observed after the build.
+
 ## Needs Human Review
 
 1. Resolve the compile error in `AmenConnectSpacesPhase0BindingService.swift`.
@@ -37,4 +44,3 @@ Nothing.
 - Review audit branch commits: `git log overnight-baseline-20260601..HEAD`
 - Return to the prior working branch if desired: `git switch feature/master-run-20260531`
 - The baseline tag is intact: `overnight-baseline-20260601`
-

@@ -4,6 +4,13 @@
 
 Stopped during Phase 0 safety baseline. No audit swarm was dispatched and no fixes were attempted.
 
+## Preservation Notes
+
+After the baseline failure was recorded, additional local workspace changes were preserved in commits on this isolated audit branch instead of being deleted or discarded.
+
+- `385951b` recorded the baseline failure journals.
+- `2f3dbca` preserved post-baseline workspace changes observed after the build.
+
 ## Baseline
 
 - Branch: `audit/overnight-20260601`
@@ -22,4 +29,3 @@ The baseline Xcode build failed, so the overnight audit-and-fix run was not star
 
 1. Fix the baseline compile error in `AMENAPP/AMENAPP/ConnectSpaces/AmenConnectSpacesPhase0BindingService.swift:407`.
 2. Re-run the overnight process only after the app builds cleanly from the selected starting commit.
-
