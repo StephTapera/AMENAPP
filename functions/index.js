@@ -813,6 +813,7 @@ exports.bereanReportTriage = berean.bereanReportTriage;
 exports.bereanRankingLabels = berean.bereanRankingLabels;
 // bereanGenericProxy + bereanChatProxy — owned by Backend/functions TS codebase (enforceAppCheck: true confirmed); removed from default codebase to resolve two-codebase conflict
 exports.deleteAccount = berean.deleteAccount;
+exports.bereanChatProxyStream = require("./bereanStreamProxy").bereanChatProxyStream;
 
 // ============================================================================
 // GENKIT-STYLE AI FLOWS — daily verse, notification text, digest

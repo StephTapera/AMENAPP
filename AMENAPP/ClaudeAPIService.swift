@@ -4,6 +4,7 @@
 // The Claude API key NEVER touches the client binary.
 
 import Foundation
+import FirebaseAuth
 import FirebaseFunctions
 
 // ─── MARK: Response Models ───────────────────────────────────────
@@ -176,6 +177,76 @@ actor ClaudeAPIService {
                         let token = i == 0 ? word : " " + word
                         continuation.yield(token)
                         try await Task.sleep(nanoseconds: 15_000_000) // ~15ms per word
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
+    // ─── Real SSE Streaming via HTTP proxy ───────────────────────
+    func streamFromProxy(
+        system: String,
+        messages: [ClaudeMessage],
+        maxTokens: Int = 1024
+    ) -> AsyncThrowingStream<String, Error> {
+        let urlString = Bundle.main.object(forInfoDictionaryKey: "BereanStreamURL") as? String ?? ""
+        guard !urlString.isEmpty, let url = URL(string: urlString) else {
+            return stream(system: system, messages: messages, maxTokens: maxTokens)
+        }
+
+        let latestUserMessage = messages.last(where: { $0.role == "user" })?.content ?? ""
+
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    guard let idToken = try await Auth.auth().currentUser?.getIDToken() else {
+                        return continuation.finish(throwing: ClaudeError.networkError("Not authenticated."))
+                    }
+
+                    var request = URLRequest(url: url, timeoutInterval: 120)
+                    request.httpMethod = "POST"
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+
+                    let body: [String: Any] = [
+                        "systemPrompt": system,
+                        "userMessage": latestUserMessage,
+                        "maxTokens": maxTokens
+                    ]
+                    request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+                    let (asyncBytes, _) = try await URLSession.shared.bytes(for: request)
+
+                    var lineBuffer = ""
+                    for try await byte in asyncBytes {
+                        let char = Character(UnicodeScalar(byte))
+                        if char == "\n" {
+                            let line = lineBuffer
+                            lineBuffer = ""
+                            guard line.hasPrefix("data: ") else { continue }
+                            let payload = String(line.dropFirst(6))
+                            if payload == "[DONE]" {
+                                continuation.finish()
+                                return
+                            }
+                            guard let data = payload.data(using: .utf8),
+                                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                            else { continue }
+                            if let errMsg = json["error"] as? String {
+                                continuation.finish(throwing: ClaudeError.networkError(errMsg))
+                                return
+                            }
+                            if let delta = json["delta"] as? [String: Any],
+                               let text = delta["text"] as? String {
+                                continuation.yield(text)
+                            }
+                        } else if char != "\r" {
+                            lineBuffer.append(char)
+                        }
                     }
                     continuation.finish()
                 } catch {

@@ -45,6 +45,7 @@ struct LiquidGlassMessagesView: View {
     let conversationSubtitle: String
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var messages: [AMENMessage] = []
     @State private var messageText = ""
@@ -201,7 +202,7 @@ struct LiquidGlassMessagesView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(.ultraThinMaterial)
+            .background(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
             .overlay(alignment: .bottom) {
                 ShimmerLine()
             }
@@ -717,6 +718,7 @@ struct LiquidGlassInputBar: View {
     let onSend: () -> Void
     let onClearQuote: () -> Void
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var isFocused: Bool
 
     private let quickReplies = ["🙏 Praying for you", "❤️ Amen!", "✝️ This is powerful"]
@@ -738,12 +740,12 @@ struct LiquidGlassInputBar: View {
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(.ultraThinMaterial)
-                                    .background(Color.white.opacity(0.05))
+                                    .background(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemGroupedBackground)) : AnyShapeStyle(.ultraThinMaterial))
+                                    .background(Color.white.opacity(reduceTransparency ? 0 : 0.05))
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
-                                            .strokeBorder(.white.opacity(0.2), lineWidth: 0.5)
+                                            .strokeBorder(.white.opacity(reduceTransparency ? 0 : 0.2), lineWidth: 0.5)
                                     )
                             }
                             .buttonStyle(.plain)
@@ -785,8 +787,8 @@ struct LiquidGlassInputBar: View {
                     .buttonStyle(.plain)
                 }
                 .padding(12)
-                .background(.ultraThinMaterial)
-                .background(Color.white.opacity(0.05))
+                .background(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemGroupedBackground)) : AnyShapeStyle(.ultraThinMaterial))
+                .background(Color.white.opacity(reduceTransparency ? 0 : 0.05))
                 .cornerRadius(12)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -860,10 +862,10 @@ struct LiquidGlassInputBar: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(.ultraThinMaterial)
+            .background(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemGroupedBackground)) : AnyShapeStyle(.ultraThinMaterial))
             .background(
                 LinearGradient(
-                    colors: [Color.white.opacity(0.12), Color.white.opacity(0.06)],
+                    colors: [Color.white.opacity(reduceTransparency ? 0 : 0.12), Color.white.opacity(reduceTransparency ? 0 : 0.06)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -873,7 +875,7 @@ struct LiquidGlassInputBar: View {
                 RoundedRectangle(cornerRadius: 28)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [.white.opacity(0.3), .clear],
+                            colors: [.white.opacity(reduceTransparency ? 0 : 0.3), .clear],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),

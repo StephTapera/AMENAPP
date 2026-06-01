@@ -11,6 +11,7 @@ import FirebaseAuth
 struct EmailVerificationGateView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isCheckingVerification = false
     @State private var resendCooldown = 0
     @State private var canResend = true
@@ -20,107 +21,119 @@ struct EmailVerificationGateView: View {
     
     var body: some View {
         ZStack {
-            // Dark background
-            Color.black
-                .ignoresSafeArea()
-            
+            LinearGradient(
+                colors: [Color(red: 0.05, green: 0.02, blue: 0.12), Color.black],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
             VStack(spacing: 32) {
                 Spacer()
-                
-                // Icon
-                Image(systemName: "envelope.badge.shield.half.filled")
-                    .font(.systemScaled(80))
-                    .foregroundStyle(.white.opacity(0.9))
-                
-                // Title
-                Text("Verify Your Email")
-                    .font(.custom("OpenSans-Bold", size: 28))
-                    .foregroundStyle(.white)
-                
-                // Description
-                VStack(spacing: 12) {
-                    Text("We're sending a verification link to:")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.white.opacity(0.6))
-                    
-                    Text(Auth.auth().currentUser?.email ?? "your email address")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+
+                VStack(spacing: 32) {
+                    // Icon
+                    Image(systemName: "envelope.badge.shield.half.filled")
+                        .font(.systemScaled(80))
+                        .foregroundStyle(.white.opacity(0.9))
+
+                    // Title
+                    Text("Verify Your Email")
+                        .font(.custom("OpenSans-Bold", size: 28))
                         .foregroundStyle(.white)
-                    
-                    Text("Check your email and click the verification link. It may take a few moments to arrive.")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                    
-                    Text("Don't see it? Check your spam folder.")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.orange.opacity(0.8))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 4)
-                }
-                
-                Spacer()
-                
-                // Actions
-                VStack(spacing: 16) {
-                    // Check verification status button
-                    AmenLiquidGlassPillButton(
-                        title: isCheckingVerification ? "Checking..." : "Check Verification Status",
-                        systemImage: "checkmark.circle",
-                        isLoading: isCheckingVerification,
-                        isDisabled: isCheckingVerification,
-                        hint: "Checks whether your email address has been verified",
-                        action: { checkVerificationStatus() }
-                    )
-                    .frame(maxWidth: .infinity)
 
-                    // Resend email button
-                    Button {
-                        resendVerificationEmail()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "envelope.arrow.triangle.branch")
-                                .font(.systemScaled(16))
-
-                            if resendCooldown > 0 {
-                                Text("Resend in \(resendCooldown)s")
-                                    .font(.custom("OpenSans-Regular", size: 14))
-                            } else {
-                                Text("Resend Verification Email")
-                                    .font(.custom("OpenSans-Regular", size: 14))
-                            }
-                        }
-                        .foregroundStyle(.white.opacity(canResend ? 1.0 : 0.5))
-                    }
-                    .buttonStyle(SelahGlassPressButtonStyle())
-                    .disabled(!canResend)
-                    
-                    // Success message
-                    if showSuccessMessage {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                            Text("Verification email sent!")
-                                .font(.custom("OpenSans-Regular", size: 12))
-                                .foregroundStyle(.white.opacity(0.8))
-                        }
-                        .transition(.opacity)
-                    }
-                    
-                    // Sign out option
-                    Button {
-                        authViewModel.signOut()
-                    } label: {
-                        Text("Sign Out")
+                    // Description
+                    VStack(spacing: 12) {
+                        Text("We're sending a verification link to:")
                             .font(.custom("OpenSans-Regular", size: 14))
                             .foregroundStyle(.white.opacity(0.6))
+
+                        Text(Auth.auth().currentUser?.email ?? "your email address")
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.white)
+
+                        Text("Check your email and click the verification link. It may take a few moments to arrive.")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+
+                        Text("Don't see it? Check your spam folder.")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.orange.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 4)
                     }
-                    .padding(.top, 8)
+
+                    // Actions
+                    VStack(spacing: 16) {
+                        // Check verification status button
+                        AmenLiquidGlassPillButton(
+                            title: isCheckingVerification ? "Checking..." : "Check Verification Status",
+                            systemImage: "checkmark.circle",
+                            isLoading: isCheckingVerification,
+                            isDisabled: isCheckingVerification,
+                            hint: "Checks whether your email address has been verified",
+                            action: { checkVerificationStatus() }
+                        )
+                        .frame(maxWidth: .infinity)
+
+                        // Resend email button
+                        Button {
+                            resendVerificationEmail()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "envelope.arrow.triangle.branch")
+                                    .font(.systemScaled(16))
+
+                                if resendCooldown > 0 {
+                                    Text("Resend in \(resendCooldown)s")
+                                        .font(.custom("OpenSans-Regular", size: 14))
+                                } else {
+                                    Text("Resend Verification Email")
+                                        .font(.custom("OpenSans-Regular", size: 14))
+                                }
+                            }
+                            .foregroundStyle(.white.opacity(canResend ? 1.0 : 0.5))
+                        }
+                        .buttonStyle(SelahGlassPressButtonStyle())
+                        .disabled(!canResend)
+
+                        // Success message
+                        if showSuccessMessage {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("Verification email sent!")
+                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .foregroundStyle(.white.opacity(0.8))
+                            }
+                            .transition(.opacity)
+                        }
+
+                        // Sign out option
+                        Button {
+                            authViewModel.signOut()
+                        } label: {
+                            Text("Sign Out")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                        .padding(.top, 8)
+                    }
                 }
+                .padding(28)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .strokeBorder(Color.white.opacity(reduceTransparency ? 0 : 0.1), lineWidth: 0.5)
+                )
                 .padding(.horizontal, 24)
-                
+
                 Spacer()
             }
         }

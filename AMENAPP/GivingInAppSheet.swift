@@ -25,6 +25,7 @@ struct GivingInAppSheet: View {
     let nonprofit: ChristianNonprofit
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private let accent: Color
     private let presets: [Double] = [5, 10, 25, 50, 100, 250]
@@ -96,6 +97,7 @@ struct GivingInAppSheet: View {
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: showSuccess)
+            .background(reduceTransparency ? AnyShapeStyle(Color(.systemGroupedBackground)) : AnyShapeStyle(.regularMaterial))
         }
     }
 
