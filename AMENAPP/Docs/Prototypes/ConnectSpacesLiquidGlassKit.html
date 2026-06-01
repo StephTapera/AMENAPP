@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AMEN Connect Spaces Liquid Glass Kit</title>
+<style>
+    :root {
+        /* Frozen AMEN Connect + Spaces Phase 0 tokens. */
+        --amen-gold: #D9A441;
+        --amen-purple: #6E4BB5;
+        --amen-blue: #245B8F;
+        --amen-black: #070607;
+
+        --ink: #F7F1E7;
+        --ink-soft: rgba(247, 241, 231, 0.72);
+        --ink-muted: rgba(247, 241, 231, 0.50);
+        --matte: #111013;
+        --matte-2: #18151C;
+        --matte-3: #F7F2EA;
+        --matte-ink: #221C17;
+        --line: rgba(217, 164, 65, 0.24);
+        --glass-fill: rgba(255, 245, 220, 0.118);
+        --glass-fill-strong: rgba(255, 240, 206, 0.18);
+        --glass-stroke: rgba(255, 246, 224, 0.36);
+        --glass-shadow: rgba(0, 0, 0, 0.42);
+        --radius-sm: 10px;
+        --radius-md: 16px;
+        --radius-lg: 24px;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --space-8: 32px;
+        --nav-h: 72px;
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+            radial-gradient(circle at 18% 8%, rgba(217, 164, 65, 0.18), transparent 30%),
+            radial-gradient(circle at 82% 0%, rgba(110, 75, 181, 0.20), transparent 28%),
+            linear-gradient(150deg, #070607 0%, #100E13 46%, #070607 100%);
+        color: var(--ink);
+        overflow-x: hidden;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .prototype {
+        width: min(1440px, 100%);
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 24px 24px 112px;
+        position: relative;
+    }
+
+    .app-shell {
+        display: grid;
+        grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(300px, 380px);
+        gap: 20px;
+        align-items: start;
+    }
+
+    .top-band {
+        position: sticky;
+        top: 16px;
+        z-index: 40;
+        min-height: var(--nav-h);
+        margin-bottom: 20px;
+    }
+
+    /* Surface: floatingNavigation */
+    .glass-nav {
+        height: var(--nav-h);
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 14px 10px 18px;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .mark {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: linear-gradient(145deg, var(--amen-gold), rgba(217, 164, 65, 0.46));
+        color: var(--amen-black);
+        font-weight: 900;
+        box-shadow: 0 0 22px rgba(217, 164, 65, 0.34);
+        flex: 0 0 auto;
+    }
+
+    .brand strong,
+    .panel-title,
+    .drawer-title,
+    .message-author,
+    .summary-title,
+    .media-title {
+        letter-spacing: 0;
+    }
+
+    .brand strong { display: block; font-size: 16px; line-height: 1.1; }
+    .brand span { color: var(--ink-muted); font-size: 12px; }
+
+    .nav-actions {
+        justify-self: end;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Surface: switcher */
+    .switcher {
+        width: min(390px, 100%);
+        height: 48px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px;
+        padding: 4px;
+    }
+
+    .switcher button,
+    .nav-icon,
+    .media-button,
+    .command-button,
+    .chip-button {
+        border: 0;
+        color: var(--ink);
+        background: transparent;
+    }
+
+    .switcher button {
+        min-width: 0;
+        height: 40px;
+        border-radius: 999px;
+        color: var(--ink-soft);
+        font-size: 13px;
+        font-weight: 700;
+        transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .switcher button[aria-pressed="true"] {
+        color: var(--amen-black);
+        background: linear-gradient(180deg, rgba(217, 164, 65, 0.96), rgba(217, 164, 65, 0.72));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 8px 18px rgba(217, 164, 65, 0.24);
+    }
+
+    .nav-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 17px;
+    }
+
+    .glass {
+        position: relative;
+        border-radius: var(--radius-lg);
+        background:
+            linear-gradient(145deg, rgba(255, 255, 255, 0.18), transparent 30%),
+            linear-gradient(180deg, var(--glass-fill-strong), var(--glass-fill));
+        border: 1px solid var(--glass-stroke);
+        box-shadow: 0 18px 45px var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+        backdrop-filter: blur(22px) saturate(152%);
+        -webkit-backdrop-filter: blur(22px) saturate(152%);
+        overflow: hidden;
+    }
+
+    .glass::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+            linear-gradient(90deg, transparent, rgba(217, 164, 65, 0.16), transparent),
+            radial-gradient(circle at 16% 0%, rgba(217, 164, 65, 0.18), transparent 38%),
+            radial-gradient(circle at 86% 22%, rgba(36, 91, 143, 0.15), transparent 34%);
+        opacity: 0.8;
+    }
+
+    .glass > * { position: relative; }
+
+    .matte-panel,
+    .message,
+    .scripture-block,
+    .video-stage {
+        background: var(--matte);
+        border: 1px solid rgba(247, 241, 231, 0.08);
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    .left-stack,
+    .right-stack,
+    .center-stack {
+        display: grid;
+        gap: 16px;
+    }
+
+    .matte-panel {
+        border-radius: var(--radius-lg);
+        padding: 18px;
+    }
+
+    .panel-title {
+        margin: 0 0 14px;
+        font-size: 14px;
+        color: var(--ink-soft);
+        font-weight: 800;
+    }
+
+    .space-list,
+    .care-list,
+    .summary-list { display: grid; gap: 10px; }
+
+    .space-row {
+        min-height: 62px;
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        padding: 10px;
+        border-radius: var(--radius-md);
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid rgba(255, 255, 255, 0.055);
+    }
+
+    .avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: rgba(110, 75, 181, 0.32);
+        color: var(--amen-gold);
+        font-weight: 800;
+    }
+
+    .space-row strong,
+    .space-row span,
+    .message p,
+    .summary-list p,
+    .care-list p { min-width: 0; }
+
+    .space-row strong,
+    .message-author {
+        display: block;
+        font-size: 14px;
+        line-height: 1.2;
+    }
+
+    .space-row span,
+    .meta,
+    .summary-list p,
+    .care-list p {
+        color: var(--ink-muted);
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .hero {
+        min-height: 260px;
+        border-radius: var(--radius-lg);
+        padding: 28px;
+        display: grid;
+        align-content: end;
+        background:
+            linear-gradient(180deg, rgba(7, 6, 7, 0.00), rgba(7, 6, 7, 0.88)),
+            linear-gradient(135deg, rgba(217, 164, 65, 0.44), rgba(110, 75, 181, 0.42) 48%, rgba(36, 91, 143, 0.34));
+        border: 1px solid rgba(217, 164, 65, 0.14);
+        overflow: hidden;
+    }
+
+    .hero h1 {
+        margin: 0 0 10px;
+        font-size: clamp(30px, 5vw, 56px);
+        line-height: 0.96;
+        max-width: 760px;
+        letter-spacing: 0;
+    }
+
+    .hero p {
+        margin: 0;
+        max-width: 670px;
+        color: var(--ink-soft);
+        font-size: 16px;
+        line-height: 1.55;
+    }
+
+    .conversation {
+        display: grid;
+        gap: 14px;
+    }
+
+    .message {
+        border-radius: var(--radius-md);
+        padding: 16px;
+    }
+
+    .message p {
+        margin: 8px 0 0;
+        color: rgba(247, 241, 231, 0.86);
+        line-height: 1.52;
+    }
+
+    .scripture-block {
+        border-radius: var(--radius-md);
+        border-left: 4px solid var(--amen-gold);
+        padding: 18px;
+    }
+
+    .scripture-block p {
+        margin: 0;
+        color: rgba(247, 241, 231, 0.90);
+        font-size: 17px;
+        line-height: 1.58;
+    }
+
+    .scripture-block cite {
+        display: block;
+        margin-top: 10px;
+        color: var(--amen-gold);
+        font-style: normal;
+        font-size: 13px;
+    }
+
+    /* Surface: threadCareDrawer */
+    .care-drawer {
+        min-height: 460px;
+        padding: 18px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 14px;
+    }
+
+    .drawer-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .drawer-title,
+    .summary-title,
+    .media-title { font-size: 15px; font-weight: 850; }
+
+    .status-pill {
+        min-height: 28px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(217, 164, 65, 0.18);
+        color: var(--amen-gold);
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .care-item,
+    .summary-item {
+        min-height: 82px;
+        padding: 12px;
+        border-radius: var(--radius-md);
+        background: rgba(7, 6, 7, 0.36);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .care-item strong,
+    .summary-item strong {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    .drawer-actions { display: grid; grid-template-columns: 1fr 44px; gap: 8px; }
+
+    /* Surface: aiSummaryPanel */
+    .summary-panel {
+        padding: 18px;
+        min-height: 310px;
+        display: grid;
+        gap: 14px;
+    }
+
+    .summary-panel header,
+    .media-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .summary-kicker {
+        color: var(--amen-blue);
+        font-size: 12px;
+        font-weight: 850;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .summary-chip {
+        min-height: 58px;
+        border-radius: var(--radius-md);
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.055);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .summary-chip strong { display: block; font-size: 16px; color: var(--amen-gold); }
+    .summary-chip span { display: block; font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
+
+    .video-wrap { position: relative; }
+
+    .video-stage {
+        min-height: 330px;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        position: relative;
+        display: grid;
+        place-items: center;
+        background:
+            linear-gradient(180deg, rgba(7, 6, 7, 0.10), rgba(7, 6, 7, 0.92)),
+            linear-gradient(145deg, rgba(36, 91, 143, 0.46), rgba(7, 6, 7, 1) 58%);
+    }
+
+    .video-frame {
+        width: min(74%, 520px);
+        aspect-ratio: 16 / 9;
+        border-radius: 18px;
+        background:
+            linear-gradient(145deg, rgba(247, 241, 231, 0.08), rgba(247, 241, 231, 0.02)),
+            radial-gradient(circle at 50% 42%, rgba(217, 164, 65, 0.26), transparent 24%),
+            #09080A;
+        border: 1px solid rgba(247, 241, 231, 0.10);
+        display: grid;
+        place-items: center;
+    }
+
+    .play-core {
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        background: rgba(217, 164, 65, 0.92);
+        color: var(--amen-black);
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        padding-left: 3px;
+    }
+
+    /* Surface: mediaControls */
+    .media-controls {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 18px;
+        min-height: 74px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 14px;
+        align-items: center;
+        padding: 12px;
+    }
+
+    .media-button,
+    .command-button,
+    .chip-button {
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--ink);
+    }
+
+    .media-button { width: 44px; height: 44px; }
+    .command-button { min-height: 42px; padding: 0 14px; font-weight: 800; }
+    .chip-button { min-height: 36px; padding: 0 12px; font-size: 12px; font-weight: 800; }
+
+    .timeline {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(247, 241, 231, 0.18);
+        overflow: hidden;
+        min-width: 90px;
+    }
+
+    .timeline span {
+        display: block;
+        width: 38%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--amen-gold), rgba(217, 164, 65, 0.58));
+    }
+
+    .media-meta { min-width: 0; }
+    .media-meta span { display: block; color: var(--ink-muted); font-size: 12px; margin-top: 5px; }
+
+    /* Surface: previewOverlay */
+    .preview-overlay {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        width: min(320px, calc(100% - 36px));
+        min-height: 150px;
+        padding: 14px;
+        display: grid;
+        gap: 12px;
+    }
+
+    .preview-line {
+        height: 9px;
+        border-radius: 999px;
+        background: rgba(247, 241, 231, 0.18);
+    }
+
+    .preview-line.gold { background: rgba(217, 164, 65, 0.66); width: 58%; }
+    .preview-line.blue { background: rgba(36, 91, 143, 0.66); width: 74%; }
+    .preview-line.purple { background: rgba(110, 75, 181, 0.66); width: 46%; }
+
+    /* Surface: searchBar */
+    .search-bar {
+        min-height: 58px;
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px 8px 16px;
+    }
+
+    .search-bar input {
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        color: var(--ink);
+        background: transparent;
+    }
+
+    .search-bar input::placeholder { color: rgba(247, 241, 231, 0.52); }
+
+    /* Surface: commandBar */
+    .command-bar {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        z-index: 60;
+        width: min(820px, calc(100% - 32px));
+        min-height: 68px;
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+    }
+
+    .command-input {
+        min-height: 44px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(7, 6, 7, 0.32);
+        color: var(--ink);
+        padding: 0 16px;
+        outline: 0;
+        min-width: 0;
+    }
+
+    .command-button.primary {
+        color: var(--amen-black);
+        background: linear-gradient(180deg, rgba(217, 164, 65, 0.98), rgba(217, 164, 65, 0.76));
+    }
+
+    .focus-ring:focus-visible,
+    button:focus-visible,
+    input:focus-visible {
+        outline: 2px solid var(--amen-gold);
+        outline-offset: 3px;
+    }
+
+    .accent-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .gold { color: var(--amen-gold); }
+    .blue { color: #75B4E8; }
+    .purple { color: #B99BFF; }
+
+    @media (hover: hover) {
+        .switcher button:hover,
+        .nav-icon:hover,
+        .media-button:hover,
+        .command-button:hover,
+        .chip-button:hover {
+            transform: translateY(-1px);
+            background-color: rgba(255, 255, 255, 0.10);
+        }
+    }
+
+    @media (max-width: 1100px) {
+        .app-shell {
+            grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+        }
+        .right-stack { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .care-drawer { min-height: 360px; }
+    }
+
+    @media (max-width: 760px) {
+        .prototype { padding: 12px 12px 102px; }
+        .top-band { top: 8px; }
+        .glass-nav {
+            height: auto;
+            min-height: 138px;
+            grid-template-columns: 1fr auto;
+            align-items: start;
+        }
+        .switcher {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            width: 100%;
+        }
+        .nav-actions { grid-column: 2; grid-row: 1; }
+        .app-shell { grid-template-columns: 1fr; }
+        .left-stack { order: 2; }
+        .center-stack { order: 1; }
+        .right-stack { order: 3; grid-template-columns: 1fr; }
+        .hero { min-height: 230px; padding: 22px; }
+        .summary-grid { grid-template-columns: 1fr; }
+        .media-controls {
+            grid-template-columns: auto 1fr;
+            right: 12px;
+            left: 12px;
+            bottom: 12px;
+        }
+        .media-controls .accent-row { grid-column: 1 / -1; }
+        .preview-overlay { position: relative; top: auto; right: auto; width: 100%; margin-top: 12px; }
+        .command-bar { grid-template-columns: auto 1fr auto; }
+        .command-bar .chip-button { display: none; }
+    }
+
+    @media (max-width: 470px) {
+        .brand span { display: none; }
+        .nav-actions .nav-icon:nth-child(1) { display: none; }
+        .command-bar { grid-template-columns: 1fr auto; }
+        .command-bar .media-button { display: none; }
+        .command-input { min-width: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+            transition-duration: 0.001ms !important;
+        }
+    }
+</style>
+</head>
+<body>
+    <main class="prototype">
+        <div class="top-band">
+            <nav class="glass glass-nav" aria-label="Primary">
+                <div class="brand">
+                    <div class="mark">A</div>
+                    <div>
+                        <strong>AMEN Spaces</strong>
+                        <span>Upper Room Circle</span>
+                    </div>
+                </div>
+
+                <div class="glass switcher" aria-label="Space view">
+                    <button type="button" aria-pressed="true">Space</button>
+                    <button type="button" aria-pressed="false">Care</button>
+                    <button type="button" aria-pressed="false">Connect</button>
+                </div>
+
+                <div class="nav-actions">
+                    <button class="glass nav-icon" type="button" aria-label="Saved">B</button>
+                    <button class="glass nav-icon" type="button" aria-label="Profile">S</button>
+                </div>
+            </nav>
+        </div>
+
+        <section class="app-shell" aria-label="Liquid Glass component kit">
+            <aside class="left-stack" aria-label="Spaces and search">
+                <div class="glass search-bar">
+                    <span aria-hidden="true">/</span>
+                    <input class="focus-ring" aria-label="Search ministry memory" placeholder="Search ministry memory" value="Romans 12 serving gifts">
+                    <button class="chip-button" type="button">Open</button>
+                </div>
+
+                <section class="matte-panel">
+                    <h2 class="panel-title">Spaces</h2>
+                    <div class="space-list">
+                        <div class="space-row">
+                            <div class="avatar">UR</div>
+                            <div><strong>Upper Room Circle</strong><span>Prayer and discernment</span></div>
+                        </div>
+                        <div class="space-row">
+                            <div class="avatar">BT</div>
+                            <div><strong>Berean Table</strong><span>Study cohort</span></div>
+                        </div>
+                        <div class="space-row">
+                            <div class="avatar">ST</div>
+                            <div><strong>Serve Team</strong><span>Sunday volunteers</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="glass summary-panel">
+                    <header>
+                        <div>
+                            <div class="summary-kicker">AI Summary</div>
+                            <div class="summary-title">Circle pulse</div>
+                        </div>
+                        <span class="status-pill">Aegis clear</span>
+                    </header>
+                    <div class="summary-grid">
+                        <div class="summary-chip"><strong>3</strong><span>prayers</span></div>
+                        <div class="summary-chip"><strong>2</strong><span>tasks</span></div>
+                        <div class="summary-chip"><strong>1</strong><span>care route</span></div>
+                    </div>
+                    <div class="summary-list">
+                        <div class="summary-item"><strong>Discernment</strong><p>Several members are weighing a Sunday hospitality change.</p></div>
+                        <div class="summary-item"><strong>Follow-up</strong><p>Maya asked for a quiet check-in after evening prayer.</p></div>
+                    </div>
+                </section>
+            </aside>
+
+            <section class="center-stack" aria-label="Space thread and media">
+                <section class="hero matte-panel">
+                    <h1>Prayer, study, and care in one shared room.</h1>
+                    <p>The group is preparing Sunday service with a slower rhythm of prayer, study, and care.</p>
+                </section>
+
+                <section class="conversation" aria-label="Thread">
+                    <article class="message">
+                        <span class="message-author">Maya</span>
+                        <p>Could we pray before we decide who leads Sunday? I want us to move carefully and make room for quieter voices.</p>
+                    </article>
+                    <article class="scripture-block">
+                        <p>Let love be genuine. Abhor what is evil; hold fast to what is good.</p>
+                        <cite>Romans 12:9</cite>
+                    </article>
+                    <article class="message">
+                        <span class="message-author">Jon</span>
+                        <p>I can cover setup this week and pair with Naomi on greeting if that helps the team rest.</p>
+                    </article>
+                </section>
+
+                <section class="video-wrap" aria-label="Connect preview">
+                    <div class="video-stage">
+                        <div class="video-frame"><div class="play-core">&#9654;</div></div>
+                    </div>
+
+                    <aside class="glass preview-overlay">
+                        <div class="media-header">
+                            <div>
+                                <div class="summary-kicker">Preview</div>
+                                <div class="media-title">Teaching clip</div>
+                            </div>
+                            <span class="status-pill">verified</span>
+                        </div>
+                        <div class="preview-line gold"></div>
+                        <div class="preview-line blue"></div>
+                        <div class="preview-line purple"></div>
+                        <div class="accent-row">
+                            <button class="chip-button" type="button">Claim</button>
+                            <button class="chip-button" type="button">Source</button>
+                        </div>
+                    </aside>
+
+                    <div class="glass media-controls" role="group" aria-label="Media controls">
+                        <button class="media-button" type="button" aria-label="Play">&#9654;</button>
+                        <div class="media-meta">
+                            <div class="timeline"><span></span></div>
+                            <span>12:48 / 31:20</span>
+                        </div>
+                        <div class="accent-row">
+                            <button class="chip-button" type="button">Transcript</button>
+                            <button class="chip-button" type="button">Save</button>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <aside class="right-stack" aria-label="Care drawer and actions">
+                <section class="glass care-drawer">
+                    <header class="drawer-head">
+                        <div>
+                            <div class="summary-kicker">Care</div>
+                            <div class="drawer-title">Thread follow-up</div>
+                        </div>
+                        <span class="status-pill">human route</span>
+                    </header>
+
+                    <div class="care-list">
+                        <div class="care-item">
+                            <strong>Maya</strong>
+                            <p>Quiet check-in requested after the evening prayer thread.</p>
+                        </div>
+                        <div class="care-item">
+                            <strong>Jon</strong>
+                            <p>Volunteer handoff available for setup and greeting.</p>
+                        </div>
+                        <div class="care-item">
+                            <strong>Naomi</strong>
+                            <p>Decision owner for Sunday welcome team rotation.</p>
+                        </div>
+                    </div>
+
+                    <div class="drawer-actions">
+                        <button class="command-button primary" type="button">Route</button>
+                        <button class="media-button" type="button" aria-label="More">+</button>
+                    </div>
+                </section>
+
+                <section class="matte-panel">
+                    <h2 class="panel-title">Before Share</h2>
+                    <div class="accent-row">
+                        <span class="status-pill">PII clear</span>
+                        <span class="status-pill">gossip clear</span>
+                        <span class="status-pill">PHI clear</span>
+                    </div>
+                </section>
+            </aside>
+        </section>
+    </main>
+
+    <form class="glass command-bar" aria-label="Command bar">
+        <button class="media-button" type="button" aria-label="Attach">+</button>
+        <input class="command-input" aria-label="Message" value="Draft care follow-up for Maya">
+        <button class="chip-button" type="button">Conviction</button>
+        <button class="command-button primary" type="submit">Send</button>
+    </form>
+
+<script>
+    const switcherButtons = document.querySelectorAll('.switcher button');
+    switcherButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            switcherButtons.forEach((item) => item.setAttribute('aria-pressed', 'false'));
+            button.setAttribute('aria-pressed', 'true');
+        });
+    });
+
+    document.querySelector('.command-bar').addEventListener('submit', (event) => {
+        event.preventDefault();
+    });
+</script>
+</body>
+</html>
