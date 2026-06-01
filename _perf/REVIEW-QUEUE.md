@@ -13,7 +13,7 @@ These items were NOT auto-fixed — they require architectural decisions, backen
 | 3 | CREATE-POST | CreatePostView.swift:4105 | ✅ DONE | f21f2b3 — ModerationIngest + BotDefense parallelized via `async let`; ThinkFirst pair already concurrent |
 | 4 | PERCEIVED | MessagingImplementation + UnifiedChatView | ✅ DONE | c3404ae — Full optimistic insert with .sending state + rollback via NotificationCenter |
 | 5 | RENDER | PostCard.swift:2229 | ✅ DONE | @ViewBuilder already applied; dead pass-through layer collapsed |
-| 6 | RENDER | OpenTableView.swift | ✅ PARTIAL | f21f2b3 — networkMonitor extracted (onReceive); PaginationLoadingIndicator child view; 7 singletons remain (deep refactor needed) |
+| 6 | RENDER | OpenTableView.swift | ✅ DONE | f21f2b3 + bdac2fc — @ObservedObject fan-out 8→2: DailyVerseBannerSection child view, feedAlgorithm/scrollBudget/feedSession/firebasePostService/featureFlags via .shared; isSessionComplete via .onReceive |
 | 7 | NETWORK | 728 CF sites | ✅ DONE | callWithTimeout() helper wired to safeCall() default (15s) + 17 high-risk sites migrated with explicit timeouts |
 | 8 | MEDIA | ShortFormTeachingFeedView | ✅ DONE | isActive: Bool param on TeachingClipCard; onChange(of: currentIndex) wires visibility pause |
 | 9 | MEDIA | AmenVideoEditorView | ✅ DONE | Phase 3: @State player + .task(id: videoURL) lifecycle |
@@ -23,12 +23,11 @@ These items were NOT auto-fixed — they require architectural decisions, backen
 
 ---
 
-## 🟡 REMAINING — Backend / Deep Refactor Required
+## 🟡 REMAINING — Backend Only
 
 | # | Layer | Finding | Effort |
 |---|---|---|---|
 | B1 | NETWORK | Berean real SSE streaming — bereanChatProxyStream Cloud Run proxy not yet deployed | Backend: ~2 days (Cloud Run + URLSession.bytes) |
-| B2 | RENDER | OpenTableView 7 remaining @ObservedObject singletons (postsManager, feedAlgorithm, caughtUpService, etc.) | Structural refactor: 3-5 days |
 
 ---
 
