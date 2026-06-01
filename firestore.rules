@@ -4930,6 +4930,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Spiritual state sessions — written by Admin SDK (SpiritualStateEngine CF).
+    // Owner may read their own session history; no client writes.
+    match /users/{uid}/spiritualStateSessions/{sessionId} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Admin SDK only
+    }
+
     // Organizations/spaces mapping — admin read; server writes.
     match /organizations/{orgId}/spaces/{spaceId} {
       allow read: if isAdmin();
@@ -6371,6 +6378,92 @@ service cloud.firestore {
       );
       allow write: if request.auth != null && request.auth.uid == resource.data.authorId;
       allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+
+    // ── HeyFeed (P0 — previously unruled) ─────────────────────────────────────
+    // heyfeed_requests: community prayer/care feed; any signed-in user reads active items.
+    // Authors create their own requests (authorId == uid). Any signed-in user may update
+    // resonance counters (idempotent field increments via recordResonance/removeResonance).
+    // Deletion is server-only (expiry CF).
+    match /heyfeed_requests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isSignedIn();
+      allow delete: if false; // server expiry only
+    }
+
+    // heyfeed_resonance: doc ID = "{uid}_{postId}"; userId field == owner.
+    // Owner creates/updates/deletes their own resonance record.
+    // All signed-in users may read (needed for community resonance counts in the feed).
+    match /heyfeed_resonance/{resonanceId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── SafeConnection (P1 — previously unruled) ──────────────────────────────
+    // safe_connection_pool: doc ID == uid; user opts in/out of nearby-believer discovery.
+    // Owner reads, writes, and deletes their own pool entry only.
+    match /safe_connection_pool/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // safe_connections: written exclusively by Cloud Functions (requestSafeConnection /
+    // acceptSafeConnection / declineSafeConnection). Client listens for incoming requests
+    // where they are the receiver; no client writes.
+    match /safe_connections/{connectionId} {
+      allow read: if isSignedIn() && (
+        resource.data.receiverUID == request.auth.uid ||
+        resource.data.initiatorUID == request.auth.uid
+      );
+      allow write: if false; // Cloud Function only
+    }
+
+    // ── pendingNotifications (P1 — previously unruled) ────────────────────────
+    // Written atomically by the client inside sendPushAndSaveInApp batch.
+    // Cloud Function fan-out picks up docs; no client reads or updates needed here.
+    // Using create-only + recipientUid check prevents writing on behalf of other users.
+    match /pendingNotifications/{notificationId} {
+      allow create: if isSignedIn() && request.resource.data.recipientUid == request.auth.uid;
+      allow read, update, delete: if false; // Cloud Function only
+    }
+
+    // ── amenConnectIntentSignals (P1 — previously unruled) ────────────────────
+    // Written by AMENConnectAIMatchEngine when scanning a user's own posts.
+    // uid field on the signal == current user. Owner reads their own signals only.
+    match /amenConnectIntentSignals/{signalId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ── amenSpacesDiscovery (P1 — previously unruled) ─────────────────────────
+    // Per-user discovery catalog written by generateAmenSpacesDiscovery CF.
+    // Path: amenSpacesDiscovery/{uid}/items/{itemId}. Owner reads only; server writes.
+    match /amenSpacesDiscovery/{uid}/items/{itemId} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Cloud Function only
+    }
+
+    // ── amenSpacesOrganizations (P1 — previously unruled) ─────────────────────
+    // Global organization catalog queried by isDiscoverable == true.
+    // Server-managed; all signed-in users may read.
+    match /amenSpacesOrganizations/{orgId} {
+      allow read: if isSignedIn();
+      allow write: if false; // server-managed catalog
+    }
+
+    // ── connectRequests (P1 — previously unruled) ─────────────────────────────
+    // AMENConnectMembership.sendConnectRequest writes a ConnectRequest with fromUID == uid.
+    // Sender and recipient may read; only the sender creates; no client updates or deletes
+    // (status changes handled by Cloud Function when recipient accepts/declines).
+    match /connectRequests/{requestId} {
+      allow create: if isSignedIn() && request.resource.data.fromUID == request.auth.uid;
+      allow read: if isSignedIn() && (
+        resource.data.fromUID == request.auth.uid ||
+        resource.data.toUID == request.auth.uid
+      );
+      allow update, delete: if false; // Cloud Function state machine only
     }
 
   }

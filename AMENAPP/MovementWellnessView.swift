@@ -11,6 +11,7 @@ import HealthKit
 struct MovementWellnessView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     private let healthStore = HKHealthStore()
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private let accent = Color(red: 0.22, green: 0.52, blue: 0.38)
@@ -72,6 +73,25 @@ struct MovementWellnessView: View {
                 setupView
             }
         }
+        .overlay(alignment: .topTrailing) {
+            if completed {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.systemScaled(22, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .background(
+                            Circle().fill(reduceTransparency
+                                ? AnyShapeStyle(Color.white.opacity(0.15))
+                                : AnyShapeStyle(.ultraThinMaterial))
+                                .frame(width: 36, height: 36)
+                        )
+                }
+                .padding(.top, 60)
+                .padding(.trailing, 20)
+                .accessibilityLabel("Close movement exercise")
+            }
+        }
+        .preferredColorScheme(.dark)
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.35), value: completed)
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.35), value: started)
     }

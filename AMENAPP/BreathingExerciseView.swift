@@ -76,6 +76,7 @@ struct BreathPhase {
 struct BreathingExerciseView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     // Settings
     @State private var selectedPattern: BreathingPattern = .box
@@ -134,6 +135,25 @@ struct BreathingExerciseView: View {
                 setupView
             }
         }
+        .overlay(alignment: .topTrailing) {
+            if showMoodCheck {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.systemScaled(22, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .background(
+                            Circle().fill(reduceTransparency
+                                ? AnyShapeStyle(Color.white.opacity(0.15))
+                                : AnyShapeStyle(.ultraThinMaterial))
+                                .frame(width: 36, height: 36)
+                        )
+                }
+                .padding(.top, 60)
+                .padding(.trailing, 20)
+                .accessibilityLabel("Close breathing exercise")
+            }
+        }
+        .preferredColorScheme(.dark)
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: showMoodCheck)
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.4), value: isRunning)
         .onDisappear {

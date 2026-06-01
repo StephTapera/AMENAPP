@@ -168,7 +168,6 @@ struct SafeConversationView: View {
                                 .padding(.horizontal, 20)
                             
                             Button {
-                                // TODO: Show user picker
                                 viewModel.showAddTrusted = true
                             } label: {
                                 HStack {

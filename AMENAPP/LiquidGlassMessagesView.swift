@@ -306,6 +306,7 @@ struct MessageBubbleView: View {
     var onReport: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var appeared = false
 
     var body: some View {
@@ -385,13 +386,20 @@ struct MessageBubbleView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background {
-                BubbleShape(isOutgoing: message.isFromCurrentUser)
-                    .fill(.clear)
-                    .background(.ultraThinMaterial)
-                    .background(bubbleGradient)
-                    .overlay(bubbleBorder)
-                    .overlay(bubbleGlow)
-                    .clipShape(BubbleShape(isOutgoing: message.isFromCurrentUser))
+                if reduceTransparency {
+                    BubbleShape(isOutgoing: message.isFromCurrentUser)
+                        .fill(message.isFromCurrentUser
+                            ? AnyShapeStyle(Color(red: 0.47, green: 0.31, blue: 1.0).opacity(0.15))
+                            : AnyShapeStyle(Color(.tertiarySystemBackground)))
+                } else {
+                    BubbleShape(isOutgoing: message.isFromCurrentUser)
+                        .fill(.clear)
+                        .background(.ultraThinMaterial)
+                        .background(bubbleGradient)
+                        .overlay(bubbleBorder)
+                        .overlay(bubbleGlow)
+                        .clipShape(BubbleShape(isOutgoing: message.isFromCurrentUser))
+                }
             }
 
         switch message.type {
@@ -582,8 +590,8 @@ struct MessageBubbleView: View {
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(.ultraThinMaterial)
-                        .background(Color.white.opacity(0.05))
+                        .background(reduceTransparency ? AnyShapeStyle(Color(.tertiarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
+                        .background(Color.white.opacity(reduceTransparency ? 0 : 0.05))
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)

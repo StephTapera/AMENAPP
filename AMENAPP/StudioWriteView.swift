@@ -726,47 +726,57 @@ struct StudioWriteView: View {
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
-        HStack(spacing: 12) {
-            // Word count + reading time
-            Text("\(wordCount) words \u{00B7} ~\(readingTime) min read")
-                .font(.systemScaled(12, weight: .medium))
+        VStack(spacing: 0) {
+            // Local-draft disclosure (shown below word count)
+            Label("Drafts are saved locally on this device", systemImage: "internaldrive")
+                .font(.caption2)
                 .foregroundStyle(.secondary)
-                .monospacedDigit()
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
+            HStack(spacing: 12) {
+                // Word count + reading time
+                Text("\(wordCount) words \u{00B7} ~\(readingTime) min read")
+                    .font(.systemScaled(12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
 
-            // Quick AI action chips
-            bottomBarChip(icon: "sparkle", label: "Polish") {
-                selectedAIMode = .quickPolish
-                triggerAISuggestion(mode: .quickPolish)
-            }
+                Spacer()
 
-            bottomBarChip(icon: "cross.fill", label: "Add verse") {
-                selectedAIMode = .addScripture
-                triggerAISuggestion(mode: .addScripture)
-            }
-
-            Button {
-                HapticManager.impact(style: .light)
-                triggerClosingPrayer()
-            } label: {
-                HStack(spacing: 4) {
-                    Text("\u{1F64F}")
-                        .font(.systemScaled(10))
-                    Text("Close with prayer")
-                        .font(.systemScaled(12, weight: .medium))
+                // Quick AI action chips
+                bottomBarChip(icon: "sparkle", label: "Polish") {
+                    selectedAIMode = .quickPolish
+                    triggerAISuggestion(mode: .quickPolish)
                 }
-                .foregroundStyle(bereanPurple)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule().fill(bereanPurple.opacity(0.08))
-                )
+
+                bottomBarChip(icon: "cross.fill", label: "Add verse") {
+                    selectedAIMode = .addScripture
+                    triggerAISuggestion(mode: .addScripture)
+                }
+
+                Button {
+                    HapticManager.impact(style: .light)
+                    triggerClosingPrayer()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("\u{1F64F}")
+                            .font(.systemScaled(10))
+                        Text("Close with prayer")
+                            .font(.systemScaled(12, weight: .medium))
+                    }
+                    .foregroundStyle(bereanPurple)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule().fill(bereanPurple.opacity(0.08))
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
         .background(Color(red: 0.96, green: 0.96, blue: 0.97))
     }
 

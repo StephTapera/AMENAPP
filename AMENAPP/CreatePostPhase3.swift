@@ -72,7 +72,31 @@ struct ImageCropEditor: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
-                        // TODO: Apply crop transform before dismissing (stub — ImageCropEditor is not yet implemented)
+                        // Apply the user's scale + offset transform to the image before dismissing.
+                        // The crop overlay is a square at (geometry.size.width - 40) centered in the view.
+                        // We render the transformed image into that square crop region via UIGraphicsImageRenderer.
+                        if let uiImage = UIImage(data: imageData) {
+                            let cropSide = UIScreen.main.bounds.width - 40
+                            let renderer = UIGraphicsImageRenderer(size: CGSize(width: cropSide, height: cropSide))
+                            let cropped = renderer.image { ctx in
+                                // Translate so the image center aligns with the crop-frame center,
+                                // then apply the user's pan offset and pinch scale.
+                                let cx = cropSide / 2
+                                let cy = cropSide / 2
+                                ctx.cgContext.translateBy(x: cx + offset.width, y: cy + offset.height)
+                                ctx.cgContext.scaleBy(x: scale, y: scale)
+                                let iw = uiImage.size.width
+                                let ih = uiImage.size.height
+                                // Fit the image into the crop square, then center it at origin.
+                                let fitScale = min(cropSide / iw, cropSide / ih)
+                                let drawW = iw * fitScale
+                                let drawH = ih * fitScale
+                                uiImage.draw(in: CGRect(x: -drawW / 2, y: -drawH / 2, width: drawW, height: drawH))
+                            }
+                            if let data = cropped.jpegData(compressionQuality: 0.9) {
+                                imageData = data
+                            }
+                        }
                         dismiss()
                     }
                     .foregroundStyle(.white)
