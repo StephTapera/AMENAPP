@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AMEN Life Navigation OS Prototype</title>
+    <style>
+        :root {
+            --amen-gold: #d8a83f;
+            --amen-purple: #5f4b8b;
+            --amen-blue: #2f6f9f;
+            --amen-black: #111114;
+            --ink: #17171c;
+            --muted: #626675;
+            --line: rgba(23, 23, 28, 0.13);
+            --surface: #f7f5ee;
+            --surface-card: #fffdf7;
+            --map-matte: #e9e4d8;
+            --safe: #4f7c5b;
+            --watch: #a06d2c;
+            --alert: #9a4541;
+            --glass: rgba(255, 255, 255, 0.68);
+            --glass-strong: rgba(255, 255, 255, 0.82);
+            --glass-stroke: rgba(255, 255, 255, 0.72);
+            --shadow: 0 18px 55px rgba(17, 17, 20, 0.14);
+            --radius-content: 12px;
+            --radius-glass: 24px;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background:
+                linear-gradient(120deg, rgba(216, 168, 63, 0.16), transparent 32%),
+                linear-gradient(150deg, rgba(47, 111, 159, 0.12), transparent 44%),
+                var(--surface);
+        }
+
+        button,
+        input {
+            font: inherit;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .app-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        .glass-chrome {
+            background: var(--glass);
+            border: 1px solid var(--glass-stroke);
+            box-shadow: var(--shadow);
+            -webkit-backdrop-filter: blur(22px) saturate(1.25);
+            backdrop-filter: blur(22px) saturate(1.25);
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            margin: 14px auto 0;
+            width: min(1180px, calc(100% - 28px));
+            min-height: 64px;
+            border-radius: 28px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 12px 10px 20px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 34% 30%, #fff6d8 0 18%, transparent 19%),
+                conic-gradient(from 210deg, var(--amen-gold), var(--amen-blue), var(--amen-purple), var(--amen-gold));
+            border: 1px solid rgba(17, 17, 20, 0.12);
+            flex: 0 0 auto;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.15;
+            letter-spacing: 0;
+        }
+
+        .brand p {
+            margin: 2px 0 0;
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .icon-button,
+        .primary-button,
+        .secondary-button,
+        .danger-button {
+            border: 0;
+            border-radius: 999px;
+            min-height: 42px;
+            padding: 0 15px;
+            color: var(--ink);
+        }
+
+        .icon-button {
+            width: 42px;
+            padding: 0;
+            display: grid;
+            place-items: center;
+            background: rgba(255, 255, 255, 0.54);
+            border: 1px solid rgba(17, 17, 20, 0.08);
+        }
+
+        .primary-button {
+            background: var(--amen-black);
+            color: white;
+        }
+
+        .secondary-button {
+            background: rgba(255, 255, 255, 0.64);
+            border: 1px solid rgba(17, 17, 20, 0.1);
+        }
+
+        .danger-button {
+            background: rgba(154, 69, 65, 0.12);
+            color: #712f2c;
+            border: 1px solid rgba(154, 69, 65, 0.24);
+        }
+
+        .main-grid {
+            width: min(1180px, calc(100% - 28px));
+            margin: 18px auto 28px;
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .map-stage {
+            position: relative;
+            min-height: 740px;
+            border-radius: var(--radius-content);
+            overflow: hidden;
+            background: var(--map-matte);
+            border: 1px solid var(--line);
+        }
+
+        .map-canvas {
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(24deg, transparent 0 27%, rgba(255,255,255,0.45) 27.2% 28.1%, transparent 28.3%),
+                linear-gradient(152deg, transparent 0 38%, rgba(255,255,255,0.54) 38.2% 39.2%, transparent 39.4%),
+                linear-gradient(91deg, transparent 0 48%, rgba(255,255,255,0.48) 48.2% 49%, transparent 49.2%),
+                linear-gradient(0deg, rgba(47,111,159,0.12), rgba(47,111,159,0.12)) 16% 68% / 28% 17% no-repeat,
+                linear-gradient(0deg, rgba(95,75,139,0.10), rgba(95,75,139,0.10)) 78% 28% / 24% 18% no-repeat,
+                linear-gradient(0deg, rgba(216,168,63,0.18), rgba(216,168,63,0.18)) 66% 82% / 34% 12% no-repeat,
+                var(--map-matte);
+        }
+
+        .route-line {
+            position: absolute;
+            left: 20%;
+            top: 18%;
+            width: 56%;
+            height: 58%;
+            border: 10px solid transparent;
+            border-left-color: var(--amen-blue);
+            border-bottom-color: var(--amen-blue);
+            border-radius: 28% 0 0 48%;
+            transform: rotate(-8deg);
+            opacity: 0.86;
+        }
+
+        .route-line::after {
+            content: "";
+            position: absolute;
+            right: -13%;
+            bottom: -15px;
+            width: 32%;
+            height: 10px;
+            border-radius: 999px;
+            background: var(--amen-blue);
+            transform: rotate(26deg);
+        }
+
+        .map-pin,
+        .parking-memory,
+        .safety-zone {
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+
+        .map-pin {
+            width: 42px;
+            height: 42px;
+            border-radius: 50% 50% 50% 8px;
+            background: var(--amen-black);
+            rotate: -45deg;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 12px 26px rgba(17,17,20,0.26);
+        }
+
+        .map-pin span {
+            rotate: 45deg;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .home-pin {
+            left: 24%;
+            top: 74%;
+            background: var(--amen-purple);
+        }
+
+        .church-pin {
+            left: 76%;
+            top: 24%;
+            background: var(--amen-black);
+        }
+
+        .parking-memory {
+            left: 68%;
+            top: 40%;
+            width: 76px;
+            height: 50px;
+            border-radius: 8px;
+            background: rgba(216, 168, 63, 0.36);
+            border: 2px dashed rgba(160, 109, 44, 0.72);
+            display: grid;
+            place-items: center;
+            color: #6d491b;
+            font-weight: 700;
+        }
+
+        .safety-zone {
+            left: 48%;
+            top: 54%;
+            width: 126px;
+            height: 88px;
+            border-radius: 999px;
+            background: rgba(154, 69, 65, 0.12);
+            border: 1px solid rgba(154, 69, 65, 0.34);
+        }
+
+        .safety-zone::after {
+            content: "watch";
+            position: absolute;
+            right: 8px;
+            top: 32px;
+            color: #71322f;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        .map-panel {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            border-radius: var(--radius-glass);
+            padding: 16px;
+        }
+
+        .map-panel-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .matte-card {
+            background: var(--surface-card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-content);
+            padding: 14px;
+        }
+
+        .matte-card h2,
+        .matte-card h3,
+        .side-panel h2,
+        .side-panel h3 {
+            margin: 0;
+            letter-spacing: 0;
+        }
+
+        .matte-card h2 {
+            font-size: 1.25rem;
+        }
+
+        .matte-card h3,
+        .side-panel h3 {
+            font-size: 0.92rem;
+        }
+
+        .eyebrow {
+            margin: 0 0 6px;
+            color: var(--muted);
+            font-size: 0.74rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .claim {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.35;
+        }
+
+        .provenance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 26px;
+            border-radius: 999px;
+            padding: 0 9px;
+            background: rgba(17, 17, 20, 0.06);
+            color: #3d414d;
+            font-size: 0.76rem;
+            white-space: nowrap;
+        }
+
+        .chip.source {
+            background: rgba(47, 111, 159, 0.12);
+            color: #214c70;
+        }
+
+        .chip.private {
+            background: rgba(95, 75, 139, 0.12);
+            color: #47376a;
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .search-card {
+            border-radius: var(--radius-glass);
+            padding: 14px;
+        }
+
+        .search-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+        }
+
+        .search-row input {
+            min-height: 44px;
+            min-width: 0;
+            border-radius: 999px;
+            border: 1px solid rgba(17, 17, 20, 0.1);
+            padding: 0 14px;
+            background: rgba(255, 255, 255, 0.74);
+            color: var(--ink);
+        }
+
+        .section-stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .route-choice {
+            display: grid;
+            gap: 10px;
+        }
+
+        .route-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .route-time {
+            text-align: right;
+            flex: 0 0 auto;
+        }
+
+        .route-time strong {
+            display: block;
+            font-size: 1.04rem;
+        }
+
+        .route-time span {
+            display: block;
+            color: var(--muted);
+            font-size: 0.78rem;
+        }
+
+        .timeline {
+            display: grid;
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .timeline li {
+            display: grid;
+            grid-template-columns: 18px 1fr;
+            gap: 9px;
+            align-items: start;
+            color: #343844;
+            font-size: 0.88rem;
+            line-height: 1.35;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            margin-top: 4px;
+            border-radius: 50%;
+            background: var(--amen-blue);
+        }
+
+        .dot.watch {
+            background: var(--watch);
+        }
+
+        .dot.safe {
+            background: var(--safe);
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .privacy-toggle {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .switch {
+            position: relative;
+            width: 48px;
+            height: 28px;
+            border-radius: 999px;
+            background: rgba(17, 17, 20, 0.14);
+            border: 1px solid rgba(17,17,20,0.12);
+        }
+
+        .switch::after {
+            content: "";
+            position: absolute;
+            left: 3px;
+            top: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 8px rgba(17,17,20,0.18);
+        }
+
+        .switch.off {
+            background: rgba(95, 75, 139, 0.12);
+        }
+
+        .drawer {
+            position: fixed;
+            inset: auto 20px 20px auto;
+            width: min(440px, calc(100% - 40px));
+            border-radius: var(--radius-glass);
+            padding: 16px;
+            z-index: 40;
+            transform: translateY(24px);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .drawer.open {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .drawer h2 {
+            margin: 0;
+            font-size: 1.05rem;
+        }
+
+        .preview-box {
+            background: rgba(255, 255, 255, 0.68);
+            border: 1px solid rgba(17,17,20,0.1);
+            border-radius: 12px;
+            padding: 12px;
+            color: #343844;
+            line-height: 1.4;
+            font-size: 0.9rem;
+        }
+
+        .status-line {
+            margin: 10px 0 0;
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        @media (max-width: 980px) {
+            .topbar,
+            .main-grid {
+                width: min(760px, calc(100% - 24px));
+            }
+
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .map-stage {
+                min-height: 620px;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .topbar {
+                grid-template-columns: 1fr;
+                align-items: stretch;
+            }
+
+            .toolbar {
+                justify-content: flex-start;
+            }
+
+            .map-panel-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .map-stage {
+                min-height: 760px;
+            }
+
+            .map-panel {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar glass-chrome" aria-label="Life navigation chrome">
+            <div class="brand">
+                <div class="mark" aria-hidden="true"></div>
+                <div>
+                    <h1>AMEN Life Navigation OS</h1>
+                    <p>Find a Church++ pre-travel intelligence</p>
+                </div>
+            </div>
+            <div class="toolbar" aria-label="Map tools">
+                <button class="icon-button" type="button" title="Private location mode" aria-label="Private location mode">⌖</button>
+                <button class="icon-button" type="button" title="Church-published layers" aria-label="Church-published layers">▧</button>
+                <button class="secondary-button" type="button" data-open-preview="schedule">Preview arrival plan</button>
+            </div>
+        </header>
+
+        <main class="main-grid">
+            <section class="map-stage" aria-label="Context-aware route map">
+                <div class="map-canvas" aria-hidden="true"></div>
+                <div class="route-line" aria-hidden="true"></div>
+                <div class="safety-zone" aria-hidden="true"></div>
+                <div class="parking-memory" aria-label="Remembered parking area">P</div>
+                <div class="map-pin home-pin" aria-label="Starting point"><span>⌂</span></div>
+                <div class="map-pin church-pin" aria-label="Church destination"><span>✚</span></div>
+
+                <div class="map-panel glass-chrome" aria-label="Route intelligence summary">
+                    <div class="map-panel-grid">
+                        <article class="matte-card">
+                            <p class="eyebrow">Route readiness</p>
+                            <h2>Leave by 8:42 AM</h2>
+                            <p class="claim">Accounts for Sunday drop-off flow, south entrance closure, and a short walk from the west lot.</p>
+                            <div class="provenance" aria-label="Route provenance">
+                                <span class="chip source">churchPublished</span>
+                                <span class="chip">calendarEvent</span>
+                                <span class="chip">travelPreparation</span>
+                            </div>
+                        </article>
+                        <article class="matte-card">
+                            <p class="eyebrow">Parking memory</p>
+                            <h2>West lot, row C</h2>
+                            <p class="claim">Last saved by you after service. Kept private unless you choose to share it.</p>
+                            <div class="provenance" aria-label="Parking provenance">
+                                <span class="chip private">privateToUser</span>
+                                <span class="chip">humanNote</span>
+                            </div>
+                        </article>
+                        <article class="matte-card">
+                            <p class="eyebrow">Safety before travel</p>
+                            <h2>Use northbound exit</h2>
+                            <p class="claim">Church safety note flags extra pedestrian traffic near the school entrance after dismissal.</p>
+                            <div class="provenance" aria-label="Safety provenance">
+                                <span class="chip source">churchPublished</span>
+                                <span class="chip">sourceVerified</span>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="side-panel" aria-label="Navigation controls and context">
+                <section class="search-card glass-chrome">
+                    <p class="eyebrow">Find a Church++</p>
+                    <div class="search-row">
+                        <input value="Grace Community Church, 9:15 service" aria-label="Search church or event">
+                        <button class="primary-button" type="button" data-open-preview="route">Preview route</button>
+                    </div>
+                    <p class="status-line">Location is approximate until you opt in to live navigation.</p>
+                </section>
+
+                <section class="matte-card route-choice">
+                    <div class="route-header">
+                        <div>
+                            <p class="eyebrow">Recommended route</p>
+                            <h3>Quiet arrival with verified church map data</h3>
+                        </div>
+                        <div class="route-time">
+                            <strong>22 min</strong>
+                            <span>preview only</span>
+                        </div>
+                    </div>
+                    <ul class="timeline">
+                        <li><span class="dot safe"></span><span>Approach from Oak Street to avoid the temporary south driveway closure.</span></li>
+                        <li><span class="dot watch"></span><span>Slow zone near school entrance; safety note was published by church staff.</span></li>
+                        <li><span class="dot"></span><span>Park west lot row C if available; this memory remains private to your account.</span></li>
+                    </ul>
+                    <div class="action-row">
+                        <button class="primary-button" type="button" data-open-preview="navigation">Start navigation preview</button>
+                        <button class="secondary-button" type="button" data-open-preview="share">Share ETA preview</button>
+                    </div>
+                    <div class="provenance" aria-label="AI route claim provenance">
+                        <span class="chip">claim route-184</span>
+                        <span class="chip source">originalSource: church map</span>
+                        <span class="chip">retrieval: church_published</span>
+                    </div>
+                </section>
+
+                <section class="matte-card">
+                    <div class="privacy-toggle">
+                        <div>
+                            <p class="eyebrow">Privacy default</p>
+                            <h3>Personal location memory is off for sharing</h3>
+                            <p class="claim">AMEN can use your saved parking note for this preview without adding it to church-published data.</p>
+                        </div>
+                        <span class="switch off" role="img" aria-label="Sharing off"></span>
+                    </div>
+                </section>
+
+                <section class="matte-card">
+                    <p class="eyebrow">Church-published map data</p>
+                    <h3>Entrances, accessible parking, nursery check-in, and service traffic notes</h3>
+                    <p class="claim">Displayed as source-backed place claims. Unsupported AI guesses are excluded from the route preview.</p>
+                    <div class="provenance">
+                        <span class="chip source">sourceID gcc-map-2026-05</span>
+                        <span class="chip">humanReviewed</span>
+                    </div>
+                </section>
+
+                <section class="matte-card">
+                    <p class="eyebrow">Agency guardrail</p>
+                    <h3>No navigation, scheduling, or sharing happens automatically</h3>
+                    <p class="claim">Every action opens a confirmation preview with the route, source claims, and destination before it can run.</p>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <section class="drawer glass-chrome" id="previewDrawer" aria-live="polite" aria-label="Human confirmation preview">
+        <div class="drawer-header">
+            <div>
+                <p class="eyebrow">Confirmation preview</p>
+                <h2 id="previewTitle">Start navigation?</h2>
+            </div>
+            <button class="icon-button" type="button" id="closePreview" title="Close preview" aria-label="Close preview">×</button>
+        </div>
+        <div class="preview-box" id="previewBody">
+            Navigation will open with Grace Community Church as the destination, Oak Street approach selected, and live location enabled only for this trip.
+        </div>
+        <div class="provenance" aria-label="Preview provenance">
+            <span class="chip">requiresHumanPreview</span>
+            <span class="chip">HumanPreviewAction.startNavigation</span>
+            <span class="chip source">provenance complete</span>
+        </div>
+        <div class="action-row" style="margin-top: 12px;">
+            <button class="primary-button" type="button" id="confirmAction">Confirm</button>
+            <button class="danger-button" type="button" id="cancelAction">Cancel</button>
+        </div>
+        <p class="status-line" id="previewStatus">Waiting for explicit confirmation.</p>
+    </section>
+
+    <script>
+        const drawer = document.querySelector("#previewDrawer");
+        const title = document.querySelector("#previewTitle");
+        const body = document.querySelector("#previewBody");
+        const status = document.querySelector("#previewStatus");
+
+        const previews = {
+            route: {
+                title: "Preview route?",
+                body: "AMEN will show the Oak Street approach, west lot parking memory, and church-published safety notes. Live navigation remains off."
+            },
+            navigation: {
+                title: "Start navigation?",
+                body: "Navigation will open with Grace Community Church as the destination, Oak Street approach selected, and live location enabled only for this trip."
+            },
+            schedule: {
+                title: "Add arrival plan?",
+                body: "AMEN will prepare a calendar reminder to leave by 8:42 AM. The reminder is not saved until you confirm."
+            },
+            share: {
+                title: "Share ETA?",
+                body: "AMEN will draft an ETA message without sending it. Parking memory and precise location are excluded by default."
+            }
+        };
+
+        document.querySelectorAll("[data-open-preview]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const preview = previews[button.dataset.openPreview];
+                title.textContent = preview.title;
+                body.textContent = preview.body;
+                status.textContent = "Waiting for explicit confirmation.";
+                drawer.classList.add("open");
+            });
+        });
+
+        document.querySelector("#closePreview").addEventListener("click", () => {
+            drawer.classList.remove("open");
+        });
+
+        document.querySelector("#cancelAction").addEventListener("click", () => {
+            status.textContent = "Canceled. No route, schedule, or message was started.";
+            drawer.classList.remove("open");
+        });
+
+        document.querySelector("#confirmAction").addEventListener("click", () => {
+            status.textContent = "Confirmed in prototype only. No external navigation, scheduling, or sharing was launched.";
+        });
+    </script>
+</body>
+</html>

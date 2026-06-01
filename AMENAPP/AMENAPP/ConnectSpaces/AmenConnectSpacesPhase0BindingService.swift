@@ -404,7 +404,7 @@ struct AmenConnectSpacesAegisBinding {
             action: action,
             flags: flags,
             humanResourceRefs: data["humanResourceRefs"] as? [String] ?? [],
-            canContinue: data["canContinue"] as? Bool ?? action != .block
+            canContinue: data["canContinue"] as? Bool ?? (action != .block)
         )
     }
 

@@ -14,6 +14,7 @@
 import SwiftUI
 import PhotosUI
 import FirebaseAuth
+import FirebaseStorage
 
 // MARK: - SelahStoryComposerView
 
@@ -582,6 +583,7 @@ final class SelahStoryComposerViewModel: ObservableObject {
     }
     @Published private(set) var previewImage: Image?
     private var selectedImageData: Data?
+    private let storage = Storage.storage()
 
     @Published var selectedKind: StoryKind = .reflection
     @Published var selectedAudience: StoryAudience = .closeFriends
@@ -687,11 +689,18 @@ final class SelahStoryComposerViewModel: ObservableObject {
         isPosting = true
         defer { isPosting = false }
 
-        // Build media stub — real upload would happen inside createSelahStory CF.
         let mediaId = UUID().uuidString
+        let mediaURL: String
+        do {
+            mediaURL = try await uploadSelectedImage(imageData, mediaId: mediaId, uid: uid)
+        } catch {
+            showError(error)
+            return
+        }
+
         let media = StoryMedia(
             id: mediaId,
-            url: "",          // CF will overwrite with actual Storage URL
+            url: mediaURL,
             mediaType: "photo",
             durationSeconds: nil
         )
@@ -737,6 +746,16 @@ final class SelahStoryComposerViewModel: ObservableObject {
         } catch {
             showError(error)
         }
+    }
+
+    private func uploadSelectedImage(_ imageData: Data, mediaId: String, uid: String) async throws -> String {
+        let path = "selahStories/\(uid)/\(mediaId).jpg"
+        let ref = storage.reference().child(path)
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+
+        _ = try await ref.putDataAsync(imageData, metadata: metadata)
+        return try await ref.downloadURL().absoluteString
     }
 
     // MARK: - Error Helpers

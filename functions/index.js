@@ -1558,11 +1558,9 @@ exports.classifyImportCandidates = importFns.classifyImportCandidates;
 
 // ============================================================================
 // FIND A CHURCH — churchSearchProxy (Phase 1 / Master Run A8)
-//   churchSearchProxy — callable: proxies church search to Algolia + Firestore
-//                       App Check + Auth enforced; no search credentials on device.
-//                       Currently returns mock data for emulator testing.
-//
-// [NEEDS HUMAN DEPLOY] — emulator only until Algolia secrets are provisioned.
+//   churchSearchProxy — callable: searches active Firestore church records with
+//                       server-side geo/text filtering. App Check + Auth enforced;
+//                       no search credentials live on device.
 // Deploy: firebase deploy --only functions:churchSearchProxy
 // ============================================================================
 const churchSearchProxyFns = require('./src/church/churchSearchProxy');
@@ -1571,11 +1569,8 @@ exports.churchSearchProxy = churchSearchProxyFns.churchSearchProxy;
 // ============================================================================
 // POST PROVENANCE — postProvenanceProxy (Phase 3 / Master Run A8)
 //   postProvenanceProxy — callable: returns feed-ranking signals for a post
-//                         ("Why you're seeing this" disclosure)
-//                         App Check + Auth enforced; no raw ML signals on device.
-//                         Currently returns mock data for emulator testing.
-//
-// [NEEDS HUMAN DEPLOY] — emulator only until Intelligence Engine is wired.
+//                         ("Why you're seeing this" disclosure). App Check +
+//                         Auth enforced; no raw ML signals on device.
 // Deploy: firebase deploy --only functions:postProvenanceProxy
 // ============================================================================
 const postProvenanceProxyFns = require('./src/provenance/postProvenanceProxy');
@@ -1588,12 +1583,16 @@ exports.postProvenanceProxy = postProvenanceProxyFns.postProvenanceProxy;
 //                              matchAudio | createStory | deleteStory
 //                     App Check + Auth enforced; no AI credentials on device.
 //
-// createStory / deleteStory: fully implemented — safe to deploy.
-// generateReflectionPrompt:  implemented — requires ANTHROPIC_API_KEY secret.
-// recognizeVerse:            implemented — requires GCP ADC / Vision API.
-// matchAudio:                [NEEDS HUMAN DEPLOY] — Pinecone index pending.
+// Compatibility callables are also exported for the current iOS service:
+//   createSelahStory, deleteSelahStory, selahRecognizeVerse,
+//   selahGenerateReflectionPrompt, selahMatchAudio.
 //
-// Deploy: firebase deploy --only functions:selahStoryProxy
+// Deploy: firebase deploy --only functions:selahStoryProxy,functions:createSelahStory,functions:deleteSelahStory,functions:selahRecognizeVerse,functions:selahGenerateReflectionPrompt,functions:selahMatchAudio
 // ============================================================================
 const selahStoryProxyFns = require('./src/selahStories/selahStoryProxy');
 exports.selahStoryProxy = selahStoryProxyFns.selahStoryProxy;
+exports.selahRecognizeVerse = selahStoryProxyFns.selahRecognizeVerse;
+exports.selahGenerateReflectionPrompt = selahStoryProxyFns.selahGenerateReflectionPrompt;
+exports.selahMatchAudio = selahStoryProxyFns.selahMatchAudio;
+exports.createSelahStory = selahStoryProxyFns.createSelahStory;
+exports.deleteSelahStory = selahStoryProxyFns.deleteSelahStory;

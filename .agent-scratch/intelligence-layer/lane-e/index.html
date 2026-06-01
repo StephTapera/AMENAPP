@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AMEN Collaborative Intelligence Prototype</title>
+    <style>
+        :root {
+            --amen-gold: #d6aa3f;
+            --amen-purple: #5e3a86;
+            --amen-blue: #2877b8;
+            --amen-black: #141414;
+            --ink: #1f2024;
+            --muted: #686b73;
+            --surface: #f8f6f1;
+            --surface-card: #fffdf8;
+            --surface-alt: #eeebe3;
+            --border: rgba(31, 32, 36, 0.14);
+            --border-strong: rgba(31, 32, 36, 0.24);
+            --glass: rgba(255, 255, 255, 0.62);
+            --glass-strong: rgba(255, 255, 255, 0.78);
+            --ok: #2f7759;
+            --warn: #9a6324;
+            --danger: #9a3f3f;
+            --shadow: 0 18px 48px rgba(20, 20, 20, 0.13);
+            --radius: 12px;
+            color-scheme: light;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background:
+                linear-gradient(135deg, rgba(214, 170, 63, 0.16), transparent 34%),
+                linear-gradient(215deg, rgba(40, 119, 184, 0.13), transparent 38%),
+                var(--surface);
+        }
+
+        button,
+        input,
+        textarea,
+        select {
+            font: inherit;
+        }
+
+        button {
+            min-height: 40px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0 14px;
+            color: var(--ink);
+            background: var(--glass-strong);
+            cursor: pointer;
+        }
+
+        button:hover,
+        button:focus-visible {
+            border-color: var(--border-strong);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(40, 119, 184, 0.16);
+        }
+
+        button.primary {
+            border-color: rgba(20, 20, 20, 0.2);
+            color: #fff;
+            background: var(--amen-black);
+        }
+
+        button.danger {
+            color: var(--danger);
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 18px;
+            align-items: center;
+            margin: 12px;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-radius: 28px;
+            background: var(--glass);
+            box-shadow: 0 12px 30px rgba(20, 20, 20, 0.08);
+            backdrop-filter: blur(22px) saturate(1.2);
+        }
+
+        .brand {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .mark {
+            display: grid;
+            place-items: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            color: var(--amen-black);
+            background: linear-gradient(135deg, var(--amen-gold), #f1d98d);
+            font-weight: 800;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 17px;
+            line-height: 1.2;
+            letter-spacing: 0;
+        }
+
+        .brand p {
+            margin: 2px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .chrome-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(230px, 300px) minmax(0, 1fr) minmax(280px, 360px);
+            gap: 16px;
+            align-items: start;
+            width: min(1480px, calc(100% - 24px));
+            margin: 0 auto 24px;
+        }
+
+        .glass-panel,
+        .context-chip,
+        .modal-card {
+            border: 1px solid rgba(255, 255, 255, 0.62);
+            background: var(--glass);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(24px) saturate(1.18);
+        }
+
+        .glass-panel {
+            border-radius: 24px;
+            padding: 14px;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .panel-title h2,
+        .panel-title h3,
+        .document h2,
+        .preview h2 {
+            margin: 0;
+            font-size: 15px;
+            letter-spacing: 0;
+        }
+
+        .panel-title small,
+        .meta,
+        .fine {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .stack {
+            display: grid;
+            gap: 10px;
+        }
+
+        .context-chip {
+            display: grid;
+            gap: 5px;
+            border-radius: 18px;
+            padding: 11px 12px;
+        }
+
+        .context-chip strong {
+            font-size: 13px;
+        }
+
+        .context-chip span {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .trust-boundary {
+            border-color: rgba(47, 119, 89, 0.28);
+            background: rgba(244, 252, 248, 0.78);
+        }
+
+        .document {
+            min-width: 0;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            box-shadow: 0 16px 36px rgba(20, 20, 20, 0.08);
+            overflow: hidden;
+        }
+
+        .doc-header {
+            display: grid;
+            gap: 12px;
+            padding: 22px 24px 18px;
+            border-bottom: 1px solid var(--border);
+            background: #fffdf8;
+        }
+
+        .breadcrumb {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0 10px;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.64);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .pill.ok {
+            color: var(--ok);
+            border-color: rgba(47, 119, 89, 0.26);
+            background: rgba(47, 119, 89, 0.08);
+        }
+
+        .pill.warn {
+            color: var(--warn);
+            border-color: rgba(154, 99, 36, 0.28);
+            background: rgba(154, 99, 36, 0.08);
+        }
+
+        .title-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .doc-title {
+            margin: 0;
+            font-size: clamp(26px, 4vw, 42px);
+            line-height: 1.04;
+            letter-spacing: 0;
+        }
+
+        .doc-subtitle {
+            max-width: 780px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 15px;
+            line-height: 1.55;
+        }
+
+        .doc-body {
+            display: grid;
+            gap: 22px;
+            padding: 24px;
+        }
+
+        .section {
+            display: grid;
+            gap: 12px;
+        }
+
+        .section h3 {
+            margin: 0;
+            font-size: 18px;
+            letter-spacing: 0;
+        }
+
+        .claim {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: start;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: #fbf8f1;
+        }
+
+        .claim p {
+            margin: 0;
+            line-height: 1.55;
+        }
+
+        .claim-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .source-btn {
+            min-height: 32px;
+            padding: 0 10px;
+            color: var(--amen-blue);
+            background: rgba(40, 119, 184, 0.08);
+            border-color: rgba(40, 119, 184, 0.24);
+            font-size: 12px;
+        }
+
+        .editor {
+            display: grid;
+            gap: 12px;
+            padding: 14px;
+            border: 1px dashed rgba(94, 58, 134, 0.34);
+            border-radius: var(--radius);
+            background: rgba(94, 58, 134, 0.05);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 132px;
+            resize: vertical;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            color: var(--ink);
+            background: #fffdf8;
+            line-height: 1.5;
+        }
+
+        .diff {
+            display: grid;
+            gap: 8px;
+            margin: 0;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fffdf8;
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .timeline {
+            position: relative;
+            display: grid;
+            gap: 10px;
+        }
+
+        .trail-item {
+            display: grid;
+            gap: 6px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 253, 248, 0.74);
+        }
+
+        .trail-item strong {
+            font-size: 13px;
+        }
+
+        .trail-item p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .provenance-card {
+            display: grid;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 253, 248, 0.76);
+        }
+
+        .provenance-card h4 {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .layer {
+            display: grid;
+            gap: 4px;
+            padding: 9px;
+            border-radius: 10px;
+            background: rgba(238, 235, 227, 0.62);
+        }
+
+        .layer b {
+            font-size: 12px;
+        }
+
+        .layer span {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .preview {
+            display: grid;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid rgba(214, 170, 63, 0.36);
+            border-radius: 18px;
+            background: rgba(255, 248, 226, 0.76);
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            background: rgba(20, 20, 20, 0.32);
+        }
+
+        .modal[open] {
+            display: flex;
+        }
+
+        .modal-card {
+            display: grid;
+            gap: 14px;
+            width: min(620px, 100%);
+            max-height: min(760px, calc(100vh - 36px));
+            overflow: auto;
+            border-radius: 24px;
+            padding: 18px;
+        }
+
+        .modal-card h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .modal-card p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .confirm-box {
+            display: grid;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 253, 248, 0.82);
+        }
+
+        label.checkbox {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            color: var(--ink);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-top: 1px;
+            accent-color: var(--amen-blue);
+        }
+
+        .confirmation-status {
+            min-height: 22px;
+            color: var(--ok);
+            font-size: 13px;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        @media (max-width: 1120px) {
+            .layout {
+                grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+            }
+
+            .right-rail {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .topbar,
+            .title-row,
+            .claim,
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .topbar {
+                border-radius: 20px;
+            }
+
+            .chrome-actions,
+            .claim-actions {
+                justify-content: flex-start;
+            }
+
+            .doc-header,
+            .doc-body {
+                padding: 18px;
+            }
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .modal[open] .modal-card,
+            .glass-panel,
+            .document {
+                animation: settle 180ms ease-out both;
+            }
+
+            @keyframes settle {
+                from {
+                    opacity: 0;
+                    transform: translateY(6px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar" aria-label="AMEN Intelligence chrome">
+            <div class="brand">
+                <div class="mark" aria-hidden="true">A</div>
+                <div>
+                    <h1>Collaborative Intelligence</h1>
+                    <p>Smart Church Notes with source verification and decision trails</p>
+                </div>
+            </div>
+            <nav class="chrome-actions" aria-label="Document actions">
+                <button type="button" data-preview="share">Share</button>
+                <button type="button" data-preview="post">Post</button>
+                <button type="button" data-preview="schedule">Schedule</button>
+                <button type="button" class="primary" data-preview="save">Save version</button>
+            </nav>
+        </header>
+
+        <main class="layout">
+            <aside class="glass-panel" aria-labelledby="context-title">
+                <div class="panel-title">
+                    <h2 id="context-title">Context Graph</h2>
+                    <small>Trust scoped</small>
+                </div>
+                <div class="stack">
+                    <div class="context-chip trust-boundary">
+                        <strong>Boundary: elder-team-retreat-2026</strong>
+                        <span>Visible to explicitly invited elders, ministry staff, and the document owner.</span>
+                    </div>
+                    <div class="context-chip">
+                        <strong>Project</strong>
+                        <span>Fall Discipleship Launch</span>
+                    </div>
+                    <div class="context-chip">
+                        <strong>Requested by</strong>
+                        <span>Pastor Elena Ramos after the May planning conversation.</span>
+                    </div>
+                    <div class="context-chip">
+                        <strong>Stakeholders</strong>
+                        <span>Elena Ramos, Marcus Lee, Asha Patel, Youth Team, Hospitality Leads.</span>
+                    </div>
+                    <div class="context-chip">
+                        <strong>Decision nodes</strong>
+                        <span>Curriculum timing, mentor pairing, Sunday announcement, budget owner.</span>
+                    </div>
+                </div>
+            </aside>
+
+            <article class="document" aria-labelledby="doc-title">
+                <header class="doc-header">
+                    <div class="breadcrumb" aria-label="Document state">
+                        <span class="pill ok">Verified claims visible</span>
+                        <span class="pill">Church notes</span>
+                        <span class="pill">Shared draft</span>
+                        <span class="pill warn">Human preview required</span>
+                    </div>
+                    <div class="title-row">
+                        <div>
+                            <h2 id="doc-title" class="doc-title">Fall Discipleship Launch Brief</h2>
+                            <p class="doc-subtitle">AI-assisted church notes grounded in meeting context, project decisions, and named stakeholders. Every claim below exposes its provenance before it can be shared.</p>
+                        </div>
+                        <span class="pill ok">No public posting yet</span>
+                    </div>
+                </header>
+
+                <div class="doc-body">
+                    <section class="section" aria-labelledby="summary-title">
+                        <h3 id="summary-title">Co-authored Summary</h3>
+                        <div class="claim">
+                            <p>Pastor Elena requested a one-page launch brief because the elder team needs a concise decision record before the June ministry calendar review.</p>
+                            <div class="claim-actions">
+                                <button type="button" class="source-btn" data-claim="claim-request">Provenance</button>
+                            </div>
+                        </div>
+                        <div class="claim">
+                            <p>The current recommendation is to begin mentor orientation two Sundays before the small-group kickoff, with Hospitality preparing newcomer follow-up cards for the same window.</p>
+                            <div class="claim-actions">
+                                <button type="button" class="source-btn" data-claim="claim-recommendation">Provenance</button>
+                            </div>
+                        </div>
+                        <div class="claim">
+                            <p>The budget owner remains undecided; Marcus accepted follow-up on classroom supplies but did not approve a final budget ceiling.</p>
+                            <div class="claim-actions">
+                                <button type="button" class="source-btn" data-claim="claim-budget">Provenance</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="section" aria-labelledby="editor-title">
+                        <h3 id="editor-title">AI Co-authoring Draft</h3>
+                        <div class="editor">
+                            <label for="draft" class="fine">Suggested paragraph after source verification</label>
+                            <textarea id="draft">We should present the discipleship launch as a pastoral care pathway, not only a program rollout. The brief should name the open budget decision, show who owns the next review, and avoid sharing any private member details outside the elder-team boundary.</textarea>
+                            <pre class="diff" aria-label="Draft change preview">+ Adds pastoral framing from Elena's request.
++ Preserves unresolved budget decision.
++ Blocks private member details from public post.</pre>
+                            <div class="action-row">
+                                <button type="button" class="primary" data-preview="save">Preview save</button>
+                                <button type="button" data-preview="share">Preview share</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="section" aria-labelledby="trail-title">
+                        <h3 id="trail-title">Decision Trail</h3>
+                        <div class="timeline">
+                            <button type="button" class="trail-item" data-trail="origin">
+                                <strong>Why this document exists</strong>
+                                <p>Created after Pastor Elena asked for a decision-ready brief from the planning conversation.</p>
+                            </button>
+                            <button type="button" class="trail-item" data-trail="changes">
+                                <strong>What changed</strong>
+                                <p>AI condensed the meeting notes, separated open decisions from approved actions, and marked unverified budget language.</p>
+                            </button>
+                            <button type="button" class="trail-item" data-trail="decisions">
+                                <strong>What was decided</strong>
+                                <p>Orientation timing and announcement owner are ready for preview; budget ceiling still needs confirmation.</p>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </article>
+
+            <aside class="glass-panel right-rail" aria-labelledby="source-title">
+                <div class="panel-title">
+                    <h2 id="source-title">Verification</h2>
+                    <small>Four layers</small>
+                </div>
+                <div id="provenance-output" class="stack" aria-live="polite">
+                    <div class="provenance-card">
+                        <h4>Select a claim</h4>
+                        <p class="fine">Every AI statement requires original source, capture, processing, and retrieval details inside the active trust boundary.</p>
+                    </div>
+                </div>
+
+                <div class="preview" aria-labelledby="agency-title">
+                    <h2 id="agency-title">Agency Gate</h2>
+                    <p class="fine">Share, post, schedule, and save actions open a preview. Nothing leaves this boundary until a person confirms the exact action.</p>
+                    <div class="action-row">
+                        <button type="button" data-preview="post">Preview public post</button>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <section class="modal-card">
+            <div class="panel-title">
+                <h2 id="modal-title">Preview</h2>
+                <button type="button" id="close-modal" aria-label="Close preview">Close</button>
+            </div>
+            <p id="modal-copy"></p>
+            <div class="confirm-box">
+                <strong id="modal-action">Action preview</strong>
+                <pre id="modal-diff" class="diff"></pre>
+                <label class="checkbox">
+                    <input type="checkbox" id="confirm-check">
+                    <span>I reviewed the destination, audience, trust boundary, and source-backed changes.</span>
+                </label>
+                <div class="action-row">
+                    <button type="button" class="primary" id="confirm-button" disabled>Confirm</button>
+                    <button type="button" class="danger" id="cancel-button">Cancel</button>
+                </div>
+                <div id="confirmation-status" class="confirmation-status" aria-live="polite"></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const provenance = {
+            "claim-request": {
+                title: "Pastor Elena requested a one-page launch brief",
+                status: "Verified",
+                layers: [
+                    ["Original source", "Planning conversation message from Elena Ramos, May 18, 2026, private elder-team thread."],
+                    ["Capture record", "Captured by user elena.ramos at church-office iPad, app version prototype, boundary elder-team-retreat-2026."],
+                    ["Processing record", "bereanSummarizeContextProxy produced a summary; human review required and pending."],
+                    ["Retrieval record", "Query churchNotesDecisionTrail, namespace conversation_elder-team-retreat-2026_fall-launch, confidence shown as qualitative verified."]
+                ]
+            },
+            "claim-recommendation": {
+                title: "Mentor orientation two Sundays before kickoff",
+                status: "Partial: needs owner approval",
+                layers: [
+                    ["Original source", "Meeting note authored by Asha Patel and calendar event draft for Fall Discipleship Launch."],
+                    ["Capture record", "Imported from shared meeting notes inside the elder-team boundary."],
+                    ["Processing record", "Context linking joined note, event, and stakeholder nodes; source verification marked the timing source as present."],
+                    ["Retrieval record", "Retrieved from creator_private_elena_fall-discipleship and calendar event node; ranking used recency and stakeholder mention."]
+                ]
+            },
+            "claim-budget": {
+                title: "Budget owner remains undecided",
+                status: "Verified conflict/open decision",
+                layers: [
+                    ["Original source", "Audio transcript segment and Marcus Lee follow-up note both reference supplies, not a budget ceiling."],
+                    ["Capture record", "Transcript captured during planning meeting with explicit participant access."],
+                    ["Processing record", "verifySource classified final budget language as unsupported and preserved the unresolved decision."],
+                    ["Retrieval record", "Retrieved from conversation namespace and decisionTrail document node within elder-team-retreat-2026."]
+                ]
+            }
+        };
+
+        const trails = {
+            origin: {
+                title: "Why this document exists",
+                copy: "Pastor Elena requested a decision-ready brief so the elder team could enter the June ministry calendar review with open items separated from approved actions.",
+                diff: "Source: Elena request message\nRequester: Pastor Elena Ramos\nPurpose: churchNotesDecisionTrail\nBoundary: elder-team-retreat-2026"
+            },
+            changes: {
+                title: "What changed",
+                copy: "The draft was reorganized into summary, recommendations, open decisions, and source packet. Unsupported budget wording was removed before any sharing action.",
+                diff: "- Removed: budget ceiling approved\n+ Added: budget ceiling still needs confirmation\n+ Added: trust-boundary warning for private member details"
+            },
+            decisions: {
+                title: "What was decided",
+                copy: "The team can preview orientation timing and announcement ownership. The budget ceiling and public wording remain blocked until explicit human confirmation.",
+                diff: "Ready: orientation timing\nReady: announcement owner\nBlocked: budget ceiling\nBlocked: public post with private details"
+            }
+        };
+
+        const previews = {
+            share: {
+                title: "Share document",
+                copy: "This shares the draft only with explicitly selected participants inside elder-team-retreat-2026.",
+                diff: "Audience: Elena Ramos, Marcus Lee, Asha Patel\nExcluded: public church feed, youth volunteers without access\nIncluded: source packet and decision trail"
+            },
+            post: {
+                title: "Post to church space",
+                copy: "Public posting is blocked until private notes are removed and all visible claims are source-backed.",
+                diff: "Destination: church_published community space\nRequired change: remove private member references\nRequired confirmation: final wording preview"
+            },
+            schedule: {
+                title: "Schedule reminder",
+                copy: "This schedules a private reminder for Marcus to confirm the budget ceiling before the calendar review.",
+                diff: "Reminder owner: Marcus Lee\nDue: before June ministry calendar review\nVisibility: sharedWithExplicitParticipants"
+            },
+            save: {
+                title: "Save version",
+                copy: "This saves the current draft and records a decision trail entry; it does not share or publish.",
+                diff: "Version label: source-verified draft\nTrail entry: AI paragraph accepted after preview\nVisibility: private to document collaborators"
+            }
+        };
+
+        const output = document.getElementById("provenance-output");
+        const modal = document.getElementById("modal");
+        const modalTitle = document.getElementById("modal-title");
+        const modalCopy = document.getElementById("modal-copy");
+        const modalAction = document.getElementById("modal-action");
+        const modalDiff = document.getElementById("modal-diff");
+        const confirmCheck = document.getElementById("confirm-check");
+        const confirmButton = document.getElementById("confirm-button");
+        const confirmationStatus = document.getElementById("confirmation-status");
+
+        function renderProvenance(key) {
+            const item = provenance[key];
+            if (!item) return;
+
+            output.innerHTML = `
+                <div class="provenance-card">
+                    <h4>${item.title}</h4>
+                    <span class="pill ok">${item.status}</span>
+                    ${item.layers.map(([label, value]) => `
+                        <div class="layer">
+                            <b>${label}</b>
+                            <span>${value}</span>
+                        </div>
+                    `).join("")}
+                </div>
+            `;
+        }
+
+        function openPreview(data) {
+            modalTitle.textContent = data.title;
+            modalCopy.textContent = data.copy;
+            modalAction.textContent = "Explicit confirmation required";
+            modalDiff.textContent = data.diff;
+            confirmCheck.checked = false;
+            confirmButton.disabled = true;
+            confirmationStatus.textContent = "";
+            modal.setAttribute("open", "");
+        }
+
+        document.querySelectorAll("[data-claim]").forEach((button) => {
+            button.addEventListener("click", () => renderProvenance(button.dataset.claim));
+        });
+
+        document.querySelectorAll("[data-trail]").forEach((button) => {
+            button.addEventListener("click", () => openPreview(trails[button.dataset.trail]));
+        });
+
+        document.querySelectorAll("[data-preview]").forEach((button) => {
+            button.addEventListener("click", () => openPreview(previews[button.dataset.preview]));
+        });
+
+        confirmCheck.addEventListener("change", () => {
+            confirmButton.disabled = !confirmCheck.checked;
+        });
+
+        confirmButton.addEventListener("click", () => {
+            confirmationStatus.textContent = "Confirmed in prototype only. Audit trail entry would be written before execution.";
+        });
+
+        function closeModal() {
+            modal.removeAttribute("open");
+        }
+
+        document.getElementById("close-modal").addEventListener("click", closeModal);
+        document.getElementById("cancel-button").addEventListener("click", closeModal);
+        modal.addEventListener("click", (event) => {
+            if (event.target === modal) closeModal();
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") closeModal();
+        });
+    </script>
+</body>
+</html>

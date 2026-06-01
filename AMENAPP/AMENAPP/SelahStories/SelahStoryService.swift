@@ -106,7 +106,11 @@ final class SelahStoryService: ObservableObject, SelahStoryServiceProtocol {
             throw SelahStoryError.notAuthenticated
         }
 
-        try await db.collection("selahStories").document(storyId).delete()
+        _ = try await functions.callWithTimeout(
+            "deleteSelahStory",
+            data: ["storyId": storyId],
+            timeout: 15
+        )
         stories.removeAll { $0.id == storyId }
     }
 

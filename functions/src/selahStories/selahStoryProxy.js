@@ -26,29 +26,164 @@
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
+const { defineSecret } = require('firebase-functions/params');
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
-// ─── Main export ──────────────────────────────────────────────────────────────
+const REGION = 'us-central1';
+const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY');
+const PINECONE_API_KEY = defineSecret('PINECONE_API_KEY');
+const PINECONE_HOST = defineSecret('PINECONE_HOST');
 
-exports.selahStoryProxy = onCall(
-  { enforceAppCheck: true },
-  async (request) => {
-    // 1. Auth guard
-    if (!request.auth?.uid) {
-      throw new HttpsError('unauthenticated', 'Login required');
-    }
+const callableOptions = {
+  region: REGION,
+  enforceAppCheck: true,
+  secrets: [ANTHROPIC_API_KEY, OPENAI_API_KEY, PINECONE_API_KEY, PINECONE_HOST],
+  timeoutSeconds: 60,
+};
 
-    const uid = request.auth.uid;
-    const { action, payload } = request.data ?? {};
+function requireAuth(request) {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Login required');
+  }
+  return request.auth.uid;
+}
 
-    // 2. Input validation
-    if (!action || typeof action !== 'string') {
-      throw new HttpsError('invalid-argument', 'action required');
-    }
+function secretValue(secret, envName) {
+  try {
+    return secret.value() || process.env[envName] || '';
+  } catch {
+    return process.env[envName] || '';
+  }
+}
 
-    // 3. Route to action handler
+function normalizeActionRequest(request, fixedAction = null) {
+  if (fixedAction) {
+    return {
+      uid: requireAuth(request),
+      action: fixedAction,
+      payload: request.data ?? {},
+    };
+  }
+
+  const uid = requireAuth(request);
+  const { action, payload } = request.data ?? {};
+  if (!action || typeof action !== 'string') {
+    throw new HttpsError('invalid-argument', 'action required');
+  }
+  return { uid, action, payload: payload ?? {} };
+}
+
+function hasUserOwnedStoragePath(url, uid) {
+  return typeof url === 'string' && (
+    url.includes(`/${uid}/`) ||
+    url.includes(`%2F${uid}%2F`) ||
+    url.includes(`/${encodeURIComponent(uid)}/`)
+  );
+}
+
+async function createOpenAIEmbedding(input) {
+  const apiKey = secretValue(OPENAI_API_KEY, 'OPENAI_API_KEY');
+  if (!apiKey) {
+    throw new HttpsError('failed-precondition', 'Audio matching is not configured.');
+  }
+
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: input.slice(0, 2000),
+    }),
+  });
+
+  if (!response.ok) {
+    logger.error('matchAudio: OpenAI embedding failed', {
+      status: response.status,
+      body: await response.text(),
+    });
+    throw new HttpsError('internal', 'Audio matching failed.');
+  }
+
+  const json = await response.json();
+  const embedding = json.data?.[0]?.embedding;
+  if (!Array.isArray(embedding)) {
+    throw new HttpsError('internal', 'Audio matching failed.');
+  }
+  return embedding;
+}
+
+async function queryPineconeAudio(vector, season) {
+  const apiKey = secretValue(PINECONE_API_KEY, 'PINECONE_API_KEY');
+  const host = secretValue(PINECONE_HOST, 'PINECONE_HOST');
+  if (!apiKey || !host) {
+    throw new HttpsError('failed-precondition', 'Audio matching is not configured.');
+  }
+
+  const body = {
+    vector,
+    topK: 5,
+    namespace: 'audio-tracks',
+    includeMetadata: true,
+  };
+  if (season) {
+    body.filter = {
+      $or: [
+        { season: { $eq: season } },
+        { liturgicalSeason: { $eq: season } },
+      ],
+    };
+  }
+
+  const response = await fetch(`https://${host}/query`, {
+    method: 'POST',
+    headers: {
+      'Api-Key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    logger.error('matchAudio: Pinecone query failed', {
+      status: response.status,
+      body: await response.text(),
+    });
+    throw new HttpsError('internal', 'Audio matching failed.');
+  }
+
+  const json = await response.json();
+  return Array.isArray(json.matches) ? json.matches : [];
+}
+
+function audioFromMatch(match) {
+  const metadata = match.metadata ?? {};
+  const id = String(metadata.id || metadata.trackId || match.id || '');
+  const title = String(metadata.title || '');
+  const url = String(metadata.url || metadata.audioURL || metadata.storageURL || '');
+  const durationSeconds = Number(metadata.durationSeconds || metadata.duration || 0);
+
+  if (!id || !title || !url || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return null;
+  }
+
+  return {
+    id,
+    title,
+    artistName: metadata.artistName ? String(metadata.artistName) : null,
+    url,
+    durationSeconds,
+  };
+}
+
+async function handleSelahStoryAction(request, fixedAction = null) {
+  const { uid, action, payload } = normalizeActionRequest(request, fixedAction);
+
     switch (action) {
 
       // ── recognizeVerse ──────────────────────────────────────────────────────
@@ -57,7 +192,7 @@ exports.selahStoryProxy = onCall(
          * Uses @google-cloud/vision TEXT_DETECTION to extract text from the
          * base64-encoded image, then applies a regex to pull a scripture ref.
          */
-        const imageData = payload?.imageData;
+        const imageData = payload?.imageData || payload?.imageBase64;
         if (!imageData || typeof imageData !== 'string') {
           throw new HttpsError('invalid-argument', 'payload.imageData (base64) required');
         }
@@ -118,7 +253,7 @@ exports.selahStoryProxy = onCall(
          * Fails closed if ANTHROPIC_API_KEY is absent so production never
          * returns canned prompt content as if it were generated.
          */
-        const scriptureRef = payload?.scriptureRef;
+        const scriptureRef = payload?.scriptureRef ?? payload;
         if (!scriptureRef?.book || !scriptureRef?.chapter || !scriptureRef?.verse) {
           throw new HttpsError(
             'invalid-argument',
@@ -128,7 +263,8 @@ exports.selahStoryProxy = onCall(
 
         const { book, chapter, verse } = scriptureRef;
         const theme = payload?.theme ?? null;
-        if (!process.env.ANTHROPIC_API_KEY) {
+        const anthropicKey = secretValue(ANTHROPIC_API_KEY, 'ANTHROPIC_API_KEY');
+        if (!anthropicKey) {
           logger.warn('generateReflectionPrompt: ANTHROPIC_API_KEY not set');
           throw new HttpsError(
             'failed-precondition',
@@ -138,7 +274,8 @@ exports.selahStoryProxy = onCall(
 
         try {
           const Anthropic = require('@anthropic-ai/sdk');
-          const anthropic = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
+          const AnthropicClient = Anthropic.default || Anthropic;
+          const anthropic = new AnthropicClient({ apiKey: anthropicKey });
 
           const systemPrompt =
             'You are Berean, a scripture-grounded spiritual companion for the AMEN app. ' +
@@ -174,18 +311,31 @@ exports.selahStoryProxy = onCall(
 
       // ── matchAudio ──────────────────────────────────────────────────────────
       case 'matchAudio': {
-        /*
-         * Pinecone audio-tracks index not yet provisioned.
-         * Real implementation:
-         *   a. Embed payload.theme via OpenAI embeddings (OPENAI_API_KEY secret)
-         *   b. Query Pinecone audio-tracks index for nearest neighbours
-         *   c. Return top result as AudioTrackRef with a signed Storage URL
-         */
-        logger.warn('matchAudio: Pinecone not yet configured');
-        throw new HttpsError(
-          'failed-precondition',
-          'Audio matching is not configured.'
-        );
+        const scriptureRef = payload?.scriptureRef ?? payload ?? {};
+        const book = scriptureRef.book;
+        const chapter = scriptureRef.chapter;
+        const verse = scriptureRef.verse ?? null;
+        const season = payload?.season ?? scriptureRef.season ?? null;
+
+        if (!book || typeof book !== 'string' || typeof chapter !== 'number') {
+          throw new HttpsError('invalid-argument', 'payload { book, chapter } required');
+        }
+
+        const queryText = [
+          `${book} ${chapter}${verse ? `:${verse}` : ''}`,
+          season ? `liturgical season ${season}` : '',
+          payload?.theme ? String(payload.theme) : '',
+        ].filter(Boolean).join(' ');
+
+        const embedding = await createOpenAIEmbedding(queryText);
+        const matches = await queryPineconeAudio(embedding, season);
+        const audio = matches.map(audioFromMatch).find(Boolean);
+
+        if (!audio) {
+          return null;
+        }
+
+        return audio;
       }
 
       // ── createStory ─────────────────────────────────────────────────────────
@@ -194,34 +344,31 @@ exports.selahStoryProxy = onCall(
          * Validates the media URL, writes a new SelahStory doc to Firestore,
          * and returns the server-generated storyId.
          */
-        const {
-          scriptureRef = null,
-          reflectionText = null,
-          reflectionPrompt = null,
-          audioTrackId = null,
-          mediaURL,
-          visibility,
-          audienceIds = [],
-          shareToFeed = false,
-          liturgicalSeason = null,
-        } = payload ?? {};
+        const media = Array.isArray(payload?.media) ? payload.media : [];
+        const primaryMedia = media[0] ?? null;
+        const mediaURL = payload?.mediaURL ?? primaryMedia?.url;
+        const visibility = payload?.visibility ?? payload?.audience;
+        const audienceIds = Array.isArray(payload?.audienceIds) ? payload.audienceIds : [];
+        const shareToFeed = payload?.shareToFeed === true;
+        const liturgicalSeason = payload?.liturgicalSeason ?? null;
+        const audioTrackId = payload?.audioTrackId ?? payload?.audio?.id ?? null;
 
         // Validate required fields
         if (!mediaURL || typeof mediaURL !== 'string') {
-          throw new HttpsError('invalid-argument', 'payload.mediaURL required');
+          throw new HttpsError('invalid-argument', 'payload.mediaURL or payload.media[0].url required');
         }
         if (!visibility || !['closeFriends', 'churchGroup', 'accountabilityPartner'].includes(visibility)) {
           throw new HttpsError(
             'invalid-argument',
-            'payload.visibility must be one of: closeFriends, churchGroup, accountabilityPartner'
+            'payload.visibility/audience must be one of: closeFriends, churchGroup, accountabilityPartner'
           );
         }
-
-        // Ownership check: mediaURL must be gs:// and path must contain /${uid}/
-        if (!mediaURL.startsWith('gs://')) {
-          throw new HttpsError('invalid-argument', 'payload.mediaURL must be a gs:// path');
+        if (payload.ownerUid && payload.ownerUid !== uid) {
+          throw new HttpsError('permission-denied', 'ownerUid does not match the authenticated user');
         }
-        if (!mediaURL.includes(`/${uid}/`)) {
+
+        if ((mediaURL.startsWith('gs://') || mediaURL.startsWith('https://')) &&
+            !hasUserOwnedStoragePath(mediaURL, uid)) {
           throw new HttpsError(
             'permission-denied',
             'mediaURL path does not belong to the authenticated user'
@@ -239,12 +386,17 @@ exports.selahStoryProxy = onCall(
 
         await storyRef.set({
           id: storyId,
+          ownerUid: uid,
           authorId: uid,
           audienceIds,
+          audience: visibility,
           visibility,
-          scriptureRef: scriptureRef ?? null,
-          reflectionText: reflectionText ?? null,
-          reflectionPrompt: reflectionPrompt ?? null,
+          kind: payload?.kind ?? 'reflection',
+          media,
+          overlays: Array.isArray(payload?.overlays) ? payload.overlays : [],
+          audio: payload?.audio ?? null,
+          scriptureRef: payload?.scriptureRef ?? null,
+          caption: payload?.caption ?? null,
           audioTrackId: audioTrackId ?? null,
           mediaURL,
           liturgicalSeason: liturgicalSeason ?? null,
@@ -311,4 +463,29 @@ exports.selahStoryProxy = onCall(
         throw new HttpsError('invalid-argument', `Unknown action: ${action}`);
     }
   }
+
+// ─── Main exports ─────────────────────────────────────────────────────────────
+
+exports.selahStoryProxy = onCall(callableOptions, async (request) =>
+  handleSelahStoryAction(request)
+);
+
+exports.selahRecognizeVerse = onCall(callableOptions, async (request) =>
+  handleSelahStoryAction(request, 'recognizeVerse')
+);
+
+exports.selahGenerateReflectionPrompt = onCall(callableOptions, async (request) =>
+  handleSelahStoryAction(request, 'generateReflectionPrompt')
+);
+
+exports.selahMatchAudio = onCall(callableOptions, async (request) =>
+  handleSelahStoryAction(request, 'matchAudio')
+);
+
+exports.createSelahStory = onCall(callableOptions, async (request) =>
+  handleSelahStoryAction(request, 'createStory')
+);
+
+exports.deleteSelahStory = onCall(callableOptions, async (request) =>
+  handleSelahStoryAction(request, 'deleteStory')
 );

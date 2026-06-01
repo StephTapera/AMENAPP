@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AMEN Spaces - Creator OS Prototype</title>
+    <style>
+        :root {
+            --amen-gold: #d8a83f;
+            --amen-purple: #6e4ad8;
+            --amen-blue: #2767d8;
+            --amen-black: #101014;
+            --ink: #17171d;
+            --muted: #62636f;
+            --surface: #f5f3ed;
+            --surface-card: #fffdf8;
+            --surface-soft: #ece8dc;
+            --border-soft: rgba(23, 23, 29, 0.12);
+            --glass-fill: rgba(255, 255, 255, 0.58);
+            --glass-stroke: rgba(255, 255, 255, 0.76);
+            --shadow: 0 18px 54px rgba(16, 16, 20, 0.16);
+            color-scheme: light;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 12% 10%, rgba(216, 168, 63, 0.18), transparent 30%),
+                radial-gradient(circle at 80% 0%, rgba(39, 103, 216, 0.12), transparent 28%),
+                linear-gradient(135deg, #fbfaf6 0%, #ede8dc 54%, #f8f4e9 100%);
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .app-shell {
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .glass-chrome {
+            background: var(--glass-fill);
+            border: 1px solid var(--glass-stroke);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(22px) saturate(1.28);
+            -webkit-backdrop-filter: blur(22px) saturate(1.28);
+        }
+
+        .topbar {
+            position: sticky;
+            top: 16px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            max-width: 1240px;
+            margin: 0 auto 22px;
+            padding: 12px 14px 12px 18px;
+            border-radius: 28px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 210px;
+        }
+
+        .mark {
+            display: grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            color: #fff;
+            background: linear-gradient(135deg, var(--amen-black), var(--amen-purple));
+            border-radius: 14px;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+
+        .brand strong {
+            display: block;
+            line-height: 1.1;
+        }
+
+        .brand span,
+        .eyebrow,
+        .meta,
+        .tiny {
+            color: var(--muted);
+            font-size: 0.78rem;
+            line-height: 1.35;
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.36);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .nav button,
+        .icon-button,
+        .primary-action,
+        .secondary-action {
+            min-height: 38px;
+            border: 0;
+            border-radius: 20px;
+            color: var(--ink);
+            background: transparent;
+        }
+
+        .nav button {
+            padding: 0 14px;
+        }
+
+        .nav button.active {
+            color: #fff;
+            background: var(--amen-black);
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon-button {
+            display: grid;
+            width: 38px;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.58);
+            background: rgba(255, 255, 255, 0.42);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(280px, 360px);
+            gap: 18px;
+            max-width: 1240px;
+            margin: 0 auto;
+            align-items: start;
+        }
+
+        .panel,
+        .matte-card,
+        .path-card,
+        .health-card {
+            background: var(--surface-card);
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+        }
+
+        .panel {
+            padding: 16px;
+        }
+
+        .panel + .panel {
+            margin-top: 14px;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin: 0;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 4.25rem);
+            line-height: 0.94;
+            max-width: 760px;
+        }
+
+        h2 {
+            font-size: 1.18rem;
+            line-height: 1.15;
+        }
+
+        h3 {
+            font-size: 0.98rem;
+            line-height: 1.25;
+        }
+
+        .hero {
+            position: relative;
+            overflow: hidden;
+            min-height: 340px;
+            padding: 34px;
+            color: #fff;
+            background:
+                linear-gradient(120deg, rgba(16, 16, 20, 0.9), rgba(35, 31, 53, 0.62)),
+                url("https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1800&q=80") center/cover;
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            gap: 18px;
+            max-width: 840px;
+        }
+
+        .hero p {
+            max-width: 620px;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 1.02rem;
+            line-height: 1.55;
+        }
+
+        .hero-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 30px;
+            padding: 5px 10px;
+            border-radius: 18px;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            font-size: 0.78rem;
+            font-weight: 650;
+        }
+
+        .badge.dark {
+            color: #fff;
+            background: rgba(16, 16, 20, 0.48);
+        }
+
+        .content-stack {
+            display: grid;
+            gap: 18px;
+        }
+
+        .space-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .space-row {
+            display: grid;
+            grid-template-columns: 38px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--surface);
+            border: 1px solid transparent;
+        }
+
+        .space-row.active {
+            border-color: rgba(216, 168, 63, 0.58);
+            background: #fff9e9;
+        }
+
+        .avatar {
+            display: grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            border-radius: 50%;
+            color: #fff;
+            background: var(--amen-blue);
+            font-size: 0.8rem;
+            font-weight: 750;
+        }
+
+        .avatar.berean {
+            background: linear-gradient(135deg, var(--amen-purple), var(--amen-blue));
+        }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #2a9d68;
+        }
+
+        .path-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .path-card {
+            display: grid;
+            gap: 12px;
+            min-height: 172px;
+            padding: 14px;
+        }
+
+        .progress-track {
+            overflow: hidden;
+            height: 8px;
+            border-radius: 12px;
+            background: var(--surface-soft);
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--amen-gold), var(--amen-blue));
+        }
+
+        .mentor-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            width: fit-content;
+            padding: 6px 9px;
+            border-radius: 16px;
+            background: #eef4ff;
+            color: #233a68;
+            font-size: 0.75rem;
+            font-weight: 650;
+        }
+
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .health-card {
+            padding: 13px;
+        }
+
+        .health-card strong {
+            display: block;
+            margin-top: 8px;
+            font-size: 1.35rem;
+            line-height: 1;
+        }
+
+        .health-card span {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.78rem;
+            line-height: 1.35;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .matte-card {
+            padding: 14px;
+        }
+
+        .insight-list,
+        .provenance-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .insight {
+            padding: 12px;
+            border-radius: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+        }
+
+        .insight p {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .privacy-ribbon {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: fit-content;
+            margin-bottom: 12px;
+            padding: 7px 10px;
+            color: #204226;
+            background: #e9f8ed;
+            border: 1px solid rgba(42, 157, 104, 0.24);
+            border-radius: 18px;
+            font-size: 0.78rem;
+            font-weight: 750;
+        }
+
+        .berean-panel {
+            position: sticky;
+            top: 92px;
+            display: grid;
+            gap: 14px;
+            padding: 16px;
+            border-radius: 24px;
+        }
+
+        .berean-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.58);
+            border: 1px solid rgba(255, 255, 255, 0.66);
+            line-height: 1.45;
+            font-size: 0.9rem;
+        }
+
+        .claim {
+            display: grid;
+            gap: 8px;
+            padding: 11px;
+            border-radius: 12px;
+            background: rgba(245, 243, 237, 0.76);
+            border: 1px solid rgba(23, 23, 29, 0.1);
+        }
+
+        .claim button {
+            justify-self: start;
+            min-height: 30px;
+            padding: 0 10px;
+            border-radius: 16px;
+            color: var(--amen-blue);
+            background: #fff;
+            border: 1px solid rgba(39, 103, 216, 0.22);
+            font-size: 0.78rem;
+            font-weight: 750;
+        }
+
+        .preview-box {
+            padding: 12px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.62);
+            border: 1px solid rgba(255, 255, 255, 0.72);
+        }
+
+        .preview-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .primary-action,
+        .secondary-action {
+            padding: 0 12px;
+            font-size: 0.82rem;
+            font-weight: 750;
+        }
+
+        .primary-action {
+            color: #fff;
+            background: var(--amen-black);
+        }
+
+        .secondary-action {
+            background: rgba(255, 255, 255, 0.68);
+            border: 1px solid rgba(23, 23, 29, 0.12);
+        }
+
+        details {
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.52);
+            border: 1px solid rgba(23, 23, 29, 0.1);
+        }
+
+        summary {
+            padding: 10px 12px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 750;
+        }
+
+        .provenance-list {
+            padding: 0 12px 12px;
+        }
+
+        .provenance-item {
+            display: grid;
+            grid-template-columns: 24px 1fr;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 0.78rem;
+            line-height: 1.35;
+        }
+
+        .provenance-item b {
+            color: var(--ink);
+        }
+
+        .capsule-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .capsule {
+            padding: 7px 10px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.68);
+            border: 1px solid rgba(255, 255, 255, 0.78);
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .footer-note {
+            max-width: 1240px;
+            margin: 20px auto 0;
+            color: var(--muted);
+            font-size: 0.78rem;
+        }
+
+        @media (max-width: 1060px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .berean-panel {
+                position: static;
+            }
+
+            .topbar {
+                flex-wrap: wrap;
+            }
+
+            .nav {
+                order: 3;
+                width: 100%;
+                overflow-x: auto;
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .app-shell {
+                padding: 12px;
+            }
+
+            .topbar {
+                top: 8px;
+                border-radius: 22px;
+            }
+
+            .hero {
+                min-height: 420px;
+                padding: 24px;
+            }
+
+            .path-grid,
+            .health-grid,
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .preview-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .glass-chrome,
+            .matte-card,
+            .path-card,
+            .health-card,
+            button {
+                transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            }
+
+            button:hover,
+            .path-card:hover,
+            .health-card:hover {
+                transform: translateY(-1px);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar glass-chrome" aria-label="AMEN Spaces navigation">
+            <div class="brand">
+                <div class="mark">A</div>
+                <div>
+                    <strong>AMEN Spaces</strong>
+                    <span>Creator OS prototype</span>
+                </div>
+            </div>
+            <nav class="nav" aria-label="Primary">
+                <button class="active" type="button">Space</button>
+                <button type="button">Learning Paths</button>
+                <button type="button">Health</button>
+                <button type="button">Dashboard</button>
+            </nav>
+            <div class="toolbar" aria-label="Tools">
+                <button class="icon-button" type="button" title="Search">S</button>
+                <button class="icon-button" type="button" title="Notifications">N</button>
+                <button class="icon-button" type="button" title="Private mode">P</button>
+            </div>
+        </header>
+
+        <main class="main-grid">
+            <aside>
+                <section class="panel" aria-labelledby="spaces-title">
+                    <div class="section-title">
+                        <h2 id="spaces-title">Creator Spaces</h2>
+                        <span class="eyebrow">private admin</span>
+                    </div>
+                    <div class="space-list">
+                        <div class="space-row active">
+                            <div class="avatar">GH</div>
+                            <div>
+                                <h3>Gospel House</h3>
+                                <span class="meta">Learning community</span>
+                            </div>
+                            <span class="status-dot" aria-label="healthy"></span>
+                        </div>
+                        <div class="space-row">
+                            <div class="avatar">YP</div>
+                            <div>
+                                <h3>Youth Pastors Lab</h3>
+                                <span class="meta">Mentor cohort</span>
+                            </div>
+                            <span class="status-dot" aria-label="healthy"></span>
+                        </div>
+                        <div class="space-row">
+                            <div class="avatar berean">B</div>
+                            <div>
+                                <h3>Berean</h3>
+                                <span class="meta">Resident Space member</span>
+                            </div>
+                            <span class="status-dot" aria-label="available"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel" aria-labelledby="guardrails-title">
+                    <div class="section-title">
+                        <h2 id="guardrails-title">Guardrails</h2>
+                    </div>
+                    <div class="insight-list">
+                        <div class="insight">
+                            <h3>No vanity metrics</h3>
+                            <p>Public popularity counters are intentionally absent.</p>
+                        </div>
+                        <div class="insight">
+                            <h3>Finite sessions</h3>
+                            <p>Spaces load weekly paths and unresolved needs, not an infinite feed.</p>
+                        </div>
+                        <div class="insight">
+                            <h3>Human agency</h3>
+                            <p>Every AI action remains opt-in and shows a preview before it can post, message, or schedule.</p>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+
+            <section class="content-stack">
+                <section class="hero" aria-labelledby="hero-title">
+                    <div class="hero-content">
+                        <div class="hero-badges">
+                            <span class="badge">Learning Paths replace tiers</span>
+                            <span class="badge dark">Berean is in the Space</span>
+                            <span class="badge dark">Creator dashboard is private</span>
+                        </div>
+                        <h1 id="hero-title">Creator OS for discipleship communities</h1>
+                        <p>AMEN Spaces centers formation, mentorship, and answered questions. The creator sees quality signals privately while members move through clear Learning Paths.</p>
+                    </div>
+                </section>
+
+                <section class="panel" aria-labelledby="paths-title">
+                    <div class="section-title">
+                        <div>
+                            <span class="eyebrow">member-facing</span>
+                            <h2 id="paths-title">Learning Paths</h2>
+                        </div>
+                        <span class="capsule">No tiers</span>
+                    </div>
+                    <div class="path-grid">
+                        <article class="path-card">
+                            <div>
+                                <span class="eyebrow">Path 01</span>
+                                <h3>Foundations of Prayer</h3>
+                            </div>
+                            <p class="meta">Four guided practices with reflection prompts and mentor review.</p>
+                            <div class="progress-track" aria-label="completion progress">
+                                <div class="progress-fill" style="width: 72%"></div>
+                            </div>
+                            <span class="mentor-chip">Mentor: Alina</span>
+                        </article>
+                        <article class="path-card">
+                            <div>
+                                <span class="eyebrow">Path 02</span>
+                                <h3>Interpreting Scripture</h3>
+                            </div>
+                            <p class="meta">Source-grounded study, cited claims, and small-group discussion.</p>
+                            <div class="progress-track" aria-label="completion progress">
+                                <div class="progress-fill" style="width: 48%"></div>
+                            </div>
+                            <span class="mentor-chip">Mentor: Josiah</span>
+                        </article>
+                        <article class="path-card">
+                            <div>
+                                <span class="eyebrow">Path 03</span>
+                                <h3>Serve Your Neighbor</h3>
+                            </div>
+                            <p class="meta">Local service planning with reflection and follow-up care.</p>
+                            <div class="progress-track" aria-label="completion progress">
+                                <div class="progress-fill" style="width: 35%"></div>
+                            </div>
+                            <span class="mentor-chip">Mentor match open</span>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="panel" aria-labelledby="health-title">
+                    <div class="section-title">
+                        <div>
+                            <span class="eyebrow">creator-visible quality signals</span>
+                            <h2 id="health-title">Community Health</h2>
+                        </div>
+                        <span class="capsule">Retention quality, not popularity</span>
+                    </div>
+                    <div class="health-grid">
+                        <article class="health-card">
+                            <span class="eyebrow">Retention quality</span>
+                            <strong>Stable</strong>
+                            <span>Members return to path practices after mentor interaction.</span>
+                        </article>
+                        <article class="health-card">
+                            <span class="eyebrow">Learning outcomes</span>
+                            <strong>Improving</strong>
+                            <span>Reflection quality rose across Scripture interpretation checkpoints.</span>
+                        </article>
+                        <article class="health-card">
+                            <span class="eyebrow">Mentorship</span>
+                            <strong>Needs match</strong>
+                            <span>One service path participant is ready for a mentor invitation.</span>
+                        </article>
+                        <article class="health-card">
+                            <span class="eyebrow">Unanswered questions</span>
+                            <strong>2 open</strong>
+                            <span>Berean found two questions older than the Space response target.</span>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="panel" aria-labelledby="dashboard-title">
+                    <div class="privacy-ribbon">Private: Creator Intelligence Dashboard</div>
+                    <div class="section-title">
+                        <div>
+                            <span class="eyebrow">creator private namespace</span>
+                            <h2 id="dashboard-title">Creator Intelligence Dashboard</h2>
+                        </div>
+                        <span class="capsule">creator_private_creator-42_space-gospel-house</span>
+                    </div>
+                    <div class="dashboard-grid">
+                        <article class="matte-card">
+                            <h3>Suggested care focus</h3>
+                            <div class="insight-list">
+                                <div class="insight">
+                                    <h3>New member confusion</h3>
+                                    <p>Three recent reflections ask how to choose a prayer rhythm. Berean can draft a clarifying Space note.</p>
+                                </div>
+                                <div class="insight">
+                                    <h3>Potential mentor</h3>
+                                    <p>Maya has completed two service reflections and replied constructively to peers.</p>
+                                </div>
+                            </div>
+                        </article>
+                        <article class="matte-card">
+                            <h3>AI claim provenance</h3>
+                            <div class="provenance-list">
+                                <div class="provenance-item"><span>1</span><span><b>Original:</b> Path reflections from Gospel House Week 3.</span></div>
+                                <div class="provenance-item"><span>2</span><span><b>Capture:</b> Creator Space trust boundary, AMEN prototype.</span></div>
+                                <div class="provenance-item"><span>3</span><span><b>Processing:</b> Berean summarizeContext for creatorCommunityHealth.</span></div>
+                                <div class="provenance-item"><span>4</span><span><b>Retrieval:</b> creator private namespace with confidence shown before action.</span></div>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+            </section>
+
+            <aside class="berean-panel glass-chrome" aria-labelledby="berean-title">
+                <div class="berean-head">
+                    <div class="avatar berean">B</div>
+                    <div>
+                        <h2 id="berean-title">Berean</h2>
+                        <span class="meta">AI Community Manager and resident member</span>
+                    </div>
+                </div>
+                <div class="message">
+                    I found an unanswered question pattern in the prayer path. I can draft a response, but I will not post without your confirmation.
+                </div>
+                <div class="claim">
+                    <h3>Claim</h3>
+                    <p class="meta">Two open member questions ask how to begin when prayer feels inconsistent.</p>
+                    <button type="button">View provenance</button>
+                </div>
+                <details open>
+                    <summary>Four-layer provenance</summary>
+                    <div class="provenance-list">
+                        <div class="provenance-item"><span>1</span><span><b>Original source:</b> Member reflections, Prayer Path Week 2.</span></div>
+                        <div class="provenance-item"><span>2</span><span><b>Capture record:</b> Space conversation, explicit community boundary.</span></div>
+                        <div class="provenance-item"><span>3</span><span><b>Processing record:</b> bereanDetectNeedProxy, human preview required.</span></div>
+                        <div class="provenance-item"><span>4</span><span><b>Retrieval record:</b> creator private dashboard query, confidence 0.82.</span></div>
+                    </div>
+                </details>
+                <div class="preview-box">
+                    <span class="eyebrow">Opt-in preview</span>
+                    <h3>Draft Space response</h3>
+                    <p class="meta">"Start with two minutes of honest prayer after breakfast. Share one sentence with your mentor by Friday."</p>
+                    <div class="preview-actions">
+                        <button class="primary-action" type="button">Approve post</button>
+                        <button class="secondary-action" type="button">Edit first</button>
+                    </div>
+                </div>
+                <div class="capsule-row" aria-label="Berean capabilities">
+                    <span class="capsule">detectNeed</span>
+                    <span class="capsule">summarizeContext</span>
+                    <span class="capsule">verifySource</span>
+                </div>
+            </aside>
+        </main>
+
+        <p class="footer-note">Phase 1 HTML prototype only. No Swift files or frozen contracts are modified.</p>
+    </div>
+</body>
+</html>

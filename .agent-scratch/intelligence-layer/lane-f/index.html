@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AMEN Intelligence Layer - Lane F Glass Shell</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-shell" data-active-surface="life-navigation">
+        <header class="glass-chrome topbar" aria-label="AMEN Intelligence shell">
+            <div>
+                <p class="eyebrow">AMEN Intelligence</p>
+                <h1>Glass Shell</h1>
+            </div>
+            <nav class="surface-tabs" aria-label="Surface switcher">
+                <button class="surface-tab is-active" type="button" data-surface="life-navigation">Life</button>
+                <button class="surface-tab" type="button" data-surface="relationship">People</button>
+                <button class="surface-tab" type="button" data-surface="creator-space">Space</button>
+                <button class="surface-tab" type="button" data-surface="notes">Notes</button>
+            </nav>
+            <div class="privacy-chip" aria-label="Current privacy boundary">
+                <span class="privacy-dot"></span>
+                Personal boundary
+            </div>
+        </header>
+
+        <main class="workspace">
+            <section class="content-column" aria-label="Hosted matte surface">
+                <div class="surface-card matte active" data-panel="life-navigation">
+                    <div class="surface-header">
+                        <div>
+                            <p class="eyebrow">Life Navigation</p>
+                            <h2>Tuesday evening plan</h2>
+                        </div>
+                        <span class="boundary-label">Boundary: personal_trip_ellie</span>
+                    </div>
+                    <div class="route-strip" aria-label="Travel timing">
+                        <div>
+                            <span>Home</span>
+                            <strong>5:35 PM</strong>
+                        </div>
+                        <div class="route-line"></div>
+                        <div>
+                            <span>Community dinner</span>
+                            <strong>6:15 PM</strong>
+                        </div>
+                    </div>
+                    <article class="matte-item">
+                        <h3>Context visible to Berean</h3>
+                        <p>Calendar event, saved address, and the last confirmed message in the dinner thread.</p>
+                    </article>
+                    <article class="matte-item">
+                        <h3>Context not visible</h3>
+                        <p>Private journal notes, unrelated conversations, and creator analytics remain outside this boundary.</p>
+                    </article>
+                </div>
+
+                <div class="surface-card matte" data-panel="relationship">
+                    <div class="surface-header">
+                        <div>
+                            <p class="eyebrow">Relationship</p>
+                            <h2>Follow-up thread</h2>
+                        </div>
+                        <span class="boundary-label">Boundary: conversation_small_group</span>
+                    </div>
+                    <article class="message-card">
+                        <p class="speaker">Mara</p>
+                        <p>Could someone send the notes from Sunday and the address for dinner?</p>
+                    </article>
+                    <article class="message-card">
+                        <p class="speaker">You</p>
+                        <p>Drafting now. I want to include the source for the Romans reference.</p>
+                    </article>
+                </div>
+
+                <div class="surface-card matte" data-panel="creator-space">
+                    <div class="surface-header">
+                        <div>
+                            <p class="eyebrow">Creator Space</p>
+                            <h2>Member care board</h2>
+                        </div>
+                        <span class="boundary-label">Boundary: creator_private_space_21</span>
+                    </div>
+                    <div class="care-list">
+                        <article class="matte-item">
+                            <h3>New member confusion</h3>
+                            <p>Three people asked where discussion notes live. Berean can propose a pinned post preview.</p>
+                        </article>
+                        <article class="matte-item">
+                            <h3>Source verification</h3>
+                            <p>A lesson draft cites a paraphrase. Verification stays in preview until confirmed.</p>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="surface-card matte" data-panel="notes">
+                    <div class="surface-header">
+                        <div>
+                            <p class="eyebrow">Personal Memory</p>
+                            <h2>Notebook review</h2>
+                        </div>
+                        <span class="boundary-label">Boundary: personal_user_steph</span>
+                    </div>
+                    <article class="matte-item">
+                        <h3>Possible duplicate thought</h3>
+                        <p>Two notes mention the same decision trail. Merging requires an explicit preview.</p>
+                    </article>
+                    <article class="matte-item">
+                        <h3>Private memory scope</h3>
+                        <p>This note is not available to group threads or creator spaces.</p>
+                    </article>
+                </div>
+            </section>
+
+            <aside class="ambient-column" aria-label="Ambient Berean layer">
+                <section class="glass-chrome berean-panel" aria-labelledby="berean-title">
+                    <div class="panel-title-row">
+                        <div>
+                            <p class="eyebrow">Ambient Berean</p>
+                            <h2 id="berean-title">Contextual layer</h2>
+                        </div>
+                        <button class="icon-button" type="button" data-toggle-panel aria-label="Collapse Berean panel">–</button>
+                    </div>
+
+                    <div class="context-capsules" aria-label="Visible memory boundaries">
+                        <span class="context-capsule">personal_user_steph</span>
+                        <span class="context-capsule">conversation_small_group</span>
+                        <span class="context-capsule muted">creator_private_space_21</span>
+                    </div>
+
+                    <article class="nudge-card active" data-nudge="life-navigation">
+                        <p class="nudge-kind">Leave-now nudge</p>
+                        <h3>Leave by 5:42 PM to arrive before dinner starts.</h3>
+                        <p>The estimate uses your saved destination, the calendar start time, and the current route buffer.</p>
+                        <div class="provenance">
+                            <button type="button" data-provenance="leave-now">View provenance</button>
+                            <span>Preview required before navigation starts.</span>
+                        </div>
+                    </article>
+
+                    <article class="nudge-card" data-nudge="relationship">
+                        <p class="nudge-kind">Context summary</p>
+                        <h3>Mara needs notes and the dinner address.</h3>
+                        <p>Berean can draft a reply with cited Sunday notes and the saved event location.</p>
+                        <div class="provenance">
+                            <button type="button" data-provenance="reply-summary">View provenance</button>
+                            <span>Preview required before sending.</span>
+                        </div>
+                    </article>
+
+                    <article class="nudge-card" data-nudge="creator-space">
+                        <p class="nudge-kind">Cross-surface memory</p>
+                        <h3>The pinned post can reuse verified Sunday notes.</h3>
+                        <p>Private member-care signals stay inside the creator boundary and are not exposed in the post.</p>
+                        <div class="provenance">
+                            <button type="button" data-provenance="creator-post">View provenance</button>
+                            <span>Preview required before posting.</span>
+                        </div>
+                    </article>
+
+                    <article class="nudge-card" data-nudge="notes">
+                        <p class="nudge-kind">Memory link</p>
+                        <h3>Two notes may describe the same decision trail.</h3>
+                        <p>Berean can show a merge preview with the proposed context edge and its source chain.</p>
+                        <div class="provenance">
+                            <button type="button" data-provenance="merge-notes">View provenance</button>
+                            <span>Preview required before merging.</span>
+                        </div>
+                    </article>
+
+                    <div class="action-preview" aria-live="polite">
+                        <div>
+                            <p class="eyebrow">Opt-in Preview</p>
+                            <h3 data-preview-title>Start navigation preview</h3>
+                        </div>
+                        <p data-preview-copy>Berean will show the route handoff and the memory it used before anything starts.</p>
+                        <div class="preview-buttons">
+                            <button class="secondary-button" type="button">Dismiss</button>
+                            <button class="primary-button" type="button" data-open-preview>Open Preview</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="matte boundary-panel" aria-label="Privacy and memory status">
+                    <h2>Privacy Boundary</h2>
+                    <dl>
+                        <div>
+                            <dt>Allowed</dt>
+                            <dd data-allowed>Calendar, route, dinner thread</dd>
+                        </div>
+                        <div>
+                            <dt>Blocked</dt>
+                            <dd data-blocked>Journal, unrelated messages, creator-private data</dd>
+                        </div>
+                        <div>
+                            <dt>Claim handling</dt>
+                            <dd>Every AI claim opens a four-layer provenance view.</dd>
+                        </div>
+                    </dl>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <dialog class="preview-dialog" aria-labelledby="preview-title">
+        <div class="dialog-shell glass-chrome">
+            <div class="panel-title-row">
+                <div>
+                    <p class="eyebrow">Human Preview Required</p>
+                    <h2 id="preview-title">Review before action</h2>
+                </div>
+                <button class="icon-button" type="button" data-close-preview aria-label="Close preview">×</button>
+            </div>
+            <div class="diff-preview">
+                <p class="speaker">Proposed action</p>
+                <p data-dialog-action>Start navigation to Community Dinner at 5:42 PM.</p>
+            </div>
+            <div class="provenance-stack" aria-label="Four-layer provenance">
+                <article>
+                    <span>Original Source</span>
+                    <p data-source-original>Calendar event: Community Dinner, saved by you.</p>
+                </article>
+                <article>
+                    <span>Capture Record</span>
+                    <p data-source-capture>Captured in personal boundary on this device.</p>
+                </article>
+                <article>
+                    <span>Processing Record</span>
+                    <p data-source-processing>bereanDetectNeedProxy, leaveNowTravelNudge, human reviewed: no.</p>
+                </article>
+                <article>
+                    <span>Retrieval Record</span>
+                    <p data-source-retrieval>Namespace personal_user_steph, minimum confidence threshold met.</p>
+                </article>
+            </div>
+            <div class="preview-buttons">
+                <button class="secondary-button" type="button" data-close-preview>Cancel</button>
+                <button class="primary-button" type="button">Confirm Explicitly</button>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="script.js"></script>
+</body>
+</html>
