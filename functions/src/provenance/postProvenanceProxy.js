@@ -109,12 +109,10 @@ exports.postProvenanceProxy = onCall(
 
     if (!postSnap.exists) {
       // Post is gone; return a minimal safe response so the iOS UI can degrade
-      // gracefully instead of crashing on an HttpsError.
+      // gracefully without inventing provenance reasons for missing content.
       return {
         postId,
-        reasons: [
-          { label: 'Shared in your community', score: 0.5, kind: 'communityTrending' },
-        ],
+        reasons: [],
         source:          'recommended',
         addedInterestOn: null,
       };

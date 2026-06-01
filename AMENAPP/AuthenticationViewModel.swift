@@ -428,7 +428,14 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Simulator bypass (anonymous Firebase auth so Firestore rules pass)
 
     #if targetEnvironment(simulator)
+    @Published private var isSimulatorBypassInFlight = false
+
     func simulatorBypass() {
+        guard !isSimulatorBypassInFlight else {
+            dlog("🔧 [Simulator] Anonymous sign-in already in progress — ignoring duplicate bypass tap")
+            return
+        }
+
         needsOnboarding = false
         needsUsernameSelection = false
         needsEmailVerification = false
@@ -445,7 +452,14 @@ class AuthenticationViewModel: ObservableObject {
         // Secure Enclave emulation races the app launch. Five attempts with
         // exponential back-off (0 → 0.5 s → 1 s → 2 s → 4 s, total ≈ 7.5 s)
         // gives the keychain time to become ready without blocking warm launches.
+        isSimulatorBypassInFlight = true
         Task {
+            defer {
+                Task { @MainActor in
+                    self.isSimulatorBypassInFlight = false
+                }
+            }
+
             let delays: [UInt64] = [0, 500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000]
             var signedIn = false
             for (attempt, delay) in delays.enumerated() {

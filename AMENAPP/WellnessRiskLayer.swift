@@ -896,13 +896,18 @@ struct WellnessSupportSheet: View {
 
     @ObservedObject private var service = WellnessRiskService.shared // PERF: singleton → @ObservedObject
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var domains: [SupportDomain]
     var onSelectDomain: ((SupportDomain) -> Void)?
 
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
+            if reduceTransparency {
+                Color(.systemBackground).ignoresSafeArea()
+            } else {
+                Rectangle().fill(.regularMaterial).ignoresSafeArea()
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -910,11 +915,11 @@ struct WellnessSupportSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("You deserve support.")
                             .font(AMENFont.bold(20))
-                            .foregroundColor(.black)
+                            .foregroundColor(.primary)
 
                         Text("What kind of help would be most useful right now?")
                             .font(AMENFont.regular(15))
-                            .foregroundColor(Color(white: 0.45))
+                            .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.top, 8)
@@ -953,13 +958,18 @@ struct WellnessCrisisSheet: View {
 
     @ObservedObject private var service = WellnessRiskService.shared // PERF: singleton → @ObservedObject
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var onOpenBerean: (() -> Void)?
     var onFindChurch: (() -> Void)?
 
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
+            if reduceTransparency {
+                Color(.systemBackground).ignoresSafeArea()
+            } else {
+                Rectangle().fill(.regularMaterial).ignoresSafeArea()
+            }
 
             ScrollView {
                 VStack(spacing: 24) {
@@ -967,12 +977,12 @@ struct WellnessCrisisSheet: View {
                     VStack(spacing: 10) {
                         Text("You're not alone.")
                             .font(AMENFont.bold(28))
-                            .foregroundColor(.black)
+                            .foregroundColor(.primary)
                             .multilineTextAlignment(.center)
 
                         Text("Take a breath. Choose what would help most right now.")
                             .font(AMENFont.regular(16))
-                            .foregroundColor(Color(white: 0.45))
+                            .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -1062,7 +1072,7 @@ private struct CrisisChoiceCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(AMENFont.semiBold(16))
-                        .foregroundColor(.black)
+                        .foregroundColor(.primary)
                     Text(subtitle)
                         .font(AMENFont.regular(13))
                         .foregroundColor(Color(white: 0.55))

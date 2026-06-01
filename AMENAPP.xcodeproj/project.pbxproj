@@ -320,6 +320,10 @@
 		EF62A57B2FCC6C0A002212E9 /* A11yCoPilotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = A11yCoPilotService.swift; sourceTree = "<group>"; };
 		EF62A57C2FCC6C0A002212E9 /* A11yCoPilotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = A11yCoPilotView.swift; sourceTree = "<group>"; };
 		EF62A57F2FCC6C21002212E9 /* AuthenticityScoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticityScoreView.swift; sourceTree = "<group>"; };
+		EF62A60C2FCDD31A002212E9 /* ContextGraphContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextGraphContract.swift; sourceTree = "<group>"; };
+		EF62A60F2FCDD336002212E9 /* MemoryProvenanceContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryProvenanceContract.swift; sourceTree = "<group>"; };
+		EF62A6102FCDD353002212E9 /* BereanIntelligenceAPIContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanIntelligenceAPIContract.swift; sourceTree = "<group>"; };
+		EF62A6112FCDD36A002212E9 /* LiquidGlassContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassContract.swift; sourceTree = "<group>"; };
 		EF6854572FAB95B9000B840E /* AMENAPPUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENAPPUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		EF6854582FAB95B9000B840E /* ContextualReactionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualReactionUITests.swift; sourceTree = "<group>"; };
 		EF6854A72FAD7480000B840E /* Phase34DiscoveryComposerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase34DiscoveryComposerUITests.swift; sourceTree = "<group>"; };
@@ -828,6 +832,17 @@
 			path = AccessibilityAI;
 			sourceTree = "<group>";
 		};
+		EF62A60B2FCDD300002212E9 /* contracts */ = {
+			isa = PBXGroup;
+			children = (
+				EF62A60C2FCDD31A002212E9 /* ContextGraphContract.swift */,
+				EF62A60F2FCDD336002212E9 /* MemoryProvenanceContract.swift */,
+				EF62A6102FCDD353002212E9 /* BereanIntelligenceAPIContract.swift */,
+				EF62A6112FCDD36A002212E9 /* LiquidGlassContract.swift */,
+			);
+			path = contracts;
+			sourceTree = "<group>";
+		};
 		EF68538B2FA839CE000B840E /* livingEntries */ = {
 			isa = PBXGroup;
 			children = (
@@ -1326,6 +1341,7 @@
 				EFFAA62C2FC99DB2004D4A2D /* NearbyPermissionSheet.swift */,
 				EFFAA6302FC9A2EE004D4A2D /* NearbyPeopleView.swift */,
 				EF62A5592FCC6A3C002212E9 /* AccessibilityAI */,
+				EF62A60B2FCDD300002212E9 /* contracts */,
 			);
 			sourceTree = "<group>";
 		};

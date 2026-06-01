@@ -6,7 +6,7 @@
  *   - createStory / deleteStory: fully implemented, safe to deploy.
  *   - generateReflectionPrompt: implemented — requires ANTHROPIC_API_KEY secret.
  *   - recognizeVerse: implemented — requires GOOGLE_APPLICATION_CREDENTIALS / ADC.
- *   - matchAudio: stub — [NEEDS HUMAN DEPLOY] after Pinecone index is provisioned.
+ *   - matchAudio: fail-closed until Pinecone index is provisioned.
  *
  * Security:
  *   - App Check enforced (enforceAppCheck: true).
@@ -29,24 +29,6 @@ const { logger } = require('firebase-functions/v2');
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
-
-// ─── Fallback reflection prompts keyed by "<book> <chapter>:<verse>" ──────────
-
-const FALLBACK_PROMPTS = {
-  'Psalm 23:1':
-    'Where do you sense God leading you to still waters in this season?',
-  'John 3:16':
-    'How does knowing you are loved this deeply change what you are afraid of today?',
-  'Romans 8:28':
-    'Where have you seen God weaving something difficult into something purposeful in your own story?',
-  'Philippians 4:13':
-    'What task before you today feels impossible, and how might you invite God\'s strength into it?',
-  'Isaiah 40:31':
-    'Where in your life are you most in need of renewed strength, and what does waiting on God look like for you practically?',
-};
-
-const DEFAULT_FALLBACK_PROMPT =
-  "What does this passage reveal about God's character to you today?";
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
@@ -133,8 +115,8 @@ exports.selahStoryProxy = onCall(
         /*
          * Calls Claude (claude-3-haiku) to generate a single spiritually-
          * formative reflection question grounded in the given scripture ref.
-         * Falls back to a hardcoded map if ANTHROPIC_API_KEY is absent.
-         * [NEEDS HUMAN DEPLOY] — ANTHROPIC_API_KEY must be set as a secret.
+         * Fails closed if ANTHROPIC_API_KEY is absent so production never
+         * returns canned prompt content as if it were generated.
          */
         const scriptureRef = payload?.scriptureRef;
         if (!scriptureRef?.book || !scriptureRef?.chapter || !scriptureRef?.verse) {
@@ -146,12 +128,12 @@ exports.selahStoryProxy = onCall(
 
         const { book, chapter, verse } = scriptureRef;
         const theme = payload?.theme ?? null;
-        const refKey = `${book} ${chapter}:${verse}`;
-
         if (!process.env.ANTHROPIC_API_KEY) {
-          logger.warn('generateReflectionPrompt: ANTHROPIC_API_KEY not set — returning fallback prompt');
-          const prompt = FALLBACK_PROMPTS[refKey] ?? DEFAULT_FALLBACK_PROMPT;
-          return { prompt };
+          logger.warn('generateReflectionPrompt: ANTHROPIC_API_KEY not set');
+          throw new HttpsError(
+            'failed-precondition',
+            'Reflection prompt generation is not configured.'
+          );
         }
 
         try {
@@ -177,34 +159,33 @@ exports.selahStoryProxy = onCall(
           });
 
           const prompt =
-            message.content[0]?.text ??
-            (FALLBACK_PROMPTS[refKey] ?? DEFAULT_FALLBACK_PROMPT);
+            message.content[0]?.text;
+
+          if (!prompt) {
+            throw new Error('Anthropic response did not include prompt text.');
+          }
 
           return { prompt };
         } catch (err) {
           logger.error('generateReflectionPrompt: Anthropic API error', err);
-          const prompt = FALLBACK_PROMPTS[refKey] ?? DEFAULT_FALLBACK_PROMPT;
-          return { prompt };
+          throw new HttpsError('internal', 'Reflection prompt generation failed.');
         }
       }
 
       // ── matchAudio ──────────────────────────────────────────────────────────
       case 'matchAudio': {
         /*
-         * [NEEDS HUMAN DEPLOY] — Pinecone audio-tracks index not yet provisioned.
+         * Pinecone audio-tracks index not yet provisioned.
          * Real implementation:
          *   a. Embed payload.theme via OpenAI embeddings (OPENAI_API_KEY secret)
          *   b. Query Pinecone audio-tracks index for nearest neighbours
          *   c. Return top result as AudioTrackRef with a signed Storage URL
          */
-        logger.info('matchAudio: Pinecone not yet configured — returning default track');
-        return {
-          id: 'psalm23-instrumental',
-          title: 'Still Waters',
-          artistName: 'Formation Audio',
-          url: '',
-          durationSeconds: 240,
-        };
+        logger.warn('matchAudio: Pinecone not yet configured');
+        throw new HttpsError(
+          'failed-precondition',
+          'Audio matching is not configured.'
+        );
       }
 
       // ── createStory ─────────────────────────────────────────────────────────

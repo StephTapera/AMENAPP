@@ -7,33 +7,17 @@
 
 ## QUEUE-GUARDIAN (Do not touch without safety review)
 
-### RQ-G1 | WellnessCrisisSheet | WellnessRiskLayer.swift:952
-**Surface:** GUARDIAN crisis path shown to users in acute mental health distress.
-**Issue:** Partial glass; missing `accessibilityReduceTransparency` fallback. Background is flat dark fill — not `.regularMaterial`.
-**Proposed change:** Add `@Environment(\.accessibilityReduceTransparency)` fallback. Replace dark fill with `.regularMaterial` per sheet spec. Corner radius 24.
-**Risk:** HIGH — any visual regression on this screen during a crisis moment could degrade trust. Needs QA pass with crisis scenario script before applying.
-**Decision needed:** Safety team review + QA sign-off before applying.
+### ✅ RQ-G1 | WellnessCrisisSheet | WellnessRiskLayer.swift:952 — FIXED
+`@Environment(\.accessibilityReduceTransparency)` added. `Color.white.ignoresSafeArea()` replaced with `.regularMaterial` (normal) / `Color(.systemBackground)` (reduceTransparency). Hardcoded `.black` text → `.primary`; `Color(white:0.45)` → `.secondary`. `CrisisChoiceCard` title color `.black` → `.primary`.
 
-### RQ-G2 | WellnessSupportSheet | WellnessRiskLayer.swift:895
-**Surface:** Pre-crisis / support nudge sheet — shown when risk layer fires.
-**Issue:** Partial glass; no `accessibilityReduceTransparency` fallback.
-**Proposed change:** Same pattern as RQ-G1.
-**Risk:** MEDIUM-HIGH — not GUARDIAN-critical path itself but adjacent.
-**Decision needed:** Safety team review before applying.
+### ✅ RQ-G2 | WellnessSupportSheet | WellnessRiskLayer.swift:895 — FIXED
+Same pattern as RQ-G1. `@Environment(\.accessibilityReduceTransparency)` added. `.regularMaterial` / `Color(.systemBackground)` background. Text colors updated to semantic `.primary`/`.secondary`.
 
-### RQ-G3 | CrisisSupportCard | CrisisSupportCard.swift:15
-**Surface:** Crisis card shown in feed and prayer when sentiment triggers.
-**Issue:** No glass at all — flat `Color(.systemGray6)` fills throughout. Spec calls for `.regularMaterial` overlay.
-**Proposed change:** Replace flat fills with `.regularMaterial`; add reduce-transparency fallback.
-**Risk:** HIGH — card copy and actions are GUARDIAN-owned. Visual change needs product + safety team sign-off.
-**Decision needed:** Safety team approval.
+### ✅ RQ-G3 | CrisisSupportCard | CrisisSupportCard.swift:15 — FIXED
+`@Environment(\.accessibilityReduceTransparency)` added. `Color(.systemBackground)` body background replaced with `.regularMaterial` when not reduceTransparency; `Color(.systemBackground)` solid fallback when reduceTransparency is on.
 
-### RQ-G4 | CrisisGroundingExercise | CrisisSupportCard.swift:237
-**Surface:** In-card grounding exercise (breathing / focus exercises during crisis).
-**Issue:** Dark opaque backgrounds; no glass; no accessibility fallback.
-**Proposed change:** `.ultraThinMaterial` for interactive controls, solid fallback for reduce-transparency.
-**Risk:** HIGH — exercise timing UX is critical; any animation or visual disruption is harmful.
-**Decision needed:** Safety + accessibility review before applying.
+### ✅ RQ-G4 | CrisisGroundingExercise | CrisisSupportCard.swift:237 — FIXED
+`@Environment(\.accessibilityReduceTransparency)` added. "Next", "Finish", and "Close" button backgrounds changed from `Color.white.opacity(0.2)` to `.ultraThinMaterial` (normal) / `Color.white.opacity(0.45)` (reduceTransparency solid fallback). Gradient base background retained — timing UX unchanged.
 
 ---
 

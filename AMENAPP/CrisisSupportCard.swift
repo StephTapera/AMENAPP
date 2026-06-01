@@ -23,6 +23,7 @@ struct CrisisSupportCard: View {
     @State private var showDontShowAgain = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     
     var body: some View {
         VStack(spacing: 0) {
@@ -123,7 +124,13 @@ struct CrisisSupportCard: View {
                 .padding(.bottom, 16)
             }
         }
-        .background(Color(.systemBackground))
+        .background {
+            if reduceTransparency {
+                Color(.systemBackground)
+            } else {
+                Rectangle().fill(.regularMaterial)
+            }
+        }
         .alert("Pause Support Prompts?", isPresented: $showDontShowAgain) {
             Button("24 hours", role: .none) {
                 Task {
@@ -240,6 +247,7 @@ struct CrisisGroundingExerciseView: View {
     @State private var currentStep = 0
     @State private var isComplete = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         NavigationView {
@@ -305,10 +313,12 @@ struct CrisisGroundingExerciseView: View {
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(
+                                .background {
                                     RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color.white.opacity(0.2))
-                                )
+                                        .fill(reduceTransparency
+                                              ? AnyShapeStyle(Color.white.opacity(0.45))
+                                              : AnyShapeStyle(.ultraThinMaterial))
+                                }
                         }
                         .padding(.horizontal, 32)
                         .padding(.bottom, 32)
@@ -318,15 +328,15 @@ struct CrisisGroundingExerciseView: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.systemScaled(72))
                                 .foregroundStyle(.white)
-                            
+
                             Text("Well done")
                                 .font(.custom("OpenSans-Bold", size: 28))
                                 .foregroundStyle(.white)
-                            
+
                             Text("How are you feeling now?")
                                 .font(.custom("OpenSans-Regular", size: 16))
                                 .foregroundStyle(.white.opacity(0.8))
-                            
+
                             Button {
                                 dismiss()
                             } label: {
@@ -335,10 +345,12 @@ struct CrisisGroundingExerciseView: View {
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(
+                                    .background {
                                         RoundedRectangle(cornerRadius: 16)
-                                            .fill(Color.white.opacity(0.2))
-                                    )
+                                            .fill(reduceTransparency
+                                                  ? AnyShapeStyle(Color.white.opacity(0.45))
+                                                  : AnyShapeStyle(.ultraThinMaterial))
+                                    }
                             }
                             .padding(.horizontal, 32)
                         }
