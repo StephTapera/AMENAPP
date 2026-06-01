@@ -1587,10 +1587,12 @@ exports.postProvenanceProxy = postProvenanceProxyFns.postProvenanceProxy;
 //                     actions: recognizeVerse | generateReflectionPrompt |
 //                              matchAudio | createStory | deleteStory
 //                     App Check + Auth enforced; no AI credentials on device.
-//                     Currently returns mock data for emulator testing.
 //
-// [NEEDS HUMAN DEPLOY] — emulator only until Vertex AI / Pinecone secrets
-//                         are provisioned in the production Firebase project.
+// createStory / deleteStory: fully implemented — safe to deploy.
+// generateReflectionPrompt:  implemented — requires ANTHROPIC_API_KEY secret.
+// recognizeVerse:            implemented — requires GCP ADC / Vision API.
+// matchAudio:                [NEEDS HUMAN DEPLOY] — Pinecone index pending.
+//
 // Deploy: firebase deploy --only functions:selahStoryProxy
 // ============================================================================
 const selahStoryProxyFns = require('./src/selahStories/selahStoryProxy');

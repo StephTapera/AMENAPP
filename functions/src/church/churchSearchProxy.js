@@ -2,13 +2,10 @@
  * churchSearchProxy.js
  * AMEN App — Find a Church proxy callable (Phase 1 / Master Run)
  *
- * [NEEDS HUMAN DEPLOY] to production Firebase.
- * Safe to run in the Firebase Emulator Suite only.
- *
  * Purpose:
  *   Acts as the sole backend proxy for church search. The iOS client sends a
- *   structured query here; no Algolia API keys, Google Places keys, or geo
- *   credentials ever touch the device.
+ *   structured query here; no API keys, Google Places keys, or geo credentials
+ *   ever touch the device.
  *
  * Security:
  *   - App Check enforced (enforceAppCheck: true) — invalid/spoofed apps are
@@ -17,7 +14,7 @@
  *
  * Input (req.data):
  *   {
- *     query:              string,          // free-text search term
+ *     query:              string,          // free-text search term (may be empty string)
  *     lat?:               number,          // user latitude (optional)
  *     lng?:               number,          // user longitude (optional)
  *     openNow?:           boolean,
@@ -30,9 +27,13 @@
  *   { churches: ChurchRecord[] }
  *
  * Implementation path:
- *   TODO: Replace mockChurches() with real Algolia index query + Firestore geo
- *   filter. Algolia API key must live in Firebase Secrets (defineSecret), never
- *   passed from the client.
+ *   Queries the Firestore `churches` collection directly (no Algolia — there is
+ *   no dedicated church index). Geo filtering uses a lat/lng bounding box on
+ *   `location.latitude` (single-field range Firestore supports) with a
+ *   post-fetch longitude range check. Haversine distance is computed server-side
+ *   for each result. Text search falls back to a case-insensitive substring
+ *   match on `name` and `address`. All filters (denomination, openNow,
+ *   maxDistanceMeters, sortBy) are applied after the Firestore fetch.
  *
  * Emulator usage:
  *   firebase emulators:start --only functions
@@ -42,95 +43,122 @@
 'use strict';
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const admin = require('firebase-admin');
+if (!admin.apps.length) admin.initializeApp();
+const db = admin.firestore();
 
 const REGION = 'us-central1';
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-// Returns a small set of representative ChurchRecord-shaped objects so the iOS
-// client can fully exercise the calling convention end-to-end in the emulator.
-// Shape matches ChurchRecord from Phase0Contracts.swift (Codable).
+// ─── Geo helpers ──────────────────────────────────────────────────────────────
 
-function mockChurches(lat, lng) {
-  const baseLat = (typeof lat === 'number' && isFinite(lat)) ? lat : 37.3861;
-  const baseLng = (typeof lng === 'number' && isFinite(lng)) ? lng : -122.0839;
+/**
+ * Compute Haversine distance in metres between two lat/lng points.
+ * @param {number} lat1
+ * @param {number} lng1
+ * @param {number} lat2
+ * @param {number} lng2
+ * @returns {number} distance in metres
+ */
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // Earth radius in metres
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
-  return [
-    {
-      id: 'mock-001',
-      name: 'Grace Community Church',
-      denomination: 'nonDenominational',
-      coordinate: { latitude: baseLat + 0.01, longitude: baseLng + 0.01 },
-      address: '100 Faith Ave, Mountain View, CA 94040',
-      serviceTimes: [
-        { weekday: 1, start: '2000-01-02T10:00:00Z', label: 'Sunday Morning' },
-        { weekday: 1, start: '2000-01-02T18:00:00Z', label: 'Sunday Evening' },
-      ],
-      distanceMeters: 1500,
-      rating: 4.8,
-      isOpenNow: false,
-      verified: true,
+/**
+ * Build bounding-box degree offsets from a distance in metres.
+ * @param {number} distanceMeters
+ * @param {number} latRad  latitude of centre point in radians
+ * @returns {{ latDelta: number, lngDelta: number }}
+ */
+function boundingBoxDeltas(distanceMeters, latRad) {
+  const latDelta = distanceMeters / 111320;
+  const lngDelta = distanceMeters / (111320 * Math.cos(latRad));
+  return { latDelta, lngDelta };
+}
+
+// ─── isOpenNow helper ─────────────────────────────────────────────────────────
+
+/**
+ * Check whether any serviceTime for this church falls within the current
+ * day/hour window.
+ *
+ * ChurchServiceTime weekday convention: 1=Sunday … 7=Saturday
+ * JS Date.getDay():                      0=Sunday … 6=Saturday
+ * Mapping: jsDay + 1 === churchWeekday
+ *
+ * A service is considered "open now" when:
+ *   - The service is today (weekday matches), AND
+ *   - The current time is within a SERVICE_WINDOW_MINUTES window after
+ *     the service start time.
+ *
+ * @param {Array} serviceTimes  Array of { weekday, start, label? }
+ * @returns {boolean}
+ */
+function computeIsOpenNow(serviceTimes) {
+  if (!Array.isArray(serviceTimes) || serviceTimes.length === 0) return false;
+
+  const SERVICE_WINDOW_MINUTES = 120; // treat service as "open" for 2 hours after start
+  const now = new Date();
+  const jsDay = now.getDay(); // 0=Sunday
+  const churchWeekday = jsDay + 1; // 1=Sunday … 7=Saturday
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  for (const st of serviceTimes) {
+    if (typeof st.weekday !== 'number') continue;
+    if (st.weekday !== churchWeekday) continue;
+
+    // Parse the start time — it may be an ISO string like "2000-01-02T10:00:00Z"
+    // We only care about the hour/minute portion (treat as local clock time).
+    let startMinutes = null;
+    if (typeof st.start === 'string') {
+      const match = st.start.match(/T(\d{2}):(\d{2})/);
+      if (match) {
+        startMinutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+      }
+    }
+    if (startMinutes === null) continue;
+
+    if (nowMinutes >= startMinutes && nowMinutes < startMinutes + SERVICE_WINDOW_MINUTES) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ─── Shape a Firestore doc into a ChurchRecord ────────────────────────────────
+
+/**
+ * Map a Firestore document + computed fields to the ChurchRecord shape
+ * expected by Phase0Contracts.swift.
+ *
+ * @param {FirebaseFirestore.DocumentSnapshot} doc
+ * @param {number|null} distanceMeters
+ * @returns {object}
+ */
+function toChurchRecord(doc, distanceMeters) {
+  const data = doc.data();
+  const serviceTimes = data.serviceTimes ?? [];
+  return {
+    id: doc.id,
+    name: data.name ?? '',
+    denomination: data.denomination ?? null,
+    coordinate: {
+      latitude: data.location?.latitude ?? null,
+      longitude: data.location?.longitude ?? null,
     },
-    {
-      id: 'mock-002',
-      name: 'Calvary Baptist Fellowship',
-      denomination: 'baptist',
-      coordinate: { latitude: baseLat - 0.02, longitude: baseLng + 0.03 },
-      address: '250 Pilgrim Blvd, Sunnyvale, CA 94086',
-      serviceTimes: [
-        { weekday: 1, start: '2000-01-02T09:30:00Z', label: 'Sunday Service' },
-        { weekday: 4, start: '2000-01-05T19:00:00Z', label: 'Wednesday Bible Study' },
-      ],
-      distanceMeters: 3200,
-      rating: 4.6,
-      isOpenNow: false,
-      verified: true,
-    },
-    {
-      id: 'mock-003',
-      name: 'Bethel Pentecostal Ministries',
-      denomination: 'pentecostal',
-      coordinate: { latitude: baseLat + 0.03, longitude: baseLng - 0.02 },
-      address: '77 Spirit Lane, Santa Clara, CA 95050',
-      serviceTimes: [
-        { weekday: 1, start: '2000-01-02T11:00:00Z', label: 'Sunday Worship' },
-        { weekday: 6, start: '2000-01-07T19:30:00Z', label: 'Friday Night Alive' },
-      ],
-      distanceMeters: 4800,
-      rating: 4.9,
-      isOpenNow: false,
-      verified: false,
-    },
-    {
-      id: 'mock-004',
-      name: 'Reformed Presbyterian Church of the Valley',
-      denomination: 'presbyterian',
-      coordinate: { latitude: baseLat - 0.015, longitude: baseLng - 0.025 },
-      address: '320 Covenant Rd, Los Altos, CA 94022',
-      serviceTimes: [
-        { weekday: 1, start: '2000-01-02T10:30:00Z', label: 'Morning Worship' },
-      ],
-      distanceMeters: 6100,
-      rating: 4.5,
-      isOpenNow: false,
-      verified: true,
-    },
-    {
-      id: 'mock-005',
-      name: 'St. Paul Catholic Parish',
-      denomination: 'catholic',
-      coordinate: { latitude: baseLat + 0.005, longitude: baseLng - 0.01 },
-      address: '450 Holy Cross Way, San Jose, CA 95110',
-      serviceTimes: [
-        { weekday: 7, start: '2000-01-01T17:00:00Z', label: 'Saturday Vigil Mass' },
-        { weekday: 1, start: '2000-01-02T08:00:00Z', label: 'Sunday 8am Mass' },
-        { weekday: 1, start: '2000-01-02T10:00:00Z', label: 'Sunday 10am Mass' },
-      ],
-      distanceMeters: 900,
-      rating: 4.7,
-      isOpenNow: false,
-      verified: true,
-    },
-  ];
+    address: data.address ?? '',
+    serviceTimes,
+    distanceMeters: distanceMeters ?? null,
+    rating: data.rating ?? null,
+    isOpenNow: computeIsOpenNow(serviceTimes),
+    verified: data.verified ?? false,
+  };
 }
 
 // ─── Validate + sanitise input ────────────────────────────────────────────────
@@ -139,8 +167,9 @@ function validateInput(data) {
   if (!data || typeof data !== 'object') {
     throw new HttpsError('invalid-argument', 'Request data must be an object.');
   }
-  if (typeof data.query !== 'string' || data.query.trim().length === 0) {
-    throw new HttpsError('invalid-argument', 'query must be a non-empty string.');
+  // query is required but may be an empty string (browse mode)
+  if (typeof data.query !== 'string') {
+    throw new HttpsError('invalid-argument', 'query must be a string.');
   }
   if (data.query.length > 200) {
     throw new HttpsError('invalid-argument', 'query must not exceed 200 characters.');
@@ -169,9 +198,6 @@ exports.churchSearchProxy = onCall(
   {
     region: REGION,
     enforceAppCheck: true,
-    // [NEEDS HUMAN DEPLOY] — emulator only until App Check is fully
-    // provisioned in the production Firebase project. Remove this comment
-    // and set enforceAppCheck: true before production deploy.
   },
   async (request) => {
     // 1. Auth guard
@@ -185,50 +211,102 @@ exports.churchSearchProxy = onCall(
     validateInput(data);
 
     const {
-      query,
+      query = '',
       lat,
       lng,
       openNow,
       denomination,
-      maxDistanceMeters,
+      maxDistanceMeters = 40000,
       sortBy = 'bestMatch',
     } = data;
 
-    // 3. TODO: Real implementation
-    //    Replace the mock below with:
-    //      a. Algolia church index query using the 'query' string + geo filter
-    //         (Algolia API key loaded via defineSecret('ALGOLIA_CHURCH_KEY'))
-    //      b. Firestore geo filter as a secondary pass if needed
-    //      c. Apply openNow, denomination, maxDistanceMeters, sortBy filters
-    //    The Algolia key must NEVER be sent to the client device.
+    const hasGeo = typeof lat === 'number' && isFinite(lat) &&
+                   typeof lng === 'number' && isFinite(lng);
+    const hasTextQuery = query.trim().length > 0;
 
-    let results = mockChurches(lat, lng);
+    // 3. Build Firestore query
+    let firestoreQuery = db.collection('churches').where('isActive', '==', true);
 
-    // Apply denomination filter if provided (mock filtering)
+    // Denomination filter — safe to add before the range filter
     if (denomination) {
-      results = results.filter((c) => c.denomination === denomination);
+      firestoreQuery = firestoreQuery.where('denomination', '==', denomination);
     }
 
-    // Apply distance filter if provided (mock filtering)
-    if (typeof maxDistanceMeters === 'number') {
-      results = results.filter((c) =>
-        c.distanceMeters === null || c.distanceMeters === undefined || c.distanceMeters <= maxDistanceMeters
-      );
+    let docs = [];
+
+    if (hasGeo) {
+      // Geo bounding-box: filter on location.latitude (single range field)
+      // Longitude range is applied post-fetch (Firestore limitation: only one
+      // inequality field per query).
+      const latRad = (lat * Math.PI) / 180;
+      const { latDelta, lngDelta } = boundingBoxDeltas(maxDistanceMeters, latRad);
+      const minLat = lat - latDelta;
+      const maxLat = lat + latDelta;
+      const minLng = lng - lngDelta;
+      const maxLng = lng + lngDelta;
+
+      const snapshot = await firestoreQuery
+        .where('location.latitude', '>=', minLat)
+        .where('location.latitude', '<=', maxLat)
+        .limit(200)
+        .get();
+
+      // Post-filter: longitude range + compute Haversine distance
+      for (const doc of snapshot.docs) {
+        const d = doc.data();
+        const docLng = d.location?.longitude;
+        if (typeof docLng !== 'number') continue;
+        if (docLng < minLng || docLng > maxLng) continue;
+
+        const dist = haversineMeters(lat, lng, d.location.latitude, docLng);
+        if (dist > maxDistanceMeters) continue; // prune bounding-box corners
+
+        docs.push({ doc, distanceMeters: dist });
+      }
+    } else {
+      // No geo — text search only: fetch up to 50 active churches and
+      // post-filter by query string if non-empty.
+      const snapshot = await firestoreQuery.limit(50).get();
+      for (const doc of snapshot.docs) {
+        docs.push({ doc, distanceMeters: null });
+      }
     }
 
-    // Apply openNow filter if requested (mock: all churches are closed in mock data)
-    // In real implementation, this checks current time vs serviceTimes
+    // 4. Text search post-filter (applied whenever a query is present, regardless
+    //    of whether geo was used, so users can narrow geo results by name too).
+    if (hasTextQuery) {
+      const q = query.trim().toLowerCase();
+      docs = docs.filter(({ doc }) => {
+        const d = doc.data();
+        const name = (d.name ?? '').toLowerCase();
+        const address = (d.address ?? '').toLowerCase();
+        return name.includes(q) || address.includes(q);
+      });
+    }
+
+    // 5. Shape results into ChurchRecord objects
+    let results = docs.map(({ doc, distanceMeters }) =>
+      toChurchRecord(doc, distanceMeters)
+    );
+
+    // 6. openNow filter
     if (openNow === true) {
       results = results.filter((c) => c.isOpenNow === true);
     }
 
-    // Apply sort
+    // 7. Sort
     if (sortBy === 'distance') {
-      results = results.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
+      results.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
     } else if (sortBy === 'rating') {
-      results = results.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+      results.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    } else {
+      // bestMatch: when geo is available prefer distance, otherwise keep Firestore
+      // natural order (most recently created first tends to be most relevant).
+      if (hasGeo) {
+        results.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
+      }
+      // Without geo, Firestore fetch order is used as-is.
     }
-    // 'bestMatch' keeps the default mock order (highest relevance first)
 
     return { churches: results };
   }
