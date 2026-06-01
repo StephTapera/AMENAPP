@@ -980,25 +980,179 @@ private struct PendingSpaceAdminRow: View {
 struct AmenConnectAICatchUpSheet: View {
     var activityItems: [AmenConnectActivityItem]
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("AI-assisted catch up") {
-                    ForEach(activityItems) { item in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.title).font(.headline)
-                            Text(item.detail).font(.subheadline).foregroundStyle(.secondary)
+            ZStack {
+                // Background — mirrors AmenConnectSpatialBackground
+                Color(.systemBackground).ignoresSafeArea()
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [Color(red: 0.91, green: 0.96, blue: 1.0), Color.white, Color(red: 0.98, green: 0.98, blue: 0.96)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(height: 280)
+                    Spacer()
+                }
+                .ignoresSafeArea()
+
+                if activityItems.isEmpty {
+                    // Empty state
+                    VStack(spacing: 20) {
+                        ZStack {
+                            Circle()
+                                .fill(AmenTheme.Colors.amenGold.opacity(reduceTransparency ? 0.18 : 0.12))
+                                .frame(width: 80, height: 80)
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 32, weight: .semibold))
+                                .foregroundStyle(AmenTheme.Colors.amenGold)
+                        }
+                        Text("No updates to catch up on")
+                            .font(.systemScaled(17, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        AmenConnectGlassButton(accessibilityLabel: "Close AI Catch Up") {
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 7) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text("Close")
+                                    .font(.systemScaled(14, weight: .semibold))
+                            }
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 11)
                         }
                     }
-                }
-                Section("Permission rule") {
-                    Text("Amen Guide can summarize only content the current user can access. Paid, private, confidential, youth-protected, deleted, and AI-excluded content is not included unless the user has explicit access and the content permits AI use.")
+                    .padding(.horizontal, 32)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 20) {
+
+                            // Hero header
+                            VStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AmenTheme.Colors.amenGold.opacity(reduceTransparency ? 0.20 : 0.14))
+                                        .frame(width: 72, height: 72)
+                                    Image(systemName: "brain.head.profile")
+                                        .font(.system(size: 30, weight: .semibold))
+                                        .foregroundStyle(AmenTheme.Colors.amenGold)
+                                }
+                                .accessibilityHidden(true)
+
+                                Text("AI Catch Up")
+                                    .font(.systemScaled(26, weight: .black))
+                                    .foregroundStyle(.primary)
+
+                                Text("AI-assisted catch up")
+                                    .font(.systemScaled(14))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 8)
+
+                            // Activity item cards
+                            ForEach(activityItems) { item in
+                                catchUpCard(item: item)
+                            }
+
+                            // Permission note card
+                            permissionCard
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+                    }
                 }
             }
-            .navigationTitle("AI Catch Up")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AmenConnectGlassButton(accessibilityLabel: "Done — close AI Catch Up") {
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("Done")
+                                .font(.systemScaled(14, weight: .semibold))
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                    }
+                }
+            }
         }
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private func catchUpCard(item: AmenConnectActivityItem) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: item.requiresAction ? "exclamationmark.circle.fill" : item.room.iconName)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(item.isPriority ? Color.red : AmenTheme.Colors.amenPurple)
+                .frame(width: 30)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(item.detail)
+                    .font(.systemScaled(13))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(Color(.secondarySystemGroupedBackground))
+                    : AnyShapeStyle(.ultraThinMaterial))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.title). \(item.detail)")
+    }
+
+    private var permissionCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+                .accessibilityHidden(true)
+            Text("Amen Guide can summarize only content the current user can access. Paid, private, confidential, youth-protected, deleted, and AI-excluded content is not included unless the user has explicit access and the content permits AI use.")
+                .font(.systemScaled(12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(reduceTransparency
+                    ? AnyShapeStyle(Color(.secondarySystemGroupedBackground))
+                    : AnyShapeStyle(.ultraThinMaterial))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                )
+        }
+        .accessibilityLabel("Permission rule: AI summaries only include content you have explicit access to. Restricted content is excluded.")
     }
 }
 
