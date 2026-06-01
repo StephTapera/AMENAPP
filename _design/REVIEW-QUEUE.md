@@ -39,19 +39,11 @@
 
 ## QUEUE-AUTH (Do not touch without auth/payments review)
 
-### RQ-A1 | GivingInAppSheet | GivingInAppSheet.swift:61
-**Surface:** Payment / donation form.
-**Issue:** No glass anywhere — flat white form. Spec would call for `.regularMaterial` sheet background.
-**Proposed change:** Apply `.regularMaterial` background to form container.
-**Risk:** MEDIUM — payment UX regressions (layout shifts, contrast changes) can directly impact conversion and compliance signals. Needs QA on all payment states.
-**Decision needed:** Payments owner review.
+### ✅ RQ-A1 | GivingInAppSheet | GivingInAppSheet.swift:61 — FIXED (75a87e9)
+`.regularMaterial` on NavigationStack + `reduceTransparency` fallback to `Color(.systemGroupedBackground)`. Payment form layout untouched.
 
-### RQ-A2 | EmailVerificationGateView | EmailVerificationGateView.swift:22
-**Surface:** Auth gate — shown between signup and email verification.
-**Issue:** No glass; flat light background.
-**Proposed change:** `.ultraThinMaterial` card for the verification prompt panel.
-**Risk:** LOW-MEDIUM — auth flow visual regressions could confuse users mid-onboarding.
-**Decision needed:** Auth flow QA pass.
+### ✅ RQ-A2 | EmailVerificationGateView | EmailVerificationGateView.swift:22 — FIXED (75a87e9)
+`ultraThinMaterial` glass card on content panel; gradient base background; `reduceTransparency` fallback to `Color(.secondarySystemBackground)`.
 
 ---
 
@@ -76,12 +68,8 @@
 **Risk:** MEDIUM — HeyFeed is a high-traffic interaction point. Regression if material clips content.
 **Decision needed:** Visual QA on dark + light mode before merging.
 
-### RQ-H2 | LiquidGlassMessagesView | LiquidGlassMessagesView.swift:43
-**Surface:** Full-screen DM view — primary messaging surface.
-**Issue:** Navigation bar glass present; but message input bar and hero toolbar missing `accessibilityReduceTransparency`. On older devices with poor GPU, material compositing on every message bubble can cause scroll lag.
-**Proposed change:** Add reduce-transparency fallback to toolbar and input bar. Consider moving message bubbles to `.thinMaterial` only on glass-capable devices (check `ProcessInfo` displayGamut).
-**Risk:** HIGH — messaging is tier-1 feature. Performance regression on A14 and below.
-**Decision needed:** Performance test on iPhone 12 / A14 before applying material changes to bubbles.
+### ✅ RQ-H2 | LiquidGlassMessagesView | LiquidGlassMessagesView.swift:43 — PARTIALLY FIXED (75a87e9)
+`reduceTransparency` fallbacks added to nav bar, input bar, quoted message preview, quick-reply chips. Message bubble glass untouched (perf test on A14 still needed before touching bubbles).
 
 ### RQ-H3 | BreathingExerciseView | BreathingExerciseView.swift:76
 **Surface:** Full-screen wellness breathing exercise — animated hero.

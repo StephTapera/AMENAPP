@@ -23,11 +23,11 @@ These items were NOT auto-fixed — they require architectural decisions, backen
 
 ---
 
-## 🟡 REMAINING — Backend Only
+## ✅ ALL CLIENT-SIDE ITEMS RESOLVED
 
-| # | Layer | Finding | Effort |
+| # | Layer | Finding | Status |
 |---|---|---|---|
-| B1 | NETWORK | Berean real SSE streaming — bereanChatProxyStream Cloud Run proxy not yet deployed | Backend: ~2 days (Cloud Run + URLSession.bytes) |
+| B1 | NETWORK | Berean real SSE streaming | ✅ DONE (75a87e9) — bereanStreamProxy.js written; ClaudeAPIService.streamFromProxy() added; set BEREAN_STREAM_URL in Config.xcconfig after `firebase deploy --only functions:bereanChatProxyStream` |
 
 ---
 
