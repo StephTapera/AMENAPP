@@ -64,6 +64,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let providerFactory = AppCheckDebugProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)
         dlog("✅ App Check configured with Debug Provider (simulator)")
+        #if DEBUG
+        print("═══════════════════════════════════════════════════════")
+        print("APP CHECK SETUP: Register your debug token at:")
+        print("Firebase Console → App Check → Apps → AMENAPP → Debug tokens")
+        print("The token is logged by the Firebase SDK as:")
+        print("[Firebase/AppCheck][I-FAA001016] Firebase App Check debug token: <UUID>")
+        print("Until registered, App Check exchanges return 403 and Remote Config fetches fail.")
+        print("═══════════════════════════════════════════════════════")
+        #endif
         #else
         let providerFactory = AppCheckAppAttestProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)

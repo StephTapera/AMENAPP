@@ -179,6 +179,24 @@ struct TestimoniesView: View {
                     }
                     .padding(.horizontal, 32)
                     .padding(.top, 48)
+                } else if !isLoadingPosts && posts.isEmpty && Auth.auth().currentUser == nil {
+                    // Auth retry in progress — don't show "No testimonies yet"
+                    VStack(spacing: 16) {
+                        Image(systemName: "person.crop.circle.badge.exclamationmark")
+                            .font(.systemScaled(44))
+                            .foregroundStyle(AmenTheme.Colors.amenGold.opacity(0.7))
+                        Text("Reconnecting…")
+                            .font(AMENFont.semiBold(15))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                        Text("Signing you in. Testimonies will appear once connected.")
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        AMENLoader.inline
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.top, 48)
                 } else if !isLoadingPosts && posts.isEmpty {
                     EmptyPostsView(category: "testimonies")
                         .padding(.top, 40)

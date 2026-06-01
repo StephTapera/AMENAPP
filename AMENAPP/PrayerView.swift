@@ -191,20 +191,40 @@ struct PrayerView: View {
 
                     // Empty state
                     if allPosts.isEmpty {
-                        VStack(spacing: 16) {
-                            AmenGlass3DIcon(systemName: emptyStateGlassIcon, tint: AmenTheme.Colors.amenGold, size: 72)
-                            Text(emptyStateTitle)
-                                .font(AMENFont.bold(18))
-                                .foregroundStyle(.primary)
-                            Text(emptyStateSubtitle)
-                                .font(AMENFont.regular(14))
-                                .foregroundStyle(.secondary)
+                        if Auth.auth().currentUser == nil {
+                            // Auth retry in progress — show a reconnecting state, not "no posts"
+                            VStack(spacing: 16) {
+                                AmenGlass3DIcon(systemName: "person.crop.circle.badge.exclamationmark", tint: AmenTheme.Colors.amenGold, size: 72)
+                                Text("Reconnecting…")
+                                    .font(AMENFont.bold(18))
+                                    .foregroundStyle(.primary)
+                                Text("Signing you in. Prayer requests will appear once connected.")
+                                    .font(AMENFont.regular(14))
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                AMENLoader.inline
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(40)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+                        } else {
+                            VStack(spacing: 16) {
+                                AmenGlass3DIcon(systemName: emptyStateGlassIcon, tint: AmenTheme.Colors.amenGold, size: 72)
+                                Text(emptyStateTitle)
+                                    .font(AMENFont.bold(18))
+                                    .foregroundStyle(.primary)
+                                Text(emptyStateSubtitle)
+                                    .font(AMENFont.regular(14))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(40)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(40)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-                        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
                     }
                 }
                 .padding(.horizontal)

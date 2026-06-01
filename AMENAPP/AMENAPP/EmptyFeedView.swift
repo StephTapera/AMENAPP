@@ -1,7 +1,10 @@
 import SwiftUI
+import FirebaseAuth
+
 // MARK: - Empty Feed State
 
 /// Shown when the OpenTable feed has no posts.
+/// If the user is unauthenticated, surfaces a "Sign-in retry" message.
 /// If the user has zero follows, surfaces a "Find People" CTA.
 /// - FTUE not completed → opens `FindYourPeopleFTUEView` (church + interests + discovery)
 /// - FTUE completed → opens `FindPeopleView` directly
@@ -16,13 +19,16 @@ struct EmptyFeedView: View {
     @State private var isHandlingFindPeopleTap = false
 
     // Which variant to show
+    private var isUnauthenticated: Bool { Auth.auth().currentUser == nil }
     private var isNewUser: Bool { followService.following.isEmpty }
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer().frame(height: 48)
 
-            if isNewUser {
+            if isUnauthenticated {
+                unauthenticatedState
+            } else if isNewUser {
                 newUserState
             } else {
                 followingButEmptyState
@@ -59,6 +65,45 @@ struct EmptyFeedView: View {
         Task {
             try? await Task.sleep(nanoseconds: 600_000_000)
             isHandlingFindPeopleTap = false
+        }
+    }
+
+    // ── Unauthenticated: sign-in failed (e.g., simulator keychain bug) ──────
+    private var unauthenticatedState: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Circle()
+                    .fill(AmenTheme.Colors.amenGold.opacity(0.12))
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(AmenTheme.Colors.amenGold.opacity(0.22), lineWidth: 1)
+                    )
+                Image(systemName: "person.crop.circle.badge.exclamationmark")
+                    .font(.systemScaled(32, weight: .medium))
+                    .foregroundStyle(AmenTheme.Colors.amenGold.opacity(0.80))
+            }
+            .accessibilityHidden(true)
+
+            Spacer().frame(height: 20)
+
+            Text("Reconnecting…")
+                .font(AMENFont.bold(20))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+
+            Spacer().frame(height: 8)
+
+            Text("Signing you in. Your feed will appear in a moment. If this takes too long, restart the app.")
+                .font(AMENFont.regular(15))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+
+            Spacer().frame(height: 28)
+
+            AMENLoader.inline
+                .accessibilityLabel("Signing in")
         }
     }
 
