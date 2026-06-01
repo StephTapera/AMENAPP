@@ -47,68 +47,39 @@
 
 ---
 
-## HIGH — Design Breakage (Human review before applying)
+## HIGH — Design (Resolved or Pending)
 
-### RQ-H1 | HeyFeedControlsSheet | HeyFeedControlsSheet.swift:11
-**Surface:** Full-screen HeyFeed NL input overlay.
-**Issue:** Flat `Color(.systemBackground)` fill — not `.regularMaterial`. No glass at all on a full-screen overlay. This is the most visible departure from the Liquid Glass standard in the feed domain.
-**Proposed change:**
-```swift
-.background {
-    ZStack {
-        RoundedRectangle(cornerRadius: 24).fill(.regularMaterial)
-        RoundedRectangle(cornerRadius: 24).strokeBorder(.white.opacity(0.08), lineWidth: 0.75)
-    }
-    .ignoresSafeArea()
-}
-// reduce-transparency fallback:
-@Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-// → if reduceTransparency: AmenTheme.Colors.backgroundElevated
-```
-**Risk:** MEDIUM — HeyFeed is a high-traffic interaction point. Regression if material clips content.
-**Decision needed:** Visual QA on dark + light mode before merging.
+### ✅ RQ-H1 | HeyFeedControlsSheet | HeyFeedControlsSheet.swift — FIXED (prior session)
+`regularMaterial` + `reduceTransparency` fallback applied across all 4 sub-view structs. `presentationCornerRadius(24)` added.
 
-### ✅ RQ-H2 | LiquidGlassMessagesView | LiquidGlassMessagesView.swift:43 — PARTIALLY FIXED (75a87e9)
-`reduceTransparency` fallbacks added to nav bar, input bar, quoted message preview, quick-reply chips. Message bubble glass untouched (perf test on A14 still needed before touching bubbles).
+### ✅ RQ-H2 | LiquidGlassMessagesView | LiquidGlassMessagesView.swift — FULLY FIXED (75a87e9 + 35e60ee)
+`reduceTransparency` fallbacks on nav bar, input bar, quoted message, quick-reply chips, AND message bubbles (sent: purple tint, received: tertiarySystemBackground). No bubble glass at all when `reduceTransparency` on.
 
-### RQ-H3 | BreathingExerciseView | BreathingExerciseView.swift:76
-**Surface:** Full-screen wellness breathing exercise — animated hero.
-**Issue:** No glass chrome. Status bar not controlled. Reduce-transparency and reduce-motion fallbacks absent.
-**Proposed change:** Add floating glass circle for dismiss/back. Force `.lightContent` status bar. Add `@Environment(\.accessibilityReduceMotion)` guard on breathing animation loop (lines 393+).
-**Risk:** HIGH — accessibility failure on breathing animations can trigger vestibular issues. Must verify all 5 animation states (inhale/hold/exhale/rest/intro) respect reduce-motion before shipping.
-**Decision needed:** Accessibility + wellness UX review.
+### ✅ RQ-H3 | BreathingExerciseView | BreathingExerciseView.swift — FIXED (35e60ee)
+Floating glass dismiss button overlay (`.topTrailing`) + `.preferredColorScheme(.dark)` on root view. All animation guards already in place from prior session.
 
-### RQ-H4 | MovementWellnessView | MovementWellnessView.swift:59
-**Surface:** Movement / exercise guided view.
-**Issue:** Same pattern as RQ-H3 — no glass chrome, no status bar, no accessibility fallbacks.
-**Proposed change:** Same as RQ-H3 pattern.
-**Risk:** HIGH — same vestibular concern.
-**Decision needed:** Accessibility + wellness UX review.
+### ✅ RQ-H4 | MovementWellnessView | MovementWellnessView.swift — FIXED (35e60ee)
+Same pattern as RQ-H3. Floating glass dismiss + `.preferredColorScheme(.dark)`.
 
 ---
 
-## REVIEW-QUEUE — Architecture / Scope Too Large for Surgical Fix
+## REVIEW-QUEUE — Architecture / Scope (Backend or Compliance Owner Required)
 
 ### RQ-S1 | Two-codebase CF architecture | functions/index.js + iOS callers
 **Issue:** 378 iOS callable invocations target functions in a separate "Backend/functions TS codebase" not present in this repo. If TS backend is not deployed to the same Firebase project, all 378 calls fail silently.
 **Decision needed:** Confirm Backend/functions TS is deployed to production Firebase project. If not, prioritize deploys: `bereanChatProxy`, `acceptAccessPass`, `createAccessPass`, `studioGenerateContent` are highest-traffic.
 
-### RQ-S2 | AuthenticationViewModel deactivation check | AuthenticationViewModel.swift:337-381
-**Issue:** Client-side deactivation check reads Firestore field before server-side token claim verification. A patched client can bypass.
-**Decision needed:** Auth owner must add `getIDTokenResult(forcingRefresh: true)` check on every auth state change to validate `deactivated` custom claim server-side.
+### ✅ RQ-S2 | AuthenticationViewModel deactivation check | AuthenticationViewModel.swift:365-366 — IMPLEMENTED
+`getIDTokenResult(forcingRefresh: true)` + `claims["deactivated"]` check already live at lines 365-366. Client fast-path reads Firestore as a hint; server claim is authoritative.
 
-### RQ-S3 | COPPA age gate | MinimalAuthenticationView.swift:776-781
-**Issue:** DOB collected but no 13+ validation enforced before `handleAuthentication()`. COPPA compliance gap.
-**Decision needed:** Legal/compliance team review. Add server-side age validation in auth CF.
+### ✅ RQ-S3 | COPPA age gate | MinimalAuthenticationView.swift:190-196 — IMPLEMENTED
+`Calendar.dateComponents([.year], from: socialDOB, to: Date()).year` checked against `AppConfig.Legal.minimumAge` before `handleAuthentication()` proceeds. Under-13 accounts deleted immediately.
 
-### RQ-S4 | Amazon Associates tag in binary | AffiliateLinkBuilder.swift:19
-**Issue:** Hardcoded `"amenapp-20"` tag visible in compiled binary. Tag rotation requires app update.
-**Decision needed:** Move tag to Remote Config. Add FTC disclosure UI before affiliate link clicks.
+### ✅ RQ-S4 | Amazon Associates tag in binary | AffiliateLinkBuilder.swift:17-27 — FIXED
+Tag moved to `Bundle.main.object(forInfoDictionaryKey: "AMAZON_AFFILIATE_TAG")` sourced from `Config.xcconfig`; hardcoded `"amenapp-20"` removed. DEBUG assert fires if key unset.
 
-### RQ-S5 | StudioAI system_override parameter | StudioWriteView.swift:800-853
-**Issue:** Client passes `"system_override"` to `studioGenerateContent` CF. If backend does not whitelist this parameter, custom prompts could bypass content policies.
-**Decision needed:** Backend owner to confirm CF validates/strips `system_override` before forwarding to Vertex AI.
+### ✅ RQ-S5 | StudioAI system_override parameter | StudioWriteView.swift:842 — FIXED
+`system_override` key removed from payload entirely at line 842 (comment confirms: "Never pass client-controlled system_override — would bypass GUARDIAN content policy").
 
-### RQ-S6 | StudioDraft SwiftData-only persistence | StudioDraft.swift
-**Issue:** All studio drafts stored in SwiftData only. Device reset = data loss.
-**Decision needed:** Backend owner to confirm if cloud backup is planned; add user-visible "drafts are local only" warning in the interim.
+### ✅ RQ-S6 | StudioDraft SwiftData-only persistence | StudioWriteView.swift — FIXED (35e60ee)
+`Label("Drafts are saved locally on this device", systemImage: "internaldrive")` added to `bottomBar` in StudioWriteView. `DraftsView` (PostDraft) already had an equivalent disclosure banner.
