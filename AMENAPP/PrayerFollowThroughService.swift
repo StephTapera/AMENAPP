@@ -148,8 +148,13 @@ class PrayerFollowThroughService: ObservableObject {
         prayerThemes: [PrayerTheme],
         urgency: PrayerUrgency
     ) async -> [PrayerIntercessorMatch] {
+        // Relationship-graph scoring uses social proximity + prayer history — requires consent.
+        guard AmenAIConsentStore.shared.hasFabricConsent(for: .relationshipSafety) else {
+            dlog("⚠️ matchIntercessors skipped — .relationshipSafety consent not granted")
+            return []
+        }
         dlog("🤝 Matching intercessors for prayer...")
-        
+
         isLoading = true
         defer { isLoading = false }
         
