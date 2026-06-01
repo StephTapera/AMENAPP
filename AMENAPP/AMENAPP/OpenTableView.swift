@@ -2,13 +2,9 @@ import SwiftUI
 import FirebaseAuth
 struct OpenTableView: View {
     @ObservedObject private var postsManager = PostsManager.shared
-    @ObservedObject private var feedAlgorithm = HomeFeedAlgorithm.shared
-    @ObservedObject private var scrollBudget = ScrollBudgetManager.shared
-    @ObservedObject private var feedSession = FeedSessionManager.shared
     @ObservedObject private var caughtUpService = CaughtUpService.shared
-    @ObservedObject private var firebasePostService = FirebasePostService.shared
-    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
-    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
+    // feedAlgorithm, scrollBudget, feedSession, firebasePostService, featureFlags, prefsService:
+    // accessed via .shared singletons or extracted child views — no @ObservedObject needed here.
     @State private var showPersonalizationToast = false
     @State private var showingOlderPosts = false   // true after user taps "View older posts"
     @State private var isRefreshing = false
@@ -137,16 +133,9 @@ struct OpenTableView: View {
                     ExperienceResolverBannerWrapper()
                 }
 
-                // Daily Verse Banner — show optimistically while prefs load (both default to true).
-                // Only hide after load if the user has explicitly turned it off.
-                if !prefsService.isLoaded || (prefsService.preferences.widgetsEnabled && prefsService.preferences.dailyVerseWidgetEnabled) {
-                    DailyVerseBanner()
-                        .padding(.horizontal)
-                        .transition(.opacity.animation(reduceMotion ? .none : .easeIn(duration: 0.2)))
-                        .onAppear {
-                            dlog("📊 Daily Verse Banner displayed: widgetsEnabled=\(prefsService.preferences.widgetsEnabled), dailyVerseWidgetEnabled=\(prefsService.preferences.dailyVerseWidgetEnabled)")
-                        }
-                }
+                // Narrow child view owns the prefsService observer — avoids cascading redraws
+                // across all of OpenTableView when prefs load.
+                DailyVerseBannerSection()
 
                 // Feed Composer Row
                 FeedComposerRow { showCreatePost = true }
@@ -172,8 +161,8 @@ struct OpenTableView: View {
                         // "Suggested for you" rail — injected at the index set by the feature
                         // flag (default: after 2nd post, i.e. index == 2). Hidden entirely when
                         // suggestedFollowsEnabled is off in Remote Config.
-                        let railIndex = max(0, featureFlags.suggestedRailInsertionIndex - 1)
-                        if featureFlags.suggestedFollowsEnabled && index == railIndex {
+                        let railIndex = max(0, AMENFeatureFlags.shared.suggestedRailInsertionIndex - 1)
+                        if AMENFeatureFlags.shared.suggestedFollowsEnabled && index == railIndex {
                             FeedPostDivider()
                             OpenTableSuggestedRailView()
                                 .background(Color(.systemBackground))
@@ -245,7 +234,7 @@ struct OpenTableView: View {
 
             // Load user interests once
             if !hasPersonalized {
-                feedAlgorithm.loadInterests()
+                HomeFeedAlgorithm.shared.loadInterests()
                 personalizeFeeds()
                 hasPersonalized = true
             }
@@ -272,9 +261,9 @@ struct OpenTableView: View {
         }
         .onAppear {
             // Start scroll budget tracking
-            scrollBudget.startScrollSession(inSection: "OpenTable")
+            ScrollBudgetManager.shared.startScrollSession(inSection: "OpenTable")
             // Start a fresh finite session when feed appears
-            feedSession.startNewSession()
+            FeedSessionManager.shared.startNewSession()
             sessionCountingEnabled = false
             userHasScrolled = false
             initiallyVisiblePostIds = []
@@ -290,16 +279,16 @@ struct OpenTableView: View {
             }
             // Reset seen-post session and reload Firestore seed
             caughtUpService.resetSession()
-            
+
             // ✅ INTELLIGENT BANNER: Start new feed session with current posts
             let allPosts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts
             caughtUpService.startNewFeedSession(posts: allPosts)
         }
         .onDisappear {
             // Don't stop the listener - keep it active for real-time updates
-            
+
             // End scroll budget tracking
-            scrollBudget.endScrollSession()
+            ScrollBudgetManager.shared.endScrollSession()
 
             // Phase 5: Cancel any in-flight personalization task to prevent
             // state mutation after the view leaves the hierarchy.
@@ -404,8 +393,11 @@ struct OpenTableView: View {
         }
         // P2 FIX: When the user follows someone from any screen, re-run feed
         // personalization so the newly followed author's posts get boosted immediately.
+        .onReceive(FeedSessionManager.shared.$isSessionComplete) { complete in
+            if complete { showSessionStopScreen = true }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .followRelationshipChanged)) { _ in
-            feedAlgorithm.followingIds = FollowService.shared.following
+            HomeFeedAlgorithm.shared.followingIds = FollowService.shared.following
             if !isInitialLoad { personalizeFeeds() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .scrollBudget50Reached)) { _ in
@@ -536,16 +528,14 @@ struct OpenTableView: View {
             view.reportPostCardFrame()
         }
         .onAppear {
-            feedAlgorithm.recordInteraction(with: post, type: .view)
-            
+            HomeFeedAlgorithm.shared.recordInteraction(with: post, type: .view)
+
             if sessionCountingEnabled {
                 if !userHasScrolled {
                     initiallyVisiblePostIds.insert(post.id)
                 } else if !initiallyVisiblePostIds.contains(post.id) {
-                    feedSession.recordCardSeen()
-                    if feedSession.isSessionComplete {
-                        showSessionStopScreen = true
-                    }
+                    FeedSessionManager.shared.recordCardSeen()
+                    // isSessionComplete propagated to showSessionStopScreen via onReceive above
                 }
             }
             
@@ -587,12 +577,11 @@ struct OpenTableView: View {
         // Capture values on main actor before detaching
         let followingIds = FollowService.shared.following
         let posts = postsManager.openTablePosts
-        let interests = feedAlgorithm.userInterests
-        let capturedCardsServed = feedSession.cardsSeenThisSession
-        let capturedSessionCap = feedSession.sessionCap
+        let interests = HomeFeedAlgorithm.shared.userInterests
+        let capturedCardsServed = FeedSessionManager.shared.cardsSeenThisSession
+        let capturedSessionCap = FeedSessionManager.shared.sessionCap
 
-        // S3-4: Capture class instances weakly so the detached task doesn't extend their lifetime.
-        personalizationTask = Task.detached(priority: .userInitiated) { [weak feedSession, weak feedAlgorithm] in
+        personalizationTask = Task.detached(priority: .userInitiated) {
             guard !Task.isCancelled else { return }
 
             // 1. Try Cloud Run (fast path — returns nil on timeout / no URL configured)
@@ -606,9 +595,9 @@ struct OpenTableView: View {
 
             guard !Task.isCancelled else { return }
 
-            // Apply server-side session exhaustion signal
+            // Apply server-side session exhaustion signal — onReceive handler picks this up.
             if let result = sessionResult, result.sessionExhausted {
-                await MainActor.run { feedSession?.isSessionComplete = true }
+                await MainActor.run { FeedSessionManager.shared.isSessionComplete = true }
             }
 
             // 2. Local fallback if Cloud Run unavailable
@@ -618,11 +607,11 @@ struct OpenTableView: View {
             if let r = sessionResult {
                 ranked = r.posts
             } else {
-                ranked = await feedAlgorithm?.benefitRankPosts(
+                ranked = await HomeFeedAlgorithm.shared.benefitRankPosts(
                     posts,
                     for: interests,
                     followingIds: followingIds
-                ) ?? posts
+                )
             }
 
             guard !Task.isCancelled else { return }
@@ -669,7 +658,8 @@ struct OpenTableView: View {
     ///   Firestore page fetch (FirebasePostService.loadMorePosts) to pull the next
     ///   25 documents from the server using the cursor stored in the service.
     private func loadMorePosts() {
-        guard !isLoadingMore && !firebasePostService.isLoadingMore else { return }
+        let fps = FirebasePostService.shared
+        guard !isLoadingMore && !fps.isLoadingMore else { return }
 
         let allPosts = hasPersonalized && !personalizedPosts.isEmpty
             ? personalizedPosts
@@ -686,12 +676,12 @@ struct OpenTableView: View {
         // When we've shown all in-memory posts, go fetch the next Firestore page.
         // This appends 25 more posts to postsManager.openTablePosts via the service,
         // which automatically extends allPosts above on the next render pass.
-        if visiblePostCount >= allPosts.count && firebasePostService.hasMorePosts {
+        if visiblePostCount >= allPosts.count && fps.hasMorePosts {
             // ✅ INTELLIGENT BANNER: Notify about pagination start
             caughtUpService.onPaginationStarted()
-            
+
             Task {
-                await firebasePostService.loadMorePosts(category: .openTable)
+                await fps.loadMorePosts(category: .openTable)
                 
                 // ✅ INTELLIGENT BANNER: Notify about pagination finish
                 await MainActor.run {
@@ -811,6 +801,23 @@ struct CollapsibleTrendingSection: View {
     }
 }
 
+// MARK: - Daily Verse Banner Section (perf: isolated @ObservedObject scope)
+
+/// Owns the prefsService observer so prefs-load changes only re-evaluate this
+/// small child view instead of cascading through all of OpenTableView.body.
+private struct DailyVerseBannerSection: View {
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if !prefsService.isLoaded || (prefsService.preferences.widgetsEnabled && prefsService.preferences.dailyVerseWidgetEnabled) {
+            DailyVerseBanner()
+                .padding(.horizontal)
+                .transition(.opacity.animation(reduceMotion ? .none : .easeIn(duration: 0.2)))
+        }
+    }
+}
+
 // MARK: - Contextual Experience Banner Wrapper
 
 private struct ExperienceResolverBannerWrapper: View {
@@ -821,7 +828,7 @@ private struct ExperienceResolverBannerWrapper: View {
 
     var body: some View {
         if !isDismissed,
-           let title = resolver.resolved.activeBannerTitle {
+           let _ = resolver.resolved.activeBannerTitle {
             ContextualExperienceFeedBanner(
                 resolved: resolver.resolved,
                 onTap: { showExperienceDetail = true },
