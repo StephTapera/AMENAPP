@@ -2,6 +2,9 @@
   "database": {
     "rules": "AMENAPP/database.rules.json"
   },
+  "remoteconfig": {
+    "template": "remoteconfig.template.json"
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "AMENAPP/firestore.indexes.json"
