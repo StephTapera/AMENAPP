@@ -42,6 +42,23 @@ enum AmenSaveActionType: String, CaseIterable, Identifiable {
         case .remindMe:         return .red
         }
     }
+
+    func isUnavailable(
+        selahEnabled: Bool,
+        crossSurfaceEnabled: Bool = true,
+        hasConversationId: Bool = true
+    ) -> Bool {
+        switch self {
+        case .saveToSelah:
+            return !selahEnabled
+        case .addToChurchNotes:
+            return false
+        case .saveToNotes:
+            return !crossSurfaceEnabled || !hasConversationId
+        case .remindMe:
+            return true
+        }
+    }
 }
 
 struct AmenMessageSaveContext: Identifiable {

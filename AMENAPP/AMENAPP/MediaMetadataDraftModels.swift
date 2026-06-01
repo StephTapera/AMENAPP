@@ -21,7 +21,9 @@ enum MediaProcessingState: String, Codable, Equatable {
 }
 
 enum MediaKeyMomentKind: String, Codable, CaseIterable {
+    case intro         = "intro"
     case prayer        = "prayer"
+    case verse         = "verse"
     case scripture     = "scripture"
     case testimony     = "testimony"
     case teaching      = "teaching"
@@ -32,7 +34,9 @@ enum MediaKeyMomentKind: String, Codable, CaseIterable {
 
     var title: String {
         switch self {
+        case .intro:        return "Intro"
         case .prayer:       return "Prayer"
+        case .verse:        return "Verse"
         case .scripture:    return "Scripture"
         case .testimony:    return "Testimony"
         case .teaching:     return "Teaching"
@@ -64,6 +68,7 @@ enum MediaCaptionStyle: String, Codable, CaseIterable {
     case standard = "standard"
     case bold     = "bold"
     case cinematic = "cinematic"
+    case sermon   = "sermon"
 
     var title: String {
         switch self {
@@ -71,6 +76,7 @@ enum MediaCaptionStyle: String, Codable, CaseIterable {
         case .standard:  return "Standard"
         case .bold:      return "Bold"
         case .cinematic: return "Cinematic"
+        case .sermon:    return "Sermon"
         }
     }
 }
@@ -117,19 +123,22 @@ struct KeyMomentDraft: Identifiable, Codable, Equatable, Hashable {
     var label: String
     var kind: MediaKeyMomentKind
     var source: MediaTrackSource
+    var verseReference: String?
 
     init(
         id: String = UUID().uuidString,
         timestamp: TimeInterval,
         label: String,
         kind: MediaKeyMomentKind,
-        source: MediaTrackSource = .userEdited
+        source: MediaTrackSource = .userEdited,
+        verseReference: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
         self.label = label
         self.kind = kind
         self.source = source
+        self.verseReference = verseReference
     }
 
     var asMoment: MediaKeyMoment {
@@ -206,6 +215,8 @@ struct VideoMetadataDraft: Codable, Equatable, Hashable {
     var audioBedSource: String
     var audioBedVolume: Double
     var userEdited: Bool
+    var verseLinkedMoments: [VerseLinkedMoment]
+    var presentationMode: MediaPresentationMode
 
     init(
         captionsEnabledByDefault: Bool = true,
@@ -221,7 +232,9 @@ struct VideoMetadataDraft: Codable, Equatable, Hashable {
         audioBedArtist: String = "",
         audioBedSource: String = "",
         audioBedVolume: Double = 0.35,
-        userEdited: Bool = false
+        userEdited: Bool = false,
+        verseLinkedMoments: [VerseLinkedMoment] = [],
+        presentationMode: MediaPresentationMode = .standard
     ) {
         self.captionsEnabledByDefault = captionsEnabledByDefault
         self.captionStyle = captionStyle
@@ -237,6 +250,8 @@ struct VideoMetadataDraft: Codable, Equatable, Hashable {
         self.audioBedSource = audioBedSource
         self.audioBedVolume = audioBedVolume
         self.userEdited = userEdited
+        self.verseLinkedMoments = verseLinkedMoments
+        self.presentationMode = presentationMode
     }
 
     var transcriptText: String {
@@ -365,6 +380,23 @@ struct CreatePostMediaMetadataDraft: Codable, Equatable, Hashable {
         if videoDraft != nil {
             videoDraft?.userEdited = true
         }
+    }
+
+    mutating func applyGeneratedVideoSuggestions(
+        cues: [VideoCaptionCueDraft],
+        keyMoments: [KeyMomentDraft],
+        featuredFrameTime: TimeInterval
+    ) {
+        var draft = videoDraft ?? VideoMetadataDraft()
+        guard !draft.userEdited else { return }
+        draft.captionCues = cues
+        draft.keyMoments = keyMoments
+        draft.featuredFrameTime = featuredFrameTime
+        draft.captionGenerationState = cues.isEmpty ? .notRequested : .ready
+        draft.keyMomentsGenerationState = keyMoments.isEmpty ? .notRequested : .ready
+        draft.processingState = .ready
+        videoDraft = draft
+        draftUpdatedAt = Date()
     }
 
     func frameCaption(for index: Int) -> FrameCaptionDraft? {

@@ -6,6 +6,7 @@
 // feature flag defaults, and reaction modifier side-effect guarantees.
 
 import Testing
+import Foundation
 @testable import AMENAPP
 
 struct AmenMessagingAnimationTests {

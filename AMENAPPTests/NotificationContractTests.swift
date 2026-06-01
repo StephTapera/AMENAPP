@@ -1,4 +1,5 @@
 import XCTest
+import FirebaseFirestore
 @testable import AMENAPP
 
 final class NotificationContractTests: XCTestCase {

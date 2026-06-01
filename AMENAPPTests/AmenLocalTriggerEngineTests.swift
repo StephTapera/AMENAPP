@@ -1,6 +1,7 @@
 import XCTest
 @testable import AMENAPP
 
+@MainActor
 final class AmenLocalTriggerEngineTests: XCTestCase {
     private let engine = AmenLocalTriggerEngine.shared
 

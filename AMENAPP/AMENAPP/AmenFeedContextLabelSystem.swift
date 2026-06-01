@@ -290,6 +290,18 @@ final class ContextLabelPreferenceStore: ObservableObject {
         await saveRemote()
     }
 
+    func replaceStateForTesting(
+        hiddenContextIds: Set<String> = [],
+        mutedContextTopicIds: Set<String> = [],
+        mutedContextTypes: Set<String> = [],
+        contextualLabelsDisabled: Bool = false
+    ) {
+        self.hiddenContextIds = hiddenContextIds
+        self.mutedContextTopicIds = mutedContextTopicIds
+        self.mutedContextTypes = mutedContextTypes
+        self.contextualLabelsDisabled = contextualLabelsDisabled
+    }
+
     private func persistLocally() {
         defaults.set(Array(hiddenContextIds), forKey: hiddenKey)
         defaults.set(Array(mutedContextTopicIds), forKey: mutedTopicsKey)
@@ -324,21 +336,40 @@ final class ContextLabelVisibilityCoordinator: ObservableObject {
     static let shared = ContextLabelVisibilityCoordinator()
 
     @Published private(set) var visiblePostIds: [String] = []
+    @Published private(set) var refreshNonce = UUID()
     let maxVisibleLabels = 2
 
-    private init() {}
+    private var pendingPostIds: [String] = []
+
+    init() {}
 
     func register(postId: String) -> Bool {
         if visiblePostIds.contains(postId) {
             return true
         }
-        guard visiblePostIds.count < maxVisibleLabels else { return false }
+        guard visiblePostIds.count < maxVisibleLabels else {
+            if !pendingPostIds.contains(postId) {
+                pendingPostIds.append(postId)
+            }
+            return false
+        }
         visiblePostIds.append(postId)
         return true
     }
 
     func unregister(postId: String) {
+        if pendingPostIds.contains(postId) {
+            pendingPostIds.removeAll { $0 == postId }
+            return
+        }
+
+        let wasVisible = visiblePostIds.contains(postId)
         visiblePostIds.removeAll { $0 == postId }
+
+        guard wasVisible, let next = pendingPostIds.first else { return }
+        pendingPostIds.removeFirst()
+        visiblePostIds.append(next)
+        refreshNonce = UUID()
     }
 }
 

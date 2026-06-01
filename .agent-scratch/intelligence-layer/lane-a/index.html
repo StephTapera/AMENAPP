@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AMEN Personal Memory OS Prototype</title>
+    <style>
+        :root {
+            --amenGold: #caa24d;
+            --amenPurple: #6547b8;
+            --amenBlue: #2f73d8;
+            --amenBlack: #101114;
+            --ink: #15161a;
+            --muted: #666b76;
+            --line: rgba(16, 17, 20, 0.12);
+            --line-strong: rgba(16, 17, 20, 0.2);
+            --matte: #f7f4ee;
+            --matte-2: #ece7dd;
+            --paper: #fffdf8;
+            --glass: rgba(255, 255, 255, 0.62);
+            --glass-strong: rgba(255, 255, 255, 0.78);
+            --shadow: 0 20px 60px rgba(16, 17, 20, 0.15);
+            --radius: 12px;
+            --motion-adaptive: 220ms cubic-bezier(.2, .8, .2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background:
+                linear-gradient(120deg, rgba(202, 162, 77, 0.18), transparent 34%),
+                linear-gradient(210deg, rgba(47, 115, 216, 0.14), transparent 42%),
+                var(--matte);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            letter-spacing: 0;
+        }
+
+        button,
+        input,
+        textarea {
+            font: inherit;
+        }
+
+        button {
+            border: 0;
+            cursor: pointer;
+        }
+
+        .app-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        .glass-topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 14px clamp(16px, 3vw, 34px);
+            background: var(--glass);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.74);
+            box-shadow: 0 12px 40px rgba(16, 17, 20, 0.08);
+            backdrop-filter: blur(22px) saturate(1.2);
+            -webkit-backdrop-filter: blur(22px) saturate(1.2);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 220px;
+        }
+
+        .brand-mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            background:
+                linear-gradient(145deg, rgba(202, 162, 77, 0.95), rgba(101, 71, 184, 0.86)),
+                var(--amenBlack);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 10px 22px rgba(16, 17, 20, 0.18);
+        }
+
+        .brand-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 720;
+        }
+
+        .brand-subtitle {
+            margin: 1px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .privacy-pill,
+        .icon-button,
+        .primary-button,
+        .ghost-button {
+            min-height: 38px;
+            border: 1px solid rgba(16, 17, 20, 0.12);
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--ink);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+            transition: transform var(--motion-adaptive), border-color var(--motion-adaptive), background var(--motion-adaptive);
+        }
+
+        .privacy-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+            border-radius: 999px;
+            color: #2c382f;
+            font-size: 13px;
+            font-weight: 650;
+        }
+
+        .privacy-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #3b8b58;
+        }
+
+        .icon-button {
+            width: 38px;
+            border-radius: 13px;
+            display: grid;
+            place-items: center;
+        }
+
+        .primary-button,
+        .ghost-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 14px;
+            border-radius: 14px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .primary-button {
+            background: var(--amenBlack);
+            color: white;
+            border-color: rgba(16, 17, 20, 0.28);
+        }
+
+        .ghost-button {
+            background: rgba(255, 255, 255, 0.55);
+        }
+
+        .primary-button:hover,
+        .ghost-button:hover,
+        .icon-button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(47, 115, 216, 0.35);
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(280px, 360px);
+            gap: 18px;
+            padding: 18px clamp(16px, 3vw, 34px) 28px;
+        }
+
+        .rail,
+        .main,
+        .berean-panel {
+            min-width: 0;
+        }
+
+        .glass-panel {
+            background: var(--glass);
+            border: 1px solid rgba(255, 255, 255, 0.76);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(24px) saturate(1.18);
+            -webkit-backdrop-filter: blur(24px) saturate(1.18);
+        }
+
+        .rail {
+            align-self: start;
+            position: sticky;
+            top: 84px;
+            padding: 14px;
+        }
+
+        .section-label {
+            margin: 6px 6px 10px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .notebook-list,
+        .contact-list,
+        .connection-list,
+        .claim-list,
+        .suggestion-list {
+            display: grid;
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .notebook-button,
+        .contact-row {
+            width: 100%;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 14px;
+            color: var(--ink);
+            text-align: left;
+            background: transparent;
+            transition: background var(--motion-adaptive), transform var(--motion-adaptive);
+        }
+
+        .notebook-button:hover,
+        .notebook-button.active,
+        .contact-row:hover,
+        .contact-row.active {
+            background: rgba(255, 255, 255, 0.72);
+        }
+
+        .notebook-glyph {
+            width: 28px;
+            height: 28px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            color: var(--amenPurple);
+            font-weight: 800;
+        }
+
+        .row-title {
+            display: block;
+            font-size: 14px;
+            font-weight: 720;
+        }
+
+        .row-sub {
+            display: block;
+            margin-top: 1px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .quiet-tag {
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(47, 115, 216, 0.08);
+            color: #285d9f;
+            font-size: 11px;
+            font-weight: 760;
+        }
+
+        .main {
+            display: grid;
+            gap: 18px;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 18px;
+            align-items: end;
+            padding: clamp(20px, 4vw, 34px);
+            min-height: 218px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .hero::after {
+            content: "";
+            position: absolute;
+            inset: auto -10% -46% 38%;
+            height: 180px;
+            background: linear-gradient(90deg, rgba(202, 162, 77, 0.22), rgba(101, 71, 184, 0.18), rgba(47, 115, 216, 0.2));
+            filter: blur(18px);
+            transform: rotate(-4deg);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .eyebrow {
+            margin: 0 0 10px;
+            color: var(--amenPurple);
+            font-size: 12px;
+            font-weight: 850;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            max-width: 800px;
+            margin: 0;
+            font-size: clamp(34px, 6vw, 64px);
+            line-height: 0.96;
+            letter-spacing: 0;
+        }
+
+        .hero-copy {
+            max-width: 680px;
+            margin: 16px 0 0;
+            color: #4d515a;
+            font-size: 16px;
+            line-height: 1.55;
+        }
+
+        .trust-stack {
+            position: relative;
+            z-index: 1;
+            width: min(260px, 100%);
+            display: grid;
+            gap: 8px;
+        }
+
+        .trust-card {
+            display: grid;
+            gap: 5px;
+            padding: 12px;
+            border-radius: 16px;
+            background: rgba(255, 253, 248, 0.84);
+            border: 1px solid rgba(16, 17, 20, 0.1);
+        }
+
+        .trust-card strong {
+            font-size: 13px;
+        }
+
+        .trust-card span {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+            gap: 18px;
+        }
+
+        .matte-card {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: 0 8px 20px rgba(16, 17, 20, 0.05);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 16px 16px 10px;
+            border-bottom: 1px solid rgba(16, 17, 20, 0.08);
+        }
+
+        .card-header h2,
+        .card-header h3 {
+            margin: 0;
+            font-size: 18px;
+            letter-spacing: 0;
+        }
+
+        .card-header p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .note-editor {
+            padding: 16px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .note-title {
+            width: 100%;
+            border: 0;
+            border-bottom: 1px solid var(--line);
+            padding: 4px 0 12px;
+            background: transparent;
+            color: var(--ink);
+            font-size: 24px;
+            font-weight: 760;
+            outline: none;
+        }
+
+        .note-body {
+            width: 100%;
+            min-height: 210px;
+            resize: vertical;
+            border: 0;
+            background: transparent;
+            color: #2a2c31;
+            line-height: 1.65;
+            outline: none;
+        }
+
+        .editor-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding-top: 12px;
+            border-top: 1px solid rgba(16, 17, 20, 0.08);
+        }
+
+        .capsules {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .capsule {
+            display: inline-flex;
+            align-items: center;
+            min-height: 30px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: rgba(16, 17, 20, 0.05);
+            color: #4a4e57;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .capsule.gold {
+            background: rgba(202, 162, 77, 0.16);
+            color: #725620;
+        }
+
+        .capsule.purple {
+            background: rgba(101, 71, 184, 0.12);
+            color: #523894;
+        }
+
+        .capsule.blue {
+            background: rgba(47, 115, 216, 0.12);
+            color: #285d9f;
+        }
+
+        .connections {
+            padding: 14px;
+        }
+
+        .connection-item,
+        .claim-item,
+        .suggestion-item {
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(16, 17, 20, 0.09);
+            background: rgba(255, 253, 248, 0.82);
+        }
+
+        .connection-item {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            align-items: start;
+        }
+
+        .link-node {
+            width: 10px;
+            height: 10px;
+            margin-top: 5px;
+            border-radius: 999px;
+            background: var(--amenBlue);
+            box-shadow: 0 0 0 5px rgba(47, 115, 216, 0.12);
+        }
+
+        .connection-item strong,
+        .claim-item strong,
+        .suggestion-item strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .connection-item span,
+        .claim-item span,
+        .suggestion-item span {
+            display: block;
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.42;
+        }
+
+        .relationship-panel {
+            padding: 14px;
+        }
+
+        .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 13px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(140deg, rgba(101, 71, 184, 0.16), rgba(47, 115, 216, 0.12));
+            border: 1px solid rgba(16, 17, 20, 0.1);
+            color: var(--amenPurple);
+            font-weight: 850;
+        }
+
+        .berean-panel {
+            align-self: start;
+            position: sticky;
+            top: 84px;
+            padding: 14px;
+        }
+
+        .berean-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 4px 14px;
+        }
+
+        .berean-orb {
+            width: 38px;
+            height: 38px;
+            border-radius: 15px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.38));
+            border: 1px solid rgba(255, 255, 255, 0.84);
+            color: var(--amenBlue);
+            font-weight: 900;
+        }
+
+        .berean-header h2 {
+            margin: 0;
+            font-size: 17px;
+        }
+
+        .berean-header p {
+            margin: 2px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .claim-list,
+        .suggestion-list {
+            margin-bottom: 14px;
+        }
+
+        .claim-item {
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .claim-meta {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .source-chip {
+            padding: 4px 7px;
+            border-radius: 999px;
+            background: rgba(16, 17, 20, 0.06);
+            color: #4c5059;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .diff-preview {
+            margin-top: 10px;
+            display: grid;
+            gap: 4px;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(16, 17, 20, 0.045);
+            border: 1px dashed var(--line-strong);
+        }
+
+        .diff-preview code {
+            white-space: normal;
+            color: #38404a;
+            font-size: 12px;
+        }
+
+        .suggestion-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .small-button {
+            min-height: 30px;
+            padding: 0 10px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.74);
+            color: var(--ink);
+            font-size: 12px;
+            font-weight: 760;
+        }
+
+        .small-button.confirm {
+            background: var(--amenBlack);
+            color: white;
+        }
+
+        .principles {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .principle {
+            min-height: 96px;
+            padding: 13px;
+            border-radius: 12px;
+            background: var(--paper);
+            border: 1px solid var(--line);
+        }
+
+        .principle strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .principle span {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .mobile-tabs {
+            display: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            :root {
+                --motion-adaptive: 1ms linear;
+            }
+
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 1ms !important;
+                transition-duration: 1ms !important;
+            }
+        }
+
+        @media (max-width: 1120px) {
+            .workspace {
+                grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
+            }
+
+            .berean-panel {
+                grid-column: 1 / -1;
+                position: static;
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .principles {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 760px) {
+            .glass-topbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .topbar-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .workspace {
+                grid-template-columns: 1fr;
+                padding-bottom: 84px;
+            }
+
+            .rail {
+                position: static;
+            }
+
+            .hero {
+                grid-template-columns: 1fr;
+                min-height: 0;
+            }
+
+            .trust-stack {
+                width: 100%;
+            }
+
+            .principles {
+                grid-template-columns: 1fr;
+            }
+
+            .mobile-tabs {
+                position: fixed;
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+                z-index: 30;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                padding: 8px;
+                border-radius: 22px;
+                background: var(--glass-strong);
+                border: 1px solid rgba(255, 255, 255, 0.76);
+                box-shadow: 0 12px 42px rgba(16, 17, 20, 0.18);
+                backdrop-filter: blur(22px) saturate(1.2);
+                -webkit-backdrop-filter: blur(22px) saturate(1.2);
+            }
+
+            .mobile-tabs button {
+                min-height: 38px;
+                border-radius: 14px;
+                background: rgba(255, 255, 255, 0.6);
+                color: var(--ink);
+                font-size: 12px;
+                font-weight: 800;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="glass-topbar" aria-label="AMEN Memory OS chrome">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true"></div>
+                <div>
+                    <p class="brand-title">AMEN Memory OS</p>
+                    <p class="brand-subtitle">Berean Notebooks + Living Memory</p>
+                </div>
+            </div>
+            <div class="topbar-actions">
+                <span class="privacy-pill"><span class="privacy-dot"></span> Private by default</span>
+                <button class="ghost-button" type="button">Preview inbox</button>
+                <button class="primary-button" type="button">New note</button>
+                <button class="icon-button" type="button" aria-label="Search">⌕</button>
+            </div>
+        </header>
+
+        <main class="workspace">
+            <aside class="rail glass-panel" aria-label="Notebook navigation">
+                <p class="section-label">Auto-organized</p>
+                <ul class="notebook-list">
+                    <li><button class="notebook-button active" type="button"><span class="notebook-glyph">C</span><span><span class="row-title">Church</span><span class="row-sub">Sermons, small group, service notes</span></span><span class="quiet-tag">local</span></button></li>
+                    <li><button class="notebook-button" type="button"><span class="notebook-glyph">W</span><span><span class="row-title">Work</span><span class="row-sub">Meetings, decisions, drafts</span></span><span class="quiet-tag">local</span></button></li>
+                    <li><button class="notebook-button" type="button"><span class="notebook-glyph">I</span><span><span class="row-title">Ideas</span><span class="row-sub">Fragments linked into themes</span></span><span class="quiet-tag">local</span></button></li>
+                    <li><button class="notebook-button" type="button"><span class="notebook-glyph">R</span><span><span class="row-title">Relationships</span><span class="row-sub">Contact-specific memory</span></span><span class="quiet-tag">locked</span></button></li>
+                </ul>
+
+                <p class="section-label">Contacts</p>
+                <ul class="contact-list">
+                    <li><button class="contact-row active" type="button"><span class="avatar">MJ</span><span><span class="row-title">Maya Johnson</span><span class="row-sub">Prayer, mentoring, follow-up</span></span></button></li>
+                    <li><button class="contact-row" type="button"><span class="avatar">DR</span><span><span class="row-title">Daniel Ruiz</span><span class="row-sub">Meal train, new member</span></span></button></li>
+                    <li><button class="contact-row" type="button"><span class="avatar">AL</span><span><span class="row-title">Aunt Linda</span><span class="row-sub">Family notes, visits</span></span></button></li>
+                </ul>
+            </aside>
+
+            <section class="main" aria-label="Personal memory workspace">
+                <section class="hero glass-panel">
+                    <div class="hero-content">
+                        <p class="eyebrow">Personal Memory Surface</p>
+                        <h1>Notes become living context, not another feed.</h1>
+                        <p class="hero-copy">Berean watches the current note, nearby memories, contacts, documents, and scripture references inside the user trust boundary. It proposes organization and links, but every merge or next action remains an opt-in preview.</p>
+                    </div>
+                    <div class="trust-stack" aria-label="Constraint summary">
+                        <div class="trust-card"><strong>No vanity metrics</strong><span>No streaks, like counts, leaderboards, or engagement loops.</span></div>
+                        <div class="trust-card"><strong>Provenance visible</strong><span>AI claims show source, capture, processing, and retrieval context.</span></div>
+                        <div class="trust-card"><strong>Human agency</strong><span>Suggested merges and follow-ups open as a diff before confirmation.</span></div>
+                    </div>
+                </section>
+
+                <section class="content-grid">
+                    <article class="matte-card">
+                        <div class="card-header">
+                            <div>
+                                <h2>Berean Notebook Draft</h2>
+                                <p>Matte content surface. Auto-classification is visible but non-destructive.</p>
+                            </div>
+                            <span class="capsule gold">Notebook: Church</span>
+                        </div>
+                        <div class="note-editor">
+                            <input class="note-title" value="Small group follow-up: patience and hospitality" aria-label="Note title">
+                            <textarea class="note-body" aria-label="Note body">Maya mentioned feeling stretched thin while helping new families settle in. Connect this with last month’s note about hospitality rhythms and the sermon reference on patience.
+
+Possible living doc update: add a short section to the group care plan about rotating meal support before the next gathering.</textarea>
+                            <div class="editor-footer">
+                                <div class="capsules">
+                                    <span class="capsule purple">note.church</span>
+                                    <span class="capsule blue">person: Maya</span>
+                                    <span class="capsule">scripture reference pending</span>
+                                </div>
+                                <button class="ghost-button" type="button">Open preview</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="matte-card">
+                        <div class="card-header">
+                            <div>
+                                <h3>Thought Connections</h3>
+                                <p>Candidate context graph edges require confirmation.</p>
+                            </div>
+                            <span class="capsule blue">linkThoughts</span>
+                        </div>
+                        <div class="connections">
+                            <ul class="connection-list">
+                                <li class="connection-item"><span class="link-node"></span><span><strong>Related to “Hospitality rotation notes”</strong><span>Same contact, similar care-plan language, shared meeting context.</span></span></li>
+                                <li class="connection-item"><span class="link-node"></span><span><strong>Derived from small group conversation</strong><span>Source is private conversation memory inside this trust boundary.</span></span></li>
+                                <li class="connection-item"><span class="link-node"></span><span><strong>Cites scripture candidate</strong><span>Needs source verification before attaching the reference.</span></span></li>
+                            </ul>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="content-grid">
+                    <article class="matte-card relationship-panel">
+                        <div class="card-header">
+                            <div>
+                                <h3>Relationship Notes: Maya Johnson</h3>
+                                <p>Contact memory stays private unless explicitly shared.</p>
+                            </div>
+                            <span class="capsule purple">relationship</span>
+                        </div>
+                        <ul class="connection-list" style="padding: 14px;">
+                            <li class="connection-item"><span class="link-node"></span><span><strong>Care preference</strong><span>Prefers text check-ins after Wednesday group rather than Sunday morning.</span></span></li>
+                            <li class="connection-item"><span class="link-node"></span><span><strong>Open loop</strong><span>Ask whether the meal schedule helped before proposing another plan.</span></span></li>
+                            <li class="connection-item"><span class="link-node"></span><span><strong>Boundary</strong><span>Do not surface this note outside personal memory without explicit participant selection.</span></span></li>
+                        </ul>
+                    </article>
+
+                    <article class="matte-card">
+                        <div class="card-header">
+                            <div>
+                                <h3>Living Doc Suggestions</h3>
+                                <p>Suggestions stage changes as a diff, never auto-merge.</p>
+                            </div>
+                            <span class="capsule gold">review</span>
+                        </div>
+                        <div class="connections">
+                            <ul class="suggestion-list">
+                                <li class="suggestion-item">
+                                    <strong>Update group care plan</strong>
+                                    <span>Add one paragraph about rotating support before each gathering.</span>
+                                    <div class="diff-preview"><code>+ Add “Meal support rotation” under Care Rhythms.</code><code>+ Source: Maya follow-up note, Feb group conversation.</code></div>
+                                    <div class="suggestion-actions"><button class="small-button confirm" type="button">Preview diff</button><button class="small-button" type="button">Dismiss</button></div>
+                                </li>
+                            </ul>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="principles" aria-label="Design constraints">
+                    <div class="principle"><strong>Finite workspace</strong><span>The prototype uses bounded panels and review queues instead of infinite scroll.</span></div>
+                    <div class="principle"><strong>Source first</strong><span>Every AI claim is paired with provenance before the user acts.</span></div>
+                    <div class="principle"><strong>Opt-in action</strong><span>Merge, share, send, and reminder actions wait for explicit confirmation.</span></div>
+                    <div class="principle"><strong>Private memory</strong><span>Personal and relationship memory defaults to private namespaces.</span></div>
+                </section>
+            </section>
+
+            <aside class="berean-panel glass-panel" aria-label="Berean intelligence panel">
+                <div class="berean-header">
+                    <div class="berean-orb">B</div>
+                    <div>
+                        <h2>Berean Preview</h2>
+                        <p>Floating glass chrome over matte work.</p>
+                    </div>
+                </div>
+
+                <p class="section-label">AI Claims</p>
+                <ul class="claim-list">
+                    <li class="claim-item">
+                        <strong>Maya may need a lighter support rhythm.</strong>
+                        <span>Confidence is contextual, not a command. Review source chain before acting.</span>
+                        <div class="claim-meta">
+                            <span class="source-chip">original: humanNote</span>
+                            <span class="source-chip">capture: iPhone private</span>
+                            <span class="source-chip">processing: contextLinking</span>
+                            <span class="source-chip">retrieval: personal_user</span>
+                        </div>
+                    </li>
+                    <li class="claim-item">
+                        <strong>Scripture citation requires verification.</strong>
+                        <span>The model found a likely theme match, but no exact reference is attached yet.</span>
+                        <div class="claim-meta">
+                            <span class="source-chip">status: partial</span>
+                            <span class="source-chip">action: verifySource</span>
+                        </div>
+                    </li>
+                </ul>
+
+                <p class="section-label">Next Actions</p>
+                <ul class="suggestion-list">
+                    <li class="suggestion-item">
+                        <strong>Draft check-in message</strong>
+                        <span>Creates a private preview only. Nothing sends without confirmation.</span>
+                        <div class="diff-preview"><code>+ “How did Wednesday feel after the meal rotation change?”</code></div>
+                        <div class="suggestion-actions"><button class="small-button confirm" type="button">Preview</button><button class="small-button" type="button">Not now</button></div>
+                    </li>
+                    <li class="suggestion-item">
+                        <strong>Merge duplicate thought</strong>
+                        <span>Combines two hospitality notes after showing additions and removed duplicates.</span>
+                        <div class="suggestion-actions"><button class="small-button confirm" type="button">Review merge</button><button class="small-button" type="button">Keep separate</button></div>
+                    </li>
+                </ul>
+            </aside>
+        </main>
+
+        <nav class="mobile-tabs" aria-label="Mobile sections">
+            <button type="button">Notes</button>
+            <button type="button">Memory</button>
+            <button type="button">Berean</button>
+        </nav>
+    </div>
+</body>
+</html>

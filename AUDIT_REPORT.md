@@ -19,7 +19,7 @@ After the baseline failure was recorded, additional local workspace changes were
 
 ## Blocking Failure
 
-The baseline Xcode build failed, so the overnight audit-and-fix run was not started.
+The initial baseline Xcode build failed, so the overnight audit-and-fix run was not started at that time. A later gap-fix pass restored the app target to a green build, but the test target still fails to compile.
 
 | Area | Issue | Severity | File:line | Risk-to-fix | Auto-fixable | Why |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -27,5 +27,6 @@ The baseline Xcode build failed, so the overnight audit-and-fix run was not star
 
 ## Needs Human Review
 
-1. Fix the baseline compile error in `AMENAPP/AMENAPP/ConnectSpaces/AmenConnectSpacesPhase0BindingService.swift:407`.
-2. Re-run the overnight process only after the app builds cleanly from the selected starting commit.
+1. Review remaining test build blockers in `FIX_LOG.md`.
+2. Decide whether stale test contracts should drive production API restoration or be updated to current product behavior.
+3. Re-run the overnight audit only after a green app and test baseline.

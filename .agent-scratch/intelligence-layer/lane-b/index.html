@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AMEN Intelligence Layer - Lane B Relationship OS</title>
+    <style>
+        :root {
+            --amen-gold: #d4b038;
+            --amen-purple: #7042cc;
+            --amen-blue: #0a85ff;
+            --amen-black: #0f0f12;
+            --matte: #fbfaf7;
+            --matte-2: #f1eee7;
+            --ink: #18171a;
+            --muted: #6e6878;
+            --line: rgba(24, 23, 26, 0.12);
+            --glass: rgba(255, 255, 255, 0.58);
+            --glass-border: rgba(255, 255, 255, 0.72);
+            --shadow: 0 20px 60px rgba(15, 15, 18, 0.14);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(212, 176, 56, 0.18), transparent 30rem),
+                linear-gradient(135deg, #fffdf8 0%, #ece8f3 50%, #eaf3ff 100%);
+            letter-spacing: 0;
+        }
+
+        button, input { font: inherit; }
+
+        .shell {
+            width: min(1220px, calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 24px 0 32px;
+        }
+
+        .glass-chrome {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(22px) saturate(150%);
+            -webkit-backdrop-filter: blur(22px) saturate(150%);
+        }
+
+        .matte {
+            background: var(--matte);
+            border: 1px solid var(--line);
+            box-shadow: 0 12px 34px rgba(15, 15, 18, 0.08);
+        }
+
+        header {
+            position: sticky;
+            top: 16px;
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 16px;
+            border-radius: 28px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .mark {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: conic-gradient(from 210deg, var(--amen-gold), var(--amen-purple), var(--amen-blue), var(--amen-gold));
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        h1, h2, h3, p { margin: 0; }
+
+        h1 {
+            font-size: clamp(1.15rem, 2vw, 1.55rem);
+            line-height: 1.15;
+        }
+
+        .subtitle, .fine {
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        .subtitle { font-size: 0.92rem; }
+        .fine { font-size: 0.82rem; }
+
+        .privacy-chip, .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 32px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.52);
+            border: 1px solid rgba(255, 255, 255, 0.68);
+            color: #332d3e;
+            font-size: 0.78rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--amen-blue);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 280px minmax(0, 1fr) 330px;
+            gap: 16px;
+            margin-top: 18px;
+            align-items: start;
+        }
+
+        .panel {
+            border-radius: 22px;
+            padding: 16px;
+        }
+
+        .panel h2 {
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+
+        .stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .thread {
+            display: grid;
+            gap: 10px;
+        }
+
+        .thread-card {
+            width: 100%;
+            text-align: left;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.62);
+            border-radius: 14px;
+            padding: 12px;
+            cursor: pointer;
+        }
+
+        .thread-card[aria-pressed="true"] {
+            border-color: rgba(10, 133, 255, 0.45);
+            background: rgba(10, 133, 255, 0.09);
+        }
+
+        .thread-card strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .search {
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            border-radius: 18px;
+            margin-bottom: 14px;
+        }
+
+        .search input {
+            flex: 1;
+            min-width: 0;
+            border: 0;
+            background: transparent;
+            outline: 0;
+            color: var(--ink);
+        }
+
+        .primary, .secondary, .icon-btn {
+            border: 0;
+            border-radius: 999px;
+            min-height: 40px;
+            padding: 0 14px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .primary {
+            color: white;
+            background: linear-gradient(135deg, var(--amen-purple), var(--amen-blue));
+        }
+
+        .secondary, .icon-btn {
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.68);
+            border: 1px solid rgba(255, 255, 255, 0.75);
+        }
+
+        .icon-btn {
+            width: 40px;
+            padding: 0;
+            display: inline-grid;
+            place-items: center;
+        }
+
+        .conversation {
+            min-height: 610px;
+            display: grid;
+            grid-template-rows: auto auto 1fr auto;
+            gap: 14px;
+        }
+
+        .conversation-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .message-list {
+            display: grid;
+            gap: 10px;
+            align-content: start;
+            max-height: 330px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .message {
+            width: min(82%, 560px);
+            padding: 12px 14px;
+            border-radius: 18px;
+            line-height: 1.42;
+        }
+
+        .message.them {
+            background: white;
+            border: 1px solid var(--line);
+        }
+
+        .message.me {
+            justify-self: end;
+            color: white;
+            background: var(--amen-black);
+        }
+
+        .context-strip {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .context-card {
+            border-radius: 16px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.62);
+            border: 1px solid rgba(255, 255, 255, 0.72);
+        }
+
+        .context-card span {
+            display: block;
+            color: var(--muted);
+            font-size: 0.76rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .composer {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 8px;
+            align-items: center;
+            padding: 10px;
+            border-radius: 22px;
+        }
+
+        .composer input {
+            border: 0;
+            outline: 0;
+            background: transparent;
+            min-width: 0;
+        }
+
+        .claim {
+            border-left: 3px solid var(--amen-gold);
+            padding: 10px 12px;
+            background: rgba(212, 176, 56, 0.10);
+            border-radius: 12px;
+        }
+
+        .claim h3 {
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+        }
+
+        details {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.56);
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: 800;
+        }
+
+        .provenance {
+            display: grid;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .source-row {
+            display: grid;
+            grid-template-columns: 26px 1fr;
+            gap: 8px;
+            align-items: start;
+            font-size: 0.82rem;
+            color: #4a4357;
+        }
+
+        .source-row b {
+            display: inline-grid;
+            place-items: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: rgba(112, 66, 204, 0.12);
+            color: var(--amen-purple);
+        }
+
+        .action-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .action {
+            border-radius: 16px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.62);
+            border: 1px solid var(--line);
+        }
+
+        .action-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .driving {
+            color: white;
+            background:
+                linear-gradient(145deg, rgba(15, 15, 18, 0.94), rgba(27, 34, 49, 0.92)),
+                var(--amen-black);
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+
+        .driving .fine, .driving .subtitle { color: rgba(255, 255, 255, 0.72); }
+
+        .drive-grid {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .voice-orb {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, white, var(--amen-blue) 42%, var(--amen-purple));
+            box-shadow: 0 0 32px rgba(10, 133, 255, 0.38);
+        }
+
+        dialog {
+            width: min(560px, calc(100vw - 28px));
+            border: 0;
+            border-radius: 24px;
+            padding: 0;
+            color: var(--ink);
+        }
+
+        dialog::backdrop {
+            background: rgba(15, 15, 18, 0.36);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-body {
+            padding: 18px;
+            border-radius: 24px;
+        }
+
+        .diff {
+            white-space: pre-wrap;
+            padding: 12px;
+            border-radius: 14px;
+            background: #17151c;
+            color: #f9f4e9;
+            font-size: 0.86rem;
+            line-height: 1.5;
+        }
+
+        .check {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 12px 0;
+        }
+
+        .check input { margin-top: 3px; }
+
+        @media (max-width: 980px) {
+            .grid { grid-template-columns: 1fr; }
+            header { position: static; }
+            .context-strip { grid-template-columns: 1fr; }
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .thread-card, button, dialog { transition: transform 180ms ease, opacity 180ms ease, border-color 180ms ease; }
+            button:hover, .thread-card:hover { transform: translateY(-1px); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.001ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <header class="glass-chrome" aria-label="Relationship OS chrome">
+            <div class="brand">
+                <div class="mark" aria-hidden="true"></div>
+                <div>
+                    <h1>Relationship OS</h1>
+                    <p class="subtitle">Berean memory over existing conversations, never outside the trust boundary.</p>
+                </div>
+            </div>
+            <div class="privacy-chip"><span class="dot"></span>Boundary: family_private_tapera</div>
+        </header>
+
+        <main class="grid">
+            <aside class="panel matte" aria-labelledby="threads-title">
+                <h2 id="threads-title">Conversations</h2>
+                <div class="search glass-chrome">
+                    <input value="when did John mention graduation?" aria-label="Recall query">
+                    <button class="icon-btn" type="button" data-preview="recall" aria-label="Run recall">⌕</button>
+                </div>
+                <div class="thread">
+                    <button class="thread-card" type="button" aria-pressed="true" data-thread="john">
+                        <strong>John M.</strong>
+                        <p class="fine">Graduation plans, shared photos, Saturday lunch.</p>
+                    </button>
+                    <button class="thread-card" type="button" aria-pressed="false" data-thread="family">
+                        <strong>Family Group</strong>
+                        <p class="fine">Birthdays, rides, dinner plans, reminders.</p>
+                    </button>
+                    <button class="thread-card" type="button" aria-pressed="false" data-thread="mara">
+                        <strong>Mara</strong>
+                        <p class="fine">Care check-in and files shared last week.</p>
+                    </button>
+                </div>
+            </aside>
+
+            <section class="panel matte conversation" aria-labelledby="conversation-title">
+                <div class="conversation-head">
+                    <div>
+                        <h2 id="conversation-title">John M.</h2>
+                        <p class="subtitle">Memory is private to this relationship unless explicitly shared.</p>
+                    </div>
+                    <span class="pill">Stopping point: 3 suggested actions</span>
+                </div>
+
+                <div class="context-strip" aria-label="Context before reply">
+                    <div class="context-card glass-chrome">
+                        <span>Recent summary</span>
+                        <p>John asked about graduation parking and mentioned his parents arrive Friday.</p>
+                    </div>
+                    <div class="context-card glass-chrome">
+                        <span>Shared files</span>
+                        <p>Campus map PDF, invitation photo, dinner address.</p>
+                    </div>
+                    <div class="context-card glass-chrome">
+                        <span>Upcoming plans</span>
+                        <p>Saturday lunch draft reminder. Not scheduled until confirmed.</p>
+                    </div>
+                </div>
+
+                <div class="message-list" aria-label="Finite recent messages">
+                    <div class="message them">Parking is probably at the north deck for graduation. My parents get in Friday evening.</div>
+                    <div class="message me">Got it. Send me the final location when you have it.</div>
+                    <div class="message them">Can you remind me Saturday morning to bring the printed tickets?</div>
+                    <div class="message them">Also lunch after would be great if everyone is free.</div>
+                </div>
+
+                <div class="claim">
+                    <h3>Berean recall</h3>
+                    <p class="fine">John mentioned graduation parking in this conversation on May 12, 2026. The claim is source-backed and not used outside this boundary.</p>
+                    <details>
+                        <summary>Four-layer provenance</summary>
+                        <div class="provenance">
+                            <div class="source-row"><b>1</b><span><strong>Original:</strong> John message in relationship thread, May 12, 2026.</span></div>
+                            <div class="source-row"><b>2</b><span><strong>Capture:</strong> AMEN message sync in family_private_tapera boundary.</span></div>
+                            <div class="source-row"><b>3</b><span><strong>Processing:</strong> bereanRecallProxy with Auth + App Check gate.</span></div>
+                            <div class="source-row"><b>4</b><span><strong>Retrieval:</strong> conversation_family_private_tapera_john namespace, confidence 0.88.</span></div>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="composer glass-chrome">
+                    <input value="I can remind you Saturday morning and send the parking map." aria-label="Reply draft">
+                    <button class="secondary" type="button" data-preview="reply">Preview</button>
+                    <button class="primary" type="button" data-preview="send">Send</button>
+                </div>
+            </section>
+
+            <aside class="stack" aria-label="Berean relationship assistant">
+                <section class="panel glass-chrome">
+                    <h2>Smart follow-ups</h2>
+                    <div class="action-list">
+                        <article class="action">
+                            <div class="action-top">
+                                <strong>Reminder candidate</strong>
+                                <span class="pill">opt-in</span>
+                            </div>
+                            <p class="fine">Saturday 8:30 AM: bring printed tickets. Requires preview before scheduling.</p>
+                            <button class="primary" type="button" data-preview="reminder">Preview reminder</button>
+                        </article>
+                        <article class="action">
+                            <div class="action-top">
+                                <strong>Family intelligence</strong>
+                                <span class="pill">private</span>
+                            </div>
+                            <p class="fine">Parents arrive Friday evening. No calendar change until you confirm audience and time.</p>
+                            <button class="secondary" type="button" data-preview="family">Review context</button>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="panel driving">
+                    <h2>Driving Mode</h2>
+                    <p class="subtitle">Voice, Berean, and navigation only. Typing and feeds are unavailable while active.</p>
+                    <div class="drive-grid">
+                        <div>
+                            <p><strong>Next safe action</strong></p>
+                            <p class="fine">Read the latest confirmed plan aloud and offer route handoff.</p>
+                        </div>
+                        <div class="voice-orb" aria-hidden="true"></div>
+                    </div>
+                    <button class="primary" type="button" data-preview="drive">Open driving preview</button>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <dialog id="preview">
+        <div class="modal-body glass-chrome">
+            <div class="conversation-head">
+                <div>
+                    <p class="fine">Explicit confirmation required</p>
+                    <h2 id="preview-title">Action preview</h2>
+                </div>
+                <button class="icon-btn" type="button" id="close" aria-label="Close preview">×</button>
+            </div>
+            <p id="preview-copy" class="subtitle" style="margin: 12px 0;"></p>
+            <pre id="preview-diff" class="diff"></pre>
+            <details open style="margin-top: 12px;">
+                <summary>Four-layer provenance</summary>
+                <div class="provenance">
+                    <div class="source-row"><b>1</b><span>Original relationship message or calendar context.</span></div>
+                    <div class="source-row"><b>2</b><span>Captured inside the active private trust boundary.</span></div>
+                    <div class="source-row"><b>3</b><span>Processed by Berean callable proxy with human preview required.</span></div>
+                    <div class="source-row"><b>4</b><span>Retrieved from isolated Pinecone namespace; unsupported claims excluded.</span></div>
+                </div>
+            </details>
+            <label class="check">
+                <input id="confirm-check" type="checkbox">
+                <span>I reviewed the destination, audience, source chain, and exact diff.</span>
+            </label>
+            <div class="conversation-head">
+                <button class="secondary" type="button" id="cancel">Cancel</button>
+                <button class="primary" type="button" id="confirm" disabled>Confirm</button>
+            </div>
+            <p class="fine" id="status" aria-live="polite" style="margin-top: 10px;">Waiting for confirmation.</p>
+        </div>
+    </dialog>
+
+    <script>
+        const previews = {
+            recall: {
+                title: "Recall query",
+                copy: "Berean will search only this relationship boundary and show citations before you use the answer.",
+                diff: "+ Query: when did John mention graduation?\n+ Namespace: conversation_family_private_tapera_john\n- Excluded: unrelated messages, creator-private data"
+            },
+            reply: {
+                title: "Reply draft preview",
+                copy: "The reply remains a draft until you confirm sending.",
+                diff: "+ I can remind you Saturday morning.\n+ I can send the parking map.\n- No automatic send"
+            },
+            send: {
+                title: "Send message preview",
+                copy: "AMEN will send this exact text only after explicit confirmation.",
+                diff: "Destination: John M.\nText: I can remind you Saturday morning and send the parking map.\nSource: current thread summary"
+            },
+            reminder: {
+                title: "Schedule reminder preview",
+                copy: "A private reminder will be created for you. John is not notified unless you choose to message him.",
+                diff: "+ Reminder: Bring printed tickets\n+ Time: Saturday 8:30 AM\n+ Visibility: privateToUser"
+            },
+            family: {
+                title: "Family context review",
+                copy: "Berean found an arrival note but will not write to a shared calendar without confirmation.",
+                diff: "+ Parents arrive Friday evening\n+ Source: John message May 12\n- No calendar write"
+            },
+            drive: {
+                title: "Driving mode preview",
+                copy: "Typing is disabled. Berean can read confirmed plans and hand off navigation only.",
+                diff: "+ Voice summary\n+ Navigation handoff\n- Typing\n- Infinite feed"
+            }
+        };
+
+        const dialog = document.getElementById("preview");
+        const title = document.getElementById("preview-title");
+        const copy = document.getElementById("preview-copy");
+        const diff = document.getElementById("preview-diff");
+        const confirmCheck = document.getElementById("confirm-check");
+        const confirm = document.getElementById("confirm");
+        const status = document.getElementById("status");
+
+        document.querySelectorAll("[data-preview]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const preview = previews[button.dataset.preview];
+                title.textContent = preview.title;
+                copy.textContent = preview.copy;
+                diff.textContent = preview.diff;
+                confirmCheck.checked = false;
+                confirm.disabled = true;
+                status.textContent = "Waiting for confirmation.";
+                dialog.showModal();
+            });
+        });
+
+        confirmCheck.addEventListener("change", () => {
+            confirm.disabled = !confirmCheck.checked;
+        });
+
+        confirm.addEventListener("click", () => {
+            status.textContent = "Confirmed in prototype only. A real action would write an audit trail before execution.";
+        });
+
+        document.getElementById("close").addEventListener("click", () => dialog.close());
+        document.getElementById("cancel").addEventListener("click", () => dialog.close());
+    </script>
+</body>
+</html>

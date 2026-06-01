@@ -14,7 +14,7 @@ struct AmenBookRecommendation: Identifiable {
     let score: Double    // 0.0–1.0 internal; never shown to user
 }
 
-enum AmenRecommendationReason: String {
+enum AmenRecommendationReason: String, CaseIterable {
     case recentStudy     = "Based on your recent study"
     case scriptureLink   = "Connects to a scripture you've explored"
     case themeChain      = "Continue this theme"

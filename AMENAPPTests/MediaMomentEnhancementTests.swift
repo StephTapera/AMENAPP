@@ -1,7 +1,9 @@
+import Foundation
 import Testing
 @testable import AMENAPP
 
 @Suite("Media Moment Enhancements")
+@MainActor
 struct MediaMomentEnhancementTests {
     @Test("video metadata stores verse-linked moments and presentation mode")
     func videoMetadataSupportsMomentEnhancements() {

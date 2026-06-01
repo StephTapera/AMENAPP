@@ -752,6 +752,7 @@ struct Post: Identifiable, Codable, Equatable {
         churchNoteId: String? = nil,
         contentSource: String? = nil,
         quote: PostQuoteMetadata? = nil,
+        feedContext: AmenFeedContextLabel? = nil,
         mediaItems: [PostMediaItem]? = nil,
         witnessMedia: PostWitnessMediaMetadata? = nil,
         smartAttachment: AmenSmartAttachment? = nil,
@@ -803,6 +804,7 @@ struct Post: Identifiable, Codable, Equatable {
         self.churchNoteId = churchNoteId
         self.contentSource = contentSource
         self.quote = quote
+        self.feedContext = feedContext
         self.mediaItems = mediaItems
         self.witnessMedia = witnessMedia
         self.smartAttachment = smartAttachment

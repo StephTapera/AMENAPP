@@ -22,11 +22,15 @@ After the failed baseline build, local workspace changes were preserved in commi
 
 ## What Got Fixed
 
-Nothing. The baseline was red, so fixes were not allowed.
+The app target now builds green on `audit/overnight-20260601`.
+
+Low-risk compile/test-surface repairs were applied for Connect Spaces follow-up state, feed context labels, media metadata drafts, notification contract decoding/routing, duplicate ObjectHub tests, messaging save action availability helpers, and missing test imports.
 
 ## Attempted And Reverted
 
-Nothing.
+Nothing was reverted.
+
+The full test target remains red because additional stale contract tests require product decisions rather than mechanical fixes.
 
 ## Preservation Commits
 
@@ -35,9 +39,9 @@ Nothing.
 
 ## Needs Human Review
 
-1. Resolve the compile error in `AmenConnectSpacesPhase0BindingService.swift`.
-2. Confirm whether the preserved pre-audit Connect Spaces contract changes are intended for this branch.
-3. Re-run the overnight process after a green baseline build.
+1. Review the remaining test build blockers listed in `FIX_LOG.md`.
+2. Decide whether stale Walk With Christ, True Source, Translation, Verification, and Voice Prayer contracts should be restored in production or rewritten in tests.
+3. Re-run the overnight process only after both the app target and selected test baseline are green.
 
 ## Review Commands
 

@@ -50,7 +50,7 @@ struct NotificationActor: Codable, Equatable, Identifiable {
 
 // MARK: - AppNotification
 
-struct AppNotification: Identifiable, Equatable {
+struct AppNotification: Identifiable, Equatable, Decodable {
 
     // MARK: Type
 
@@ -118,6 +118,28 @@ struct AppNotification: Identifiable, Equatable {
         }
     }
 
+    enum NotificationCategory: String, Codable, Equatable {
+        case prayer
+        case social
+        case message
+        case church
+        case actionThread
+        case unknown
+    }
+
+    enum PriorityBucket: String, Codable, Equatable {
+        case p0 = "P0"
+        case p1 = "P1"
+        case p2 = "P2"
+        case p3 = "P3"
+    }
+
+    enum NotificationState: String, Codable, Equatable {
+        case unread
+        case seen
+        case read
+    }
+
     // MARK: Properties
 
     var id: String?
@@ -144,6 +166,11 @@ struct AppNotification: Identifiable, Equatable {
     var routePayload: [String: String]?
     var fallbackRouteType: String?
     var fallbackRoutePayload: [String: String]?
+    var category: NotificationCategory?
+    var priorityBucket: PriorityBucket?
+    var groupKey: String?
+    var rawTypeValue: String?
+    var readAt: Timestamp?
 
     // Extended routing fields (set by ProductionNotificationRouting)
     var userId: String?
@@ -158,6 +185,11 @@ struct AppNotification: Identifiable, Equatable {
     var pushDeliveredAt: Timestamp?
 
     var actionText: String { type.actionText }
+    var notificationState: NotificationState {
+        if read { return .read }
+        if seenAt != nil { return .seen }
+        return .unread
+    }
 
     var icon: String {
         switch type {
@@ -208,7 +240,8 @@ struct AppNotification: Identifiable, Equatable {
         let d = document.data()
         self.id = document.documentID
         let typeRaw = d["type"] as? String ?? "unknown"
-        self.type = NotificationType(rawValue: typeRaw) ?? .unknown
+        self.rawTypeValue = typeRaw
+        self.type = Self.notificationType(from: typeRaw)
         self.actorId               = d["actorId"] as? String
         self.actorName             = d["actorName"] as? String
         self.actorUsername         = d["actorUsername"] as? String
@@ -230,6 +263,10 @@ struct AppNotification: Identifiable, Equatable {
         self.routePayload          = d["routePayload"] as? [String: String]
         self.fallbackRouteType     = d["fallbackRouteType"] as? String
         self.fallbackRoutePayload  = d["fallbackRoutePayload"] as? [String: String]
+        self.category              = (d["category"] as? String).flatMap(NotificationCategory.init(rawValue:))
+        self.priorityBucket        = (d["priorityBucket"] as? String).flatMap(PriorityBucket.init(rawValue:))
+        self.groupKey              = d["groupKey"] as? String
+        self.readAt                = d["readAt"] as? Timestamp
 
         if let actorsData = d["actors"] as? [[String: Any]] {
             self.actors = actorsData.compactMap { a in
@@ -242,6 +279,113 @@ struct AppNotification: Identifiable, Equatable {
             }
         } else {
             self.actors = nil
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case userId
+        case recipientId
+        case type
+        case actorId
+        case actorName
+        case actorUsername
+        case actorProfileImageURL
+        case actorCount
+        case postId
+        case conversationId
+        case commentId
+        case prayerId
+        case noteId
+        case groupId
+        case read
+        case seenAt
+        case readAt
+        case createdAt
+        case updatedAt
+        case priority
+        case priorityScore
+        case commentText
+        case targetRouteType
+        case routePayload
+        case fallbackRouteType
+        case fallbackRoutePayload
+        case category
+        case priorityBucket
+        case groupKey
+        case parentCommentId
+        case idempotencyKey
+        case openedAt
+        case dismissedAt
+        case schemaVersion
+        case deepLinkVersion
+        case invalidTarget
+        case pushDelivered
+        case pushDeliveredAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        userId = try container.decodeIfPresent(String.self, forKey: .userId)
+            ?? container.decodeIfPresent(String.self, forKey: .recipientId)
+        rawTypeValue = try container.decodeIfPresent(String.self, forKey: .type)
+        type = Self.notificationType(from: rawTypeValue ?? "unknown")
+        actorId = try container.decodeIfPresent(String.self, forKey: .actorId)
+        actorName = try container.decodeIfPresent(String.self, forKey: .actorName)
+        actorUsername = try container.decodeIfPresent(String.self, forKey: .actorUsername)
+        actorProfileImageURL = try container.decodeIfPresent(String.self, forKey: .actorProfileImageURL)
+        actorCount = try container.decodeIfPresent(Int.self, forKey: .actorCount)
+        actors = nil
+        postId = try container.decodeIfPresent(String.self, forKey: .postId)
+        conversationId = try container.decodeIfPresent(String.self, forKey: .conversationId)
+        commentId = try container.decodeIfPresent(String.self, forKey: .commentId)
+        prayerId = try container.decodeIfPresent(String.self, forKey: .prayerId)
+        noteId = try container.decodeIfPresent(String.self, forKey: .noteId)
+        groupId = try container.decodeIfPresent(String.self, forKey: .groupId)
+        read = try container.decodeIfPresent(Bool.self, forKey: .read) ?? false
+        seenAt = try container.decodeIfPresent(Timestamp.self, forKey: .seenAt)
+        readAt = try container.decodeIfPresent(Timestamp.self, forKey: .readAt)
+        createdAt = try container.decodeIfPresent(Timestamp.self, forKey: .createdAt) ?? Timestamp(date: Date())
+        updatedAt = try container.decodeIfPresent(Timestamp.self, forKey: .updatedAt)
+        priority = try container.decodeIfPresent(Int.self, forKey: .priority)
+            ?? container.decodeIfPresent(Int.self, forKey: .priorityScore)
+        commentText = try container.decodeIfPresent(String.self, forKey: .commentText)
+        targetRouteType = try container.decodeIfPresent(String.self, forKey: .targetRouteType)
+        routePayload = try container.decodeIfPresent([String: String].self, forKey: .routePayload)
+        fallbackRouteType = try container.decodeIfPresent(String.self, forKey: .fallbackRouteType)
+        fallbackRoutePayload = try container.decodeIfPresent([String: String].self, forKey: .fallbackRoutePayload)
+        category = try container.decodeIfPresent(NotificationCategory.self, forKey: .category)
+        priorityBucket = try container.decodeIfPresent(PriorityBucket.self, forKey: .priorityBucket)
+        groupKey = try container.decodeIfPresent(String.self, forKey: .groupKey)
+        parentCommentId = try container.decodeIfPresent(String.self, forKey: .parentCommentId)
+        idempotencyKey = try container.decodeIfPresent(String.self, forKey: .idempotencyKey)
+        openedAt = try container.decodeIfPresent(Timestamp.self, forKey: .openedAt)
+        dismissedAt = try container.decodeIfPresent(Timestamp.self, forKey: .dismissedAt)
+        schemaVersion = try container.decodeIfPresent(String.self, forKey: .schemaVersion)
+        deepLinkVersion = try container.decodeIfPresent(String.self, forKey: .deepLinkVersion)
+        invalidTarget = try container.decodeIfPresent(Bool.self, forKey: .invalidTarget)
+        pushDelivered = try container.decodeIfPresent(Bool.self, forKey: .pushDelivered)
+        pushDeliveredAt = try container.decodeIfPresent(Timestamp.self, forKey: .pushDeliveredAt)
+    }
+
+    private static func notificationType(from rawValue: String) -> NotificationType {
+        if let exact = NotificationType(rawValue: rawValue) {
+            return exact
+        }
+        switch rawValue {
+        case "follow_request_accepted": return .followRequestAccepted
+        case "prayer_reminder": return .prayerReminder
+        case "prayer_answered": return .prayerAnswered
+        case "prayer_supported": return .prayerSupported
+        case "church_note_shared": return .churchNoteShared
+        case "church_note_replied": return .churchNoteReplied
+        case "message_request": return .messageRequest
+        case "message_request_accepted": return .messageRequestAccepted
+        case "action_thread_invite": return .actionThreadInvite
+        case "action_thread_update": return .actionThreadUpdate
+        case "action_thread_reminder": return .actionThreadReminder
+        default: return .unknown
         }
     }
 }

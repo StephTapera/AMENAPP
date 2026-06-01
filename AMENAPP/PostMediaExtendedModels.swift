@@ -25,6 +25,9 @@ struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
     var kind: MediaKeyMomentKind
     var source: String?
     var sortOrder: Int?
+    var status: String?
+    var approvedByUser: Bool?
+    var isPubliclyApproved: Bool { status == "approved" || approvedByUser == true }
 
     init(
         id: String = UUID().uuidString,
@@ -32,7 +35,9 @@ struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
         label: String,
         kind: MediaKeyMomentKind,
         source: String? = nil,
-        sortOrder: Int? = nil
+        sortOrder: Int? = nil,
+        status: String? = nil,
+        approvedByUser: Bool? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -40,6 +45,8 @@ struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
         self.kind = kind
         self.source = source
         self.sortOrder = sortOrder
+        self.status = status
+        self.approvedByUser = approvedByUser
     }
 
     static func fallbackMoments(for duration: TimeInterval) -> [MediaKeyMoment] {
@@ -95,8 +102,14 @@ struct MediaCaptionTrack: Identifiable, Codable, Equatable, Hashable {
     var source: MediaTrackSource
     var cues: [MediaCaptionCue]?
     var lastEditedAt: Date?
+    var status: String?
+    var approvedByUser: Bool?
 
     var effectiveSource: MediaTrackSource { source }
+    var displayText: String {
+        editedTranscript ?? generatedTranscript ?? cues?.map(\.text).joined(separator: " ") ?? ""
+    }
+    var isPubliclyApproved: Bool { status == "approved" || approvedByUser == true }
 
     init(
         id: String = UUID().uuidString,
@@ -107,7 +120,9 @@ struct MediaCaptionTrack: Identifiable, Codable, Equatable, Hashable {
         displayByDefault: Bool? = nil,
         source: MediaTrackSource = .aiGenerated,
         cues: [MediaCaptionCue]? = nil,
-        lastEditedAt: Date? = nil
+        lastEditedAt: Date? = nil,
+        status: String? = nil,
+        approvedByUser: Bool? = nil
     ) {
         self.id = id
         self.generatedTranscript = generatedTranscript
@@ -118,6 +133,8 @@ struct MediaCaptionTrack: Identifiable, Codable, Equatable, Hashable {
         self.source = source
         self.cues = cues
         self.lastEditedAt = lastEditedAt
+        self.status = status
+        self.approvedByUser = approvedByUser
     }
 }
 

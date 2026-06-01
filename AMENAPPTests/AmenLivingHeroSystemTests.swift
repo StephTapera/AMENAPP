@@ -1,3 +1,5 @@
+import Foundation
+import CoreFoundation
 import Testing
 @testable import AMENAPP
 
