@@ -101,7 +101,7 @@ private struct MediaCardItem: Identifiable {
             sourceLabel: sermon.church,
             category: .sermons,
             thumbnailURL: sermon.thumbnailURL,
-            accentColors: [Color(red: 0.52, green: 0.18, blue: 0.80), Color(red: 0.30, green: 0.10, blue: 0.55)],
+            accentColors: [AmenTheme.Colors.amenPurple, AmenTheme.Colors.amenPurple.opacity(0.65)],
             durationSeconds: sermon.durationSeconds,
             scriptureRef: sermon.scriptureReference,
             entry: .sermon(sermon)
@@ -116,7 +116,7 @@ private struct MediaCardItem: Identifiable {
             sourceLabel: episode.showName,
             category: .podcasts,
             thumbnailURL: episode.thumbnailURL,
-            accentColors: [Color(red: 0.18, green: 0.48, blue: 0.80), Color(red: 0.10, green: 0.28, blue: 0.55)],
+            accentColors: [AmenTheme.Colors.amenBlue, AmenTheme.Colors.amenBlue.opacity(0.55)],
             durationSeconds: episode.durationSeconds,
             scriptureRef: nil,
             entry: .podcast(episode)
@@ -209,7 +209,7 @@ struct AMENResourcesHubView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             // Dark background
-            Color(red: 0.047, green: 0.047, blue: 0.055)
+            AmenTheme.Colors.amenBlack
                 .ignoresSafeArea()
 
             // Dot-grid texture overlay
@@ -495,7 +495,7 @@ struct AMENResourcesHubView: View {
                 Capsule().fill(
                     isSelected
                         ? LinearGradient(
-                            colors: [Color(red: 0.52, green: 0.18, blue: 0.80), Color(red: 0.35, green: 0.10, blue: 0.60)],
+                            colors: [AmenTheme.Colors.amenPurple, AmenTheme.Colors.amenPurple.opacity(0.65)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                           )
                         : LinearGradient(
@@ -836,7 +836,7 @@ private struct StackingMediaCard: View {
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
                             .font(.systemScaled(16))
-                            .foregroundStyle(isSaved ? Color(red: 0.52, green: 0.18, blue: 0.80) : .white.opacity(0.6))
+                            .foregroundStyle(isSaved ? AmenTheme.Colors.amenPurple : .white.opacity(0.6))
                             .frame(width: 40, height: 40)
                             .background(Circle().fill(.white.opacity(0.10)))
                     }
@@ -888,7 +888,7 @@ private struct StackingMediaCard: View {
         ZStack {
             // Gradient base
             LinearGradient(
-                colors: item.accentColors + [Color(red: 0.06, green: 0.06, blue: 0.08)],
+                colors: item.accentColors + [AmenTheme.Colors.amenBlack],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -910,8 +910,8 @@ private struct StackingMediaCard: View {
                 stops: [
                     .init(color: .clear, location: 0),
                     .init(color: .clear, location: 0.35),
-                    .init(color: Color(red: 0.06, green: 0.06, blue: 0.08).opacity(0.85), location: 0.75),
-                    .init(color: Color(red: 0.06, green: 0.06, blue: 0.08), location: 1.0)
+                    .init(color: AmenTheme.Colors.amenBlack.opacity(0.85), location: 0.75),
+                    .init(color: AmenTheme.Colors.amenBlack, location: 1.0)
                 ],
                 startPoint: .top,
                 endPoint: .bottom

@@ -815,7 +815,7 @@ struct ResourcesView: View {
                             NavigationLink(destination: WellnessMindBodySoulView()) {
                                 CompactResourceRow(
                                     icon: "sparkles.rectangle.stack.fill",
-                                    iconColors: [Color(red: 0.40, green: 0.18, blue: 0.80), Color(red: 0.60, green: 0.30, blue: 0.90)],
+                                    iconColors: [AmenTheme.Colors.amenPurple, AmenTheme.Colors.amenPurple.opacity(0.80)],
                                     title: "Wellness Hub",
                                     subtitle: "Mood check-in · Spiritual care · Smart tools"
                                 )
@@ -839,7 +839,7 @@ struct ResourcesView: View {
                             NavigationLink(destination: GivingHomeView()) {
                                 CompactResourceRow(
                                     icon: "dollarsign.circle.fill",
-                                    iconColors: [Color(red: 0.83, green: 0.69, blue: 0.22), Color(red: 0.90, green: 0.76, blue: 0.35)],
+                                    iconColors: [AmenTheme.Colors.amenGold, AmenTheme.Colors.amenGold.opacity(0.80)],
                                     title: "Giving Goals",
                                     subtitle: "Track & automate your generosity"
                                 )
