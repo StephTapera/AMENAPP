@@ -2270,62 +2270,30 @@ struct BereanAIAssistantView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         
         switch action {
-        case .attachFile:
-            // TODO: Implement file attachment
-            #if DEBUG
-            dlog("📎 Attach file action")
-            #endif
-        case .camera:
-            // TODO: Implement camera
-            #if DEBUG
-            dlog("📷 Camera action")
-            #endif
+        case .attachFile, .camera, .addPhoto, .addFile:
+            handlePlusButtonTap()
         case .voiceNote:
             handleVoiceButtonTap()
         case .verseLookup:
-            // TODO: Implement verse lookup
-            #if DEBUG
-            dlog("📖 Verse lookup action")
-            #endif
+            messageText = "Look up: "
         case .summarize:
-            // TODO: Implement summarize
-            #if DEBUG
-            dlog("✨ Summarize action")
-            #endif
+            messageText = "Summarize this: "
         case .searchScripture:
-            // TODO: Implement scripture search
-            #if DEBUG
-            dlog("🔍 Search scripture action")
-            #endif
+            messageText = "Search Scripture for: "
         case .explainSimply:
-            // TODO: Implement explain simply
-            #if DEBUG
-            dlog("💡 Explain simply action")
-            #endif
+            messageText = "Explain simply: "
         case .exploreContext:
-            // TODO: Implement explore context
-            break
+            messageText = "Give me more context on: "
         case .crossReference:
-            // TODO: Implement cross reference
-            break
+            messageText = "Show cross-references for: "
         case .prayer:
-            // TODO: Implement prayer action
-            break
+            messageText = "Pray with me about: "
         case .deepStudy:
-            // TODO: Implement deep study
-            break
-        case .addPhoto:
-            // TODO: Implement add photo
-            break
-        case .addFile:
-            // TODO: Implement add file
-            break
-        case .createNote:
-            // TODO: Implement create note
-            break
-        case .saveToChurchNotes:
-            // TODO: Implement save to church notes
-            break
+            messageText = "Give me a deep study on: "
+        case .createNote, .saveToChurchNotes:
+            if let last = viewModel.messages.last(where: { $0.role == .assistant }) {
+                saveMessageToChurchNotes(last)
+            }
         }
     }
     
@@ -3668,23 +3636,27 @@ struct BereanMessageBubbleView: View {
 
             Button {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { lightbulbPressed.toggle() }
+                if !lightbulbPressed { onSaveToChurchNotes?(message) }
             } label: {
-                Image(systemName: lightbulbPressed ? "lightbulb.fill" : "lightbulb")
+                Image(systemName: lightbulbPressed ? "bookmark.fill" : "bookmark")
                     .font(.systemScaled(13, weight: .medium))
-                    .foregroundStyle(lightbulbPressed ? Color(white: 0.15) : Color(white: 0.6))
+                    .foregroundStyle(lightbulbPressed ? AmenTheme.Colors.amenGold : Color(white: 0.6))
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(lightbulbPressed ? "Saved to Church Notes" : "Save to Church Notes")
 
             Button {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { praisePressed.toggle() }
+                if !praisePressed { onSaveToPrayer?(message) }
             } label: {
                 Image(systemName: praisePressed ? "hands.clap.fill" : "hands.clap")
                     .font(.systemScaled(13, weight: .medium))
-                    .foregroundStyle(praisePressed ? Color(white: 0.15) : Color(white: 0.6))
+                    .foregroundStyle(praisePressed ? AmenTheme.Colors.amenPurple : Color(white: 0.6))
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(praisePressed ? "Saved to Prayer" : "Save to Prayer")
 
             if !message.verseReferences.isEmpty || message.content.count > 220 {
                 Button {
