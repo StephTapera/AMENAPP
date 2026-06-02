@@ -71,7 +71,7 @@ final class SmartShareBackendService {
             return []
         }
 
-        return rawTargets.compactMap { raw in
+        return rawTargets.compactMap { (raw: [String: Any]) -> SmartShareTarget? in
             guard
                 let id = raw["id"] as? String,
                 let targetType = ShareTargetType(rawValue: raw["targetType"] as? String ?? ""),
@@ -82,17 +82,14 @@ final class SmartShareBackendService {
 
             return SmartShareTarget(
                 id: id,
-                targetType: targetType,
-                displayName: displayName,
-                username: raw["username"] as? String,
-                photoURL: raw["photoURL"] as? String,
+                type: targetType,
+                title: displayName,
                 subtitle: raw["subtitle"] as? String ?? "",
-                badgeReason: raw["badgeReason"] as? String,
+                imageURL: (raw["photoURL"] as? String).flatMap { URL(string: $0) },
+                badge: raw["badgeReason"] as? String,
                 score: raw["score"] as? Double ?? 0,
                 reasons: raw["reasons"] as? [String] ?? [],
                 isOnline: raw["isOnline"] as? Bool ?? false,
-                isVerified: raw["isVerified"] as? Bool ?? false,
-                churchAffiliation: raw["churchAffiliation"] as? String,
                 conversation: nil,
                 user: nil
             )

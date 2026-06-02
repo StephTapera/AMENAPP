@@ -87,15 +87,6 @@ final class ONEPrivacyMirrorService: ObservableObject {
 // MARK: - ONEPrivacyMirrorLevel view metadata
 
 extension ONEPrivacyMirrorLevel {
-    var icon: String {
-        switch self {
-        case .sealed:      return "lock.fill"
-        case .opaque:      return "eye.slash.fill"
-        case .translucent: return "eye.fill"
-        case .open:        return "globe"
-        }
-    }
-
     var mirrorDescription: String {
         switch self {
         case .sealed:
@@ -112,7 +103,7 @@ extension ONEPrivacyMirrorLevel {
     var symmetryNote: String {
         switch self {
         case .sealed:
-            return "You appear as "Anonymous" to public authors."
+            return "You appear as \"Anonymous\" to public authors."
         case .opaque:
             return "Authors know you exist but cannot read your profile."
         case .translucent:

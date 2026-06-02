@@ -46,6 +46,19 @@ enum AMENAnalyticsEvent {
     case bereanSourceTapped(sourceType: String)
     case bereanFollowUpUsed
     case bereanMessageSaved
+    case bereanFeatureFlagBlocked(feature: String)
+    case bereanStudyActionStarted(action: String)
+    case bereanStudyActionCompleted(action: String)
+    case bereanProviderFailure(reason: String)
+    case bereanSafetyRewrite(trigger: String)
+    case bereanSelahSaveStarted(entryType: String)
+    case bereanSelahSaveCompleted(entryType: String)
+    case bereanChurchNoteSaveStarted
+    case bereanChurchNoteSaveCompleted
+    case bereanSmartPillTapped(pill: String)
+    case bereanScriptureContextOpened
+    case bereanHumanSupportSuggested(context: String)
+    case bereanResearchViewOpened
 
     // Spiritual Check-In
     case checkInShown(tier: Int)
@@ -100,6 +113,52 @@ enum AMENAnalyticsEvent {
     case suggestionShowFewer(surface: String)
     case suggestionWhyShown(surface: String)
 
+    // Profile Mini
+    case profileMiniUnfollowTap(userId: String, surface: String)
+    case profileMiniMessageTap(userId: String, surface: String, viewerId: String)
+    case profileMiniMessageBlocked(userId: String, surface: String)
+    case profileMiniPrimaryCTATap(userId: String, surface: String, ctaType: String)
+    case profileMiniSecondaryCTATap(userId: String, surface: String, ctaType: String)
+    case profileMiniSaveSuggestion(userId: String, surface: String)
+    case profileMiniSeeSimilar(userId: String, surface: String)
+    case profileMiniShare(userId: String, surface: String)
+    case profileMiniUndoHide(userId: String, surface: String)
+    case profileMiniOverflowTapped(userId: String, surface: String)
+
+    // Content Rendering
+    case contentNodeRendered(type: String)
+
+    // Creation Hub
+    case creationIntentSelected(intent: String)
+    case createHubOpened
+
+    // Discover
+    case discoverView
+    case discoverFeedLoaded(count: Int)
+    case discoverEmptyStateSeen
+    case discoverErrorSeen(message: String)
+    case discoverFilterChanged(filter: String)
+    case discoverDetailOpened(itemType: String)
+    case discoverItemTapped(itemType: String)
+    case discoverWhyThisOpened
+    case discoverFeedbackSubmitted(type: String)
+
+    // Messaging Search
+    case messageSearchOpened(surface: String)
+    case messageThreadFilterSelected(filter: String)
+    case messageSearchResultTapped(surface: String, kind: String)
+    case messageSearchSubmitted(surface: String, hasResults: Bool, resultBuckets: Int)
+
+    // Voice Prayer
+    case voiceCommentReacted(postId: String, reaction: String)
+    case voiceCommentRecordStarted(postId: String, type: String)
+    case voiceCommentProcessingStarted(postId: String)
+    case voiceCommentEntryTapped(postId: String, type: String)
+    case voiceCommentReported(postId: String)
+    case voiceCommentDeleted(postId: String)
+    case voiceCommentPreviewPlayed(postId: String)
+    case voiceCommentSubmitted(postId: String, type: String)
+
     var name: String {
         switch self {
         case .feedSessionStarted: return "feed_session_started"
@@ -117,6 +176,19 @@ enum AMENAnalyticsEvent {
         case .bereanSourceTapped: return "berean_source_tapped"
         case .bereanFollowUpUsed: return "berean_follow_up_used"
         case .bereanMessageSaved: return "berean_message_saved"
+        case .bereanFeatureFlagBlocked: return "berean_feature_flag_blocked"
+        case .bereanStudyActionStarted: return "berean_study_action_started"
+        case .bereanStudyActionCompleted: return "berean_study_action_completed"
+        case .bereanProviderFailure: return "berean_provider_failure"
+        case .bereanSafetyRewrite: return "berean_safety_rewrite"
+        case .bereanSelahSaveStarted: return "berean_selah_save_started"
+        case .bereanSelahSaveCompleted: return "berean_selah_save_completed"
+        case .bereanChurchNoteSaveStarted: return "berean_church_note_save_started"
+        case .bereanChurchNoteSaveCompleted: return "berean_church_note_save_completed"
+        case .bereanSmartPillTapped: return "berean_smart_pill_tapped"
+        case .bereanScriptureContextOpened: return "berean_scripture_context_opened"
+        case .bereanHumanSupportSuggested: return "berean_human_support_suggested"
+        case .bereanResearchViewOpened: return "berean_research_view_opened"
         case .checkInShown: return "check_in_shown"
         case .checkInEngaged: return "check_in_engaged"
         case .checkInDismissed: return "check_in_dismissed"
@@ -156,6 +228,40 @@ enum AMENAnalyticsEvent {
         case .suggestionRailRestored: return "suggestion_rail_restored"
         case .suggestionShowFewer: return "suggestion_show_fewer"
         case .suggestionWhyShown: return "suggestion_why_shown"
+        case .profileMiniUnfollowTap: return "profile_mini_unfollow_tap"
+        case .profileMiniMessageTap: return "profile_mini_message_tap"
+        case .profileMiniMessageBlocked: return "profile_mini_message_blocked"
+        case .profileMiniPrimaryCTATap: return "profile_mini_primary_cta_tap"
+        case .profileMiniSecondaryCTATap: return "profile_mini_secondary_cta_tap"
+        case .profileMiniSaveSuggestion: return "profile_mini_save_suggestion"
+        case .profileMiniSeeSimilar: return "profile_mini_see_similar"
+        case .profileMiniShare: return "profile_mini_share"
+        case .profileMiniUndoHide: return "profile_mini_undo_hide"
+        case .profileMiniOverflowTapped: return "profile_mini_overflow_tapped"
+        case .contentNodeRendered: return "content_node_rendered"
+        case .creationIntentSelected: return "creation_intent_selected"
+        case .createHubOpened: return "create_hub_opened"
+        case .discoverView: return "discover_view"
+        case .discoverFeedLoaded: return "discover_feed_loaded"
+        case .discoverEmptyStateSeen: return "discover_empty_state_seen"
+        case .discoverErrorSeen: return "discover_error_seen"
+        case .discoverFilterChanged: return "discover_filter_changed"
+        case .discoverDetailOpened: return "discover_detail_opened"
+        case .discoverItemTapped: return "discover_item_tapped"
+        case .discoverWhyThisOpened: return "discover_why_this_opened"
+        case .discoverFeedbackSubmitted: return "discover_feedback_submitted"
+        case .voiceCommentReacted: return "voice_comment_reacted"
+        case .voiceCommentRecordStarted: return "voice_comment_record_started"
+        case .voiceCommentProcessingStarted: return "voice_comment_processing_started"
+        case .voiceCommentEntryTapped: return "voice_comment_entry_tapped"
+        case .voiceCommentReported: return "voice_comment_reported"
+        case .voiceCommentDeleted: return "voice_comment_deleted"
+        case .voiceCommentPreviewPlayed: return "voice_comment_preview_played"
+        case .voiceCommentSubmitted: return "voice_comment_submitted"
+        case .messageSearchOpened: return "message_search_opened"
+        case .messageThreadFilterSelected: return "message_thread_filter_selected"
+        case .messageSearchResultTapped: return "message_search_result_tapped"
+        case .messageSearchSubmitted: return "message_search_submitted"
         }
     }
 
@@ -217,6 +323,44 @@ enum AMENAnalyticsEvent {
             return ["surface": surface]
         case .suggestionWhyShown(let surface):
             return ["surface": surface]
+        case .bereanFeatureFlagBlocked(let feature):
+            return ["feature": feature]
+        case .bereanStudyActionStarted(let action):
+            return ["action": action]
+        case .bereanStudyActionCompleted(let action):
+            return ["action": action]
+        case .bereanProviderFailure(let reason):
+            return ["reason": reason]
+        case .bereanSafetyRewrite(let trigger):
+            return ["trigger": trigger]
+        case .bereanSelahSaveStarted(let entryType):
+            return ["entry_type": entryType]
+        case .bereanSelahSaveCompleted(let entryType):
+            return ["entry_type": entryType]
+        case .bereanSmartPillTapped(let pill):
+            return ["pill": pill]
+        case .bereanHumanSupportSuggested(let context):
+            return ["context": context]
+        case .voiceCommentReacted(let postId, let reaction):
+            return ["post_id": postId, "reaction": reaction]
+        case .voiceCommentRecordStarted(let postId, let type):
+            return ["post_id": postId, "type": type]
+        case .voiceCommentProcessingStarted(let postId):
+            return ["post_id": postId]
+        case .voiceCommentEntryTapped(let postId, let type):
+            return ["post_id": postId, "type": type]
+        case .voiceCommentReported(let postId):
+            return ["post_id": postId]
+        case .voiceCommentDeleted(let postId):
+            return ["post_id": postId]
+        case .voiceCommentPreviewPlayed(let postId):
+            return ["post_id": postId]
+        case .voiceCommentSubmitted(let postId, let type):
+            return ["post_id": postId, "type": type]
+        case .contentNodeRendered(let type):
+            return ["node_type": type]
+        case .creationIntentSelected(let intent):
+            return ["intent": intent]
         default:
             return [:]
         }

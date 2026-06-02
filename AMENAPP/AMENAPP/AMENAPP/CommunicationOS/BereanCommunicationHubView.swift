@@ -10,7 +10,7 @@ struct BereanCommunicationHubView: View {
     private let presences = PresencePreview.samples
     private let digest = DigestPreview.sample
 
-    var filteredThreads: [CommunicationThreadPreview] {
+    private var filteredThreads: [CommunicationThreadPreview] {
         threads.filter { thread in
             (selectedScope == .all || thread.scope == selectedScope) &&
             (searchText.isEmpty || thread.title.localizedCaseInsensitiveContains(searchText) || thread.preview.localizedCaseInsensitiveContains(searchText))
@@ -363,26 +363,6 @@ struct BereanCommunicationHubView: View {
 
     private var animation: Animation {
         reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.32, dampingFraction: 0.82)
-    }
-}
-
-private enum CommunicationScope: String, CaseIterable, Identifiable {
-    case all
-    case prayer
-    case study
-    case memory
-    case direct
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .all: return "All"
-        case .prayer: return "Prayer"
-        case .study: return "Study"
-        case .memory: return "Memory"
-        case .direct: return "Direct"
-        }
     }
 }
 

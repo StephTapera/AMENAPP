@@ -232,7 +232,7 @@ struct ShareableEntity: Identifiable, Codable, Equatable {
                     "shareLinkId": note.shareLinkId ?? ""
                 ]
             ),
-            externallyShareable: note.permission == .publicLink,
+            externallyShareable: note.permission == .publicNote,
             attributionPolicy: .required,
             sourceSurface: sourceSurface,
             linkedPostId: nil,
@@ -394,12 +394,10 @@ struct ShareableEntity: Identifiable, Codable, Equatable {
         switch permission {
         case .privateNote:
             return .privateOnly
-        case .sharedWithPeople:
+        case .shared:
             return .closeFriends
-        case .publicLink:
+        case .publicNote:
             return .public
-        case .churchOnly:
-            return .churchOnly
         }
     }
 }

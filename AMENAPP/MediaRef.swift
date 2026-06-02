@@ -25,6 +25,15 @@ enum MediaCaptionStatus: String, Codable, CaseIterable {
     case failed
 }
 
+enum MediaProcessingState: String, Codable, CaseIterable {
+    case queued
+    case uploading
+    case processing
+    case ready
+    case partial
+    case failed
+}
+
 struct MediaRef: Identifiable, Codable, Equatable, Hashable {
     var id: String
     var mediaId: String?

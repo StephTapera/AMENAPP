@@ -85,17 +85,13 @@ struct SpatialHomeView: View {
             }
             .navigationTitle("AMEN")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        NotificationCenter.default.post(name: .openCreatePost, object: nil)
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                            .foregroundColor(.primary)
-                    }
-                    .accessibilityLabel("Create post")
-                }
+            .navigationBarItems(trailing: Button {
+                NotificationCenter.default.post(name: .openCreatePost, object: nil)
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .foregroundColor(.primary)
             }
+            .accessibilityLabel("Create post"))
         }
     }
 }
