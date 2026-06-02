@@ -31,7 +31,7 @@
 | F-06 | Motion | `visibilityPill` in GuideMyFeedSheet uses `withAnimation(.spring(...))` without checking `accessibilityReduceMotion`. | P2 | GuideMyFeedSheet.swift:93 | LOW | Sheet already reads `reduceTransparency`; easy to add motion gate |
 | F-07 | A11y | `EmojiPickerView`: individual emoji buttons have no `.accessibilityLabel`. VoiceOver announces raw Unicode emoji characters which may not be meaningful in all locales. | P2 | CommentsViews.swift:26 | LOW | Add `emoji` + "emoji" as label, e.g. `.accessibilityLabel("Prayer hands emoji")` is too verbose; use `.accessibilityLabel(emoji)` with a hint |
 | F-08 | A11y | `PollComposerCard`: option-label circles (A, B, C, D) are rendered as decorative `ZStack` with `Text` — not marked `.accessibilityHidden(true)`. They're redundant with the `TextField` placeholder. | P2 | CreatePostPollComposer.swift:39 | LOW | Mark decorative label circles as hidden |
-| F-09 | A11y | `BereanPulseView` top bar close/dismiss icon lacks an explicit `.accessibilityLabel`. | P2 | BereanPulseView.swift:28 | LOW | Icon-only button |
+| F-09 | A11y | ~~`BereanPulseView` top bar close/dismiss icon lacks an explicit `.accessibilityLabel`.~~ **FALSE POSITIVE** — file already has `.accessibilityLabel("Close")` at line 36. | P2 | BereanPulseView.swift:36 | N/A | Already fixed |
 | F-10 | A11y | `SundayRestModeSheet` paused-feature chips are `Text` inside `Capsule()` — not focusable by VoiceOver as a group. Missing `.accessibilityElement(children: .combine)` on the flow layout. | P2 | SundayRestModeSheet.swift:139 | LOW | Informational UI; group for clean VoiceOver traversal |
 
 ---
@@ -50,12 +50,28 @@
 | R-08 | A11y (manual) | `ONE/` private social features use end-to-end encryption indicators. There is no "encrypted" accessibility label on threads indicating E2E status to VoiceOver users. Out of scope for overnight (touches auth/data model). | P1 | ONE/People/Views/ONEThreadView.swift | Touches E2E encryption contract |
 | R-09 | Analytics | Several Spaces and Live Room views have no `Analytics.logEvent` calls. Without instrumentation, it's impossible to detect silent failures in the new Spaces flow. | P2 | ConnectSpaces/ | Needs product decision on event taxonomy |
 | R-10 | UGC / App Store | `AmenScamShieldService.swift` is new and uncalled in `functions/index.js`. The scam-shield CF callable `scanMessageForScam` is registered but undeployed. Scam detection in live rooms is effectively disabled until deployed. | P2 | ConnectSpaces/Safety/ | CF deploy required |
+| R-11 | Build / SPM | `project.pbxproj` declares LiveKit as an SPM dependency but the package has never been resolved/fetched. Full `BuildProject` fails with "Missing package product 'LiveKit'". The `AmenLivekitLiveRoomProvider.swift` file cannot be compiled at all. All Phase 2 fixes were verified with `XcodeRefreshCodeIssuesInFile` as a workaround. | P1 | AMENAPP.xcodeproj/project.pbxproj | Requires Xcode: File → Packages → Resolve Package Versions (or remove LiveKit from project if unused) |
 
 ---
 
 ## Phase 2 — Fix Log (Serial, lowest risk first)
 
-See FIX_LOG.md for real-time progress.
+See FIX_LOG.md for full details.
+
+### Summary
+
+| Finding | Status | Commit |
+|---------|--------|--------|
+| F-01 CommentCard amen button a11y label | ✅ Fixed | `7ba630b` |
+| F-02 FullCommentsView dismiss button a11y label | ✅ Fixed | `7ba630b` |
+| F-03 SafetyPlanRow expand/collapse a11y | ✅ Fixed | `5177e5d` |
+| F-04 Crisis buttons hardcoded green | ✅ Fixed | `5177e5d` |
+| F-05 Tab bar badge hardcoded red | ✅ Fixed | `ecf3c9a` |
+| F-06 GuideMyFeedSheet reduce-motion gate | ✅ Fixed | `af63033` |
+| F-07 EmojiPickerView labels | ⏭ Deferred | — |
+| F-08 PollComposerCard decorative circles | ✅ Fixed | `77c18dd` |
+| F-09 BereanPulseView close button | 🚫 False positive | — |
+| F-10 SundayRestModeSheet chip grouping | ✅ Fixed | `7c1ff67` |
 
 ---
 *Report written 2026-06-02. Baseline: cdbf261.*
