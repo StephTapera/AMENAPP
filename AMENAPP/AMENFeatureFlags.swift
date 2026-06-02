@@ -343,6 +343,13 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var multiPaneCommunicationEnabled: Bool = true
     @Published private(set) var liquidGlassCommunicationUIEnabled: Bool = true
 
+    // MARK: - ContentOS (System 33: Content Discussion, Approval & Forwarding)
+    @Published private(set) var contentOSEnabled: Bool = false
+    @Published private(set) var contentApprovalWorkflowEnabled: Bool = false
+    @Published private(set) var contentForwardingEnabled: Bool = false
+    @Published private(set) var contentAIRouterEnabled: Bool = false
+    @Published private(set) var contentAuditLogEnabled: Bool = false
+
     // MARK: - Social Safety OS (Phase 2–13)
     @Published private(set) var socialSafetyOSEnabled: Bool = true
     @Published private(set) var wellbeingFeedRankingEnabled: Bool = true
@@ -1431,6 +1438,13 @@ final class AMENFeatureFlags: ObservableObject {
         smartRepliesEnabled                 = config["smart_replies_enabled"].boolValue
         multiPaneCommunicationEnabled       = config["multi_pane_communication_enabled"].boolValue
         liquidGlassCommunicationUIEnabled   = config["liquid_glass_communication_ui_enabled"].boolValue
+
+        // System 33: ContentOS
+        contentOSEnabled                    = config["content_os_enabled"].boolValue
+        contentApprovalWorkflowEnabled      = config["content_approval_workflow_enabled"].boolValue
+        contentForwardingEnabled            = config["content_forwarding_enabled"].boolValue
+        contentAIRouterEnabled              = config["content_ai_router_enabled"].boolValue
+        contentAuditLogEnabled              = config["content_audit_log_enabled"].boolValue
     }
 
     private func applyUITestOverrides() {

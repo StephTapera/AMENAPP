@@ -73,6 +73,8 @@ exports.moderatePost = onDocumentCreated(
 
     await snap.ref.update({
       visible: status === "approved",
+      flaggedForReview: status === "pending" || status === "pending_image_review",
+      removed: status === "blocked",
       moderation: {
         status, // approved | blocked | pending
         categories, // e.g. ["hate", "harassment"]

@@ -1255,3 +1255,6 @@ exports.reviewJoinRequest          = spacesSafety.reviewJoinRequest;
 
 const spacesStripe = require("./spacesStripeFunctions");
 exports.createStripeConnectAccount = spacesStripe.createStripeConnectAccount;
+
+const spacesLivekit = require("./spacesLivekitFunctions");
+exports.getLivekitToken = spacesLivekit.getLivekitToken;

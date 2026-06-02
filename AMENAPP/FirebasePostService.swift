@@ -84,6 +84,10 @@ struct FirestorePost: Codable, Identifiable {
     var topicScoreMap: [String: Double]?
     var primaryTopicKey: String?
 
+    // Moderation flags set by server-side Cloud Functions (moderatePost, imageModeration)
+    var flaggedForReview: Bool = false
+    var removed: Bool = false
+
     // Prayer Arc — testimony ↔ prayer link
     var linkedPrayerRequestId: String?  // Set on testimony posts to link to originating prayer
     var journeyDays: Int?               // Days from prayer creation to testimony date
@@ -136,6 +140,7 @@ struct FirestorePost: Codable, Identifiable {
         case intercessorUids
         case bereanArcInsight
         case normalizedTopicKeys, topicScoreMap, primaryTopicKey
+        case flaggedForReview, removed
     }
     
     init(from decoder: Decoder) throws {
@@ -194,8 +199,10 @@ struct FirestorePost: Codable, Identifiable {
         stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
         intercessorUids = try container.decodeIfPresent([String].self, forKey: .intercessorUids)
         bereanArcInsight = try container.decodeIfPresent(String.self, forKey: .bereanArcInsight)
+        flaggedForReview = try container.decodeIfPresent(Bool.self, forKey: .flaggedForReview) ?? false
+        removed = try container.decodeIfPresent(Bool.self, forKey: .removed) ?? false
     }
-    
+
     init(
         id: String? = nil,
         authorId: String,
@@ -371,6 +378,8 @@ struct FirestorePost: Codable, Identifiable {
         post.normalizedTopicKeys = normalizedTopicKeys
         post.topicScoreMap = topicScoreMap
         post.primaryTopicKey = primaryTopicKey
+        post.flaggedForReview = flaggedForReview
+        post.removed = removed
         return post
     }
 

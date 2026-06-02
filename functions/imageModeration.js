@@ -177,6 +177,8 @@ exports.moderateUploadedImage = onObjectFinalized({
                     : "nvidia-vision-llm";
                 await db.collection("posts").doc(postId).update({
                     visible: false,
+                    removed: true,
+                    flaggedForReview: false,
                     "moderation.status": "blocked",
                     "moderation.categories": ["image_safety"],
                     "moderation.provider": provider,
@@ -225,6 +227,8 @@ exports.moderateUploadedImage = onObjectFinalized({
             if (postId) {
                 await db.collection("posts").doc(postId).update({
                     visible: false,
+                    flaggedForReview: true,
+                    removed: false,
                     "moderation.status": "pending",
                     "moderation.provider": "cloud-vision-safesearch",
                     "moderation.checkedAt": admin.firestore.FieldValue.serverTimestamp(),
@@ -242,6 +246,8 @@ exports.moderateUploadedImage = onObjectFinalized({
                 if (postData.moderation?.status === "pending_image_review") {
                     await db.collection("posts").doc(postId).update({
                         visible: true,
+                        flaggedForReview: false,
+                        removed: false,
                         "moderation.status": "approved",
                         "moderation.provider": "cloud-vision-safesearch",
                         "moderation.checkedAt": admin.firestore.FieldValue.serverTimestamp(),

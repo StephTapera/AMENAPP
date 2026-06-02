@@ -3044,6 +3044,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /imageModerationLogs/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
     match /moderationAppeals/{docId} {
       allow read: if isModerator();
       allow write: if false;
