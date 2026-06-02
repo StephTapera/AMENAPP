@@ -424,7 +424,7 @@ private struct BadgeView: View {
             .foregroundColor(.white)
             .padding(.horizontal, count >= 10 ? 4 : 0)
             .frame(minWidth: 17, minHeight: 17)
-            .background(Color(red: 0.937, green: 0.267, blue: 0.267))
+            .background(Color(UIColor.systemRed))
             .clipShape(Capsule())
             .overlay(Capsule().strokeBorder(Color(.systemBackground).opacity(0.9), lineWidth: 1.5))
             .onAppear { previousCount = count }
