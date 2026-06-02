@@ -7,6 +7,7 @@ struct GuideMyFeedSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -90,7 +91,7 @@ struct GuideMyFeedSheet: View {
         let label = option == .privateOnly ? "Private only" : "Apply + Post"
         let icon = option == .privateOnly ? "lock" : "globe"
         return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.8)) {
                 draft.visibility = option
             }
         } label: {
