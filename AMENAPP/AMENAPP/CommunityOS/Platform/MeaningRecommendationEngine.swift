@@ -152,25 +152,18 @@ actor MeaningRecommendationEngine {
 
         let themeTerms = topTopics.map { $0.rawValue }
 
-        // Build query — location filtering is stubbed; a full geo query would
-        // require a GeoHash range or a dedicated Cloud Function.
-        var query: Query = db
-            .collection("churches")
-            .whereField("contentThemes", arrayContainsAny: Array(themeTerms.prefix(10)))
-            .limit(to: 20)
-
-        // Location stub: log intent but do not filter in this version
+        // Location stub: a full geo query requires a GeoHash range or a dedicated Cloud Function.
         if let location = location {
             dlog("[MeaningRecommendationEngine] Location filter '\(location)' stubbed — full geo query not yet implemented")
         }
-        _ = query // query is used in getDocuments below
 
-        let snapshot = try await db
+        // Base query on content theme affinity. Location narrowing is deferred to server-side.
+        let query: Query = db
             .collection("churches")
             .whereField("contentThemes", arrayContainsAny: Array(themeTerms.prefix(10)))
             .limit(to: 20)
-            .getDocuments()
 
+        let snapshot = try await query.getDocuments()
         return snapshot.documents.map { $0.documentID }
     }
 

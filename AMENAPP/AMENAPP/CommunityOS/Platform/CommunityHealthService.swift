@@ -189,7 +189,7 @@ actor CommunityHealthService {
         }
 
         let dateString = ISO8601DateFormatter.amenDateOnly.string(from: Date())
-        var payload: [String: Any] = [
+        let snapshot: [String: Any] = [
             "communityId": signals.communityId,
             "prayerActivityScore": signals.prayerActivityScore,
             "discussionQualityScore": signals.discussionQualityScore,
@@ -202,21 +202,7 @@ actor CommunityHealthService {
             "snapshotDate": dateString,
             "snapshotAt": FieldValue.serverTimestamp()
         ]
-        _ = payload // suppress unused-variable warning; payload is written below
-
-        try await dailySignalsDoc(for: communityId, date: dateString).setData([
-            "communityId": signals.communityId,
-            "prayerActivityScore": signals.prayerActivityScore,
-            "discussionQualityScore": signals.discussionQualityScore,
-            "responseRateScore": signals.responseRateScore,
-            "mentorshipEngagementScore": signals.mentorshipEngagementScore,
-            "eventAttendanceScore": signals.eventAttendanceScore,
-            "studyCompletionScore": signals.studyCompletionScore,
-            "overallHealthScore": signals.overallHealthScore,
-            "healthTier": signals.healthTier.rawValue,
-            "snapshotDate": dateString,
-            "snapshotAt": FieldValue.serverTimestamp()
-        ])
+        try await dailySignalsDoc(for: communityId, date: dateString).setData(snapshot)
         dlog("[CommunityHealthService] Snapshotted daily health for \(communityId) on \(dateString)")
     }
 
