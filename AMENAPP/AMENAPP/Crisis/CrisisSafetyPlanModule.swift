@@ -41,7 +41,7 @@ struct CrisisSafetyPlanModule: View {
                     .padding(.vertical, 13)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color(red: 0.13, green: 0.60, blue: 0.29))
+                            .fill(Color(UIColor.systemGreen))
                     )
             }
             .buttonStyle(.plain)
@@ -75,9 +75,7 @@ struct CrisisSafetyPlanModule: View {
                 .padding(.horizontal, 16)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(viewModel.isSafetyPlanActivated
-                              ? Color(red: 0.13, green: 0.60, blue: 0.29)
-                              : Color(red: 0.10, green: 0.45, blue: 0.22))
+                        .fill(Color(UIColor.systemGreen))
                 )
             }
             .buttonStyle(.plain)
@@ -159,6 +157,9 @@ private struct SafetyPlanRow: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityHint(isExpanded ? "Double tap to collapse" : "Double tap to expand")
+            .accessibilityAddTraits(.isButton)
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 4) {
