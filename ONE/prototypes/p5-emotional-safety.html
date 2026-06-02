@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONE P5 — Emotional Safety Mode</title>
+<style>
+  :root {
+    --gold: #D4AF37;
+    --indigo: #4B5EAA;
+    --red: #C0392B;
+    --green: #27AE60;
+    --amber: #E67E22;
+    --bg: #0A0A0F;
+    --surface: rgba(255,255,255,0.06);
+    --glass: rgba(255,255,255,0.10);
+    --glass-border: rgba(255,255,255,0.14);
+    --text: #F0EDE8;
+    --secondary: rgba(240,237,232,0.55);
+    --tertiary: rgba(240,237,232,0.30);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+    gap: 24px;
+  }
+
+  h1 { font-size: 13px; font-weight: 500; color: var(--secondary); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* Thread context */
+  .thread-strip {
+    width: 100%; max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .thread-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--amber));
+    flex-shrink: 0;
+  }
+  .thread-info { flex: 1; }
+  .thread-name { font-size: 14px; font-weight: 500; }
+  .thread-sub { font-size: 11px; color: var(--secondary); }
+  .safety-pill {
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .safety-pill.off { color: var(--secondary); border-color: var(--glass-border); background: transparent; }
+  .safety-pill.on  { color: var(--green); border-color: var(--green); background: rgba(39,174,96,0.10); }
+
+  /* Safety panel (glass sheet) */
+  .safety-panel {
+    width: 100%; max-width: 420px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    backdrop-filter: blur(28px) saturate(1.4);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4);
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .panel-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-icon { font-size: 18px; }
+  .panel-title { font-size: 15px; font-weight: 600; flex: 1; }
+  .panel-subtitle { font-size: 12px; color: var(--secondary); margin-top: 2px; }
+  .master-toggle {
+    width: 44px; height: 26px;
+    border-radius: 13px;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .master-toggle.off { background: rgba(255,255,255,0.18); }
+  .master-toggle.on  { background: var(--green); }
+  .master-toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: white;
+    transition: left 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .master-toggle.off::after { left: 3px; }
+  .master-toggle.on::after  { left: 21px; }
+
+  .controls-list { padding: 8px 0; }
+  .control-row {
+    padding: 12px 18px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .control-row:last-child { border-bottom: none; }
+  .control-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+  .control-body { flex: 1; }
+  .control-label { font-size: 13px; font-weight: 500; }
+  .control-desc { font-size: 11px; color: var(--secondary); margin-top: 2px; }
+  .toggle-sm {
+    width: 38px; height: 22px;
+    border-radius: 11px;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle-sm.off { background: rgba(255,255,255,0.15); }
+  .toggle-sm.on  { background: var(--gold); }
+  .toggle-sm::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: white;
+    transition: left 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .toggle-sm.off::after { left: 2px; }
+  .toggle-sm.on::after  { left: 18px; }
+
+  /* Segmented picker */
+  .seg-picker {
+    display: flex;
+    gap: 0;
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 3px;
+    flex-shrink: 0;
+  }
+  .seg-option {
+    padding: 4px 10px;
+    font-size: 11px; font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    color: var(--secondary);
+    background: transparent;
+    transition: all 0.15s;
+  }
+  .seg-option.active {
+    background: rgba(255,255,255,0.12);
+    color: var(--text);
+  }
+
+  /* Friction preview */
+  .friction-preview {
+    width: 100%; max-width: 420px;
+    background: rgba(39,174,96,0.07);
+    border: 1px solid rgba(39,174,96,0.20);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: none;
+  }
+  .friction-preview.visible { display: block; }
+  .friction-title { font-size: 12px; font-weight: 600; color: var(--green); margin-bottom: 8px; }
+  .friction-item {
+    font-size: 12px;
+    color: var(--secondary);
+    padding: 3px 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .friction-item::before { content: '·'; color: var(--green); font-size: 16px; line-height: 1; }
+
+  /* Composer mock with delay badge */
+  .composer-mock {
+    width: 100%; max-width: 420px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .composer-input {
+    flex: 1;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: inherit;
+    outline: none;
+  }
+  .composer-input::placeholder { color: var(--tertiary); }
+  .delay-badge {
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(212,175,55,0.12);
+    border: 1px solid rgba(212,175,55,0.30);
+    color: var(--gold);
+    cursor: pointer;
+    white-space: nowrap;
+    display: none;
+  }
+  .delay-badge.visible { display: block; }
+  .send-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    background: var(--gold);
+    color: white;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Pause confirmation */
+  .pause-confirm {
+    width: 100%; max-width: 420px;
+    background: rgba(192,57,43,0.07);
+    border: 1px solid rgba(192,57,43,0.20);
+    border-radius: 14px;
+    padding: 16px;
+    display: none; align-items: flex-start; gap: 12px;
+  }
+  .pause-confirm.visible { display: flex; }
+  .pause-icon { font-size: 22px; }
+  .pause-body { flex: 1; }
+  .pause-title { font-size: 13px; font-weight: 600; color: var(--amber); }
+  .pause-desc { font-size: 12px; color: var(--secondary); margin-top: 3px; }
+  .pause-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .pause-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid;
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .pause-btn.cancel { border-color: var(--glass-border); background: transparent; color: var(--secondary); }
+  .pause-btn.confirm { border-color: var(--amber); background: rgba(230,126,34,0.12); color: var(--amber); }
+
+  /* Exit notice */
+  .exit-notice {
+    font-size: 11px;
+    color: var(--tertiary);
+    text-align: center;
+    max-width: 280px;
+  }
+
+  /* A11y: visually-hidden for screen readers */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0);
+    white-space: nowrap; border: 0;
+  }
+
+  .divider { width: 100%; max-width: 420px; height: 1px; background: var(--glass-border); }
+  .label-group { width: 100%; max-width: 420px; }
+  .label-group h2 { font-size: 11px; color: var(--tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<h1>ONE P5-A — Emotional Safety Mode</h1>
+
+<!-- Thread strip with safety toggle -->
+<div class="thread-strip" role="region" aria-label="Thread header">
+  <div class="thread-avatar" role="img" aria-label="Contact avatar"></div>
+  <div class="thread-info">
+    <div class="thread-name">Jordan M.</div>
+    <div class="thread-sub">E2E encrypted · witness</div>
+  </div>
+  <button
+    class="safety-pill off"
+    id="safetyPillBtn"
+    aria-pressed="false"
+    aria-label="Safety mode off. Tap to open safety controls."
+    onclick="toggleSafetyPanel()"
+  >Shield off</button>
+</div>
+
+<!-- Safety panel -->
+<div
+  class="safety-panel"
+  id="safetyPanel"
+  role="region"
+  aria-label="Safety mode controls"
+>
+  <div class="panel-header">
+    <span class="panel-icon" aria-hidden="true">🛡</span>
+    <div>
+      <div class="panel-title">Safety Mode</div>
+      <div class="panel-subtitle">All friction is opt-in. You can turn this off anytime.</div>
+    </div>
+    <button
+      class="master-toggle off"
+      id="masterToggle"
+      role="switch"
+      aria-checked="false"
+      aria-label="Safety mode master switch"
+      onclick="toggleMaster()"
+    ></button>
+  </div>
+
+  <div class="controls-list" id="controlsList" aria-label="Safety mode options">
+
+    <!-- Slow reply -->
+    <div class="control-row">
+      <span class="control-icon" aria-hidden="true">⏱</span>
+      <div class="control-body">
+        <div class="control-label">Slow reply</div>
+        <div class="control-desc" id="slowDesc">Wait before sending. Pause and reflect.</div>
+      </div>
+      <div class="seg-picker" role="radiogroup" aria-label="Slow reply delay">
+        <button class="seg-option active" role="radio" aria-checked="true"  onclick="setSlow('off',  this)" data-val="off">Off</button>
+        <button class="seg-option"        role="radio" aria-checked="false" onclick="setSlow('5m',   this)" data-val="5m">5m</button>
+        <button class="seg-option"        role="radio" aria-checked="false" onclick="setSlow('10m',  this)" data-val="10m">10m</button>
+        <button class="seg-option"        role="radio" aria-checked="false" onclick="setSlow('30m',  this)" data-val="30m">30m</button>
+      </div>
+    </div>
+
+    <!-- Tone preview -->
+    <div class="control-row">
+      <span class="control-icon" aria-hidden="true">🎵</span>
+      <div class="control-body">
+        <div class="control-label">Tone preview</div>
+        <div class="control-desc">AI suggests softer phrasing. Sending is always your choice.</div>
+      </div>
+      <button
+        class="toggle-sm off"
+        id="toneToggle"
+        role="switch"
+        aria-checked="false"
+        aria-label="Tone preview"
+        onclick="toggleControl('toneToggle')"
+      ></button>
+    </div>
+
+    <!-- Delay send -->
+    <div class="control-row">
+      <span class="control-icon" aria-hidden="true">📮</span>
+      <div class="control-body">
+        <div class="control-label">Delay send</div>
+        <div class="control-desc" id="delayDesc">Hold messages before delivery. Cancel anytime.</div>
+      </div>
+      <div class="seg-picker" role="radiogroup" aria-label="Delay send duration">
+        <button class="seg-option active" role="radio" aria-checked="true"  onclick="setDelay('off', this)" data-val="off">Off</button>
+        <button class="seg-option"        role="radio" aria-checked="false" onclick="setDelay('5m',  this)" data-val="5m">5m</button>
+        <button class="seg-option"        role="radio" aria-checked="false" onclick="setDelay('10m', this)" data-val="10m">10m</button>
+      </div>
+    </div>
+
+    <!-- Pause thread -->
+    <div class="control-row">
+      <span class="control-icon" aria-hidden="true">⏸</span>
+      <div class="control-body">
+        <div class="control-label">Pause thread</div>
+        <div class="control-desc">Mute all incoming. Resume whenever you're ready.</div>
+      </div>
+      <button
+        class="toggle-sm off"
+        id="pauseToggle"
+        role="switch"
+        aria-checked="false"
+        aria-label="Pause thread"
+        onclick="triggerPause()"
+      ></button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Friction preview summary -->
+<div class="friction-preview" id="frictionPreview" aria-live="polite" aria-label="Active safety settings summary">
+  <div class="friction-title">Active safety settings</div>
+  <div id="frictionItems"></div>
+</div>
+
+<!-- Pause confirmation dialog -->
+<div
+  class="pause-confirm"
+  id="pauseConfirm"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="pauseTitle"
+  aria-describedby="pauseDesc"
+>
+  <span class="pause-icon" aria-hidden="true">⏸</span>
+  <div class="pause-body">
+    <div class="pause-title" id="pauseTitle">Pause this thread?</div>
+    <div class="pause-desc" id="pauseDesc">You won't receive new messages until you resume. Jordan won't be notified. You can unpause anytime.</div>
+    <div class="pause-actions">
+      <button class="pause-btn cancel" onclick="cancelPause()">Keep active</button>
+      <button class="pause-btn confirm" onclick="confirmPause()">Pause</button>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Composer with delay badge -->
+<div class="label-group"><h2>Composer (with safety mode active)</h2></div>
+<div class="composer-mock" role="region" aria-label="Message composer">
+  <input class="composer-input" type="text" id="composerInput" placeholder="Say something thoughtful…" aria-label="Message input" />
+  <div class="delay-badge" id="delayBadge" aria-live="polite">📮 Delayed 10m</div>
+  <button class="send-btn" aria-label="Send message" onclick="mockSend()">↑</button>
+</div>
+
+<p class="exit-notice" aria-live="polite">
+  Safety mode can be turned off instantly. Block or sever is always available from profile settings, independent of safety mode.
+</p>
+
+<script>
+  let masterOn = false;
+  let slowVal  = 'off';
+  let delayVal = 'off';
+  let toneOn   = false;
+  let pauseOn  = false;
+
+  function toggleSafetyPanel() {
+    const pill  = document.getElementById('safetyPillBtn');
+    const panel = document.getElementById('safetyPanel');
+    const open  = panel.getAttribute('aria-expanded') === 'true';
+    panel.setAttribute('aria-expanded', !open);
+    pill.textContent = open ? 'Shield off' : (masterOn ? 'Shield on' : 'Shield off');
+  }
+
+  function toggleMaster() {
+    masterOn = !masterOn;
+    const btn  = document.getElementById('masterToggle');
+    const pill = document.getElementById('safetyPillBtn');
+    btn.classList.toggle('on', masterOn);
+    btn.classList.toggle('off', !masterOn);
+    btn.setAttribute('aria-checked', masterOn);
+    pill.textContent = masterOn ? 'Shield on' : 'Shield off';
+    pill.classList.toggle('on',  masterOn);
+    pill.classList.toggle('off', !masterOn);
+    pill.setAttribute('aria-pressed', masterOn);
+    updateFrictionPreview();
+  }
+
+  function toggleControl(id) {
+    const btn = document.getElementById(id);
+    const on  = btn.classList.contains('on');
+    btn.classList.toggle('on',  !on);
+    btn.classList.toggle('off', on);
+    btn.setAttribute('aria-checked', !on);
+    if (id === 'toneToggle') toneOn = !on;
+    updateFrictionPreview();
+  }
+
+  function setSlow(val, btn) {
+    slowVal = val;
+    btn.closest('.seg-picker').querySelectorAll('.seg-option').forEach(b => {
+      b.classList.toggle('active', b === btn);
+      b.setAttribute('aria-checked', b === btn);
+    });
+    updateFrictionPreview();
+  }
+
+  function setDelay(val, btn) {
+    delayVal = val;
+    btn.closest('.seg-picker').querySelectorAll('.seg-option').forEach(b => {
+      b.classList.toggle('active', b === btn);
+      b.setAttribute('aria-checked', b === btn);
+    });
+    const badge = document.getElementById('delayBadge');
+    if (val !== 'off' && masterOn) {
+      badge.textContent = `📮 Delayed ${val}`;
+      badge.classList.add('visible');
+    } else {
+      badge.classList.remove('visible');
+    }
+    updateFrictionPreview();
+  }
+
+  function triggerPause() {
+    if (pauseOn) {
+      // unpause immediately
+      pauseOn = false;
+      const btn = document.getElementById('pauseToggle');
+      btn.classList.remove('on'); btn.classList.add('off');
+      btn.setAttribute('aria-checked', false);
+      updateFrictionPreview();
+      return;
+    }
+    document.getElementById('pauseConfirm').classList.add('visible');
+    document.querySelector('.pause-btn.confirm').focus();
+  }
+
+  function cancelPause() {
+    document.getElementById('pauseConfirm').classList.remove('visible');
+    document.getElementById('pauseToggle').focus();
+  }
+
+  function confirmPause() {
+    pauseOn = true;
+    document.getElementById('pauseConfirm').classList.remove('visible');
+    const btn = document.getElementById('pauseToggle');
+    btn.classList.add('on'); btn.classList.remove('off');
+    btn.setAttribute('aria-checked', true);
+    updateFrictionPreview();
+  }
+
+  function updateFrictionPreview() {
+    const preview = document.getElementById('frictionPreview');
+    const items   = document.getElementById('frictionItems');
+    const badge   = document.getElementById('delayBadge');
+    const active  = [];
+
+    if (!masterOn) { preview.classList.remove('visible'); badge.classList.remove('visible'); return; }
+
+    if (slowVal  !== 'off')  active.push(`Slow reply: ${slowVal} wait before sending`);
+    if (toneOn)              active.push('Tone preview: AI suggestion shown (never blocks)');
+    if (delayVal !== 'off')  active.push(`Delay send: messages held ${delayVal} before delivery`);
+    if (pauseOn)             active.push('Thread paused: incoming muted until you resume');
+
+    if (active.length === 0) { preview.classList.remove('visible'); return; }
+    items.innerHTML = active.map(a => `<div class="friction-item">${a}</div>`).join('');
+    preview.classList.add('visible');
+
+    if (delayVal !== 'off') {
+      badge.textContent = `📮 Delayed ${delayVal}`;
+      badge.classList.add('visible');
+    } else {
+      badge.classList.remove('visible');
+    }
+  }
+
+  function mockSend() {
+    const input = document.getElementById('composerInput');
+    if (!input.value.trim()) return;
+    if (delayVal !== 'off' && masterOn) {
+      input.value = '';
+      const badge = document.getElementById('delayBadge');
+      const orig  = badge.textContent;
+      badge.textContent = '✓ Queued — cancel?';
+      badge.style.borderColor = 'rgba(39,174,96,0.4)';
+      badge.style.background  = 'rgba(39,174,96,0.10)';
+      badge.style.color       = '#27AE60';
+      setTimeout(() => {
+        badge.textContent = orig;
+        badge.style.borderColor = '';
+        badge.style.background  = '';
+        badge.style.color       = '';
+      }, 2500);
+    } else {
+      input.value = '';
+    }
+  }
+
+  // Keyboard: escape closes pause dialog
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') cancelPause();
+  });
+</script>
+</body>
+</html>

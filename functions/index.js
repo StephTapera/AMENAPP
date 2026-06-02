@@ -1167,3 +1167,27 @@ exports.enrichPostTopics = topicEnrichment.enrichPostTopics;
 // Media State Cleanup (System 12) — daily cleanup of expired resume positions
 const mediaCleanup = require("./mediaStateCleanup");
 exports.cleanupMediaResumeState = mediaCleanup.cleanupMediaResumeState;
+
+// ============================================================================
+// SPIRITUAL OS — 9 callable functions for all 8 surfaces
+//   getSpiritualDigest       — AI-personalized daily digest
+//   getHubItems              — paginated unified inbox stream
+//   getPlannerEvents         — merged planner calendar + optional Berean suggestions
+//   getPlannerSuggestions    — AI formation nudges (max 5/day CF-enforced)
+//   getAssistantResponse     — Berean assistant bar Q&A (text/voice/vision)
+//   updateContextState       — context engine server sync (privacy: CF-write-only)
+//   dismissSuggestion        — user dismisses a planner/suggestion nudge
+//   pinHubItem               — user pins/unpins a hub item
+//   cleanupContextOnLogout   — wipe context doc on logout
+// All: enforceAppCheck: true, Auth required, UID-scoped, rate-limited
+// ============================================================================
+const spiritualOS = require("./spiritualOSFunctions");
+exports.getSpiritualDigest     = spiritualOS.getSpiritualDigest;
+exports.getHubItems            = spiritualOS.getHubItems;
+exports.getPlannerEvents       = spiritualOS.getPlannerEvents;
+exports.getPlannerSuggestions  = spiritualOS.getPlannerSuggestions;
+exports.getAssistantResponse   = spiritualOS.getAssistantResponse;
+exports.updateContextState     = spiritualOS.updateContextState;
+exports.dismissSuggestion      = spiritualOS.dismissSuggestion;
+exports.pinHubItem             = spiritualOS.pinHubItem;
+exports.cleanupContextOnLogout = spiritualOS.cleanupContextOnLogout;

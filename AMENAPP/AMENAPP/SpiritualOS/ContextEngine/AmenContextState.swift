@@ -8,7 +8,7 @@ import CoreLocation
 
 struct AmenContextState: Equatable {
     var mode: SOContextMode = .default
-    var timeOfDay: TimeOfDay = .morning
+    var timeOfDay: SOTimeOfDay = .morning
     var isSundayChurchTime: Bool = false
     var isNearChurch: Bool = false      // only set if user opted in to geofence
     var isDriving: Bool = false
@@ -17,12 +17,13 @@ struct AmenContextState: Equatable {
     var lastUpdated: Date = Date()
 }
 
-// MARK: - TimeOfDay
+// MARK: - SOTimeOfDay
+// Renamed from TimeOfDay to avoid conflict with the existing TimeOfDay in HeaderContextProvider.
 
-enum TimeOfDay: String, Codable {
+enum SOTimeOfDay: String, Codable {
     case morning, afternoon, evening, night
 
-    static func current() -> TimeOfDay {
+    static func current() -> SOTimeOfDay {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
         case 5..<12:  return .morning

@@ -19,6 +19,18 @@ struct BereanPostContext: Codable, Hashable {
     let verseReference: String?
     let isSensitive: Bool
 
+    func refreshed(from post: Post) -> BereanPostContext {
+        BereanPostContext(
+            postId: postId,
+            authorId: post.authorId,
+            authorName: post.authorName,
+            previewText: String(post.content.prefix(200)),
+            category: post.category.rawValue,
+            verseReference: post.verseReference ?? verseReference,
+            isSensitive: post.hasSensitiveContent
+        )
+    }
+
     var deepLinkPath: String {
         "amen://berean/post/\(postId)"
     }

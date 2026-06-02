@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONE P5 — Evidence Path</title>
+<style>
+  :root {
+    --gold:   #D4AF37;
+    --indigo: #4B5EAA;
+    --red:    #C0392B;
+    --green:  #27AE60;
+    --amber:  #E67E22;
+    --bg:     #0A0A0F;
+    --surface: rgba(255,255,255,0.06);
+    --glass:   rgba(255,255,255,0.10);
+    --glass-border: rgba(255,255,255,0.14);
+    --text:    #F0EDE8;
+    --secondary: rgba(240,237,232,0.55);
+    --tertiary:  rgba(240,237,232,0.30);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+    gap: 20px;
+  }
+  h1 { font-size: 13px; font-weight: 500; color: var(--secondary); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* --- Moment card being reported --- */
+  .moment-card {
+    width: 100%; max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .moment-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--indigo), var(--gold));
+    flex-shrink: 0;
+  }
+  .moment-body { flex: 1; }
+  .moment-name { font-size: 13px; font-weight: 600; }
+  .moment-text { font-size: 13px; color: var(--secondary); margin-top: 4px; }
+  .decay-pill {
+    font-size: 10px; font-weight: 600;
+    padding: 3px 8px; border-radius: 12px;
+    background: rgba(192,57,43,0.12);
+    border: 1px solid rgba(192,57,43,0.30);
+    color: var(--red);
+    margin-top: 6px; display: inline-block;
+  }
+
+  /* --- Report sheet --- */
+  .report-sheet {
+    width: 100%; max-width: 420px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    backdrop-filter: blur(28px) saturate(1.4);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4);
+    overflow: hidden;
+  }
+  .sheet-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .sheet-title { font-size: 16px; font-weight: 600; }
+  .sheet-sub   { font-size: 12px; color: var(--secondary); margin-top: 3px; }
+
+  .category-list { padding: 8px 0; }
+  .category-row {
+    padding: 11px 18px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.15s;
+  }
+  .category-row:last-child { border-bottom: none; }
+  .category-row:hover { background: rgba(255,255,255,0.04); }
+  .category-row.selected { background: rgba(192,57,43,0.06); }
+  .cat-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+  .cat-body { flex: 1; }
+  .cat-label { font-size: 13px; font-weight: 500; }
+  .cat-desc  { font-size: 11px; color: var(--secondary); margin-top: 2px; }
+  .cat-check {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--glass-border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 10px;
+    transition: all 0.15s;
+  }
+  .category-row.selected .cat-check {
+    background: var(--red);
+    border-color: var(--red);
+    color: white;
+  }
+
+  .lock-section {
+    padding: 14px 18px;
+    border-top: 1px solid var(--glass-border);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .lock-info {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(192,57,43,0.06);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .lock-icon { font-size: 16px; flex-shrink: 0; }
+  .lock-text { font-size: 12px; color: var(--secondary); line-height: 1.5; }
+  .lock-text strong { color: var(--text); }
+  .lock-btn {
+    padding: 12px;
+    border-radius: 12px;
+    border: none;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    background: var(--red);
+    color: white;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .lock-btn:hover { opacity: 0.88; }
+  .lock-btn:active { transform: scale(0.98); }
+  .lock-btn:disabled { opacity: 0.35; cursor: default; }
+  .cancel-link {
+    text-align: center;
+    font-size: 13px;
+    color: var(--secondary);
+    cursor: pointer;
+    padding: 4px;
+  }
+  .cancel-link:hover { color: var(--text); }
+
+  /* --- Evidence timeline --- */
+  .timeline {
+    width: 100%; max-width: 420px;
+    display: none; flex-direction: column; gap: 0;
+  }
+  .timeline.visible { display: flex; }
+  .timeline-header {
+    background: rgba(39,174,96,0.08);
+    border: 1px solid rgba(39,174,96,0.20);
+    border-radius: 14px 14px 0 0;
+    padding: 14px 16px;
+  }
+  .tl-title { font-size: 14px; font-weight: 600; color: var(--green); }
+  .tl-sub   { font-size: 12px; color: var(--secondary); margin-top: 3px; }
+  .receipt-id { font-size: 10px; color: var(--tertiary); margin-top: 6px; font-family: monospace; }
+
+  .tl-steps {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 4px 0;
+  }
+  .tl-step {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 16px;
+    position: relative;
+  }
+  .tl-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 27px; top: 36px;
+    width: 2px; height: calc(100% - 24px);
+    background: rgba(255,255,255,0.10);
+  }
+  .tl-dot {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .tl-dot.done    { background: var(--green);  color: white; }
+  .tl-dot.active  { background: var(--gold);   color: white; }
+  .tl-dot.pending { background: rgba(255,255,255,0.12); color: var(--secondary); }
+  .tl-step-body { flex: 1; }
+  .tl-step-label { font-size: 13px; font-weight: 600; }
+  .tl-step-desc  { font-size: 11px; color: var(--secondary); margin-top: 3px; line-height: 1.5; }
+  .tl-step-time  { font-size: 10px; color: var(--tertiary); margin-top: 4px; }
+
+  .invariant-note {
+    width: 100%; max-width: 420px;
+    background: rgba(75,94,170,0.08);
+    border: 1px solid rgba(75,94,170,0.22);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--secondary);
+    line-height: 1.6;
+  }
+  .invariant-note strong { color: var(--indigo); }
+
+  /* scenarios */
+  .scenario-bar {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    width: 100%; max-width: 420px;
+  }
+  .scenario-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--secondary);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .scenario-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(212,175,55,0.08); }
+  .label-group { width: 100%; max-width: 420px; }
+  .label-group h2 { font-size: 11px; color: var(--tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<h1>ONE P5-C — Evidence Path</h1>
+
+<!-- Moment being reported -->
+<div class="moment-card" role="region" aria-label="Content being reported">
+  <div class="moment-avatar" role="img" aria-label="Author avatar"></div>
+  <div class="moment-body">
+    <div class="moment-name">Alex R.</div>
+    <div class="moment-text">"This is a message that has been flagged as potentially harmful."</div>
+    <div class="decay-pill" aria-label="Expires in 2 hours">⏱ Expires 2h</div>
+  </div>
+</div>
+
+<!-- Report sheet -->
+<div
+  class="report-sheet"
+  id="reportSheet"
+  role="dialog"
+  aria-modal="false"
+  aria-labelledby="reportTitle"
+>
+  <div class="sheet-header">
+    <div class="sheet-title" id="reportTitle">Report this content</div>
+    <div class="sheet-sub">Select a category. Evidence is locked before decay runs.</div>
+  </div>
+
+  <div class="category-list" role="listbox" aria-label="Report category" aria-required="true">
+
+    <div class="category-row" role="option" aria-selected="false" tabindex="0" onclick="selectCat(this, 'harmful')" onkeydown="if(event.key==='Enter'||event.key===' ')selectCat(this,'harmful')">
+      <span class="cat-icon" aria-hidden="true">⚠️</span>
+      <div class="cat-body">
+        <div class="cat-label">Harmful or dangerous</div>
+        <div class="cat-desc">Content that may cause harm to self or others</div>
+      </div>
+      <div class="cat-check" aria-hidden="true"></div>
+    </div>
+
+    <div class="category-row" role="option" aria-selected="false" tabindex="0" onclick="selectCat(this, 'harassment')" onkeydown="if(event.key==='Enter'||event.key===' ')selectCat(this,'harassment')">
+      <span class="cat-icon" aria-hidden="true">🛑</span>
+      <div class="cat-body">
+        <div class="cat-label">Harassment or abuse</div>
+        <div class="cat-desc">Targeted, repeated harmful behavior</div>
+      </div>
+      <div class="cat-check" aria-hidden="true"></div>
+    </div>
+
+    <div class="category-row" role="option" aria-selected="false" tabindex="0" onclick="selectCat(this, 'illegal')" onkeydown="if(event.key==='Enter'||event.key===' ')selectCat(this,'illegal')">
+      <span class="cat-icon" aria-hidden="true">⚖️</span>
+      <div class="cat-body">
+        <div class="cat-label">Illegal content</div>
+        <div class="cat-desc">CSAM, trafficking, or other illegal material</div>
+      </div>
+      <div class="cat-check" aria-hidden="true"></div>
+    </div>
+
+    <div class="category-row" role="option" aria-selected="false" tabindex="0" onclick="selectCat(this, 'misinformation')" onkeydown="if(event.key==='Enter'||event.key===' ')selectCat(this,'misinformation')">
+      <span class="cat-icon" aria-hidden="true">📢</span>
+      <div class="cat-body">
+        <div class="cat-label">Dangerous misinformation</div>
+        <div class="cat-desc">False content that could cause real-world harm</div>
+      </div>
+      <div class="cat-check" aria-hidden="true"></div>
+    </div>
+
+  </div>
+
+  <div class="lock-section">
+    <div class="lock-info" role="note">
+      <span class="lock-icon" aria-hidden="true">🔒</span>
+      <div class="lock-text">
+        <strong>Evidence lock runs first.</strong> The content and its metadata are preserved on our servers before any decay timer can delete it. The author's decay settings do not apply to evidence under review. This is an invariant — evidence always outlives the moment.
+      </div>
+    </div>
+    <button
+      class="lock-btn"
+      id="lockBtn"
+      disabled
+      aria-disabled="true"
+      onclick="submitReport()"
+    >Lock evidence &amp; report</button>
+    <div class="cancel-link" role="button" tabindex="0" aria-label="Cancel report" onclick="cancelReport()" onkeydown="if(event.key==='Enter')cancelReport()">Cancel</div>
+  </div>
+</div>
+
+<!-- Evidence timeline (shown after report) -->
+<div
+  class="timeline"
+  id="evidenceTimeline"
+  role="region"
+  aria-label="Evidence path timeline"
+  aria-live="polite"
+>
+  <div class="timeline-header">
+    <div class="tl-title">Evidence locked ✓</div>
+    <div class="tl-sub">This content is now preserved regardless of decay settings.</div>
+    <div class="receipt-id" id="receiptId"></div>
+  </div>
+  <div class="tl-steps">
+
+    <div class="tl-step">
+      <div class="tl-dot done" aria-hidden="true">✓</div>
+      <div class="tl-step-body">
+        <div class="tl-step-label">Evidence locked</div>
+        <div class="tl-step-desc">Content + metadata copied to immutable evidence store. Decay is now paused for this item.</div>
+        <div class="tl-step-time" id="lockTime"></div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot done" aria-hidden="true">✓</div>
+      <div class="tl-step-body">
+        <div class="tl-step-label">Report received</div>
+        <div class="tl-step-desc">Category: <span id="reportCategory" style="color:var(--text);font-weight:500;"></span>. Reporter UID hashed. Sent to moderation queue.</div>
+        <div class="tl-step-time" id="reportTime"></div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot active" aria-hidden="true">⋯</div>
+      <div class="tl-step-body">
+        <div class="tl-step-label">Moderator review</div>
+        <div class="tl-step-desc">A human moderator will review within 24h. You'll receive a notification when the review is complete.</div>
+        <div class="tl-step-time">Pending</div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot pending" aria-hidden="true">○</div>
+      <div class="tl-step-body">
+        <div class="tl-step-label">Outcome</div>
+        <div class="tl-step-desc">Content removed / no action taken / escalated to authorities if required. Evidence retained for 90 days minimum.</div>
+        <div class="tl-step-time">Awaiting review</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Invariant note -->
+<div class="invariant-note" role="note">
+  <strong>Invariant:</strong> Evidence lock always runs server-side <em>before</em> decay. The <code>one_reportMoment</code> callable acquires the evidence lock in its first operation; the decay CF skips any moment with an active evidence lock. A user deleting their account cannot remove evidence under active review.
+</div>
+
+<!-- Dev scenarios -->
+<div class="label-group"><h2>Scenarios</h2></div>
+<div class="scenario-bar" role="group" aria-label="Dev scenarios">
+  <button class="scenario-btn active" onclick="setScenario('normal', this)">Normal flow</button>
+  <button class="scenario-btn" onclick="setScenario('e2e', this)">E2E content (metadata only)</button>
+  <button class="scenario-btn" onclick="setScenario('deleted', this)">Author deleted account</button>
+</div>
+<div id="scenarioNote" style="font-size:12px;color:var(--secondary);max-width:420px;line-height:1.5;"></div>
+
+<script>
+  let selectedCat = null;
+
+  function selectCat(row, val) {
+    document.querySelectorAll('.category-row').forEach(r => {
+      r.classList.remove('selected');
+      r.setAttribute('aria-selected', 'false');
+      r.querySelector('.cat-check').textContent = '';
+    });
+    row.classList.add('selected');
+    row.setAttribute('aria-selected', 'true');
+    row.querySelector('.cat-check').textContent = '✓';
+    selectedCat = val;
+    const btn = document.getElementById('lockBtn');
+    btn.disabled = false;
+    btn.setAttribute('aria-disabled', 'false');
+  }
+
+  function submitReport() {
+    if (!selectedCat) return;
+    document.getElementById('reportSheet').style.display = 'none';
+    const now = new Date();
+    const receiptID = 'EVD-' + Math.random().toString(36).substr(2,8).toUpperCase();
+    const catLabels = {
+      harmful: 'Harmful or dangerous',
+      harassment: 'Harassment or abuse',
+      illegal: 'Illegal content',
+      misinformation: 'Dangerous misinformation'
+    };
+    document.getElementById('receiptId').textContent = `Receipt: ${receiptID} · Retained 90 days`;
+    document.getElementById('lockTime').textContent = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    document.getElementById('reportTime').textContent = new Date(now.getTime()+1200).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    document.getElementById('reportCategory').textContent = catLabels[selectedCat];
+    document.getElementById('evidenceTimeline').classList.add('visible');
+  }
+
+  function cancelReport() {
+    // Reset
+    selectedCat = null;
+    document.querySelectorAll('.category-row').forEach(r => {
+      r.classList.remove('selected');
+      r.setAttribute('aria-selected','false');
+      r.querySelector('.cat-check').textContent = '';
+    });
+    const btn = document.getElementById('lockBtn');
+    btn.disabled = true;
+    btn.setAttribute('aria-disabled','true');
+  }
+
+  const scenarios = {
+    normal: '',
+    e2e: '⚠️ E2E thread: content is encrypted end-to-end. The evidence lock captures only public metadata (momentID, timestamp, authorUID, category, content hash). The plaintext is never accessible to servers — this is the correct behavior per SECURITY.md. Moderators review metadata + hash; plaintext reviewed only by the reporter.',
+    deleted: '⚠️ Author deleted account: Firestore rules prevent deletion of documents with an active evidence lock (`evidenceLocked: true`). The one_reportMoment CF sets this flag atomically before the account deletion CF checks it. The evidence remains for the 90-day retention window regardless of account state.'
+  };
+
+  function setScenario(key, btn) {
+    document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('scenarioNote').textContent = scenarios[key];
+  }
+</script>
+</body>
+</html>

@@ -3485,6 +3485,62 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ─── Spiritual OS ──────────────────────────────────────────────────────────
+
+    // Daily Digest — CF writes, owner reads, only isRead client-writable
+    match /spiritualOS_digest/{userId}/items/{itemId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool;
+      allow delete: if false;
+    }
+
+    // Unified Hub Inbox — CF writes, owner reads
+    // Client writes: isPinned, isRead, isArchived only
+    match /spiritualOS_hub/{userId}/items/{itemId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isPinned', 'isRead', 'isArchived']);
+      allow delete: if false;
+    }
+
+    // Life Planner Events — owner full control EXCEPT bereanNote/isBereanNote (CF-only)
+    match /spiritualOS_planner/{userId}/events/{eventId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && !('isBereanNote' in request.resource.data)
+        && !('bereanNote' in request.resource.data);
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isCompleted', 'isDismissed', 'title', 'description',
+                      'startDate', 'endDate', 'isAllDay', 'color']);
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Context State — single doc, owner read/delete only, CF writes
+    match /spiritualOS_context/{userId} {
+      allow read, delete: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if false; // updateContextState CF only
+    }
+
+    // Berean Suggestions — CF writes, owner reads, client may dismiss
+    match /spiritualOS_suggestions/{userId}/items/{itemId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isDismissed']);
+      allow delete: if false;
+    }
+
     // ── Default deny ─────────────────────────────────────────────────────────
     // Catch-all: deny everything not matched above.
 

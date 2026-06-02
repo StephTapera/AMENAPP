@@ -32,18 +32,18 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
     // MARK: Test church coordinate (placeholder until churchEnhancementFunctions CF is wired)
     // Real implementation will query the CF for church locations by user region.
 
-    private let testChurchCoordinate = CLLocationCoordinate2D(
+    fileprivate let testChurchCoordinate = CLLocationCoordinate2D(
         latitude: 33.7490,  // Atlanta, GA — representative placeholder
         longitude: -84.3880
     )
-    private let churchProximityThresholdMeters: CLLocationDistance = 500.0
+    fileprivate let churchProximityThresholdMeters: CLLocationDistance = 500.0
 
     // MARK: - Init
 
     init(userId: String) {
         self.userId = userId
         super.init()
-        contextState.timeOfDay = TimeOfDay.current()
+        contextState.timeOfDay = SOTimeOfDay.current()
         if isEnabled {
             activate()
         }
@@ -111,7 +111,7 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
     /// Re-evaluates the context mode from current signals. Called by the timer and after
     /// any permission or location signal changes.
     func updateMode() {
-        let tod = TimeOfDay.current()
+        let tod = SOTimeOfDay.current()
         contextState.timeOfDay = tod
         contextState.isSundayChurchTime = isSundayMorning()
 
@@ -152,7 +152,7 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
     // MARK: - Private Helpers
 
     private func evaluateTimeContext() {
-        contextState.timeOfDay = TimeOfDay.current()
+        contextState.timeOfDay = SOTimeOfDay.current()
         contextState.isSundayChurchTime = isSundayMorning()
         contextState.mode = resolvedMode(tod: contextState.timeOfDay)
         contextState.lastUpdated = Date()
@@ -185,7 +185,7 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
         return weekday == 1 && hour >= 7 && hour < 14
     }
 
-    private func resolvedMode(tod: TimeOfDay) -> SOContextMode {
+    private func resolvedMode(tod: SOTimeOfDay) -> SOContextMode {
         if contextState.isDriving {
             return .driveMode
         }
