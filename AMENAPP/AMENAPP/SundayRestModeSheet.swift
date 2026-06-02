@@ -147,8 +147,11 @@ struct SundayRestModeSheet: View {
                             Capsule()
                                 .fill(Color(.systemGray6))
                         )
+                        .accessibilityHidden(true)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Paused: \(pausedLabels.joined(separator: ", "))")
         }
     }
 
