@@ -116,3 +116,9 @@ Backend/functions/lib/
 functions/dist-notifications/
 
 .home/
+
+# SPM package cache (nested git repos — never commit)
+.spm/
+
+# Agent scratch workspace
+.agent-scratch/

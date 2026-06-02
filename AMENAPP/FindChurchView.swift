@@ -916,6 +916,12 @@ struct FindChurchView: View {
         case openNow = "Open Now"
         case visitedBefore = "Visited Before"
         case highlyRated = "Highly Saved"
+        case serviceSoon = "Starting Soon"
+        case teaching = "Bible Teaching"
+        case worship = "Worship"
+        case family = "Family"
+        case youngAdults = "Young Adults"
+        case newHere = "First Time?"
     }
     
     enum ChurchSortMode: String, CaseIterable {
