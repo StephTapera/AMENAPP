@@ -109,10 +109,10 @@ final class VideoExplainService: ObservableObject {
         inFlightTask?.cancel()
 
         state = .loading
-        analytics.log(.videoExplainTapped(postId: postId, mediaId: mediaId, surface: surface))
+        analytics.track(.videoExplainTapped(postId: postId, mediaId: mediaId, surface: surface))
 
         let startTime = Date()
-        analytics.log(.aiGenerationStarted(feature: "video_explain", postId: postId))
+        analytics.track(.aiGenerationStarted(feature: "video_explain", postId: postId))
 
         inFlightTask = Task {
             await performRequest(postId: postId, mediaId: mediaId, surface: surface, startedAt: startTime)
@@ -149,7 +149,7 @@ final class VideoExplainService: ObservableObject {
             guard !Task.isCancelled else { return }
 
             let durationMs = Int(Date().timeIntervalSince(startedAt) * 1000)
-            analytics.log(.aiGenerationCompleted(
+            analytics.track(.aiGenerationCompleted(
                 feature: "video_explain",
                 postId: postId,
                 durationMs: durationMs

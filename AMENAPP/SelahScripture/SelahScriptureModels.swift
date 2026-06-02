@@ -179,6 +179,7 @@ struct BibleVerse: Codable, Identifiable, Hashable {
     let reference: ScriptureReference   // address of THIS verse (chapter + startVerse=number)
     let number: Int
     let text: String
+    var translation: String = ""
 }
 
 struct BibleChapter: Codable, Identifiable, Hashable {
