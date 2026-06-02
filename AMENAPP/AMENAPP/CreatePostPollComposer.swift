@@ -5,14 +5,12 @@ struct PollComposerCard: View {
     @Binding var duration: CreatePostView.PollDuration
     let onRemove: () -> Void
 
-    // Focus tracking for individual option fields
     @FocusState private var focusedIndex: Int?
 
     private let maxOptions = 4
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
             HStack {
                 Image(systemName: "chart.bar.fill")
                     .font(.systemScaled(13, weight: .semibold))
@@ -35,11 +33,9 @@ struct PollComposerCard: View {
             Divider()
                 .padding(.horizontal, 14)
 
-            // Poll options
             VStack(spacing: 0) {
                 ForEach(options.indices, id: \.self) { index in
                     HStack(spacing: 10) {
-                        // Option label circle
                         ZStack {
                             Circle()
                                 .strokeBorder(Color(.systemGray4), lineWidth: 1.5)
@@ -62,7 +58,6 @@ struct PollComposerCard: View {
                                 }
                             }
 
-                        // Remove button (only for options beyond the first 2)
                         if index >= 2 {
                             removeOptionButton(at: index)
                         }
@@ -76,7 +71,6 @@ struct PollComposerCard: View {
                 }
             }
 
-            // Add option button
             if options.count < maxOptions {
                 Divider().padding(.horizontal, 14)
 
@@ -102,7 +96,6 @@ struct PollComposerCard: View {
 
             Divider().padding(.horizontal, 14)
 
-            // Duration picker
             HStack {
                 Image(systemName: "clock")
                     .font(.systemScaled(13))
@@ -155,16 +148,14 @@ struct PollComposerCard: View {
     }
 }
 
-// MARK: - Compact Glass Button (NEW - Smaller, Production-Ready)
-
 struct CompactGlassButton: View {
     let icon: String
     let isActive: Bool
     var count: Int = 0
     let action: () -> Void
-    
+
     @State private var isPressed = false
-    
+
     private var isClose: Bool { icon == "xmark" }
 
     var body: some View {
@@ -173,8 +164,7 @@ struct CompactGlassButton: View {
                 isPressed = true
             }
             action()
-            
-            // Button animation reset (non-critical)
+
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                     isPressed = false
@@ -183,7 +173,6 @@ struct CompactGlassButton: View {
         }) {
             ZStack(alignment: .topTrailing) {
                 if isClose {
-                    // Close button: same gray-circle style as the Post button
                     ZStack {
                         Circle()
                             .fill(Color(red: 0.91, green: 0.91, blue: 0.93))
@@ -200,8 +189,7 @@ struct CompactGlassButton: View {
                         .foregroundStyle(isActive ? Color.primary.opacity(0.7) : Color.primary.opacity(0.3))
                         .frame(width: 36, height: 36)
                         .scaleEffect(isPressed ? 0.85 : 1.0)
-                    
-                    // Badge for count (e.g., image count)
+
                     if count > 0 {
                         Text("\(count)")
                             .font(AMENFont.bold(9))
@@ -223,7 +211,3 @@ struct CompactGlassButton: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: count)
     }
 }
-
-// MARK: - ComposerSchedulePill
-// Liquid Glass schedule pill — shows "Schedule" when idle, "Scheduled · Day Time ×" when set.
-

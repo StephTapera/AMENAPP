@@ -10,7 +10,7 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "dependencies": {
@@ -20,7 +20,7 @@
     "@google-cloud/vertexai": "^1.10.0",
     "@google-cloud/vision": "^4.3.3",
     "firebase-admin": "^13.6.1",
-    "firebase-functions": "^7.2.3",
+    "firebase-functions": "^7.2.5",
     "form-data": "^4.0.0",
     "stripe": "^17.0.0",
     "twilio": "^5.0.0"
