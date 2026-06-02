@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent D — Spaces Dashboard (Hero Card)</title>
+  <style>
+    /* ─── DESIGN TOKENS ─── */
+    :root {
+      --amenGold:    #C9A84C;
+      --amenPurple:  #6B4FA2;
+      --amenBlue:    #2E6DA4;
+      --amenBlack:   #1A1A1E;
+      --amenCream:   #F8F4EC;
+      --amenSlate:   #4A4A55;
+
+      --gold-light:  rgba(201, 168, 76, 0.18);
+      --gold-border: rgba(201, 168, 76, 0.55);
+      --glass-bg:    rgba(255, 255, 255, 0.22);
+      --glass-dark:  rgba(20, 20, 28, 0.55);
+      --border-glass: rgba(255, 255, 255, 0.38);
+
+      /* page */
+      --page-bg: #EDEAD8;
+      --label-color: #6B5A30;
+    }
+
+    /* ─── DARK MODE TOKENS ─── */
+    body.dark {
+      --amenCream:   #1E1C18;
+      --amenBlack:   #F0EDE4;
+      --amenSlate:   #B0A898;
+      --page-bg:     #111009;
+      --label-color: #C9A84C;
+      --glass-bg:    rgba(30, 28, 24, 0.55);
+      --border-glass: rgba(255, 255, 255, 0.15);
+      --gold-light:  rgba(201, 168, 76, 0.12);
+    }
+
+    /* ─── RESET / BASE ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--page-bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 0 48px;
+      transition: background 0.35s ease;
+    }
+
+    /* ─── AGENT LABEL ─── */
+    .agent-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--label-color);
+      margin-bottom: 16px;
+      opacity: 0.8;
+    }
+
+    /* ─── DARK TOGGLE ─── */
+    .dark-toggle {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 100;
+      background: rgba(201, 168, 76, 0.18);
+      border: 1.5px solid rgba(201, 168, 76, 0.45);
+      color: var(--amenGold);
+      font-size: 18px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(12px);
+      transition: background 0.25s;
+    }
+    .dark-toggle:hover { background: rgba(201, 168, 76, 0.28); }
+
+    /* ─── PHONE FRAME ─── */
+    .phone-frame {
+      width: 390px;
+      background: var(--page-bg);
+      border-radius: 52px;
+      box-shadow:
+        0 0 0 10px #C0C0C0,
+        0 0 0 12px #B0B0B0,
+        0 32px 80px rgba(0,0,0,0.32);
+      overflow: hidden;
+      position: relative;
+      transition: background 0.35s ease;
+    }
+
+    body.dark .phone-frame {
+      box-shadow:
+        0 0 0 10px #333,
+        0 0 0 12px #222,
+        0 32px 80px rgba(0,0,0,0.6);
+    }
+
+    /* Dynamic island notch */
+    .notch {
+      width: 120px;
+      height: 34px;
+      background: #111;
+      border-radius: 0 0 22px 22px;
+      margin: 0 auto 0;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ─── SCROLL AREA ─── */
+    .scroll-area {
+      height: 820px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      padding-bottom: 32px;
+    }
+    .scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ─── NAV BAR ─── */
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px 10px;
+      background: rgba(248, 244, 236, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(201, 168, 76, 0.18);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      transition: background 0.35s ease;
+    }
+    body.dark .nav-bar {
+      background: rgba(17, 16, 9, 0.72);
+      border-bottom: 1px solid rgba(201, 168, 76, 0.12);
+    }
+
+    .nav-back {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 15px;
+      color: var(--amenGold);
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .nav-back-arrow {
+      font-size: 20px;
+      line-height: 1;
+      margin-top: -1px;
+    }
+    .nav-title {
+      flex: 1;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--amenBlack);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-spacer { width: 80px; flex-shrink: 0; }
+
+    /* ─── MAIN CONTENT PAD ─── */
+    .content {
+      padding: 16px 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ─────────────────────────────────────────
+       HERO CARD — lensed treatment
+    ───────────────────────────────────────── */
+    .hero-card {
+      border-radius: 32px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+      /* Gold accent line at top */
+      border-top: 2px solid transparent;
+      background-image: linear-gradient(var(--amenBlack), var(--amenBlack)),
+                        linear-gradient(135deg, var(--amenGold) 0%, transparent 60%);
+      background-origin: border-box;
+      background-clip: padding-box, border-box;
+    }
+
+    /* Cover image layer: CSS gradient standing in for a real photo */
+    .hero-cover {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(
+          135deg,
+          #C9A84C 0%,
+          #8B6B2A 30%,
+          #3D2E10 60%,
+          #1A1A1E 100%
+        );
+      z-index: 0;
+    }
+    /* Warm candle texture overlay */
+    .hero-cover::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        ellipse at 25% 35%,
+        rgba(255, 210, 100, 0.22) 0%,
+        transparent 60%
+      );
+    }
+
+    /* Gradient scrim: bottom 60%, amenBlack 0.6 */
+    .hero-scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        transparent 38%,
+        rgba(26, 26, 30, 0.42) 55%,
+        rgba(26, 26, 30, 0.72) 75%,
+        rgba(26, 26, 30, 0.88) 100%
+      );
+      z-index: 1;
+    }
+
+    /* Glass material layer on the card frame */
+    .hero-glass {
+      position: relative;
+      z-index: 2;
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      background: rgba(255, 255, 255, 0.09);
+      padding: 20px 20px 22px;
+    }
+
+    /* ─ Hero top row ─ */
+    .hero-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .hero-space-name {
+      font-size: 22px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.3px;
+      line-height: 1.2;
+      max-width: 230px;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.4);
+    }
+    .role-chip {
+      background: rgba(201, 168, 76, 0.28);
+      border: 1.5px solid rgba(201, 168, 76, 0.65);
+      border-radius: 999px;
+      padding: 4px 11px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #C9A84C;
+      letter-spacing: 0.04em;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* ─ Member avatar row ─ */
+    .member-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .avatars {
+      display: flex;
+      flex-direction: row-reverse;  /* right-to-left z-order */
+      align-items: center;
+    }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+      margin-left: -10px;
+      position: relative;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      flex-shrink: 0;
+    }
+    .avatars .avatar:last-child { margin-left: 0; }
+    .av-jt { background: linear-gradient(135deg, #5B8DD9, #3A6AAA); }
+    .av-mr { background: linear-gradient(135deg, #7B6EA8, #5A4F8A); }
+    .av-da { background: linear-gradient(135deg, #5EA882, #3A7A5E); }
+    .av-sp { background: linear-gradient(135deg, #C47B55, #A05A35); }
+    .av-kb { background: linear-gradient(135deg, #D4A43A, #A87C22); }
+
+    .member-overflow {
+      margin-left: 8px;
+      background: rgba(255, 255, 255, 0.18);
+      border: 1.5px solid rgba(255, 255, 255, 0.38);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      white-space: nowrap;
+    }
+
+    /* ─ Next event chip ─ */
+    .next-event-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(46, 109, 164, 0.22);
+      border: 1.5px solid rgba(46, 109, 164, 0.5);
+      border-radius: 999px;
+      padding: 7px 14px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      margin-bottom: 18px;
+    }
+    .next-event-icon { font-size: 14px; line-height: 1; }
+    .next-event-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.95);
+    }
+    .next-event-time {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* ─────────────────────────────────────────
+       2×2 ACTION GRID — GlassChips
+    ───────────────────────────────────────── */
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .action-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 11px 16px;
+      cursor: pointer;
+      backdrop-filter: blur(12px) saturate(1.2);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+      border: 1.5px solid transparent;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+      user-select: none;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .action-chip:active { transform: scale(0.96); opacity: 0.88; }
+
+    .action-chip.gold {
+      background: rgba(201, 168, 76, 0.22);
+      border-color: rgba(201, 168, 76, 0.55);
+    }
+    .action-chip.blue {
+      background: rgba(46, 109, 164, 0.20);
+      border-color: rgba(46, 109, 164, 0.5);
+    }
+    .action-chip.purple {
+      background: rgba(107, 79, 162, 0.22);
+      border-color: rgba(107, 79, 162, 0.55);
+    }
+
+    .action-icon { font-size: 16px; line-height: 1; flex-shrink: 0; }
+    .action-label {
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .action-chip.gold  .action-label { color: #D4AC52; }
+    .action-chip.blue  .action-label { color: #5B9FD8; }
+    .action-chip.purple .action-label { color: #9B7ED6; }
+
+    /* ─────────────────────────────────────────
+       MATTE SECTION CARDS
+    ───────────────────────────────────────── */
+    .section-card {
+      background: var(--amenCream);
+      border-radius: 22px;
+      padding: 18px 18px 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      transition: background 0.35s ease;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--amenBlack);
+      letter-spacing: -0.1px;
+    }
+    .section-title-icon { font-size: 17px; line-height: 1; }
+    .section-badge {
+      background: rgba(201, 168, 76, 0.16);
+      border: 1.5px solid rgba(201, 168, 76, 0.4);
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--amenGold);
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        rgba(201, 168, 76, 0.3) 0%,
+        rgba(201, 168, 76, 0.08) 80%,
+        transparent 100%
+      );
+      margin-bottom: 14px;
+    }
+
+    /* ─ Prayer request items ─ */
+    .prayer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .prayer-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 11px 13px;
+      background: rgba(201, 168, 76, 0.07);
+      border-radius: 14px;
+      border-left: 3px solid var(--amenGold);
+    }
+    body.dark .prayer-item {
+      background: rgba(201, 168, 76, 0.05);
+    }
+    .prayer-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amenGold);
+      margin-top: 5px;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(201, 168, 76, 0.55);
+    }
+    .prayer-content { flex: 1; }
+    .prayer-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--amenBlack);
+      line-height: 1.4;
+      margin-bottom: 3px;
+    }
+    .prayer-meta {
+      font-size: 12px;
+      color: var(--amenSlate);
+      font-weight: 500;
+    }
+
+    /* Add prayer button */
+    .add-prayer-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      margin-top: 13px;
+      padding: 11px 16px;
+      background: transparent;
+      border: 1.5px dashed rgba(201, 168, 76, 0.45);
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--amenGold);
+      cursor: pointer;
+      transition: background 0.18s ease, border-color 0.18s ease;
+    }
+    .add-prayer-btn:hover {
+      background: rgba(201, 168, 76, 0.08);
+      border-color: rgba(201, 168, 76, 0.65);
+    }
+    .add-prayer-btn:active { opacity: 0.75; }
+
+    /* ─ Study Series ─ */
+    .series-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--amenSlate);
+      margin-bottom: 6px;
+    }
+    .series-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--amenBlack);
+      letter-spacing: -0.2px;
+      line-height: 1.25;
+      margin-bottom: 5px;
+    }
+    .series-sub {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--amenSlate);
+      margin-bottom: 14px;
+    }
+    .series-sub strong {
+      color: var(--amenBlack);
+      font-weight: 700;
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      margin-bottom: 15px;
+    }
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--amenSlate);
+      margin-bottom: 6px;
+    }
+    .progress-meta span:last-child { color: var(--amenGold); }
+    .progress-track {
+      height: 6px;
+      background: rgba(201, 168, 76, 0.16);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    body.dark .progress-track {
+      background: rgba(201, 168, 76, 0.1);
+    }
+    .progress-fill {
+      height: 100%;
+      width: 50%; /* week 3 of 6 = 50% */
+      background: linear-gradient(90deg, var(--amenGold) 0%, #E8C060 100%);
+      border-radius: 999px;
+      box-shadow: 0 0 8px rgba(201, 168, 76, 0.45);
+    }
+
+    /* Berean CTA */
+    .berean-cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(107, 79, 162, 0.10);
+      border: 1.5px solid rgba(107, 79, 162, 0.35);
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--amenPurple);
+      cursor: pointer;
+      transition: background 0.18s ease, border-color 0.18s ease;
+    }
+    body.dark .berean-cta {
+      background: rgba(107, 79, 162, 0.14);
+      border-color: rgba(107, 79, 162, 0.45);
+      color: #B89EE8;
+    }
+    .berean-cta:hover {
+      background: rgba(107, 79, 162, 0.16);
+      border-color: rgba(107, 79, 162, 0.55);
+    }
+    .berean-cta:active { opacity: 0.75; }
+    .berean-icon { font-size: 15px; line-height: 1; }
+
+    /* ─── BOTTOM SAFE AREA ─── */
+    .bottom-safe { height: 28px; }
+
+    /* ─── GOLD GLOW ACCENT ─── */
+    /* Subtle warm radial blur behind hero card to let gold bleed through */
+    .hero-glow {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 340px;
+      height: 200px;
+      background: radial-gradient(
+        ellipse at center,
+        rgba(201, 168, 76, 0.28) 0%,
+        transparent 70%
+      );
+      filter: blur(18px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── HERO CARD WRAPPER ─── */
+    .hero-card-wrap {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Dark mode toggle -->
+  <button class="dark-toggle" id="darkToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+    🕯
+  </button>
+
+  <!-- Agent label -->
+  <div class="agent-label">Agent D — Spaces Dashboard (Hero Card)</div>
+
+  <!-- Phone frame -->
+  <div class="phone-frame">
+
+    <!-- Dynamic island -->
+    <div class="notch"></div>
+
+    <!-- Scrollable content -->
+    <div class="scroll-area">
+
+      <!-- Navigation bar -->
+      <nav class="nav-bar" aria-label="Navigation">
+        <div class="nav-back" role="button" tabindex="0" aria-label="Back to My Spaces">
+          <span class="nav-back-arrow">‹</span>
+          <span>My Spaces</span>
+        </div>
+        <div class="nav-title">Covenant Men's Study</div>
+        <div class="nav-spacer"></div>
+      </nav>
+
+      <!-- Page content -->
+      <div class="content">
+
+        <!-- ─────────── HERO CARD ─────────── -->
+        <div class="hero-card-wrap">
+          <!-- Gold bleed glow behind card -->
+          <div class="hero-glow" aria-hidden="true"></div>
+
+          <article class="hero-card" aria-label="Covenant Men's Study Space">
+
+            <!-- Cover gradient (stands in for photo) -->
+            <div class="hero-cover" aria-hidden="true"></div>
+            <!-- Scrim -->
+            <div class="hero-scrim" aria-hidden="true"></div>
+
+            <!-- Glass content layer -->
+            <div class="hero-glass">
+
+              <!-- Space name + role -->
+              <div class="hero-top">
+                <h1 class="hero-space-name">Covenant Men's Study</h1>
+                <div class="role-chip" aria-label="Your role: Leader">Leader</div>
+              </div>
+
+              <!-- Member avatars -->
+              <div class="member-row" role="group" aria-label="Space members">
+                <div class="avatars" aria-hidden="true">
+                  <!-- Reversed in DOM so rightmost appears last in visual left-to-right -->
+                  <div class="avatar av-kb">KB</div>
+                  <div class="avatar av-sp">SP</div>
+                  <div class="avatar av-da">DA</div>
+                  <div class="avatar av-mr">MR</div>
+                  <div class="avatar av-jt">JT</div>
+                </div>
+                <div class="member-overflow" aria-label="12 more members">+12 members</div>
+              </div>
+
+              <!-- Next event chip -->
+              <div class="next-event-chip" role="note" aria-label="Next event: Romans 12 Deep Dive, Tonight at 7:00 PM">
+                <span class="next-event-icon" aria-hidden="true">📅</span>
+                <span class="next-event-text">Romans 12 Deep Dive</span>
+                <span class="next-event-time">Tonight · 7:00 PM</span>
+              </div>
+
+              <!-- 2×2 Action grid -->
+              <div class="action-grid" role="group" aria-label="Space actions">
+                <button class="action-chip gold" aria-label="Pray Together">
+                  <span class="action-icon" aria-hidden="true">🙏</span>
+                  <span class="action-label">Pray Together</span>
+                </button>
+                <button class="action-chip blue" aria-label="Schedule">
+                  <span class="action-icon" aria-hidden="true">📅</span>
+                  <span class="action-label">Schedule</span>
+                </button>
+                <button class="action-chip blue" aria-label="Open Notes">
+                  <span class="action-icon" aria-hidden="true">📝</span>
+                  <span class="action-label">Open Notes</span>
+                </button>
+                <button class="action-chip purple" aria-label="Ask Berean AI">
+                  <span class="action-icon" aria-hidden="true">✨</span>
+                  <span class="action-label">Ask Berean</span>
+                </button>
+              </div>
+
+            </div><!-- /hero-glass -->
+          </article>
+        </div><!-- /hero-card-wrap -->
+
+        <!-- ─────────── PRAYER REQUESTS — matte ─────────── -->
+        <section class="section-card" aria-label="Active Prayer Requests">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="section-title-icon" aria-hidden="true">🙏</span>
+              Active Prayer Requests
+            </div>
+            <div class="section-badge" aria-label="2 active requests">2</div>
+          </div>
+          <div class="divider" aria-hidden="true"></div>
+
+          <div class="prayer-list" role="list">
+            <div class="prayer-item" role="listitem">
+              <div class="prayer-dot" aria-hidden="true"></div>
+              <div class="prayer-content">
+                <div class="prayer-text">Pray for Marcus's surgery recovery</div>
+                <div class="prayer-meta">Posted 2 days ago</div>
+              </div>
+            </div>
+            <div class="prayer-item" role="listitem">
+              <div class="prayer-dot" aria-hidden="true"></div>
+              <div class="prayer-content">
+                <div class="prayer-text">Pray for James's family</div>
+                <div class="prayer-meta">Posted 5 days ago</div>
+              </div>
+            </div>
+          </div>
+
+          <button class="add-prayer-btn" aria-label="Add a prayer request">
+            <span aria-hidden="true">+</span>
+            Add Prayer Request
+          </button>
+        </section>
+
+        <!-- ─────────── STUDY SERIES — matte ─────────── -->
+        <section class="section-card" aria-label="Current Study Series">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="section-title-icon" aria-hidden="true">📖</span>
+              Current Series
+            </div>
+          </div>
+          <div class="divider" aria-hidden="true"></div>
+
+          <div class="series-label">Walking in the Spirit</div>
+          <div class="series-title">Romans 5–8</div>
+          <div class="series-sub"><strong>Week 3</strong> of 6</div>
+
+          <div class="progress-wrap" role="progressbar" aria-valuenow="3" aria-valuemin="0" aria-valuemax="6" aria-label="Study progress: week 3 of 6">
+            <div class="progress-meta">
+              <span>Progress</span>
+              <span>Week 3 of 6</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <div class="progress-fill"></div>
+            </div>
+          </div>
+
+          <button class="berean-cta" aria-label="Open in Berean AI for study assistance">
+            <span class="berean-icon" aria-hidden="true">✨</span>
+            Open in Berean
+          </button>
+        </section>
+
+        <div class="bottom-safe" aria-hidden="true"></div>
+
+      </div><!-- /content -->
+    </div><!-- /scroll-area -->
+  </div><!-- /phone-frame -->
+
+  <script>
+    const toggle = document.getElementById('darkToggle');
+    const body = document.body;
+    let dark = false;
+    toggle.addEventListener('click', () => {
+      dark = !dark;
+      body.classList.toggle('dark', dark);
+      toggle.textContent = dark ? '☀️' : '🕯';
+      toggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    });
+  </script>
+
+</body>
+</html>

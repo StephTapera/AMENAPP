@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent H — Context Engine</title>
+  <style>
+    /* ═══════════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════════ */
+    :root {
+      --amenGold:   #C9A84C;
+      --amenPurple: #6B4FA2;
+      --amenBlue:   #2E6DA4;
+      --amenBlack:  #1A1A1E;
+      --amenCream:  #F8F4EC;
+      --amenSlate:  #4A4A55;
+
+      --gold-glow:   rgba(201,168,76,0.18);
+      --gold-dim:    rgba(201,168,76,0.10);
+      --purple-glow: rgba(107,79,162,0.22);
+      --glass-bg:    rgba(255,255,255,0.14);
+      --glass-border:rgba(255,255,255,0.28);
+      --glass-dark:  rgba(0,0,0,0.22);
+
+      --page-bg:   #F0EDE8;
+      --label-fg:  #444;
+      --card-bg:   #fff;
+      --text-main: #1A1A1E;
+      --text-sub:  #4A4A55;
+    }
+
+    /* Dark mode for page shell (not for Worship frame — that's always dark) */
+    body.dark-page {
+      --page-bg:  #111114;
+      --label-fg: #bbb;
+      --card-bg:  #1e1e22;
+      --text-main:#F8F4EC;
+      --text-sub: #9090a0;
+      --glass-bg: rgba(255,255,255,0.08);
+    }
+
+    /* ═══════════════════════════════════════════════════
+       PAGE SHELL
+    ═══════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--page-bg);
+      color: var(--text-main);
+      transition: background 0.35s, color 0.35s;
+      padding-bottom: 60px;
+    }
+
+    /* Page header */
+    .page-header {
+      background: linear-gradient(135deg, var(--amenBlack) 0%, #2a1e40 100%);
+      color: var(--amenCream);
+      padding: 28px 24px 22px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      border-bottom: 1px solid rgba(201,168,76,0.3);
+    }
+    .page-header .agent-tag {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--amenGold);
+      margin-bottom: 6px;
+    }
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .page-header p {
+      font-size: 13px;
+      color: rgba(248,244,236,0.6);
+    }
+
+    /* Dark mode toggle */
+    .toggle-wrap {
+      position: absolute;
+      top: 50%;
+      right: 20px;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: rgba(248,244,236,0.7);
+    }
+    .toggle-wrap label { cursor: pointer; user-select: none; }
+    .toggle-switch {
+      width: 38px; height: 22px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 11px;
+      border: 1px solid rgba(255,255,255,0.25);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.25s;
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      top: 2px; left: 2px;
+      transition: transform 0.25s;
+    }
+    .toggle-switch.on {
+      background: var(--amenGold);
+    }
+    .toggle-switch.on::after {
+      transform: translateX(16px);
+    }
+
+    /* Frame section labels */
+    .section-label {
+      max-width: 900px;
+      margin: 40px auto 0;
+      padding: 0 20px;
+    }
+    .section-label .frame-number {
+      display: inline-block;
+      background: var(--amenGold);
+      color: var(--amenBlack);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .section-label h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+    .section-label p {
+      font-size: 13px;
+      color: var(--text-sub);
+      line-height: 1.5;
+      max-width: 540px;
+    }
+
+    /* Phone frame wrapper */
+    .phone-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+      padding: 0 20px;
+    }
+    .phone {
+      width: 390px;
+      min-height: 844px;
+      border-radius: 50px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.28), 0 0 0 2px rgba(255,255,255,0.12) inset;
+      position: relative;
+      background: #000;
+    }
+    /* Notch */
+    .phone::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 120px; height: 34px;
+      background: #000;
+      border-radius: 0 0 20px 20px;
+      z-index: 999;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       STATUS BAR (shared)
+    ═══════════════════════════════════════════════════ */
+    .status-bar {
+      height: 44px;
+      padding: 14px 28px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 100;
+    }
+    .status-bar .time { font-size: 15px; font-weight: 600; }
+    .status-bar .icons { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+
+    /* ═══════════════════════════════════════════════════
+       FRAME 1: WORSHIP MODE
+    ═══════════════════════════════════════════════════ */
+    .worship-frame {
+      width: 100%;
+      min-height: 844px;
+      background: #1A1A1E;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Warm amber overlay — matte, not glass */
+    .worship-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 30%,
+        rgba(201,168,76,0.12) 0%,
+        rgba(160,80,20,0.08) 50%,
+        transparent 80%);
+      pointer-events: none;
+    }
+
+    /* Subtle grain for matte texture */
+    .worship-frame::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.5;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .worship-status { color: rgba(248,244,236,0.55); }
+    .worship-status .time { color: var(--amenCream); }
+
+    /* Church location pill */
+    .worship-church-pill {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 28px 24px 0;
+    }
+    .worship-church-pill .church-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(201,168,76,0.12);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 20px;
+      padding: 7px 16px;
+      font-size: 13px;
+      color: var(--amenGold);
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+    .worship-church-pill .dot {
+      width: 7px; height: 7px;
+      background: var(--amenGold);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--amenGold);
+      animation: pulse-gold 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse-gold {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .worship-datetime {
+      color: rgba(248,244,236,0.45);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    /* Verse area — centered, matte */
+    .worship-verse-wrap {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 36px;
+      text-align: center;
+    }
+
+    .worship-ref {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--amenGold);
+      margin-bottom: 20px;
+    }
+
+    .worship-verse {
+      font-size: 26px;
+      line-height: 1.55;
+      color: var(--amenCream);
+      font-weight: 300;
+      font-style: italic;
+      letter-spacing: 0.2px;
+      margin-bottom: 32px;
+      /* Soft glow on text for atmosphere */
+      text-shadow: 0 2px 30px rgba(201,168,76,0.12);
+    }
+
+    .worship-verse em {
+      font-style: normal;
+      color: rgba(248,244,236,0.5);
+      font-size: 14px;
+      display: block;
+      margin-top: 18px;
+      font-weight: 400;
+      letter-spacing: 1px;
+    }
+
+    /* Gold divider */
+    .worship-divider {
+      width: 48px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--amenGold), transparent);
+      margin: 0 auto 28px;
+    }
+
+    /* Bottom actions — glass chips */
+    .worship-actions {
+      position: relative;
+      z-index: 10;
+      padding: 0 24px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .worship-chip-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .worship-chip {
+      background: rgba(255,255,255,0.10);
+      backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 22px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--amenCream);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .worship-chip:hover { background: rgba(255,255,255,0.18); }
+    .worship-chip.primary {
+      background: rgba(201,168,76,0.18);
+      border-color: rgba(201,168,76,0.45);
+      color: var(--amenGold);
+    }
+    .worship-chip.primary:hover { background: rgba(201,168,76,0.28); }
+
+    .worship-dismiss {
+      font-size: 12px;
+      color: rgba(248,244,236,0.35);
+      letter-spacing: 0.3px;
+      padding-bottom: 8px;
+    }
+
+    /* Home indicator */
+    .home-indicator {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 10;
+    }
+    .home-bar {
+      width: 120px;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.3);
+    }
+    .home-bar.dark { background: rgba(0,0,0,0.25); }
+
+    /* ═══════════════════════════════════════════════════
+       FRAME 2: DRIVE MODE
+    ═══════════════════════════════════════════════════ */
+    .drive-frame {
+      width: 100%;
+      min-height: 844px;
+      background: var(--amenCream);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    body.dark-page .drive-frame { background: #18181b; }
+
+    .drive-status { color: var(--text-sub); }
+
+    /* Dimmed feed area */
+    .drive-feed-dim {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Mock feed cards behind the dim */
+    .drive-feed-bg {
+      position: absolute;
+      inset: 0;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .mock-card {
+      background: rgba(255,255,255,0.6);
+      border-radius: 18px;
+      height: 110px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    body.dark-page .mock-card { background: rgba(255,255,255,0.07); }
+    .mock-avatar { width: 38px; height: 38px; border-radius: 50%; background: #d4c8b8; flex-shrink: 0; }
+    body.dark-page .mock-avatar { background: #333; }
+    .mock-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 2px; }
+    .mock-line { height: 10px; border-radius: 5px; background: #d4c8b8; }
+    body.dark-page .mock-line { background: #333; }
+    .mock-line.short { width: 55%; }
+    .mock-line.long  { width: 90%; }
+    .mock-line.mid   { width: 72%; }
+
+    /* Gray dim overlay */
+    .drive-dim-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(100,100,110,0.62);
+      backdrop-filter: blur(4px) saturate(0.5);
+      -webkit-backdrop-filter: blur(4px) saturate(0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .drive-hidden-label {
+      background: rgba(30,30,35,0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 14px 22px;
+      text-align: center;
+      color: rgba(255,255,255,0.65);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+
+    /* Drive Mode bottom bar — glass chrome */
+    .drive-bar {
+      position: relative;
+      z-index: 50;
+      background: rgba(255,255,255,0.22);
+      backdrop-filter: blur(32px) saturate(1.8);
+      -webkit-backdrop-filter: blur(32px) saturate(1.8);
+      border-top: 1px solid rgba(255,255,255,0.35);
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+      padding: 16px 20px 8px;
+      border-radius: 28px 28px 0 0;
+    }
+    body.dark-page .drive-bar {
+      background: rgba(30,30,38,0.72);
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    .drive-bar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .drive-status-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .drive-icon-wrap {
+      width: 28px; height: 28px;
+      background: rgba(107,79,162,0.18);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .drive-status-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--amenPurple);
+    }
+    body.dark-page .drive-status-text { color: #a48dd0; }
+
+    .drive-time {
+      font-size: 12px;
+      color: var(--text-sub);
+      font-weight: 500;
+    }
+
+    .drive-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .drive-btn {
+      flex: 1;
+      background: rgba(107,79,162,0.12);
+      border: 1px solid rgba(107,79,162,0.28);
+      border-radius: 18px;
+      padding: 14px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+    }
+    .drive-btn:hover { background: rgba(107,79,162,0.22); }
+    .drive-btn .btn-icon { font-size: 22px; }
+    .drive-btn .btn-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--amenPurple);
+      letter-spacing: 0.2px;
+    }
+    body.dark-page .drive-btn .btn-label { color: #a48dd0; }
+
+    .drive-btn.exit-btn {
+      background: rgba(0,0,0,0.06);
+      border-color: rgba(0,0,0,0.12);
+      flex: 0 0 56px;
+    }
+    body.dark-page .drive-btn.exit-btn {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.1);
+    }
+    .drive-btn.exit-btn .btn-label { color: var(--text-sub); }
+
+    /* ═══════════════════════════════════════════════════
+       FRAME 3: EVENING REFLECTION
+    ═══════════════════════════════════════════════════ */
+    .evening-frame {
+      width: 100%;
+      min-height: 844px;
+      background: var(--amenCream);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    body.dark-page .evening-frame { background: #18181b; }
+
+    /* Warm amber tint overlay — SUBTLE, not a modal */
+    .evening-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg,
+        rgba(201,168,76,0.08) 0%,
+        rgba(201,168,76,0.04) 40%,
+        transparent 70%);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .evening-status { color: var(--text-sub); }
+
+    /* Top amber warm bar — gentle */
+    .evening-amber-bar {
+      height: 3px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(201,168,76,0.5) 30%,
+        rgba(201,168,76,0.7) 50%,
+        rgba(201,168,76,0.5) 70%,
+        transparent 100%);
+      margin-top: 0;
+      position: relative;
+      z-index: 10;
+    }
+
+    .evening-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px 8px;
+      position: relative;
+      z-index: 10;
+    }
+    .evening-nav .nav-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .evening-nav .nav-icon { font-size: 22px; cursor: pointer; }
+
+    /* Feed area */
+    .evening-feed {
+      flex: 1;
+      padding: 4px 16px 0;
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .feed-card {
+      background: rgba(255,255,255,0.82);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 20px;
+      padding: 14px 16px 12px;
+    }
+    body.dark-page .feed-card {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.1);
+    }
+    .feed-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .feed-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--amenGold), var(--amenPurple));
+      flex-shrink: 0;
+    }
+    .feed-avatar.v2 { background: linear-gradient(135deg, #6B4FA2, #2E6DA4); }
+    .feed-name { font-size: 13px; font-weight: 600; color: var(--text-main); }
+    .feed-time { font-size: 11px; color: var(--text-sub); }
+    .feed-content { font-size: 14px; color: var(--text-main); line-height: 1.5; }
+    .feed-content strong { color: var(--amenGold); }
+
+    /* Reflection chip — glass, above AssistantBar */
+    .reflection-chip-row {
+      position: relative;
+      z-index: 20;
+      padding: 0 16px 8px;
+      display: flex;
+      justify-content: flex-start;
+    }
+    .reflection-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(201,168,76,0.14);
+      backdrop-filter: blur(16px) saturate(1.5);
+      -webkit-backdrop-filter: blur(16px) saturate(1.5);
+      border: 1px solid rgba(201,168,76,0.35);
+      border-radius: 22px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--amenGold);
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(201,168,76,0.12);
+      animation: float-chip 3s ease-in-out infinite;
+    }
+    @keyframes float-chip {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    /* AssistantBar — warm amber shimmer in Evening mode */
+    .assistant-bar {
+      position: relative;
+      z-index: 20;
+      background: rgba(255,255,255,0.22);
+      backdrop-filter: blur(28px) saturate(1.6);
+      -webkit-backdrop-filter: blur(28px) saturate(1.6);
+      border-top: 1px solid rgba(201,168,76,0.22);
+      box-shadow: 0 -4px 20px rgba(201,168,76,0.08), 0 -1px 0 rgba(201,168,76,0.15);
+      padding: 12px 16px 8px;
+      border-radius: 24px 24px 0 0;
+    }
+    body.dark-page .assistant-bar {
+      background: rgba(30,24,20,0.7);
+      border-color: rgba(201,168,76,0.2);
+    }
+
+    .assistant-bar-inner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .assistant-input {
+      flex: 1;
+      background: rgba(201,168,76,0.07);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 20px;
+      padding: 10px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--amenSlate);
+      outline: none;
+    }
+    body.dark-page .assistant-input {
+      background: rgba(201,168,76,0.05);
+      color: #a09070;
+      border-color: rgba(201,168,76,0.18);
+    }
+    .assistant-input::placeholder { color: var(--amenGold); opacity: 0.65; }
+
+    .assistant-icon-btn {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(201,168,76,0.25);
+      background: rgba(201,168,76,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px 0 2px;
+      position: relative;
+      z-index: 20;
+      background: transparent;
+    }
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      color: var(--text-sub);
+      cursor: pointer;
+      padding: 4px 12px;
+    }
+    .tab-item.active { color: var(--amenGold); }
+    .tab-item .tab-icon { font-size: 22px; }
+
+    /* ═══════════════════════════════════════════════════
+       FRAME 4: DEFAULT (no overlay)
+    ═══════════════════════════════════════════════════ */
+    .default-frame {
+      width: 100%;
+      min-height: 844px;
+      background: var(--amenCream);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    body.dark-page .default-frame { background: #18181b; }
+
+    .default-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px 8px;
+    }
+    .default-nav .nav-logo {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--amenGold);
+      letter-spacing: -0.5px;
+    }
+    .default-nav .nav-icons { display: flex; gap: 14px; font-size: 22px; cursor: pointer; }
+
+    .context-badge {
+      margin: 0 16px 12px;
+      background: rgba(46,109,164,0.08);
+      border: 1px solid rgba(46,109,164,0.18);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--amenBlue);
+      font-weight: 500;
+    }
+    body.dark-page .context-badge {
+      background: rgba(46,109,164,0.1);
+      border-color: rgba(46,109,164,0.25);
+      color: #5b9fd4;
+    }
+    .context-badge .badge-icon { font-size: 18px; }
+
+    .default-feed {
+      flex: 1;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .default-assistant-bar {
+      background: rgba(255,255,255,0.22);
+      backdrop-filter: blur(28px) saturate(1.6);
+      -webkit-backdrop-filter: blur(28px) saturate(1.6);
+      border-top: 1px solid rgba(255,255,255,0.4);
+      padding: 12px 16px 8px;
+      border-radius: 24px 24px 0 0;
+    }
+    body.dark-page .default-assistant-bar {
+      background: rgba(30,30,38,0.7);
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .default-input {
+      width: 100%;
+      background: rgba(0,0,0,0.04);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 20px;
+      padding: 11px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text-sub);
+      outline: none;
+      margin-bottom: 10px;
+    }
+    body.dark-page .default-input {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+    }
+    .default-input::placeholder { color: var(--amenSlate); opacity: 0.5; }
+
+    /* ═══════════════════════════════════════════════════
+       FRAME 5: PRIVACY CONSENT SHEET
+    ═══════════════════════════════════════════════════ */
+    .consent-frame {
+      width: 100%;
+      min-height: 844px;
+      background: rgba(30,28,36,0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-end;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Background app peek */
+    .consent-bg-peek {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 60px 20px 0;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .consent-bg-card {
+      background: rgba(255,255,255,0.15);
+      border-radius: 16px;
+      height: 90px;
+    }
+
+    .consent-dim {
+      position: absolute;
+      inset: 0;
+      background: rgba(15,12,22,0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* The sheet itself — matte content area */
+    .consent-sheet {
+      position: relative;
+      z-index: 50;
+      background: var(--amenCream);
+      border-radius: 28px 28px 0 0;
+      overflow: hidden;
+    }
+    body.dark-page .consent-sheet { background: #1e1e24; }
+
+    /* Glass header strip */
+    .consent-sheet-header {
+      background: linear-gradient(135deg, rgba(107,79,162,0.92) 0%, rgba(46,109,164,0.88) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 20px 24px 16px;
+      position: relative;
+    }
+    .consent-sheet-header::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,0.35);
+      border-radius: 2px;
+    }
+    .consent-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 18px;
+      margin-bottom: 4px;
+    }
+    .consent-subtitle {
+      font-size: 13px;
+      color: rgba(255,255,255,0.65);
+    }
+
+    /* Shield icon */
+    .consent-shield {
+      width: 44px; height: 44px;
+      background: rgba(255,255,255,0.18);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+
+    /* Body */
+    .consent-body {
+      padding: 20px 24px;
+    }
+
+    .consent-description {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-sub);
+      margin-bottom: 20px;
+      background: rgba(46,109,164,0.05);
+      border: 1px solid rgba(46,109,164,0.12);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    body.dark-page .consent-description {
+      background: rgba(46,109,164,0.08);
+      border-color: rgba(46,109,164,0.2);
+      color: rgba(255,255,255,0.55);
+    }
+
+    /* Permission rows */
+    .permission-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    body.dark-page .permission-row { border-color: rgba(255,255,255,0.08); }
+    .permission-row:last-of-type { border-bottom: none; }
+
+    .perm-icon-wrap {
+      width: 42px; height: 42px;
+      border-radius: 13px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .perm-icon-wrap.location { background: rgba(46,109,164,0.1); }
+    .perm-icon-wrap.motion   { background: rgba(107,79,162,0.1); }
+    .perm-icon-wrap.calendar { background: rgba(201,168,76,0.1); }
+
+    .perm-text { flex: 1; }
+    .perm-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 3px;
+    }
+    .perm-desc {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-sub);
+    }
+
+    /* Toggle */
+    .perm-toggle {
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+    .toggle-pill {
+      width: 50px; height: 28px;
+      background: rgba(0,0,0,0.15);
+      border-radius: 14px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.3s;
+      border: none;
+      outline: none;
+    }
+    body.dark-page .toggle-pill { background: rgba(255,255,255,0.15); }
+    .toggle-pill.active { background: var(--amenPurple); }
+    .toggle-pill::after {
+      content: '';
+      position: absolute;
+      width: 22px; height: 22px;
+      background: #fff;
+      border-radius: 50%;
+      top: 3px; left: 3px;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .toggle-pill.active::after { transform: translateX(22px); }
+
+    /* Consent actions */
+    .consent-actions {
+      padding: 16px 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn-enable {
+      background: linear-gradient(135deg, var(--amenPurple), var(--amenBlue));
+      border: none;
+      border-radius: 18px;
+      padding: 16px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      width: 100%;
+      letter-spacing: 0.2px;
+      box-shadow: 0 6px 24px rgba(107,79,162,0.35);
+      transition: opacity 0.2s;
+    }
+    .btn-enable:hover { opacity: 0.9; }
+
+    .btn-not-now {
+      background: transparent;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 18px;
+      padding: 14px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.2s;
+    }
+    body.dark-page .btn-not-now { border-color: rgba(255,255,255,0.12); }
+    .btn-not-now:hover { background: rgba(0,0,0,0.04); }
+
+    /* Privacy guarantee line */
+    .privacy-guarantee {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-sub);
+      opacity: 0.7;
+      padding-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       CONTEXT MODE SWITCHER (interactive demo at top)
+    ═══════════════════════════════════════════════════ */
+    .switcher-section {
+      max-width: 900px;
+      margin: 24px auto 0;
+      padding: 0 20px;
+    }
+    .switcher-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      margin-bottom: 10px;
+    }
+    .mode-switcher {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mode-btn {
+      background: var(--card-bg);
+      border: 1.5px solid rgba(0,0,0,0.1);
+      border-radius: 12px;
+      padding: 9px 16px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    body.dark-page .mode-btn {
+      background: #2a2a30;
+      border-color: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.55);
+    }
+    .mode-btn.active-worship { background: #1A1A1E; border-color: var(--amenGold); color: var(--amenGold); }
+    .mode-btn.active-drive { background: rgba(107,79,162,0.1); border-color: var(--amenPurple); color: var(--amenPurple); }
+    .mode-btn.active-evening { background: rgba(201,168,76,0.08); border-color: var(--amenGold); color: var(--amenGold); }
+    .mode-btn.active-default { background: rgba(46,109,164,0.08); border-color: var(--amenBlue); color: var(--amenBlue); }
+    .mode-btn.active-privacy { background: rgba(107,79,162,0.08); border-color: var(--amenPurple); color: var(--amenPurple); }
+
+    /* Context indicator banner */
+    .context-banner {
+      max-width: 900px;
+      margin: 12px auto 0;
+      padding: 0 20px;
+    }
+    .context-banner-inner {
+      background: var(--card-bg);
+      border: 1px solid rgba(0,0,0,0.07);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+    body.dark-page .context-banner-inner {
+      background: #2a2a30;
+      border-color: rgba(255,255,255,0.08);
+    }
+    .context-banner-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-worship { background: var(--amenGold); box-shadow: 0 0 6px var(--amenGold); }
+    .dot-drive   { background: var(--amenPurple); box-shadow: 0 0 6px var(--amenPurple); }
+    .dot-evening { background: #e8a838; box-shadow: 0 0 6px #e8a838; }
+    .dot-default { background: var(--amenBlue); box-shadow: 0 0 6px var(--amenBlue); }
+    .dot-privacy { background: var(--amenPurple); box-shadow: 0 0 6px var(--amenPurple); }
+
+    /* ═══════════════════════════════════════════════════
+       RESPONSIVE & UTILITY
+    ═══════════════════════════════════════════════════ */
+    @media (max-width: 450px) {
+      .phone { width: 100%; border-radius: 0; }
+    }
+
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0,0,0,0); border: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════
+       PAGE HEADER
+  ═══════════════════════════════════════════════ -->
+  <header class="page-header">
+    <div class="agent-tag">Agent H · Spiritual OS</div>
+    <h1>Context Engine</h1>
+    <p>Adaptive modes: Worship · Drive · Evening · Default · Privacy Consent</p>
+
+    <!-- Dark mode toggle -->
+    <div class="toggle-wrap" role="group" aria-label="Dark mode toggle">
+      <label for="dark-toggle">Dark</label>
+      <div class="toggle-switch" id="dark-toggle" role="switch" aria-checked="false" tabindex="0"></div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════
+       MODE SWITCHER (interactive demo)
+  ═══════════════════════════════════════════════ -->
+  <section class="switcher-section" aria-label="Context Mode Selector">
+    <div class="switcher-label">Jump to mode</div>
+    <div class="mode-switcher" role="tablist">
+      <button class="mode-btn active-worship" role="tab" aria-selected="true" data-target="frame-worship" onclick="scrollTo('frame-worship','worship')">
+        ⛪ Worship Mode
+      </button>
+      <button class="mode-btn" role="tab" data-target="frame-drive" onclick="scrollTo('frame-drive','drive')">
+        🚗 Drive Mode
+      </button>
+      <button class="mode-btn" role="tab" data-target="frame-evening" onclick="scrollTo('frame-evening','evening')">
+        🌙 Evening Reflection
+      </button>
+      <button class="mode-btn" role="tab" data-target="frame-default" onclick="scrollTo('frame-default','default')">
+        ☀️ Default
+      </button>
+      <button class="mode-btn" role="tab" data-target="frame-privacy" onclick="scrollTo('frame-privacy','privacy')">
+        🔒 Privacy Consent
+      </button>
+    </div>
+  </section>
+
+  <!-- Context active banner -->
+  <div class="context-banner">
+    <div class="context-banner-inner" id="context-banner">
+      <div class="context-banner-dot dot-worship" id="banner-dot"></div>
+      <span id="banner-text">Worship Mode active · Sunday 9:45 AM · First Baptist Church detected nearby</span>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════
+       FRAME 1: WORSHIP MODE
+  ═══════════════════════════════════════════════ -->
+  <section class="section-label" id="frame-worship">
+    <div class="frame-number">Frame 1</div>
+    <h2>Worship Mode</h2>
+    <p>Activated Sunday at church geofence. Full-screen matte dark overlay. Sacred and immersive — feels like entering a sanctuary. Chrome controls are glass chips at bottom only.</p>
+  </section>
+
+  <div class="phone-wrap">
+    <div class="phone" role="region" aria-label="Worship Mode phone preview">
+
+      <!-- Status bar -->
+      <div class="status-bar worship-status">
+        <span class="time">9:45</span>
+        <div class="icons">
+          <span aria-hidden="true">●●●</span>
+          <span aria-hidden="true">WiFi</span>
+          <span aria-hidden="true">🔋</span>
+        </div>
+      </div>
+
+      <div class="worship-frame">
+
+        <!-- Church location pill -->
+        <div class="worship-church-pill">
+          <div class="church-name">
+            <span class="dot" aria-hidden="true"></span>
+            <span>First Baptist Church</span>
+            <span aria-label="separator" style="opacity:0.4">·</span>
+            <span>Sunday 9:45 AM</span>
+          </div>
+          <div class="worship-datetime">Worship Mode · Context Engine Active</div>
+        </div>
+
+        <!-- Verse -->
+        <div class="worship-verse-wrap">
+          <div class="worship-ref" aria-label="Bible reference">Romans 8:28</div>
+          <div class="worship-divider" aria-hidden="true"></div>
+          <blockquote class="worship-verse">
+            "And we know that in all things God works for the good of those who love him, who have been called according to his purpose."
+            <em>— Romans 8:28</em>
+          </blockquote>
+        </div>
+
+        <!-- Bottom actions — glass chips -->
+        <div class="worship-actions">
+          <div class="worship-chip-row">
+            <button class="worship-chip primary" aria-label="Open Prayer">
+              🙏 Open Prayer
+            </button>
+            <button class="worship-chip" aria-label="Sermon Notes">
+              📖 Sermon Notes
+            </button>
+          </div>
+          <div class="worship-dismiss" role="note">
+            Tap anywhere to go to Feed ↓
+          </div>
+        </div>
+
+        <div class="home-indicator">
+          <div class="home-bar" aria-hidden="true"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════
+       FRAME 2: DRIVE MODE
+  ═══════════════════════════════════════════════ -->
+  <section class="section-label" id="frame-drive">
+    <div class="frame-number">Frame 2</div>
+    <h2>Drive Mode</h2>
+    <p>Motion and driving detected. Feed completely hidden behind gray dim. A single glass bar at the bottom — voice and audio controls only. Driving safety first.</p>
+  </section>
+
+  <div class="phone-wrap">
+    <div class="phone" role="region" aria-label="Drive Mode phone preview">
+
+      <div class="drive-frame">
+        <div class="status-bar drive-status">
+          <span class="time" style="color:var(--text-main)">7:20</span>
+          <div class="icons" style="color:var(--text-sub)">
+            <span aria-hidden="true">●●●</span>
+            <span aria-hidden="true">🚗</span>
+            <span aria-hidden="true">🔋</span>
+          </div>
+        </div>
+
+        <!-- Dimmed feed -->
+        <div class="drive-feed-dim" aria-hidden="true">
+          <div class="drive-feed-bg">
+            <div class="mock-card">
+              <div class="mock-avatar"></div>
+              <div class="mock-lines">
+                <div class="mock-line short"></div>
+                <div class="mock-line long"></div>
+                <div class="mock-line mid"></div>
+              </div>
+            </div>
+            <div class="mock-card">
+              <div class="mock-avatar"></div>
+              <div class="mock-lines">
+                <div class="mock-line mid"></div>
+                <div class="mock-line long"></div>
+                <div class="mock-line short"></div>
+              </div>
+            </div>
+            <div class="mock-card">
+              <div class="mock-avatar"></div>
+              <div class="mock-lines">
+                <div class="mock-line long"></div>
+                <div class="mock-line mid"></div>
+                <div class="mock-line short"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="drive-dim-overlay">
+            <div class="drive-hidden-label" role="status">
+              🚗 Feed hidden while driving
+            </div>
+          </div>
+        </div>
+
+        <!-- Drive Mode glass bar -->
+        <div class="drive-bar" role="complementary" aria-label="Drive Mode controls">
+          <div class="drive-bar-header">
+            <div class="drive-status-pill">
+              <div class="drive-icon-wrap" aria-hidden="true">🚗</div>
+              <span class="drive-status-text">Drive mode · Audio only</span>
+            </div>
+            <span class="drive-time">Mon · 7:20 AM</span>
+          </div>
+
+          <div class="drive-actions" role="group" aria-label="Drive mode actions">
+            <button class="drive-btn" aria-label="Ask Berean voice assistant">
+              <span class="btn-icon" aria-hidden="true">🎙</span>
+              <span class="btn-label">Ask Berean</span>
+            </button>
+            <button class="drive-btn" aria-label="Play Audio Bible">
+              <span class="btn-icon" aria-hidden="true">📖</span>
+              <span class="btn-label">Audio Bible</span>
+            </button>
+            <button class="drive-btn exit-btn" aria-label="Exit Drive Mode">
+              <span class="btn-icon" aria-hidden="true">↓</span>
+              <span class="btn-label">Exit</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="home-indicator" style="background:transparent;">
+          <div class="home-bar dark" aria-hidden="true"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════
+       FRAME 3: EVENING REFLECTION
+  ═══════════════════════════════════════════════ -->
+  <section class="section-label" id="frame-evening">
+    <div class="frame-number">Frame 3</div>
+    <h2>Evening Reflection</h2>
+    <p>Subtle mode — not a modal. Warm amber tint from the top, AssistantBar shifts to reflection prompts, and a soft glass chip appears above the bar. Flow is not interrupted.</p>
+  </section>
+
+  <div class="phone-wrap">
+    <div class="phone" role="region" aria-label="Evening Reflection phone preview">
+
+      <div class="evening-frame">
+        <div class="status-bar evening-status">
+          <span class="time" style="color:var(--text-main)">9:15</span>
+          <div class="icons" style="color:var(--text-sub)">
+            <span aria-hidden="true">●●●</span>
+            <span aria-hidden="true">🌙</span>
+            <span aria-hidden="true">🔋</span>
+          </div>
+        </div>
+
+        <!-- Amber warmth bar -->
+        <div class="evening-amber-bar" aria-hidden="true"></div>
+
+        <!-- Nav -->
+        <nav class="evening-nav" aria-label="Main navigation">
+          <span class="nav-title">AMEN</span>
+          <div style="display:flex;gap:12px;">
+            <span class="nav-icon" aria-label="Messages">💬</span>
+            <span class="nav-icon" aria-label="Notifications">🔔</span>
+          </div>
+        </nav>
+
+        <!-- Feed (slightly warm tinted) -->
+        <main class="evening-feed" aria-label="Feed">
+          <article class="feed-card">
+            <div class="feed-card-header">
+              <div class="feed-avatar" aria-hidden="true"></div>
+              <div>
+                <div class="feed-name">Pastor James M.</div>
+                <div class="feed-time">This morning · Psalm 23</div>
+              </div>
+            </div>
+            <p class="feed-content">"The Lord is my shepherd, I lack nothing." — Grateful for today's service. <strong>He provides.</strong></p>
+          </article>
+
+          <article class="feed-card">
+            <div class="feed-card-header">
+              <div class="feed-avatar v2" aria-hidden="true"></div>
+              <div>
+                <div class="feed-name">Grace Community</div>
+                <div class="feed-time">2 hours ago</div>
+              </div>
+            </div>
+            <p class="feed-content">Tonight's small group starts at 7 PM — join us as we study John 15. All are welcome.</p>
+          </article>
+        </main>
+
+        <!-- Reflection chip — glass, above AssistantBar -->
+        <div class="reflection-chip-row" aria-live="polite">
+          <button class="reflection-chip" aria-label="Start evening reflection">
+            ✨ Reflect on today?
+          </button>
+        </div>
+
+        <!-- AssistantBar with warm amber shimmer -->
+        <div class="assistant-bar" role="search" aria-label="Berean assistant — evening reflection mode">
+          <div class="assistant-bar-inner">
+            <input
+              class="assistant-input"
+              type="text"
+              placeholder="How did God move today?"
+              aria-label="Ask Berean — evening reflection prompt"
+              readonly
+            />
+            <button class="assistant-icon-btn" aria-label="Take a photo">📷</button>
+            <button class="assistant-icon-btn" aria-label="Voice input">🎙</button>
+          </div>
+          <nav class="tab-bar" aria-label="Tab bar">
+            <div class="tab-item active" aria-current="page">
+              <span class="tab-icon" aria-hidden="true">🏠</span>
+              <span>Home</span>
+            </div>
+            <div class="tab-item">
+              <span class="tab-icon" aria-hidden="true">🔍</span>
+              <span>Discover</span>
+            </div>
+            <div class="tab-item">
+              <span class="tab-icon" aria-hidden="true">➕</span>
+              <span>Create</span>
+            </div>
+            <div class="tab-item">
+              <span class="tab-icon" aria-hidden="true">⛪</span>
+              <span>Church</span>
+            </div>
+            <div class="tab-item">
+              <span class="tab-icon" aria-hidden="true">👤</span>
+              <span>Profile</span>
+            </div>
+          </nav>
+        </div>
+
+        <div class="home-indicator" style="background:transparent;">
+          <div class="home-bar dark" aria-hidden="true"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════
+       FRAME 4: DEFAULT (no overlay)
+  ═══════════════════════════════════════════════ -->
+  <section class="section-label" id="frame-default">
+    <div class="frame-number">Frame 4</div>
+    <h2>Default Mode</h2>
+    <p>No special context detected. Normal app experience — no overlay, no mode shift. Context Engine is silently monitoring in the background. A subtle informational badge shows it's active.</p>
+  </section>
+
+  <div class="phone-wrap">
+    <div class="phone" role="region" aria-label="Default mode phone preview">
+
+      <div class="default-frame">
+        <div class="status-bar">
+          <span class="time" style="color:var(--text-main)">10:30</span>
+          <div class="icons" style="color:var(--text-sub)">
+            <span aria-hidden="true">●●●</span>
+            <span aria-hidden="true">WiFi</span>
+            <span aria-hidden="true">🔋</span>
+          </div>
+        </div>
+
+        <!-- Nav -->
+        <nav class="default-nav" aria-label="Main navigation">
+          <span class="nav-logo" aria-label="AMEN home">AMEN</span>
+          <div class="nav-icons" aria-label="Actions">
+            <span aria-label="Messages">💬</span>
+            <span aria-label="Notifications">🔔</span>
+          </div>
+        </nav>
+
+        <!-- Context engine status badge -->
+        <div class="context-badge" role="status" aria-label="Context Engine status">
+          <span class="badge-icon" aria-hidden="true">📍</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:var(--amenBlue);margin-bottom:2px;">Context Engine monitoring</div>
+            <div style="font-size:11px;color:var(--text-sub);">No special context detected · Mon 10:30 AM</div>
+          </div>
+        </div>
+
+        <!-- Feed -->
+        <main class="default-feed" aria-label="Feed">
+          <article class="feed-card">
+            <div class="feed-card-header">
+              <div class="feed-avatar" aria-hidden="true"></div>
+              <div>
+                <div class="feed-name" style="color:var(--text-main);">Sarah K.</div>
+                <div class="feed-time" style="color:var(--text-sub);">1 hour ago</div>
+              </div>
+            </div>
+            <p class="feed-content" style="color:var(--text-main);">Starting the week with Proverbs 3:5-6. Trust in the Lord with all your heart!</p>
+          </article>
+
+          <article class="feed-card">
+            <div class="feed-card-header">
+              <div class="feed-avatar v2" aria-hidden="true"></div>
+              <div>
+                <div class="feed-name" style="color:var(--text-main);">Youth Ministry</div>
+                <div class="feed-time" style="color:var(--text-sub);">3 hours ago</div>
+              </div>
+            </div>
+            <p class="feed-content" style="color:var(--text-main);">Volleyball night was incredible. God is building something special in this community.</p>
+          </article>
+
+          <article class="feed-card">
+            <div class="feed-card-header">
+              <div class="feed-avatar" style="background:linear-gradient(135deg,#C9A84C,#2E6DA4);" aria-hidden="true"></div>
+              <div>
+                <div class="feed-name" style="color:var(--text-main);">Prayer Chain</div>
+                <div class="feed-time" style="color:var(--text-sub);">5 hours ago</div>
+              </div>
+            </div>
+            <p class="feed-content" style="color:var(--text-main);">Please lift up the Martinez family in prayer this week. God is faithful. 🙏</p>
+          </article>
+        </main>
+
+        <!-- Default AssistantBar — no mode shift -->
+        <div class="default-assistant-bar" role="search" aria-label="Berean assistant">
+          <input
+            class="default-input"
+            type="text"
+            placeholder="Ask Berean anything…"
+            aria-label="Ask Berean assistant"
+            readonly
+          />
+          <nav class="tab-bar" aria-label="Tab bar">
+            <div class="tab-item active" aria-current="page">
+              <span class="tab-icon" aria-hidden="true">🏠</span>
+              <span>Home</span>
+            </div>
+            <div class="tab-item">
+              <span class="tab-icon" aria-hidden="true">🔍</span>
+              <span>Discover</span>
+            </div>
+            <div class="tab-item">
+              <span class="tab-icon" aria-hidden="true">➕</span>
+              <span>Create</span>
+            </div>
+            <div class="tab-item">
+              <span class="tab-icon" aria-hidden="true">⛪</span>
+              <span>Church</span>
+            </div>
+            <div class="tab-item">
+              <span class="tab-icon" aria-hidden="true">👤</span>
+              <span>Profile</span>
+            </div>
+          </nav>
+        </div>
+
+        <div class="home-indicator" style="background:transparent;">
+          <div class="home-bar dark" aria-hidden="true"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════
+       FRAME 5: PRIVACY CONSENT SHEET
+  ═══════════════════════════════════════════════ -->
+  <section class="section-label" id="frame-privacy">
+    <div class="frame-number">Frame 5</div>
+    <h2>Privacy Consent Sheet</h2>
+    <p>First-run permission request for Context Engine. All toggles default OFF. Plain-language descriptions with explicit "never stored" guarantee. Uses a glass header over a matte content sheet.</p>
+  </section>
+
+  <div class="phone-wrap">
+    <div class="phone" role="region" aria-label="Privacy consent sheet phone preview">
+
+      <div class="consent-frame">
+
+        <!-- Background app peek (behind dim) -->
+        <div class="consent-bg-peek" aria-hidden="true">
+          <div class="consent-bg-card"></div>
+          <div class="consent-bg-card"></div>
+          <div class="consent-bg-card"></div>
+        </div>
+
+        <!-- Dim + blur behind sheet -->
+        <div class="consent-dim" aria-hidden="true"></div>
+
+        <!-- The sheet -->
+        <div class="consent-sheet" role="dialog" aria-modal="true" aria-label="Contextual Awareness permission request">
+
+          <!-- Glass header -->
+          <div class="consent-sheet-header">
+            <div class="consent-shield" aria-hidden="true">🛡</div>
+            <h2 class="consent-title">Contextual Awareness</h2>
+            <p class="consent-subtitle">Smart mode switching · Always private</p>
+          </div>
+
+          <!-- Matte body -->
+          <div class="consent-body">
+
+            <p class="consent-description">
+              AMEN can adapt to your context to serve you better — switching to Worship Mode at your church on Sunday, or Audio Bible while you're driving. <strong style="color:var(--amenPurple)">Your data never leaves your device. No raw coordinates are ever stored.</strong>
+            </p>
+
+            <!-- Location -->
+            <div class="permission-row" role="group" aria-label="Location permission">
+              <div class="perm-icon-wrap location" aria-hidden="true">📍</div>
+              <div class="perm-text">
+                <div class="perm-name">Location</div>
+                <p class="perm-desc">
+                  Used only to detect nearby churches and switch to Worship Mode.
+                  <strong style="color:var(--amenPurple);">Your location is NEVER stored.</strong>
+                  Context resolves to "First Baptist Church" — not coordinates.
+                  You can turn this off anytime.
+                </p>
+              </div>
+              <div class="perm-toggle">
+                <button
+                  class="toggle-pill"
+                  id="toggle-location"
+                  role="switch"
+                  aria-checked="false"
+                  aria-label="Enable location access"
+                  onclick="togglePerm(this)"
+                ></button>
+              </div>
+            </div>
+
+            <!-- Motion -->
+            <div class="permission-row" role="group" aria-label="Motion permission">
+              <div class="perm-icon-wrap motion" aria-hidden="true">🏃</div>
+              <div class="perm-text">
+                <div class="perm-name">Motion</div>
+                <p class="perm-desc">
+                  Used only to detect if you're driving.
+                  Activates Drive Mode — feed hidden, audio controls shown.
+                  Motion data is processed on-device only. Never sent to servers.
+                  Turns off anytime.
+                </p>
+              </div>
+              <div class="perm-toggle">
+                <button
+                  class="toggle-pill"
+                  id="toggle-motion"
+                  role="switch"
+                  aria-checked="false"
+                  aria-label="Enable motion access"
+                  onclick="togglePerm(this)"
+                ></button>
+              </div>
+            </div>
+
+            <!-- Calendar -->
+            <div class="permission-row" role="group" aria-label="Calendar permission">
+              <div class="perm-icon-wrap calendar" aria-hidden="true">📅</div>
+              <div class="perm-text">
+                <div class="perm-name">Calendar</div>
+                <p class="perm-desc">
+                  Used to surface upcoming church events and service times.
+                  AMEN reads event titles only to recognize church events.
+                  Calendar data is never uploaded or shared.
+                  Optional — works without this.
+                </p>
+              </div>
+              <div class="perm-toggle">
+                <button
+                  class="toggle-pill"
+                  id="toggle-calendar"
+                  role="switch"
+                  aria-checked="false"
+                  aria-label="Enable calendar access"
+                  onclick="togglePerm(this)"
+                ></button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Actions -->
+          <div class="consent-actions">
+            <button class="btn-enable" onclick="handleEnable()">
+              Enable Selected
+            </button>
+            <button class="btn-not-now" onclick="handleNotNow()">
+              Not Now
+            </button>
+            <p class="privacy-guarantee" role="note">
+              <span aria-hidden="true">🔒</span>
+              Context Engine data never leaves your device
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════ -->
+  <footer style="
+    text-align: center;
+    padding: 40px 20px 20px;
+    font-size: 12px;
+    color: var(--text-sub);
+    opacity: 0.6;
+    letter-spacing: 0.3px;
+  ">
+    Agent H · Context Engine · Spiritual OS Prototype · AMEN App
+    <br>Design tokens: amenGold #C9A84C · amenPurple #6B4FA2 · amenBlue #2E6DA4
+    <br>Rule: Content is matte. Chrome is glass.
+  </footer>
+
+
+  <!-- ═══════════════════════════════════════════════
+       JAVASCRIPT
+  ═══════════════════════════════════════════════ -->
+  <script>
+    // Dark mode toggle
+    const darkToggle = document.getElementById('dark-toggle');
+    darkToggle.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-page');
+      darkToggle.classList.toggle('on', isDark);
+      darkToggle.setAttribute('aria-checked', String(isDark));
+    });
+    darkToggle.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        darkToggle.click();
+      }
+    });
+
+    // Permission toggles
+    function togglePerm(btn) {
+      const isOn = btn.classList.toggle('active');
+      btn.setAttribute('aria-checked', String(isOn));
+    }
+
+    // Mode switcher buttons
+    const bannerData = {
+      worship: {
+        dot: 'dot-worship',
+        text: 'Worship Mode active · Sunday 9:45 AM · First Baptist Church detected nearby'
+      },
+      drive: {
+        dot: 'dot-drive',
+        text: 'Drive Mode active · Motion detected · Monday 7:20 AM · Feed hidden'
+      },
+      evening: {
+        dot: 'dot-evening',
+        text: 'Evening Reflection active · Monday 9:15 PM · Reflection prompts enabled'
+      },
+      default: {
+        dot: 'dot-default',
+        text: 'Default Mode · No special context detected · Monday 10:30 AM'
+      },
+      privacy: {
+        dot: 'dot-privacy',
+        text: 'Privacy Consent Sheet · First-run permission request · All toggles default OFF'
+      }
+    };
+
+    const modeBtnClassMap = {
+      worship: 'active-worship',
+      drive:   'active-drive',
+      evening: 'active-evening',
+      default: 'active-default',
+      privacy: 'active-privacy'
+    };
+
+    function scrollTo(targetId, mode) {
+      // Smooth scroll
+      const target = document.getElementById(targetId);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      // Update banner
+      const dot = document.getElementById('banner-dot');
+      const text = document.getElementById('banner-text');
+      const data = bannerData[mode];
+      if (data && dot && text) {
+        dot.className = 'context-banner-dot ' + data.dot;
+        text.textContent = data.text;
+      }
+
+      // Update button active states
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        // Remove all active classes
+        Object.values(modeBtnClassMap).forEach(cls => btn.classList.remove(cls));
+        btn.setAttribute('aria-selected', 'false');
+      });
+      const clicked = document.querySelector(`[data-target="${targetId}"]`);
+      if (clicked && modeBtnClassMap[mode]) {
+        clicked.classList.add(modeBtnClassMap[mode]);
+        clicked.setAttribute('aria-selected', 'true');
+      }
+    }
+
+    // Consent actions (demo feedback)
+    function handleEnable() {
+      const anyOn = ['toggle-location','toggle-motion','toggle-calendar']
+        .some(id => document.getElementById(id).classList.contains('active'));
+
+      if (!anyOn) {
+        alert('Please enable at least one permission, or tap "Not Now" to skip.');
+        return;
+      }
+
+      const selected = ['toggle-location','toggle-motion','toggle-calendar']
+        .filter(id => document.getElementById(id).classList.contains('active'))
+        .map(id => id.replace('toggle-', ''));
+
+      alert('Context Engine enabled for: ' + selected.join(', ') +
+        '\n\nReminder: Your data never leaves your device.');
+    }
+
+    function handleNotNow() {
+      alert('No problem. You can enable Contextual Awareness anytime in Settings → Privacy → Context Engine.');
+    }
+  </script>
+
+</body>
+</html>
