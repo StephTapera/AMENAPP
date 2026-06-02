@@ -3,6 +3,7 @@
 // Built 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseAuth
 
 // MARK: - ViewModel
@@ -252,6 +253,11 @@ struct AmenMinistryRoomTasksTab: View {
         }
         .background(Color(hex: "070607"))
         .task { await vm.load() }
+        .onAppear {
+            Analytics.logEvent("ministry_room_tasks_viewed", parameters: [
+                "space_id": spaceId
+            ])
+        }
     }
 
     private var loadingView: some View {

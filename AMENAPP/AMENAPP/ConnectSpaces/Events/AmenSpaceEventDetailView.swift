@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAnalytics
 
 private enum CalendarAddState: Equatable {
     case idle
@@ -47,6 +48,12 @@ struct AmenSpaceEventDetailView: View {
             glassNavBar
         }
         .overlay(calendarToast, alignment: .bottom)
+        .onAppear {
+            Analytics.logEvent("space_event_viewed", parameters: [
+                "event_id": event.id,
+                "event_type": event.type.displayName
+            ])
+        }
     }
 
     // MARK: - Sub-views

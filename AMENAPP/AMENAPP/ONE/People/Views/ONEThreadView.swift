@@ -107,6 +107,7 @@ struct ONEThreadView: View {
                     .font(.system(size: 15, weight: .semibold))
                 HStack(spacing: 3) {
                     Image(systemName: "lock.fill").font(.system(size: 9))
+                        .accessibilityHidden(true)
                     Text("End-to-end encrypted").font(.system(size: 10))
                 }
                 .foregroundStyle(ONE.Colors.privateIndigo)

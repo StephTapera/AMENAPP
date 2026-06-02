@@ -3,6 +3,7 @@
 // Built 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -89,6 +90,9 @@ struct AmenMinistryRoomHistoryTab: View {
         .background(Color(hex: "070607"))
         .onAppear {
             presenceLoader.start(userId: currentUserId)
+            Analytics.logEvent("ministry_room_history_viewed", parameters: [
+                "space_id": spaceId
+            ])
         }
         .onDisappear {
             presenceLoader.stop()

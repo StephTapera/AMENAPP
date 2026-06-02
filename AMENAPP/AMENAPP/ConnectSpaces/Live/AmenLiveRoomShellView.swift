@@ -3,6 +3,7 @@
 // Built: 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFunctions
 
 // MARK: - Shell View
@@ -41,6 +42,10 @@ struct AmenLiveRoomShellView: View {
             }
         }
         .onAppear {
+            Analytics.logEvent("live_room_viewed", parameters: [
+                "room_id": room.id,
+                "mode": room.mode == .video ? "video" : "audio"
+            ])
             Task {
                 try? await provider.joinRoom(
                     roomId: room.id,

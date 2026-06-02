@@ -32,6 +32,7 @@ struct EmojiPickerView: View {
                                         .fill(Color.gray.opacity(0.1))
                                 )
                         }
+                        .accessibilityLabel(emoji)
                     }
                 }
                 .padding()

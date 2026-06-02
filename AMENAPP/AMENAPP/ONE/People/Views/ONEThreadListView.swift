@@ -97,6 +97,7 @@ struct ONEThreadListView: View {
                     Image(systemName: "lock.fill")
                         .font(.system(size: 9))
                         .foregroundStyle(ONE.Colors.privateIndigo)
+                        .accessibilityHidden(true)
                     Text("End-to-end encrypted")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)

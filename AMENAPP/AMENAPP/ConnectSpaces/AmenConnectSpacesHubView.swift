@@ -7,6 +7,8 @@
 // All scripture / message bodies remain matte.
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseAnalytics
 
 // MARK: - Preview stub data
 
@@ -103,6 +105,7 @@ private func roomTypeIcon(_ type: AmenConnectSpacesRoomType) -> String {
 struct AmenConnectSpacesHubView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showCreateSpace = false
 
     var body: some View {
         NavigationStack {
@@ -156,6 +159,27 @@ struct AmenConnectSpacesHubView: View {
             }
             .navigationTitle("Spaces & Connect")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showCreateSpace = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .accessibilityLabel("Create a new Space")
+                }
+            }
+            .sheet(isPresented: $showCreateSpace) {
+                AmenCreateSpaceEnhancedSheet(
+                    userId: Auth.auth().currentUser?.uid ?? "",
+                    onDismiss: { showCreateSpace = false },
+                    onCreated: { _ in showCreateSpace = false }
+                )
+            }
+            .onAppear {
+                Analytics.logEvent("spaces_hub_viewed", parameters: [:])
+            }
         }
     }
 

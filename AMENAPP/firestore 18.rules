@@ -4498,6 +4498,82 @@ service cloud.firestore {
     }
 
     // ============================================================================
+    // SPIRITUAL OS COLLECTIONS (ported from root firestore.rules — CF-write only)
+    // ============================================================================
+
+    // Daily Digest — CF writes, owner reads; only isRead client-writable
+    match /spiritualOS_digest/{userId}/items/{itemId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool;
+      allow delete: if false;
+    }
+
+    // Unified Hub Inbox — CF writes, owner reads; client may pin/archive/mark-read
+    match /spiritualOS_hub/{userId}/items/{itemId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isPinned', 'isRead', 'isArchived']);
+      allow delete: if false;
+    }
+
+    // Life Planner Events — owner full control except bereanNote fields (CF-only)
+    match /spiritualOS_planner/{userId}/events/{eventId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated()
+        && request.auth.uid == userId
+        && !('isBereanNote' in request.resource.data)
+        && !('bereanNote' in request.resource.data);
+      allow update: if isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isCompleted', 'isDismissed', 'title', 'description',
+                      'startDate', 'endDate', 'isAllDay', 'color']);
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Context State — single doc per user, owner read/delete only; CF writes
+    match /spiritualOS_context/{userId} {
+      allow read, delete: if isAuthenticated() && request.auth.uid == userId;
+      allow create, update: if false; // updateContextState CF only
+    }
+
+    // Berean Suggestions — CF writes, owner reads; client may dismiss
+    match /spiritualOS_suggestions/{userId}/items/{itemId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isDismissed']);
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // LEGACY MEDIA BRIDGE (read-only until migration completes)
+    // ============================================================================
+
+    match /posts/{postId}/mediaMeta/{mediaId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+
+      match /captionTracks/{trackId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if false;
+      }
+
+      match /keyMoments/{momentId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if false;
+      }
+    }
+
+    // ============================================================================
     // DEFAULT DENY ALL OTHER COLLECTIONS
     // ============================================================================
 

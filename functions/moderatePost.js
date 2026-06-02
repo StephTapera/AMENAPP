@@ -41,6 +41,8 @@ exports.moderatePost = onDocumentCreated(
       // (moderateUploadedImage) clears the media via SafeSearch.
       await snap.ref.update({
         visible: false,
+        flaggedForReview: true,
+        removed: false,
         moderation: {
           status: "pending_image_review",
           categories: [],
@@ -141,6 +143,8 @@ exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
 
     await postRef.update({
       visible: true,
+      flaggedForReview: false,
+      removed: false,
       media: cleanedMedia,
       moderation: {
         status: "approved",
@@ -170,6 +174,8 @@ exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
   // decision === "rejected"
   await postRef.update({
     visible: false,
+    flaggedForReview: false,
+    removed: true,
     moderation: {
       status: "rejected",
       categories: [],

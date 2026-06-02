@@ -9,6 +9,7 @@
 
 import SwiftUI
 import AVKit
+import FirebaseAnalytics
 
 // MARK: - Stub chapter model
 
@@ -136,6 +137,12 @@ struct AmenConnectPlayerView: View {
                 player.pause()
                 showSessionRecap = true
             }
+        }
+        .onAppear {
+            Analytics.logEvent("connect_video_viewed", parameters: [
+                "video_id": video.id,
+                "teacher_id": video.teacherId
+            ])
         }
     }
 

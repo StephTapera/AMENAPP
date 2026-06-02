@@ -3,6 +3,7 @@
 // Agent 3 — built 2026-06-01
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -79,6 +80,12 @@ struct AmenMinistryRoomShellView: View {
             }
         }
         .navigationBarHidden(true)
+        .onAppear {
+            Analytics.logEvent("ministry_room_viewed", parameters: [
+                "space_id": space.id,
+                "space_name": space.name
+            ])
+        }
     }
 
     // MARK: - Glass Top Bar
