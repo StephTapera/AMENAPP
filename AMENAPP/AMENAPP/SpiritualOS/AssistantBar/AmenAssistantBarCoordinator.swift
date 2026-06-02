@@ -389,20 +389,301 @@ struct AmenAssistantBarOverlay: View {
     }
 }
 
-// MARK: - Placeholder Views
+// MARK: - Camera OCR Sheet
 
-/// Stub shown while the real AMEN Vision OCR camera feature is not yet wired.
-struct CameraPlaceholderView: View {
+/// Presents a photo picker and runs Vision text recognition to extract scripture text.
+struct CameraOCRSheet: View {
+    @ObservedObject var coordinator: AmenAssistantBarCoordinator
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var detectedText = ""
+    @State private var isProcessing = false
+
     var body: some View {
-        Text("Camera OCR coming soon")
-            .padding()
+        NavigationStack {
+            VStack(spacing: 20) {
+                VStack(spacing: 8) {
+                    Image(systemName: "camera.viewfinder")
+                        .font(.system(size: 44))
+                        .foregroundStyle(Color.amenPurple)
+                    Text("Verse Lens")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(Color.amenBlack)
+                    Text("Select a photo containing a Bible verse. AMEN will read the text and help you explore it.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.amenSlate)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+                .padding(.top, 20)
+
+                if !detectedText.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Detected Text")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.amenSlate)
+                        TextEditor(text: $detectedText)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color.amenBlack)
+                            .frame(minHeight: 80, maxHeight: 160)
+                            .padding(10)
+                            .background(Color(.systemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .scrollContentBackground(.hidden)
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        HStack {
+                            Image(systemName: isProcessing ? "hourglass" : "photo.on.rectangle")
+                            Text(isProcessing ? "Reading text…" : "Choose Photo")
+                        }
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(isProcessing ? Color.amenPurple.opacity(0.5) : Color.amenPurple)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .disabled(isProcessing)
+                    .padding(.horizontal, 16)
+
+                    if !detectedText.isEmpty {
+                        Button {
+                            Task { await coordinator.receiveDetectedText(detectedText) }
+                        } label: {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                Text("Ask Berean about this")
+                            }
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.amenPurple)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(Color.amenPurple.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                        }
+                        .padding(.horizontal, 16)
+                        .accessibilityLabel("Submit detected text to Berean AI")
+                    }
+                }
+                .padding(.bottom, 32)
+            }
+            .background(Color.amenCream.ignoresSafeArea())
+            .navigationTitle("Verse Lens")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onChange(of: selectedPhoto) { _, newItem in
+                guard let newItem else { return }
+                isProcessing = true
+                Task {
+                    await processPhoto(newItem)
+                    isProcessing = false
+                }
+            }
+        }
+    }
+
+    private func processPhoto(_ item: PhotosPickerItem) async {
+        guard
+            let data = try? await item.loadTransferable(type: Data.self),
+            let uiImage = UIImage(data: data),
+            let cgImage = uiImage.cgImage
+        else { return }
+
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        guard (try? handler.perform([request])) != nil,
+              let results = request.results else { return }
+
+        let recognized = results
+            .compactMap { $0.topCandidates(1).first?.string }
+            .joined(separator: " ")
+
+        await MainActor.run { detectedText = recognized }
     }
 }
 
-/// Stub shown while the real voice-input feature is not yet wired.
-struct VoicePlaceholderView: View {
+// MARK: - Voice Input Sheet
+
+/// Records speech via SFSpeechRecognizer and submits the transcription to Berean.
+struct VoiceInputSheet: View {
+    @ObservedObject var coordinator: AmenAssistantBarCoordinator
+    @Environment(\.dismiss) private var dismiss
+
+    @StateObject private var recorder = VoiceRecorder()
+
     var body: some View {
-        Text("Voice input coming soon")
-            .padding()
+        NavigationStack {
+            VStack(spacing: 20) {
+                VStack(spacing: 8) {
+                    Image(systemName: recorder.isRecording ? "mic.fill" : "mic")
+                        .font(.system(size: 44))
+                        .foregroundStyle(recorder.isRecording ? Color.red : Color.amenPurple)
+                    Text("Voice to Berean")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(Color.amenBlack)
+                    Text(recorder.isRecording ? "Listening…" : "Tap the mic to speak your question or verse")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.amenSlate)
+                }
+                .padding(.top, 20)
+
+                if !recorder.transcribedText.isEmpty {
+                    Text(recorder.transcribedText)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.amenBlack)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 16)
+                }
+
+                if let error = recorder.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    Button {
+                        recorder.isRecording ? recorder.stop() : recorder.start()
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(recorder.isRecording ? Color.red : Color.amenPurple)
+                                .frame(width: 72, height: 72)
+                            Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Start recording")
+
+                    if !recorder.transcribedText.isEmpty && !recorder.isRecording {
+                        Button {
+                            Task { await coordinator.receiveDetectedText(recorder.transcribedText) }
+                        } label: {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                Text("Ask Berean")
+                            }
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(Color.amenPurple)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                        }
+                        .padding(.horizontal, 16)
+                        .accessibilityLabel("Submit transcription to Berean AI")
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .background(Color.amenCream.ignoresSafeArea())
+            .navigationTitle("Voice Input")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        recorder.stop()
+                        dismiss()
+                    }
+                }
+            }
+            .onDisappear { recorder.stop() }
+            .task { await recorder.requestPermission() }
+        }
+    }
+}
+
+// MARK: - VoiceRecorder
+
+private final class VoiceRecorder: ObservableObject {
+    @Published var transcribedText = ""
+    @Published var isRecording = false
+    @Published var errorMessage: String? = nil
+
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioEngine = AVAudioEngine()
+
+    func requestPermission() async {
+        let status = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+        }
+        await MainActor.run {
+            if status != .authorized {
+                errorMessage = "Speech recognition permission required. Enable in Settings."
+            }
+        }
+    }
+
+    func start() {
+        guard let recognizer = speechRecognizer, recognizer.isAvailable else {
+            errorMessage = "Speech recognition is not available on this device."
+            return
+        }
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            errorMessage = "Could not configure audio session."
+            return
+        }
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let req = recognitionRequest else { return }
+        req.shouldReportPartialResults = true
+
+        let node = audioEngine.inputNode
+        let format = node.outputFormat(forBus: 0)
+        node.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            self?.recognitionRequest?.append(buffer)
+        }
+        audioEngine.prepare()
+        guard (try? audioEngine.start()) != nil else {
+            errorMessage = "Could not start audio engine."
+            return
+        }
+        recognitionTask = recognizer.recognitionTask(with: req) { [weak self] result, error in
+            if let result {
+                DispatchQueue.main.async { self?.transcribedText = result.bestTranscription.formattedString }
+            }
+            if error != nil || result?.isFinal == true { self?.stop() }
+        }
+        DispatchQueue.main.async { self.isRecording = true }
+        errorMessage = nil
+    }
+
+    func stop() {
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+        recognitionRequest = nil
+        recognitionTask = nil
+        try? AVAudioSession.sharedInstance().setActive(false)
+        DispatchQueue.main.async { self.isRecording = false }
     }
 }

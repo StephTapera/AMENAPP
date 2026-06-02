@@ -5,8 +5,7 @@
 // All tests are pure-Swift — no Firebase, no network, no UI dependencies.
 // Run with: Product ▶ Test (⌘U)
 
-import Testing
-import Foundation
+import XCTest
 @testable import AMENAPP
 
 // MARK: - Helpers
@@ -33,11 +32,9 @@ private func makeBook(
 
 // MARK: - 1. Ranking Service — Safety Guard
 
-@Suite("AmenLibraryRankingService — Safety")
-struct RankingServiceSafetyTests {
+final class RankingServiceSafetyTests: XCTestCase {
 
-    @Test("Books with shame/fear signals are filtered from ranked surfaces")
-    func unsafeBooksFiltered() {
+    func testUnsafeBooksFiltered() {
         let ranker = AmenLibraryRankingService.shared
         let shameBook = makeBook(title: "Your Shameful Secret Exposed", categories: ["shame"])
         let fearBook  = makeBook(title: "What You Should Fear About Your Faith", categories: ["fear"])
@@ -51,39 +48,34 @@ struct RankingServiceSafetyTests {
             notedBookIds: []
         )
 
-        #expect(ranked.count == 1)
-        #expect(ranked.first?.id == safeBook.id)
+        XCTAssertEqual(ranked.count, 1)
+        XCTAssertEqual(ranked.first?.id, safeBook.id)
     }
 
-    @Test("isSafe returns false for books with unsafe category signals")
-    func isSafeReturnsFalseForUnsafe() {
+    func testIsSafeReturnsFalseForUnsafe() {
         let ranker = AmenLibraryRankingService.shared
         let clickbaitBook = makeBook(title: "Outrage in the Church", categories: ["outrage", "scandal"])
-        #expect(ranker.isSafe(clickbaitBook) == false)
+        XCTAssertFalse(ranker.isSafe(clickbaitBook))
     }
 
-    @Test("isSafe returns true for normal Christian books")
-    func isSafeReturnsTrueForSafe() {
+    func testIsSafeReturnsTrueForSafe() {
         let ranker = AmenLibraryRankingService.shared
         let book = makeBook(title: "Mere Christianity", categories: ["Apologetics", "Theology"])
-        #expect(ranker.isSafe(book))
+        XCTAssertTrue(ranker.isSafe(book))
     }
 
-    @Test("Ranking avoids urgency signals in title")
-    func urgencySignalBlocked() {
+    func testUrgencySignalBlocked() {
         let ranker = AmenLibraryRankingService.shared
         let urgentBook = makeBook(title: "Urgency: Why You Must Act Now", categories: ["urgency"])
-        #expect(ranker.isSafe(urgentBook) == false)
+        XCTAssertFalse(ranker.isSafe(urgentBook))
     }
 }
 
 // MARK: - 2. Ranking Service — Score Ordering
 
-@Suite("AmenLibraryRankingService — Score Ordering")
-struct RankingScoreOrderingTests {
+final class RankingScoreOrderingTests: XCTestCase {
 
-    @Test("Featured editorial book scores higher than non-featured")
-    func featuredScoresHigher() {
+    func testFeaturedScoresHigher() {
         let ranker = AmenLibraryRankingService.shared
         let featured    = makeBook(title: "Featured Book", isFeatured: true, averageRating: 4.5)
         let nonFeatured = makeBook(title: "Regular Book", isFeatured: false, averageRating: 4.5)
@@ -95,11 +87,10 @@ struct RankingScoreOrderingTests {
             savedBookIds: [],
             notedBookIds: []
         )
-        #expect(ranked.first?.id == featured.id)
+        XCTAssertEqual(ranked.first?.id, featured.id)
     }
 
-    @Test("Higher-rated book scores above lower-rated at same editorial level")
-    func higherRatingScoresHigher() {
+    func testHigherRatingScoresHigher() {
         let ranker = AmenLibraryRankingService.shared
         let highRated = makeBook(id: "high", title: "High Rated", averageRating: 4.9)
         let lowRated  = makeBook(id: "low",  title: "Low Rated",  averageRating: 2.0)
@@ -111,11 +102,10 @@ struct RankingScoreOrderingTests {
             savedBookIds: [],
             notedBookIds: []
         )
-        #expect(ranked.first?.id == "high")
+        XCTAssertEqual(ranked.first?.id, "high")
     }
 
-    @Test("Already-saved books are not excluded from rank but score 0 user signal")
-    func savedBookNotExcluded() {
+    func testSavedBookNotExcluded() {
         let ranker = AmenLibraryRankingService.shared
         let book = makeBook(id: "saved-book")
         let ranked = ranker.rank(
@@ -125,18 +115,15 @@ struct RankingScoreOrderingTests {
             savedBookIds: ["saved-book"],
             notedBookIds: []
         )
-        // Safe books always pass through rank; saved ones just score lower user signal
-        #expect(ranked.count == 1)
+        XCTAssertEqual(ranked.count, 1)
     }
 }
 
 // MARK: - 3. Recommendation Reasons — No Sensitive Assumptions
 
-@Suite("AmenWisdomGraphService — Recommendation Reason Labels")
-struct RecommendationReasonLabelTests {
+final class RecommendationReasonLabelTests: XCTestCase {
 
-    @Test("All reason labels are non-specific about spiritual state")
-    func reasonLabelsAreNonSpecific() {
+    func testReasonLabelsAreNonSpecific() {
         let sensitiveTerms = [
             "struggling", "suffering", "depressed", "anxious", "broken",
             "lost", "failing", "weak", "shame", "guilt"
@@ -145,48 +132,42 @@ struct RecommendationReasonLabelTests {
         for reason in AmenRecommendationReason.allCases {
             let label = reason.displayLabel.lowercased()
             for term in sensitiveTerms {
-                #expect(!label.contains(term),
+                XCTAssertFalse(label.contains(term),
                     "Reason '\(reason.rawValue)' contains sensitive assumption term '\(term)'")
             }
         }
     }
 
-    @Test("Reason display labels match their raw values")
-    func reasonDisplayLabelsMatchRawValues() {
+    func testReasonDisplayLabelsMatchRawValues() {
         for reason in AmenRecommendationReason.allCases {
-            #expect(reason.displayLabel == reason.rawValue)
+            XCTAssertEqual(reason.displayLabel, reason.rawValue)
         }
     }
 }
 
 // MARK: - 4. Library Memory Service — Progress Updates
 
-@Suite("AmenLibraryMemoryService — Progress")
-struct LibraryMemoryProgressTests {
+final class LibraryMemoryProgressTests: XCTestCase {
 
-    @Test("continuationLabel returns nil for unseen book")
     @MainActor
-    func continuationLabelNilForUnseenBook() {
+    func testContinuationLabelNilForUnseenBook() {
         let service = AmenLibraryMemoryService.shared
         let label = service.continuationLabel(for: "unknown-book-id")
-        #expect(label == nil)
+        XCTAssertNil(label)
     }
 
-    @Test("wasRecentlyOpened returns false for unseen book")
     @MainActor
-    func wasRecentlyOpenedFalseForUnseenBook() {
+    func testWasRecentlyOpenedFalseForUnseenBook() {
         let service = AmenLibraryMemoryService.shared
-        #expect(service.wasRecentlyOpened("never-opened-id") == false)
+        XCTAssertFalse(service.wasRecentlyOpened("never-opened-id"))
     }
 }
 
 // MARK: - 5. Study Plan Builder — Progress Tracking
 
-@Suite("AmenStudyPlanBuilder — Progress Tracking")
-struct StudyPlanProgressTests {
+final class StudyPlanProgressTests: XCTestCase {
 
-    @Test("Progress fraction is 0 for new plan with no completed days")
-    func progressZeroForNewPlan() async throws {
+    func testProgressZeroForNewPlan() {
         let days = (1...7).map { i in
             AmenStudyDay(
                 dayNumber: i, title: "Day \(i)", readingExcerpt: nil,
@@ -199,11 +180,10 @@ struct StudyPlanProgressTests {
             source: .book, sourceTitle: "Test Book", createdAt: Date(),
             days: days, currentDayIndex: 0, isCompleted: false
         )
-        #expect(plan.progress == 0.0)
+        XCTAssertEqual(plan.progress, 0.0)
     }
 
-    @Test("Progress fraction is 1.0 when all days completed")
-    func progressOneWhenAllDaysCompleted() {
+    func testProgressOneWhenAllDaysCompleted() {
         var days = (1...3).map { i in
             AmenStudyDay(
                 dayNumber: i, title: "Day \(i)", readingExcerpt: nil,
@@ -217,11 +197,10 @@ struct StudyPlanProgressTests {
             source: .topic, sourceTitle: "Grace", createdAt: Date(),
             days: days, currentDayIndex: 2, isCompleted: true
         )
-        #expect(plan.progress == 1.0)
+        XCTAssertEqual(plan.progress, 1.0)
     }
 
-    @Test("currentDay returns day at currentDayIndex")
-    func currentDayReturnsCorrectDay() {
+    func testCurrentDayReturnsCorrectDay() {
         let days = (1...5).map { i in
             AmenStudyDay(
                 dayNumber: i, title: "Day \(i)", readingExcerpt: nil,
@@ -234,17 +213,15 @@ struct StudyPlanProgressTests {
             source: .scripture, sourceTitle: "Psalm 23", createdAt: Date(),
             days: days, currentDayIndex: 2, isCompleted: false
         )
-        #expect(plan.currentDay?.dayNumber == 3)
+        XCTAssertEqual(plan.currentDay?.dayNumber, 3)
     }
 }
 
 // MARK: - 6. Book Note Store — Save and Retrieve
 
-@Suite("AmenBookNoteStore — Notes")
-struct BookNoteStoreTests {
+final class BookNoteStoreTests: XCTestCase {
 
-    @Test("Saved note is retrievable by bookId")
-    func savedNoteRetrievableByBookId() {
+    func testSavedNoteRetrievableByBookId() {
         let store = AmenBookNoteStore.shared
         let note = AmenBookNote(
             bookId: "test-book-store-\(UUID().uuidString)",
@@ -255,20 +232,18 @@ struct BookNoteStoreTests {
         )
         store.save(note)
         let fetched = store.notes(for: note.bookId)
-        #expect(fetched.count >= 1)
-        #expect(fetched.first?.highlightText == "Test highlight text")
+        XCTAssertGreaterThanOrEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.highlightText, "Test highlight text")
     }
 }
 
 // MARK: - 7. Offline: Conflict Resolution Strategy
 
-@Suite("AmenLibraryMemoryService — Conflict Resolution")
-struct OfflineSyncConflictTests {
+final class OfflineSyncConflictTests: XCTestCase {
 
-    @Test("Two read events for same book: newest lastSeenAt wins")
-    func newestTimestampWins() {
-        let older = Date(timeIntervalSinceNow: -7200)   // 2h ago
-        let newer = Date(timeIntervalSinceNow: -60)      // 1min ago
+    func testNewestTimestampWins() {
+        let older = Date(timeIntervalSinceNow: -7200)
+        let newer = Date(timeIntervalSinceNow: -60)
 
         let eventA = AmenLibraryReadEvent(
             bookId: "conflict-book", bookTitle: "T", bookAuthor: "A",
@@ -281,19 +256,16 @@ struct OfflineSyncConflictTests {
             progressFraction: 0.6, isCompleted: false, isAbandoned: false, formatPreference: .ebook
         )
 
-        // Conflict resolution: pick the one with the newer lastSeenAt
         let winner = [eventA, eventB].max { $0.lastSeenAt < $1.lastSeenAt }
-        #expect(winner?.progressFraction == eventB.progressFraction)
+        XCTAssertEqual(winner?.progressFraction, eventB.progressFraction)
     }
 }
 
 // MARK: - 8. Search Grouping
 
-@Suite("AmenLibraryCatalogProvider — Search")
-struct CatalogSearchGroupingTests {
+final class CatalogSearchGroupingTests: XCTestCase {
 
-    @Test("Mock provider returns books matching title keyword")
-    func mockProviderMatchesTitle() async throws {
+    func testMockProviderMatchesTitle() async throws {
         let mock = MockAmenLibraryCatalogProvider()
         mock.mockBooks = [
             makeBook(id: "a1", title: "Prayer and Fasting"),
@@ -301,35 +273,31 @@ struct CatalogSearchGroupingTests {
             makeBook(id: "c3", title: "Deep Prayer Life")
         ]
         let results = try await mock.search(query: "prayer", maxResults: 10)
-        #expect(results.count == 2)
+        XCTAssertEqual(results.count, 2)
         let ids = results.map(\.id)
-        #expect(ids.contains("a1"))
-        #expect(ids.contains("c3"))
+        XCTAssertTrue(ids.contains("a1"))
+        XCTAssertTrue(ids.contains("c3"))
     }
 
-    @Test("Mock provider returns empty for no-match query")
-    func mockProviderEmptyForNoMatch() async throws {
+    func testMockProviderEmptyForNoMatch() async throws {
         let mock = MockAmenLibraryCatalogProvider()
         mock.mockBooks = [makeBook(title: "Theology Essentials")]
         let results = try await mock.search(query: "zzznomatch", maxResults: 10)
-        #expect(results.isEmpty)
+        XCTAssertTrue(results.isEmpty)
     }
 }
 
 // MARK: - 9. Reduce Motion — Companion Engine
 
-@Suite("AmenReadingCompanionEngine — Reduce Motion")
-struct CompanionReduceMotionTests {
+final class CompanionReduceMotionTests: XCTestCase {
 
-    @Test("AmenCompanionAction.allCases contains all 6 actions")
-    func allActionsPresent() {
-        #expect(AmenCompanionAction.allCases.count == 6)
+    func testAllActionsPresent() {
+        XCTAssertEqual(AmenCompanionAction.allCases.count, 6)
     }
 
-    @Test("Each AmenCompanionAction has a non-empty icon name")
-    func eachActionHasIcon() {
+    func testEachActionHasIcon() {
         for action in AmenCompanionAction.allCases {
-            #expect(!action.icon.isEmpty,
+            XCTAssertFalse(action.icon.isEmpty,
                 "Action '\(action.rawValue)' has empty icon name")
         }
     }
@@ -337,11 +305,9 @@ struct CompanionReduceMotionTests {
 
 // MARK: - 10. User Data Isolation (service-level)
 
-@Suite("Library User Isolation")
-struct LibraryUserIsolationTests {
+final class LibraryUserIsolationTests: XCTestCase {
 
-    @Test("AmenBookNoteStore notes() only returns entries for that bookId")
-    func notesIsolatedToBookId() {
+    func testNotesIsolatedToBookId() {
         let store = AmenBookNoteStore.shared
         let uniqueId = "isolation-test-\(UUID().uuidString)"
 
@@ -352,6 +318,6 @@ struct LibraryUserIsolationTests {
         store.save(note)
 
         let unrelated = store.notes(for: "some-other-book-id-xyz")
-        #expect(!unrelated.contains { $0.bookId == uniqueId })
+        XCTAssertFalse(unrelated.contains { $0.bookId == uniqueId })
     }
 }

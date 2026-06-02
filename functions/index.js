@@ -1258,3 +1258,98 @@ exports.createStripeConnectAccount = spacesStripe.createStripeConnectAccount;
 
 const spacesLivekit = require("./spacesLivekitFunctions");
 exports.getLivekitToken = spacesLivekit.getLivekitToken;
+
+// ============================================================================
+// CHURCH NOTES MEDIA PIPELINE
+//   churchNotesMediaPipeline.js:
+//     createChurchNoteProcessingJob, processChurchNoteAudio,
+//     processChurchNoteImageOCR, processChurchNoteVideo,
+//     processChurchNoteDocumentPDF
+// ============================================================================
+
+const churchNotesMedia = require("./churchNotesMediaPipeline");
+exports.createChurchNoteProcessingJob = churchNotesMedia.createChurchNoteProcessingJob;
+exports.processChurchNoteAudio        = churchNotesMedia.processChurchNoteAudio;
+exports.processChurchNoteImageOCR     = churchNotesMedia.processChurchNoteImageOCR;
+exports.processChurchNoteVideo        = churchNotesMedia.processChurchNoteVideo;
+exports.processChurchNoteDocumentPDF  = churchNotesMedia.processChurchNoteDocumentPDF;
+
+// ============================================================================
+// CHURCH NOTES AI CALLABLES
+//   churchNotesAICallables.js:
+//     generateChurchNoteSummary, generateChurchNoteStudyGuide,
+//     generateChurchNotePrayerPrompts, generateChurchNoteActionItems,
+//     detectChurchNoteScriptures, translateChurchNoteContent,
+//     regenerateChurchNoteSection, createChurchNoteClipSuggestions,
+//     approveChurchNoteAIDraft, rejectChurchNoteAIDraft,
+//     shareChurchNoteWithCollaborators, updateChurchNotePermissions
+// ============================================================================
+
+const churchNotesAI = require("./churchNotesAICallables");
+exports.generateChurchNoteSummary         = churchNotesAI.generateChurchNoteSummary;
+exports.generateChurchNoteStudyGuide      = churchNotesAI.generateChurchNoteStudyGuide;
+exports.generateChurchNotePrayerPrompts   = churchNotesAI.generateChurchNotePrayerPrompts;
+exports.generateChurchNoteActionItems     = churchNotesAI.generateChurchNoteActionItems;
+exports.detectChurchNoteScriptures        = churchNotesAI.detectChurchNoteScriptures;
+exports.translateChurchNoteContent        = churchNotesAI.translateChurchNoteContent;
+exports.regenerateChurchNoteSection       = churchNotesAI.regenerateChurchNoteSection;
+exports.createChurchNoteClipSuggestions   = churchNotesAI.createChurchNoteClipSuggestions;
+exports.approveChurchNoteAIDraft          = churchNotesAI.approveChurchNoteAIDraft;
+exports.rejectChurchNoteAIDraft           = churchNotesAI.rejectChurchNoteAIDraft;
+exports.shareChurchNoteWithCollaborators  = churchNotesAI.shareChurchNoteWithCollaborators;
+exports.updateChurchNotePermissions       = churchNotesAI.updateChurchNotePermissions;
+
+// ============================================================================
+// VOICE PRAYER & TESTIMONY COMMENTS
+//   voicePrayer.js:
+//     createVoicePrayerUploadSession, finalizeVoicePrayerComment,
+//     reactToVoicePrayerComment, deleteVoicePrayerComment,
+//     reportVoicePrayerComment, getVoicePrayerPlaybackURL
+// ============================================================================
+
+const voicePrayer = require("./voicePrayer");
+exports.createVoicePrayerUploadSession = voicePrayer.createVoicePrayerUploadSession;
+exports.finalizeVoicePrayerComment     = voicePrayer.finalizeVoicePrayerComment;
+exports.reactToVoicePrayerComment      = voicePrayer.reactToVoicePrayerComment;
+exports.deleteVoicePrayerComment       = voicePrayer.deleteVoicePrayerComment;
+exports.reportVoicePrayerComment       = voicePrayer.reportVoicePrayerComment;
+exports.getVoicePrayerPlaybackURL      = voicePrayer.getVoicePrayerPlaybackURL;
+
+// ============================================================================
+// CONTENT OS (System 33: Content Discussion, Approval & Forwarding)
+//   contentOSFunctions.js:
+//     routeContentAction
+// ============================================================================
+
+const { routeContentAction } = require("./contentOSFunctions");
+exports.routeContentAction = routeContentAction;
+
+// ============================================================================
+// ONE — Private Social OS Callables
+//   one_sendMoment         — send/relay moment with ConsentDNA enforcement
+//   one_expireMoment       — decay moment (skips if evidenceLocked)
+//   one_reportMoment       — evidence lock + moderation queue (invariant: lock first)
+//   one_requestWitness     — request witness relationship with season label
+//   one_relayMoment        — relay with reach budget + chain depth enforcement
+//   one_activateRepairFlow — initiate repair flow between two participants
+//   one_acceptRepairFlow   — accept repair flow; activates when both accepted
+//   one_verifyEntitlement  — read StoreKit entitlement tier from Firestore
+//   one_activateLegacy     — trustee-only: activate legacy directive + enqueue bequests
+// All: enforceAppCheck: true, Auth required, UID-scoped
+// Deploy: firebase deploy --only functions:one_sendMoment,one_expireMoment,
+//           one_reportMoment,one_requestWitness,one_relayMoment,
+//           one_activateRepairFlow,one_acceptRepairFlow,
+//           one_verifyEntitlement,one_activateLegacy
+// PREREQUISITE: Firebase console App Check "debug" → "enforce" before external users.
+// ============================================================================
+
+const oneFunctions = require("./oneFunctions");
+exports.one_sendMoment           = oneFunctions.one_sendMoment;
+exports.one_expireMoment         = oneFunctions.one_expireMoment;
+exports.one_reportMoment         = oneFunctions.one_reportMoment;
+exports.one_requestWitness       = oneFunctions.one_requestWitness;
+exports.one_relayMoment          = oneFunctions.one_relayMoment;
+exports.one_activateRepairFlow   = oneFunctions.one_activateRepairFlow;
+exports.one_acceptRepairFlow     = oneFunctions.one_acceptRepairFlow;
+exports.one_verifyEntitlement    = oneFunctions.one_verifyEntitlement;
+exports.one_activateLegacy       = oneFunctions.one_activateLegacy;

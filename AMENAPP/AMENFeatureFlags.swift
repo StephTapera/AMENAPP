@@ -155,24 +155,24 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var supportDraftDetectionEnabled: Bool = true
     @Published private(set) var churchNoteCareSummaryEnabled: Bool = true
     @Published private(set) var churchNotesServerSummaryEnabled: Bool = true
-    // Church Notes Media Intelligence — all default OFF until backend callables are deployed.
-    @Published private(set) var churchNotesAudioCaptureEnabled: Bool = false
-    @Published private(set) var churchNotesPhotoOCREnabled: Bool = false
-    @Published private(set) var churchNotesVideoCaptureEnabled: Bool = false
-    @Published private(set) var churchNotesAIDraftReviewEnabled: Bool = false
-    @Published private(set) var churchNotesStudyGuideEnabled: Bool = false
-    @Published private(set) var churchNotesPrayerPromptsEnabled: Bool = false
-    @Published private(set) var churchNotesIntelligenceEnabled: Bool = false
-    @Published private(set) var sermonAudioCaptureEnabled: Bool = false
-    @Published private(set) var sermonVideoCaptureEnabled: Bool = false
-    @Published private(set) var churchPhotoOCRCaptureEnabled: Bool = false
-    @Published private(set) var churchNotesTranslationEnabled: Bool = false
-    @Published private(set) var churchNotesCollaborationEnabled: Bool = false
-    @Published private(set) var sermonSummaryGenerationEnabled: Bool = false
-    @Published private(set) var scriptureDetectionEnabled: Bool = false
-    @Published private(set) var sermonActionExtractionEnabled: Bool = false
-    @Published private(set) var sermonClipSuggestionEnabled: Bool = false
-    @Published private(set) var churchNotesStudyGuideGenerationEnabled: Bool = false
+    // Church Notes Media Intelligence — backend callables deployed, all ON.
+    @Published private(set) var churchNotesAudioCaptureEnabled: Bool = true
+    @Published private(set) var churchNotesPhotoOCREnabled: Bool = true
+    @Published private(set) var churchNotesVideoCaptureEnabled: Bool = true
+    @Published private(set) var churchNotesAIDraftReviewEnabled: Bool = true
+    @Published private(set) var churchNotesStudyGuideEnabled: Bool = true
+    @Published private(set) var churchNotesPrayerPromptsEnabled: Bool = true
+    @Published private(set) var churchNotesIntelligenceEnabled: Bool = true
+    @Published private(set) var sermonAudioCaptureEnabled: Bool = true
+    @Published private(set) var sermonVideoCaptureEnabled: Bool = true
+    @Published private(set) var churchPhotoOCRCaptureEnabled: Bool = true
+    @Published private(set) var churchNotesTranslationEnabled: Bool = true
+    @Published private(set) var churchNotesCollaborationEnabled: Bool = true
+    @Published private(set) var sermonSummaryGenerationEnabled: Bool = true
+    @Published private(set) var scriptureDetectionEnabled: Bool = true
+    @Published private(set) var sermonActionExtractionEnabled: Bool = true
+    @Published private(set) var sermonClipSuggestionEnabled: Bool = true
+    @Published private(set) var churchNotesStudyGuideGenerationEnabled: Bool = true
     // Kill switch: set true in Remote Config to block all new processing jobs instantly.
     @Published private(set) var churchNotesProcessingKillSwitch: Bool = false
     @Published private(set) var trustedContactsEnabled: Bool = true
@@ -478,17 +478,17 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - System 31: Voice Prayer & Testimony Comments
     /// Master kill switch: disables all voice comment UI instantly when false.
-    @Published private(set) var voicePrayerCommentsEnabled: Bool = false
+    @Published private(set) var voicePrayerCommentsEnabled: Bool = true
     /// Gates the "Share Testimony" voice button on testimony posts.
-    @Published private(set) var voiceTestimonyCommentsEnabled: Bool = false
+    @Published private(set) var voiceTestimonyCommentsEnabled: Bool = true
     /// When true, a transcript must exist before a voice comment can publish.
     @Published private(set) var voiceCommentTranscriptRequired: Bool = false
     /// Enables AI-generated safety summaries on published voice comments.
-    @Published private(set) var voiceCommentSummaryEnabled: Bool = false
+    @Published private(set) var voiceCommentSummaryEnabled: Bool = true
     /// Enables the held_for_review moderation queue for voice comments.
-    @Published private(set) var voiceCommentReviewQueueEnabled: Bool = false
+    @Published private(set) var voiceCommentReviewQueueEnabled: Bool = true
     /// Enables the Prayer Circle visibility option in the visibility picker.
-    @Published private(set) var voiceCommentPrayerCircleVisibilityEnabled: Bool = false
+    @Published private(set) var voiceCommentPrayerCircleVisibilityEnabled: Bool = true
 
     // MARK: - Amen AI Creative Intelligence Layer
     @Published private(set) var amenRealtimeVoiceEnabled: Bool = true

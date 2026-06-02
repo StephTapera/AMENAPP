@@ -4574,6 +4574,133 @@ service cloud.firestore {
     }
 
     // ============================================================================
+    // CONTENT OS — System 33: Discussion, Approval & Forwarding
+    // ============================================================================
+
+    // Church notes saved by a user from any ContentCard
+    match /churchNotesSaved/{docId} {
+      // Owner can create their own note
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'cardId', 'savedAt']);
+      // Owner can read and delete their own notes
+      allow read, delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // Permission-approval requests (e.g. "I'd like to share this outside the space")
+    match /contentApprovalRequests/{requestId} {
+      // Requestor creates the document; requestorId must match their uid
+      allow create: if isSignedIn()
+        && request.resource.data.requestorId == request.auth.uid
+        && request.resource.data.keys().hasAll(['requestorId', 'creatorId', 'cardId', 'action', 'createdAt']);
+      // Both the requestor and the original content creator can read/update (approve/deny)
+      allow read: if isSignedIn()
+        && (resource.data.requestorId == request.auth.uid
+            || resource.data.creatorId == request.auth.uid);
+      allow update: if isSignedIn()
+        && (resource.data.requestorId == request.auth.uid
+            || resource.data.creatorId == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'resolvedAt', 'resolverNote']);
+      allow delete: if false;
+    }
+
+    // Immutable audit log — written by callable function via Admin SDK only
+    match /contentAuditLog/{entryId} {
+      // Clients may never read or write audit entries directly
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // ONE — Private Social OS
+    // ============================================================================
+
+    // User profiles — owner full access; strangers see only what privacyMirror allows.
+    // Sealed/opaque mirrors block all stranger reads server-side.
+    match /one_users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+      // Sealed mirror: no stranger read at all.
+      // Opaque/translucent: allow read only if mirror is not "sealed".
+      allow read: if isSignedIn()
+        && request.auth.uid != uid
+        && resource.data.privacyMirrorLevel != "sealed";
+
+      // Safety settings — strictly owner only.
+      match /safetySettings/{docId} {
+        allow read, write: if isSignedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // Moments — author can write; only authenticated users in the moment's audience can read.
+    // For public/witness moments, any auth user may read.
+    match /one_moments/{momentId} {
+      allow create: if isSignedIn()
+        && request.resource.data.authorUID == request.auth.uid;
+      allow update, delete: if isSignedIn()
+        && resource.data.authorUID == request.auth.uid;
+      // Audience read: open to any authenticated user (audience filtering is client-side per ConsentDNA).
+      allow read: if isSignedIn();
+    }
+
+    // Vault items — strictly owner only. No other user may ever read vault ciphertext.
+    match /one_vaults/{uid}/items/{itemId} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Evidence store — immutable, CF Admin SDK only. Clients may never read or write.
+    match /one_evidence/{evidenceID} {
+      allow read, write: if false;
+    }
+
+    // Moderation queue — CF Admin SDK only. Clients may never read or write.
+    match /one_moderationQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    // Bequest queue — CF Admin SDK only. Clients may never write; owner may read their own scheduled bequests.
+    match /one_bequestQueue/{docId} {
+      allow read: if isSignedIn()
+        && resource.data.recipientUID == request.auth.uid;
+      allow write: if false;
+    }
+
+    // E2E threads — participants only.
+    match /one_threads/{threadId} {
+      allow read, write: if isSignedIn()
+        && request.auth.uid in resource.data.participantUIDs;
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.participantUIDs;
+    }
+
+    // Witness requests — sender or target may read; CF writes only.
+    match /one_witnessRequests/{requestId} {
+      allow read: if isSignedIn()
+        && (resource.data.fromUID == request.auth.uid
+            || resource.data.toUID  == request.auth.uid);
+      allow write: if false;
+    }
+
+    // Repair flows — participants may read; CF writes only.
+    match /one_repairFlows/{flowId} {
+      allow read: if isSignedIn()
+        && request.auth.uid in resource.data.participants;
+      allow write: if false;
+    }
+
+    // Legacy directives — owner may read/write their own directive.
+    match /one_legacyDirectives/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Reach budgets — CF Admin SDK only. Clients may never write (prevents self-inflation).
+    match /one_reachBudgets/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // ============================================================================
     // DEFAULT DENY ALL OTHER COLLECTIONS
     // ============================================================================
 

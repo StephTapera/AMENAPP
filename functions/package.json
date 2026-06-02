@@ -16,6 +16,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
     "@google-cloud/language": "^6.0.0",
+    "@google-cloud/speech": "^6.7.1",
     "@google-cloud/translate": "^8.0.0",
     "@google-cloud/vertexai": "^1.10.0",
     "@google-cloud/vision": "^4.3.3",

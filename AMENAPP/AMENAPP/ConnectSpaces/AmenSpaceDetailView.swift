@@ -9,6 +9,7 @@
 //   - Scroll offset tracked via an invisible anchor preference key
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Scroll offset preference key
 
@@ -224,6 +225,9 @@ struct AmenSpaceDetailView: View {
     @State private var isSubscribed = false
     @State private var scrollOffset: CGFloat = 0
     @State private var showRoom = false
+    @State private var showCommunityInsights = false
+    private var currentUserId: String { Auth.auth().currentUser?.uid ?? "" }
+    private var isCreator: Bool { space.createdBy == currentUserId }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -272,6 +276,9 @@ struct AmenSpaceDetailView: View {
                             onLeave: { withAnimation { isSubscribed = false } }
                         )
 
+                        // Spiritual OS: hero card section (gated by AppStorage flag + per-space toggle)
+                        AmenSpacesHeroCardSection(spaceId: space.id, userId: currentUserId)
+
                         VStack(alignment: .leading, spacing: 24) {
                             // MARK: Coming Up section
                             if !events.isEmpty {
@@ -315,6 +322,39 @@ struct AmenSpaceDetailView: View {
                             }
                             .frame(minHeight: 280)
 
+                            // Community OS: insights button shown to space creator only
+                            if isCreator {
+                                Button {
+                                    showCommunityInsights = true
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "waveform.path.ecg")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color(hex: "6E4BB5"))
+                                        Text("Community Insights")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Color.white.opacity(0.4))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 13)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .strokeBorder(Color(hex: "6E4BB5").opacity(0.35), lineWidth: 0.5)
+                                            }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 16)
+                                .accessibilityLabel("View Community Insights for \(space.name)")
+                            }
+
                             // Bottom padding so content isn't hidden behind floating pill
                             Spacer(minLength: 100)
                         }
@@ -357,6 +397,9 @@ struct AmenSpaceDetailView: View {
             .navigationBarHidden(true)
             .sheet(isPresented: $showRoom) {
                 AmenMinistryRoomShellView(space: space)
+            }
+            .sheet(isPresented: $showCommunityInsights) {
+                AmenCommunityOSView(spaceId: space.id, spaceName: space.name)
             }
         }
     }
