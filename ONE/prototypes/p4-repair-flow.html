@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONE — Repair Flow</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0A0A0F;
+      --surface:   rgba(255,255,255,0.04);
+      --glass:     rgba(255,255,255,0.08);
+      --gold:      #D4A843;
+      --gold-dim:  rgba(212,168,67,0.18);
+      --gold-glow: rgba(212,168,67,0.35);
+      --text:      #E8E4DC;
+      --muted:     rgba(232,228,220,0.50);
+      --faint:     rgba(232,228,220,0.25);
+      --red-muted: rgba(220,80,80,0.75);
+      --red-dim:   rgba(220,80,80,0.12);
+      --border:    rgba(255,255,255,0.10);
+      --radius:    18px;
+      --radius-sm: 10px;
+      --font:      -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 100px;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    .page-header h1 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .page-header p {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Phase stepper ── */
+    .stepper {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 28px;
+    }
+    .step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      width: 100%;
+      height: 1px;
+      background: var(--border);
+      z-index: 0;
+    }
+    .step.completed::after { background: var(--gold-glow); }
+    .step-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--faint);
+      position: relative;
+      z-index: 1;
+      transition: all 0.25s ease;
+    }
+    .step.active .step-dot {
+      border-color: var(--gold);
+      background: var(--gold-dim);
+      color: var(--gold);
+      box-shadow: 0 0 12px var(--gold-glow);
+    }
+    .step.completed .step-dot {
+      border-color: var(--gold);
+      background: var(--gold);
+      color: #0A0A0F;
+    }
+    .step-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--faint);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .step.active .step-label { color: var(--gold); }
+    .step.completed .step-label { color: var(--muted); }
+
+    /* ── Phase card ── */
+    .phase-card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      display: none;
+    }
+    .phase-card.visible { display: block; }
+
+    .phase-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .phase-sub {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 10px 18px;
+      transition: all 0.18s ease;
+    }
+    .btn-gold {
+      background: var(--gold);
+      color: #0A0A0F;
+    }
+    .btn-gold:hover { background: #E0B550; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--glass); color: var(--text); }
+    .btn-glass {
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-glass:hover { background: rgba(255,255,255,0.12); }
+    .btn-danger-ghost {
+      background: var(--red-dim);
+      color: var(--red-muted);
+      border: 1px solid rgba(220,80,80,0.20);
+    }
+    .btn-danger-ghost:hover { background: rgba(220,80,80,0.20); color: #E05050; }
+    .btn-sm { font-size: 12px; padding: 7px 12px; }
+    .btn-full { width: 100%; }
+
+    /* ── Row ── */
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .row.right { justify-content: flex-end; }
+
+    /* ── Invited phase ── */
+    .waiting-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--gold-dim);
+      border: 1px solid var(--gold-glow);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 18px;
+    }
+    .waiting-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gold);
+      animation: pulse 1.8s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.75); }
+    }
+    .waiting-text { font-size: 13px; color: var(--gold); font-weight: 500; }
+    .friendly-note {
+      font-size: 12px;
+      color: var(--faint);
+      line-height: 1.5;
+      margin-bottom: 18px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border-left: 2px solid var(--border);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+
+    /* ── Chat bubbles ── */
+    .thread {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .bubble-row {
+      display: flex;
+      gap: 8px;
+    }
+    .bubble-row.mine { justify-content: flex-end; }
+    .bubble-row.theirs { justify-content: flex-start; }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      flex-shrink: 0;
+      align-self: flex-end;
+    }
+    .bubble {
+      max-width: 72%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.45;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .bubble-row.mine .bubble {
+      background: rgba(212,168,67,0.10);
+      border-color: rgba(212,168,67,0.20);
+      border-bottom-right-radius: 4px;
+    }
+    .bubble-row.theirs .bubble {
+      border-bottom-left-radius: 4px;
+    }
+    .bubble-meta {
+      font-size: 10px;
+      color: var(--faint);
+      margin-top: 3px;
+      text-align: right;
+    }
+    .bubble-row.theirs .bubble-meta { text-align: left; }
+
+    /* ── Input area ── */
+    .input-area {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    .msg-input {
+      flex: 1;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-family: var(--font);
+      font-size: 14px;
+      color: var(--text);
+      resize: none;
+      outline: none;
+      min-height: 40px;
+      max-height: 100px;
+    }
+    .msg-input::placeholder { color: var(--faint); }
+    .msg-input:focus { border-color: rgba(255,255,255,0.20); }
+
+    /* ── Tone check panel ── */
+    .tone-panel {
+      display: none;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin-top: 10px;
+    }
+    .tone-panel.visible { display: block; }
+    .tone-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .tone-icon { font-size: 15px; }
+    .tone-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #E09830;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .tone-message {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .tone-note {
+      font-size: 11px;
+      color: var(--faint);
+      font-style: italic;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    /* ── Resolved phase ── */
+    .resolved-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--gold-dim);
+      border: 2px solid var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      margin: 0 auto 16px;
+      box-shadow: 0 0 20px var(--gold-glow);
+    }
+    .resolved-center { text-align: center; }
+
+    /* ── Exited state ── */
+    .exited-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--red-dim);
+      border: 1px solid rgba(220,80,80,0.20);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 16px;
+    }
+    .exited-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red-muted);
+      flex-shrink: 0;
+    }
+    .exited-text { font-size: 13px; color: var(--red-muted); }
+
+    /* ── Block/sever notice ── */
+    .sever-note {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--faint);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .sever-note a {
+      color: var(--muted);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+    }
+
+    /* ── Exit strip ── */
+    .exit-strip {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 14px 16px 28px;
+      background: linear-gradient(to top, rgba(10,10,15,0.98) 60%, transparent);
+      z-index: 100;
+    }
+    .exit-inner {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .exit-strip-btn {
+      background: transparent;
+      border: none;
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--red-muted);
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 6px;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      transition: color 0.15s ease;
+    }
+    .exit-strip-btn:hover { color: #E05050; }
+    .exit-strip-hint {
+      font-size: 11px;
+      color: var(--faint);
+    }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    /* ── Focus visible ── */
+    :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- Page header -->
+  <header class="page-header" role="banner">
+    <h1>ONE — Repair Flow</h1>
+    <p>A structured, opt-in reconciliation process. Both parties must agree to enter.</p>
+  </header>
+
+  <!-- Phase stepper -->
+  <nav class="stepper" aria-label="Repair flow phases">
+    <div class="step" id="step-0" aria-current="false">
+      <div class="step-dot" aria-hidden="true">1</div>
+      <span class="step-label">Invite</span>
+    </div>
+    <div class="step" id="step-1" aria-current="false">
+      <div class="step-dot" aria-hidden="true">2</div>
+      <span class="step-label">Active</span>
+    </div>
+    <div class="step" id="step-2" aria-current="false">
+      <div class="step-dot" aria-hidden="true">3</div>
+      <span class="step-label">Tone</span>
+    </div>
+    <div class="step" id="step-3" aria-current="false">
+      <div class="step-dot" aria-hidden="true">✓</div>
+      <span class="step-label">Resolve</span>
+    </div>
+  </nav>
+
+  <!-- ── Phase 0: Invited ── -->
+  <section
+    class="phase-card"
+    id="phase-invited"
+    role="region"
+    aria-label="Invited phase: waiting for acceptance"
+  >
+    <p class="phase-title">Repair request sent</p>
+    <p class="phase-sub">The other party will decide whether to enter this flow with you.</p>
+
+    <div class="waiting-badge" role="status" aria-live="polite">
+      <div class="waiting-dot" aria-hidden="true"></div>
+      <span class="waiting-text">Waiting for @marcuswebb to accept · Sent 2 hours ago</span>
+    </div>
+
+    <p class="friendly-note">
+      They'll see your name and a short message you wrote. They can accept or decline — no pressure either way.
+    </p>
+
+    <div class="row">
+      <button
+        class="btn btn-ghost btn-sm"
+        id="btn-cancel-request"
+        aria-label="Cancel repair request"
+        onclick="cancelRequest()"
+      >Cancel request</button>
+      <button
+        class="btn btn-gold btn-sm"
+        id="btn-simulate-accept"
+        aria-label="Simulate acceptance to preview active phase"
+        onclick="goToPhase(1)"
+      >Simulate: they accepted →</button>
+    </div>
+  </section>
+
+  <!-- ── Phase 1: Active ── -->
+  <section
+    class="phase-card"
+    id="phase-active"
+    role="region"
+    aria-label="Active repair flow: open message exchange"
+  >
+    <p class="phase-title">Repair flow active</p>
+    <p class="phase-sub">Both parties have agreed to enter this space. Speak carefully and honestly.</p>
+
+    <div class="thread" role="log" aria-label="Message thread" aria-live="polite">
+      <div class="bubble-row theirs">
+        <div class="avatar" aria-hidden="true">MW</div>
+        <div>
+          <div class="bubble" aria-label="Message from Marcus Webb">
+            Hey — I appreciated you reaching out. I felt hurt by what happened and wanted space to talk it through.
+          </div>
+          <p class="bubble-meta">Marcus Webb · 2h ago</p>
+        </div>
+      </div>
+      <div class="bubble-row mine">
+        <div>
+          <div class="bubble" aria-label="Your message">
+            I hear you. I'm sorry for how things landed. I didn't mean for it to come across that way.
+          </div>
+          <p class="bubble-meta">You · 1h ago</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea
+          class="msg-input"
+          id="active-input"
+          placeholder="Write a message…"
+          rows="2"
+          aria-label="Compose a message"
+        ></textarea>
+        <button
+          class="btn btn-gold btn-sm"
+          aria-label="Send message"
+          onclick="sendActiveMessage()"
+        >Send</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="row">
+      <button
+        class="btn btn-glass btn-sm"
+        aria-label="Enable AI tone check for this conversation"
+        onclick="goToPhase(2)"
+      >+ Add Tone Check</button>
+      <button
+        class="btn btn-ghost btn-sm"
+        aria-label="Mark this repair flow as resolved"
+        onclick="goToPhase(3)"
+      >Mark resolved →</button>
+    </div>
+  </section>
+
+  <!-- ── Phase 2: Tone Check ── -->
+  <section
+    class="phase-card"
+    id="phase-tone"
+    role="region"
+    aria-label="Tone check phase: AI previews message tone before sending"
+  >
+    <p class="phase-title">Tone Check enabled</p>
+    <p class="phase-sub">
+      Before sending, you can preview how your message might land. The AI offers a read — it never blocks your send.
+    </p>
+
+    <div class="thread" role="log" aria-label="Message thread" aria-live="polite">
+      <div class="bubble-row theirs">
+        <div class="avatar" aria-hidden="true">MW</div>
+        <div>
+          <div class="bubble" aria-label="Message from Marcus Webb">
+            I just want to understand what you were thinking when you posted that.
+          </div>
+          <p class="bubble-meta">Marcus Webb · 45m ago</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea
+          class="msg-input"
+          id="tone-input"
+          placeholder="Write a message to preview…"
+          rows="2"
+          aria-label="Compose a message for tone preview"
+        >You always do this — you never actually listen.</textarea>
+        <button
+          class="btn btn-glass btn-sm"
+          id="btn-preview-tone"
+          aria-label="Preview tone of your message with AI"
+          onclick="previewTone()"
+        >Preview tone</button>
+      </div>
+
+      <!-- Tone scan result panel -->
+      <div
+        class="tone-panel"
+        id="tone-panel"
+        role="alert"
+        aria-live="assertive"
+        aria-label="Tone scan result"
+      >
+        <div class="tone-header">
+          <span class="tone-icon" aria-hidden="true">⚠</span>
+          <span class="tone-label">Tone scan</span>
+        </div>
+        <p class="tone-message">
+          This may read as accusatory. Phrases like "you always" and "you never" can feel like absolutes that put the other person on the defensive.
+        </p>
+        <p class="tone-note">
+          This is a suggestion only — you decide what to send. Your message is never blocked.
+        </p>
+        <div class="row">
+          <button
+            class="btn btn-gold btn-sm"
+            aria-label="Send message anyway, ignoring tone suggestion"
+            onclick="sendAnyway()"
+          >Send anyway</button>
+          <button
+            class="btn btn-ghost btn-sm"
+            aria-label="Edit your message before sending"
+            onclick="editMessage()"
+          >Edit message</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="row right">
+      <button
+        class="btn btn-ghost btn-sm"
+        aria-label="Mark this repair flow as resolved"
+        onclick="goToPhase(3)"
+      >Mark resolved →</button>
+    </div>
+  </section>
+
+  <!-- ── Phase 3: Resolved ── -->
+  <section
+    class="phase-card"
+    id="phase-resolved"
+    role="region"
+    aria-label="Repair flow resolved"
+  >
+    <div class="resolved-center">
+      <div class="resolved-icon" role="img" aria-label="Gold checkmark indicating resolution">✓</div>
+      <p class="phase-title">Resolved</p>
+      <p class="phase-sub">
+        Both parties marked this resolved. This conversation will stay private and can be archived at any time.
+      </p>
+    </div>
+
+    <div class="divider"></div>
+    <div class="row" style="justify-content: center;">
+      <button
+        class="btn btn-glass"
+        aria-label="Archive this repair flow"
+        onclick="archiveFlow()"
+      >Archive this flow</button>
+    </div>
+  </section>
+
+  <!-- ── Phase: Exited ── -->
+  <section
+    class="phase-card"
+    id="phase-exited"
+    role="region"
+    aria-label="Repair flow exited"
+  >
+    <div class="exited-banner" role="status">
+      <div class="exited-dot" aria-hidden="true"></div>
+      <span class="exited-text">You exited this repair flow. The other party has been notified.</span>
+    </div>
+    <p class="phase-sub" style="margin-bottom: 18px;">
+      Exiting is always your choice. There are no consequences within ONE for leaving a repair flow.
+    </p>
+    <div class="row">
+      <button
+        class="btn btn-glass btn-sm"
+        aria-label="Start a new repair flow"
+        onclick="goToPhase(0)"
+      >Start a new request</button>
+    </div>
+  </section>
+
+  <!-- Block / sever note -->
+  <p class="sever-note" role="note">
+    Block or sever is always available from your
+    <a role="button" tabindex="0" aria-label="Go to profile page to block or sever">profile page</a>,
+    regardless of this flow.
+  </p>
+
+  <!-- ── Exit strip (always visible) ── -->
+  <footer class="exit-strip" role="contentinfo" aria-label="Exit repair flow controls">
+    <div class="exit-inner">
+      <button
+        class="exit-strip-btn"
+        id="exit-btn"
+        aria-label="Exit repair flow immediately"
+        onclick="exitFlow()"
+      >Exit repair flow</button>
+      <span class="exit-strip-hint">Always available · Exit is instant and reversible</span>
+    </div>
+  </footer>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────
+    const PHASES = ["invited", "active", "tone", "resolved"];
+    let currentPhase = 0; // 0–3, plus "exited" as a special state
+    let isExited = false;
+
+    // ── Stepper sync ───────────────────────────────────────────────────────
+    function updateStepper(phaseIndex) {
+      const steps = document.querySelectorAll(".step");
+      steps.forEach((step, i) => {
+        step.classList.remove("active", "completed");
+        step.querySelector(".step-dot").removeAttribute("aria-current");
+
+        if (i < phaseIndex) {
+          step.classList.add("completed");
+        } else if (i === phaseIndex) {
+          step.classList.add("active");
+          step.setAttribute("aria-current", "step");
+          step.querySelector(".step-dot").setAttribute("aria-current", "true");
+        }
+      });
+    }
+
+    // ── Show a phase card ──────────────────────────────────────────────────
+    function showPhaseCard(name) {
+      document.querySelectorAll(".phase-card").forEach(card => {
+        card.classList.remove("visible");
+      });
+      const target = document.getElementById("phase-" + name);
+      if (target) {
+        target.classList.add("visible");
+        target.focus();
+      }
+    }
+
+    // ── Go to a numbered phase ─────────────────────────────────────────────
+    function goToPhase(index) {
+      if (isExited) return;
+      currentPhase = index;
+      const phaseName = PHASES[index];
+      updateStepper(index);
+      showPhaseCard(phaseName);
+      // Reset tone panel if navigating away from tone phase
+      if (phaseName !== "tone") {
+        hideTonePanel();
+      }
+      // Update exit button visibility
+      document.getElementById("exit-btn").disabled = (phaseName === "resolved");
+    }
+
+    // ── Cancel repair request ──────────────────────────────────────────────
+    function cancelRequest() {
+      const badge = document.querySelector(".waiting-badge");
+      badge.innerHTML = `<span style="font-size:13px; color: var(--muted);">Request cancelled. No notification was sent.</span>`;
+      document.getElementById("btn-cancel-request").disabled = true;
+      document.getElementById("btn-simulate-accept").disabled = true;
+    }
+
+    // ── Send message in Active phase ───────────────────────────────────────
+    function sendActiveMessage() {
+      const input = document.getElementById("active-input");
+      const text = input.value.trim();
+      if (!text) return;
+
+      const thread = document.querySelector("#phase-active .thread");
+      const row = document.createElement("div");
+      row.className = "bubble-row mine";
+      row.innerHTML = `
+        <div>
+          <div class="bubble" aria-label="Your message">${escapeHTML(text)}</div>
+          <p class="bubble-meta">You · just now</p>
+        </div>`;
+      thread.appendChild(row);
+      input.value = "";
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    // ── Tone preview ───────────────────────────────────────────────────────
+    function previewTone() {
+      const input = document.getElementById("tone-input");
+      if (!input.value.trim()) {
+        input.focus();
+        return;
+      }
+      showTonePanel();
+    }
+
+    function showTonePanel() {
+      const panel = document.getElementById("tone-panel");
+      panel.classList.add("visible");
+      // Animate in
+      panel.style.opacity = "0";
+      panel.style.transform = "translateY(6px)";
+      requestAnimationFrame(() => {
+        panel.style.transition = "opacity 0.22s ease, transform 0.22s ease";
+        panel.style.opacity = "1";
+        panel.style.transform = "translateY(0)";
+      });
+    }
+
+    function hideTonePanel() {
+      const panel = document.getElementById("tone-panel");
+      panel.classList.remove("visible");
+      panel.style.transition = "";
+    }
+
+    function sendAnyway() {
+      const input = document.getElementById("tone-input");
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Append to thread
+      const thread = document.querySelector("#phase-tone .thread");
+      const row = document.createElement("div");
+      row.className = "bubble-row mine";
+      row.innerHTML = `
+        <div>
+          <div class="bubble" aria-label="Your message">${escapeHTML(text)}</div>
+          <p class="bubble-meta">You · just now</p>
+        </div>`;
+      thread.appendChild(row);
+      input.value = "";
+      hideTonePanel();
+    }
+
+    function editMessage() {
+      hideTonePanel();
+      const input = document.getElementById("tone-input");
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+
+    // ── Archive ────────────────────────────────────────────────────────────
+    function archiveFlow() {
+      const card = document.getElementById("phase-resolved");
+      card.innerHTML = `
+        <div class="resolved-center">
+          <p class="phase-title" style="color: var(--muted);">Flow archived</p>
+          <p class="phase-sub">This conversation has been stored privately. Only you can access it.</p>
+        </div>`;
+    }
+
+    // ── Exit flow ──────────────────────────────────────────────────────────
+    function exitFlow() {
+      if (currentPhase === 3) return; // already resolved, exit not needed
+      isExited = true;
+      updateStepper(-1); // none active
+      showPhaseCard("exited");
+      document.getElementById("exit-btn").textContent = "Already exited";
+      document.getElementById("exit-btn").disabled = true;
+    }
+
+    // ── Utility ────────────────────────────────────────────────────────────
+    function escapeHTML(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────
+    goToPhase(0);
+  </script>
+</body>
+</html>

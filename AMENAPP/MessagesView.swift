@@ -65,6 +65,7 @@ struct MessagesView: View {
     @ObservedObject private var messagingCoordinator = MessagingCoordinator.shared
     @ObservedObject private var userService = UserService.shared
     @ObservedObject private var blockService = BlockService.shared
+    @StateObject private var hubViewModel = AmenHubViewModel()
     @State private var searchText = ""
     @FocusState private var isMessageSearchFocused: Bool
     @State private var activeSheet: MessageSheetType?
@@ -373,6 +374,12 @@ struct MessagesView: View {
                         )
                     }
                     .frame(height: 0)
+
+                    // Spiritual OS — Amen Hub (Agent B, gated by AppStorage flag)
+                    AmenHubSectionView(
+                        viewModel: hubViewModel,
+                        userId: Auth.auth().currentUser?.uid ?? ""
+                    )
 
                     // ── HERO HEADER ──────────────────────────────────────────
                     InboxHeroHeader(

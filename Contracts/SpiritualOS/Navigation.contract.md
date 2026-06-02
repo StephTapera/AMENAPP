@@ -1,7 +1,7 @@
 # FROZEN — Navigation Contract · Spiritual OS
-> Version 1.0 · 2026-06-02 · Lead Orchestrator
-> ⚠️ FROZEN. No surface wired to existing navigation without explicit Lead + user approval of impact.
-> ⚠️ KEY RULE: Zero existing UI deleted or replaced without user confirmation. All surfaces are ADDITIVE.
+> Version 1.1 · 2026-06-02 · Lead Orchestrator (user decisions recorded, all blocked items resolved)
+> ⚠️ FROZEN. Zero buttons, controls, or views deleted. All surfaces are ADDITIVE insertions only.
+> USER CONFIRMED: "don't remove any button or anything"
 
 ---
 
@@ -11,8 +11,8 @@
 |---|---|---|---|
 | 0 | Home | `HomeView` | ADDITIVE — Daily Digest prepended as top section |
 | 1 | Discover | `AMENDiscoveryView` | UNTOUCHED |
-| 2 | Messages | `MessagesView` | BLOCKED — see Impact Note A |
-| 3 | Resources | `ResourcesView` | BLOCKED — see Impact Note B |
+| 2 | Messages | `MessagesView` | ADDITIVE — Hub stream section prepended above DM threads |
+| 3 | Resources | `ResourcesView` | ADDITIVE — Life Planner section prepended above existing resources |
 | 4 | Notifications | `AMENNotificationsView` | UNTOUCHED |
 | 5 | Profile | `ProfileView` | ADDITIVE — Command Center prepended as header section |
 
@@ -30,21 +30,10 @@ Impact: ADDITIVE. Safe to implement without user approval.
 ---
 
 ### Agent B — Amen Hub (Unified Inbox)
-Mount: Messages tab (index 2)
-
-> ⚠️ IMPACT NOTE A — BLOCKED PENDING USER DECISION
->
-> Replacing MessagesView with Hub would remove the existing DM thread list.
->
-> Option 1 — NON-DESTRUCTIVE (recommended): Hub stream appears as a section header
->   or segmented control inside MessagesView. Existing DM threads remain below.
->   User taps Hub item → navigates to source content.
->
-> Option 2 — DESTRUCTIVE: MessagesView is replaced by AmenHubView.
->   DMs become one filter type within Hub. Existing thread navigation must be rebuilt.
->
-> DO NOT write any MessagesView code until user confirms which option.
-
+Mount: Messages tab (index 2) — ✅ UNBLOCKED (user confirmed Option 1)
+Implementation: `AmenHubSectionView` inserted at the TOP of `MessagesView` as a collapsible section.
+  Existing DM thread list remains COMPLETELY INTACT below it. No buttons or UI removed.
+  When `spiritualOS_hub_enabled` flag is OFF, the section is hidden — MessagesView unchanged.
 Deep link: `amen://hub` → Messages tab, Hub mode
 Feature flag: `spiritualOS_hub_enabled` (Remote Config, default OFF)
 
@@ -58,14 +47,10 @@ Mount: TBD
 > Option 1 — NEW TAB (moderate impact): Add Planner as a 7th tab or replace a low-usage tab.
 >   Requires AMENTabBar layout review for small screen compatibility.
 >
-> Option 2 — TOP OF RESOURCES (NON-DESTRUCTIVE): Planner as top section of Resources tab.
->   Existing church notes / find church remain below.
->
-> Option 3 — REPLACE RESOURCES (DESTRUCTIVE): Replace Resources tab with Planner + Events.
->   Existing ResourcesView content must be migrated or linked elsewhere.
->
-> DO NOT write any tab structure changes until user confirms which option.
-
+Mount: Resources tab (index 3) — ✅ UNBLOCKED (user confirmed Option 2)
+Implementation: `AmenLifePlannerSection` inserted at the TOP of `ResourcesView`.
+  All existing content (Church Notes, Find a Church, etc.) remains COMPLETELY INTACT below.
+  No buttons or UI removed. When flag is OFF, section is hidden — ResourcesView unchanged.
 Deep link: `amen://planner` → opens Planner, focuses today's date
 Feature flag: `spiritualOS_planner_enabled` (Remote Config, default OFF)
 

@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONE — Memory Vault</title>
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Tokens ── */
+    :root {
+      --bg:          #0A0A0F;
+      --gold:        #D4A843;
+      --gold-dim:    rgba(212, 168, 67, 0.18);
+      --gold-muted:  rgba(212, 168, 67, 0.55);
+      --glass:       rgba(255, 255, 255, 0.08);
+      --glass-border:rgba(255, 255, 255, 0.11);
+      --matte:       rgba(255, 255, 255, 0.04);
+      --matte-hover: rgba(255, 255, 255, 0.07);
+      --text:        #F0EDE6;
+      --text-dim:    rgba(240, 237, 230, 0.55);
+      --text-faint:  rgba(240, 237, 230, 0.30);
+      --green:       #3ECF6A;
+      --green-bg:    rgba(62, 207, 106, 0.14);
+      --amber:       #F5A623;
+      --amber-bg:    rgba(245, 166, 35, 0.14);
+      --grey-bg:     rgba(255, 255, 255, 0.09);
+      --blur:        blur(20px);
+      --radius-lg:   18px;
+      --radius-md:   12px;
+      --radius-sm:   8px;
+      --font:        -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      --anim:        0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      :root { --anim: 0s; }
+      * { transition: none !important; animation: none !important; }
+    }
+
+    /* ── Base ── */
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 24px 16px 80px;
+    }
+
+    .screen {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Vault Header ── */
+    .vault-header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 28px 20px 20px;
+      background: var(--matte);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .vault-header::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 220px 100px at 50% -10%, rgba(212, 168, 67, 0.07), transparent);
+      pointer-events: none;
+    }
+
+    .vault-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .vault-lock-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--gold-dim);
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .vault-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+
+    .vault-subtitle {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.4;
+      padding-left: 42px;
+    }
+
+    .enclave-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: rgba(212, 168, 67, 0.10);
+      border: 1px solid rgba(212, 168, 67, 0.22);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--gold);
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      margin-left: 42px;
+      margin-top: 2px;
+      width: fit-content;
+    }
+
+    /* ── Section Label ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      padding: 0 4px;
+    }
+
+    /* ── Item Cards ── */
+    .item-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .vault-item {
+      background: var(--matte);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      cursor: pointer;
+      transition: background var(--anim), border-color var(--anim), transform var(--anim);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .vault-item:hover,
+    .vault-item:focus-visible {
+      background: var(--matte-hover);
+      border-color: rgba(255, 255, 255, 0.18);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .vault-item:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    .item-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .item-icon.reflection { background: rgba(212, 168, 67, 0.12); }
+    .item-icon.media      { background: rgba(100, 149, 237, 0.12); }
+    .item-icon.document   { background: rgba(180, 130, 220, 0.12); }
+    .item-icon.moment     { background: rgba(62, 207, 106, 0.12); }
+
+    .item-body { flex: 1; min-width: 0; }
+
+    .item-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-meta {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .badge.green  { background: var(--green-bg);  color: var(--green); }
+    .badge.amber  { background: var(--amber-bg);  color: var(--amber); }
+    .badge.grey   { background: var(--grey-bg);   color: var(--text-dim); }
+
+    /* ── Add Button ── */
+    .add-btn {
+      width: 100%;
+      padding: 15px;
+      background: var(--gold);
+      color: #0A0A0F;
+      font-family: var(--font);
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity var(--anim), transform var(--anim);
+      letter-spacing: -0.1px;
+    }
+
+    .add-btn:hover  { opacity: 0.88; }
+    .add-btn:active { transform: scale(0.98); }
+    .add-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    /* ── Overlay backdrop ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 10, 15, 0.72);
+      backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--anim);
+    }
+
+    .overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ── Composer Sheet ── */
+    .composer-sheet {
+      width: 100%;
+      max-width: 460px;
+      background: rgba(16, 16, 24, 0.90);
+      backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
+      border: 1px solid var(--glass-border);
+      border-bottom: none;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 20px 20px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transform: translateY(100%);
+      transition: transform var(--anim);
+      max-height: 90dvh;
+      overflow-y: auto;
+    }
+
+    .overlay.open .composer-sheet,
+    .overlay.open .detail-panel {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: var(--glass-border);
+      border-radius: 2px;
+      margin: 0 auto -4px;
+      flex-shrink: 0;
+    }
+
+    .sheet-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      text-align: center;
+    }
+
+    /* ── Form Elements ── */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 0.3px;
+    }
+
+    .type-selector {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .type-btn {
+      background: var(--matte);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      font-family: var(--font);
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 500;
+      transition: background var(--anim), border-color var(--anim), color var(--anim);
+    }
+
+    .type-btn .t-icon { font-size: 20px; }
+
+    .type-btn.selected,
+    .type-btn:focus-visible {
+      background: var(--gold-dim);
+      border-color: var(--gold-muted);
+      color: var(--gold);
+      outline: none;
+    }
+
+    .form-input, .form-select {
+      background: var(--matte);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      font-family: var(--font);
+      font-size: 15px;
+      color: var(--text);
+      width: 100%;
+      transition: border-color var(--anim);
+    }
+
+    .form-input::placeholder { color: var(--text-faint); }
+
+    .form-input:focus,
+    .form-select:focus {
+      outline: none;
+      border-color: var(--gold-muted);
+    }
+
+    .form-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='rgba(240,237,230,0.4)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      cursor: pointer;
+    }
+
+    .form-select option { background: #1A1A24; }
+
+    .time-release-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height var(--anim), opacity var(--anim);
+    }
+
+    .time-release-fields.visible {
+      max-height: 200px;
+      opacity: 1;
+    }
+
+    .encryption-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 12px 14px;
+      background: rgba(212, 168, 67, 0.06);
+      border: 1px solid rgba(212, 168, 67, 0.16);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--gold-muted);
+      line-height: 1.4;
+    }
+
+    .encryption-note .enc-icon { flex-shrink: 0; margin-top: 1px; }
+
+    .lock-btn {
+      width: 100%;
+      padding: 15px;
+      background: var(--gold);
+      color: #0A0A0F;
+      font-family: var(--font);
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity var(--anim), transform var(--anim);
+    }
+
+    .lock-btn:hover  { opacity: 0.88; }
+    .lock-btn:active { transform: scale(0.98); }
+    .lock-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    /* ── Detail Panel ── */
+    .detail-panel {
+      width: 100%;
+      max-width: 460px;
+      background: rgba(16, 16, 24, 0.92);
+      backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
+      border: 1px solid var(--glass-border);
+      border-bottom: none;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 20px 20px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      transform: translateY(100%);
+      transition: transform var(--anim);
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .detail-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .detail-name { font-size: 19px; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .detail-type { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
+
+    .detail-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .detail-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 16px;
+      background: var(--matte);
+    }
+
+    .detail-row + .detail-row {
+      border-top: 1px solid var(--glass-border);
+    }
+
+    .dr-key  { font-size: 13px; color: var(--text-dim); }
+    .dr-val  { font-size: 13px; color: var(--text); font-weight: 500; text-align: right; }
+
+    .active-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: var(--green-bg);
+      border: 1px solid rgba(62, 207, 106, 0.25);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .close-row {
+      display: flex;
+      justify-content: center;
+    }
+
+    .close-btn {
+      background: var(--matte);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 11px 32px;
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: background var(--anim), color var(--anim);
+    }
+
+    .close-btn:hover { background: var(--matte-hover); color: var(--text); }
+    .close-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Main Screen ── -->
+  <main class="screen" role="main">
+
+    <!-- Vault Header -->
+    <header class="vault-header" aria-label="Memory Vault">
+      <div class="vault-title-row">
+        <div class="vault-lock-icon" aria-hidden="true">🔐</div>
+        <h1 class="vault-title">Memory Vault</h1>
+      </div>
+      <p class="vault-subtitle">Encrypted on your device. The server holds only ciphertext.</p>
+      <div class="enclave-chip" role="status" aria-label="Secure Enclave protection active">
+        <span aria-hidden="true">🔒</span> Secure Enclave
+      </div>
+    </header>
+
+    <!-- Section Label -->
+    <p class="section-label" aria-label="3 vault items">Vault — 3 items</p>
+
+    <!-- Item List -->
+    <ul class="item-list" role="list" aria-label="Vault items">
+
+      <!-- Item 1: Reflection -->
+      <li role="listitem">
+        <button
+          class="vault-item"
+          aria-label="Christmas Reflection 2025 — Reflection, self only, Available now"
+          data-item="reflection"
+          onclick="openDetail('reflection')"
+        >
+          <div class="item-icon reflection" aria-hidden="true">✍️</div>
+          <div class="item-body">
+            <div class="item-label">Christmas Reflection 2025</div>
+            <div class="item-meta">Reflection · Self only</div>
+          </div>
+          <span class="badge green" aria-label="Status: Available now">
+            <span aria-hidden="true">●</span> Available now
+          </span>
+        </button>
+      </li>
+
+      <!-- Item 2: Media -->
+      <li role="listitem">
+        <button
+          class="vault-item"
+          aria-label="Family photos Retreat 2026 — Media, time-release January 1 2027, 7 months 4 days remaining"
+          data-item="media"
+          onclick="openDetail('media')"
+        >
+          <div class="item-icon media" aria-hidden="true">📸</div>
+          <div class="item-body">
+            <div class="item-label">Family photos — Retreat 2026</div>
+            <div class="item-meta">Media · Time-release Jan 1, 2027</div>
+          </div>
+          <span class="badge amber" aria-label="Unlocks in 7 months 4 days">7 mo 4 d</span>
+        </button>
+      </li>
+
+      <!-- Item 3: Document -->
+      <li role="listitem">
+        <button
+          class="vault-item"
+          aria-label="Letter to Marcus — Document, trustee access, locked until activation"
+          data-item="document"
+          onclick="openDetail('document')"
+        >
+          <div class="item-icon document" aria-hidden="true">📄</div>
+          <div class="item-body">
+            <div class="item-label">Letter to Marcus</div>
+            <div class="item-meta">Document · Trustees</div>
+          </div>
+          <span class="badge grey" aria-label="Status: Locked until activation">Locked</span>
+        </button>
+      </li>
+
+    </ul>
+
+    <!-- Add to Vault -->
+    <button class="add-btn" onclick="openComposer()" aria-label="Add new item to vault" aria-haspopup="dialog">
+      <span aria-hidden="true">+</span> Add to Vault
+    </button>
+
+  </main>
+
+  <!-- ── Composer Overlay ── -->
+  <div
+    class="overlay"
+    id="composerOverlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Add to Vault"
+    onclick="handleOverlayClick(event, 'composerOverlay')"
+  >
+    <div class="composer-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 class="sheet-title">Add to Vault</h2>
+
+      <!-- Content Type -->
+      <div class="form-group">
+        <label class="form-label" id="type-label">Content type</label>
+        <div class="type-selector" role="group" aria-labelledby="type-label">
+          <button class="type-btn selected" data-type="reflection" onclick="selectType(this)" aria-pressed="true">
+            <span class="t-icon" aria-hidden="true">✍️</span>
+            Reflection
+          </button>
+          <button class="type-btn" data-type="media" onclick="selectType(this)" aria-pressed="false">
+            <span class="t-icon" aria-hidden="true">📸</span>
+            Media
+          </button>
+          <button class="type-btn" data-type="document" onclick="selectType(this)" aria-pressed="false">
+            <span class="t-icon" aria-hidden="true">📄</span>
+            Document
+          </button>
+          <button class="type-btn" data-type="moment" onclick="selectType(this)" aria-pressed="false">
+            <span class="t-icon" aria-hidden="true">🕰️</span>
+            Moment
+          </button>
+        </div>
+      </div>
+
+      <!-- Label -->
+      <div class="form-group">
+        <label class="form-label" for="vaultLabel">Label</label>
+        <input
+          class="form-input"
+          type="text"
+          id="vaultLabel"
+          placeholder="What should this feel like?"
+          autocomplete="off"
+          maxlength="80"
+        />
+      </div>
+
+      <!-- Access Rule -->
+      <div class="form-group">
+        <label class="form-label" for="accessRule">Access rule</label>
+        <select
+          class="form-select"
+          id="accessRule"
+          onchange="handleAccessChange()"
+          aria-controls="timeReleaseFields"
+        >
+          <option value="self">Self only</option>
+          <option value="trustees">Trustees</option>
+          <option value="timerelease">Time release</option>
+        </select>
+      </div>
+
+      <!-- Time-release fields (conditional) -->
+      <div class="time-release-fields" id="timeReleaseFields" aria-live="polite">
+
+        <div class="form-group">
+          <label class="form-label" for="releaseDate">Release date</label>
+          <input
+            class="form-input"
+            type="date"
+            id="releaseDate"
+            min=""
+            aria-label="Time release date"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="recipients">Recipient UIDs (comma-separated)</label>
+          <input
+            class="form-input"
+            type="text"
+            id="recipients"
+            placeholder="uid_abc123, uid_xyz456"
+            autocomplete="off"
+          />
+        </div>
+
+      </div>
+
+      <!-- Encryption Note -->
+      <div class="encryption-note" role="note" aria-label="Privacy note">
+        <span class="enc-icon" aria-hidden="true">🔒</span>
+        This will be encrypted before leaving your device.
+      </div>
+
+      <!-- Lock it -->
+      <button class="lock-btn" onclick="handleLock()" aria-label="Encrypt and lock this item">
+        <span aria-hidden="true">🔐</span> Lock it
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ── Detail Overlay ── -->
+  <div
+    class="overlay"
+    id="detailOverlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Vault item detail"
+    onclick="handleOverlayClick(event, 'detailOverlay')"
+  >
+    <div class="detail-panel" id="detailPanel" onclick="event.stopPropagation()">
+      <div class="sheet-handle" aria-hidden="true"></div>
+
+      <!-- Dynamic header -->
+      <div class="detail-header" id="detailHeader">
+        <!-- injected by JS -->
+      </div>
+
+      <!-- Dynamic rows -->
+      <div class="detail-rows" id="detailRows" role="list" aria-label="Item details">
+        <!-- injected by JS -->
+      </div>
+
+      <div class="close-row">
+        <button class="close-btn" onclick="closeOverlay('detailOverlay')" aria-label="Close detail panel">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ── Data ── */
+    const ITEMS = {
+      reflection: {
+        label:   'Christmas Reflection 2025',
+        type:    'Reflection',
+        icon:    '✍️',
+        iconCls: 'reflection',
+        access:  'Self only',
+        created: 'Dec 25, 2025',
+        size:    '~4.2 KB encrypted',
+        badge:   { text: 'Available now', cls: 'green' },
+      },
+      media: {
+        label:   'Family photos — Retreat 2026',
+        type:    'Media',
+        icon:    '📸',
+        iconCls: 'media',
+        access:  'Time-release — Jan 1, 2027',
+        created: 'Mar 14, 2026',
+        size:    '~1.8 MB encrypted',
+        badge:   { text: '7 months 4 days', cls: 'amber' },
+      },
+      document: {
+        label:   'Letter to Marcus',
+        type:    'Document',
+        icon:    '📄',
+        iconCls: 'document',
+        access:  'Trustees',
+        created: 'May 10, 2026',
+        size:    '~12.6 KB encrypted',
+        badge:   { text: 'Locked until activation', cls: 'grey' },
+      },
+    };
+
+    /* ── Overlay helpers ── */
+    function openComposer() {
+      const overlay = document.getElementById('composerOverlay');
+      overlay.classList.add('open');
+      overlay.querySelector('input, select, button.type-btn')?.focus();
+    }
+
+    function openDetail(key) {
+      const item    = ITEMS[key];
+      const overlay = document.getElementById('detailOverlay');
+
+      // Build header
+      document.getElementById('detailHeader').innerHTML = `
+        <div class="detail-icon ${item.iconCls}" aria-hidden="true">${item.icon}</div>
+        <div>
+          <div class="detail-name">${item.label}</div>
+          <div class="detail-type">${item.type}</div>
+        </div>
+      `;
+
+      // Build rows
+      document.getElementById('detailRows').innerHTML = `
+        <div class="detail-row" role="listitem">
+          <span class="dr-key">Access rule</span>
+          <span class="dr-val">${item.access}</span>
+        </div>
+        <div class="detail-row" role="listitem">
+          <span class="dr-key">Created</span>
+          <span class="dr-val">${item.created}</span>
+        </div>
+        <div class="detail-row" role="listitem">
+          <span class="dr-key">Status</span>
+          <span class="badge ${item.badge.cls}" style="font-size:12px;" aria-label="Status: ${item.badge.text}">${item.badge.text}</span>
+        </div>
+        <div class="detail-row" role="listitem">
+          <span class="dr-key">Encrypted size</span>
+          <span class="dr-val">${item.size}</span>
+        </div>
+        <div class="detail-row" role="listitem">
+          <span class="dr-key">Secure Enclave</span>
+          <span class="active-chip" role="status" aria-label="Secure Enclave: Active">
+            <span aria-hidden="true">✓</span> Active
+          </span>
+        </div>
+      `;
+
+      overlay.classList.add('open');
+      document.getElementById('detailPanel').querySelector('button')?.focus();
+    }
+
+    function closeOverlay(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    function handleOverlayClick(event, id) {
+      if (event.target === event.currentTarget) closeOverlay(id);
+    }
+
+    /* ── Composer: type selector ── */
+    function selectType(btn) {
+      document.querySelectorAll('.type-btn').forEach(b => {
+        b.classList.remove('selected');
+        b.setAttribute('aria-pressed', 'false');
+      });
+      btn.classList.add('selected');
+      btn.setAttribute('aria-pressed', 'true');
+    }
+
+    /* ── Composer: access rule change ── */
+    function handleAccessChange() {
+      const rule   = document.getElementById('accessRule').value;
+      const fields = document.getElementById('timeReleaseFields');
+      const inputs = fields.querySelectorAll('input');
+
+      if (rule === 'timerelease') {
+        fields.classList.add('visible');
+        inputs.forEach(i => i.removeAttribute('aria-hidden'));
+      } else {
+        fields.classList.remove('visible');
+        inputs.forEach(i => i.setAttribute('aria-hidden', 'true'));
+      }
+    }
+
+    /* ── Composer: lock action ── */
+    function handleLock() {
+      const label = document.getElementById('vaultLabel').value.trim();
+      if (!label) {
+        document.getElementById('vaultLabel').focus();
+        document.getElementById('vaultLabel').style.borderColor = 'rgba(245,90,90,0.6)';
+        setTimeout(() => {
+          document.getElementById('vaultLabel').style.borderColor = '';
+        }, 1400);
+        return;
+      }
+      closeOverlay('composerOverlay');
+      // reset composer state
+      document.getElementById('vaultLabel').value = '';
+      document.getElementById('accessRule').value  = 'self';
+      handleAccessChange();
+      document.querySelectorAll('.type-btn').forEach((b, i) => {
+        b.classList.toggle('selected', i === 0);
+        b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+      });
+    }
+
+    /* ── Keyboard: Escape closes overlays ── */
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeOverlay('composerOverlay');
+        closeOverlay('detailOverlay');
+      }
+    });
+
+    /* ── Init: set min date for time-release picker ── */
+    (function () {
+      const today = new Date();
+      const iso   = today.toISOString().split('T')[0];
+      document.getElementById('releaseDate').setAttribute('min', iso);
+      // hide time-release inputs from a11y tree initially
+      document.querySelectorAll('#timeReleaseFields input').forEach(i => {
+        i.setAttribute('aria-hidden', 'true');
+      });
+    })();
+  </script>
+</body>
+</html>

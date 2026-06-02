@@ -184,6 +184,7 @@ struct ProfileView: View {
 
     // P0-3: Lifecycle-bound task for digest fetch so it cancels on view disappear
     @State private var digestFetchTask: Task<Void, Never>?
+    @StateObject private var commandCenterViewModel = AmenCommandCenterViewModel()
     
     var body: some View {
         NavigationStack {
@@ -403,6 +404,12 @@ struct ProfileView: View {
     @ViewBuilder
     private var profileScrollContent: some View {
         VStack(spacing: 0) {
+            // Spiritual OS — Command Center (Agent F, gated by AppStorage flag)
+            AmenCommandCenterSection(
+                viewModel: commandCenterViewModel,
+                userId: Auth.auth().currentUser?.uid ?? ""
+            )
+
             // Profile Header
             profileHeaderViewWithoutTabs
                 .background(

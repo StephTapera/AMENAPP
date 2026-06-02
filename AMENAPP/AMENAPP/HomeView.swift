@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Feed Mode
 
@@ -27,6 +28,7 @@ struct HomeView: View {
     }
 
     @StateObject private var viewModel = HomeViewModel()
+    @StateObject private var digestViewModel = AmenDailyDigestViewModel()
     @ObservedObject private var notificationService = NotificationService.shared
     @ObservedObject private var postsManager = PostsManager.shared  // ✅ FIXED: Use @ObservedObject for singletons
     @State private var isCategoriesExpanded = false
@@ -320,6 +322,12 @@ struct HomeView: View {
                         .onAppear {
                             dlog("📜 [SCROLL DEBUG] ScrollView content appeared - should be scrollable")
                         }
+
+                    // Spiritual OS — Daily Digest (Agent A, gated by AppStorage flag)
+                    AmenDailyDigestView(
+                        viewModel: digestViewModel,
+                        userId: Auth.auth().currentUser?.uid ?? ""
+                    )
 
                     // Expandable Category Pills
                     if isCategoriesExpanded {

@@ -12,6 +12,7 @@ struct ResourcesView: View {
     @ObservedObject private var greetingService = GreetingService.shared
     @ObservedObject private var featureFlags = AMENFeatureFlags.shared
     @ObservedObject private var supportCoordinator = SupportIntelligenceCoordinator.shared
+    @StateObject private var plannerViewModel = AmenLifePlannerViewModel()
     @State private var searchText = ""
     @State private var selectedCategory: ResourceCategory = .all
     @FocusState private var isSearchFocused: Bool
@@ -86,6 +87,12 @@ struct ResourcesView: View {
                             )
                         }
                         .frame(height: 0)
+
+                        // Spiritual OS — Life Planner (Agent C, gated by AppStorage flag)
+                        AmenLifePlannerSectionView(
+                            viewModel: plannerViewModel,
+                            userId: Auth.auth().currentUser?.uid ?? ""
+                        )
 
                         // Smart Header Orchestrator (feature-flagged, off by default)
                         SmartHeaderOrchestrator(
