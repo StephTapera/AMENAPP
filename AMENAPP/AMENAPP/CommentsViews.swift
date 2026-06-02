@@ -127,6 +127,7 @@ struct CommentCard: View {
                         }
                         .foregroundStyle(hasAmened ? Color(red: 1.0, green: 0.84, blue: 0.0) : .secondary)
                     }
+                    .accessibilityLabel(hasAmened ? "Remove amen" : "Amen")
 
                     Button {
                         HapticManager.impact(style: .light)
@@ -297,6 +298,7 @@ struct FullCommentsView: View {
                                 .fill(Color.black.opacity(0.05))
                         )
                 }
+                .accessibilityLabel("Close comments")
                 
                 Spacer()
                 
