@@ -13,6 +13,7 @@ enum SOSurface: String, Codable, Hashable {
     case commandCenter  = "command_center"
     case assistantBar   = "assistant_bar"
     case contextEngine  = "context_engine"
+    case communityOS    = "community_os"
 }
 
 // MARK: - Context mode

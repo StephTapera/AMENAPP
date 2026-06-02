@@ -11,6 +11,10 @@ import SwiftUI
 import Firebase
 import FirebaseFunctions
 import Foundation
+import PhotosUI
+import Vision
+import Speech
+import AVFoundation
 
 // MARK: - AssistantResponse
 
@@ -145,6 +149,13 @@ final class AmenAssistantBarCoordinator: ObservableObject {
         showingVoice = true
     }
 
+    /// Called by camera OCR or voice input sheets with recognized text to submit.
+    func receiveDetectedText(_ text: String) async {
+        showingCamera = false
+        showingVoice = false
+        await submit(query: text)
+    }
+
     /// Updates the active surface so quick prompts and context stay in sync.
     func setSurface(_ surface: SOSurface) {
         currentSurface = surface
@@ -257,10 +268,10 @@ struct AmenAssistantBarOverlay: View {
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: coordinator.lastResponse != nil)
         .animation(.spring(response: 0.28, dampingFraction: 0.85), value: coordinator.isVoiceMode)
         .sheet(isPresented: $coordinator.showingCamera) {
-            CameraPlaceholderView()
+            CameraOCRSheet(coordinator: coordinator)
         }
         .sheet(isPresented: $coordinator.showingVoice) {
-            VoicePlaceholderView()
+            VoiceInputSheet(coordinator: coordinator)
         }
     }
 

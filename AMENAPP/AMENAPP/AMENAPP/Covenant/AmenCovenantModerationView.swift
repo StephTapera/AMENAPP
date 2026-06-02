@@ -180,6 +180,113 @@ struct AmenCovenantModerationView: View {
         .accessibilityLabel("Open moderation queue. \(moderationVM.pendingCount) items pending.")
     }
 
+    // MARK: - Platform Moderation Queue
+
+    private var platformQueueSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Platform Queue")
+                    .font(.headline)
+                Spacer()
+                if platformQueueVM.isLoading {
+                    ProgressView().scaleEffect(0.7)
+                } else {
+                    Text("\(platformQueueVM.items.count) pending")
+                        .font(.caption)
+                        .foregroundStyle(platformQueueVM.items.isEmpty ? .secondary : .orange)
+                }
+            }
+
+            if platformQueueVM.items.isEmpty && !platformQueueVM.isLoading {
+                HStack(spacing: 12) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .foregroundStyle(.green)
+                    Text("Platform queue is clear.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22))
+                .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 6)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(platformQueueVM.items.enumerated()), id: \.element.id) { index, item in
+                        platformQueueRow(item)
+                        if index < platformQueueVM.items.count - 1 {
+                            Divider().padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22))
+                .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 6)
+            }
+
+            if let err = platformQueueVM.errorMessage {
+                Text(err)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    private func platformQueueRow(_ item: PlatformModerationQueueViewModel.QueueItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: item.status == "blocked" ? "exclamationmark.circle.fill" : "clock.fill")
+                    .foregroundStyle(item.status == "blocked" ? .red : .orange)
+                    .font(.caption)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.preview.isEmpty ? "[no preview]" : item.preview)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Text(item.categories.isEmpty ? item.status : item.categories.joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            HStack(spacing: 10) {
+                Button {
+                    Task { await platformQueueVM.review(item: item, decision: "approved") }
+                } label: {
+                    Label("Approve", systemImage: "checkmark")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Color.green, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(platformQueueVM.inFlight.contains(item.id))
+                .accessibilityLabel("Approve post")
+
+                Button {
+                    Task { await platformQueueVM.review(item: item, decision: "rejected") }
+                } label: {
+                    Label("Reject", systemImage: "xmark")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Color.red, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(platformQueueVM.inFlight.contains(item.id))
+                .accessibilityLabel("Reject post")
+
+                if platformQueueVM.inFlight.contains(item.id) {
+                    ProgressView().scaleEffect(0.7)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .contain)
+    }
+
     // MARK: - Recent Activity Log
 
     private var recentActivitySection: some View {
@@ -498,5 +605,70 @@ final class AmenCovenantModerationViewModel: ObservableObject {
         // Use last 2 characters of UID as placeholder initials until display names are available
         let suffix = String(uid.suffix(2)).uppercased()
         return suffix.isEmpty ? "??" : suffix
+    }
+}
+
+// MARK: - Platform Moderation Queue ViewModel
+// Queries the global moderationQueue written by the moderatePost and imageModeration CFs.
+// Calls adminReviewPost (admin: true custom claim required) to approve or reject items.
+
+@MainActor
+final class PlatformModerationQueueViewModel: ObservableObject {
+
+    struct QueueItem: Identifiable {
+        let id: String          // Firestore doc ID
+        let postId: String      // extracted from postRef ("posts/{postId}")
+        let preview: String
+        let status: String
+        let categories: [String]
+    }
+
+    @Published var items: [QueueItem] = []
+    @Published var isLoading = false
+    @Published var inFlight: Set<String> = []
+    @Published var errorMessage: String? = nil
+
+    private let db = Firestore.firestore()
+    private let functions = Functions.functions(region: "us-central1")
+
+    func load() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let snap = try await db.collection("moderationQueue")
+                .whereField("status", in: ["blocked", "pending"])
+                .order(by: "createdAt", descending: true)
+                .limit(to: 30)
+                .getDocuments()
+            items = snap.documents.compactMap { doc -> QueueItem? in
+                let data = doc.data()
+                guard let postRef = data["postRef"] as? String else { return nil }
+                let postId = postRef.components(separatedBy: "/").last ?? postRef
+                let preview = (data["preview"] as? String) ?? ""
+                let status = (data["status"] as? String) ?? "pending"
+                let categories = (data["categories"] as? [String]) ?? []
+                return QueueItem(id: doc.documentID, postId: postId, preview: preview,
+                                 status: status, categories: categories)
+            }
+        } catch {
+            errorMessage = "Could not load platform queue."
+        }
+    }
+
+    func review(item: QueueItem, decision: String) async {
+        inFlight.insert(item.id)
+        defer { inFlight.remove(item.id) }
+        do {
+            let callable = functions.httpsCallable("adminReviewPost")
+            _ = try await callable.call([
+                "postId": item.postId,
+                "decision": decision,
+                "queueId": item.id,
+            ])
+            items.removeAll { $0.id == item.id }
+        } catch {
+            errorMessage = "Review failed: \(error.localizedDescription)"
+        }
     }
 }

@@ -344,11 +344,11 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var liquidGlassCommunicationUIEnabled: Bool = true
 
     // MARK: - ContentOS (System 33: Content Discussion, Approval & Forwarding)
-    @Published private(set) var contentOSEnabled: Bool = false
-    @Published private(set) var contentApprovalWorkflowEnabled: Bool = false
-    @Published private(set) var contentForwardingEnabled: Bool = false
-    @Published private(set) var contentAIRouterEnabled: Bool = false
-    @Published private(set) var contentAuditLogEnabled: Bool = false
+    @Published private(set) var contentOSEnabled: Bool = true
+    @Published private(set) var contentApprovalWorkflowEnabled: Bool = true
+    @Published private(set) var contentForwardingEnabled: Bool = true
+    @Published private(set) var contentAIRouterEnabled: Bool = true
+    @Published private(set) var contentAuditLogEnabled: Bool = true
 
     // MARK: - Social Safety OS (Phase 2–13)
     @Published private(set) var socialSafetyOSEnabled: Bool = true
