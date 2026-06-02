@@ -137,13 +137,19 @@ actor ONELivingThreadsEngine {
             }
         }
 
+        let dedupedDecisions = Array(Set(decisions).prefix(5))
+        let dedupedPromises  = Array(Set(promises).prefix(5))
+        let dedupedDates     = Array(Set(importantDates).prefix(5))
+        let dedupedLinks     = Array(Set(links).prefix(10))
+        let dedupedTasks     = Array(Set(tasks).prefix(5))
+        let dedupedPrayers   = Array(Set(prayerRequests).prefix(5))
         return ONELivingThreadSummary(
-            decisions:      Array(Set(decisions)).prefix(5).map(String.init),
-            promises:       Array(Set(promises)).prefix(5).map(String.init),
-            importantDates: buildDates(from: Array(Set(importantDates)).prefix(5).map(String.init)),
-            sharedLinks:    Array(Set(links)).prefix(10).map(String.init),
-            tasks:          buildTasks(from: Array(Set(tasks)).prefix(5).map(String.init)),
-            prayerRequests: Array(Set(prayerRequests)).prefix(5).map(String.init),
+            decisions:       dedupedDecisions,
+            promises:        dedupedPromises,
+            importantDates:  buildDates(from: dedupedDates),
+            sharedLinks:     dedupedLinks,
+            tasks:           buildTasks(from: dedupedTasks),
+            prayerRequests:  dedupedPrayers,
             lastDistilledAt: Date()
         )
     }
