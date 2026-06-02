@@ -14,6 +14,7 @@ struct AmenCovenantModerationView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @StateObject private var moderationVM = AmenCovenantModerationViewModel()
+    @StateObject private var platformQueueVM = PlatformModerationQueueViewModel()
     @State private var showQueue = false
     @State private var guidelinesExpanded = false
     @State private var showGuidelinesEditAlert = false
@@ -26,6 +27,7 @@ struct AmenCovenantModerationView: View {
                 } else {
                     statusSummarySection
                     openQueueButton
+                    platformQueueSection
                     recentActivitySection
                     communityGuidelinesSection
                     escalationInfoRow
@@ -55,6 +57,7 @@ struct AmenCovenantModerationView: View {
             }
         }
         .task { await moderationVM.load(covenantId: covenantId) }
+        .task { await platformQueueVM.load() }
         .sheet(isPresented: $showQueue) {
             AmenCovenantModerationQueueView(covenantId: covenantId)
                 .environmentObject(vm)
