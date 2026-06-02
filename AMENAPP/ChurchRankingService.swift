@@ -131,6 +131,11 @@ final class ChurchRankingService: ObservableObject {
         }
     }
 
+    func stopObserving(churchId: String) {
+        listeners[churchId]?.remove()
+        listeners[churchId] = nil
+    }
+
     func snapshot(for church: Church) -> ChurchRankingSnapshot? {
         snapshots[church.id]
     }

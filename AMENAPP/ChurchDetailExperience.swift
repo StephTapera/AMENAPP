@@ -2,11 +2,74 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+// MARK: - ChurchDetailExperience Stubs
+
+struct ChurchDetailPayload {
+    var entity: ChurchEntity?
+    var heroImageURL: String?
+    var logoURL: String?
+    var about: String?
+    var typeLabel: String?
+    var city: String?
+    var state: String?
+    var verified: Bool
+    var livestreamURL: String?
+    var denomination: String?
+    var accessibilityTags: [String]
+    var media: [ChurchMediaAsset]
+    var liveState: ChurchLiveState?
+    var experienceSummary: ChurchExperienceSummary?
+}
+
+struct ChurchMediaAsset: Identifiable {
+    let id: String
+    let imageURL: String
+    let type: String
+    let source: String?
+    let approved: Bool
+    let createdAt: Date?
+}
+
+enum ChurchLiveStateKind: String {
+    case live
+    case upcoming
+    case closed
+    case quiet
+    case unknown
+}
+
+struct ChurchLiveState {
+    var state: ChurchLiveStateKind
+    var title: String?
+    var description: String?
+    var startsAt: Date?
+    var endsAt: Date?
+    var livestreamURL: String?
+    var attendanceSignal: Int?
+    var atmosphereTags: [String]
+    var updatedAt: Date?
+}
+
+struct ChurchExperienceSummary {
+    var parking: String?
+    var bestArrivalTime: String?
+    var entrance: String?
+    var serviceLength: String?
+    var worshipStyle: String?
+    var kidsMinistry: String?
+    var accessibility: String?
+    var translation: String?
+    var quietSpace: String?
+    var firstTimeFlow: String?
+    var confidence: Double?
+    var updatedAt: Date?
+}
+
 @MainActor
 final class ChurchDetailViewModel: ObservableObject {
     @Published private(set) var payload: ChurchDetailPayload?
     @Published private(set) var isLoading = true
-    @Published private(set) var errorMessage: String?
+    @Published var errorMessage: String?
 
     let church: Church
 
@@ -103,7 +166,7 @@ final class ChurchDetailViewModel: ObservableObject {
         Array((payload?.media ?? []).prefix(4))
     }
 
-    var quickFacts: [ChurchQuickFact] {
+    fileprivate var quickFacts: [ChurchQuickFact] {
         var facts: [ChurchQuickFact] = []
 
         if let liveState = payload?.liveState {
@@ -159,7 +222,7 @@ final class ChurchDetailViewModel: ObservableObject {
         return "\(weekdayName(for: first.dayOfWeek)) \(first.time)"
     }
 
-    var primarySmartAction: ChurchSmartAction {
+    fileprivate var primarySmartAction: ChurchSmartAction {
         if let liveState = payload?.liveState {
             switch liveState.state {
             case .live:
@@ -198,7 +261,7 @@ final class ChurchDetailViewModel: ObservableObject {
         )
     }
 
-    var secondarySmartActions: [ChurchSmartAction] {
+    fileprivate var secondarySmartActions: [ChurchSmartAction] {
         [
             ChurchSmartAction(
                 title: "Plan Visit",
@@ -215,7 +278,7 @@ final class ChurchDetailViewModel: ObservableObject {
         ]
     }
 
-    var goodToKnowItems: [ChurchGoodToKnowItem] {
+    fileprivate var goodToKnowItems: [ChurchGoodToKnowItem] {
         var items: [ChurchGoodToKnowItem] = []
 
         if let kids = payload?.experienceSummary?.kidsMinistry, !kids.isEmpty {
@@ -259,7 +322,7 @@ final class ChurchDetailViewModel: ObservableObject {
     }
 
     private func attachListeners() {
-        let churchRef = db.collection("churches").document(church.canonicalChurchId)
+        let churchRef = db.collection("churches").document(church.id.uuidString)
 
         listeners.append(
             churchRef.addSnapshotListener { [weak self] snapshot, _ in
@@ -463,14 +526,14 @@ final class ChurchDetailViewModel: ObservableObject {
     }
 }
 
-private struct ChurchQuickFact: Identifiable {
+fileprivate struct ChurchQuickFact: Identifiable {
     let id = UUID()
     let title: String
     let value: String
     let systemImage: String
 }
 
-private struct ChurchSmartAction: Identifiable {
+fileprivate struct ChurchSmartAction: Identifiable {
     let id = UUID()
     let title: String
     let subtitle: String
@@ -478,7 +541,7 @@ private struct ChurchSmartAction: Identifiable {
     let tint: Color
 }
 
-private struct ChurchGoodToKnowItem: Identifiable {
+fileprivate struct ChurchGoodToKnowItem: Identifiable {
     let id = UUID()
     let title: String
     let value: String
@@ -568,13 +631,13 @@ struct ChurchDetailView: View {
     }
 
     private var firstVisitGuide: FirstVisitGuideData? {
-        enhancementStore.data(for: church.canonicalChurchId)?.firstVisitGuide
+        enhancementStore.data(for: church.id.uuidString)?.firstVisitGuide
     }
 
     private var shouldShowVisitMemory: Bool {
         guard let visitInsights else { return false }
-        return visitInsights.lastVisitedChurchId == church.canonicalChurchId ||
-            visitInsights.favoriteChurchIds.contains(church.canonicalChurchId)
+        return visitInsights.lastVisitedChurchId == church.id.uuidString ||
+            visitInsights.favoriteChurchIds.contains(church.id.uuidString)
     }
 
     var body: some View {
@@ -616,13 +679,13 @@ struct ChurchDetailView: View {
             }
             .onAppear {
                 viewModel.start()
-                enhancementStore.observe(churchId: church.canonicalChurchId)
+                enhancementStore.observe(churchId: church.id.uuidString)
                 rankingService.observe(church: church)
             }
             .onDisappear {
                 viewModel.stop()
-                enhancementStore.stopObserving(churchId: church.canonicalChurchId)
-                rankingService.stopObserving(churchId: church.canonicalChurchId)
+                enhancementStore.stopObserving(churchId: church.id.uuidString)
+                rankingService.stopObserving(churchId: church.id.uuidString)
             }
         }
     }
@@ -707,10 +770,10 @@ struct ChurchDetailView: View {
                     churchName: viewModel.displayName,
                     parkingInfo: firstVisitGuide.parking,
                     entranceInfo: firstVisitGuide.arrivalTip,
-                    kidsCheckIn: firstVisitGuide.kidsProgramAvailable,
+                    kidsCheckIn: firstVisitGuide.kidsProgramAvailable ?? false,
                     expectedDurationMinutes: firstVisitGuide.expectedDurationMinutes,
                     serviceStyle: firstVisitGuide.serviceStyle,
-                    accessibilityFeatures: firstVisitGuide.accessibilityFeatures
+                    accessibilityFeatures: firstVisitGuide.accessibilityFeatures ?? []
                 )
             }
 
@@ -1476,7 +1539,7 @@ struct BereanChurchContextSheet: View {
             category: .assistantResponse,
             userInput: trimmed,
             context: [
-                "churchId": church.canonicalChurchId,
+                "churchId": church.id.uuidString,
                 "churchName": church.name,
                 "churchType": payload?.typeLabel ?? "Church",
                 "cityState": [payload?.city, payload?.state].compactMap { $0 }.joined(separator: ", ")

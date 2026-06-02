@@ -126,8 +126,9 @@ enum ONE {
     }
 }
 
-// MARK: - Glass view modifier helpers
+// MARK: - Glass view modifier helpers (iOS 26+)
 
+@available(iOS 26.0, *)
 extension View {
 
     /// Applies a ONE-standard privacy pill glass shape.

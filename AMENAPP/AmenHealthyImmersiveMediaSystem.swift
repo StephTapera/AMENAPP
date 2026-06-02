@@ -63,6 +63,8 @@ enum AmenMediaSessionType: String, Codable, CaseIterable, Identifiable {
     case familySafeWatch
     case localChurchUpdates
     case savedVideos
+    case communityMoments
+    case discoverFeed
 
     var id: String { rawValue }
 
@@ -76,6 +78,8 @@ enum AmenMediaSessionType: String, Codable, CaseIterable, Identifiable {
         case .familySafeWatch: return "Family-safe Watch"
         case .localChurchUpdates: return "Local Church Updates"
         case .savedVideos: return "Saved Videos"
+        case .communityMoments: return "Community Moments"
+        case .discoverFeed: return "Discover Feed"
         }
     }
 }
@@ -162,7 +166,7 @@ struct AmenMediaSessionItem: Identifiable, Codable, Equatable {
     let requiresInterruption: Bool
 }
 
-struct AmenMediaSession: Identifiable, Codable, Equatable {
+struct AmenHealthyMediaSession: Identifiable, Codable, Equatable {
     let id: String
     let sessionType: AmenMediaSessionType
     let itemIds: [String]
@@ -423,17 +427,6 @@ enum AmenMediaAnalytics {
     }
 }
 
-extension AMENFeatureFlags {
-    var healthyImmersiveMediaEnabled: Bool { immersiveMediaChromeEnabled && mediaChromeLiquidGlassEnabled }
-    var mediaFiniteSessionsEnabled: Bool { antiDoomscrollEnabled && feedSessionPacingEnabled }
-    var mediaCompletionReflectionEnabled: Bool { feedReflectionPromptsEnabled }
-    var mediaAIDraftMetadataEnabled: Bool { autoCaptionsEnabled && amenAIUsageLabelsRequired }
-    var mediaReportingEnabled: Bool { moderationV2Enabled }
-    var mediaSafetyModesEnabled: Bool { socialSafetyOSEnabled || moderationV2Enabled }
-    var mediaLowBandwidthModeEnabled: Bool { mediaCreationEnabled }
-    var mediaAccessibilityControlsEnabled: Bool { adaptiveAccessibilityEnabled }
-}
-
 // MARK: - Reusable Frontend Surfaces
 
 struct MediaCaptionOverlay: View {
@@ -473,7 +466,7 @@ struct MediaKeyMomentsRail: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(moments.filter(\.isPubliclyApproved)) { moment in
+                ForEach(moments.filter { $0.isPubliclyApproved }) { moment in
                     AmenLiquidGlassPillButton(
                         title: "\(moment.timestampLabel) \(moment.label)",
                         systemImage: "sparkle.magnifyingglass",

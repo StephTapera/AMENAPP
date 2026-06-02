@@ -337,7 +337,7 @@ struct MentalHealthDetailView: View {
                 spacing: 14
             ) {
                 ForEach(tools, id: \.0) { tool in
-                    WellnessToolCard(
+                    MentalHealthToolCard(
                         icon: tool.0,
                         title: tool.1,
                         subtitle: tool.2,
@@ -865,9 +865,9 @@ private struct ForAFriendActionButton: View {
     }
 }
 
-// MARK: - Wellness Tool Card
+// MARK: - Mental Health Tool Card
 
-private struct WellnessToolCard: View {
+private struct MentalHealthToolCard: View {
     let icon: String
     let title: String
     let subtitle: String

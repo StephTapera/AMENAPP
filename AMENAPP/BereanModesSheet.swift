@@ -168,11 +168,11 @@ struct BereanModesSheet: View {
     }
 }
 
-// MARK: - BereanModeChip
+// MARK: - BereanModeSelectorPill
 
 /// Compact pill showing the active mode. Tap to open BereanModesSheet.
 /// Drop into the chat composer toolbar or nav header.
-struct BereanModeChip: View {
+struct BereanModeSelectorPill: View {
     @ObservedObject private var modeStore = BereanModeStore.shared
     @State private var showSheet = false
 

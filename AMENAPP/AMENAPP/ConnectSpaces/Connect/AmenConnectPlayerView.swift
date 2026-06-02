@@ -32,7 +32,16 @@ struct AmenConnectPlayerView: View {
     @State private var player: AVPlayer = AVPlayer()
     @State private var showTranscript = false
     @State private var showContextSheet = false
+    @State private var showSessionIntentSheet = true
+    @State private var sessionGoal: String = ""
+    @State private var sessionTimeLimitMinutes: Int = 30
+    @State private var sessionStartedAt: Date? = nil
+    @State private var showSessionRecap = false
+    @State private var sessionReflection: String = ""
+    @State private var sessionElapsedMinutes: Int = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let minuteTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     // MARK: Provenance summary string (passed to glass controls badge)
     private var provenanceSummary: String {
@@ -77,6 +86,9 @@ struct AmenConnectPlayerView: View {
 
                     // Scripture references
                     scriptureSection
+
+                    // End session button — visible once session has started
+                    sessionEndButton
                 }
                 .padding(16)
                 .background(Color(hex: "070607"))
@@ -95,6 +107,34 @@ struct AmenConnectPlayerView: View {
                         Button("Close") { showContextSheet = false }
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showSessionIntentSheet) {
+            ConnectSessionIntentSheet(
+                goal: $sessionGoal,
+                timeLimitMinutes: $sessionTimeLimitMinutes
+            ) {
+                sessionStartedAt = Date()
+                sessionElapsedMinutes = 0
+                showSessionIntentSheet = false
+            }
+        }
+        .sheet(isPresented: $showSessionRecap) {
+            ConnectSessionRecapView(
+                video: video,
+                goal: sessionGoal,
+                elapsedMinutes: sessionElapsedMinutes,
+                reflection: $sessionReflection
+            ) {
+                showSessionRecap = false
+            }
+        }
+        .onReceive(minuteTimer) { _ in
+            guard sessionStartedAt != nil else { return }
+            sessionElapsedMinutes += 1
+            if sessionTimeLimitMinutes > 0 && sessionElapsedMinutes >= sessionTimeLimitMinutes {
+                player.pause()
+                showSessionRecap = true
             }
         }
     }
@@ -283,6 +323,32 @@ struct AmenConnectPlayerView: View {
             .clipShape(Capsule())
     }
 
+    // MARK: End session button
+
+    @ViewBuilder
+    private var sessionEndButton: some View {
+        if sessionStartedAt != nil {
+            Button {
+                player.pause()
+                showSessionRecap = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "stop.circle")
+                    Text("End Session")
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.65))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+                .frame(maxWidth: .infinity)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+            }
+            .accessibilityLabel("End session and see recap")
+        }
+    }
+
     // MARK: Section header helper
 
     @ViewBuilder
@@ -294,18 +360,220 @@ struct AmenConnectPlayerView: View {
     }
 }
 
-// MARK: - Hex color helper (module-scoped, used across all 4 files via single definition)
-// Note: AmenSyntheticMediaLabelView.swift defines a private Color(hex:) extension.
-// This one is also private and scoped to this file only to avoid redeclaration.
-private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double(int         & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
+// MARK: - Session Intent Sheet
+
+private struct ConnectSessionIntentSheet: View {
+    @Binding var goal: String
+    @Binding var timeLimitMinutes: Int
+    let onStart: () -> Void
+
+    private let timeLimitOptions: [(label: String, value: Int)] = [
+        ("15 min", 15), ("30 min", 30), ("45 min", 45), ("60 min", 60), ("No limit", 0)
+    ]
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("What do you want to learn?")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Setting an intention helps you stay focused and makes it easier to reflect afterward.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    intentSectionHeader("MY GOAL FOR THIS SESSION")
+                    TextField("e.g. Understand how faith and works connect", text: $goal, axis: .vertical)
+                        .font(.system(size: 14))
+                        .lineLimit(3, reservesSpace: true)
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    intentSectionHeader("SESSION LENGTH")
+                    HStack(spacing: 8) {
+                        ForEach(timeLimitOptions, id: \.value) { option in
+                            Button {
+                                timeLimitMinutes = option.value
+                            } label: {
+                                Text(option.label)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(timeLimitMinutes == option.value ? Color.accentColor : Color(.secondarySystemBackground))
+                                    .foregroundStyle(timeLimitMinutes == option.value ? Color.white : Color.primary)
+                                    .clipShape(Capsule())
+                            }
+                            .accessibilityLabel("\(option.label) session")
+                            .accessibilityValue(timeLimitMinutes == option.value ? "Selected" : "Not selected")
+                        }
+                    }
+                    .accessibilityElement(children: .contain)
+                }
+
+                Spacer()
+
+                Button(action: onStart) {
+                    Text("Start Watching")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(Color.accentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .accessibilityLabel("Start watching")
+            }
+            .padding(20)
+            .navigationTitle("Before You Watch")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    private func intentSectionHeader(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold))
+            .kerning(0.8)
+            .foregroundStyle(.secondary)
+    }
+}
+
+// MARK: - Session Recap View
+
+private struct ConnectSessionRecapView: View {
+    let video: AmenConnectSpacesConnectVideo
+    let goal: String
+    let elapsedMinutes: Int
+    @Binding var reflection: String
+    let onDone: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Elapsed summary
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Session complete")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            if elapsedMinutes > 0 {
+                                Text("\(elapsedMinutes) min watched")
+                                    .font(.system(size: 22, weight: .bold))
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 36))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .padding(16)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    // Session goal
+                    if !goal.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            recapSectionHeader("YOUR GOAL")
+                            Text(goal)
+                                .font(.system(size: 14))
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                    }
+
+                    // Key claims
+                    if !video.claims.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            recapSectionHeader("KEY CLAIMS IN THIS VIDEO")
+                            VStack(spacing: 6) {
+                                ForEach(video.claims) { claim in
+                                    HStack(alignment: .top, spacing: 10) {
+                                        Image(systemName: "quote.opening")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(Color.accentColor)
+                                            .padding(.top, 2)
+                                        Text(claim.text)
+                                            .font(.system(size: 13))
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Spacer()
+                                    }
+                                    .padding(12)
+                                    .background(Color(.secondarySystemBackground))
+                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    .accessibilityLabel("Claim: \(claim.text)")
+                                }
+                            }
+                        }
+                    }
+
+                    // Scripture refs
+                    if !video.scriptureRefs.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            recapSectionHeader("SCRIPTURE REFERENCED")
+                            FlowLayout(items: video.scriptureRefs) { ref in
+                                Text(ref.reference)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Color.accentColor.opacity(0.12))
+                                    .clipShape(Capsule())
+                                    .accessibilityLabel(ref.reference)
+                            }
+                        }
+                    }
+
+                    // "What did I learn?" reflection
+                    VStack(alignment: .leading, spacing: 8) {
+                        recapSectionHeader("WHAT DID I LEARN?")
+                        Text("Take a moment to write down what stood out to you.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        TextField("Write your reflection here…", text: $reflection, axis: .vertical)
+                            .font(.system(size: 14))
+                            .lineLimit(5, reservesSpace: true)
+                            .padding(12)
+                            .background(Color(.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+
+                    Button(action: onDone) {
+                        Text("Done")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Color.accentColor)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .padding(.top, 8)
+                    .accessibilityLabel("Done with recap")
+                }
+                .padding(20)
+            }
+            .navigationTitle("Session Recap")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", action: onDone)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func recapSectionHeader(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold))
+            .kerning(0.8)
+            .foregroundStyle(.secondary)
     }
 }
 

@@ -243,6 +243,7 @@ struct Post: Identifiable, Codable, Equatable {
     var normalizedTopicKeys: [String]? = nil     // Canonical topic keys (e.g. ["prayer", "healing"])
     var topicScoreMap: [String: Double]? = nil    // Per-key confidence (0–1.0) from enrichment
     var primaryTopicKey: String? = nil            // Highest-confidence topic key
+    var feedContext: AmenFeedContextLabel? = nil  // Client-side enriched feed context label
 
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
@@ -533,6 +534,7 @@ struct Post: Identifiable, Codable, Equatable {
         normalizedTopicKeys = try container.decodeIfPresent([String].self, forKey: .normalizedTopicKeys)
         topicScoreMap = try container.decodeIfPresent([String: Double].self, forKey: .topicScoreMap)
         primaryTopicKey = try container.decodeIfPresent(String.self, forKey: .primaryTopicKey)
+        feedContext = nil
     }
 
     func encode(to encoder: Encoder) throws {

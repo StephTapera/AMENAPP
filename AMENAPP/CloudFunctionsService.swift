@@ -263,6 +263,55 @@ class CloudFunctionsService: ObservableObject {
     }
 }
 
+// MARK: - Spiritual Systems
+
+extension CloudFunctionsService {
+    func updatePresenceState(selectedState: String, visibility: String) async throws {
+        _ = try await call("updateSpiritualPresence", data: ["selectedState": selectedState, "visibility": visibility])
+    }
+
+    func addSilentReaction(sourceId: String, sourceType: String, reactionType: String) async throws {
+        _ = try await call("addSilentReaction", data: ["sourceId": sourceId, "sourceType": sourceType, "reactionType": reactionType])
+    }
+
+    func getSilentReactionSummary(sourceId: String, sourceType: String) async throws -> AmenSilentReactionSummary {
+        let raw = try await call("getSilentReactionSummary", data: ["sourceId": sourceId, "sourceType": sourceType])
+        guard let data = raw as? [String: Any],
+              let summary = data["summaryText"] as? String,
+              let typesRaw = data["reactionTypes"] as? [String] else {
+            throw CloudFunctionsError.invalidResponse
+        }
+        let types = typesRaw.compactMap { AmenSilentReactionType(rawValue: $0) }
+        return AmenSilentReactionSummary(summaryText: summary, reactionTypes: types)
+    }
+
+    func getSpiritualPriorityInbox() async throws -> [AmenSpiritualPriorityItem] {
+        let raw = try await call("getSpiritualPriorityInbox", data: nil)
+        guard let items = raw as? [[String: Any]] else { return [] }
+        return items.compactMap { d in
+            guard let id = d["id"] as? String,
+                  let title = d["title"] as? String,
+                  let subtitle = d["subtitle"] as? String else { return nil }
+            let chips = d["reasonChips"] as? [String] ?? []
+            let score = d["priorityScore"] as? Double ?? 0
+            return AmenSpiritualPriorityItem(id: id, title: title, subtitle: subtitle, reasonChips: chips, priorityScore: score)
+        }
+    }
+
+    func summonThreads(query: String) async throws -> [AmenThreadSummoningResult] {
+        let raw = try await call("summonThreads", data: ["query": query])
+        guard let items = raw as? [[String: Any]] else { return [] }
+        return items.compactMap { d in
+            guard let id = d["id"] as? String,
+                  let title = d["title"] as? String,
+                  let subtitle = d["subtitle"] as? String,
+                  let reason = d["reason"] as? String,
+                  let sourceType = d["sourceType"] as? String else { return nil }
+            return AmenThreadSummoningResult(id: id, title: title, subtitle: subtitle, reason: reason, sourceType: sourceType)
+        }
+    }
+}
+
 // MARK: - Models
 
 /// Simple feed item model (adapt to your actual Post model)

@@ -67,6 +67,7 @@ struct AmenCanonicalObject: Identifiable, Codable, Equatable, Hashable {
         case .spotify: return "spotify"
         case .youtube: return "youtube"
         case .generic: return nil
+        default: return nil
         }
     }
 }
@@ -165,4 +166,22 @@ extension AmenCommunityHub {
         }
         return cards
     }
+}
+
+// MARK: - AmenPostCommunityHubPreview
+
+/// Lightweight preview of the community hub attached to a single post.
+struct AmenPostCommunityHubPreview: Identifiable, Codable, Equatable, Hashable {
+    var id: String { hubId }
+    let hubId: String
+    let canonicalObjectId: String
+    let objectTypeRaw: String
+    let title: String
+    let aggregateText: String
+    let actionText: String
+    let safetyStateRaw: String
+    let explicitContentStateRaw: String
+    let privacyStateRaw: String
+    let iconKind: String?
+    let canonicalUrl: String?
 }

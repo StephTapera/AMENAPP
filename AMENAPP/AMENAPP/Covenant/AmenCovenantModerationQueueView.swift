@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseCore
+import FirebaseFirestore
 
 // MARK: - Moderation Queue View
 // Creator/moderator tool. Each item supports approve, block, request edit,
@@ -144,7 +146,7 @@ private struct ModerationItemRow: View {
                                 .font(.system(size: 10, weight: .medium))
                                 .foregroundStyle(.orange)
                                 .padding(.horizontal, 7)
-                                .padding(.vertical: 3)
+                                .padding(.vertical, 3)
                                 .background(Capsule().fill(Color.orange.opacity(0.1)))
                         }
                     }

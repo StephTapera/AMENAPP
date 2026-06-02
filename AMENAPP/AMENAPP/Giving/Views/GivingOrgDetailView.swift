@@ -356,7 +356,7 @@ struct GivingOrgDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Where they serve", icon: "globe.americas.fill")
 
-            FlowLayout(spacing: 8) {
+            GivingFlowLayout(spacing: 8) {
                 ForEach(org.serviceRegions.prefix(6), id: \.displayLabel) { region in
                     Text(region.displayLabel)
                         .font(.system(size: 13))
@@ -505,7 +505,7 @@ struct GiveConfirmationSheet: View {
 
 // MARK: - Simple Flow Layout
 
-struct FlowLayout: Layout {
+struct GivingFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {

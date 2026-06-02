@@ -3,7 +3,9 @@ import FirebaseFirestore
 
 // MARK: - Covenant
 
-struct Covenant: Identifiable, Codable {
+struct Covenant: Identifiable, Codable, Hashable {
+    static func == (lhs: Covenant, rhs: Covenant) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
     @DocumentID var id: String?
     var creatorId: String
     var name: String
@@ -34,6 +36,7 @@ struct CovenantTier: Identifiable, Codable, Equatable {
     var perks: [String]
     var roomAccess: [String]
     var isPopular: Bool
+    var stripePriceId: String?
 
     enum BillingPeriod: String, Codable, CaseIterable {
         case monthly, annual, oneTime = "one_time"
@@ -310,7 +313,7 @@ struct CovenantModerationItem: Identifiable, Codable {
     var assignedTo: String?
     var resolvedBy: String?
     var resolvedAt: Timestamp?
-    var auditLog: [ModerationAuditEntry]
+    var auditLog: [CovenantAuditEntry]
     var createdAt: Timestamp
 
     enum ContentType: String, Codable {
@@ -332,7 +335,7 @@ struct CovenantModerationItem: Identifiable, Codable {
     }
 }
 
-struct ModerationAuditEntry: Codable {
+struct CovenantAuditEntry: Codable {
     var action: String
     var performedBy: String
     var note: String?

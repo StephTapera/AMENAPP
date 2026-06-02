@@ -12,6 +12,7 @@ struct SpacesDiscoveryView: View {
     @State private var selectedSpace: AMENSpace? = nil
     @State private var showSpaceFeed = false
     @Namespace private var filterNamespace
+    @AppStorage("spiritualOS_create_space_enhanced_enabled") private var enhancedCreateEnabled = false
 
     // Background color matching #0A0A0F
     private let background = Color(red: 0.039, green: 0.039, blue: 0.059)
@@ -57,7 +58,16 @@ struct SpacesDiscoveryView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .preferredColorScheme(.dark)
             .sheet(isPresented: $showCreateSheet) {
-                CreateSpaceSheet(vm: vm)
+                // Spiritual OS — Create Space Enhanced Sheet (Agent E, gated by AppStorage flag)
+                if enhancedCreateEnabled {
+                    AmenCreateSpaceEnhancedSheet(
+                        userId: Auth.auth().currentUser?.uid ?? "",
+                        onDismiss: { showCreateSheet = false },
+                        onCreated: { _ in showCreateSheet = false }
+                    )
+                } else {
+                    CreateSpaceSheet(vm: vm)
+                }
             }
             .navigationDestination(isPresented: $showSpaceFeed) {
                 if let space = selectedSpace {

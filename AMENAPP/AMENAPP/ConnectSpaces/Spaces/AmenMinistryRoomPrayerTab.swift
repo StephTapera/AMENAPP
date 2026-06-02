@@ -52,9 +52,9 @@ private struct AmenPrayerCard: View {
 
     private var statusColor: Color {
         switch item.status {
-        case .done:       return Color.amenGold
-        case .open:       return Color.amenPurple
-        case .inProgress: return Color.amenBlue
+        case .done:       return Color(hex: "D9A441")
+        case .open:       return Color(hex: "6E4BB5")
+        case .inProgress: return Color(hex: "245B8F")
         case .waiting:    return Color.white.opacity(0.55)
         case .archived:   return Color.white.opacity(0.30)
         }
@@ -76,7 +76,7 @@ private struct AmenPrayerCard: View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "hands.sparkles")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -115,11 +115,11 @@ private struct AmenPrayerCard: View {
             HStack(spacing: 5) {
                 Image(systemName: "flame")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
                 Text("3 praying")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color(hex: "D9A441"))
             }
             .accessibilityLabel("3 people are praying for this request")
 
@@ -139,15 +139,15 @@ private struct AmenPrayerCard: View {
                         Text("Mark as answered")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundStyle(Color.amenPurple)
+                    .foregroundStyle(Color(hex: "6E4BB5"))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
                     .background(
                         Capsule()
-                            .fill(Color.amenPurple.opacity(0.12))
+                            .fill(Color(hex: "6E4BB5").opacity(0.12))
                             .overlay(
                                 Capsule()
-                                    .strokeBorder(Color.amenPurple.opacity(0.30), lineWidth: 1)
+                                    .strokeBorder(Color(hex: "6E4BB5").opacity(0.30), lineWidth: 1)
                             )
                     )
                 }
@@ -176,7 +176,7 @@ private struct AmenPrayerEmptyState: View {
         VStack(spacing: 14) {
             Image(systemName: "candle")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(Color.amenGold.opacity(0.7))
+                .foregroundStyle(Color(hex: "D9A441").opacity(0.7))
                 .accessibilityHidden(true)
             Text("No prayer requests yet.\nShare one in Chat.")
                 .font(.body)
@@ -209,7 +209,7 @@ struct AmenMinistryRoomPrayerTab: View {
                 loadingView
             } else if vm.items.isEmpty {
                 AmenPrayerEmptyState()
-                    .background(Color.amenBlack)
+                    .background(Color(hex: "070607"))
             } else {
                 itemList
             }
@@ -225,20 +225,20 @@ struct AmenMinistryRoomPrayerTab: View {
                     .accessibilityLabel("Error: \(error)")
             }
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
         .task { await vm.load() }
     }
 
     private var loadingView: some View {
         VStack(spacing: 12) {
             ProgressView()
-                .tint(Color.amenGold)
+                .tint(Color(hex: "D9A441"))
             Text("Loading prayer board…")
                 .font(.subheadline)
                 .foregroundStyle(Color.white.opacity(0.55))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
     }
 
     private var itemList: some View {
@@ -253,6 +253,6 @@ struct AmenMinistryRoomPrayerTab: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
     }
 }

@@ -9,6 +9,10 @@ import SwiftUI
 import FirebaseAuth
 import UniformTypeIdentifiers
 
+extension Notification.Name {
+    static let churchNoteEdited = Notification.Name("amen.churchNoteEdited")
+}
+
 // MARK: - Editor ViewModel
 
 @MainActor

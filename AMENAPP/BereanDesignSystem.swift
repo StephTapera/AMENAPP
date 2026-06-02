@@ -66,7 +66,7 @@ enum BereanType {
 
 /// Full liquid glass card: .ultraThinMaterial + adaptive highlight + hairline border + soft shadow.
 /// In dark mode renders as smoked glass. In light mode renders as bright liquid glass.
-struct LiquidGlassCard: ViewModifier {
+struct BereanGlassCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 18
     var shadowRadius: CGFloat = 16
     var shadowY: CGFloat      = 5
@@ -113,7 +113,7 @@ struct LiquidGlassInputBarModifier: ViewModifier {
 
 extension View {
     func bereanGlassCard(cornerRadius: CGFloat = 18, shadowRadius: CGFloat = 16, shadowY: CGFloat = 5) -> some View {
-        modifier(LiquidGlassCard(cornerRadius: cornerRadius, shadowRadius: shadowRadius, shadowY: shadowY))
+        modifier(BereanGlassCardModifier(cornerRadius: cornerRadius, shadowRadius: shadowRadius, shadowY: shadowY))
     }
     func bereanGlassInputBar(cornerRadius: CGFloat = 24) -> some View {
         modifier(LiquidGlassInputBarModifier(cornerRadius: cornerRadius))

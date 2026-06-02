@@ -12,23 +12,6 @@ import FirebaseAuth
 
 // MARK: - Color helpers (file-local, matching frozen design tokens)
 
-private extension Color {
-    static let amenGold   = Color(hex: "#D9A441")
-    static let amenPurple = Color(hex: "#6E4BB5")
-    static let amenBlue   = Color(hex: "#245B8F")
-    static let amenBlack  = Color(hex: "#070607")
-
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double(int         & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-}
-
 // MARK: - Hint chip labels
 
 private let searchHintChips: [String] = [

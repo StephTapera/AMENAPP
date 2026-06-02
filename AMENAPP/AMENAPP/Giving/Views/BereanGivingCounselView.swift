@@ -307,7 +307,7 @@ struct BereanGivingCounselView: View {
                     .buttonStyle(.plain)
 
                     if vm.showScripture.contains(rec.id) {
-                        Text(""\(text)"")
+                        Text("\u{201C}\(text)\u{201D}")
                             .font(.custom("Georgia", size: 14))
                             .foregroundStyle(AmenTheme.Colors.textSecondary)
                             .italic()

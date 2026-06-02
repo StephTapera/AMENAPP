@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseCore
+import FirebaseFirestore
 
 // MARK: - Prayer Follow-Up Card
 // Compact card for prayer requests needing follow-up.

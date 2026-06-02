@@ -168,9 +168,9 @@ struct SelahScriptureReaderView: View {
             DragGesture(minimumDistance: 60, coordinateSpace: .global)
                 .onEnded { value in
                     // Horizontal swipe across book boundary
-                    if value.translation.width < -80, currentChapter == chapterCount, let next = book?.nextBook() {
+                    if value.translation.width < -80, currentChapter == chapterCount, let next = book?.nextBook {
                         advance(to: next.id, chapter: 1)
-                    } else if value.translation.width > 80, currentChapter == 1, let prev = book?.previousBook() {
+                    } else if value.translation.width > 80, currentChapter == 1, let prev = book?.previousBook {
                         advance(to: prev.id, chapter: prev.chapterCount)
                     }
                 }

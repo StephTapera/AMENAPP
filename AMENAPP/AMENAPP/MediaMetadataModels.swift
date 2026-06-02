@@ -38,6 +38,15 @@ enum MediaCaptionStyle: String, Codable, CaseIterable, Hashable {
     case standard
     case large
     case highContrast
+
+    var title: String {
+        switch self {
+        case .minimal:      return "Minimal"
+        case .standard:     return "Standard"
+        case .large:        return "Large"
+        case .highContrast: return "High Contrast"
+        }
+    }
 }
 
 struct MediaCaptionTrack: Identifiable, Codable, Equatable, Hashable {
@@ -78,47 +87,6 @@ struct MediaCaptionTrack: Identifiable, Codable, Equatable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, generatedTranscript, editedTranscript, languageCode, style
         case displayByDefault, _source = "source", cues, lastEditedAt
-    }
-}
-
-struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
-    let id: String
-    let timestamp: TimeInterval
-    let label: String
-    let kind: MediaKeyMomentKind
-    let source: String?
-    let sortOrder: Int?
-
-    init(
-        id: String = UUID().uuidString,
-        timestamp: TimeInterval,
-        label: String,
-        kind: MediaKeyMomentKind,
-        source: String? = nil,
-        sortOrder: Int? = nil
-    ) {
-        self.id = id
-        self.timestamp = timestamp
-        self.label = label
-        self.kind = kind
-        self.source = source
-        self.sortOrder = sortOrder
-    }
-
-    static func fallbackMoments(for duration: TimeInterval) -> [MediaKeyMoment] {
-        let count = min(max(Int(duration / 15), 2), 4)
-        let interval = duration / Double(count)
-        let kinds: [MediaKeyMomentKind] = [.verse, .keyPoint, .worship, .highlight]
-        let labels = ["Introduction", "Key Point", "Scripture", "Closing"]
-        return (0..<count).map { index in
-            MediaKeyMoment(
-                timestamp: Double(index) * interval + interval * 0.25,
-                label: labels[min(index, labels.count - 1)],
-                kind: kinds[index % kinds.count],
-                source: "generated",
-                sortOrder: index
-            )
-        }
     }
 }
 

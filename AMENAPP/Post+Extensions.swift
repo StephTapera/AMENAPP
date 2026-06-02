@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 extension Post {
     /// ✅ FIXED: Get the correct Firestore document ID
@@ -128,10 +129,51 @@ extension FirestorePost {
     func hasAmened(by userId: String) -> Bool {
         amenUserIds.contains(userId)
     }
-    
+
     /// Check if current user has lit lightbulb
     func hasLitLightbulb(by userId: String) -> Bool {
         lightbulbUserIds.contains(userId)
     }
 }
+
+// MARK: - Post RenderModel bridge properties
+
+extension Post {
+    var mediaItems: [PostMediaItem]? { nil }
+    var witnessMedia: String? { nil }
+    var lowTrustAuthor: Bool { false }
+    var sharedChurchId: String? { nil }
+    var sharedChurchAddress: String? { nil }
+    var dynamicReplyPreviewCandidates: [DynamicReplyPreview]? { nil }
+    var aiUsage: PostAIUsage? { nil }
+    var contextStableId: String { firebaseId ?? id.uuidString }
+}
+
+// MARK: - PostCategory display helpers
+
+extension Post.PostCategory {
+    var icon: String {
+        switch self {
+        case .openTable:   return "bubble.left.and.bubble.right.fill"
+        case .testimonies: return "star.fill"
+        case .prayer:      return "hands.sparkles"
+        case .tip:         return "lightbulb.fill"
+        case .funFact:     return "sparkles"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .openTable:   return .blue
+        case .testimonies: return .orange
+        case .prayer:      return .purple
+        case .tip:         return .yellow
+        case .funFact:     return .teal
+        }
+    }
+}
+
+// MARK: - PostVisibility top-level alias
+
+typealias PostVisibility = Post.PostVisibility
 

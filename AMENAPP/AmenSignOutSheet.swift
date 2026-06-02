@@ -62,8 +62,8 @@ struct AmenSignOutSheet: View {
                         .background(
                             Capsule().fill(
                                 reduceTransparency
-                                    ? Color(.secondarySystemBackground)
-                                    : .regularMaterial
+                                    ? AnyShapeStyle(Color(.secondarySystemBackground))
+                                    : AnyShapeStyle(Material.regularMaterial)
                             )
                         )
                 }
@@ -83,8 +83,8 @@ struct AmenSignOutSheet: View {
                         .background(
                             Capsule().fill(
                                 reduceTransparency
-                                    ? Color(.secondarySystemBackground)
-                                    : .regularMaterial
+                                    ? AnyShapeStyle(Color(.secondarySystemBackground))
+                                    : AnyShapeStyle(Material.regularMaterial)
                             )
                         )
                 }

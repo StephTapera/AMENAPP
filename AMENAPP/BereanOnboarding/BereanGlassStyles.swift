@@ -20,14 +20,11 @@ extension BereanType {
     static func badge() -> Font { AMENFont.regular(12) }
 }
 
-// MARK: - Glass Card Modifier
+// MARK: - Glass Card Helper
 
-struct BereanGlassCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 18
-    var padding: CGFloat = 16
-
-    func body(content: Content) -> some View {
-        content
+extension View {
+    func bereanGlassCard(cornerRadius: CGFloat = 18, padding: CGFloat = 16) -> some View {
+        self
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -42,12 +39,6 @@ struct BereanGlassCardModifier: ViewModifier {
                     )
                     .shadow(color: BereanColor.glassShadow, radius: 12, x: 0, y: 4)
             )
-    }
-}
-
-extension View {
-    func bereanGlassCard(cornerRadius: CGFloat = 18, padding: CGFloat = 16) -> some View {
-        modifier(BereanGlassCardModifier(cornerRadius: cornerRadius, padding: padding))
     }
 }
 

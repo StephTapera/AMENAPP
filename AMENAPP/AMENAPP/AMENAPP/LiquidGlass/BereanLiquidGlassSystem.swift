@@ -38,6 +38,10 @@ struct LiquidGlassScrollBehavior {
     var highlightOpacity: Double {
         0.22 - (Double(compression) * 0.12)
     }
+
+    var shadowOpacity: Double {
+        0.08 + (Double(compression) * 0.10)
+    }
 }
 
 struct LiquidGlassSurface<Content: View>: View {
@@ -165,5 +169,14 @@ struct LiquidGlassMorphContainer<Content: View>: View {
 enum LiquidGlassMorphAnimator {
     static var spring: Animation {
         .spring(response: 0.28, dampingFraction: 0.82)
+    }
+}
+
+extension View {
+    func liquidGlassPanel(_ behavior: LiquidGlassScrollBehavior, cornerRadius: CGFloat, elevated: Bool = true) -> some View {
+        LiquidGlassSurface(cornerRadius: cornerRadius, behavior: behavior) {
+            self
+        }
+        .shadow(color: .black.opacity(elevated ? 0.08 : 0.04), radius: elevated ? 12 : 6, x: 0, y: elevated ? 6 : 2)
     }
 }

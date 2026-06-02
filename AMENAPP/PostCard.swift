@@ -4589,307 +4589,124 @@ private struct AmenGlassRow: View {
     }
 }
 
-// MARK: - Report Post Sheet
-
-struct ReportPostSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let post: Post
-    let postAuthor: String
-    let category: PostCard.PostCardCategory
-    
-    @State private var selectedReason: ReportReason?
-    @State private var additionalDetails = ""
-    @State private var showSuccessAlert = false
-    @FocusState private var isTextFieldFocused: Bool
-    
-    enum ReportReason: String, CaseIterable, Identifiable {
-        case spam = "Spam or misleading"
-        case harassment = "Harassment or bullying"
-        case hateSpeech = "Hate speech or violence"
-        case inappropriateContent = "Inappropriate content"
-        case falseInformation = "False information"
-        case offTopic = "Off-topic or irrelevant"
-        case copyright = "Copyright violation"
-        case other = "Other"
+#Preview("Post Cards") {
+    VStack {
+        PostCard(
+            authorName: "User",
+            timeAgo: "2h",
+            content: "Sample post content",
+            category: .openTable,
+            topicTag: "Sample",
+            isUserPost: true
+        )
+        .padding()
         
-        var id: String { rawValue }
-        
-        var icon: String {
-            switch self {
-            case .spam: return "envelope.badge.fill"
-            case .harassment: return "exclamationmark.bubble.fill"
-            case .hateSpeech: return "hand.raised.fill"
-            case .inappropriateContent: return "eye.slash.fill"
-            case .falseInformation: return "checkmark.seal.fill"
-            case .offTopic: return "arrow.triangle.branch"
-            case .copyright: return "c.circle.fill"
-            case .other: return "ellipsis.circle.fill"
-            }
-        }
-        
-        var description: String {
-            switch self {
-            case .spam:
-                return "Unwanted commercial content or repetitive posts"
-            case .harassment:
-                return "Targeted harassment, threats, or bullying"
-            case .hateSpeech:
-                return "Content promoting violence or hatred"
-            case .inappropriateContent:
-                return "Sexually explicit or disturbing content"
-            case .falseInformation:
-                return "Deliberately misleading or false claims"
-            case .offTopic:
-                return "Content that doesn't fit this category"
-            case .copyright:
-                return "Unauthorized use of copyrighted material"
-            case .other:
-                return "Something else that violates community guidelines"
-            }
-        }
-    }
-    
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Report Post")
-                            .font(AMENFont.bold(28))
-                        
-                        Text("Help us keep AMEN safe. Why are you reporting this post?")
-                            .font(AMENFont.regular(15))
-                            .foregroundStyle(.secondary)
-                            .lineSpacing(4)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    
-                    // Report Reasons
-                    VStack(spacing: 12) {
-                        ForEach(ReportReason.allCases) { reason in
-                            ReportReasonCard(
-                                reason: reason,
-                                isSelected: selectedReason == reason
-                            ) {
-                                HapticManager.impact(style: .light)
-                                selectedReason = reason
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    
-                    // Additional Details (optional)
-                    if selectedReason != nil {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Additional Details (Optional)")
-                                .font(AMENFont.semiBold(16))
-                                .foregroundStyle(.primary)
-                            
-                            ZStack(alignment: .topLeading) {
-                                if additionalDetails.isEmpty {
-                                    Text("Provide any additional context that might help us review this report...")
-                                        .font(AMENFont.regular(15))
-                                        .foregroundStyle(.secondary)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
-                                }
-                                
-                                TextEditor(text: $additionalDetails)
-                                    .font(AMENFont.regular(15))
-                                    .frame(minHeight: 100)
-                                    .focused($isTextFieldFocused)
-                                    .scrollContentBackground(.hidden)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                            }
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemGray6))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(.systemGray4), lineWidth: 1)
-                            )
-                            
-                            Text("\(additionalDetails.count)/500 characters")
-                                .font(AMENFont.regular(12))
-                                .foregroundStyle(additionalDetails.count > 500 ? .red : .secondary)
-                        }
-                        .padding(.horizontal, 16)
-                        .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.2)))
-                    }
-                    
-                    // Privacy Notice
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "shield.checkered")
-                                .font(.systemScaled(14))
-                                .foregroundStyle(.blue)
-                            
-                            Text("Your report is confidential")
-                                .font(AMENFont.semiBold(14))
-                                .foregroundStyle(.primary)
-                        }
-                        
-                        Text("We'll review this report and take appropriate action. The person who posted this won't know you reported it.")
-                            .font(AMENFont.regular(13))
-                            .foregroundStyle(.secondary)
-                            .lineSpacing(4)
-                    }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.blue.opacity(0.08))
-                    )
-                    .padding(.horizontal, 16)
-                    
-                    Spacer(minLength: 100)
-                }
-                .padding(.vertical, 20)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                // Submit Button
-                Button {
-                    submitReport()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.systemScaled(18))
-                        Text("Submit Report")
-                            .font(AMENFont.bold(16))
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(selectedReason != nil ? Color.red : Color.red.opacity(0.3))
-                    )
-                }
-                .disabled(selectedReason == nil)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 10, y: -5)
-            }
-        }
-        .alert("Report Submitted", isPresented: $showSuccessAlert) {
-            Button("OK") {
-                dismiss()
-            }
-        } message: {
-            Text("Thank you for helping keep AMEN safe. We'll review this report and take appropriate action.")
-        }
-    }
-    
-    private func submitReport() {
-        guard let reason = selectedReason else { return }
-        
-        Task {
-            do {
-                try await ModerationService.shared.reportPost(
-                    postId: post.firestoreId,
-                    postAuthorId: post.authorId,
-                    reason: convertToModerationReason(reason),
-                    additionalDetails: additionalDetails.isEmpty ? nil : additionalDetails
-                )
-                
-                dlog("✅ Report submitted successfully")
-                
-                await MainActor.run {
-                    showSuccessAlert = true
-                }
-                
-            } catch {
-                dlog("❌ Failed to submit report: \(error)")
-                
-                await MainActor.run {
-                    // Show error to user
-                    dismiss()
-                }
-            }
-        }
-    }
-    
-    private func convertToModerationReason(_ reason: ReportReason) -> ModerationReportReason {
-        switch reason {
-        case .spam: return .spam
-        case .harassment: return .harassment
-        case .hateSpeech: return .hateSpeech
-        case .inappropriateContent: return .inappropriateContent
-        case .falseInformation: return .falseInformation
-        case .offTopic: return .offTopic
-        case .copyright: return .copyright
-        case .other: return .other
-        }
+        PostCard(
+            authorName: "User",
+            timeAgo: "45m",
+            content: "Sample post content",
+            category: .testimonies,
+            isUserPost: false
+        )
+        .padding()
     }
 }
 
-// MARK: - Report Reason Card
-
-struct ReportReasonCard: View {
-    let reason: ReportPostSheet.ReportReason
-    let isSelected: Bool
-    let action: () -> Void
+// MARK: - Post Link Button Component
+/// Button to open external links from posts
+struct PostLinkButton: View {
+    let url: String
+    @State private var isPressed = false
     
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                // Icon
+        Button {
+            openURL()
+        } label: {
+            HStack(spacing: 12) {
+                // Link icon
                 ZStack {
                     Circle()
-                        .fill(isSelected ? AmenTheme.Colors.statusError.opacity(0.16) : AmenTheme.Colors.surfaceElevated)
-                        .frame(width: 48, height: 48)
+                        .fill(Color.blue.opacity(0.15))
+                        .frame(width: 36, height: 36)
                     
-                    Image(systemName: reason.icon)
-                        .font(.systemScaled(20, weight: .semibold))
-                        .foregroundStyle(isSelected ? AmenTheme.Colors.statusError : AmenTheme.Colors.iconSecondary)
+                    Image(systemName: "link")
+                        .font(.systemScaled(16, weight: .semibold))
+                        .foregroundStyle(.blue)
                 }
                 
-                // Text
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(reason.rawValue)
-                        .font(AMENFont.bold(16))
+                // URL text (shortened)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Open Link")
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
                     
-                    Text(reason.description)
-                        .font(AMENFont.regular(13))
-                        .foregroundStyle(AmenTheme.Colors.textSecondary)
-                        .lineSpacing(2)
+                    Text(displayURL)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 
                 Spacer()
                 
-                // Checkmark
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.systemScaled(24))
-                    .foregroundStyle(isSelected ? AmenTheme.Colors.statusError : AmenTheme.Colors.textPlaceholder)
-                    .symbolEffect(.bounce, value: isSelected)
+                // External link indicator
+                Image(systemName: "arrow.up.right")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.blue)
             }
-            .padding(16)
+            .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(AmenTheme.Colors.surfaceCard)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? AmenTheme.Colors.statusError.opacity(0.3) : AmenTheme.Colors.borderSoft, lineWidth: isSelected ? 2 : 1)
-                    )
-                    .shadow(color: isSelected ? AmenTheme.Colors.statusError.opacity(0.12) : AmenTheme.Colors.shadowCard.opacity(0.55), radius: isSelected ? 12 : 6, y: 2)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6))
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+            )
+            .scaleEffect(isPressed ? 0.98 : 1.0)
         }
         .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.0 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isSelected)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isPressed = true
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isPressed = false
+                    }
+                }
+        )
+    }
+    
+    private var displayURL: String {
+        // Remove protocol and www for display
+        var display = url
+        display = display.replacingOccurrences(of: "https://", with: "")
+        display = display.replacingOccurrences(of: "http://", with: "")
+        display = display.replacingOccurrences(of: "www.", with: "")
+        
+        // Limit length
+        if display.count > 40 {
+            return String(display.prefix(37)) + "..."
+        }
+        return display
+    }
+    
+    private func openURL() {
+        guard let url = URL(string: url) else {
+            dlog("❌ Invalid URL: \(url)")
+            return
+        }
+        
+        // Haptic feedback
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        // Open in Safari
+        UIApplication.shared.open(url)
+        dlog("✅ Opening URL: \(url)")
     }
 }
 
@@ -4901,9 +4718,6 @@ private struct PostCardSheetsModifier: ViewModifier {
     @Binding var activeSheet: PostCard.PostCardSheet?
     @Binding var hasCommented: Bool
 
-    // Closures instead of pre-built arrays — evaluated lazily only when the sheet opens,
-    // not on every body render. This prevents the re-render feedback loop (stack overflow)
-    // caused by non-Equatable closure arrays forcing SwiftUI to re-diff the modifier every pass.
     let optionsQuickActionsBuilder: () -> [AmenQuickAction]
     let optionsSectionsBuilder: () -> [AmenOptionsSectionModel]
     let feedReasonsBuilder: (Post) -> [FeedReason]
@@ -5035,15 +4849,9 @@ private struct PostCardSheetsModifier: ViewModifier {
 @MainActor
 private struct PostCardInteractionsModifier: ViewModifier {
     let post: Post?
-    // NOT @ObservedObject — observing the shared singleton caused every PostCard to re-render
-    // on every interactionsService publish (constant Firebase traffic), creating a body
-    // re-evaluation feedback loop that exhausted the call stack (EXC_BAD_ACCESS stack overflow).
-    // State sync happens through targeted .onReceive(…removeDuplicates()) inside body instead.
     let interactionsService: PostInteractionsService
-    // Not @ObservedObject — we don't want every card to re-render when ANY post is saved/unsaved.
-    // State sync happens through the isSaved @Binding + isSaveInFlight guard.
     let savedPostsService: RealtimeSavedPostsService
-    
+
     @Binding var hasLitLightbulb: Bool
     @Binding var hasSaidAmen: Bool
     @Binding var isSaved: Bool
@@ -5060,11 +4868,9 @@ private struct PostCardInteractionsModifier: ViewModifier {
     @Binding var isRepostToggleInFlight: Bool
     @Binding var expectedRepostState: Bool
     @Binding var hasCommented: Bool
-    
+
     @State private var hasCompletedInitialLoad = false
-    
-    // PERF: Single narrow value watched by ONE onChange — replaces 4 separate dictionary-level
-    // observers. Each PostCard only re-evaluates its own 4 counts, not the full global dict.
+
     private struct PostCounts: Equatable {
         var lightbulbs: Int
         var amens: Int
@@ -5081,35 +4887,30 @@ private struct PostCardInteractionsModifier: ViewModifier {
         )
     }
 
-    // Helper computed properties to simplify onChange expressions
     private var isPostLightbulbed: Bool {
         guard let post = post else { return false }
         return interactionsService.userLightbulbedPosts.contains(post.firestoreId)
     }
-    
+
     private var isPostAmened: Bool {
         guard let post = post else { return false }
         return interactionsService.userAmenedPosts.contains(post.firestoreId)
     }
-    
+
     private var isPostReposted: Bool {
         guard let post = post else { return false }
         return interactionsService.userRepostedPosts.contains(post.firestoreId)
     }
-    
+
     func body(content: Content) -> some View {
         content
-            .task(priority: .userInitiated) { // P0 PERF FIX: Set explicit priority
+            .task(priority: .userInitiated) {
                 guard let post = post else { return }
-                // P0 FIX: Use firebaseId if available, fallback to UUID for stable ID
                 let postId = post.firebaseId ?? post.id.uuidString
                 guard Auth.auth().currentUser?.uid != nil else { return }
-                
-                // P0 PERF FIX: Start observation WITHOUT blocking the main thread
-                // This allows the PostCard to render immediately while interactions load in background
+
                 interactionsService.observePostInteractions(postId: postId)
-                
-                // Record view engagement for ML training (fire-and-forget, low priority)
+
                 if let userId = Auth.auth().currentUser?.uid {
                     Task(priority: .background) {
                         let event = EngagementEvent(
@@ -5124,7 +4925,6 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     }
                 }
 
-                // HeyFeed: Record impression for saturation detection
                 let heyTopicId: String = {
                     if let tag = post.topicTag, !tag.isEmpty { return tag }
                     switch post.category {
@@ -5139,12 +4939,6 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     HeyFeedSaturationService.shared.recordImpression(topics: [heyTopicId])
                 }
 
-                // P0 PERF FIX: Removed cache wait loop - causes 150 tasks to poll simultaneously
-                // InteractionsService publishes updates via Combine, so state syncs automatically
-                // No need to block here - the UI will update reactively when cache loads
-                
-                // P0 PERF FIX: Load state synchronously from cache (no await)
-                // This is instant and doesn't block scroll rendering
                 await MainActor.run {
                     hasLitLightbulb = interactionsService.userLightbulbedPosts.contains(postId)
                     hasSaidAmen = interactionsService.userAmenedPosts.contains(postId)
@@ -5152,8 +4946,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
                         hasReposted = interactionsService.userRepostedPosts.contains(postId)
                     }
                 }
-                
-                // Load hasCommented in background — checks RTDB user_comments index
+
                 if let userId = Auth.auth().currentUser?.uid {
                     let firestoreId = post.firestoreId
                     Task(priority: .background) {
@@ -5168,9 +4961,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
                         }
                     }
                 }
-                
-                // P0 PERF FIX: Load counts and saved status asynchronously in background
-                // Don't block PostCard rendering - let .onChange handle updates
+
                 Task(priority: .utility) {
                     let stableId = post.firebaseId ?? post.id.uuidString
                     let savedStatus = await checkSavedStatusSafely(postId: stableId)
@@ -5178,11 +4969,8 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     let amens = await interactionsService.getAmenCount(postId: stableId)
                     let comments = await interactionsService.getCommentCount(postId: stableId)
                     let reposts = await interactionsService.getRepostCount(postId: stableId)
-                    
+
                     await MainActor.run {
-                        // Only apply saved status on the FIRST load. After that, the user's
-                        // taps and the real-time listener own the state. Re-applying on every
-                        // scroll-triggered task re-run caused the bookmark to flip by itself.
                         if !hasCompletedInitialLoad && !isSaveInFlight {
                             isSaved = savedStatus
                         }
@@ -5192,28 +4980,20 @@ private struct PostCardInteractionsModifier: ViewModifier {
                         repostCount = reposts
                         hasCompletedInitialLoad = true
                     }
-                    
-                    // Prayer-specific state
+
                     if post.category == .prayer {
                         let praying = await checkIfPraying(postId: stableId)
-                        await MainActor.run {
-                            isPraying = praying
-                        }
+                        await MainActor.run { isPraying = praying }
                         observePrayingCount(postId: stableId)
                     }
                 }
             }
             .onDisappear {
                 if let post = post {
-                    // P0 FIX: Use stable ID for stop observing
                     let stableId = post.firebaseId ?? post.id.uuidString
                     interactionsService.stopObservingPost(postId: stableId)
                 }
             }
-            // PERF: Targeted .onReceive on narrow Equatable slices keyed to THIS post only.
-            // Using .onReceive + removeDuplicates() instead of @ObservedObject prevents the
-            // re-render feedback loop: @ObservedObject caused every Firebase publish to
-            // re-evaluate this modifier's body, which cascaded back into PostCard.body.
             .onReceive(
                 interactionsService.$postLightbulbs
                     .combineLatest(interactionsService.$postAmens,
@@ -5235,7 +5015,6 @@ private struct PostCardInteractionsModifier: ViewModifier {
                 commentCount   = counts.comments
                 repostCount    = counts.reposts
             }
-            // ✅ Update lightbulb state when userLightbulbedPosts changes
             .onReceive(
                 interactionsService.$userLightbulbedPosts
                     .map { [post] set in set.contains(post?.firestoreId ?? "") }
@@ -5256,7 +5035,6 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     withAnimation(animation) { hasLitLightbulb = newState }
                 }
             }
-            // ✅ Update amen state when userAmenedPosts changes
             .onReceive(
                 interactionsService.$userAmenedPosts
                     .map { [post] set in set.contains(post?.firestoreId ?? "") }
@@ -5268,7 +5046,6 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     withAnimation(animation) { hasSaidAmen = newState }
                 }
             }
-            // ✅ Update repost state when userRepostedPosts changes
             .onReceive(
                 interactionsService.$userRepostedPosts
                     .map { [post] set in set.contains(post?.firestoreId ?? "") }
@@ -5289,48 +5066,32 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     withAnimation(animation) { hasReposted = newState }
                 }
             }
-            // NOTE: We intentionally do NOT observe savedPostsService.savedPostIds here.
-            // Observing the shared singleton would cause EVERY PostCard to re-render
-            // (and animate its bookmark icon) whenever any user saves any post.
-            // isSaved is kept correct by: (1) initial task load, (2) toggleSave() reconciliation.
     }
-    
-    private func checkIfPraying(postId: String) async -> Bool {
-        // Check if current user is praying for this post
-        guard let userId = Auth.auth().currentUser?.uid else { return false }
 
+    private func checkIfPraying(postId: String) async -> Bool {
+        guard let userId = Auth.auth().currentUser?.uid else { return false }
         return await withCheckedContinuation { continuation in
             let ref = Database.database().reference()
                 .child("prayerActivity")
                 .child(postId)
                 .child("prayingUsers")
                 .child(userId)
-
             ref.observeSingleEvent(of: .value) { snapshot in
                 continuation.resume(returning: snapshot.exists())
             } withCancel: { _ in
-                // Permission denied or network error — treat as not praying.
                 continuation.resume(returning: false)
             }
         }
     }
-    
-    /// ✅ Check saved status with offline handling
+
     private func checkSavedStatusSafely(postId: String) async -> Bool {
-        // Always use the authoritative in-memory set from RealtimeSavedPostsService.
-        // The per-post RTDB getData() can return stale offline-cached data during the
-        // brief DISCONNECTED→CONNECTED window on startup, causing all bookmarks to
-        // illuminate incorrectly. The savedPostIds set is populated by fetchSavedPostIds()
-        // which does a single authoritative read of the full saved set.
         return savedPostsService.isPostSavedSync(postId: postId)
     }
-    
+
     private func observePrayingCount(postId: String) {
         let rtdb = RealtimeDatabaseManager.shared
         _ = rtdb.observePrayingNowCount(postId: postId) { count in
-            Task { @MainActor in
-                prayingNowCount = count
-            }
+            Task { @MainActor in prayingNowCount = count }
         }
     }
 }
@@ -5340,36 +5101,33 @@ private struct PostCardInteractionsModifier: ViewModifier {
 struct EditCommentSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var commentService = CommentService.shared
-    
+
     let comment: Comment
     @State private var editedContent: String
     @State private var isSaving = false
     @FocusState private var isFocused: Bool
-    
+
     init(comment: Comment) {
         self.comment = comment
         _editedContent = State(initialValue: comment.content)
     }
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Text editor
                 TextEditor(text: $editedContent)
                     .font(AMENFont.regular(16))
                     .padding(16)
                     .focused($isFocused)
                     .scrollContentBackground(.hidden)
                     .background(Color(.systemGroupedBackground))
-                
+
                 Spacer()
-                
-                // Character count
+
                 HStack {
                     Text("\(editedContent.count) characters")
                         .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
-                    
                     Spacer()
                 }
                 .padding(.horizontal, 16)
@@ -5380,12 +5138,9 @@ struct EditCommentSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .disabled(isSaving)
+                    Button("Cancel") { dismiss() }
+                        .disabled(isSaving)
                 }
-                
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
                         saveChanges()
@@ -5393,409 +5148,41 @@ struct EditCommentSheet: View {
                         if isSaving {
                             ProgressView()
                         } else {
-                            Text("Save")
-                                .font(AMENFont.bold(16))
+                            Text("Save").font(AMENFont.bold(16))
                         }
                     }
-                    .disabled(editedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || editedContent == comment.content || isSaving)
+                    .disabled(
+                        editedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || editedContent == comment.content
+                        || isSaving
+                    )
                 }
             }
             .onAppear {
-                // Auto-focus the text editor
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    isFocused = true
-                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isFocused = true }
             }
         }
     }
-    
+
     private func saveChanges() {
         Task {
             guard let commentId = comment.id else { return }
-            
             isSaving = true
-            
             do {
                 try await commentService.editComment(
                     commentId: commentId,
                     postId: comment.postId,
                     newContent: editedContent.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
-                
                 await MainActor.run {
                     HapticManager.notification(type: .success)
                     dismiss()
                 }
-
-                dlog("✅ Comment updated successfully")
-
             } catch {
                 dlog("❌ Failed to update comment: \(error)")
                 await MainActor.run {
                     isSaving = false
                     HapticManager.notification(type: .error)
-                }
-            }
-        }
-    }
-}
-
-#Preview("Post Cards") {
-    VStack {
-        PostCard(
-            authorName: "User",
-            timeAgo: "2h",
-            content: "Sample post content",
-            category: .openTable,
-            topicTag: "Sample",
-            isUserPost: true
-        )
-        .padding()
-        
-        PostCard(
-            authorName: "User",
-            timeAgo: "45m",
-            content: "Sample post content",
-            category: .testimonies,
-            isUserPost: false
-        )
-        .padding()
-    }
-}
-#Preview("Report Sheet") {
-    let samplePost = Post(
-        id: UUID(),
-        authorId: "preview-user",
-        authorName: "John Doe",
-        authorInitials: "JD",
-        timeAgo: "2h",
-        content: "Sample post content",
-        category: .openTable,
-        topicTag: nil,
-        visibility: .everyone,
-        allowComments: true,
-        imageURLs: nil,
-        linkURL: nil,
-        createdAt: Date(),
-        amenCount: 0,
-        lightbulbCount: 0,
-        commentCount: 0,
-        repostCount: 0,
-        isRepost: false,
-        originalAuthorName: nil,
-        originalAuthorId: nil
-    )
-    
-    ReportPostSheet(
-        post: samplePost,
-        postAuthor: "John Doe",
-        category: .openTable
-    )
-}
-
-// MARK: - Post Link Button Component
-/// Button to open external links from posts
-struct PostLinkButton: View {
-    let url: String
-    @State private var isPressed = false
-    
-    var body: some View {
-        Button {
-            openURL()
-        } label: {
-            HStack(spacing: 12) {
-                // Link icon
-                ZStack {
-                    Circle()
-                        .fill(Color.blue.opacity(0.15))
-                        .frame(width: 36, height: 36)
-                    
-                    Image(systemName: "link")
-                        .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.blue)
-                }
-                
-                // URL text (shortened)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Open Link")
-                        .font(AMENFont.semiBold(14))
-                        .foregroundStyle(.primary)
-                    
-                    Text(displayURL)
-                        .font(AMENFont.regular(12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                // External link indicator
-                Image(systemName: "arrow.up.right")
-                    .font(.systemScaled(14, weight: .semibold))
-                    .foregroundStyle(.blue)
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-            )
-            .scaleEffect(isPressed ? 0.98 : 1.0)
-        }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    withAnimation(.easeInOut(duration: 0.1)) {
-                        isPressed = true
-                    }
-                }
-                .onEnded { _ in
-                    withAnimation(.easeInOut(duration: 0.1)) {
-                        isPressed = false
-                    }
-                }
-        )
-    }
-    
-    private var displayURL: String {
-        // Remove protocol and www for display
-        var display = url
-        display = display.replacingOccurrences(of: "https://", with: "")
-        display = display.replacingOccurrences(of: "http://", with: "")
-        display = display.replacingOccurrences(of: "www.", with: "")
-        
-        // Limit length
-        if display.count > 40 {
-            return String(display.prefix(37)) + "..."
-        }
-        return display
-    }
-    
-    private func openURL() {
-        guard let url = URL(string: url) else {
-            dlog("❌ Invalid URL: \(url)")
-            return
-        }
-        
-        // Haptic feedback
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
-        
-        // Open in Safari
-        UIApplication.shared.open(url)
-        dlog("✅ Opening URL: \(url)")
-    }
-}
-
-// MARK: - Minimal Reaction Button Style (Instagram/Threads Style)
-/// Custom button style for minimal outline/filled reactions.
-/// Press-down: immediate tight spring. Release: crisp snap back via Motion presets.
-struct MinimalReactionButtonStyle: ButtonStyle {
-    let isActive: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.88 : 1.0)
-            .animation(
-                Motion.adaptive(
-                    configuration.isPressed ? Motion.springPress : Motion.springRelease
-                ),
-                value: configuration.isPressed
-            )
-    }
-}
-
-// MARK: - Poll Display Component
-
-struct PostPollView: View {
-    let postId: String
-    let poll: PostPoll
-    let currentUserId: String?
-    
-    @State private var userVote: String? = nil
-    @State private var isVoting = false
-    @State private var localPoll: PostPoll
-    
-    init(postId: String, poll: PostPoll, currentUserId: String?) {
-        self.postId = postId
-        self.poll = poll
-        self.currentUserId = currentUserId
-        self._localPoll = State(initialValue: poll)
-    }
-    
-    var isPollExpired: Bool {
-        guard let expiresAt = poll.expiresAt else { return false }
-        return Date() > expiresAt
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Poll question (if provided)
-            if !poll.question.isEmpty {
-                Text(poll.question)
-                    .font(AMENFont.semiBold(15))
-                    .foregroundStyle(.primary)
-            }
-            
-            // Poll options
-            VStack(spacing: 8) {
-                ForEach(localPoll.options) { option in
-                    pollOptionButton(option)
-                }
-            }
-            
-            // Poll footer (total votes + expiry)
-            HStack(spacing: 12) {
-                Text("\(localPoll.totalVotes) \(localPoll.totalVotes == 1 ? "vote" : "votes")")
-                    .font(AMENFont.regular(13))
-                    .foregroundStyle(.secondary)
-                
-                if let expiresAt = poll.expiresAt {
-                    Text("•")
-                        .foregroundStyle(.secondary)
-                    
-                    if isPollExpired {
-                        Text("Poll ended")
-                            .font(AMENFont.regular(13))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Ends \(expiresAt, style: .relative)")
-                            .font(AMENFont.regular(13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .onAppear {
-            loadUserVote()
-        }
-    }
-    
-    @ViewBuilder
-    private func pollOptionButton(_ option: PostPoll.PollOption) -> some View {
-        let hasVoted = userVote != nil
-        let isThisOption = userVote == option.id
-        let percentage = localPoll.totalVotes > 0 ? Double(option.voteCount) / Double(localPoll.totalVotes) : 0.0
-        
-        Button {
-            guard !hasVoted && !isPollExpired else { return }
-            vote(for: option.id)
-        } label: {
-            HStack(spacing: 0) {
-                // Background bar (shows percentage if voted)
-                if hasVoted {
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(isThisOption ? Color.blue.opacity(0.2) : Color(.tertiarySystemFill))
-                            .frame(width: geometry.size.width * percentage)
-                    }
-                }
-                
-                HStack {
-                    Text(option.text)
-                        .font(AMENFont.semiBold(15))
-                        .foregroundStyle(isThisOption ? .blue : .primary)
-                    
-                    Spacer()
-                    
-                    if hasVoted {
-                        Text("\(Int(percentage * 100))%")
-                            .font(AMENFont.bold(14))
-                            .foregroundStyle(isThisOption ? .blue : .secondary)
-                        
-                        if isThisOption {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.systemScaled(16))
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            }
-        }
-        .frame(height: 44)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(
-                    isThisOption ? Color.blue : Color(.separator),
-                    lineWidth: isThisOption ? 2 : 1
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(hasVoted ? Color.clear : Color(.tertiarySystemFill))
-                )
-        )
-        .disabled(hasVoted || isPollExpired || isVoting)
-    }
-    
-    private func loadUserVote() {
-        guard let uid = currentUserId else { return }
-        
-        // Check if user already voted by querying Firestore poll data
-        Task {
-            do {
-                let doc = try await Firestore.firestore()
-                    .collection("posts")
-                    .document(postId)
-                    .getDocument()
-                
-                if let pollData = doc.data()?["poll"] as? [String: Any],
-                   let voters = pollData["voters"] as? [String: String],
-                   let votedOptionId = voters[uid] {
-                    await MainActor.run {
-                        userVote = votedOptionId
-                    }
-                }
-            } catch {
-                dlog("❌ Error loading user vote: \(error)")
-            }
-        }
-    }
-    
-    private func vote(for optionId: String) {
-        guard currentUserId != nil, !isVoting else { return }
-        
-        isVoting = true
-        HapticManager.impact(style: .light)
-        
-        // Optimistic update
-        userVote = optionId
-        var updatedOptions = localPoll.options
-        if let index = updatedOptions.firstIndex(where: { $0.id == optionId }) {
-            updatedOptions[index].voteCount += 1
-        }
-        localPoll = PostPoll(
-            question: localPoll.question,
-            options: updatedOptions,
-            expiresAt: localPoll.expiresAt,
-            totalVotes: localPoll.totalVotes + 1
-        )
-        
-        Task {
-            do {
-                try await PollService.shared.vote(postId: postId, optionId: optionId)
-                await MainActor.run {
-                    isVoting = false
-                    HapticManager.notification(type: .success)
-                }
-            } catch {
-                // Revert optimistic update on error
-                await MainActor.run {
-                    userVote = nil
-                    localPoll = poll
-                    isVoting = false
-                    HapticManager.notification(type: .error)
-                    dlog("❌ Error voting: \(error)")
                 }
             }
         }

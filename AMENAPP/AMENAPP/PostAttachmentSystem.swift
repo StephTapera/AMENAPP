@@ -107,7 +107,7 @@ struct LiquidGlassAttachmentPill: View {
                     .foregroundStyle(.tertiary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(
-                        reduceMotion ? .none : .interactiveSpring(response: 0.28, dampingFraction: 0.86),
+                        reduceMotion ? .linear(duration: 0) : .interactiveSpring(response: 0.28, dampingFraction: 0.86),
                         value: isExpanded
                     )
             }
@@ -371,7 +371,7 @@ struct PostAttachmentContainer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var expandAnimation: Animation {
-        reduceMotion ? .none : .interactiveSpring(response: 0.28, dampingFraction: 0.86, blendDuration: 0.18)
+        reduceMotion ? .linear(duration: 0) : .interactiveSpring(response: 0.28, dampingFraction: 0.86, blendDuration: 0.18)
     }
 
     var body: some View {

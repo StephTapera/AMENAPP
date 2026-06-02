@@ -17,7 +17,6 @@ struct ImagePreviewGrid: View {
                     )
                 }
 
-                // "+" add more cell (up to 4 images)
                 if images.count < 4, let onAddMore {
                     AddImageButton(onAddMore: onAddMore)
                 }
@@ -33,7 +32,7 @@ private struct DraggableImageCell: View {
     let imageData: Data
     @Binding var images: [Data]
     @Binding var draggingItem: Data?
-    
+
     var body: some View {
         if let uiImage = UIImage(data: imageData) {
             ZStack(alignment: .topTrailing) {
@@ -68,7 +67,7 @@ private struct DraggableImageCell: View {
                 provider.suggestedName = UUID().uuidString
                 return provider
             }
-            .onDrop(of: [.data], delegate: ImageDropDelegate(
+            .onDrop(of: [UTType.data], delegate: ImageDropDelegate(
                 item: imageData,
                 items: $images,
                 draggingItem: $draggingItem
@@ -79,7 +78,7 @@ private struct DraggableImageCell: View {
 
 private struct AddImageButton: View {
     let onAddMore: () -> Void
-    
+
     var body: some View {
         Button(action: onAddMore) {
             RoundedRectangle(cornerRadius: 12)
@@ -96,30 +95,31 @@ private struct AddImageButton: View {
     }
 }
 
-// Drag and drop delegate for image reordering
 struct ImageDropDelegate: DropDelegate {
     let item: Data
     @Binding var items: [Data]
     @Binding var draggingItem: Data?
-    
+
     func performDrop(info: DropInfo) -> Bool {
         draggingItem = nil
         return true
     }
-    
+
     func dropEntered(info: DropInfo) {
         guard let draggingItem = draggingItem,
               draggingItem != item,
               let fromIndex = items.firstIndex(of: draggingItem),
               let toIndex = items.firstIndex(of: item) else { return }
-        
+
         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
         }
     }
 }
 
+// MARK: - Camera Image Picker
 
+/// Wraps UIImagePickerController to give instant camera access from SwiftUI.
 struct CameraImagePicker: UIViewControllerRepresentable {
     @Binding var image: UIImage?
     @Environment(\.dismiss) private var dismiss
@@ -156,7 +156,6 @@ struct CameraImagePicker: UIViewControllerRepresentable {
 
 // MARK: - Camera Attachment Preview
 
-/// Shows the captured photo inside the composer with a remove button.
 struct CameraAttachmentPreview: View {
     let image: UIImage
     let onRemove: () -> Void
@@ -170,7 +169,6 @@ struct CameraAttachmentPreview: View {
                 .frame(height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-            // Remove button
             Button(action: onRemove) {
                 ZStack {
                     Circle()
@@ -186,7 +184,3 @@ struct CameraAttachmentPreview: View {
         }
     }
 }
-
-// MARK: - Poll Composer Card
-
-/// Inline poll creation card inserted beneath the text editor.

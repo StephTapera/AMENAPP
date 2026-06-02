@@ -114,8 +114,8 @@ struct ONELifetimePolicy: Codable, Sendable, Equatable {
     func expiryDate(from creation: Date) -> Date? {
         switch kind {
         case .afterView:             return creation.addingTimeInterval(60 * 60)  // 1h grace
-        case .hours(let h):          return creation.addingTimeInterval(Double(h) * 3_600)
-        case .days(let d):           return creation.addingTimeInterval(Double(d) * 86_400)
+        case .hours:                 return creation.addingTimeInterval(Double(hours ?? 24) * 3_600)
+        case .days:                  return creation.addingTimeInterval(Double(days ?? 7) * 86_400)
         case .permanent:             return nil
         case .decayUnlessRemembered: return creation.addingTimeInterval(Double(days ?? 30) * 86_400)
         }

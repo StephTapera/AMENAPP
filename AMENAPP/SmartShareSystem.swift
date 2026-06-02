@@ -134,6 +134,10 @@ struct SmartShareTarget: Identifiable, Equatable {
         let reasonText = primaryReason.map { ", \($0)" } ?? ""
         return "Share with \(title)\(reasonText)"
     }
+
+    static func == (lhs: SmartShareTarget, rhs: SmartShareTarget) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 struct ShareContextOptions: Equatable {

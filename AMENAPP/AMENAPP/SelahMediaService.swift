@@ -39,10 +39,6 @@ final class SelahMediaService: ObservableObject {
 
     private init() {}
 
-    deinit {
-        stopListening()
-    }
-
     func startListening() {
         guard !userId.isEmpty else { return }
         startListeningFeed()

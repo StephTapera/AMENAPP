@@ -47,9 +47,7 @@ struct StewardshipDashboardView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    if dismiss != nil as Void? {
-                        Button("Done") { dismiss() }
-                    }
+                    Button("Done") { dismiss() }
                 }
             }
         }

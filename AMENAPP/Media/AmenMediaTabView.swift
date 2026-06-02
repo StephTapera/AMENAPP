@@ -9,6 +9,34 @@
 import SwiftUI
 import FirebaseAuth
 
+// MARK: - AmenMediaSession.SessionType helpers
+
+extension AmenMediaSession.SessionType {
+    var defaultMaxItems: Int {
+        switch self {
+        case .selahReflection: return 3
+        case .morningInspiration: return 6
+        default: return 5
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .morningInspiration: return "Morning Inspiration"
+        case .friendsAndFamily: return "Friends & Family"
+        case .creativeDiscovery: return "Creative Discovery"
+        case .worshipAndMusic: return "Worship & Music"
+        case .learningSession: return "Learning Session"
+        case .sermonHighlights: return "Sermon Highlights"
+        case .selahReflection: return "Selah Reflection"
+        case .testimonies: return "Testimonies"
+        case .churchMoments: return "Church Moments"
+        case .encouragement: return "Encouragement"
+        case .custom: return "Custom Session"
+        }
+    }
+}
+
 // MARK: - Session Type Bridge
 
 extension AmenMediaSessionType {
@@ -79,16 +107,7 @@ struct AmenMediaTabView: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        if AMENFeatureFlags.shared.mediaFiniteSessionsEnabled {
-            AmenImmersiveMediaHomeView(
-                onStartSession: { sessionType in
-                    activeSession = makeSession(from: sessionType)
-                },
-                continueSessionTitle: savedSessionTitle,
-                onContinueSession: savedSessionTitle != nil ? {
-                    resumeSavedSession()
-                } : nil
-            )
+        ChristianMediaView()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 14) {
@@ -118,9 +137,6 @@ struct AmenMediaTabView: View {
                     }
                 }
             }
-        } else {
-            ChristianMediaView()
-        }
     }
 
     // MARK: - Session Factory

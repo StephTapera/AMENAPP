@@ -386,7 +386,7 @@ struct AmenCovenantPostComposerView: View {
                     accessibilityLabel: "Post body"
                 )
             }
-            .glassCard()
+            .composerGlassCard()
         }
     }
 
@@ -416,7 +416,7 @@ struct AmenCovenantPostComposerView: View {
                 .padding(.vertical, 12)
                 .accessibilityLabel("Post anonymously")
             }
-            .glassCard()
+            .composerGlassCard()
         }
     }
 
@@ -440,7 +440,7 @@ struct AmenCovenantPostComposerView: View {
                     .padding(.vertical, 12)
                     .accessibilityLabel("Scripture reference, optional")
             }
-            .glassCard()
+            .composerGlassCard()
         }
     }
 
@@ -464,7 +464,7 @@ struct AmenCovenantPostComposerView: View {
                     .padding(.vertical, 12)
                     .accessibilityLabel("Scripture reference, optional")
             }
-            .glassCard()
+            .composerGlassCard()
         }
     }
 
@@ -538,7 +538,7 @@ struct AmenCovenantPostComposerView: View {
                     }
                 }
             }
-            .glassCard()
+            .composerGlassCard()
         }
     }
 
@@ -628,7 +628,7 @@ struct AmenCovenantPostComposerView: View {
 // MARK: - Glass Card Modifier (composer-scoped)
 
 private extension View {
-    func glassCard() -> some View {
+    func composerGlassCard() -> some View {
         self
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)

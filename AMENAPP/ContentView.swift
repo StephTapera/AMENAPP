@@ -244,11 +244,14 @@ struct ContentView: View {
                         AppReadyStateManager.shared.signalReady()
                     }
             } else {
-                // Main app content
-                mainContent
-                    .transition(.opacity)
-                    .onAppear {
-                        dlog("🚦 [LAUNCH] mainContent.onAppear fired (hasStartedCoreServices=\(hasStartedCoreServices))")
+                // P0 C-3: Account status gate — blocks suspended accounts before main app loads
+                AccountStatusGateView {
+                    // Main app content
+                    mainContent
+                }
+                .transition(.opacity)
+                .onAppear {
+                    dlog("🚦 [LAUNCH] mainContent.onAppear fired (hasStartedCoreServices=\(hasStartedCoreServices))")
                         dlog("🔍 [SCROLL DEBUG] UI State Check:")
                         dlog("   - isShowingLoadingScreen: \(isShowingLoadingScreen)")
                         dlog("   - showTimeoutWarning: \(showTimeoutWarning)")
@@ -1466,6 +1469,87 @@ struct ContentView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - AccountStatusGateView
+// P0 C-3: Blocks suspended/banned accounts from reaching main app content.
+// Reads users/{uid}/moderation subcollection — if 3+ active strikes or an active "ban",
+// shows an immovable wall with an appeal link. Otherwise passes straight through.
+
+private struct AccountStatusGateView<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    @State private var isSuspended = false
+    @State private var checked = false
+
+    var body: some View {
+        Group {
+            if !checked {
+                Color.clear
+                    .task { await checkStatus() }
+            } else if isSuspended {
+                AccountSuspendedWallView()
+            } else {
+                content
+            }
+        }
+    }
+
+    private func checkStatus() async {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            checked = true
+            return
+        }
+        do {
+            let snap = try await Firestore.firestore()
+                .collection("users").document(uid)
+                .collection("moderation")
+                .whereField("status", isEqualTo: "active")
+                .getDocuments()
+
+            let docs = snap.documents.map { $0.data() }
+            let hasBan = docs.contains { ($0["type"] as? String) == "ban" }
+            let strikes = docs.filter { ($0["type"] as? String) == "strike" }.count
+            isSuspended = hasBan || strikes >= 3
+        } catch {
+            // Network failure → don't block the user; fail open
+        }
+        checked = true
+    }
+}
+
+private struct AccountSuspendedWallView: View {
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            Image(systemName: "xmark.shield.fill")
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 10) {
+                Text("Account Suspended")
+                    .font(.title2.weight(.semibold))
+                Text("Your account has been suspended due to repeated Community Guidelines violations. You may submit an appeal through the AMEN support portal.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            Button("Learn More") {
+                if let url = URL(string: "https://amenapp.com/support/appeals") {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 28)
+            .padding(.vertical, 14)
+            .background(.regularMaterial, in: Capsule())
+
+            Spacer()
+        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 }
 

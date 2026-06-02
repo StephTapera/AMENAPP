@@ -64,9 +64,9 @@ private struct AmenTaskStatusChip: View {
 
     private var chipColor: Color {
         switch status {
-        case .open:       return Color.amenBlue
-        case .inProgress: return Color.amenPurple
-        case .waiting:    return Color.amenGold
+        case .open:       return Color(hex: "245B8F")
+        case .inProgress: return Color(hex: "6E4BB5")
+        case .waiting:    return Color(hex: "D9A441")
         case .done:       return Color.white.opacity(0.40)
         case .archived:   return Color.white.opacity(0.25)
         }
@@ -118,7 +118,7 @@ private struct AmenTaskRow: View {
             } label: {
                 Image(systemName: item.status == .done ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
-                    .foregroundStyle(item.status == .done ? Color.amenGold : Color.white.opacity(0.40))
+                    .foregroundStyle(item.status == .done ? Color(hex: "D9A441") : Color.white.opacity(0.40))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(item.status == .done ? "Mark \(item.title) as open" : "Mark \(item.title) as done")
@@ -145,7 +145,7 @@ private struct AmenTaskRow: View {
                             Text(Self.dueDateFormatter.string(from: due))
                                 .font(.system(size: 12))
                         }
-                        .foregroundStyle(Color.amenGold.opacity(0.80))
+                        .foregroundStyle(Color(hex: "D9A441").opacity(0.80))
                         .accessibilityLabel("Due \(Self.dueDateFormatter.string(from: due))")
                     }
                 }
@@ -181,11 +181,11 @@ private struct AmenTaskSectionHeader: View {
                 .tracking(0.8)
             Text("\(count)")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color(hex: "D9A441"))
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
                 .background(
-                    Capsule().fill(Color.amenGold.opacity(0.14))
+                    Capsule().fill(Color(hex: "D9A441").opacity(0.14))
                 )
                 .accessibilityLabel("\(count) items")
         }
@@ -201,7 +201,7 @@ private struct AmenTasksEmptyState: View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark.circle")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(Color.amenGold.opacity(0.7))
+                .foregroundStyle(Color(hex: "D9A441").opacity(0.7))
                 .accessibilityHidden(true)
             Text("No tasks yet.\nTasks created in Chat appear here.")
                 .font(.body)
@@ -234,7 +234,7 @@ struct AmenMinistryRoomTasksTab: View {
                 loadingView
             } else if vm.items.isEmpty {
                 AmenTasksEmptyState()
-                    .background(Color.amenBlack)
+                    .background(Color(hex: "070607"))
             } else {
                 taskList
             }
@@ -250,20 +250,20 @@ struct AmenMinistryRoomTasksTab: View {
                     .accessibilityLabel("Error: \(error)")
             }
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
         .task { await vm.load() }
     }
 
     private var loadingView: some View {
         VStack(spacing: 12) {
             ProgressView()
-                .tint(Color.amenGold)
+                .tint(Color(hex: "D9A441"))
             Text("Loading tasks…")
                 .font(.subheadline)
                 .foregroundStyle(Color.white.opacity(0.55))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
     }
 
     private var taskList: some View {
@@ -282,7 +282,7 @@ struct AmenMinistryRoomTasksTab: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 6)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.amenBlack)
+                            .background(Color(hex: "070607"))
                     }
                 }
 
@@ -299,13 +299,13 @@ struct AmenMinistryRoomTasksTab: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 6)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.amenBlack)
+                            .background(Color(hex: "070607"))
                     }
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
     }
 }

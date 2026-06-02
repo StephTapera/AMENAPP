@@ -612,32 +612,3 @@ struct WellnessBreakReminderView: View {
     }
 }
 
-private struct GlassCard<Content: View>: View {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .background(
-                RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .fill(Color.white.opacity(0.45))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 32, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
-                    )
-                    .shadow(color: Color.black.opacity(0.08), radius: 24, y: 8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 32, style: .continuous)
-                            .stroke(Color.white.opacity(0.35), lineWidth: 0.5)
-                    )
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .fill(Color.white.opacity(0.25))
-                    .blur(radius: 2)
-            )
-    }
-}

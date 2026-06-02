@@ -180,11 +180,11 @@ struct QuickReplaceVerseDrawer: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Text(verse.reference)
+                        Text(verse.reference.displayString)
                             .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(Color.primary)
                         
-                        Text(verse.translation)
+                        Text("NIV")
                             .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(Color.secondary)
                             .padding(.horizontal, 5)

@@ -12,23 +12,6 @@ import FirebaseAuth
 
 // MARK: - Design Tokens
 
-private extension Color {
-    static let amenGold   = Color(hex: "#D9A441")
-    static let amenPurple = Color(hex: "#6E4BB5")
-    static let amenBlue   = Color(hex: "#245B8F")
-    static let amenBlack  = Color(hex: "#070607")
-
-    init(hex: String) {
-        let stripped = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: stripped).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double(int         & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-}
-
 // MARK: - Inbox ViewModel
 
 @MainActor
@@ -165,12 +148,12 @@ private struct InboxSectionHeader: View {
 
 // MARK: - Empty State
 
-private struct InboxEmptyState: View {
+private struct PeaceInboxEmptyState: View {
     var body: some View {
         HStack(spacing: 6) {
             Text("All clear ✦")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color(hex: "#D9A441"))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, 4)
@@ -267,7 +250,7 @@ private struct InboxSection<RowContent: View>: View {
 
             if isExpanded.wrappedValue {
                 if isEmpty {
-                    InboxEmptyState()
+                    PeaceInboxEmptyState()
                 } else {
                     rows()
                 }

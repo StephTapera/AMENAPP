@@ -6,6 +6,25 @@
 
 import SwiftUI
 
+private struct AmenFloatingActionTray<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        HStack(spacing: 12) { content }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
+                    )
+            )
+            .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+    }
+}
+
 struct AmenMediaActionOverlay: View {
     let message: AppMessage
     let flags: AMENFeatureFlags

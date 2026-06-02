@@ -59,6 +59,7 @@ enum AMENAnalyticsEvent {
     case bereanScriptureContextOpened
     case bereanHumanSupportSuggested(context: String)
     case bereanResearchViewOpened
+    case bereanTheoLensSelected(lens: String)
 
     // Spiritual Check-In
     case checkInShown(tier: Int)
@@ -159,6 +160,21 @@ enum AMENAnalyticsEvent {
     case voiceCommentPreviewPlayed(postId: String)
     case voiceCommentSubmitted(postId: String, type: String)
 
+    // Subscription
+    case manageSubscriptionOpened(surface: String)
+
+    // Drafts
+    case draftRestored(type: String)
+    case draftSaved(type: String)
+    case draftDeleted(type: String)
+    case draftPublished(type: String)
+
+    // Daily Digest
+    case amenDailyDigestLoaded(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyWeatherShown(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyHolidayShown(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyDigestFallbackUsed(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+
     var name: String {
         switch self {
         case .feedSessionStarted: return "feed_session_started"
@@ -189,6 +205,7 @@ enum AMENAnalyticsEvent {
         case .bereanScriptureContextOpened: return "berean_scripture_context_opened"
         case .bereanHumanSupportSuggested: return "berean_human_support_suggested"
         case .bereanResearchViewOpened: return "berean_research_view_opened"
+        case .bereanTheoLensSelected: return "berean_theo_lens_selected"
         case .checkInShown: return "check_in_shown"
         case .checkInEngaged: return "check_in_engaged"
         case .checkInDismissed: return "check_in_dismissed"
@@ -262,6 +279,15 @@ enum AMENAnalyticsEvent {
         case .messageThreadFilterSelected: return "message_thread_filter_selected"
         case .messageSearchResultTapped: return "message_search_result_tapped"
         case .messageSearchSubmitted: return "message_search_submitted"
+        case .manageSubscriptionOpened: return "manage_subscription_opened"
+        case .draftRestored: return "draft_restored"
+        case .draftSaved: return "draft_saved"
+        case .draftDeleted: return "draft_deleted"
+        case .draftPublished: return "draft_published"
+        case .amenDailyDigestLoaded: return "amen_daily_digest_loaded"
+        case .amenDailyWeatherShown: return "amen_daily_weather_shown"
+        case .amenDailyHolidayShown: return "amen_daily_holiday_shown"
+        case .amenDailyDigestFallbackUsed: return "amen_daily_digest_fallback_used"
         }
     }
 

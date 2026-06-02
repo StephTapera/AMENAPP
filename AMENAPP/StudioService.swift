@@ -333,7 +333,7 @@ final class StudioDataService: ObservableObject {
     func fetchFeaturedCreators(limit: Int = 10) async -> [StudioProfile] {
         guard let snap = try? await db.collection("studioProfiles")
             .whereField("isPublished", isEqualTo: true)
-            .whereField("moderationState", isEqualTo: ModerationState.active.rawValue)
+            .whereField("moderationState", isEqualTo: StudioModerationState.active.rawValue)
             .order(by: "featuredOrder")
             .limit(to: limit)
             .getDocuments() else { return [] }
@@ -361,7 +361,7 @@ final class StudioDataService: ObservableObject {
     func searchCreators(query: String, category: StudioCategory? = nil) async -> [StudioProfile] {
         var ref: Query = db.collection("studioProfiles")
             .whereField("isPublished", isEqualTo: true)
-            .whereField("moderationState", isEqualTo: ModerationState.active.rawValue)
+            .whereField("moderationState", isEqualTo: StudioModerationState.active.rawValue)
 
         if let category = category {
             ref = ref.whereField("categories", arrayContains: category.rawValue)
@@ -491,7 +491,7 @@ struct StudioService_: Identifiable, Codable {
     var availabilityNote: String?
     var requiresDeposit: Bool
     var depositPercent: Int
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var inquiryCount: Int
     var completionCount: Int
     var responseRatePercent: Int

@@ -39,13 +39,22 @@ final class BereanGuardrailEngine: ObservableObject {
         case checkIn3day
         case checkIn7day
         case crisis
+        case medicalAdvice
     }
     
     // ─── Detect Signals ─────────────────────────────────────────────────────
     
     func analyzeMessage(_ content: String, role: BereanChatMsg.BereanChatMsgRole) {
         guard role == .user else { return }
-        
+
+        // Medical advice requests (checked before crisis — refusal is immediate, not throttled)
+        if detectMedicalAdviceRequest(in: content) {
+            riskLevel = .moderate
+            communityPromptType = .medicalAdvice
+            shouldShowCommunityPrompt = true
+            return
+        }
+
         // Crisis signals (highest priority)
         if detectCrisisSignals(in: content) {
             riskLevel = .critical
@@ -87,6 +96,18 @@ final class BereanGuardrailEngine: ObservableObject {
     
     // ─── Detection Patterns ─────────────────────────────────────────────────
     
+    private func detectMedicalAdviceRequest(in text: String) -> Bool {
+        let medicalPatterns = [
+            "diagnose", "diagnosis", "do i have", "what disease", "what condition",
+            "what medication", "prescribe", "should i take", "what dose", "dosage",
+            "is it safe to take", "can i take", "what drug", "what pill",
+            "treat my", "cure my", "my symptoms are", "i have symptoms",
+            "medical advice", "doctor advice", "should i see a doctor"
+        ]
+        let lower = text.lowercased()
+        return medicalPatterns.contains { lower.contains($0) }
+    }
+
     private func detectCrisisSignals(in text: String) -> Bool {
         let crisisKeywords = [
             "kill myself", "end it all", "no reason to live", "better off dead",
@@ -271,10 +292,11 @@ struct BereanCommunityPromptCard: View {
         case .isolationDetected: return "heart.circle"
         case .repeatedStruggle: return "hands.sparkles"
         case .emotionalDistress: return "person.crop.circle.badge.checkmark"
+        case .medicalAdvice: return "stethoscope"
         default: return "person.2.fill"
         }
     }
-    
+
     private var promptTitle: String {
         switch promptType {
         case .crisis:
@@ -289,9 +311,11 @@ struct BereanCommunityPromptCard: View {
             return "Have you shared this?"
         case .firstTimeOnboarding:
             return "AI is not enough"
+        case .medicalAdvice:
+            return "Please consult a medical professional"
         }
     }
-    
+
     private var promptMessage: String {
         switch promptType {
         case .crisis:
@@ -310,6 +334,8 @@ struct BereanCommunityPromptCard: View {
             return "You've been processing this for a week. Would it help to share this with someone you trust?"
         case .firstTimeOnboarding:
             return "Berean can guide you with Scripture and reflection, but it does not replace real community, church, or trusted people in your life. If you're struggling, don't walk alone."
+        case .medicalAdvice:
+            return "Berean can offer prayer, scripture, and spiritual encouragement, but cannot provide medical diagnoses or prescriptions. For any health concern, please speak with a qualified medical professional."
         }
     }
 }

@@ -136,7 +136,7 @@ struct SundayRestModeSheet: View {
                 .textCase(.uppercase)
                 .kerning(0.6)
 
-            FlowLayout(spacing: 8) {
+            SundayRestFlowLayout(spacing: 8) {
                 ForEach(pausedLabels, id: \.self) { label in
                     Text(label)
                         .font(AMENFont.regular(13))
@@ -294,7 +294,7 @@ private struct OverrideReasonButton: View {
 
 // MARK: - FlowLayout (simple wrapping HStack)
 
-private struct FlowLayout: Layout {
+private struct SundayRestFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {

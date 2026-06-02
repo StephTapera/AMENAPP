@@ -56,6 +56,12 @@ struct AmenMinistryRoomShellView: View {
                 // Glass top bar
                 glassTopBar
 
+                // Spiritual OS — Spaces Hero Card (Agent D, gated by AppStorage flag)
+                AmenSpacesHeroCardSection(
+                    spaceId: space.id,
+                    userId: Auth.auth().currentUser?.uid ?? ""
+                )
+
                 // Glass tab switcher
                 glassTabSwitcher
 
@@ -159,17 +165,17 @@ struct AmenMinistryRoomShellView: View {
         case .chat:
             AmenMinistryRoomChatView(spaceId: space.id)
         case .prayer:
-            AmenMinistryRoomPlaceholderTabView(label: "Prayer", icon: "hands.sparkles")
+            AmenMinistryRoomPrayerTab(spaceId: space.id)
         case .tasks:
-            AmenMinistryRoomPlaceholderTabView(label: "Tasks", icon: "checkmark.circle")
+            AmenMinistryRoomTasksTab(spaceId: space.id)
         case .decisions:
-            AmenMinistryRoomPlaceholderTabView(label: "Decisions", icon: "scale.3d")
+            AmenMinistryRoomDecisionsTab(spaceId: space.id)
         case .care:
-            AmenMinistryRoomPlaceholderTabView(label: "Care", icon: "heart")
+            AmenMinistryRoomCareTab(spaceId: space.id)
         case .files:
-            AmenMinistryRoomPlaceholderTabView(label: "Files", icon: "folder")
+            AmenMinistryRoomFilesTab(spaceId: space.id)
         case .history:
-            AmenMinistryRoomPlaceholderTabView(label: "History", icon: "clock")
+            AmenMinistryRoomHistoryTab(spaceId: space.id)
         }
     }
 }

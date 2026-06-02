@@ -83,7 +83,7 @@ actor ONEKeyRatchetService {
             throw ONECryptoError.noRatchetState(threadID)
         }
 
-        let messageKey = deriveMessageKey(chainKey: state.sendingChainKey)
+        let messageKey = deriveMessageKey(state.sendingChainKey)
         let epoch = state.sendingEpoch
 
         // Encrypt with AES-GCM
@@ -114,7 +114,7 @@ actor ONEKeyRatchetService {
 
         // Derive message key at the correct epoch
         // Simple case: messages arrive in order. Out-of-order degrades (known gap — see SECURITY.md).
-        let messageKey = deriveMessageKey(chainKey: state.receivingChainKey)
+        let messageKey = deriveMessageKey(state.receivingChainKey)
 
         let sealedBox = try AES.GCM.SealedBox(combined: payload.ciphertext)
         let plaintext = try AES.GCM.open(sealedBox, using: messageKey)

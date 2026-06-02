@@ -83,6 +83,8 @@ struct PostCardRenderModel: Equatable {
     let visibility: PostVisibility
     let lowTrustAuthor: Bool
     let isPinned: Bool
+    let authorVerificationType: VerificationType
+    var authorIsVerified: Bool { authorVerificationType != .none }
 
     // MARK: - Rich content
     let churchNoteId: String?
@@ -169,6 +171,7 @@ extension PostCardRenderModel {
         self.visibility = post.visibility
         self.lowTrustAuthor = post.lowTrustAuthor
         self.isPinned = post.isPinned
+        self.authorVerificationType = .none
 
         self.churchNoteId = post.churchNoteId
         self.quote = post.quote
@@ -203,7 +206,8 @@ extension PostCardRenderModel {
         isUserPost: Bool = false,
         amenCount: Int = 12,
         flaggedForReview: Bool = false,
-        isRemoved: Bool = false
+        isRemoved: Bool = false,
+        authorVerificationType: VerificationType = .none
     ) -> PostCardRenderModel {
         PostCardRenderModel(
             postId: postId,
@@ -244,6 +248,7 @@ extension PostCardRenderModel {
             visibility: .everyone,
             lowTrustAuthor: false,
             isPinned: false,
+            authorVerificationType: authorVerificationType,
             churchNoteId: nil,
             quote: nil,
             poll: nil,

@@ -2,6 +2,71 @@ import Foundation
 import FirebaseFirestore
 import FirebaseFunctions
 
+// MARK: - ChurchTrustSafety Stubs
+
+struct ChurchAdminProfile: Decodable {
+    var uid: String
+    var churchId: String
+    var displayName: String?
+    var email: String?
+    var role: String?
+    var isVerified: Bool?
+}
+
+struct ChurchVerificationRequest {
+    var churchId: String
+    var contactEmail: String
+    var claimedDomain: String?
+    var websiteProofURL: String?
+    var livestreamProofURL: String?
+    var notes: String?
+}
+
+struct ChurchAdminEditableProfile {
+    struct ServiceTime {
+        var dayOfWeek: Int
+        var time: String
+        var serviceType: String?
+    }
+    var churchId: String
+    var displayDescription: String?
+    var serviceTimes: [ServiceTime]
+    var livestreamURL: String?
+    var accessibilityInfo: [String: Any]
+    var parkingInfo: String?
+    var ministries: [String]
+    var events: [String]
+    var prayerNights: [String]
+    var firstTimeVisitorInfo: String?
+}
+
+struct ChurchModerationQueueItem: Decodable {
+    var id: String
+    var churchId: String?
+    var contentType: String?
+    var contentId: String?
+    var reportReason: String?
+    var status: String?
+}
+
+struct ChurchModerationDecisionPayload {
+    enum Decision: String {
+        case approve, reject, escalate, dismiss
+    }
+    var queueItemId: String
+    var decision: Decision
+    var reasons: [String]
+    var reviewerNote: String?
+    var reversible: Bool
+}
+
+struct ChurchQualitySnapshot: Decodable {
+    var score: Double?
+    var completionRatio: Double?
+    var flagCount: Int?
+    var verifiedAt: Date?
+}
+
 @MainActor
 final class ChurchTrustSafetyService {
     static let shared = ChurchTrustSafetyService()

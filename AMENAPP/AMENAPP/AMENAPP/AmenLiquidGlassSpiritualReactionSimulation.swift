@@ -351,7 +351,7 @@ private struct SpiritualPostCard: View {
             .shadow(color: Color.black.opacity(0.06), radius: 18, y: 8)
 
             if let microcopy {
-                AmenMicrocopyToast(text: microcopy)
+                SimMicrocopyToast(text: microcopy)
                     .padding(.top, -12)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -417,13 +417,13 @@ private struct SpiritualPostCard: View {
                 }
 
                 if let scripture = triggers.first(where: { $0.type == .scriptureReference }) {
-                    AmenScriptureContextCapsule(trigger: scripture)
+                    SimScriptureContextCapsule(trigger: scripture)
                 } else if let prayer = triggers.first(where: { $0.type == .prayerRequest }) {
-                    AmenPrayerRequestCapsule(trigger: prayer)
+                    SimPrayerRequestCapsule(trigger: prayer)
                 } else if let testimony = triggers.first(where: { $0.type == .testimony }) {
-                    AmenTestimonyMomentCapsule(trigger: testimony)
+                    SimTestimonyMomentCapsule(trigger: testimony)
                 } else if let wisdom = triggers.first(where: { $0.type == .wisdomPrompt }) {
-                    AmenWisdomPromptCapsule(trigger: wisdom)
+                    SimWisdomPromptCapsule(trigger: wisdom)
                 }
             }
         }
@@ -747,7 +747,7 @@ private struct SpiritualTriggerChip: View {
     }
 }
 
-private struct AmenScriptureContextCapsule: View {
+private struct SimScriptureContextCapsule: View {
     let trigger: SpiritualTriggerResult
 
     var body: some View {
@@ -759,7 +759,7 @@ private struct AmenScriptureContextCapsule: View {
     }
 }
 
-private struct AmenPrayerRequestCapsule: View {
+private struct SimPrayerRequestCapsule: View {
     let trigger: SpiritualTriggerResult
 
     var body: some View {
@@ -771,7 +771,7 @@ private struct AmenPrayerRequestCapsule: View {
     }
 }
 
-private struct AmenTestimonyMomentCapsule: View {
+private struct SimTestimonyMomentCapsule: View {
     let trigger: SpiritualTriggerResult
 
     var body: some View {
@@ -783,14 +783,14 @@ private struct AmenTestimonyMomentCapsule: View {
     }
 }
 
-private struct AmenWisdomPromptCapsule: View {
+private struct SimWisdomPromptCapsule: View {
     let trigger: SpiritualTriggerResult
 
     var body: some View {
         capsule(
             title: "Discernment moment",
             subtitle: "Pause · Pray · Respond",
-            effect: nil
+            effect: Optional<EmptyView>.none
         )
     }
 }
@@ -824,7 +824,7 @@ private func capsule<Effect: View>(title: String, subtitle: String, effect: Effe
     .overlay(Capsule(style: .continuous).stroke(Color.black.opacity(0.05), lineWidth: 0.8))
 }
 
-private struct AmenMicrocopyToast: View {
+private struct SimMicrocopyToast: View {
     let text: String
 
     var body: some View {
@@ -1223,25 +1223,6 @@ struct SpiritualPost: Identifiable, Equatable {
     ]
 }
 
-enum AmenSafetyLane {
-    case green
-    case blue
-    case amber
-    case red
-
-    var tint: Color {
-        switch self {
-        case .green:
-            return Color.black.opacity(0.55)
-        case .blue:
-            return Color.black.opacity(0.42)
-        case .amber:
-            return Color.black.opacity(0.3)
-        case .red:
-            return Color.black.opacity(0.22)
-        }
-    }
-}
 
 enum SpiritualDiscernmentAction: String {
     case editWithGrace

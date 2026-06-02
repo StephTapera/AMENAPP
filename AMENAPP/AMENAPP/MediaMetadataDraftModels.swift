@@ -56,6 +56,12 @@ struct KeyMomentDraft: Identifiable, Codable, Equatable, Hashable {
     }
 }
 
+enum FrameCaptionModerationState: String, Codable, Hashable {
+    case notChecked
+    case approved
+    case rejected
+}
+
 struct FrameCaptionDraft: Identifiable, Codable, Equatable, Hashable {
     var id: String
     var frameIndex: Int
@@ -63,6 +69,12 @@ struct FrameCaptionDraft: Identifiable, Codable, Equatable, Hashable {
     var text: String
     var verseReference: String
     var isFeatured: Bool
+    var captionModerationState: FrameCaptionModerationState
+    var scriptureRefs: [String]
+    var reflectionPrompt: String
+    var altText: String
+
+    var hasMediaCaption: Bool { !text.isEmpty }
 
     init(
         id: String = UUID().uuidString,
@@ -70,7 +82,11 @@ struct FrameCaptionDraft: Identifiable, Codable, Equatable, Hashable {
         title: String = "",
         text: String = "",
         verseReference: String = "",
-        isFeatured: Bool = false
+        isFeatured: Bool = false,
+        captionModerationState: FrameCaptionModerationState = .notChecked,
+        scriptureRefs: [String] = [],
+        reflectionPrompt: String = "",
+        altText: String = ""
     ) {
         self.id = id
         self.frameIndex = frameIndex
@@ -78,6 +94,10 @@ struct FrameCaptionDraft: Identifiable, Codable, Equatable, Hashable {
         self.text = text
         self.verseReference = verseReference
         self.isFeatured = isFeatured
+        self.captionModerationState = captionModerationState
+        self.scriptureRefs = scriptureRefs
+        self.reflectionPrompt = reflectionPrompt
+        self.altText = altText
     }
 
     var asFrameCaption: MediaFrameCaption {

@@ -101,7 +101,7 @@ struct ProfilePinnedPostsSection: View {
         defer { isLoading = false }
         
         do {
-            let posts = try await ProfilePinnedPostService.shared.getPinnedPosts(for: userId)
+            let posts = try await ProfilePinnedFetchService.shared.getPinnedPosts(for: userId)
             
             await MainActor.run {
                 withAnimation(AppAnimation.fade) {
@@ -119,8 +119,8 @@ struct ProfilePinnedPostsSection: View {
 
 // MARK: - Pinned Post Service
 
-actor ProfilePinnedPostService {
-    static let shared = ProfilePinnedPostService()
+actor ProfilePinnedFetchService {
+    static let shared = ProfilePinnedFetchService()
     
     private var pinnedPostsCache: [String: [Post]] = [:]
     private let maxPinnedPosts = 3

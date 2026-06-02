@@ -360,7 +360,7 @@ struct AlgorithmStateBar: View {
 
     private func clearAll() {
         modeService.deactivate()
-        nlService.clearAll()
+        Task { try? await nlService.removeAll() }
     }
 }
 
@@ -387,18 +387,6 @@ extension HeyFeedDuration {
         }
     }
 
-    var expiryDate: Date {
-        switch self {
-        case .session:    return Date().addingTimeInterval(3 * 3600)
-        case .today:
-            var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-            comps.hour = 23; comps.minute = 59
-            return Calendar.current.date(from: comps) ?? Date().addingTimeInterval(24 * 3600)
-        case .threeDays:  return Date().addingTimeInterval(3 * 24 * 3600)
-        case .sevenDays:  return Date().addingTimeInterval(7 * 24 * 3600)
-        case .persistent: return .distantFuture
-        }
-    }
 }
 
 // MARK: - HeyFeedNLPreference short summary helper

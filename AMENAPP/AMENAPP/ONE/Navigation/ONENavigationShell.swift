@@ -16,6 +16,7 @@ import SwiftUI
 struct ONENavigationShell: View {
     @State private var selectedZone: ONE.Zone = .moments
     @State private var scrollVelocity: CGFloat = 0      // negative = scrolling up (hide dock)
+    @StateObject private var threadStore = ONEThreadStore()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -23,9 +24,9 @@ struct ONENavigationShell: View {
             // ── Content ──────────────────────────────────────────────
             Group {
                 switch selectedZone {
-                case .people:  ONEPeopleZonePlaceholder()
-                case .moments: ONEMomentsZonePlaceholder()
-                case .world:   ONEWorldZonePlaceholder()
+                case .people:  ONEThreadListView(store: threadStore)
+                case .moments: ONELiquidCameraView()
+                case .world:   ONEWorldFeedView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

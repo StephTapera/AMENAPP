@@ -35,7 +35,7 @@ struct GuideMyFeedSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(reduceTransparency ? Color(.systemBackground) : .regularMaterial)
+        .presentationBackground(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(Material.regularMaterial))
     }
 
     // MARK: - Sections

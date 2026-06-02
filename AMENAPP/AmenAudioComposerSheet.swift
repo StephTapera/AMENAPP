@@ -1,5 +1,36 @@
 import SwiftUI
 
+// MARK: - AmenAudioAttachmentDraft
+
+struct AmenAudioAttachmentDraft: Equatable {
+    enum Category: String, CaseIterable {
+        case worship
+        case instrumental
+        case sermonClips = "sermon_clips"
+        case prayer
+        case testimony
+        case ambient
+        case originalAudio = "original_audio"
+        case savedApproved = "saved_approved"
+    }
+
+    let title: String
+    let artist: String
+    let source: String
+    let category: Category
+    let trimStartMs: Int
+    let trimDurationMs: Int
+    let musicVolume: Double
+    let originalAudioVolume: Double
+    let isApproved: Bool
+
+    /// Returns a media audio bed metadata dict if the draft is approved.
+    var asMediaAudioBed: (title: String, source: String)? {
+        guard isApproved else { return nil }
+        return (title: title, source: source)
+    }
+}
+
 struct AmenAudioComposerSheet: View {
     private struct AmenAudioPreset: Identifiable {
         let id = UUID()

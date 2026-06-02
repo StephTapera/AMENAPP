@@ -246,7 +246,7 @@ struct AmenMediaCommunityRoomView: View {
 
             VStack(spacing: 12) {
                 ForEach(room.recentPosts) { post in
-                    PostCard(post: post)
+                    CommunityPostCard(post: post)
                         .padding(.horizontal, 20)
                 }
             }
@@ -364,7 +364,7 @@ private struct PinnedMediaCard: View {
 
 // MARK: - Post Card
 
-private struct PostCard: View {
+private struct CommunityPostCard: View {
     let post: CommunityPost
 
     var body: some View {

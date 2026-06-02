@@ -26,7 +26,7 @@ final class StewardshipViewModel: ObservableObject {
         self.store = store
     }
 
-    enum StewardshiSection: String, Identifiable {
+    enum StewardshiSection: String, Identifiable, CaseIterable {
         case planner = "Monthly Planner"
         case allocation = "Allocation"
         case recurring = "Recurring Gifts"

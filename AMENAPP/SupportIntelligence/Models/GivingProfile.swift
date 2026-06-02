@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct GivingProfile: Codable, Sendable {
+struct GivingIntelligenceProfile: Codable, Sendable {
     var topCauseAffinities: [String: Double]   // GivingCauseCategory.rawValue → score
     var recentGivingIntentScore: Double         // 0.0–1.0
     var givingSuppressedDueToNeedState: Bool
@@ -20,8 +20,8 @@ struct GivingProfile: Codable, Sendable {
             .sorted { (topCauseAffinities[$0.rawValue] ?? 0) > (topCauseAffinities[$1.rawValue] ?? 0) }
     }
 
-    static var empty: GivingProfile {
-        GivingProfile(
+    static var empty: GivingIntelligenceProfile {
+        GivingIntelligenceProfile(
             topCauseAffinities: [:],
             recentGivingIntentScore: 0.0,
             givingSuppressedDueToNeedState: false,

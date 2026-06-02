@@ -25,7 +25,7 @@ struct DiscoveryWhyPill: View {
 
     var body: some View {
         Group {
-            if flags.discoveryTransparencyEnabled {
+            if flags.smartDiscoveryTransparencyEnabled {
                 Button {
                     showingSheet = true
                 } label: {

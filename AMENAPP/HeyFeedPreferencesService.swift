@@ -91,7 +91,7 @@ class HeyFeedPreferencesService: ObservableObject {
     
     // MARK: - Mode Control
     
-    func setMode(_ mode: FeedMode) async {
+    func setMode(_ mode: HeyFeedMode) async {
         preferences.mode = mode
         await savePreferences()
     }

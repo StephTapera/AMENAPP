@@ -82,7 +82,7 @@ enum CreatorJobStatus: String, Codable {
     case failed
 }
 
-enum ModerationStatus: String, Codable {
+enum CreatorModerationStatus: String, Codable {
     case pending
     case approved
     case flagged

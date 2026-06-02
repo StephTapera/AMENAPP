@@ -272,6 +272,8 @@ struct AmenConnectContextBeforeWatchingView: View {
     }
 }
 
+// MARK: - Hex color helper (private, file-scoped)
+
 // MARK: - Preview
 
 #if DEBUG

@@ -27,7 +27,7 @@ private enum ST {
 
 // MARK: - Glass Modifier
 
-private struct GlassCard: ViewModifier {
+private struct SettingsGlassCard: ViewModifier {
     var cornerRadius: CGFloat = ST.radius
     func body(content: Content) -> some View {
         content
@@ -49,7 +49,7 @@ private struct GlassCard: ViewModifier {
 
 private extension View {
     func glassCard(cornerRadius: CGFloat = ST.radius) -> some View {
-        modifier(GlassCard(cornerRadius: cornerRadius))
+        modifier(SettingsGlassCard(cornerRadius: cornerRadius))
     }
 }
 

@@ -340,6 +340,9 @@ struct UserProfileView: View {
     // Suggested Follows (System 13)
     @State private var showSuggestedFollows = false
 
+    // Mentor Channel
+    @State private var showMentorChannel = false
+
     // Additional production-ready states
     @State private var showShareSheet = false
     @State private var shareItems: [Any] = []
@@ -569,6 +572,11 @@ struct UserProfileView: View {
                 SuggestedFollowsSheet(
                     viewModel: SuggestedFollowsViewModel(profileUserId: userId)
                 )
+            }
+            .sheet(isPresented: $showMentorChannel) {
+                NavigationStack {
+                    AmenMentorChannelView(mentorId: userId)
+                }
             }
             .alert("Error", isPresented: $showErrorAlert) {
                 Button("OK") { errorMessage = "" }
@@ -2437,8 +2445,39 @@ struct UserProfileView: View {
                             }
                         }
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
+
+                        // Mentor Channel CTA — visible for other users' profiles only
+                        if !isOwnProfile && !isBlocked && !isBlockedBy {
+                            Button {
+                                showMentorChannel = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "play.rectangle.on.rectangle.fill")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                    Text("View Channel")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.systemScaled(12, weight: .semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .strokeBorder(.white.opacity(0.4), lineWidth: 0.5)
+                                        )
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .transition(.scale.combined(with: .opacity))
+                        }
                     }
-                    
+
                     // Privacy Status Indicators - P0-4: Include BLOCKED_BY status
                     if isBlockedBy || isBlocked || isMuted || isHidden {
                         VStack(spacing: 8) {

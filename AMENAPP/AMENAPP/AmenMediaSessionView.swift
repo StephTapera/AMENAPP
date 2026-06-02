@@ -10,6 +10,123 @@
 import SwiftUI
 import Combine
 
+// MARK: - MediaSession Stubs
+
+enum MediaSessionCheckpointReason {
+    case itemsWatched
+    case timeElapsed
+    case rapidSkipping
+}
+
+struct MediaSessionCheckpoint: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+    let options: [CheckpointOption]
+
+    struct CheckpointOption: Identifiable {
+        let id = UUID()
+        let label: String
+        let icon: String
+        let action: CheckpointAction
+    }
+
+    enum CheckpointAction {
+        case `continue`, reflect, journal, discuss, save, endSession
+    }
+
+    static func checkpoint(for reason: MediaSessionCheckpointReason) -> MediaSessionCheckpoint {
+        switch reason {
+        case .itemsWatched:
+            return MediaSessionCheckpoint(
+                title: "Taking it in?",
+                message: "You've watched a few items. How are you feeling?",
+                options: [
+                    CheckpointOption(label: "Keep watching", icon: "play.fill", action: .continue),
+                    CheckpointOption(label: "Reflect", icon: "moon.stars", action: .reflect),
+                    CheckpointOption(label: "I'm done", icon: "xmark", action: .endSession),
+                ]
+            )
+        case .timeElapsed:
+            return MediaSessionCheckpoint(
+                title: "Still with us?",
+                message: "You've been watching for a while. Take a moment to pause.",
+                options: [
+                    CheckpointOption(label: "Continue", icon: "play.fill", action: .continue),
+                    CheckpointOption(label: "Journal", icon: "square.and.pencil", action: .journal),
+                    CheckpointOption(label: "End session", icon: "xmark", action: .endSession),
+                ]
+            )
+        case .rapidSkipping:
+            return MediaSessionCheckpoint(
+                title: "Slowing down?",
+                message: "You're moving through content quickly. Try pausing on something.",
+                options: [
+                    CheckpointOption(label: "Keep going", icon: "play.fill", action: .continue),
+                    CheckpointOption(label: "Discuss", icon: "bubble.left.and.bubble.right", action: .discuss),
+                    CheckpointOption(label: "End session", icon: "xmark", action: .endSession),
+                ]
+            )
+        }
+    }
+}
+
+// MARK: - AmenMediaSession Extensions
+
+extension AmenMediaSession {
+    var isComplete: Bool { status == .completed || status == .abandoned }
+}
+
+extension AmenMediaSession.SessionType {
+    var displayName: String {
+        switch self {
+        case .morningInspiration: return "Morning Inspiration"
+        case .friendsAndFamily: return "Friends & Family"
+        case .creativeDiscovery: return "Creative Discovery"
+        case .worshipAndMusic: return "Worship & Music"
+        case .learningSession: return "Learning Session"
+        case .sermonHighlights: return "Sermon Highlights"
+        case .selahReflection: return "Selah Reflection"
+        case .testimonies: return "Testimonies"
+        case .churchMoments: return "Church Moments"
+        case .encouragement: return "Encouragement"
+        case .custom: return "Custom Session"
+        }
+    }
+
+    var systemIcon: String {
+        switch self {
+        case .morningInspiration: return "sunrise.fill"
+        case .friendsAndFamily: return "person.2.fill"
+        case .creativeDiscovery: return "sparkles"
+        case .worshipAndMusic: return "music.note"
+        case .learningSession: return "book.fill"
+        case .sermonHighlights: return "mic.fill"
+        case .selahReflection: return "moon.stars.fill"
+        case .testimonies: return "person.fill.checkmark"
+        case .churchMoments: return "building.columns.fill"
+        case .encouragement: return "heart.fill"
+        case .custom: return "slider.horizontal.3"
+        }
+    }
+
+    var defaultMaxItems: Int {
+        switch self {
+        case .morningInspiration: return 5
+        case .friendsAndFamily: return 8
+        case .creativeDiscovery: return 6
+        case .worshipAndMusic: return 7
+        case .learningSession: return 4
+        case .sermonHighlights: return 3
+        case .selahReflection: return 4
+        case .testimonies: return 5
+        case .churchMoments: return 6
+        case .encouragement: return 5
+        case .custom: return 10
+        }
+    }
+}
+
 // MARK: - ViewModel
 
 @MainActor

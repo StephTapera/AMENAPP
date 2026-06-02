@@ -101,6 +101,11 @@ exports.finalizePostPublish = onCall({ region: REGION }, async (request) => {
     return { success: true, alreadyPublished: true };
   }
 
+  // Moderation guard: blocked posts cannot be re-published by the client.
+  if (post.moderation?.status === 'blocked') {
+    throw new HttpsError('permission-denied', 'This post has been blocked by moderation and cannot be published.');
+  }
+
   // Validate mediaUrls if present
   if (!Array.isArray(mediaUrls) || mediaUrls.length > 4) {
     throw new HttpsError('invalid-argument', 'mediaUrls must be array of max 4');

@@ -117,7 +117,7 @@ struct AmenConnectSpacesHubView: View {
                         // MARK: Ministry Spaces section
                         sectionHeader(
                             title: "Ministry Spaces",
-                            foreground: Color.amenGold
+                            foreground: Color(hex: "D9A441")
                         )
 
                         VStack(spacing: 12) {
@@ -134,7 +134,7 @@ struct AmenConnectSpacesHubView: View {
                         // MARK: Connect Teaching section
                         sectionHeader(
                             title: "Connect — Teaching",
-                            foreground: Color.amenPurple
+                            foreground: Color(hex: "6E4BB5")
                         )
 
                         VStack(spacing: 12) {
@@ -195,13 +195,13 @@ private struct SpaceCardRow: View {
                     .fill(.ultraThinMaterial)
                     .overlay {
                         Circle()
-                            .strokeBorder(Color.amenGold.opacity(0.30), lineWidth: 0.5)
+                            .strokeBorder(Color(hex: "D9A441").opacity(0.30), lineWidth: 0.5)
                     }
                     .frame(width: 44, height: 44)
 
                 Image(systemName: roomTypeIcon(space.type))
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color(hex: "D9A441"))
             }
 
             // Name + member count
@@ -224,7 +224,7 @@ private struct SpaceCardRow: View {
                         // Privacy indicator for sensitive rooms
                         Image(systemName: "lock.fill")
                             .font(.system(size: 10))
-                            .foregroundStyle(Color.amenGold.opacity(0.70))
+                            .foregroundStyle(Color(hex: "D9A441").opacity(0.70))
                     }
                 }
             }
@@ -261,13 +261,13 @@ private struct VideoCardRow: View {
                     .fill(.ultraThinMaterial)
                     .overlay {
                         Circle()
-                            .strokeBorder(Color.amenPurple.opacity(0.30), lineWidth: 0.5)
+                            .strokeBorder(Color(hex: "6E4BB5").opacity(0.30), lineWidth: 0.5)
                     }
                     .frame(width: 44, height: 44)
 
                 Image(systemName: "play.fill")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.amenPurple)
+                    .foregroundStyle(Color(hex: "6E4BB5"))
                     .offset(x: 1) // optical center correction for play triangle
             }
 

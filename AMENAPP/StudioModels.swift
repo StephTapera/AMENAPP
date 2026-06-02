@@ -31,7 +31,7 @@ struct StudioProfile: Identifiable, Codable {
     var availabilityNote: String?               // "Available from Jan 2026"
     var inquiryPolicy: InquiryPolicy
     var trustScore: Double                      // 0.0 – 1.0 computed by platform
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var planTier: StudioPlanTier
     var isPublished: Bool
     var createdAt: Date
@@ -233,7 +233,7 @@ enum InquiryPolicy: String, Codable {
     }
 }
 
-enum ModerationState: String, Codable {
+enum StudioModerationState: String, Codable {
     case active, underReview, warned, restricted, suspended
 
     var isVisible: Bool {
@@ -264,7 +264,7 @@ struct StudioWorkItem: Identifiable, Codable {
     var projectURL: String?
     var servicesUsed: [String]                  // Cross-link to service IDs
     var isPublic: Bool
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var viewCount: Int
     var saveCount: Int
     var shareCount: Int
@@ -292,7 +292,7 @@ struct StudioService: Identifiable, Codable {
     var availabilityNote: String?
     var requiresDeposit: Bool
     var depositPercent: Int                 // e.g. 50
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var inquiryCount: Int
     var completionCount: Int
     var responseRatePercent: Int
@@ -362,7 +362,7 @@ struct StudioProduct: Identifiable, Codable {
     var saveCount: Int
     var refundPolicy: String
     var licenseType: ProductLicense
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var isPublished: Bool
     var searchKeywords: [String]
     var tags: [String]
@@ -409,7 +409,7 @@ struct StudioCommissionProfile: Identifiable, Codable {
     var maxQueueSize: Int
     var currentQueueSize: Int
     var termsAndConditions: String
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var updatedAt: Date
 }
 
@@ -717,7 +717,7 @@ struct StudioTestimonial: Identifiable, Codable {
     var projectId: String?                  // Link to work item
     var isVerified: Bool                    // Must have completed transaction
     var isVisible: Bool
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var createdAt: Date
 }
 
@@ -804,7 +804,7 @@ struct StudioPromotedPlacement: Identifiable, Codable {
     var impressionCount: Int
     var clickCount: Int
     var isActive: Bool
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var createdAt: Date
 }
 

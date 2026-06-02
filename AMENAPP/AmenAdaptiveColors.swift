@@ -128,10 +128,10 @@ extension Color {
     static let adaptiveIconButtonForeground = AmenTheme.Colors.iconSecondary
     
     // MARK: - Accent Colors (Remain Constant Across Modes)
-    
+
     /// Gold accent - Premium, elegant (stays the same in both modes)
     static let amenGold = Color(red: 0.83, green: 0.69, blue: 0.22)
-    
+
     /// Bronze accent - Warm, sophisticated (stays the same)
     static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
     

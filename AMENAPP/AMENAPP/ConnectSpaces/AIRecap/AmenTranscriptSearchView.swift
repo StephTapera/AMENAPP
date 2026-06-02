@@ -93,8 +93,8 @@ private func highlightedText(_ text: String, query: String) -> AttributedString 
     var searchRange = lowercasedText.startIndex..<lowercasedText.endIndex
     while let range = lowercasedText.range(of: lowercasedQuery, range: searchRange) {
         if let attrRange = Range(range, in: attributed) {
-            attributed[attrRange].foregroundColor = UIColor(Color(hex: "D9A441"))
-            attributed[attrRange].font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+            attributed[attrRange].foregroundColor = Color(hex: "D9A441")
+            attributed[attrRange].font = Font.system(size: 14, weight: .semibold)
         }
         searchRange = range.upperBound..<lowercasedText.endIndex
     }

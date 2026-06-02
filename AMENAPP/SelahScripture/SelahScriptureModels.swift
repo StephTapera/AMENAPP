@@ -133,12 +133,15 @@ struct ScriptureReference: Equatable, Hashable, Codable {
     }
 }
 
+/// Alias used by the Selah reader surfaces (SelahScriptureReaderView, previews, etc.)
+typealias SelahScriptureReference = ScriptureReference
+
 // MARK: - Translation
 
 /// A Bible translation identifier + license metadata. License is honest
 /// metadata only — runtime providers are responsible for refusing to ship
 /// copyrighted text without authorization.
-struct BibleTranslation: Codable, Identifiable, Hashable {
+struct SelahBibleTranslation: Codable, Identifiable, Hashable {
     let id: String              // "kjv", "esv", ...
     let displayName: String     // "King James Version"
     let abbreviation: String    // "KJV"
@@ -155,18 +158,18 @@ struct BibleTranslation: Codable, Identifiable, Hashable {
     }
 }
 
-extension BibleTranslation {
-    static let kjv = BibleTranslation(id: "kjv", displayName: "King James Version", abbreviation: "KJV", license: .publicDomain)
-    static let esv = BibleTranslation(id: "esv", displayName: "English Standard Version", abbreviation: "ESV", license: .licensed)
-    static let niv = BibleTranslation(id: "niv", displayName: "New International Version", abbreviation: "NIV", license: .licensed)
-    static let nlt = BibleTranslation(id: "nlt", displayName: "New Living Translation", abbreviation: "NLT", license: .licensed)
-    static let nasb = BibleTranslation(id: "nasb", displayName: "New American Standard Bible", abbreviation: "NASB", license: .licensed)
-    static let csb = BibleTranslation(id: "csb", displayName: "Christian Standard Bible", abbreviation: "CSB", license: .licensed)
-    static let nkjv = BibleTranslation(id: "nkjv", displayName: "New King James Version", abbreviation: "NKJV", license: .licensed)
+extension SelahBibleTranslation {
+    static let kjv = SelahBibleTranslation(id: "kjv", displayName: "King James Version", abbreviation: "KJV", license: .publicDomain)
+    static let esv = SelahBibleTranslation(id: "esv", displayName: "English Standard Version", abbreviation: "ESV", license: .licensed)
+    static let niv = SelahBibleTranslation(id: "niv", displayName: "New International Version", abbreviation: "NIV", license: .licensed)
+    static let nlt = SelahBibleTranslation(id: "nlt", displayName: "New Living Translation", abbreviation: "NLT", license: .licensed)
+    static let nasb = SelahBibleTranslation(id: "nasb", displayName: "New American Standard Bible", abbreviation: "NASB", license: .licensed)
+    static let csb = SelahBibleTranslation(id: "csb", displayName: "Christian Standard Bible", abbreviation: "CSB", license: .licensed)
+    static let nkjv = SelahBibleTranslation(id: "nkjv", displayName: "New King James Version", abbreviation: "NKJV", license: .licensed)
 
     /// All translations the app *knows about*. Whether they have text to
     /// render is determined by the active `BibleTranslationProvider`.
-    static let known: [BibleTranslation] = [.kjv, .esv, .niv, .nlt, .nasb, .csb, .nkjv]
+    static let known: [SelahBibleTranslation] = [.kjv, .esv, .niv, .nlt, .nasb, .csb, .nkjv]
 }
 
 // MARK: - Verse / Chapter
@@ -202,7 +205,7 @@ struct ScriptureReaderPreferences: Codable, Equatable {
     var pageTurnSoundEnabled: Bool
 
     static let defaults = ScriptureReaderPreferences(
-        translationId: BibleTranslation.kjv.id,
+        translationId: SelahBibleTranslation.kjv.id,
         fontPointSize: 17,
         pageTurnSoundEnabled: false
     )
@@ -261,9 +264,33 @@ struct ScriptureSearchResult: Identifiable, Equatable {
 // MARK: - Provider Availability
 
 /// What the active provider can deliver for a given translation right now.
-enum BibleTranslationAvailability: Equatable {
+enum SelahBibleTranslationAvailability: Equatable {
     case available
     /// Translation is known but has no text available in this build (e.g.
     /// KJV data file not bundled, or remote provider has no credentials).
     case unavailable(reason: String)
+}
+
+// MARK: - Selah-prefixed typealiases (used by Selah reader surfaces)
+
+typealias SelahBibleBook = BibleBook
+typealias SelahBibleVerse = BibleVerse
+typealias SelahBibleChapter = BibleChapter
+typealias SelahScriptureSearchResult = ScriptureSearchResult
+typealias SelahScriptureReaderPreferences = ScriptureReaderPreferences
+typealias SelahLastReadScripturePosition = LastReadScripturePosition
+typealias SelahSavedScripture = SavedScripture
+typealias SelahScriptureHighlightEntry = ScriptureHighlight
+
+// MARK: - BibleBook navigation
+
+extension BibleBook {
+    /// The next book in canonical order, or nil at Revelation.
+    var nextBook: BibleBook? {
+        BibleBook.all.first { $0.canonOrder == canonOrder + 1 }
+    }
+    /// The previous book in canonical order, or nil at Genesis.
+    var previousBook: BibleBook? {
+        BibleBook.all.first { $0.canonOrder == canonOrder - 1 }
+    }
 }

@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-06-01T09:14:00Z",
+  "user": {
+    "id": "uid_steph_001",
+    "firstName": "Steph",
+    "localTime": "2026-06-01T05:14:00-04:00",
+    "tz": "America/New_York"
+  },
+  "prayer": {
+    "awaitingResponse": [
+      { "id": "pr_001", "title": "Healing for my mother", "deepLink": "amen://prayer/pr_001", "createdAt": "2026-05-29T22:10:00Z" },
+      { "id": "pr_002", "title": "Clarity on career decision", "deepLink": "amen://prayer/pr_002", "createdAt": "2026-05-31T08:00:00Z" }
+    ],
+    "openRequests": 2
+  },
+  "notes": {
+    "unfinished": [
+      { "id": "note_001", "title": "Sunday Sermon — John 15", "deepLink": "amen://notes/note_001", "editedAt": "2026-05-31T12:30:00Z" }
+    ],
+    "lastEditedAt": "2026-05-31T12:30:00Z"
+  },
+  "messages": {
+    "needingFollowUp": [
+      { "id": "thread_001", "title": "Pastor David", "deepLink": "amen://messages/thread_001", "lastMessageAt": "2026-05-31T16:45:00Z" }
+    ],
+    "unreadThreads": 2
+  },
+  "calendar": {
+    "today": [
+      { "id": "cal_001", "title": "Men's Bible Study", "deepLink": "amen://calendar/cal_001", "startsAt": "2026-06-01T18:00:00-04:00", "endsAt": "2026-06-01T19:30:00-04:00" }
+    ],
+    "nextEvent": { "id": "cal_001", "title": "Men's Bible Study", "deepLink": "amen://calendar/cal_001", "startsAt": "2026-06-01T18:00:00-04:00", "endsAt": "2026-06-01T19:30:00-04:00" }
+  },
+  "church": {
+    "upcomingEvents": [
+      { "id": "ev_001", "title": "Sunday Service", "deepLink": "amen://church/grace_001/event/ev_001", "startsAt": "2026-06-07T10:00:00-04:00", "endsAt": "2026-06-07T12:00:00-04:00" },
+      { "id": "ev_002", "title": "Youth Night", "deepLink": "amen://church/grace_001/event/ev_002", "startsAt": "2026-06-05T19:00:00-04:00", "endsAt": "2026-06-05T21:00:00-04:00" }
+    ],
+    "nextService": { "id": "ev_001", "title": "Sunday Service", "deepLink": "amen://church/grace_001/event/ev_001", "startsAt": "2026-06-07T10:00:00-04:00", "endsAt": "2026-06-07T12:00:00-04:00" }
+  },
+  "selah": {
+    "streakDays": 12,
+    "resumeAt": { "book": "Psalms", "chapter": 23, "deepLink": "amen://selah/Psalms/23" }
+  },
+  "arise": {
+    "upcomingBroadcasts": [
+      { "id": "bc_001", "title": "Morning Prayer with Bishop James", "deepLink": "amen://arise/bc_001", "scheduledAt": "2026-06-02T07:00:00-04:00" }
+    ]
+  },
+  "bereanSuggestion": {
+    "kind": "pray",
+    "label": "2 prayer requests are awaiting your attention",
+    "deepLink": "amen://prayer"
+  },
+  "mode": "default",
+  "_summary": {
+    "greetingProse": "Good morning, Steph. You have 2 open prayer requests and a church note from Sunday's sermon still unfinished — a good morning to tend both.",
+    "actions": [
+      { "id": "act_001", "tier": "high", "title": "Pray over healing request for your mother", "source": "prayer", "deepLink": "amen://prayer/pr_001", "scheduledAt": null },
+      { "id": "act_002", "tier": "high", "title": "Finish Sunday Sermon note — John 15", "source": "note", "deepLink": "amen://notes/note_001", "scheduledAt": null },
+      { "id": "act_003", "tier": "medium", "title": "Follow up with Pastor David", "source": "message", "deepLink": "amen://messages/thread_001", "scheduledAt": null },
+      { "id": "act_004", "tier": "medium", "title": "Men's Bible Study tonight at 6 PM", "source": "church", "deepLink": "amen://calendar/cal_001", "scheduledAt": "2026-06-01T18:00:00-04:00" },
+      { "id": "act_005", "tier": "low", "title": "Continue Selah — Psalms 23 (12-day streak)", "source": "selah", "deepLink": "amen://selah/Psalms/23", "scheduledAt": null }
+    ]
+  }
+}

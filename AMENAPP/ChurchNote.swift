@@ -186,19 +186,27 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
     var provider: MusicProvider
     var entityType: MusicEntityType
     var providerID: String
+    var storefront: String?
     var title: String
     var artist: String
     var subtitle: String?
     var musicKitID: String?
     var deepLinkURL: String?
     var webURL: String?
+    var canonicalURL: String?
+    var appURL: String?
     var artworkURL: String?
+    var artworkColors: MusicArtworkColors?
     var previewURL: String?
     var explicit: Bool?
     var durationMs: Int?
     var requiresSubscription: Bool?
     var requiresAppInstall: Bool?
+    var requiresAccount: Bool
+    var mayRequireSubscription: Bool
+    var metadataVersion: Int
     var addedAt: Date
+    var resolvedAt: Date?
 
     var albumArtURL: String? { artworkURL }
     var appleMusicURL: String? { provider == .appleMusic ? webURL : nil }
@@ -225,22 +233,30 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
         provider: MusicProvider? = nil,
         entityType: MusicEntityType = .song,
         providerID: String? = nil,
+        storefront: String? = nil,
         title: String,
         artist: String,
         subtitle: String? = nil,
         musicKitID: String? = nil,
         appleMusicURL: String? = nil,
         albumArtURL: String? = nil,
+        artworkColors: MusicArtworkColors? = nil,
         spotifyTrackID: String? = nil,
         spotifyTrackURL: String? = nil,
         deepLinkURL: String? = nil,
         webURL: String? = nil,
+        canonicalURL: String? = nil,
+        appURL: String? = nil,
         previewURL: String? = nil,
         explicit: Bool? = nil,
         durationMs: Int? = nil,
         requiresSubscription: Bool? = nil,
         requiresAppInstall: Bool? = nil,
-        addedAt: Date = Date()
+        requiresAccount: Bool = false,
+        mayRequireSubscription: Bool = false,
+        metadataVersion: Int = 1,
+        addedAt: Date = Date(),
+        resolvedAt: Date? = nil
     ) {
         let resolvedProvider = provider
             ?? (spotifyTrackID != nil || spotifyTrackURL != nil ? .spotify : .appleMusic)
@@ -253,19 +269,27 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
         self.provider = resolvedProvider
         self.entityType = entityType
         self.providerID = resolvedProviderID
+        self.storefront = storefront
         self.title = title
         self.artist = artist
         self.subtitle = subtitle
         self.musicKitID = musicKitID
         self.deepLinkURL = deepLinkURL ?? spotifyTrackURL ?? appleMusicURL
         self.webURL = webURL ?? appleMusicURL ?? Self.spotifyTrackWebURL(from: spotifyTrackID)
+        self.canonicalURL = canonicalURL ?? webURL ?? appleMusicURL ?? Self.spotifyTrackWebURL(from: spotifyTrackID)
+        self.appURL = appURL ?? deepLinkURL ?? spotifyTrackURL
         self.artworkURL = albumArtURL
+        self.artworkColors = artworkColors
         self.previewURL = previewURL
         self.explicit = explicit
         self.durationMs = durationMs
         self.requiresSubscription = requiresSubscription ?? (resolvedProvider == .appleMusic ? true : nil)
         self.requiresAppInstall = requiresAppInstall ?? (resolvedProvider == .spotify ? true : nil)
+        self.requiresAccount = requiresAccount
+        self.mayRequireSubscription = mayRequireSubscription
+        self.metadataVersion = metadataVersion
         self.addedAt = addedAt
+        self.resolvedAt = resolvedAt
     }
 
     private static func spotifyTrackWebURL(from trackID: String?) -> String? {

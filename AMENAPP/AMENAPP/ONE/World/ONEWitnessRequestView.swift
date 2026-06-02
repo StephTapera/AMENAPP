@@ -219,15 +219,6 @@ extension ONEPrivacyMirrorLevel {
         [.sealed, .opaque, .translucent, .open]
     }
 
-    var displayLabel: String {
-        switch self {
-        case .sealed:      return "Sealed"
-        case .opaque:      return "Opaque"
-        case .translucent: return "Translucent"
-        case .open:        return "Open"
-        }
-    }
-
     var exposureDescription: String {
         switch self {
         case .sealed:      return "Anonymous — they see nothing"

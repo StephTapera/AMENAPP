@@ -11,27 +11,6 @@
 import SwiftUI
 import FirebaseAuth
 
-// MARK: - Color helpers (local, matching frozen design tokens)
-
-private extension Color {
-    static let amenGold   = Color(hex: "#D9A441")
-    static let amenPurple = Color(hex: "#6E4BB5")
-    static let amenBlue   = Color(hex: "#245B8F")
-    static let amenBlack  = Color(hex: "#070607")
-}
-
-private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double(int         & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-}
-
 // MARK: - TutorAction enum
 
 enum AmenConnectTutorAction: String, CaseIterable, Identifiable {
@@ -86,22 +65,22 @@ final class AmenConnectTutorPanelViewModel: ObservableObject {
     }
 
     // MARK: - Aegis output gate
-    // STUB: canContinue is hardcoded true for now.
-    // Wire shape: AmenConnectSpacesCallableProxy.shared.runAegisOutputGate(_:)
-    // Agent 8 (Aegis) will replace the stub body with a real gate call.
-    private func runAegisOutputGate(inputRef: String, userId: String) async -> Bool {
-        // STUBBED — Aegis output gate not yet deployed.
-        // Production shape:
-        //   let req = AmenConnectSpacesAegisGateRequest(
-        //       surface: .connect,
-        //       capabilityRefs: ["C1", "C2"],   // Agent 8 to supply final capability set
-        //       inputRef: inputRef,
-        //       userId: userId,
-        //       videoId: videoId
-        //   )
-        //   let decision = try await AmenConnectSpacesCallableProxy.shared.runAegisOutputGate(req)
-        //   return decision.canContinue
-        return true  // STUB
+    // Hard rule: everyAIOutputPassesAegis
+    // Capabilities C6–C10 (output safety) are enforced via AmenConnectSpacesAegisService.
+    // Returns false on any Aegis failure — AI output is never surfaced without a
+    // successful gate check.
+    private func runAegisOutputGate(inputRef: String, userId: String, videoId: String) async -> Bool {
+        do {
+            let decision = try await AmenConnectSpacesAegisService.shared.checkOutput(
+                surface: .connect,
+                aiResponseRef: inputRef,
+                userId: userId,
+                videoId: videoId
+            )
+            return decision.canContinue
+        } catch {
+            return false // never surface AI output on Aegis failure
+        }
     }
 
     // MARK: - Ask a question
@@ -111,22 +90,26 @@ final class AmenConnectTutorPanelViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        // Aegis INPUT gate (stub shape — Agent 8 wires real call)
+        // Aegis INPUT gate — everyAIInputPassesAegis
         let inputRef = questionText
-        let canSend = await runAegisOutputGate(inputRef: inputRef, userId: userId)
+        let canSend = await runAegisOutputGate(inputRef: inputRef, userId: userId, videoId: videoId)
         guard canSend else {
             errorMessage = "This message could not be sent right now."
             isLoading = false
             return
         }
 
-        // Stub response — Agent 9 (Intelligence Seam) replaces with real CF call
-        try? await Task.sleep(nanoseconds: 400_000_000)
-        let stub = "Great question about "\(questionText)". This teaching addresses that in the context of the passage. (Stub response — Intelligence Seam pending.)"
+        // Intelligence Seam: ask Berean via AmenIntelligenceSeamService
+        let response = await AmenIntelligenceSeamService.shared.askQuestion(
+            question: questionText,
+            videoId: videoId,
+            userId: userId
+        )
 
-        let canShow = await runAegisOutputGate(inputRef: stub, userId: userId)
+        // Aegis OUTPUT gate — everyAIOutputPassesAegis
+        let canShow = await runAegisOutputGate(inputRef: response, userId: userId, videoId: videoId)
         if canShow {
-            aiOutputText = stub
+            aiOutputText = response
             provenancePending = false
         } else {
             aiOutputText = ""
@@ -148,11 +131,10 @@ final class AmenConnectTutorPanelViewModel: ObservableObject {
         provenanceChips = video.scriptureRefs
     }
 
-    // MARK: - Summarize (stub)
+    // MARK: - Summarize
     func summarize() async {
         isLoading = true
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        aiOutputText = "This teaching covers three main themes: (1) the covenantal context of the passage, (2) the original audience's cultural setting, and (3) practical application for today. (Stub — Intelligence Seam pending.)"
+        aiOutputText = await AmenIntelligenceSeamService.shared.summarizeVideo(videoId: videoId)
         provenancePending = video.scriptureRefs.isEmpty
         provenanceChips = video.scriptureRefs
         isLoading = false
@@ -162,23 +144,23 @@ final class AmenConnectTutorPanelViewModel: ObservableObject {
     func requestStudyPlan() async {
         let userId = Auth.auth().currentUser?.uid ?? "anonymous"
         isLoading = true
-        do {
-            _ = try await AmenConnectSpacesCallableProxy.shared.recordKnowledgeGraphEvent(
-                userId: userId,
-                event: "studyPlanRequested",
-                itemRef: videoId
-            )
-        } catch {
-            // Non-fatal — plan still displays
-        }
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        aiOutputText = "Suggested 7-day study plan:\nDay 1 — Read the passage in full.\nDay 2 — Study the historical context.\nDay 3 — Compare three translations.\nDay 4 — Review opposing faithful views.\nDay 5 — Personal reflection journaling.\nDay 6 — Discuss with your small group.\nDay 7 — Apply one concrete action. (Stub — Intelligence Seam pending.)"
+        let items = await AmenIntelligenceSeamService.shared.studyPlanItems(for: videoId, userId: userId)
+        // Format as a numbered matte list (newline-separated for Text rendering)
+        aiOutputText = items
+            .enumerated()
+            .map { index, step in "\(index + 1). \(step)" }
+            .joined(separator: "\n")
         isLoading = false
     }
 
-    // MARK: - Cross-source compare (stub)
-    func crossSourceCompare() {
-        aiOutputText = ""  // Empty state per spec — Wave D
+    // MARK: - Cross-source compare
+    func crossSourceCompare() async {
+        isLoading = true
+        aiOutputText = await AmenIntelligenceSeamService.shared.compareToSource(
+            videoId: videoId,
+            sourceRef: "default"
+        )
+        isLoading = false
     }
 
     func clearOutput() {
@@ -381,7 +363,11 @@ struct AmenConnectTutorPanelView: View {
         case .studyPlan:
             aiTextOutputView
         case .crossSource:
-            crossSourceEmptyState
+            if vm.aiOutputText.isEmpty {
+                crossSourceEmptyState
+            } else {
+                aiTextOutputView
+            }
         }
     }
 
@@ -628,7 +614,7 @@ struct AmenConnectTutorPanelView: View {
         case .studyPlan:
             Task { await vm.requestStudyPlan() }
         case .crossSource:
-            vm.crossSourceCompare()
+            Task { await vm.crossSourceCompare() }
         }
     }
 }
@@ -680,9 +666,8 @@ private struct FlowLayoutView<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        // Uses iOS 16+ Layout protocol; falls back to HStack wrap on older OS
         if #available(iOS 16, *) {
-            _FlowLayout(spacing: spacing, content: content)
+            _FlowLayout(spacing: spacing) { content() }
         } else {
             HStack(alignment: .top, spacing: spacing) {
                 content()
@@ -692,9 +677,8 @@ private struct FlowLayoutView<Content: View>: View {
 }
 
 @available(iOS 16, *)
-private struct _FlowLayout<Content: View>: Layout {
+private struct _FlowLayout: Layout {
     let spacing: CGFloat
-    @ViewBuilder let content: () -> Content
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? 320
@@ -717,7 +701,6 @@ private struct _FlowLayout<Content: View>: Layout {
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let width = bounds.width
         var x = bounds.minX
         var y = bounds.minY
         var lineHeight: CGFloat = 0
@@ -734,13 +717,4 @@ private struct _FlowLayout<Content: View>: Layout {
         }
     }
 
-    func makeBody(content: Content) -> some View {
-        content
-    }
-}
-
-@available(iOS 16, *)
-extension _FlowLayout {
-    // SwiftUI Layout conformance requires a `makeBody` but we render via `placeSubviews`.
-    // The conformance is on the Layout protocol; the `makeBody` here is intentionally empty.
 }

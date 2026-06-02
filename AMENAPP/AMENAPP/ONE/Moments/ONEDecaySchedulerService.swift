@@ -8,7 +8,6 @@ import UserNotifications
 
 actor ONEDecaySchedulerService {
 
-    private let callable = ONECallableService()
     private var scheduled: Set<String> = []     // momentIDs with active client schedules
 
     // MARK: - Schedule decay
@@ -56,7 +55,7 @@ actor ONEDecaySchedulerService {
             .removePendingNotificationRequests(withIdentifiers: [notificationID(for: momentID)])
         // one_expireMoment with cancel=true extends lifetime on server
         // (CF stub — full implementation at P2-I deploy step)
-        _ = try? await callable.expireMoment(momentID: momentID)
+        _ = try? await ONECallableService.shared.expireMoment(momentID: momentID)
     }
 
     // MARK: - Expiry calculation

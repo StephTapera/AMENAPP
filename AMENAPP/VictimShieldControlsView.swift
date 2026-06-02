@@ -22,7 +22,7 @@ struct VictimShieldControlsView: View {
 
             // MARK: Feed protection mode
             Section {
-                ForEach(FeedMode.allCases, id: \.self) { mode in
+                ForEach(HeyFeedMode.allCases, id: \.self) { mode in
                     Button {
                         Task { try? await feedControls.applyMode(mode) }
                     } label: {

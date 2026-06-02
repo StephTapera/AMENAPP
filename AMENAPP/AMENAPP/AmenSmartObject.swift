@@ -176,6 +176,13 @@ extension AmenSmartObject {
         case .podcast: return .podcast
         case .article: return .article
         case .genericLink: return .genericLink
+        case .profile: return .person
+        case .post, .donation, .rssFeed: return .genericLink
+        case .reel, .short, .channel: return .video
+        case .episode: return .podcast
+        case .sermon: return .article
+        case .scripture: return .scripture
+        case .event: return .event
         }
     }
 

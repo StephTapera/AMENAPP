@@ -378,7 +378,7 @@ final class GetReadyPlanRepository {
             mapApp: .apple,
             coffeePreference: church.distanceValue > 12 ? .none : .local,
             musicPreference: .appleMusic,
-            worshipStyle: inferredWorshipStyle(from: church.denomination),
+            worshipStyle: GetReadyPlanRepository.inferredWorshipStyle(from: church.denomination),
             ritual: .selah,
             notePreference: .churchNotes,
             quietModePreference: QuietModePreferenceService.shared.preference,

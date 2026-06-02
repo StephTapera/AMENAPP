@@ -114,9 +114,7 @@ struct CommentCard: View {
                         Task {
                             defer { isSubmittingAmen = false }
                             guard !postId.isEmpty else { return }
-                            if let cid = comment.commentId, !cid.isEmpty {
-                                try? await PostInteractionsService.shared.toggleCommentAmen(postId: postId, commentId: cid)
-                            }
+                            // comment-level amen not yet supported server-side
                         }
                     } label: {
                         HStack(spacing: 4) {
@@ -653,9 +651,7 @@ struct FullCommentsView: View {
                 postId: postId,
                 content: capturedText,
                 authorInitials: initials,
-                authorUsername: username,
-                gifURL: capturedGIF,
-                threadCategory: threadCategory
+                authorUsername: username
             )
         }
     }
@@ -800,9 +796,7 @@ struct CommentThreadCard: View {
                             Task {
                                 defer { isSubmittingAmen = false }
                                 guard !postId.isEmpty else { return }
-                                if let cid = comment.commentId, !cid.isEmpty {
-                                    try? await PostInteractionsService.shared.toggleCommentAmen(postId: postId, commentId: cid)
-                                }
+                                // comment-level amen not yet supported server-side
                             }
                         } label: {
                             HStack(spacing: 6) {
@@ -938,68 +932,4 @@ struct GIFPickerView: View {
             }
         }
     }
-}
-
-// MARK: - Testimony Category Model
-
-struct TestimonyCategory: Identifiable, Equatable {
-    let id = UUID()
-    let icon: String
-    let color: Color
-    let title: String
-    let subtitle: String
-    let backgroundColor: Color
-    
-    // Equatable conformance - compare by title for logical equality
-    static func == (lhs: TestimonyCategory, rhs: TestimonyCategory) -> Bool {
-        lhs.title == rhs.title
-    }
-    
-    static let healing = TestimonyCategory(
-        icon: "heart.fill",
-        color: .pink,
-        title: "Healing",
-        subtitle: "32 Stories",
-        backgroundColor: Color(red: 1.0, green: 0.95, blue: 0.97)
-    )
-    
-    static let career = TestimonyCategory(
-        icon: "briefcase.fill",
-        color: .green,
-        title: "Career",
-        subtitle: "45 Stories",
-        backgroundColor: Color(red: 0.92, green: 0.99, blue: 0.96)
-    )
-    
-    static let relationship = TestimonyCategory(
-        icon: "heart.circle.fill",
-        color: .red,
-        title: "Relationships",
-        subtitle: "28 Stories",
-        backgroundColor: Color(red: 1.0, green: 0.93, blue: 0.93)
-    )
-    
-    static let financial = TestimonyCategory(
-        icon: "dollarsign.circle.fill",
-        color: .orange,
-        title: "Financial",
-        subtitle: "38 Stories",
-        backgroundColor: Color(red: 1.0, green: 0.97, blue: 0.90)
-    )
-    
-    static let spiritual = TestimonyCategory(
-        icon: "sparkles",
-        color: .purple,
-        title: "Spiritual Growth",
-        subtitle: "52 Stories",
-        backgroundColor: Color(red: 0.96, green: 0.94, blue: 1.0)
-    )
-    
-    static let family = TestimonyCategory(
-        icon: "house.fill",
-        color: .blue,
-        title: "Family",
-        subtitle: "41 Stories",
-        backgroundColor: Color(red: 0.93, green: 0.95, blue: 1.0)
-    )
 }

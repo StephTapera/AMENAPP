@@ -329,8 +329,8 @@ final class AmenSocialSafetyService: ObservableObject {
     }
 
     private func decodeFeedControlState(from data: [String: Any]) -> FeedControlState {
-        let modeRaw = data["mode"] as? String ?? FeedMode.balanced.rawValue
-        let mode = FeedMode(rawValue: modeRaw) ?? .balanced
+        let modeRaw = data["mode"] as? String ?? HeyFeedMode.balanced.rawValue
+        let mode = HeyFeedMode(rawValue: modeRaw) ?? .balanced
         let blockedRaw = data["categories"] as? [String] ?? []
         let blocked = blockedRaw.compactMap(SafetyRiskCategory.init(rawValue:))
         return FeedControlState(

@@ -167,6 +167,8 @@ struct SafetyMetadata: Codable, Equatable {
     var religiousAbuseRisk: Double
     /// Risk this content makes unverified medical claims (0–1.0)
     var medicalClaimRisk: Double
+    /// Risk this content manipulates opinion through deceptive framing (0–1.0)
+    var manipulationRisk: Double = 0.0
     /// Risk this content manipulates political opinion (0–1.0)
     var politicalManipulationRisk: Double
     /// The backend's distribution decision for this content

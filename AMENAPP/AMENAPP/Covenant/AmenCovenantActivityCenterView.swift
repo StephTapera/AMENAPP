@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseCore
+import FirebaseFirestore
 
 // MARK: - Covenant Activity Center
 // Slack/Teams-style activity feed. Groups by type, supports read/unread,
@@ -47,7 +49,7 @@ struct AmenCovenantActivityCenterView: View {
 
                         LazyVStack(spacing: 0) {
                             ForEach(filtered) { activity in
-                                ActivityRow(activity: activity) {
+                                CovenantActivityRow(activity: activity) {
                                     Task { await service.markActivityRead(activity.id ?? "") }
                                 }
                                 Divider().padding(.leading, 62)
@@ -179,7 +181,7 @@ struct AmenCovenantActivityCenterView: View {
 
 // MARK: - Activity Row
 
-private struct ActivityRow: View {
+private struct CovenantActivityRow: View {
     let activity: CovenantActivity
     let onTap: () -> Void
 

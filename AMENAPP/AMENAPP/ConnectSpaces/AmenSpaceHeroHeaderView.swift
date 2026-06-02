@@ -102,7 +102,7 @@ private struct HeroGradientLayer: View {
 
 // MARK: - Verified badge chip
 
-private struct VerifiedBadgeChip: View {
+private struct AmenHostBadgeChip: View {
     let variant: AmenHostBadgeVariant
 
     var body: some View {
@@ -160,7 +160,7 @@ private struct HeroTitleBar: View {
                         .foregroundStyle(Color.white.opacity(0.75))
 
                     if isVerified {
-                        VerifiedBadgeChip(variant: hostBadge)
+                        AmenHostBadgeChip(variant: hostBadge)
                     }
                 }
 

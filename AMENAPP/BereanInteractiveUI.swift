@@ -456,7 +456,7 @@ struct BereanThinkingTaskPills: View {
                 }
                 Spacer()
                 // Pulsing thinking dots
-                BereanThinkingDots()
+                BereanThinkingDotsInternal()
             }
             .padding(.horizontal, BUI.hPad)
             .padding(.vertical, 14)
@@ -653,7 +653,7 @@ private struct BereanTaskPill: View {
 
 // MARK: Thinking dots
 
-private struct BereanThinkingDots: View {
+private struct BereanThinkingDotsInternal: View {
     @State private var active = 0
     let timer = Timer.publish(every: 0.38, on: .main, in: .common).autoconnect()
 

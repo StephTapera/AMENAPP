@@ -111,15 +111,13 @@ struct BereanStudyOutlineSheet: View {
                 // Key passages
                 if !outline.keyPassages.isEmpty {
                     outlineSection(icon: "book.closed", label: "Key passages") {
-                        AnyView(FlowLayout(spacing: 8) {
-                            ForEach(outline.keyPassages, id: \.self) { ref in
-                                Text(ref)
-                                    .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(Color.black.opacity(0.07), in: Capsule())
-                                    .overlay(Capsule().stroke(Color.black.opacity(0.1), lineWidth: 0.5))
-                            }
+                        AnyView(FlowLayout(items: outline.keyPassages) { ref in
+                            Text(ref)
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.black.opacity(0.07), in: Capsule())
+                                .overlay(Capsule().stroke(Color.black.opacity(0.1), lineWidth: 0.5))
                         })
                     }
                 }

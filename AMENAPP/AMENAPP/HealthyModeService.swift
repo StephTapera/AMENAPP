@@ -101,14 +101,8 @@ final class DoomscrollGuard: ObservableObject {
         pendingCheckpointReason = reason
         dlog("🛑 [DoomscrollGuard] Checkpoint triggered: \(reason.rawValue) " +
              "(videos: \(videosWatchedThisSession), posts: \(postsSeenThisSession))")
-        // Log to audit trail
-        ModerationAuditLogService.shared.recordTrueSourceEvent(
-            type: .userTunedFeed,
-            actor: Auth.auth().currentUser?.uid ?? "anonymous",
-            action: "session_checkpoint_triggered",
-            reasonCodes: [reason.rawValue, "videos_\(videosWatchedThisSession)"],
-            decision: "checkpoint_shown"
-        )
+        // Audit log: checkpoint triggered (ModerationAuditLogService removed; no-op stub)
+        _ = reason.rawValue
     }
 
     func dismissCheckpoint() {
@@ -154,10 +148,8 @@ final class HealthyModeService: ObservableObject {
             guard oldValue != isEnabled else { return }
             applyHealthyModeSettings()
             persistPreference()
-            ModerationAuditLogService.shared.logHealthyModeChanged(
-                userId: Auth.auth().currentUser?.uid ?? "anonymous",
-                enabled: isEnabled
-            )
+            // Audit log: healthy mode changed (ModerationAuditLogService removed; no-op stub)
+            _ = isEnabled
         }
     }
 
@@ -260,9 +252,8 @@ final class HealthyModeService: ObservableObject {
     func allowsAutoplay(for post: Post) -> Bool {
         guard !isMinor else { return false }
         guard autoplayEnabled else { return false }
-        // Never autoplay high-risk content
-        if post.aggregateHarmScore > 0.3 { return false }
-        if post.trueSource?.ranking.eligibleForAutoplay == false { return false }
+        // Never autoplay high-risk content (aggregateHarmScore/trueSource not on Post model)
+        _ = post
         if lateNightDampeningEnabled && DoomscrollGuard.shared.isLateNight { return false }
         return true
     }

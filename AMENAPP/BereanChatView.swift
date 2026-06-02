@@ -263,7 +263,7 @@ struct BereanChatView: View {
     @State private var selectedContextSources: Set<BereanContextSource> = [.thisChat]
 
     // MARK: - Addition 2: Scripture chip
-    @State private var scriptureChipVerse: BibleVerse? = nil   // verse to show in sheet
+    @State private var scriptureChipVerse: BereanScriptureChip? = nil   // verse to show in sheet
     @State private var showScriptureSheet = false
     private let scriptureDetector = ScriptureIntentDetector()
 
@@ -1916,7 +1916,7 @@ enum BereanContextSource: String, CaseIterable {
 // MARK: - Addition 2: Berean Verse Preview Sheet
 
 struct BereanVersePreviewSheet: View {
-    let verse: BibleVerse
+    let verse: BereanScriptureChip
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

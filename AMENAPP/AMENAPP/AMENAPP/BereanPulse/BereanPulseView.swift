@@ -54,6 +54,7 @@ struct BereanPulseView: View {
                 BereanPulseSmartComposerDock(
                     prompt: topCard == nil ? String(localized: "Ask Berean") : String(localized: "Continue with Berean"),
                     canAskBerean: topCard != nil,
+                    disabledReason: String(localized: "Select a card to ask Berean"),
                     onAskBerean: askTopCard,
                     onCurate: {
                         softHaptic()

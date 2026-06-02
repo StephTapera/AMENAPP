@@ -23,6 +23,12 @@ struct AmenObjectHubView: View {
     @State private var showUseInPostSheet = false
     @State private var contentOffset: CGFloat = 0
 
+    // Affordance / discussion room state (A7 thesis engine)
+    @State private var affordances: [ObjectAffordance] = []
+    @State private var isLoadingAffordances = false
+    @State private var activeRoomType: ObjectDiscussionRoom.ObjectDiscussionRoomType = .discussion
+    @State private var showDiscussionRoom = false
+
     init(canonicalObjectId: String) {
         self.canonicalObjectId = canonicalObjectId
         self.url = nil
@@ -80,20 +86,33 @@ struct AmenObjectHubView: View {
                 AmenObjectHubHeader(canonicalObject: canonical, hub: hub)
 
                 VStack(spacing: 24) {
-                    // 2. Action dock
+                    // 2. Affordance chips — above-the-fold relationship affordances
+                    // Build pack thesis: every detail screen must expose a "join people" affordance above the fold.
+                    if isLoadingAffordances {
+                        AmenAffordanceChipRowSkeleton()
+                    } else if !affordances.isEmpty {
+                        AmenAffordanceChipRow(affordances: affordances) { affordance in
+                            handleAffordanceTap(affordance)
+                        }
+                    }
+
+                    // 3. Action dock
                     AmenObjectHubActionDock(
                         canonicalObject: canonical,
                         membership: viewModel.membership,
                         onListen: { handleListen(canonical: canonical) },
                         onSaveToSelah: { Task { await handleSaveToSelah() } },
-                        onDiscuss: { pendingDiscussionPrompt = nil; showDiscussionComposer = true },
+                        onDiscuss: {
+                            activeRoomType = .discussion
+                            showDiscussionRoom = true
+                        },
                         onUseInPost: { showUseInPostSheet = true }
                     )
 
-                    // 3. Activity strip
+                    // 4. Activity strip
                     AmenObjectHubActivityStrip(hub: hub)
 
-                    // 4. Topic chips
+                    // 5. Topic chips
                     if !hub.topicChips.isEmpty {
                         AmenObjectHubTopicChips(
                             chips: hub.topicChips,
@@ -105,10 +124,11 @@ struct AmenObjectHubView: View {
                     hubStatsSummary(hub: hub)
                         .padding(.horizontal, 16)
 
-                    // 6. Discussion prompts
+                    // 6. Discussion prompts — tap opens the discussion room
                     AmenObjectHubDiscussionPrompts(prompts: hub.discussionPrompts) { prompt in
                         pendingDiscussionPrompt = prompt
-                        showDiscussionComposer = true
+                        activeRoomType = .discussion
+                        showDiscussionRoom = true
                     }
 
                     // 7. Related objects carousel
@@ -132,12 +152,15 @@ struct AmenObjectHubView: View {
                 .padding(.top, 20)
             }
         }
-        .sheet(isPresented: $showDiscussionComposer) {
-            AmenHubDiscussionComposerSheet(
-                hub: hub,
-                canonical: canonical,
-                startingPrompt: pendingDiscussionPrompt
-            )
+        .sheet(isPresented: $showDiscussionRoom) {
+            if let canonical = viewModel.canonicalObject {
+                AmenObjectDiscussionRoomView(
+                    objectId:     canonical.id,
+                    objectTitle:  canonical.title,
+                    roomType:     activeRoomType,
+                    existingRoom: nil
+                )
+            }
         }
         .sheet(isPresented: $showUseInPostSheet) {
             AmenHubUseInPostSheet(canonical: canonical)
@@ -246,7 +269,7 @@ struct AmenObjectHubView: View {
                     Capsule().fill(hasJoined ? Color.clear : Color.accentColor)
                         .overlay(Capsule().strokeBorder(.white.opacity(0.4), lineWidth: hasJoined ? 1 : 0))
                 } else {
-                    Capsule().fill(hasJoined ? .ultraThinMaterial : Color.accentColor)
+                    Capsule().fill(hasJoined ? AnyShapeStyle(Material.ultraThinMaterial) : AnyShapeStyle(Color.accentColor))
                 }
             }
         }
@@ -323,6 +346,28 @@ struct AmenObjectHubView: View {
             }
             .padding(.horizontal, 4)
         }
+    }
+
+    // MARK: - Affordance Handlers
+
+    private func handleAffordanceTap(_ affordance: ObjectAffordance) {
+        switch affordance.kind {
+        case .discussion:     activeRoomType = .discussion
+        case .prayerRoom:     activeRoomType = .prayer
+        case .studyGroup:     activeRoomType = .studyGroup
+        case .membersPresent, .liveNow: activeRoomType = .discussion
+        }
+        showDiscussionRoom = true
+        Task { await viewModel.recordInteraction(.discussed) }
+    }
+
+    private func loadAffordances(for canonical: AmenCanonicalObject) async {
+        isLoadingAffordances = true
+        affordances = await AmenObjectDiscussionService.shared.buildAffordances(
+            objectId:    canonical.id,
+            objectTitle: canonical.title
+        )
+        isLoadingAffordances = false
     }
 
     // MARK: - Action Handlers
@@ -408,6 +453,9 @@ struct AmenObjectHubView: View {
             await viewModel.loadHub(canonicalObjectId: id)
         } else if let u = url {
             await viewModel.resolveAndLoad(url: u)
+        }
+        if let canonical = viewModel.canonicalObject {
+            await loadAffordances(for: canonical)
         }
     }
 

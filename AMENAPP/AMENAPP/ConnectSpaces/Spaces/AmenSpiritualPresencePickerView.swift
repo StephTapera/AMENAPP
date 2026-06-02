@@ -10,15 +10,6 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
-// MARK: - Design tokens (local, sourced from frozen contract hex values)
-
-private extension Color {
-    static let amenGold   = Color(red: 0.851, green: 0.643, blue: 0.255)
-    static let amenPurple = Color(red: 0.431, green: 0.294, blue: 0.710)
-    static let amenBlue   = Color(red: 0.141, green: 0.357, blue: 0.561)
-    static let amenBlack  = Color(red: 0.027, green: 0.024, blue: 0.028)
-}
-
 // MARK: - State row model
 
 private struct SpiritualStateRow: Identifiable {
@@ -71,7 +62,7 @@ final class AmenSpiritualPresencePickerViewModel: ObservableObject {
             updatedAt: Date()
         )
         do {
-            try await AmenConnectSpacesCallableProxy.shared.updateSpiritualPresence(presence)
+            _ = try await AmenConnectSpacesCallableProxy.shared.updateSpiritualPresence(presence)
             // Store bestReachText to Firestore presence doc (admin-only field).
             // Only write if non-empty so we avoid overwriting with blanks.
             if !bestReachText.trimmingCharacters(in: .whitespaces).isEmpty {

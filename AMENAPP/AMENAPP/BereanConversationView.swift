@@ -127,7 +127,7 @@ struct BereanConversationView: View {
                     }
 
                     ForEach(viewModel.messages) { message in
-                        BereanMessageBubble(
+                        BereanConvMessageBubble(
                             message: message,
                             onPassageTap: { ref in
                                 selectedPassageRef = ref
@@ -142,7 +142,7 @@ struct BereanConversationView: View {
 
                     // Loading indicator
                     if viewModel.isLoading {
-                        BereanThinkingIndicator()
+                        BereanConvThinkingIndicator()
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
                             .id("loading")
@@ -248,7 +248,7 @@ struct BereanConversationView: View {
 
 // MARK: - Message Bubble
 
-struct BereanMessageBubble: View {
+struct BereanConvMessageBubble: View {
     let message: BereanSpiritualMessage
     let onPassageTap: (String) -> Void
 
@@ -343,17 +343,13 @@ struct BereanStructuredCardStack: View {
                 }
             }
 
-            // Reflection prompts
-            if !response.reflectionPrompts.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(response.reflectionPrompts.prefix(2).enumerated()), id: \.offset) { _, prompt in
-                        Label(prompt, systemImage: "sparkles")
-                            .font(AMENFont.regular(13))
-                            .foregroundColor(.secondary)
-                            .lineSpacing(2)
-                    }
-                }
-                .padding(.top, 2)
+            // Follow-up suggestion
+            if let followUp = response.followUpSuggestion, !followUp.isEmpty {
+                Label(followUp, systemImage: "sparkles")
+                    .font(AMENFont.regular(13))
+                    .foregroundColor(.secondary)
+                    .lineSpacing(2)
+                    .padding(.top, 2)
             }
         }
         .padding(.leading, 36) // align with Berean avatar
@@ -436,7 +432,7 @@ struct BereanLeadershipBanner: View {
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.tertiary)
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(14)
@@ -453,7 +449,7 @@ struct BereanLeadershipBanner: View {
 
 // MARK: - Thinking Indicator
 
-struct BereanThinkingIndicator: View {
+struct BereanConvThinkingIndicator: View {
     @State private var phase = 0.0
 
     var body: some View {

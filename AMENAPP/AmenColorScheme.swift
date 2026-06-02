@@ -24,7 +24,7 @@ extension Color {
     
     /// Pure black for maximum contrast
     static let amenBlack = Color.black
-    
+
     /// Elevated surface color — adaptive
     static var amenSurface: Color { AmenTheme.Colors.surfaceElevated }
     

@@ -39,7 +39,7 @@ struct AmenReportContentSheet: View {
                     Text("What's the issue?")
                         .font(.headline)
                     ForEach(CovenantReport.ReportReason.allCases, id: \.self) { reason in
-                        ReportReasonRow(
+                        CovenantReportReasonRow(
                             reason: reason,
                             isSelected: selectedReason == reason
                         ) {
@@ -176,7 +176,7 @@ struct AmenReportContentSheet: View {
 
 // MARK: - Report Reason Row
 
-private struct ReportReasonRow: View {
+private struct CovenantReportReasonRow: View {
     let reason: CovenantReport.ReportReason
     let isSelected: Bool
     let onTap: () -> Void

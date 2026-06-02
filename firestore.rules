@@ -3541,6 +3541,50 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Object Discussion Rooms ───────────────────────────────────────────────
+    // Any canonical object (song, sermon, verse, study, mentor) can spawn
+    // community rooms. Auth required for all access; only the room creator or
+    // a member's own presence/messages may be written.
+
+    match /objectDiscussionRooms/{objectId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF only
+
+      match /rooms/{roomId} {
+        allow read: if isSignedIn();
+        // Only the room creator may update room metadata (lastActivity, participantCount)
+        allow create: if isSignedIn()
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isSignedIn()
+          && (resource.data.createdBy == request.auth.uid
+              || request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['participantCount', 'lastActivity']));
+        allow delete: if false;
+
+        match /messages/{messageId} {
+          allow read: if isSignedIn();
+          allow create: if isSignedIn()
+            && request.resource.data.senderId == request.auth.uid
+            && request.resource.data.keys().hasAll(['senderId', 'body', 'createdAt'])
+            && request.resource.data.body is string
+            && request.resource.data.body.size() > 0
+            && request.resource.data.body.size() <= 2000;
+          // Only soft-delete by owner (set isDeleted = true)
+          allow update: if isSignedIn()
+            && resource.data.senderId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isDeleted'])
+            && request.resource.data.isDeleted == true;
+          allow delete: if false;
+        }
+
+        match /presence/{uid} {
+          allow read: if isSignedIn();
+          // Each user manages only their own presence record
+          allow write: if isSignedIn() && request.auth.uid == uid;
+        }
+      }
+    }
+
     // ── Default deny ─────────────────────────────────────────────────────────
     // Catch-all: deny everything not matched above.
 

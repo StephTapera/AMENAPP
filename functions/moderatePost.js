@@ -10,6 +10,7 @@
 //   3) Deploy:  firebase deploy --only functions:moderatePost --project amen-5e359
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
@@ -93,6 +94,98 @@ exports.moderatePost = onDocumentCreated(
     }
   }
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// adminReviewPost — callable (admin only)
+//   Approves or rejects a post sitting in the moderationQueue.
+//   On approve:  sets visible: true, strips any blocked media URLs from post.media.
+//   On reject:   sets visible: false (permanent), updates queue item status.
+//
+// Caller must have the custom claim  admin: true  (set via adminClaims CF).
+// Args: { postId: string, decision: "approved" | "rejected", queueId?: string }
+// ─────────────────────────────────────────────────────────────────────────────
+exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.token?.admin) {
+    throw new HttpsError("permission-denied", "Admin only.");
+  }
+
+  const { postId, decision, queueId } = request.data || {};
+  if (!postId || !["approved", "rejected"].includes(decision)) {
+    throw new HttpsError("invalid-argument", "postId and decision ('approved'|'rejected') required.");
+  }
+
+  const db = getFirestore();
+  const postRef = db.collection("posts").doc(postId);
+  const postSnap = await postRef.get();
+  if (!postSnap.exists) {
+    throw new HttpsError("not-found", `Post ${postId} not found.`);
+  }
+
+  if (decision === "approved") {
+    // Collect blocked media URLs from all matching queue items so we can strip them.
+    const queueSnap = await db.collection("moderationQueue")
+      .where("postRef", "==", `posts/${postId}`)
+      .where("status", "in", ["blocked", "pending"])
+      .get();
+
+    const blockedUrls = new Set(
+      queueSnap.docs
+        .map((d) => d.data().blockedMediaUrl)
+        .filter(Boolean)
+    );
+
+    const postData = postSnap.data();
+    const cleanedMedia = (postData.media || []).filter((url) => !blockedUrls.has(url));
+
+    await postRef.update({
+      visible: true,
+      media: cleanedMedia,
+      moderation: {
+        status: "approved",
+        categories: [],
+        provider: "admin-manual",
+        reviewedBy: request.auth.uid,
+        checkedAt: FieldValue.serverTimestamp(),
+      },
+    });
+
+    // Mark every related queue item resolved.
+    const batch = db.batch();
+    queueSnap.docs.forEach((d) => {
+      batch.update(d.ref, { status: "resolved", resolvedBy: request.auth.uid, resolvedAt: FieldValue.serverTimestamp() });
+    });
+    if (queueId) {
+      batch.update(db.collection("moderationQueue").doc(queueId), {
+        status: "resolved", resolvedBy: request.auth.uid, resolvedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+
+    console.log(`✅ Admin ${request.auth.uid} approved post ${postId}, stripped ${blockedUrls.size} blocked URL(s).`);
+    return { success: true, strippedMedia: blockedUrls.size };
+  }
+
+  // decision === "rejected"
+  await postRef.update({
+    visible: false,
+    moderation: {
+      status: "rejected",
+      categories: [],
+      provider: "admin-manual",
+      reviewedBy: request.auth.uid,
+      checkedAt: FieldValue.serverTimestamp(),
+    },
+  });
+
+  if (queueId) {
+    await db.collection("moderationQueue").doc(queueId).update({
+      status: "rejected", resolvedBy: request.auth.uid, resolvedAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  console.log(`🚫 Admin ${request.auth.uid} rejected post ${postId}.`);
+  return { success: true };
+});
 
 async function checkSafety(text, apiKey) {
   const res = await fetch(NIM_URL, {

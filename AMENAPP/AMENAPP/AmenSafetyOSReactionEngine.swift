@@ -15,6 +15,15 @@ enum AmenSafetyLane: String, Codable, CaseIterable {
         case .red: "Serious concern"
         }
     }
+
+    var tint: Color {
+        switch self {
+        case .green: return Color.black.opacity(0.55)
+        case .blue:  return Color.black.opacity(0.42)
+        case .amber: return Color.black.opacity(0.30)
+        case .red:   return Color.black.opacity(0.22)
+        }
+    }
 }
 
 enum AmenTriggerType: String, Codable, CaseIterable {

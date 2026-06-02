@@ -6491,7 +6491,7 @@ struct MinimalNoteDetailSheet: View {
     // AI Features
     @State private var noteSummary: NoteSummary?
     @State private var isGeneratingSummary = false
-    @State private var scriptureReferences: [ScriptureReference] = []
+    @State private var scriptureReferences: [AIScriptureRef] = []
     @State private var isLoadingScripture = false
     @State private var showAISection = false
     

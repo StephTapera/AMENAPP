@@ -12,7 +12,7 @@ struct HeyFeedControlsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var prefsService = HeyFeedPreferencesService.shared
     
-    @State private var selectedMode: FeedMode
+    @State private var selectedMode: HeyFeedMode
     @State private var pinnedTopics: Set<FeedTopic>
     @State private var debateLevel: DebateLevel
     @State private var sensitivityFilter: SensitivityFilter
@@ -53,7 +53,7 @@ struct HeyFeedControlsSheet: View {
                         Label("Feed Mode", systemImage: "wand.and.stars")
                             .font(.headline)
                         
-                        ForEach(FeedMode.allCases, id: \.self) { mode in
+                        ForEach(HeyFeedMode.allCases, id: \.self) { mode in
                             ModeButton(
                                 mode: mode,
                                 isSelected: selectedMode == mode,
@@ -184,7 +184,7 @@ struct HeyFeedControlsSheet: View {
 // MARK: - Mode Button
 
 struct ModeButton: View {
-    let mode: FeedMode
+    let mode: HeyFeedMode
     let isSelected: Bool
     let action: () -> Void
     

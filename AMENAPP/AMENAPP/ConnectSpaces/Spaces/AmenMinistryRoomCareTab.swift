@@ -23,7 +23,7 @@ struct AmenMinistryRoomCareTab: View {
             AmenCareQueueView(spaceId: spaceId)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
     }
 
     // MARK: - Glass Section Header (chrome only)
@@ -32,7 +32,7 @@ struct AmenMinistryRoomCareTab: View {
         HStack(spacing: 10) {
             Image(systemName: "heart.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color(hex: "D9A441"))
                 .accessibilityHidden(true)
 
             Text("Care & Shepherding")

@@ -124,7 +124,7 @@ struct ONEMomentFormatPickerView: View {
 
     func defaultContract(for format: ONEMomentType) -> ONEPrivacyContract {
         switch format {
-        case .snap, .dm:
+        case .snap, .directMessage:
             return ONEPrivacyContract(
                 audience: .closeFriends,
                 lifetime: .afterView,
@@ -159,7 +159,7 @@ struct ONEMomentFormatPickerView: View {
                 permissions: .init(), safety: .init(),
                 metricsPrivate: true, reshareAllowed: false
             )
-        case .location:
+        case .locationShare:
             return ONEPrivacyContract(
                 audience: .closeFriends, lifetime: .days(7),
                 permissions: .init(), safety: .init(),
@@ -205,11 +205,11 @@ extension ONEMomentType {
         case .story:       return "Story"
         case .voice:       return "Voice Note"
         case .reflection:  return "Reflection"
-        case .location:    return "Location"
+        case .locationShare:    return "Location"
         case .memory:      return "Memory"
         case .album:       return "Album"
         case .creatorDrop: return "Creator Drop"
-        case .dm:          return "Direct Message"
+        case .directMessage:          return "Direct Message"
         }
     }
 
@@ -220,11 +220,11 @@ extension ONEMomentType {
         case .story:       return "24-hour story"
         case .voice:       return "Voice note with transcription"
         case .reflection:  return "Private prompted reflection"
-        case .location:    return "Place check-in"
+        case .locationShare:    return "Place check-in"
         case .memory:      return "From your vault"
         case .album:       return "Collaborative photo collection"
         case .creatorDrop: return "Subscriber-only content"
-        case .dm:          return "Direct private message"
+        case .directMessage:          return "Direct private message"
         }
     }
 
@@ -235,11 +235,11 @@ extension ONEMomentType {
         case .story:       return "circle.dashed"
         case .voice:       return "mic.fill"
         case .reflection:  return "book.fill"
-        case .location:    return "location.fill"
+        case .locationShare:    return "location.fill"
         case .memory:      return "heart.fill"
         case .album:       return "photo.stack.fill"
         case .creatorDrop: return "star.fill"
-        case .dm:          return "message.fill"
+        case .directMessage:          return "message.fill"
         }
     }
 
@@ -250,15 +250,15 @@ extension ONEMomentType {
         case .story:       return AmenTheme.Colors.amenGold
         case .voice:       return ONE.Colors.repairGreen
         case .reflection:  return ONE.Colors.witnessGold
-        case .location:    return ONE.Colors.repairGreen
+        case .locationShare:    return ONE.Colors.repairGreen
         case .memory:      return ONE.Colors.ephemeralRed
         case .album:       return ONE.Colors.privateIndigo
         case .creatorDrop: return ONE.Colors.subscriberGold
-        case .dm:          return ONE.Colors.privateIndigo
+        case .directMessage:          return ONE.Colors.privateIndigo
         }
     }
 
     static var pickableTypes: [ONEMomentType] {
-        [.snap, .post, .story, .voice, .reflection, .location, .memory, .album, .creatorDrop, .dm]
+        [.snap, .post, .story, .voice, .reflection, .locationShare, .memory, .album, .creatorDrop, .directMessage]
     }
 }

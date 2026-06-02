@@ -90,6 +90,12 @@ exports.moderateUploadedImage = onObjectFinalized({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
 
+        // For post_media, extract the postId from the path:
+        // post_media/{userId}/{postId}/{filename}
+        const postId = context === "post_media" && pathParts.length >= 3
+            ? pathParts[2]
+            : null;
+
         // Take action based on decision
         if (decision.action === "blocked") {
             console.log(`❌ BLOCKING image: ${decision.reasons.join(", ")}`);
@@ -114,8 +120,28 @@ exports.moderateUploadedImage = onObjectFinalized({
                 status: "resolved_auto",
             });
 
-            // Notify user (optional - can be handled client-side)
-            // await notifyUserOfRejection(userId, context, decision.reasons);
+            // For post media: hide the post and queue it for admin review.
+            if (postId) {
+                await db.collection("posts").doc(postId).update({
+                    visible: false,
+                    "moderation.status": "blocked",
+                    "moderation.categories": ["image_safety"],
+                    "moderation.provider": "cloud-vision-safesearch",
+                    "moderation.checkedAt": admin.firestore.FieldValue.serverTimestamp(),
+                }).catch((e) => console.warn(`Could not update post ${postId}:`, e.message));
+
+                await db.collection("moderationQueue").add({
+                    postRef: `posts/${postId}`,
+                    authorId: userId,
+                    preview: `[image blocked: ${decision.reasons.join(", ")}]`,
+                    status: "blocked",
+                    categories: ["image_safety"],
+                    reason: "image_blocked_safesearch",
+                    // Stored so adminReviewPost can strip this dead URL from post.media.
+                    blockedMediaUrl: `https://firebasestorage.googleapis.com/v0/b/${event.data.bucket}/o/${encodeURIComponent(filePath)}`,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
 
             return {action: "blocked", filePath};
         } else if (decision.action === "review") {
@@ -140,7 +166,34 @@ exports.moderateUploadedImage = onObjectFinalized({
                 status: "pending_review",
             });
 
+            // For post media that needs review: hold it invisible until a moderator clears it.
+            if (postId) {
+                await db.collection("posts").doc(postId).update({
+                    visible: false,
+                    "moderation.status": "pending",
+                    "moderation.provider": "cloud-vision-safesearch",
+                    "moderation.checkedAt": admin.firestore.FieldValue.serverTimestamp(),
+                }).catch((e) => console.warn(`Could not update post ${postId}:`, e.message));
+            }
+
             return {action: "review", filePath};
+        }
+
+        // Image approved — if the post was held for image review, flip it visible now.
+        if (postId) {
+            const postSnap = await db.collection("posts").doc(postId).get().catch(() => null);
+            if (postSnap && postSnap.exists) {
+                const postData = postSnap.data();
+                if (postData.moderation?.status === "pending_image_review") {
+                    await db.collection("posts").doc(postId).update({
+                        visible: true,
+                        "moderation.status": "approved",
+                        "moderation.provider": "cloud-vision-safesearch",
+                        "moderation.checkedAt": admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    console.log(`✅ Post ${postId} approved after image review`);
+                }
+            }
         }
 
         console.log(`✅ Image approved: ${filePath}`);

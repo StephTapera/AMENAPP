@@ -10,27 +10,6 @@
 import SwiftUI
 import FirebaseFirestore
 
-// MARK: - Design Tokens
-
-private extension Color {
-    static let amenGold   = Color(hex: "#D9A441")
-    static let amenPurple = Color(hex: "#6E4BB5")
-    static let amenBlue   = Color(hex: "#245B8F")
-    static let amenBlack  = Color(hex: "#070607")
-}
-
-private extension Color {
-    init(hex: String) {
-        let stripped = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: stripped).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double(int         & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-}
-
 // MARK: - Berean Message Model
 
 /// A Berean-generated chat message with optional scripture provenance.
@@ -44,7 +23,7 @@ struct AmenBereanMessage: Identifiable, Hashable {
 
 // MARK: - Provenance Chip Row (scripture-only, matte)
 
-private struct BereanProvenanceChipRow: View {
+private struct BereanRoomProvenanceChipRow: View {
     let refs: [AmenConnectSpacesScriptureRefProvenance]
     let isVerifying: Bool
 
@@ -148,12 +127,12 @@ private struct BereanAvatarBubble: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.amenGold.opacity(0.50), lineWidth: 1)
+                        .strokeBorder(Color(hex: "#D9A441").opacity(0.50), lineWidth: 1)
                 )
-                .shadow(color: Color.amenGold.opacity(0.20), radius: 8, y: 0)
+                .shadow(color: Color(hex: "#D9A441").opacity(0.20), radius: 8, y: 0)
             Text("B")
                 .font(.system(size: 14, weight: .black))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color(hex: "#D9A441"))
         }
         .frame(width: 36, height: 36)
         .accessibilityHidden(true)
@@ -179,10 +158,10 @@ private struct BereanAIBadge: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     Capsule()
-                        .strokeBorder(Color.amenPurple.opacity(0.45), lineWidth: 1)
+                        .strokeBorder(Color(hex: "#6E4BB5").opacity(0.45), lineWidth: 1)
                 )
         )
-        .foregroundStyle(Color.amenPurple)
+        .foregroundStyle(Color(hex: "#6E4BB5"))
         .accessibilityLabel("Berean AI")
     }
 }
@@ -244,7 +223,7 @@ struct AmenBereanRoomMemberView: View {
 
             // Scripture provenance chip row — matte, shown when scripture is cited
             if containsScriptureCitation || needsVerification {
-                BereanProvenanceChipRow(
+                BereanRoomProvenanceChipRow(
                     refs: message.scriptureRefs,
                     isVerifying: needsVerification
                 )

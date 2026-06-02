@@ -70,6 +70,7 @@ struct AMENDiscoveryView: View {
     // Navigation
     @State private var selectedTopic: DiscoveryTopic? = nil
     @State private var navigateToTopicPage = false
+    @State private var showStudiesDiscovery = false
 
     var body: some View {
         NavigationStack {
@@ -164,6 +165,11 @@ struct AMENDiscoveryView: View {
             .navigationDestination(isPresented: $navigateToTopicPage) {
                 if let topic = selectedTopic {
                     DiscoveryTopicPageView(topic: topic)
+                }
+            }
+            .sheet(isPresented: $showStudiesDiscovery) {
+                NavigationStack {
+                    AmenStudiesDiscoveryView()
                 }
             }
             .fullScreenCover(isPresented: $showBereanAI) {
@@ -495,8 +501,23 @@ struct AMENDiscoveryView: View {
                 // 4. Bible Studies
                 if !feedService.bibleStudies.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        DiscoverSectionHeader(title: "Bible Studies", icon: "graduationcap.fill")
-                            .padding(.horizontal, 16)
+                        HStack {
+                            DiscoverSectionHeader(title: "Bible Studies", icon: "graduationcap.fill")
+                            Spacer()
+                            Button {
+                                showStudiesDiscovery = true
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text("Explore All")
+                                        .font(.systemScaled(13, weight: .semibold))
+                                    Image(systemName: "chevron.right")
+                                        .font(.systemScaled(11, weight: .semibold))
+                                }
+                                .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 16)
                         VStack(spacing: 12) {
                             ForEach(Array(feedService.bibleStudies.enumerated()), id: \.element.id) { idx, study in
                                 DiscoverBibleStudyCard(study: study)

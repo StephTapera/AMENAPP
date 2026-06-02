@@ -17,7 +17,7 @@ final class AmenFeedControlService: ObservableObject {
         state = (try? await core.fetchFeedControlState()) ?? FeedControlState()
     }
 
-    func applyMode(_ mode: FeedMode) async throws {
+    func applyMode(_ mode: HeyFeedMode) async throws {
         var updated = state
         updated = FeedControlState(
             activeMode: mode,

@@ -41,10 +41,9 @@ struct AmenInlineObjectHubPill: View {
         .accessibilityHint("Opens public activity around this.")
     }
 
-    @ViewBuilder
     private var backgroundFill: some ShapeStyle {
         if reduceTransparency || contrast == .increased {
-            Color.white.opacity(0.92)
+            AnyShapeStyle(Color.white.opacity(0.92))
         } else {
             AnyShapeStyle(.thinMaterial)
         }

@@ -67,15 +67,15 @@ private struct AmenDecisionCard: View {
                 // Purple "Decision made" badge
                 Text("Decision made")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Color.amenPurple)
+                    .foregroundStyle(Color(hex: "6E4BB5"))
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .fill(Color.amenPurple.opacity(0.15))
+                            .fill(Color(hex: "6E4BB5").opacity(0.15))
                             .overlay(
                                 Capsule()
-                                    .strokeBorder(Color.amenPurple.opacity(0.35), lineWidth: 1)
+                                    .strokeBorder(Color(hex: "6E4BB5").opacity(0.35), lineWidth: 1)
                             )
                     )
                     .accessibilityLabel("Decision made")
@@ -88,11 +88,11 @@ private struct AmenDecisionCard: View {
             HStack(spacing: 6) {
                 Image(systemName: "calendar")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.amenGold.opacity(0.70))
+                    .foregroundStyle(Color(hex: "D9A441").opacity(0.70))
                     .accessibilityHidden(true)
                 Text("Made \(decisionDateFormatter.string(from: item.createdAt))")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.amenGold.opacity(0.80))
+                    .foregroundStyle(Color(hex: "D9A441").opacity(0.80))
             }
             .accessibilityLabel("Made on \(decisionDateFormatter.string(from: item.createdAt))")
 
@@ -115,7 +115,7 @@ private struct AmenDecisionCard: View {
                 .fill(Color.white.opacity(0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.amenPurple.opacity(0.18), lineWidth: 1)
+                        .strokeBorder(Color(hex: "6E4BB5").opacity(0.18), lineWidth: 1)
                 )
         )
         .accessibilityElement(children: .combine)
@@ -130,7 +130,7 @@ private struct AmenDecisionsEmptyState: View {
         VStack(spacing: 14) {
             Image(systemName: "scale.3d")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(Color.amenGold.opacity(0.7))
+                .foregroundStyle(Color(hex: "D9A441").opacity(0.7))
                 .accessibilityHidden(true)
             Text("No decisions logged yet.")
                 .font(.body)
@@ -163,7 +163,7 @@ struct AmenMinistryRoomDecisionsTab: View {
                 loadingView
             } else if vm.items.isEmpty {
                 AmenDecisionsEmptyState()
-                    .background(Color.amenBlack)
+                    .background(Color(hex: "070607"))
             } else {
                 decisionList
             }
@@ -179,20 +179,20 @@ struct AmenMinistryRoomDecisionsTab: View {
                     .accessibilityLabel("Error: \(error)")
             }
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
         .task { await vm.load() }
     }
 
     private var loadingView: some View {
         VStack(spacing: 12) {
             ProgressView()
-                .tint(Color.amenGold)
+                .tint(Color(hex: "D9A441"))
             Text("Loading decisions…")
                 .font(.subheadline)
                 .foregroundStyle(Color.white.opacity(0.55))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
     }
 
     private var decisionList: some View {
@@ -205,6 +205,6 @@ struct AmenMinistryRoomDecisionsTab: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
     }
 }

@@ -100,7 +100,7 @@ struct AmenCovenantDiscoveryView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(categories, id: \.self) { category in
-                    CategoryChip(
+                    CovenantDiscoveryCategoryChip(
                         label: category,
                         isSelected: discoverVM.selectedCategory == category,
                         reduceMotion: reduceMotion
@@ -197,7 +197,7 @@ struct AmenCovenantDiscoveryView: View {
 
 // MARK: - Category Chip
 
-private struct CategoryChip: View {
+private struct CovenantDiscoveryCategoryChip: View {
     let label: String
     let isSelected: Bool
     let reduceMotion: Bool

@@ -2,6 +2,12 @@ import Foundation
 import FirebaseAuth
 import FirebaseFirestore
 
+private enum ChurchVerificationStatus: String {
+    case verified
+    case pending
+    case unverified
+}
+
 @MainActor
 final class BereanOperatingLayer: ObservableObject {
     static let shared = BereanOperatingLayer()

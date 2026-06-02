@@ -168,7 +168,7 @@ struct BereanSimplifiedPromptPreview: View {
                             Text("Key themes")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
-                            FlowLayout(spacing: 8) {
+                            PillsFlowLayout(spacing: 8) {
                                 ForEach(simplified.keyThemes, id: \.self) { theme in
                                     Text(theme)
                                         .font(.caption.weight(.medium))
@@ -248,7 +248,7 @@ struct BereanSimplifiedPromptPreview: View {
 
 // MARK: - Simple flow layout for chips
 
-struct FlowLayout: Layout {
+struct PillsFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

@@ -82,11 +82,11 @@ struct AmenMinistryRoomHistoryTab: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
-                .background(Color.amenBlack)
+                .background(Color(hex: "070607"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
         .onAppear {
             presenceLoader.start(userId: currentUserId)
         }
@@ -101,7 +101,7 @@ struct AmenMinistryRoomHistoryTab: View {
         HStack(spacing: 10) {
             Image(systemName: "clock.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color(hex: "D9A441"))
                 .accessibilityHidden(true)
 
             Text("Message History")
@@ -128,12 +128,12 @@ struct AmenMinistryRoomHistoryTab: View {
     private var loadingView: some View {
         VStack(spacing: 12) {
             ProgressView()
-                .tint(Color.amenGold)
+                .tint(Color(hex: "D9A441"))
             Text("Loading history…")
                 .font(.subheadline)
                 .foregroundStyle(Color.white.opacity(0.55))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
     }
 }

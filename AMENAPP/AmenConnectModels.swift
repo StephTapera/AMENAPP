@@ -9,6 +9,27 @@ import Foundation
 import SwiftUI
 import PhotosUI
 
+// MARK: - Connect Tab
+
+enum AMENConnectTab: String, Codable, CaseIterable, Identifiable {
+    case all, jobs, serve, marketplace, events, prayer, mentorship, forum, network, ministries
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .all: return "All"
+        case .jobs: return "Jobs"
+        case .serve: return "Serve"
+        case .marketplace: return "Marketplace"
+        case .events: return "Events"
+        case .prayer: return "Prayer"
+        case .mentorship: return "Mentorship"
+        case .forum: return "Forum"
+        case .network: return "Network"
+        case .ministries: return "Ministries"
+        }
+    }
+}
+
 // MARK: - Legacy User Profile Model
 
 struct AmenConnectProfile: Identifiable, Codable {
@@ -124,7 +145,7 @@ struct AmenConnectFilters {
 
 // MARK: - Amen Connect Product Model
 
-enum AmenConnectRoom: String, CaseIterable, Identifiable {
+enum AmenConnectRoom: String, CaseIterable, Identifiable, Codable {
     case lobby = "Lobby"
     case discover = "Discover"
     case spaces = "Spaces"

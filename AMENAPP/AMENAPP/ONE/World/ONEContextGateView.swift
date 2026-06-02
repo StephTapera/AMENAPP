@@ -23,7 +23,7 @@ struct ONEContextGateView: View {
     @State private var commentText = ""
     @State private var showProvenanceDetail = false
     @State private var watchSimProgress: Double = 0
-    @State private var watchTimer: Timer? = nil
+    @State private var isWatching: Bool = false
     @State private var showWhyExpanded = false
 
     init(
@@ -196,7 +196,7 @@ struct ONEContextGateView: View {
                 Button("Watch →") { startWatchSim() }
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.amenGold)
-                    .disabled(watchTimer != nil)
+                    .disabled(isWatching)
             }
         }
         .padding(ONE.Spacing.md)
@@ -211,17 +211,16 @@ struct ONEContextGateView: View {
     }
 
     private func startWatchSim() {
-        watchTimer?.invalidate()
-        watchTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            Task { @MainActor in
+        guard !isWatching else { return }
+        isWatching = true
+        Task { @MainActor in
+            while watchSimProgress < 0.30 {
+                try? await Task.sleep(nanoseconds: 50_000_000) // 50ms ticks
                 watchSimProgress = min(1.0, watchSimProgress + 0.015)
                 onWatchProgress(watchSimProgress)
                 localStatus.watchFraction = watchSimProgress
-                if watchSimProgress >= 0.30 {
-                    timer.invalidate()
-                    watchTimer = nil
-                }
             }
+            isWatching = false
         }
     }
 

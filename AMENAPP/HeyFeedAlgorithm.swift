@@ -7,9 +7,9 @@
 //
 //  Depends on:
 //    • Post / Post.PostCategory      (PostsManager.swift)
-//    • HeyFeedPreferences            (HeyFeedModels.swift)
-//    • FeedMode / FeedWeights        (HeyFeedModels.swift)
-//    • FeedTopic / DebateLevel       (HeyFeedModels.swift)
+//    • HeyFeedPreferences            (HeyHeyFeedModels.swift)
+//    • HeyFeedMode / FeedWeights        (HeyHeyFeedModels.swift)
+//    • FeedTopic / DebateLevel       (HeyHeyFeedModels.swift)
 //    • HeyFeedIntent / HeyFeedParseResult (HeyFeedAIParser.swift)
 //
 

@@ -203,7 +203,7 @@ private struct PulsePostRouteView: View {
     var body: some View {
         Group {
             if let post {
-                PostDetailView(post: post, highlightedCommentId: commentId)
+                PostDetailView(post: post)
             } else if let errorMessage {
                 PulseUnavailableStateView(title: String(localized: "Post unavailable"), message: errorMessage)
             } else {

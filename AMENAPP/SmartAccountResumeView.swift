@@ -436,7 +436,7 @@ struct SmartAccountResumeView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(reduceTransparency ? Color(.secondarySystemBackground) : .regularMaterial)
+                .fill(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemBackground)) : AnyShapeStyle(.regularMaterial))
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -449,7 +449,7 @@ struct SmartAccountResumeView: View {
         ZStack {
             // Glass ring
             Circle()
-                .fill(reduceTransparency ? Color(.secondarySystemBackground) : .ultraThinMaterial)
+                .fill(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
                 .frame(width: size + 18, height: size + 18)
                 .overlay(
                     Circle()

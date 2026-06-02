@@ -97,7 +97,7 @@ final class AmenLibraryRankingService {
 
         // Theological relevance: faith-stage category alignment
         let stageCategory = stageToCategory(faithStage)
-        let allTags = (book.curatedTags + book.categories).map(\.lowercased)
+        let allTags = (book.curatedTags + book.categories).map { $0.lowercased() }
         let categoryMatch = allTags.contains { $0.contains(stageCategory.rawValue.lowercased()) }
         signals.theologicalRelevance = categoryMatch ? 0.9 : 0.5
 

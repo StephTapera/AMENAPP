@@ -9,13 +9,6 @@ import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 
-// MARK: - Design tokens
-
-private extension Color {
-    static let amenGold   = Color(red: 0.851, green: 0.643, blue: 0.255)
-    static let amenBlack  = Color(red: 0.027, green: 0.024, blue: 0.028)
-}
-
 // MARK: - ViewModel
 
 @MainActor

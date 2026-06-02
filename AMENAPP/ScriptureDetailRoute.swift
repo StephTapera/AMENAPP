@@ -283,14 +283,14 @@ struct ScriptureDetailRoute: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(chapterVerses, id: \.reference) { verse in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(verse.reference)
+                            Text(verse.reference.displayString)
                                 .font(.systemScaled(11, weight: .bold))
                                 .foregroundStyle(Color.primary.opacity(0.5))
                             
                             Text(verse.text)
                                 .font(.system(size: 15, design: .serif))
                                 .foregroundStyle(
-                                    verse.reference == context.attachment.canonicalReference
+                                    verse.reference.displayString == context.attachment.canonicalReference
                                     ? Color.primary
                                     : Color.primary.opacity(0.65)
                                 )
@@ -299,7 +299,7 @@ struct ScriptureDetailRoute: View {
                         .padding(.vertical, 4)
                         .padding(.horizontal, 4)
                         .background(
-                            verse.reference == context.attachment.canonicalReference
+                                        verse.reference.displayString == context.attachment.canonicalReference
                             ? RoundedRectangle(cornerRadius: 8)
                                 .fill(Color.primary.opacity(0.04))
                                 .padding(.horizontal, -8)
@@ -351,7 +351,7 @@ struct ScriptureDetailRoute: View {
         // Use prefetched data if available
         if let payload = context.prefetchedPayload, !payload.isStale {
             verseText = payload.attachment.previewText
-            nearbyVerses = payload.nearbyVerses.map { ($0.reference, $0.text) }
+            nearbyVerses = payload.nearbyVerses.map { ($0.reference.displayString, $0.text) }
             isLoading = false
             return
         }
@@ -417,7 +417,9 @@ struct ScriptureDetailRoute: View {
                 let ref = "\(context.attachment.book) \(context.attachment.chapter):\(v)"
                 do {
                     let passage = try await YouVersionBibleService.shared.fetchVerse(reference: ref, version: version)
-                    verses.append(BibleVerse(reference: passage.reference, text: passage.text, translation: selectedTranslation.rawValue))
+                    let bookId = BibleBook.all.first(where: { $0.displayName == context.attachment.book })?.id ?? context.attachment.book.lowercased()
+                    let scriptureRef = ScriptureReference(bookId: bookId, chapter: context.attachment.chapter, startVerse: v, endVerse: nil)
+                    verses.append(BibleVerse(reference: scriptureRef, number: v, text: passage.text))
                 } catch {
                     // We've likely passed the end of the chapter
                     break

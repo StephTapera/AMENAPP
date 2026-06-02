@@ -213,12 +213,8 @@ struct ScriptureImmersionView: View {
 
     @ViewBuilder
     private var sectionContent: some View {
-        guard let structure = payload.sceneContext?.studyStructure else {
-            unavailableCard
-            return
-        }
-
-        switch selectedSection {
+        if let structure = payload.sceneContext?.studyStructure {
+            switch selectedSection {
         case .observation:
             ImmersionCard(
                 title: "Observation",
@@ -258,6 +254,9 @@ struct ScriptureImmersionView: View {
                     ApplicationPathsSection(paths: payload.applicationPaths)
                 }
             }
+        }
+        } else {
+            unavailableCard
         }
     }
 

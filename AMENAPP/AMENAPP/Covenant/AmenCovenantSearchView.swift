@@ -198,7 +198,7 @@ struct AmenCovenantSearchView: View {
                 if let items = grouped[scope], !items.isEmpty {
                     Section(scope.displayName) {
                         ForEach(items) { result in
-                            SearchResultRow(result: result)
+                            CovenantSearchResultRow(result: result)
                         }
                     }
                 }
@@ -210,7 +210,7 @@ struct AmenCovenantSearchView: View {
 
 // MARK: - Search Result Row
 
-private struct SearchResultRow: View {
+private struct CovenantSearchResultRow: View {
     let result: CovenantSearchResult
     @State private var showPaywall = false
 

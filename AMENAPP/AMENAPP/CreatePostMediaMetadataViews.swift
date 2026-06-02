@@ -1,6 +1,26 @@
 import SwiftUI
 import AVKit
 
+// MARK: - AMENMediaGlassCard
+
+private struct AMENMediaGlassCard: View {
+    var cornerRadius: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(0.74))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+    }
+}
+
 struct MediaMetadataAuthoringSheet: View {
     @Binding var draft: CreatePostMediaMetadataDraft
     let photoPreviewImages: [UIImage]
@@ -122,16 +142,29 @@ struct MediaMetadataAuthoringSheet: View {
     private var videoContent: some View {
         switch selectedTab {
         case .captions:
-            if let videoDraftBinding = $draft.videoDraft {
-                UploadCaptionEditorView(draft: videoDraftBinding)
+            if draft.videoDraft != nil {
+                UploadCaptionEditorView(draft: Binding(
+                    get: { draft.videoDraft ?? VideoMetadataDraft() },
+                    set: { draft.videoDraft = $0 }
+                ))
             }
         case .moments:
-            if let videoDraftBinding = $draft.videoDraft {
-                UploadKeyMomentsEditorView(draft: videoDraftBinding)
+            if draft.videoDraft != nil {
+                UploadKeyMomentsEditorView(draft: Binding(
+                    get: { draft.videoDraft ?? VideoMetadataDraft() },
+                    set: { draft.videoDraft = $0 }
+                ))
             }
         case .featured:
-            if let videoDraftBinding = $draft.videoDraft, let url = witnessAttachment?.finalFileURL {
-                FeaturedVideoFramePickerView(draft: videoDraftBinding, videoURL: url, duration: witnessAttachment?.durationSec ?? 0)
+            if draft.videoDraft != nil, let url = witnessAttachment?.finalFileURL {
+                FeaturedVideoFramePickerView(
+                    draft: Binding(
+                        get: { draft.videoDraft ?? VideoMetadataDraft() },
+                        set: { draft.videoDraft = $0 }
+                    ),
+                    videoURL: url,
+                    duration: witnessAttachment?.durationSec ?? 0
+                )
             }
         case .frames:
             EmptyView()
@@ -316,7 +349,7 @@ struct UploadKeyMomentsEditorView: View {
 
             Button {
                 draft.keyMoments.append(
-                    KeyMomentDraft(timestamp: draft.keyMoments.last?.timestamp ?? 0, label: "New moment", kind: .mainPoint)
+                    KeyMomentDraft(timestamp: draft.keyMoments.last?.timestamp ?? 0, label: "New moment", kind: .keyPoint)
                 )
                 draft.userEdited = true
             } label: {

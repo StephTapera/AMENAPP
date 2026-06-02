@@ -17,6 +17,7 @@ struct AMENBadgeCounts {
     var library:       Int = 0
     var notifications: Int = 0
     var profile:       Int = 0
+    var spaces:        Int = 0
 
     func count(for tab: AMENTab) -> Int {
         switch tab {
@@ -26,6 +27,7 @@ struct AMENBadgeCounts {
         case .library:       return library
         case .notifications: return notifications
         case .profile:       return profile
+        case .spaces:        return spaces
         }
     }
 }
@@ -39,6 +41,7 @@ enum AMENTab: Int, CaseIterable {
     case library
     case notifications
     case profile
+    case spaces
 
     var activeIcon: String {
         switch self {
@@ -48,6 +51,7 @@ enum AMENTab: Int, CaseIterable {
         case .library:       return "books.vertical.fill"
         case .notifications: return "bell.fill"
         case .profile:       return "person.circle.fill"
+        case .spaces:        return "rectangle.3.group.fill"
         }
     }
 
@@ -59,6 +63,7 @@ enum AMENTab: Int, CaseIterable {
         case .library:       return "books.vertical"
         case .notifications: return "bell"
         case .profile:       return "person.circle"
+        case .spaces:        return "rectangle.3.group"
         }
     }
 
@@ -70,6 +75,7 @@ enum AMENTab: Int, CaseIterable {
         case .library:       return "Library"
         case .notifications: return "Notifications"
         case .profile:       return "Profile"
+        case .spaces:        return "Spaces"
         }
     }
 
@@ -399,6 +405,7 @@ struct AMENTabBar: View {
         case .library:       badges.library = 0
         case .notifications: badges.notifications = 0
         case .profile:       badges.profile = 0
+        case .spaces:        badges.spaces = 0
         }
     }
 }

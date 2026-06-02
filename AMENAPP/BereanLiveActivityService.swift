@@ -33,7 +33,15 @@ class BereanLiveActivityService: ObservableObject {
         isStarting = true
         defer { isStarting = false }
 
-        let context = BereanPostContext(post: post)
+        let context = BereanPostContext(
+            postId: post.firebaseId ?? post.id.uuidString,
+            authorId: post.authorId,
+            authorName: post.authorName,
+            previewText: String(post.content.prefix(200)),
+            category: post.category.rawValue,
+            verseReference: post.verseReference,
+            isSensitive: post.hasSensitiveContent
+        )
         let initialState = makeState(for: context, phase: .loading, responseText: "", sourceCount: 0, scriptures: [])
 
         dlog("📍 [BereanLiveActivity] PostCard tap for post \(context.postId)")
@@ -260,9 +268,6 @@ class BereanLiveActivityService: ObservableObject {
     func endActivity() async {
         let endContent = ActivityContent(
             state: BereanActivityAttributes.ContentState(
-                postID: currentPostID ?? "",
-                deepLinkURL: currentPostID.map { "amen://berean/post/\($0)" } ?? "",
-                postPreview: fallbackPostPreview,
                 phase: .complete,
                 responseText: fallbackState?.responseText ?? "",
                 sourceCount: fallbackState?.sourceCount ?? 0,
@@ -294,9 +299,6 @@ class BereanLiveActivityService: ObservableObject {
         scriptures: [String]
     ) -> BereanActivityAttributes.ContentState {
         BereanActivityAttributes.ContentState(
-            postID: context.postId,
-            deepLinkURL: context.deepLinkPath,
-            postPreview: context.previewText,
             phase: phase,
             responseText: responseText,
             sourceCount: sourceCount,

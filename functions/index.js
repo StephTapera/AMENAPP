@@ -1191,3 +1191,13 @@ exports.updateContextState     = spiritualOS.updateContextState;
 exports.dismissSuggestion      = spiritualOS.dismissSuggestion;
 exports.pinHubItem             = spiritualOS.pinHubItem;
 exports.cleanupContextOnLogout = spiritualOS.cleanupContextOnLogout;
+
+// ============================================================================
+// NVIDIA NEMOGUARD POST MODERATION — Firestore trigger on posts/{postId}
+// Sets posts.visible + posts.moderation; queues non-approved to moderationQueue.
+// Secret: firebase functions:secrets:set NVIDIA_API_KEY --project amen-5e359
+// Deploy: firebase deploy --only functions:moderatePost --project amen-5e359
+// ============================================================================
+const { moderatePost, adminReviewPost } = require("./moderatePost");
+exports.moderatePost   = moderatePost;
+exports.adminReviewPost = adminReviewPost;

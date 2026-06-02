@@ -48,7 +48,7 @@ struct PresenceLayer: View {
 
     var body: some View {
         Group {
-            if flags.sharedViewingEnabled, effectiveCount > 0 {
+            if flags.presenceIntelligenceEnabled, effectiveCount > 0 {
                 capsule
                     .transition(
                         reduceMotion ? .identity : .opacity.combined(with: .scale(scale: 0.96))

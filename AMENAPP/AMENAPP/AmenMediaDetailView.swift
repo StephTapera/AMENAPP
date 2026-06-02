@@ -145,7 +145,7 @@ struct AmenMediaDetailView: View {
             await startCommentTasks()
         }
         .onDisappear {
-            commentService.stopListening(postId: postID)
+            commentService.stopListening(to: postID)
         }
         .sheet(isPresented: $showOverflowSheet) {
             AmenMediaOverflowSheet(post: post)
@@ -209,7 +209,7 @@ struct AmenMediaDetailView: View {
                     }
                 }
                 .padding(14)
-                .background(AmenGlassCard(cornerRadius: 22))
+                .background(AmenMediaGlassCard(cornerRadius: 22))
             }
         }
     }
@@ -276,15 +276,15 @@ struct AmenMediaDetailView: View {
             VStack(spacing: 12) {
                 AmenContextCard(
                     title: "Original post thread",
-                    body: "Comments here read and write against the canonical post thread, so feed, profile, and detail stay in sync."
+                    bodyText: "Comments here read and write against the canonical post thread, so feed, profile, and detail stay in sync."
                 )
                 AmenContextCard(
                     title: "Source context",
-                    body: "Opened from \(sourceTitle.lowercased()). Dismissal keeps the underlying profile or feed state intact because the detail is layered over the current surface."
+                    bodyText: "Opened from \(sourceTitle.lowercased()). Dismissal keeps the underlying profile or feed state intact because the detail is layered over the current surface."
                 )
                 AmenContextCard(
                     title: "Attached context",
-                    body: contextSummary
+                    bodyText: contextSummary
                 )
             }
         }
@@ -389,7 +389,7 @@ struct AmenMediaDetailView: View {
                 }
             }
             group.addTask {
-                commentService.startListening(postId: postID)
+                await commentService.startListening(to: postID)
             }
             group.addTask {
                 await prefetchHeroMedia()
@@ -638,7 +638,7 @@ struct AmenCommentThreadSection: View {
             if comments.isEmpty {
                 AmenContextCard(
                     title: "No comments yet",
-                    body: "Start the conversation from the original post thread."
+                    bodyText: "Start the conversation from the original post thread."
                 )
             } else {
                 ForEach(comments, id: \.comment.stableId) { item in
@@ -684,7 +684,7 @@ struct AmenCommentRow: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .background(AmenGlassCard(cornerRadius: 22))
+        .background(AmenMediaGlassCard(cornerRadius: 22))
         .padding(.leading, isReply ? 8 : 0)
     }
 
@@ -718,21 +718,21 @@ struct AmenCommentRow: View {
 
 private struct AmenContextCard: View {
     let title: String
-    let body: String
+    let bodyText: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(AMENFont.semiBold(14))
                 .foregroundStyle(.black)
-            Text(body)
+            Text(bodyText)
                 .font(AMENFont.regular(14))
                 .foregroundStyle(.black.opacity(0.7))
                 .lineSpacing(5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(AmenGlassCard(cornerRadius: 24))
+        .background(AmenMediaGlassCard(cornerRadius: 24))
     }
 }
 
@@ -852,7 +852,7 @@ private struct AmenGlassCapsule: View {
     }
 }
 
-private struct AmenGlassCard: View {
+private struct AmenMediaGlassCard: View {
     var cornerRadius: CGFloat
 
     var body: some View {

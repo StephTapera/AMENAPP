@@ -361,19 +361,9 @@ struct ONEWorldFeedView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            FlowLayout(spacing: ONE.Spacing.sm) {
+            ONEWrapLayout(spacing: ONE.Spacing.sm) {
                 ForEach(ONEFeedModeKind.allCases.filter { $0 != service.session.mode }, id: \.self) { mode in
-                    Button(mode.displayLabel) {
-                        withAnimation(ONE.Motion.adaptive(reduceMotion: reduceMotion)) {
-                            service.switchMode(mode)
-                        }
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
-                    .padding(.horizontal, ONE.Spacing.md)
-                    .padding(.vertical, ONE.Spacing.sm)
-                    .background(Capsule().fill(AmenTheme.Colors.amenGold.opacity(0.10)))
-                    .accessibilityLabel("Switch to \(mode.displayLabel) mode")
+                    modeSwitchButton(mode)
                 }
             }
         }
@@ -403,6 +393,22 @@ struct ONEWorldFeedView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    @ViewBuilder
+    private func modeSwitchButton(_ mode: ONEFeedModeKind) -> some View {
+        let label = mode.displayLabel
+        Button(label) {
+            withAnimation(ONE.Motion.adaptive(reduceMotion: reduceMotion)) {
+                service.switchMode(mode)
+            }
+        }
+        .font(.system(size: 13, weight: .medium))
+        .foregroundStyle(AmenTheme.Colors.amenGold)
+        .padding(.horizontal, ONE.Spacing.md)
+        .padding(.vertical, ONE.Spacing.sm)
+        .background(Capsule().fill(AmenTheme.Colors.amenGold.opacity(0.10)))
+        .accessibilityLabel("Switch to \(label) mode")
+    }
+
     // MARK: - Mode metadata
 
     private func modeIcon(_ mode: ONEFeedModeKind) -> String {
@@ -426,9 +432,9 @@ struct ONEWorldFeedView: View {
     }
 }
 
-// MARK: - FlowLayout (simple horizontal wrapping)
+// MARK: - ONEWrapLayout (simple horizontal wrapping)
 
-private struct FlowLayout: Layout {
+private struct ONEWrapLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

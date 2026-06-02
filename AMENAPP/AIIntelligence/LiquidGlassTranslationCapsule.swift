@@ -47,7 +47,7 @@ struct LiquidGlassTranslationCapsule: View {
             .overlay {
                 Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 0.7)
             }
-            .shadow(color: .black.opacity(behavior.shadowOpacity), radius: 16, x: 0, y: 8)
+            .shadow(color: .black.opacity(0.06 + Double(behavior.compression) * 0.10), radius: 16, x: 0, y: 8)
         }
         .accessibilityLabel("Caption language")
         .accessibilityValue(selectedLanguage.displayName)

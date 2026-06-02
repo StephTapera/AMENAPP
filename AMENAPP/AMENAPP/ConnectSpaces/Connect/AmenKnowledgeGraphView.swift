@@ -265,27 +265,63 @@ private struct AmenKnowledgeGraphSectionView: View {
     }
 
     private func videoRow(_ videoId: String) -> some View {
+        AmenKnowledgeGraphVideoRowView(
+            videoId: videoId,
+            tint: section.tint,
+            showMarkUnderstood: section.showMarkUnderstood,
+            markingUnderstoodId: markingUnderstoodId,
+            onMarkUnderstood: onMarkUnderstood
+        )
+    }
+
+    private var emptyState: some View {
+        Text("Nothing here yet — this section fills as you study.")
+            .font(.caption)
+            .foregroundStyle(Color.amenBlack.opacity(0.4))
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+    }
+}
+
+// MARK: - Video row with resolved title
+
+/// Individual video row that resolves a human-readable title via AmenIntelligenceSeamService.
+/// The raw video ID is shown as a fallback while the async resolution is in flight.
+private struct AmenKnowledgeGraphVideoRowView: View {
+
+    let videoId: String
+    let tint: Color
+    let showMarkUnderstood: Bool
+    let markingUnderstoodId: String?
+    let onMarkUnderstood: (String) -> Void
+
+    @State private var resolvedTitle: String?
+
+    var body: some View {
         HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(section.tint.opacity(0.18))
+                .fill(tint.opacity(0.18))
                 .frame(width: 6)
                 .frame(minHeight: 36)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                // Production: resolve videoId → title via a lookup service
-                Text(videoId)
+                Text(resolvedTitle ?? videoId)
                     .font(.subheadline)
                     .foregroundStyle(Color.amenBlack)
                     .lineLimit(2)
-                Text("ID: \(videoId)")
-                    .font(.caption2)
-                    .foregroundStyle(Color.amenBlack.opacity(0.35))
+                    .animation(.easeInOut(duration: 0.15), value: resolvedTitle)
+                if resolvedTitle == nil {
+                    Text("ID: \(videoId)")
+                        .font(.caption2)
+                        .foregroundStyle(Color.amenBlack.opacity(0.35))
+                }
             }
 
             Spacer()
 
-            if section.showMarkUnderstood {
-                markUnderstoodButton(videoId)
+            if showMarkUnderstood {
+                markUnderstoodButton
             }
         }
         .padding(.vertical, 8)
@@ -294,9 +330,14 @@ private struct AmenKnowledgeGraphSectionView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(.secondarySystemBackground))
         )
+        .task(id: videoId) {
+            resolvedTitle = await AmenIntelligenceSeamService.shared.resolveVideoTitle(videoId: videoId)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(resolvedTitle ?? videoId)
     }
 
-    private func markUnderstoodButton(_ videoId: String) -> some View {
+    private var markUnderstoodButton: some View {
         let isMarking = markingUnderstoodId == videoId
         return Button {
             onMarkUnderstood(videoId)
@@ -322,33 +363,8 @@ private struct AmenKnowledgeGraphSectionView: View {
         }
         .buttonStyle(.plain)
         .disabled(isMarking)
-        .accessibilityLabel("Mark \(videoId) as understood")
-    }
-
-    private var emptyState: some View {
-        Text("Nothing here yet — this section fills as you study.")
-            .font(.caption)
-            .foregroundStyle(Color.amenBlack.opacity(0.4))
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
+        .accessibilityLabel(isMarking ? "Saving understood status" : "Mark as understood")
     }
 }
 
 // MARK: - Color extension (same tokens, scoped to this file)
-
-private extension Color {
-    static let amenGold   = Color(hex: "#D9A441")
-    static let amenPurple = Color(hex: "#6E4BB5")
-    static let amenBlue   = Color(hex: "#245B8F")
-    static let amenBlack  = Color(hex: "#070607")
-
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double(int         & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-}

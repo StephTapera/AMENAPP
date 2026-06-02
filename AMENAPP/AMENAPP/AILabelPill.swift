@@ -198,8 +198,8 @@ struct AIDisclosureSheet: View {
     private var metadataCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             row(label: "Action", value: disclosure.actionType.replacingOccurrences(of: "_", with: " ").capitalized)
-            if let provider = disclosure.modelProvider, !provider.isEmpty {
-                row(label: "Provider", value: provider)
+            if !disclosure.modelProvider.isEmpty {
+                row(label: "Provider", value: disclosure.modelProvider)
             }
             if !disclosure.purpose.isEmpty {
                 row(label: "Purpose", value: disclosure.purpose)

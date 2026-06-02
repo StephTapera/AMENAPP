@@ -1,6 +1,7 @@
 // AmenMinistryRoomChatView.swift
 // AMEN Connect + Spaces — Living Ministry Rooms
 // Agent 3 — built 2026-06-01
+// Agent 8 update — real Aegis conviction + before-share gate wired 2026-06-01
 
 import SwiftUI
 import FirebaseFirestore
@@ -16,6 +17,8 @@ final class AmenMinistryRoomChatViewModel: ObservableObject {
     @Published var sendError: String?
     @Published var showConvictionSheet: Bool = false
     @Published var pendingBody: String = ""
+    @Published var activeBeforeShareWarnings: [AmenConnectSpacesBeforeShareWarning] = []
+    @Published var showBeforeShareSheet: Bool = false
 
     private let spaceId: String
     private var listener: ListenerRegistration?
@@ -46,22 +49,51 @@ final class AmenMinistryRoomChatViewModel: ObservableObject {
         listener = nil
     }
 
-    /// Returns true if the body should trigger the conviction pause sheet.
-    /// Stub: always returns false per spec. Real implementation would check against
-    /// AmenConnectSpacesCallableProxy.shared.runBeforeShareCheck.
-    private func shouldShowConvictionCheck(for body: String) -> Bool {
-        // Stub — always false per spec instructions.
-        return false
+    /// Checks whether the body warrants a conviction pause by calling the real Aegis service.
+    /// Returns false on any error — Aegis failure must never block the user from sending.
+    private func shouldShowConvictionCheck(for body: String, spaceId: String) async -> Bool {
+        guard !body.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        do {
+            let check = try await AmenConnectSpacesAegisService.shared.checkConviction(
+                spaceId: spaceId,
+                body: body
+            )
+            return check.suggestedPause
+        } catch {
+            return false // never block on Aegis failure
+        }
     }
 
     func requestSend() {
         let body = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
+        let capturedSpaceId = spaceId
 
-        if shouldShowConvictionCheck(for: body) {
-            pendingBody = body
-            showConvictionSheet = true
-        } else {
+        Task {
+            // 1. Conviction check (care signals)
+            let pause = await shouldShowConvictionCheck(for: body, spaceId: capturedSpaceId)
+            if pause {
+                pendingBody = body
+                showConvictionSheet = true
+                return
+            }
+
+            // 2. Before-share check (gossip / slander / PII / PHI / financial)
+            do {
+                let warnings = try await AmenConnectSpacesAegisService.shared.checkBeforeShare(
+                    surface: .spaces,
+                    text: body
+                )
+                if !warnings.isEmpty {
+                    pendingBody = body
+                    activeBeforeShareWarnings = warnings
+                    showBeforeShareSheet = true
+                    return
+                }
+            } catch {
+                // Never block on Aegis failure — proceed with send
+            }
+
             performSend(body: body)
         }
     }
@@ -75,6 +107,24 @@ final class AmenMinistryRoomChatViewModel: ObservableObject {
 
     func dismissConviction() {
         showConvictionSheet = false
+        pendingBody = ""
+    }
+
+    func confirmSendFromBeforeShare() {
+        let body = pendingBody
+        pendingBody = ""
+        activeBeforeShareWarnings = []
+        showBeforeShareSheet = false
+        performSend(body: body)
+    }
+
+    func dismissBeforeShare() {
+        showBeforeShareSheet = false
+        activeBeforeShareWarnings = []
+        // Restore composer text so the user can edit
+        if composerText.isEmpty {
+            composerText = pendingBody
+        }
         pendingBody = ""
     }
 
@@ -200,6 +250,13 @@ struct AmenMinistryRoomChatView: View {
         }
         .sheet(isPresented: $viewModel.showConvictionSheet) {
             convictionSheet
+        }
+        .sheet(isPresented: $viewModel.showBeforeShareSheet) {
+            AmenBeforeShareCheckView(
+                warnings: viewModel.activeBeforeShareWarnings,
+                onProceed: { viewModel.confirmSendFromBeforeShare() },
+                onEdit: { viewModel.dismissBeforeShare() }
+            )
         }
     }
 
@@ -371,7 +428,7 @@ struct AmenMinistryRoomMessageRow: View {
     }
 
     private func intentChips(_ intents: [AmenConnectSpacesMessageIntent]) -> some View {
-        FlowLayout(spacing: 4) {
+        MinistryFlowLayout(spacing: 4) {
             ForEach(intents, id: \.self) { intent in
                 Text(intent.displayLabel)
                     .font(.system(size: 10, weight: .semibold))
@@ -416,7 +473,7 @@ struct AmenMinistryRoomMessageRow: View {
 
 // MARK: - FlowLayout (simple horizontal-wrapping layout for intent chips)
 
-struct FlowLayout: Layout {
+struct MinistryFlowLayout: Layout {
     var spacing: CGFloat = 4
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {

@@ -30,8 +30,8 @@ final class FindChurchLivingEntryBridge {
             body: "You saved this church. Want to check service times or directions?",
             dueAt: Self.nextSundayMorning(),
             triggerRules: [
-                LivingEntryTriggerRule(type: .beforeService, churchId: church.canonicalChurchId, beforeEventMinutes: 90),
-                LivingEntryTriggerRule(type: .churchProximity, locationRadiusMeters: 350, churchId: church.canonicalChurchId)
+                LivingEntryTriggerRule(type: .beforeService, churchId: church.id.uuidString, beforeEventMinutes: 90),
+                LivingEntryTriggerRule(type: .churchProximity, locationRadiusMeters: 350, churchId: church.id.uuidString)
             ]
         )
     }
@@ -46,7 +46,7 @@ final class FindChurchLivingEntryBridge {
             body: "Capture what stood out, what felt welcoming, and whether to return.",
             dueAt: Calendar.current.date(byAdding: .hour, value: 4, to: Date()),
             triggerRules: [
-                LivingEntryTriggerRule(type: .afterChurch, churchId: church.canonicalChurchId, afterEventMinutes: 180),
+                LivingEntryTriggerRule(type: .afterChurch, churchId: church.id.uuidString, afterEventMinutes: 180),
                 LivingEntryTriggerRule(type: .quietMoment, minQuietMinutes: 12)
             ]
         )
@@ -62,7 +62,7 @@ final class FindChurchLivingEntryBridge {
             body: "Amen can keep this visible before service and after you leave.",
             dueAt: Self.nextSundayMorning(),
             triggerRules: [
-                LivingEntryTriggerRule(type: .beforeService, churchId: church.canonicalChurchId, beforeEventMinutes: 60),
+                LivingEntryTriggerRule(type: .beforeService, churchId: church.id.uuidString, beforeEventMinutes: 60),
                 LivingEntryTriggerRule(type: .time, scheduledAt: Self.nextSundayMorning())
             ]
         )
@@ -78,7 +78,7 @@ final class FindChurchLivingEntryBridge {
             body: "Take notes after visiting, or pray about whether this is a good fit.",
             dueAt: Calendar.current.date(byAdding: .hour, value: 3, to: Date()),
             triggerRules: [
-                LivingEntryTriggerRule(type: .afterChurch, churchId: church.canonicalChurchId, afterEventMinutes: 180),
+                LivingEntryTriggerRule(type: .afterChurch, churchId: church.id.uuidString, afterEventMinutes: 180),
                 LivingEntryTriggerRule(type: .quietMoment, minQuietMinutes: 8)
             ]
         )
@@ -95,7 +95,7 @@ final class FindChurchLivingEntryBridge {
         triggerRules: [LivingEntryTriggerRule]
     ) async {
         guard let userId = FirebaseManager.shared.currentUser?.uid else { return }
-        let tag = "find_church:\(church.canonicalChurchId):\(sourceKey)"
+        let tag = "find_church:\(church.id.uuidString):\(sourceKey)"
         do {
             let existing = try await Firestore.firestore()
                 .collection("users")
@@ -115,7 +115,7 @@ final class FindChurchLivingEntryBridge {
                 intent: intent,
                 title: title,
                 body: body,
-                churchId: church.canonicalChurchId,
+                churchId: church.id.uuidString,
                 churchName: church.name,
                 tags: [tag, "find_church"],
                 dueAt: dueAt,
@@ -125,7 +125,7 @@ final class FindChurchLivingEntryBridge {
                 regretRisk: 0.18,
                 spiritualWeight: 0.68,
                 triggerRules: triggerRules,
-                contextSnapshot: .current(sourceSurface: .findChurch, nearbyChurchId: church.canonicalChurchId),
+                contextSnapshot: .current(sourceSurface: .findChurch, nearbyChurchId: church.id.uuidString),
                 suggestedNextAction: "Open directions or take notes after you visit.",
                 reflectionPrompt: "Was this church visit meaningful, mistimed, or still undecided?"
             )

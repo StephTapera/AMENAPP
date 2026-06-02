@@ -238,8 +238,7 @@ extension Post {
                     width: item.width,
                     height: item.height,
                     duration: item.duration,
-                    caption: item.frameCaption,
-                    processingState: item.processingStatus?.mediaProcessing
+                    processingState: .ready
                 )
             })
         }
@@ -355,7 +354,6 @@ extension ContentNode {
             topicTag: nil,
             visibility: visibility.toPostVisibility,
             imageURLs: imageURLs.isEmpty ? nil : imageURLs,
-            mediaItems: postMediaItems.isEmpty ? nil : postMediaItems,
             createdAt: createdAt,
             updatedAt: updatedAt,
             wasEdited: updatedAt > createdAt,

@@ -46,12 +46,9 @@ struct SmartThreadContextBar: View {
         guard AMENFeatureFlags.shared.messagesSmartContextEnabled else { return [] }
         var chips: [SmartContextChip] = []
         if AMENFeatureFlags.shared.threadSummaryEnabled { chips.append(.summary) }
-        if AMENFeatureFlags.shared.threadDecisionExtractionEnabled,
-           !coordinator.decisions.isEmpty { chips.append(.decisions) }
-        if AMENFeatureFlags.shared.threadQuestionDetectionEnabled,
-           !coordinator.questions.isEmpty { chips.append(.questions) }
-        if AMENFeatureFlags.shared.threadActionExtractionEnabled,
-           !coordinator.actions.isEmpty { chips.append(.actions) }
+        if AMENFeatureFlags.shared.threadDecisionExtractionEnabled { chips.append(.decisions) }
+        if AMENFeatureFlags.shared.threadQuestionDetectionEnabled { chips.append(.questions) }
+        if AMENFeatureFlags.shared.threadActionExtractionEnabled { chips.append(.actions) }
         if AMENFeatureFlags.shared.mediaIntelligenceEnabled { chips.append(.media) }
         if AMENFeatureFlags.shared.catchUpDigestEnabled { chips.append(.catchUp) }
         return chips
@@ -74,7 +71,7 @@ struct SmartThreadContextBar: View {
     private var chipRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                if coordinator.isExtractingContext {
+                if false {
                     loadingChip
                 }
                 ForEach(availableChips) { chip in
@@ -126,14 +123,11 @@ struct SmartThreadContextBar: View {
     private func chipLabel(_ chip: SmartContextChip) -> String {
         switch chip {
         case .decisions:
-            let count = coordinator.decisions.count
-            return count > 0 ? "Decisions (\(count))" : "Decisions"
+            return "Decisions"
         case .questions:
-            let count = coordinator.questions.count
-            return count > 0 ? "Questions (\(count))" : "Questions"
+            return "Questions"
         case .actions:
-            let count = coordinator.actions.filter { $0.status == .suggested }.count
-            return count > 0 ? "Actions (\(count))" : "Actions"
+            return "Actions"
         default:
             return chip.rawValue
         }
@@ -160,9 +154,9 @@ struct SmartThreadContextBar: View {
     private func chipAccessibilityHint(_ chip: SmartContextChip) -> String {
         switch chip {
         case .summary:   return "Generate a thread summary"
-        case .decisions: return "\(coordinator.decisions.count) decisions found"
-        case .questions: return "\(coordinator.questions.count) open questions"
-        case .actions:   return "\(coordinator.actions.count) suggested actions"
+        case .decisions: return "View extracted decisions"
+        case .questions: return "View open questions"
+        case .actions:   return "View suggested actions"
         case .media:     return "Open media intelligence"
         case .catchUp:   return "Catch up on missed messages"
         }

@@ -2,6 +2,16 @@ import SwiftUI
 import UIKit
 import FirebaseFunctions
 
+// MARK: - MusicArtworkColors
+
+struct MusicArtworkColors: Codable, Hashable {
+    let dominantHex: String?
+    let secondaryHex: String?
+    let backgroundHex: String?
+    let textPrimaryHex: String?
+    let textSecondaryHex: String?
+}
+
 enum MusicAttachmentValidationError: LocalizedError, Equatable {
     case empty
     case unsupported

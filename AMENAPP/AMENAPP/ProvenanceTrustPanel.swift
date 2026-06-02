@@ -134,7 +134,7 @@ struct ProvenanceTrustPanel: View {
                 }
 
                 // Disclosure status
-                if provenance.requiresDisclosureBadge {
+                if provenance.disclosureRequired && !provenance.disclosureSatisfied {
                     ProvenanceDisclosureRequiredCard()
                 }
             } else {
@@ -388,8 +388,8 @@ private struct AIDisclosureRow: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
                 Spacer()
-                if let provider = disclosure.modelProvider {
-                    Text(provider)
+                if !disclosure.modelProvider.isEmpty {
+                    Text(disclosure.modelProvider)
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }

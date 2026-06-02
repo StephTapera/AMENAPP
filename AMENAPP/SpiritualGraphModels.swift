@@ -169,3 +169,45 @@ struct AmbientGlassState: Codable, Hashable {
     let quietMode: Bool
     let prayerMode: Bool
 }
+
+// MARK: - Church Grounding Types
+
+enum ChurchConfidenceLevel: String, Codable, CaseIterable, Hashable {
+    case low      = "low"
+    case medium   = "medium"
+    case high     = "high"
+    case verified = "verified"
+}
+
+enum ChurchGroundingSourceType: String, Codable, CaseIterable, Hashable {
+    case verifiedMetadata = "verifiedMetadata"
+    case adminProvided    = "adminProvided"
+    case approvedMedia    = "approvedMedia"
+    case publicRecord     = "publicRecord"
+    case userContributed  = "userContributed"
+}
+
+struct ChurchGroundingSource: Codable, Hashable, Identifiable {
+    let id: String
+    let type: ChurchGroundingSourceType
+    let title: String
+    let detail: String?
+    let url: String?
+    let verified: Bool
+    let updatedAt: Date?
+}
+
+struct ChurchConfidenceMetadata: Codable, Hashable {
+    let confidence: Double
+    let level: ChurchConfidenceLevel
+    let sources: [ChurchGroundingSource]
+    let note: String
+    let updatedAt: Date?
+}
+
+struct GroundedChurchAnswer: Codable, Hashable {
+    let response: String
+    let confidence: ChurchConfidenceMetadata
+    let sources: [ChurchGroundingSource]
+    let fallbackMessage: String?
+}

@@ -32,6 +32,11 @@ struct MediaGridView: View {
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
 
+    /// Initialize directly from pre-built MediaGridItem array.
+    init(items: [MediaGridItem], sourceContext: MediaSourceContext = .profile) {
+        self.mediaItems = items
+    }
+
     /// Initialize from Post array (own profile).
     init(posts: [Post]) {
         var items: [MediaGridItem] = []

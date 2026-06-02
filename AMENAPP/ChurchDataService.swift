@@ -476,6 +476,26 @@ class ChurchDataService {
             havePlannedVisit: relation?.relation == .interested
         )
     }
+
+    /// Load the enriched detail payload for ChurchDetailExperience.
+    func loadChurchDetailPayload(for church: Church) async throws -> ChurchDetailPayload {
+        return ChurchDetailPayload(
+            entity: nil,
+            heroImageURL: nil,
+            logoURL: nil,
+            about: nil,
+            typeLabel: "Church",
+            city: nil,
+            state: nil,
+            verified: false,
+            livestreamURL: nil,
+            denomination: church.denomination,
+            accessibilityTags: [],
+            media: [],
+            liveState: nil,
+            experienceSummary: nil
+        )
+    }
 }
 
 // MARK: - Errors

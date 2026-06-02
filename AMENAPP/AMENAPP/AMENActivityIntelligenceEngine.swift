@@ -11,6 +11,8 @@
 
 import Foundation
 import SwiftUI
+import FirebaseCore
+import FirebaseFirestore
 
 // MARK: - Activity Priority
 
@@ -335,7 +337,7 @@ enum AMENActivityIntelligenceEngine {
         // Comments / replies / mentions
         if types.contains(.comment) || types.contains(.reply) || types.contains(.mention) {
             switch count {
-            case 1:  return "\(first) \(primary.type.actionText)"
+            case 1:  return "\(first) \(primary.actionText)"
             case 2:  return "\(first) and \(second ?? "another") commented on your post"
             default: return "\(first) and \(count - 1) others commented on your post"
             }
@@ -344,13 +346,13 @@ enum AMENActivityIntelligenceEngine {
         // Amens / reactions (quiet group)
         if types.isSubset(of: [.amen, .repost]) {
             return count == 1
-                ? "\(first) \(primary.type.actionText)"
+                ? "\(first) \(primary.actionText)"
                 : "\(first) and \(count - 1) others reacted to your post"
         }
 
         // Default
         return count == 1
-            ? "\(first) \(primary.type.actionText)"
+            ? "\(first) \(primary.actionText)"
             : "\(first) and \(count - 1) others interacted with your content"
     }
 
@@ -373,7 +375,7 @@ enum AMENActivityIntelligenceEngine {
         // Comment snippet preview
         if let text = primary.commentText, !text.isEmpty {
             let preview = String(text.prefix(80))
-            return preview.count < text.count ? ""\(preview)…"" : ""\(preview)""
+            return preview.count < text.count ? "\u{201C}\(preview)…\u{201D}" : "\u{201C}\(preview)\u{201D}"
         }
         return nil
     }

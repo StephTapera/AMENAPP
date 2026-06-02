@@ -5,7 +5,7 @@ struct AmenObjectHubHeader: View {
     let hub: AmenCommunityHub
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityContrast) private var accessibilityContrast
+    @Environment(\.colorSchemeContrast) private var accessibilityContrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var appeared = false
@@ -174,6 +174,19 @@ struct AmenObjectHubHeader: View {
         case .appleMusic: return "Apple Music"
         case .spotify: return "Spotify"
         case .youtube: return "YouTube"
+        case .instagram: return "Instagram"
+        case .threads: return "Threads"
+        case .tikTok: return "TikTok"
+        case .x: return "X"
+        case .facebook: return "Facebook"
+        case .linkedIn: return "LinkedIn"
+        case .applePodcasts: return "Apple Podcasts"
+        case .medium: return "Medium"
+        case .substack: return "Substack"
+        case .rss: return "RSS"
+        case .bibleGateway: return "Bible Gateway"
+        case .youVersion: return "YouVersion"
+        case .eventbrite: return "Eventbrite"
         case .generic: return "Link"
         }
     }

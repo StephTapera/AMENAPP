@@ -252,7 +252,7 @@ struct YourFeedView: View {
 
     private var feedModeSection: some View {
         VStack(spacing: 8) {
-            ForEach(FeedMode.allCases, id: \.self) { mode in
+            ForEach(HeyFeedMode.allCases, id: \.self) { mode in
                 feedModeRow(mode)
             }
         }
@@ -260,7 +260,7 @@ struct YourFeedView: View {
         .padding(.bottom, 16)
     }
 
-    private func feedModeRow(_ mode: FeedMode) -> some View {
+    private func feedModeRow(_ mode: HeyFeedMode) -> some View {
         let isSelected = prefsSvc.preferences.mode == mode
         return Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -851,9 +851,9 @@ struct YourFeedView: View {
     ]
 }
 
-// MARK: - FeedMode icon extension
+// MARK: - HeyFeedMode icon extension
 
-extension FeedMode {
+extension HeyFeedMode {
     var icon: String {
         switch self {
         case .balanced:         return "equal.circle"

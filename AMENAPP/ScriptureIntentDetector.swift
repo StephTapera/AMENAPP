@@ -9,12 +9,18 @@
 
 import Foundation
 
+struct BereanScriptureChip: Equatable {
+    let reference: String
+    let text: String
+    let translation: String
+}
+
 struct ScriptureIntentResult {
-    let verse: BibleVerse
+    let verse: BereanScriptureChip
     let confidence: Double   // 0.0 - 1.0
     let reason: String       // e.g. "Suggested from your draft"
     let matchType: MatchType
-    
+
     enum MatchType {
         case exactPhrase
         case referenceTyped
@@ -171,7 +177,7 @@ final class ScriptureIntentDetector {
             for phrase in entry.phrases {
                 if lowered.contains(phrase) {
                     return ScriptureIntentResult(
-                        verse: BibleVerse(reference: entry.reference, text: entry.text, translation: entry.translation),
+                        verse: BereanScriptureChip(reference: entry.reference, text: entry.text, translation: entry.translation),
                         confidence: 0.95,
                         reason: "Suggested from your draft",
                         matchType: .exactPhrase
@@ -186,7 +192,7 @@ final class ScriptureIntentDetector {
            let swiftRange = Range(match.range, in: text) {
             let ref = String(text[swiftRange]).trimmingCharacters(in: .whitespaces)
             return ScriptureIntentResult(
-                verse: BibleVerse(reference: ref, text: "", translation: "NIV"),
+                verse: BereanScriptureChip(reference: ref, text: "", translation: "NIV"),
                 confidence: 0.9,
                 reason: "Reference detected",
                 matchType: .referenceTyped
@@ -213,7 +219,7 @@ final class ScriptureIntentDetector {
         if let best = bestMatch {
             let confidence = min(Double(best.score) * 0.35, 0.85)
             return ScriptureIntentResult(
-                verse: BibleVerse(reference: best.entry.reference, text: best.entry.text, translation: best.entry.translation),
+                verse: BereanScriptureChip(reference: best.entry.reference, text: best.entry.text, translation: best.entry.translation),
                 confidence: confidence,
                 reason: best.entry.label,
                 matchType: .themeInference
@@ -222,7 +228,7 @@ final class ScriptureIntentDetector {
         
         // No match
         return ScriptureIntentResult(
-            verse: BibleVerse(reference: "", text: "", translation: ""),
+            verse: BereanScriptureChip(reference: "", text: "", translation: ""),
             confidence: 0,
             reason: "",
             matchType: .themeInference

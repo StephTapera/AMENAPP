@@ -71,6 +71,19 @@ enum UserDefaultsKeys {
 
     /// Last launched app version (for detecting updates)
     static let lastLaunchedVersion = "lastLaunchedVersion"
+
+    // MARK: - Daily Verse Cache
+
+    /// Cached serialized PersonalizedDailyVerse (Data)
+    static let cachedDailyVerse = "cachedDailyVerse"
+
+    /// Date the cached daily verse was fetched
+    static let cachedVerseDate = "cachedVerseDate"
+
+    // MARK: - Notifications
+
+    /// Notification focus-mode enabled flag
+    static let notificationFocusMode = "notificationFocusMode"
 }
 
 // MARK: - App Configuration

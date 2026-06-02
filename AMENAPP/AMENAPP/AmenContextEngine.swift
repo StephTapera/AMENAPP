@@ -188,8 +188,8 @@ enum AmenContextEngine {
             return (.read, ["article_intent"])
         case .genericLink:
             return (.read, ["generic_link"])
-        case .playlist:
-            return (.listen, ["playlist_intent"])
+        default:
+            return (.watch, ["default_intent"])
         }
     }
 

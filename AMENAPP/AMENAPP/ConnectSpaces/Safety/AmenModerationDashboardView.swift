@@ -180,7 +180,7 @@ private struct ReportsTabView: View {
     var body: some View {
         Group {
             if isLoading {
-                loadingView
+                loadingView()
             } else if reports.isEmpty {
                 emptyView(icon: "flag.slash", message: "No reports at this time.")
             } else {
@@ -289,7 +289,7 @@ private struct JoinRequestsTabView: View {
     var body: some View {
         Group {
             if isLoading {
-                loadingView
+                loadingView()
             } else if requests.isEmpty {
                 emptyView(icon: "person.badge.clock", message: "No pending join requests.")
             } else {
@@ -454,7 +454,7 @@ private struct MembersTabView: View {
 
             Group {
                 if isLoading {
-                    loadingView
+                    loadingView()
                 } else if filteredMembers.isEmpty {
                     emptyView(icon: "person.2.slash", message: searchText.isEmpty ? "No members yet." : "No members match your search.")
                 } else {

@@ -27,17 +27,14 @@ struct BereanAlignmentSettingsView: View {
         Form {
             Section("Mode") {
                 Toggle("Simple Mode", isOn: $simpleModeEnabled)
-                Picker("Discernment Mode", selection: Binding(
-                    get: { discernmentMode },
-                    set: { discernmentMode = $0 }
-                )) {
+                Picker("Discernment Mode", selection: $discernmentModeRaw) {
                     ForEach(DiscernmentMode.allCases) { mode in
-                        Text(mode.rawValue.capitalized).tag(mode)
+                        Text(mode.rawValue.capitalized).tag(mode.rawValue)
                     }
                 }
                 Picker("Default Lens", selection: Binding(
-                    get: { defaultLens },
-                    set: { defaultLens = $0 }
+                    get: { AlignmentLens(rawValue: defaultLensRaw) ?? .balancedBiblical },
+                    set: { defaultLensRaw = $0.rawValue }
                 )) {
                     ForEach(AlignmentLens.allCases) { lens in
                         Text(lens.title).tag(lens)

@@ -368,7 +368,7 @@ final class SelahReflectionService {
         guard !reflection.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw SelahReflectionError.emptyText
         }
-        let ref = try db.collection("users").document(userId)
+        let ref = try await db.collection("users").document(userId)
             .collection("selah_reflections")
             .addDocument(data: [
                 "userId": userId,

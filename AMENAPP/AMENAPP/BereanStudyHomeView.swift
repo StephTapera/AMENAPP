@@ -217,7 +217,7 @@ private struct BereanChatListTab: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(quickPrompts, id: \.self) { prompt in
-                        BereanSuggestionChip(text: prompt, icon: "bubble.left", action: onNewChat)
+                        BereanSuggestionChip(text: prompt, icon: "bubble.left", onTap: onNewChat)
                     }
                 }
                 .padding(.horizontal, 18)
@@ -452,7 +452,7 @@ private struct BereanLeaderOptionRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.tertiary)
+                .foregroundColor(Color(.tertiaryLabel))
         }
         .padding(14)
         .background(
@@ -503,7 +503,7 @@ private struct BereanRecentChatsList: View {
                         Spacer()
                         Text(session.relativeTimestamp)
                             .font(AMENFont.regular(11))
-                            .foregroundColor(.tertiary)
+                            .foregroundColor(Color(.tertiaryLabel))
                     }
                     .padding(.horizontal, 18)
                     .padding(.vertical, 10)

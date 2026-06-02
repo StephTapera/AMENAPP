@@ -409,7 +409,7 @@ private struct TimelineTab: View {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(vm.timeline.enumerated()), id: \.element.id) { idx, entry in
-                            TimelineRow(entry: entry, isLast: idx == vm.timeline.count - 1) {
+                            LegacyTimelineRow(entry: entry, isLast: idx == vm.timeline.count - 1) {
                                 selectedEntry = entry
                             }
                         }
@@ -439,7 +439,7 @@ private struct TimelineTab: View {
     }
 }
 
-private struct TimelineRow: View {
+private struct LegacyTimelineRow: View {
     let entry: LegacyEntry
     let isLast: Bool
     let onTap: () -> Void

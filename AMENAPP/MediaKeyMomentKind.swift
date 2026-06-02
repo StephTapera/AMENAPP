@@ -46,6 +46,13 @@ struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
         self.sortOrder = sortOrder
     }
 
+    var timestampLabel: String {
+        let total = max(Int(timestamp.rounded()), 0)
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+
+    var isPubliclyApproved: Bool { true }
+
     static func fallbackMoments(for duration: TimeInterval) -> [MediaKeyMoment] {
         let count = min(max(Int(duration / 15), 2), 4)
         let interval = duration / Double(count)

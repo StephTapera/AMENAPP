@@ -67,7 +67,7 @@ final class BereanVoiceSpeechService: NSObject, ObservableObject {
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
 
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest else { throw BereanVoiceError.requestFailed }
+        guard let recognitionRequest else { throw BereanVoiceError.audioEngineFailure("Failed to create recognition request") }
         recognitionRequest.shouldReportPartialResults = true
         recognitionRequest.requiresOnDeviceRecognition = false
 
@@ -132,17 +132,3 @@ extension BereanVoiceSpeechService: AVSpeechSynthesizerDelegate {
     }
 }
 
-// MARK: - Errors
-enum BereanVoiceError: LocalizedError {
-    case requestFailed
-    case permissionDenied
-    case recognizerUnavailable
-
-    var errorDescription: String? {
-        switch self {
-        case .requestFailed:         return "Could not start speech recognition."
-        case .permissionDenied:      return "Microphone or speech recognition access was denied."
-        case .recognizerUnavailable: return "Speech recognition is not available on this device."
-        }
-    }
-}

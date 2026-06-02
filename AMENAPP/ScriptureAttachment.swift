@@ -39,25 +39,46 @@ struct ScriptureAttachment: Codable, Equatable, Hashable, Identifiable {
     
     /// Create from a BibleVerse (bridge from existing system)
     static func from(verse: BibleVerse, source: AttachmentSource = .manualSearch) -> ScriptureAttachment {
-        let parsed = ScriptureReferenceParser.parse(verse.reference)
+        let refString = verse.reference.displayString
+        let bookName = verse.reference.book?.displayName ?? verse.reference.bookId.capitalized
+        return ScriptureAttachment(
+            id: UUID().uuidString,
+            book: bookName,
+            chapter: verse.reference.chapter,
+            verseStart: verse.number,
+            verseEnd: nil,
+            translation: "",
+            canonicalReference: refString,
+            displayReference: refString,
+            previewText: verse.text,
+            source: source,
+            createdAt: Date()
+        )
+    }
+
+    /// Create from a BereanScriptureChip (inline suggestion path)
+    static func from(chip: BereanScriptureChip, source: AttachmentSource = .inlineSuggestion) -> ScriptureAttachment {
+        let parsed = ScriptureReferenceParser.parse(chip.reference)
         return ScriptureAttachment(
             id: UUID().uuidString,
             book: parsed.book,
             chapter: parsed.chapter,
             verseStart: parsed.verseStart,
             verseEnd: parsed.verseEnd,
-            translation: verse.translation,
-            canonicalReference: verse.reference,
-            displayReference: verse.reference,
-            previewText: verse.text,
+            translation: chip.translation,
+            canonicalReference: chip.reference,
+            displayReference: chip.reference,
+            previewText: chip.text,
             source: source,
             createdAt: Date()
         )
     }
-    
+
     /// Convert back to BibleVerse for compatibility with existing drawer system
     var asBibleVerse: BibleVerse {
-        BibleVerse(reference: canonicalReference, text: previewText, translation: translation)
+        let bookId = BibleBook.all.first(where: { $0.displayName == book })?.id ?? book.lowercased()
+        let ref = ScriptureReference(bookId: bookId, chapter: chapter, startVerse: verseStart, endVerse: verseEnd)
+        return BibleVerse(reference: ref, number: verseStart, text: previewText)
     }
     
     /// Firestore-compatible dictionary

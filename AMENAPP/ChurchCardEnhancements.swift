@@ -386,13 +386,21 @@ struct FirstVisitGuideData {
     var serviceFlow: [String]
     var conversationStarters: [String]
     var cachedAt: Date?
+    var kidsProgramAvailable: Bool?
+    var expectedDurationMinutes: Int?
+    var serviceStyle: String?
+    var accessibilityFeatures: [String]?
 
     init(from d: [String: Any]) {
-        parking              = d["parking"]     as? String
-        arrivalTip           = d["arrivalTip"]  as? String
-        whatToWear           = d["whatToWear"]  as? String
-        serviceFlow          = (d["serviceFlow"]          as? [String]) ?? []
-        conversationStarters = (d["conversationStarters"] as? [String]) ?? []
+        parking                 = d["parking"]                 as? String
+        arrivalTip              = d["arrivalTip"]              as? String
+        whatToWear              = d["whatToWear"]              as? String
+        serviceFlow             = (d["serviceFlow"]            as? [String]) ?? []
+        conversationStarters    = (d["conversationStarters"]   as? [String]) ?? []
+        kidsProgramAvailable    = d["kidsProgramAvailable"]    as? Bool
+        expectedDurationMinutes = d["expectedDurationMinutes"] as? Int
+        serviceStyle            = d["serviceStyle"]            as? String
+        accessibilityFeatures   = d["accessibilityFeatures"]   as? [String]
         if let ts = d["cachedAt"] as? Timestamp { cachedAt = ts.dateValue() }
     }
 

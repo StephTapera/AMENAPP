@@ -69,7 +69,7 @@ final class VerseAttachmentViewModel: ObservableObject {
     // MARK: - Inline Suggestion
     
     @Published var showInlineSuggestion = false
-    @Published var inlineSuggestedVerse: BibleVerse?
+    @Published var inlineSuggestedVerse: BereanScriptureChip?
     @Published var inlineSuggestionLabel: String = ""
     
     // MARK: - Quick Replace
@@ -135,6 +135,24 @@ final class VerseAttachmentViewModel: ObservableObject {
         flowState = hasAttachment ? .attached : .idle
     }
     
+    /// Attach from inline scripture chip suggestion
+    func attachVerse(_ chip: BereanScriptureChip, source: ScriptureAttachment.AttachmentSource) {
+        let attachment = ScriptureAttachment.from(chip: chip, source: source)
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
+            attachedScripture = attachment
+            flowState = .attached
+        }
+        recentHistory.addVerse(attachment)
+        prefetchManager.prefetch(attachment: attachment)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        showMiniAttach = false
+        showFullSheet = false
+        showQuickReplace = false
+        searchQuery = ""
+        selectedSearchVerse = nil
+        searchResults = []
+    }
+
     /// Attach a verse
     func attachVerse(_ verse: BibleVerse, source: ScriptureAttachment.AttachmentSource) {
         let attachment = ScriptureAttachment.from(verse: verse, source: source)
@@ -385,18 +403,18 @@ final class VerseAttachmentViewModel: ObservableObject {
         // Search by book name for related verses
         await searchEngine.search(query: current.book, translation: selectedTranslation, baseViewModel: baseVM)
         let related = searchEngine.results
-            .filter { $0.verse.reference != current.canonicalReference }
+            .filter { $0.verse.reference.displayString != current.canonicalReference }
             .prefix(3)
             .map { $0.verse }
         results.append(contentsOf: related)
-        
+
         // 2. Same topic if we can detect
         let topicResults = searchEngine.getTopicalSuggestions(
             topic: detectTopicFromVerse(current),
             translation: selectedTranslation
         )
         let topicVerses = topicResults
-            .filter { $0.verse.reference != current.canonicalReference }
+            .filter { $0.verse.reference.displayString != current.canonicalReference }
             .prefix(3)
             .map { $0.verse }
         results.append(contentsOf: topicVerses)
@@ -411,7 +429,7 @@ final class VerseAttachmentViewModel: ObservableObject {
         // Deduplicate
         var seen = Set<String>()
         quickReplaceResults = results.filter { verse in
-            let key = verse.reference
+            let key = verse.reference.displayString
             if seen.contains(key) { return false }
             seen.insert(key)
             return true

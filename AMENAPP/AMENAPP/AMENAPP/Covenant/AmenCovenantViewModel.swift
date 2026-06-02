@@ -158,7 +158,7 @@ final class AmenCovenantViewModel: ObservableObject {
         case .moderation(let cid):
             AmenCovenantModerationView(covenantId: cid).environmentObject(self)
         case .memberDirectory(let cid):
-            AmenCovenantMemberDirectoryView(covenantId: cid).environmentObject(self)
+            AmenCovenantMemberDirectoryView(covenantId: cid, directoryVisibility: .membersVisible).environmentObject(self)
         case .contentCalendar(let cid):
             AmenCovenantContentCalendarView(covenantId: cid).environmentObject(self)
         case .verification:

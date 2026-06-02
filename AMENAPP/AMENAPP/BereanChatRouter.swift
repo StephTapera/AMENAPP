@@ -64,9 +64,7 @@ struct BereanChatRouteView: View {
             BereanChatView(
                 initialMode: initialMode,
                 initialQuery: initialQuery,
-                conversationTitle: conversationTitle,
-                postContext: postContext,
-                existingSessionId: existingSessionId
+                conversationTitle: conversationTitle
             )
         case .structured:
             BereanConversationView(

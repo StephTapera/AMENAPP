@@ -6,14 +6,14 @@ import UIKit
 // Pass resolved MentionEntity array alongside the raw body string.
 
 struct AmenMentionTextView: View {
-    let body: String
+    let text: String
     let mentions: [MentionEntity]
     var font: Font = .body
     var onMentionTap: ((MentionEntity) -> Void)? = nil
 
     var body: some View {
         _MentionAttributedText(
-            body: body,
+            text: text,
             mentions: mentions,
             font: font,
             onMentionTap: onMentionTap
@@ -24,7 +24,7 @@ struct AmenMentionTextView: View {
 // MARK: - UIViewRepresentable bridge
 
 private struct _MentionAttributedText: UIViewRepresentable {
-    let body: String
+    let text: String
     let mentions: [MentionEntity]
     let font: Font
     let onMentionTap: ((MentionEntity) -> Void)?
@@ -39,7 +39,7 @@ private struct _MentionAttributedText: UIViewRepresentable {
 
     func updateUIView(_ label: MentionLabel, context: Context) {
         label.mentions = mentions
-        label.setBody(body, uiFont: resolvedUIFont, mentions: mentions)
+        label.setBody(text, uiFont: resolvedUIFont, mentions: mentions)
         label.onMentionTap = onMentionTap
     }
 
@@ -125,7 +125,7 @@ final class MentionLabel: UILabel {
 
 // MARK: - Composer Mention Autocomplete Row
 
-struct MentionSuggestionRow: View {
+struct AmenMentionSuggestionRow: View {
     let display: String
     let subtitle: String?
     let avatarURL: String?

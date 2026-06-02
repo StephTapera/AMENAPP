@@ -10,7 +10,7 @@
 import SwiftUI
 
 struct InlineScriptureSuggestionBar: View {
-    let verse: BibleVerse
+    let verse: BereanScriptureChip
     let label: String
     let onAttach: () -> Void
     let onDismiss: () -> Void

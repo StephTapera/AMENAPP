@@ -122,9 +122,3 @@ final class AmbientPresenceIntelligence: ObservableObject {
         }
     }
 }
-
-private extension ChurchEntity.GeoPoint {
-    var clLocation: CLLocation {
-        CLLocation(latitude: latitude, longitude: longitude)
-    }
-}

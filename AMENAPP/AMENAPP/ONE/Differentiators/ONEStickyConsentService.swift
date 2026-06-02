@@ -58,19 +58,26 @@ actor ONEStickyConsentService {
 
     // MARK: - Relay attachment
 
-    /// Attaches the source's ConsentDNA to a relay copy, taking the stricter of the two.
-    /// Call before `one_relayMoment` — server will also validate on ingest (P5).
-    func attachConsentDNA(from source: ONEMoment, onto relay: inout ONEMoment) {
+    /// Returns the merged ConsentDNA for a relay hop, taking the stricter of the two.
+    /// ONEMoment.consentDNA is `let`, so callers must construct a new ONEMoment.
+    /// Call before `one_relayMoment` — server also validates on ingest (P5).
+    func mergedConsentDNA(from source: ONEMoment, relayContext relay: ONEMoment) -> ONEConsentDNA {
         let s = source.consentDNA.permissions
         let r = relay.consentDNA.permissions
-        relay.consentDNA.permissions = ONEMomentPermissions(
-            forwardAllowed:    s.forwardAllowed    && r.forwardAllowed,
-            saveAllowed:       s.saveAllowed       && r.saveAllowed,
-            quoteAllowed:      s.quoteAllowed      && r.quoteAllowed,
-            reactAllowed:      s.reactAllowed      && r.reactAllowed,
-            translateAllowed:  s.translateAllowed  && r.translateAllowed,
-            summarizeAllowed:  s.summarizeAllowed  && r.summarizeAllowed,
-            aiTrainingAllowed: s.aiTrainingAllowed && r.aiTrainingAllowed
+        return ONEConsentDNA(
+            momentID: relay.consentDNA.momentID,
+            authorUID: relay.consentDNA.authorUID,
+            permissions: ONEMomentPermissions(
+                forwardAllowed:    s.forwardAllowed    && r.forwardAllowed,
+                saveAllowed:       s.saveAllowed       && r.saveAllowed,
+                quoteAllowed:      s.quoteAllowed      && r.quoteAllowed,
+                reactAllowed:      s.reactAllowed      && r.reactAllowed,
+                translateAllowed:  s.translateAllowed  && r.translateAllowed,
+                summarizeAllowed:  s.summarizeAllowed  && r.summarizeAllowed,
+                aiTrainingAllowed: s.aiTrainingAllowed && r.aiTrainingAllowed
+            ),
+            issuedAt: relay.consentDNA.issuedAt,
+            consentVersion: relay.consentDNA.consentVersion
         )
     }
 

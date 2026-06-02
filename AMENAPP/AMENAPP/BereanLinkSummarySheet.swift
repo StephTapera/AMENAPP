@@ -103,7 +103,7 @@ struct BereanLinkSummarySheet: View {
                 if !analysis.keyThemes.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         sectionLabel("Key themes")
-                        FlowLayout(spacing: 8) {
+                        AMENFlowLayout(spacing: 8) {
                             ForEach(analysis.keyThemes, id: \.self) { theme in
                                 Text(theme)
                                     .font(.caption.weight(.medium))
@@ -137,7 +137,7 @@ struct BereanLinkSummarySheet: View {
                 if !analysis.scriptureReferencesFound.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         sectionLabel("Scripture mentioned in this content")
-                        FlowLayout(spacing: 8) {
+                        AMENFlowLayout(spacing: 8) {
                             ForEach(analysis.scriptureReferencesFound, id: \.self) { ref in
                                 Text(ref)
                                     .font(.caption.weight(.semibold))

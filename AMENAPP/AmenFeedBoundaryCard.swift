@@ -85,7 +85,7 @@ struct AlgorithmControlCenterView: View {
     var body: some View {
         List {
             Section("Feed Mode") {
-                ForEach(FeedMode.allCases, id: \.self) { mode in
+                ForEach(HeyFeedMode.allCases, id: \.self) { mode in
                     let isSelected = feedControl.state.activeMode == mode
                     Button {
                         Task {
@@ -155,7 +155,7 @@ private extension SafetyRiskCategory {
     }
 }
 
-private extension FeedMode {
+private extension HeyFeedMode {
     var subtitle: String {
         switch self {
         case .balanced: return "Default experience with community signals"

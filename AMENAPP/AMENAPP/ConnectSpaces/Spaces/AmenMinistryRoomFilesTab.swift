@@ -29,11 +29,11 @@ private struct AmenFileRow: View {
             // File type icon
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.amenBlue.opacity(0.15))
+                    .fill(Color(hex: "245B8F").opacity(0.15))
                     .frame(width: 40, height: 40)
                 Image(systemName: file.icon)
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(Color.amenBlue)
+                    .foregroundStyle(Color(hex: "245B8F"))
             }
             .accessibilityHidden(true)
 
@@ -93,10 +93,10 @@ struct AmenMinistryRoomFilesTab: View {
                     .padding(.bottom, 20)
                     .accessibilityLabel("File sync requires ministry plan.")
             }
-            .background(Color.amenBlack)
+            .background(Color(hex: "070607"))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(Color.amenBlack)
+        .background(Color(hex: "070607"))
         .overlay(alignment: .bottom) {
             if showUploadToast {
                 uploadToast
@@ -116,7 +116,7 @@ struct AmenMinistryRoomFilesTab: View {
         HStack(spacing: 10) {
             Image(systemName: "folder.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color(hex: "D9A441"))
                 .accessibilityHidden(true)
 
             Text("Files")

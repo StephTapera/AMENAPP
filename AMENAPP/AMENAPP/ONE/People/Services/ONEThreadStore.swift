@@ -114,7 +114,7 @@ final class ONEThreadStore: ObservableObject {
                     ciphertext: msg.ciphertext,
                     epoch: msg.epoch,
                     senderDeviceID: msg.senderDeviceID,
-                    encryptionVersion: msg.encryptionVersion
+                    encryptionVersion: "cr_1.0"
                 )
                 let plainData = try await cryptoService.decrypt(payload, threadID: threadID)
                 decrypted[msg.id] = String(data: plainData, encoding: .utf8) ?? ""

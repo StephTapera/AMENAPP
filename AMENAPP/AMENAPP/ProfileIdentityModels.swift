@@ -338,3 +338,8 @@ struct UserProfileIdentity: Codable {
         || cityRegion != nil
     }
 }
+
+extension UserProfileIdentity {
+    var churchAffiliationName: String? { nil }
+    var churchAffiliationId: String? { nil }
+}

@@ -380,8 +380,6 @@ private struct CachedHolidayContext: Codable {
     }
 }
 
-extension HolidayBannerContent: Codable {}
-
 // MARK: - Daily Verse Holiday Context (for Cloud Function + Berean)
 
 /// Passed to the generateDailyVerse Cloud Function when a holiday is active.

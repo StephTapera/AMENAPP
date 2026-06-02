@@ -320,14 +320,14 @@ enum ReportStatus: String, Codable {
 // MARK: - Feed Control State
 
 struct FeedControlState: Codable {
-    var activeMode: FeedMode
+    var activeMode: HeyFeedMode
     var blockedCategories: Set<SafetyRiskCategory>
     var sessionDurationLimitMinutes: Int?
     var quietHoursStart: String?
     var quietHoursEnd: String?
 
     init(
-        activeMode: FeedMode = .balanced,
+        activeMode: HeyFeedMode = .balanced,
         blockedCategories: Set<SafetyRiskCategory> = [],
         sessionDurationLimitMinutes: Int? = nil,
         quietHoursStart: String? = nil,
@@ -350,8 +350,8 @@ struct FeedControlState: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let rawMode = try container.decodeIfPresent(String.self, forKey: .mode) ?? FeedMode.balanced.rawValue
-        activeMode = FeedMode(rawValue: rawMode) ?? .balanced
+        let rawMode = try container.decodeIfPresent(String.self, forKey: .mode) ?? HeyFeedMode.balanced.rawValue
+        activeMode = HeyFeedMode(rawValue: rawMode) ?? .balanced
         let rawCategories = try container.decodeIfPresent([String].self, forKey: .categories) ?? []
         blockedCategories = Set(rawCategories.compactMap(SafetyRiskCategory.init(rawValue:)))
         sessionDurationLimitMinutes = try container.decodeIfPresent(Int.self, forKey: .sessionDurationLimitMinutes)
