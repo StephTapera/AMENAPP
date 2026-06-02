@@ -44,6 +44,7 @@ struct PollComposerCard: View {
                                 .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityHidden(true)
 
                         TextField(index < 2 ? "Option \(index + 1)" : "Add option \(index + 1)",
                                   text: $options[index])
