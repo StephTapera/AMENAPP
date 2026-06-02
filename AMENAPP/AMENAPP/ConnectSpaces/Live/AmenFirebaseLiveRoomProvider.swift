@@ -177,7 +177,7 @@ final class AmenFirebaseLiveRoomProvider: NSObject, AmenLiveRoomProvider, Observ
         sessionQueue.async { [weak self] in
             let session = AVCaptureSession()
             session.beginConfiguration()
-            session.sessionPreset = video ? .medium : .audio
+            session.sessionPreset = video ? .medium : .low
 
             if audio, let audioDevice = AVCaptureDevice.default(for: .audio),
                let audioInput = try? AVCaptureDeviceInput(device: audioDevice),

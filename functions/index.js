@@ -1201,3 +1201,57 @@ exports.cleanupContextOnLogout = spiritualOS.cleanupContextOnLogout;
 const { moderatePost, adminReviewPost } = require("./moderatePost");
 exports.moderatePost   = moderatePost;
 exports.adminReviewPost = adminReviewPost;
+
+// ============================================================================
+// AMEN SPACES — Monetization, Events, Live, AI Catch-up, Safety, Stripe
+//   Spaces Monetization (spacesFunctions.js):
+//     createSpaceTier, getSpaceEntitlement, processSubscription,
+//     processRefund, getPayoutSummary, hostKYCOnboarding
+//   Spaces Events (spacesEventsFunctions.js):
+//     createSpaceEvent, rsvpToEvent, sendEventBroadcast, listUpcomingEvents
+//   Spaces Live (spacesLiveFunctions.js):
+//     createLiveRoom, joinLiveRoom, endLiveRoom, raiseHand, muteParticipant
+//   Spaces AI (spacesAIFunctions.js):
+//     generateRecap, searchTranscripts, generateClip, studyCompanionQuery
+//   Spaces Safety (spacesSafetyFunctions.js):
+//     scanMessageForScam, verifyHost, submitModerationAction, reviewJoinRequest
+//   Spaces Stripe (spacesStripeFunctions.js):
+//     createStripeConnectAccount
+// Deploy: firebase deploy --only functions:createSpaceTier,...
+// ============================================================================
+
+const spacesMonetization = require("./spacesFunctions");
+exports.createSpaceTier        = spacesMonetization.createSpaceTier;
+exports.getSpaceEntitlement    = spacesMonetization.getSpaceEntitlement;
+exports.processSubscription    = spacesMonetization.processSubscription;
+exports.processRefund          = spacesMonetization.processRefund;
+exports.getPayoutSummary       = spacesMonetization.getPayoutSummary;
+exports.hostKYCOnboarding      = spacesMonetization.hostKYCOnboarding;
+
+const spacesEvents = require("./spacesEventsFunctions");
+exports.createSpaceEvent       = spacesEvents.createSpaceEvent;
+exports.rsvpToEvent            = spacesEvents.rsvpToEvent;
+exports.sendEventBroadcast     = spacesEvents.sendEventBroadcast;
+exports.listUpcomingEvents     = spacesEvents.listUpcomingEvents;
+
+const spacesLive = require("./spacesLiveFunctions");
+exports.createLiveRoom         = spacesLive.createLiveRoom;
+exports.joinLiveRoom           = spacesLive.joinLiveRoom;
+exports.endLiveRoom            = spacesLive.endLiveRoom;
+exports.raiseHand              = spacesLive.raiseHand;
+exports.muteParticipant        = spacesLive.muteParticipant;
+
+const spacesAI = require("./spacesAIFunctions");
+exports.generateRecap          = spacesAI.generateRecap;
+exports.searchTranscripts      = spacesAI.searchTranscripts;
+exports.generateClip           = spacesAI.generateClip;
+exports.studyCompanionQuery    = spacesAI.studyCompanionQuery;
+
+const spacesSafety = require("./spacesSafetyFunctions");
+exports.scanMessageForScam         = spacesSafety.scanMessageForScam;
+exports.verifyHost                 = spacesSafety.verifyHost;
+exports.submitModerationAction     = spacesSafety.submitModerationAction;
+exports.reviewJoinRequest          = spacesSafety.reviewJoinRequest;
+
+const spacesStripe = require("./spacesStripeFunctions");
+exports.createStripeConnectAccount = spacesStripe.createStripeConnectAccount;

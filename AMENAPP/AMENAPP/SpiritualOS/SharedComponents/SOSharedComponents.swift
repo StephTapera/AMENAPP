@@ -153,8 +153,8 @@ struct GlassChip: View {
             .background {
                 Capsule()
                     .fill(isActive
-                          ? resolvedTint.opacity(colorScheme == .dark ? 0.25 : 0.15)
-                          : LiquidGlassTokens.blurThin)
+                          ? AnyShapeStyle(resolvedTint.opacity(colorScheme == .dark ? 0.25 : 0.15))
+                          : AnyShapeStyle(LiquidGlassTokens.blurThin))
                     .overlay {
                         Capsule()
                             .strokeBorder(
@@ -240,7 +240,10 @@ struct HeroCard: View {
                     }
 
                     // Actions — 2-up chip grid
-                    let grid = actions.prefix(4).chunked(into: 2)
+                    let flat = Array(actions.prefix(4))
+                    let grid = stride(from: 0, to: flat.count, by: 2).map { i in
+                        Array(flat[i ..< min(i + 2, flat.count)])
+                    }
                     ForEach(Array(grid.enumerated()), id: \.offset) { _, pair in
                         HStack(spacing: 8) {
                             ForEach(Array(pair.enumerated()), id: \.offset) { _, heroAction in

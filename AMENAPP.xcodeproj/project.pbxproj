@@ -14,12 +14,14 @@
 		3644A9540BFB775B26D846C7 /* AmenLiveRoomShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBEF74C8FFB8C07CAAED5D50 /* AmenLiveRoomShellView.swift */; };
 		3BDDB122D0D6557B6D493F1D /* AmenStudyCompanionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF496ACBA22E246FC09DA013 /* AmenStudyCompanionSheet.swift */; };
 		40FF3BFF2DA55019CC72E401 /* AmenModerationDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E600940C5965F866F2D34FDB /* AmenModerationDashboardView.swift */; };
+		505F42B53159B64CEC9B1F5D /* AmenStoreKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63E652F61A1DBE16F24B3628 /* AmenStoreKitService.swift */; };
 		51D25D7CE18E5BD564764D39 /* AmenUpcomingLiveChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FBDBF7B72E6781CA534E963 /* AmenUpcomingLiveChipView.swift */; };
 		728961F47895719E15F9B8E6 /* AmenSpaceEventsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D455E592ED8A2CFAC9CB466 /* AmenSpaceEventsListView.swift */; };
 		7BF2AC91E802D334ECEE1529 /* AmenLiveRoomProviderInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DB95A0246EF500BF4D5117 /* AmenLiveRoomProviderInterface.swift */; };
 		856B2A9C13F10F54B00B3AD1 /* AmenBroadcastComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 996EF51D7C5C107721B2B55B /* AmenBroadcastComposerView.swift */; };
 		8B827085522BA499CE8A0DCD /* SpacesPhase1Contracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C175261D80889BEE36F96D59 /* SpacesPhase1Contracts.swift */; };
 		8F5758B9AAB04B7F0C950002 /* AmenLiveCaptionsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F09B9B4C6A873D6E7CE2304 /* AmenLiveCaptionsOverlay.swift */; };
+		9085CA96741A7F50AC6CD9E8 /* AmenStripeOnboardingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBFB13503DECE99CD953A969 /* AmenStripeOnboardingService.swift */; };
 		93207BC054CE32938F6C4788 /* AmenScamShieldService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D6AF00950EF76DF1FF401B /* AmenScamShieldService.swift */; };
 		9AE0C44C9D4D76854FFDDB77 /* AmenReplayRecapCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEBEB07DE0DF629985A32B78 /* AmenReplayRecapCard.swift */; };
 		A605E2D578D477F357B3F7BE /* AmenSpaceHeroHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB3AEFE13ACD9FE0103EEABA /* AmenSpaceHeroHeaderView.swift */; };
@@ -29,6 +31,7 @@
 		DC0BD7894F7C4ACE3008575A /* AmenSpaceEntitlementService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2503EE5A0FE117709DC424A7 /* AmenSpaceEntitlementService.swift */; };
 		E1006836DDAF8B27C7B907E4 /* AmenSpaceEventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98E2E10C8202B4F312855BB /* AmenSpaceEventDetailView.swift */; };
 		EA3022C197A7AFC2E32FF987 /* AmenLiveRoomGreenRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03BA8272641868DE5655261 /* AmenLiveRoomGreenRoomView.swift */; };
+		EA454CAF9808632D9CE33C95 /* AmenFirebaseLiveRoomProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F4217D0D9D650FBF02314F /* AmenFirebaseLiveRoomProvider.swift */; };
 		EEE3C9CE1C4FB7FF753B040F /* AmenSpaceTierSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9961C9ED48D52A7FCB40625F /* AmenSpaceTierSelectionView.swift */; };
 		EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1202F2D114F004E694A /* GoogleSignIn */; };
 		EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1222F2D114F004E694A /* GoogleSignInSwift */; };
@@ -135,6 +138,7 @@
 /* Begin PBXFileReference section */
 		0804F587EA71407AA64D8634 /* AmenSyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncModels.swift; sourceTree = "<group>"; };
 		0F485E8816FD4F539AA958C5 /* AmenSyncHubCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncHubCard.swift; sourceTree = "<group>"; };
+		10F4217D0D9D650FBF02314F /* AmenFirebaseLiveRoomProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenFirebaseLiveRoomProvider.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenFirebaseLiveRoomProvider.swift; sourceTree = "<group>"; };
 		1128BBC2DB6CA4E2A22A4262 /* AmenSpaceNowLiveMiniPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceNowLiveMiniPlayer.swift; path = ../AMENAPP/AMENAPP/ConnectSpaces/AmenSpaceNowLiveMiniPlayer.swift; sourceTree = "<group>"; };
 		1193E5DECB8CAE7F04146D6C /* AmenLiveQAQueueView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLiveQAQueueView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLiveQAQueueView.swift; sourceTree = "<group>"; };
 		223F2D8415E567AC6E7D342F /* AmenScamShieldAlertView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenScamShieldAlertView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Safety/AmenScamShieldAlertView.swift; sourceTree = "<group>"; };
@@ -146,6 +150,7 @@
 		4829029929CD811B5524BEC8 /* AmenCalendarInviteService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenCalendarInviteService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenCalendarInviteService.swift; sourceTree = "<group>"; };
 		5AA9B8E644D04ABEAAC1B73F /* CreationStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationStudioView.swift; sourceTree = "<group>"; };
 		5F61F9D6175143FC800638E8 /* AssetSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetSelectionView.swift; sourceTree = "<group>"; };
+		63E652F61A1DBE16F24B3628 /* AmenStoreKitService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenStoreKitService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenStoreKitService.swift; sourceTree = "<group>"; };
 		6D455E592ED8A2CFAC9CB466 /* AmenSpaceEventsListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceEventsListView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenSpaceEventsListView.swift; sourceTree = "<group>"; };
 		79EF25CD54C09AB4571B3F97 /* AmenSpaceHostOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceHostOnboardingView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenSpaceHostOnboardingView.swift; sourceTree = "<group>"; };
 		89F7F1D525E4C18B7A5CBBD1 /* AmenVerifiedHostBadgeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenVerifiedHostBadgeView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Safety/AmenVerifiedHostBadgeView.swift; sourceTree = "<group>"; };
@@ -160,6 +165,7 @@
 		A98E2E10C8202B4F312855BB /* AmenSpaceEventDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceEventDetailView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenSpaceEventDetailView.swift; sourceTree = "<group>"; };
 		AA86F52210834944B71B50CF /* LiquidGlassCreationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassCreationComponents.swift; sourceTree = "<group>"; };
 		AEBEB07DE0DF629985A32B78 /* AmenReplayRecapCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenReplayRecapCard.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/AIRecap/AmenReplayRecapCard.swift; sourceTree = "<group>"; };
+		BBFB13503DECE99CD953A969 /* AmenStripeOnboardingService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenStripeOnboardingService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenStripeOnboardingService.swift; sourceTree = "<group>"; };
 		BF496ACBA22E246FC09DA013 /* AmenStudyCompanionSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenStudyCompanionSheet.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/AIRecap/AmenStudyCompanionSheet.swift; sourceTree = "<group>"; };
 		C03BA8272641868DE5655261 /* AmenLiveRoomGreenRoomView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLiveRoomGreenRoomView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLiveRoomGreenRoomView.swift; sourceTree = "<group>"; };
 		C175261D80889BEE36F96D59 /* SpacesPhase1Contracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpacesPhase1Contracts.swift; path = ../AMENAPP/AMENAPP/ConnectSpaces/SpacesPhase1Contracts.swift; sourceTree = "<group>"; };
@@ -527,6 +533,8 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EF56F7422F2881A30019B94A /* AMENAPPTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = AMENAPPTests;
 			sourceTree = "<group>";
 		};
@@ -667,6 +675,7 @@
 				C03BA8272641868DE5655261 /* AmenLiveRoomGreenRoomView.swift */,
 				1193E5DECB8CAE7F04146D6C /* AmenLiveQAQueueView.swift */,
 				9F09B9B4C6A873D6E7CE2304 /* AmenLiveCaptionsOverlay.swift */,
+				10F4217D0D9D650FBF02314F /* AmenFirebaseLiveRoomProvider.swift */,
 			);
 			path = Live;
 			sourceTree = "<group>";
@@ -678,6 +687,8 @@
 				C5CF9BBA93C2C6D3E47CB493 /* AmenSpacePaywallView.swift */,
 				9961C9ED48D52A7FCB40625F /* AmenSpaceTierSelectionView.swift */,
 				79EF25CD54C09AB4571B3F97 /* AmenSpaceHostOnboardingView.swift */,
+				63E652F61A1DBE16F24B3628 /* AmenStoreKitService.swift */,
+				BBFB13503DECE99CD953A969 /* AmenStripeOnboardingService.swift */,
 			);
 			path = Monetization;
 			sourceTree = "<group>";
@@ -1395,6 +1406,9 @@
 				D336C835DF95241F45C97AD7 /* AmenScamShieldAlertView.swift in Sources */,
 				20F7AEB3E28EB6DD8D30E46F /* AmenVerifiedHostBadgeView.swift in Sources */,
 				40FF3BFF2DA55019CC72E401 /* AmenModerationDashboardView.swift in Sources */,
+				EA454CAF9808632D9CE33C95 /* AmenFirebaseLiveRoomProvider.swift in Sources */,
+				505F42B53159B64CEC9B1F5D /* AmenStoreKitService.swift in Sources */,
+				9085CA96741A7F50AC6CD9E8 /* AmenStripeOnboardingService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
