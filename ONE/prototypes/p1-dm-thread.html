@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ONE — DM Thread View</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --gold:      #D4AE38;
+    --indigo:    #4B5EC6;
+    --red:       #D95B4A;
+    --green:     #42B172;
+    --amber:     rgba(212,174,56,0.60);
+    --glass-bg:  rgba(255,255,255,0.07);
+    --glass-blur:20px;
+    --bg:        #0F0F12;
+    --bg2:       #1A1A1D;
+    --text:      #F5F0E8;
+    --text2:     rgba(245,240,232,0.55);
+    --text3:     rgba(245,240,232,0.28);
+    --sep:       rgba(255,255,255,0.09);
+    --spring:    cubic-bezier(0.34,1.56,0.64,1);
+  }
+  body { font-family: -apple-system,'SF Pro Text',system-ui,sans-serif; background:var(--bg); color:var(--text); height:100dvh; overflow:hidden; display:flex; }
+
+  /* ── Thread List ──────────────────────────────────────────── */
+  .thread-list {
+    width: 320px; flex-shrink:0;
+    display: flex; flex-direction:column;
+    border-right: 0.5px solid var(--sep);
+    background: var(--bg);
+  }
+  .list-header {
+    padding: 56px 20px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom: 0.5px solid var(--sep);
+  }
+  .list-title { font-size:22px; font-weight:800; letter-spacing:-0.5px; }
+  .list-action {
+    width:32px; height:32px; border-radius:50%;
+    background:var(--glass-bg); border:0.5px solid var(--sep);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:18px; color:var(--gold);
+  }
+
+  .thread-item {
+    display:flex; align-items:center; gap:12px;
+    padding:12px 20px; cursor:pointer;
+    border-bottom:0.5px solid var(--sep);
+    transition:background 0.15s;
+    position:relative;
+  }
+  .thread-item:hover { background:rgba(255,255,255,0.04); }
+  .thread-item.active { background:rgba(212,174,56,0.07); }
+
+  .avatar {
+    width:46px; height:46px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,var(--indigo),var(--gold));
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; font-weight:700;
+    position:relative;
+  }
+  .avatar-e2e {
+    position:absolute; bottom:-1px; right:-1px;
+    width:16px; height:16px; border-radius:50%;
+    background:var(--indigo); border:2px solid var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    font-size:8px;
+  }
+  .avatar-ephemeral { background:linear-gradient(135deg,var(--red),#E8884A); }
+
+  .thread-meta { flex:1; min-width:0; }
+  .thread-name { font-size:15px; font-weight:600; margin-bottom:2px; }
+  .thread-preview {
+    font-size:13px; color:var(--text2);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .thread-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+  .thread-time { font-size:11px; color:var(--text3); }
+  .thread-badge {
+    padding:2px 7px; border-radius:50px;
+    background:var(--indigo); color:white;
+    font-size:11px; font-weight:700; min-width:20px; text-align:center;
+  }
+  .thread-ephem {
+    font-size:10px; color:var(--red); font-weight:600;
+  }
+
+  /* ── Thread View ──────────────────────────────────────────── */
+  .thread-view {
+    flex:1; display:flex; flex-direction:column; overflow:hidden;
+  }
+  .thread-header {
+    padding: 52px 20px 14px;
+    display:flex; align-items:center; gap:12px;
+    border-bottom:0.5px solid var(--sep);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
+  .thread-header-back { font-size:22px; cursor:pointer; color:var(--gold); padding:4px 8px; }
+  .thread-header-info { flex:1; }
+  .thread-header-name { font-size:17px; font-weight:700; }
+  .thread-e2e-badge {
+    display:flex; align-items:center; gap:4px;
+    font-size:11px; color:var(--indigo); margin-top:1px;
+  }
+  .thread-header-actions { display:flex; gap:10px; }
+  .header-icon-btn {
+    width:32px; height:32px; border-radius:50%;
+    background:var(--glass-bg); border:0.5px solid var(--sep);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; color:var(--text2);
+  }
+
+  /* ── Messages ─────────────────────────────────────────────── */
+  .messages-scroll {
+    flex:1; overflow-y:auto; padding:16px 16px 8px;
+    display:flex; flex-direction:column; gap:4px;
+    scrollbar-width:none;
+  }
+  .messages-scroll::-webkit-scrollbar { display:none; }
+
+  /* Living Threads summary card */
+  .living-threads-card {
+    margin:8px 0 16px;
+    background: rgba(212,174,56,0.06);
+    border:0.5px solid rgba(212,174,56,0.22);
+    border-radius:18px;
+    overflow:hidden;
+  }
+  .lt-header {
+    display:flex; align-items:center; gap:8px;
+    padding:12px 16px; cursor:pointer;
+  }
+  .lt-icon { font-size:16px; }
+  .lt-title { font-size:13px; font-weight:700; color:var(--gold); flex:1; }
+  .lt-badge {
+    padding:3px 9px; border-radius:50px;
+    background:rgba(212,174,56,0.15); border:0.5px solid rgba(212,174,56,0.3);
+    font-size:11px; color:var(--gold);
+  }
+  .lt-chevron { font-size:12px; color:var(--text3); transition:transform 0.2s; }
+  .lt-chevron.open { transform:rotate(180deg); }
+  .lt-body { display:none; padding:0 16px 14px; }
+  .lt-body.open { display:block; }
+  .lt-section { margin-top:12px; }
+  .lt-section-title { font-size:10px; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; color:var(--text3); margin-bottom:6px; }
+  .lt-item {
+    display:flex; align-items:flex-start; gap:8px;
+    padding:6px 0; border-bottom:0.5px solid var(--sep); font-size:13px; color:var(--text2);
+  }
+  .lt-item:last-child { border-bottom:none; }
+  .lt-item-icon { font-size:13px; flex-shrink:0; margin-top:1px; }
+  .lt-share-btn {
+    margin-left:auto; font-size:11px; color:var(--text3);
+    background:none; border:none; cursor:pointer; padding:2px 6px;
+    border-radius:6px;
+  }
+  .lt-share-btn:hover { background:rgba(255,255,255,0.07); color:var(--gold); }
+  .lt-on-device-note {
+    font-size:10px; color:var(--text3); margin-top:10px; padding-top:8px;
+    border-top:0.5px solid var(--sep); text-align:center;
+  }
+
+  /* Message bubbles */
+  .msg-row {
+    display:flex; align-items:flex-end; gap:8px;
+    animation:fadeIn 0.2s ease;
+  }
+  .msg-row.outgoing { flex-direction:row-reverse; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+  .msg-avatar-sm {
+    width:28px; height:28px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,var(--indigo),var(--gold));
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; margin-bottom:2px;
+  }
+  .msg-avatar-sm.ephemeral { background:linear-gradient(135deg,var(--red),#E8884A); }
+  .msg-avatar-spacer { width:28px; flex-shrink:0; }
+
+  .msg-content { display:flex; flex-direction:column; gap:3px; max-width:70%; }
+  .msg-row.outgoing .msg-content { align-items:flex-end; }
+
+  .bubble {
+    padding:10px 14px; border-radius:18px;
+    font-size:15px; line-height:1.45;
+    position:relative; max-width:100%;
+    word-break:break-word;
+  }
+  .incoming .bubble {
+    background:var(--bg2);
+    border:0.5px solid var(--sep);
+    border-bottom-left-radius:6px;
+  }
+  .outgoing .bubble {
+    background:rgba(75,94,198,0.28);
+    border:0.5px solid rgba(75,94,198,0.4);
+    border-bottom-right-radius:6px;
+  }
+
+  /* Consent badge under bubble */
+  .consent-badge {
+    display:flex; align-items:center; gap:4px;
+    font-size:10px; color:var(--text3); padding:0 4px;
+  }
+  .consent-dot { width:4px; height:4px; border-radius:50%; background:var(--text3); }
+
+  /* Ephemeral countdown */
+  .ephem-countdown {
+    font-size:10px; color:var(--red); display:flex; align-items:center; gap:3px;
+    padding:0 4px;
+  }
+
+  /* Message reactions */
+  .reactions {
+    display:flex; gap:4px; flex-wrap:wrap;
+  }
+  .reaction-pill {
+    padding:3px 8px; border-radius:50px;
+    background:rgba(255,255,255,0.07); border:0.5px solid var(--sep);
+    font-size:12px; cursor:pointer; transition:background 0.15s;
+  }
+  .reaction-pill:hover { background:rgba(255,255,255,0.12); }
+
+  /* Date divider */
+  .date-divider {
+    display:flex; align-items:center; gap:10px;
+    font-size:11px; color:var(--text3); margin:8px 0;
+  }
+  .date-divider::before, .date-divider::after {
+    content:''; flex:1; height:0.5px; background:var(--sep);
+  }
+</style>
+</head>
+<body>
+
+<!-- Thread List -->
+<nav class="thread-list" aria-label="Message threads">
+  <div class="list-header">
+    <div class="list-title">People</div>
+    <div class="list-action" role="button" aria-label="New message" onclick="alert('New DM')">✏️</div>
+  </div>
+
+  <div class="thread-item" onclick="selectThread('grace')" aria-label="Grace — 2 unread, End-to-end encrypted">
+    <div class="avatar">G <div class="avatar-e2e">🔐</div></div>
+    <div class="thread-meta">
+      <div class="thread-name">Grace M.</div>
+      <div class="thread-preview">🔐 End-to-end encrypted</div>
+    </div>
+    <div class="thread-right">
+      <div class="thread-time">2m</div>
+      <div class="thread-badge">2</div>
+    </div>
+  </div>
+
+  <div class="thread-item active" onclick="selectThread('family')" aria-label="Family — close friends group">
+    <div class="avatar" style="background:linear-gradient(135deg,#42B172,var(--gold))">👨‍👩‍👧 <div class="avatar-e2e">🔐</div></div>
+    <div class="thread-meta">
+      <div class="thread-name">Family</div>
+      <div class="thread-preview">Mom: Did you see the eclipse?</div>
+    </div>
+    <div class="thread-right">
+      <div class="thread-time">1h</div>
+    </div>
+  </div>
+
+  <div class="thread-item" onclick="selectThread('jay')" aria-label="Jay — ephemeral thread, expires in 23h">
+    <div class="avatar avatar-ephemeral">J <div class="avatar-e2e">⏱</div></div>
+    <div class="thread-meta">
+      <div class="thread-name">Jay P.</div>
+      <div class="thread-preview">This thread disappears in 23h</div>
+    </div>
+    <div class="thread-right">
+      <div class="thread-time">3h</div>
+      <div class="thread-ephem">23h left</div>
+    </div>
+  </div>
+
+  <div class="thread-item" onclick="selectThread('elders')" aria-label="Elders Group — 5 members">
+    <div class="avatar" style="background:linear-gradient(135deg,#8B4CF7,var(--indigo))">⛪️</div>
+    <div class="thread-meta">
+      <div class="thread-name">Elders Group</div>
+      <div class="thread-preview">Sunday prep — read source</div>
+    </div>
+    <div class="thread-right">
+      <div class="thread-time">Yesterday</div>
+    </div>
+  </div>
+</nav>
+
+<!-- Thread View -->
+<main class="thread-view" aria-label="Family group thread">
+  <div class="thread-header">
+    <div class="thread-header-back" role="button" aria-label="Back to thread list">‹</div>
+    <div class="thread-header-info">
+      <div class="thread-header-name">Family</div>
+      <div class="thread-e2e-badge">🔐 End-to-end encrypted · Epoch 47</div>
+    </div>
+    <div class="thread-header-actions">
+      <div class="header-icon-btn" role="button" aria-label="Voice call">📞</div>
+      <div class="header-icon-btn" role="button" aria-label="Thread info">ℹ️</div>
+    </div>
+  </div>
+
+  <div class="messages-scroll" id="msgs" role="log" aria-live="polite" aria-label="Messages">
+    <div class="date-divider">Yesterday</div>
+
+    <!-- Living Threads Summary Card -->
+    <div class="living-threads-card" role="region" aria-label="Living Threads AI summary">
+      <div class="lt-header" onclick="toggleLT()" role="button" aria-expanded="false" aria-controls="lt-body">
+        <span class="lt-icon">✨</span>
+        <span class="lt-title">Living Threads · 5 items</span>
+        <span class="lt-badge">On Device</span>
+        <span class="lt-chevron" id="lt-chevron">▼</span>
+      </div>
+      <div class="lt-body" id="lt-body">
+        <div class="lt-section">
+          <div class="lt-section-title">Promises</div>
+          <div class="lt-item">
+            <span class="lt-item-icon">🤝</span>
+            <span>Dad will fix the fence this weekend</span>
+            <button class="lt-share-btn" aria-label="Share this item">Share</button>
+          </div>
+        </div>
+        <div class="lt-section">
+          <div class="lt-section-title">Dates</div>
+          <div class="lt-item">
+            <span class="lt-item-icon">📅</span>
+            <span>Mom's birthday — June 14</span>
+            <button class="lt-share-btn" aria-label="Share this item">Share</button>
+          </div>
+          <div class="lt-item">
+            <span class="lt-item-icon">📅</span>
+            <span>Family dinner — Sunday 6pm</span>
+            <button class="lt-share-btn" aria-label="Share this item">Share</button>
+          </div>
+        </div>
+        <div class="lt-section">
+          <div class="lt-section-title">Prayer Requests</div>
+          <div class="lt-item">
+            <span class="lt-item-icon">🙏</span>
+            <span>Uncle Marcus — hospital follow-up</span>
+            <button class="lt-share-btn" aria-label="Share this item">Share</button>
+          </div>
+        </div>
+        <div class="lt-on-device-note">
+          ✅ Distilled on your device · Never sent to any server · You choose what to share
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming message -->
+    <div class="msg-row incoming">
+      <div class="msg-avatar-sm">M</div>
+      <div class="msg-content">
+        <div class="bubble">Did you see the eclipse last night? It was incredible 🌒</div>
+        <div class="consent-badge">
+          <span class="consent-dot"></span>No save · No forward · React ✓
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming with reactions -->
+    <div class="msg-row incoming">
+      <div class="msg-avatar-sm">D</div>
+      <div class="msg-content">
+        <div class="bubble">Prayer for Uncle Marcus today. Let's remember to call him this week. 🙏</div>
+        <div class="reactions">
+          <div class="reaction-pill" role="button" aria-label="3 people reacted with hands raised">🙌 3</div>
+          <div class="reaction-pill" role="button" aria-label="2 people reacted with heart">❤️ 2</div>
+        </div>
+        <div class="consent-badge">
+          <span class="consent-dot"></span>No save · No forward · React ✓
+        </div>
+      </div>
+    </div>
+
+    <div class="date-divider">Today</div>
+
+    <!-- Outgoing message -->
+    <div class="msg-row outgoing">
+      <div class="msg-avatar-spacer"></div>
+      <div class="msg-content">
+        <div class="bubble">Yes! We watched from the back porch. Amazing 🌌</div>
+        <div class="consent-badge">
+          <span class="consent-dot" style="background:rgba(75,94,198,0.6)"></span>No save · Translate ✓
+        </div>
+      </div>
+    </div>
+
+    <!-- Ephemeral message -->
+    <div class="msg-row incoming">
+      <div class="msg-avatar-sm ephemeral">J</div>
+      <div class="msg-content">
+        <div class="bubble" style="border-color:rgba(217,91,74,0.35)">This message disappears after you view it</div>
+        <div class="ephem-countdown">⏱ Viewed · decays in 5s</div>
+      </div>
+    </div>
+
+    <!-- System message: privacy reminder -->
+    <div style="text-align:center;font-size:11px;color:var(--text3);padding:8px 20px;line-height:1.5">
+      Messages in this thread are end-to-end encrypted.<br>
+      No one outside this thread can read them.
+    </div>
+  </div>
+</main>
+
+<script>
+  function toggleLT() {
+    const body = document.getElementById('lt-body');
+    const chevron = document.getElementById('lt-chevron');
+    const header = body.previousElementSibling;
+    const isOpen = body.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+    header.setAttribute('aria-expanded', isOpen);
+  }
+
+  function selectThread(id) {
+    document.querySelectorAll('.thread-item').forEach(i => i.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+</script>
+</body>
+</html>

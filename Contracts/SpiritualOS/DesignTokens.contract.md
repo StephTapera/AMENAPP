@@ -1,112 +1,122 @@
-# Design Tokens Contract — Spiritual OS
-## STATUS: FROZEN · Do not edit without Lead Orchestrator sign-off
+# FROZEN — Design Tokens Contract · Spiritual OS
+> Version 1.0 · 2026-06-02 · Lead Orchestrator
+> ⚠️ FROZEN. Agents read only. Propose changes by escalating to Lead; Lead re-freezes and re-broadcasts.
 
 ---
 
-## Color Palette (AMEN canonical — no system colors in primary positions)
+## 1. Brand Colors
 
-| Token        | Light mode                  | Dark mode                   | Role |
-|--------------|-----------------------------|-----------------------------|------|
-| `amenGold`   | `#C9A84C` (warm gold)       | `#D4AF5A` (lifted)          | Primary accent, active states, scripture highlights |
-| `amenPurple` | `#6B4FA2` (deep violet)     | `#8E6EC8` (lifted)          | Spiritual depth, Berean AI, prayer surfaces |
-| `amenBlue`   | `#2E6DA4` (calm cobalt)     | `#4D90C4` (lifted)          | Community, events, Church Notes |
-| `amenBlack`  | `#1A1A1E` (near-black)      | `#0D0D10` (OLED dark)       | Primary text, structural anchors |
-| `amenCream`  | `#F8F4EC` (warm off-white)  | `#1E1B14` (warm dark)       | Content backgrounds — NEVER glass |
-| `amenSlate`  | `#4A4A55` (warm grey)       | `#9090A0`                   | Secondary text, captions |
+| Swift Token | Hex | Dark-mode Hex | Primary Usage |
+|---|---|---|---|
+| `amenGold` | `#D4AF37` | `#E8C84A` | CTAs, active state, candlelight accent, streaks (private only) |
+| `amenPurple` | `#6B5BFF` | `#8B7FFF` | Berean AI surface, scripture highlights, study |
+| `amenBlue` | `#4A90D9` | `#5BA8E8` | Prayer, community, trust indicators |
+| `amenBlack` | `#1A1A2E` | `#0D0D1A` | Deep background, primary text on light |
+| `amenCream` | `#FFF8F0` | — | Matte reading surface, light-mode card background |
+| `amenCharcoal` | `#2C2C3E` | `#1E1E2E` | Dark-mode matte card background |
+| `amenWarm` | `#F5E6C8` | `#3D2E1A` | Warm section tint, candlelight atmosphere |
 
-**Rule: Primary actions and active states use `amenGold` or `amenPurple` only. Apple system blue (`Color.blue`, `.accentColor`) is FORBIDDEN in new Spiritual OS surfaces.**
+All tokens live in `SpiritualOSComponents.swift` as `extension Color`. Agents do NOT define new colors.
 
 ---
 
-## The Fundamental Glass Rule
+## 2. The Glass Rule (ABSOLUTE — zero exceptions)
 
 > **Content is matte. Chrome is glass.**
 
-| Layer | Material | Rationale |
+| Surface | Treatment | Reason |
 |---|---|---|
-| Scripture text, prayer prose, post body | `.clear` on `amenCream`/`amenBlack` backgrounds | Reading content must never sit on animated, refractive glass — it triggers motion sensitivity and hurts legibility |
-| Cards containing content (non-reading) | `LiquidGlassCard` (existing component) | Brief, glanceable items: event cards, digest bullets, member chips |
-| Navigation bars, tab bars, composer bars | `.glassEffect` (iOS 26 native) or `LiquidGlassMaterial(.blurThin)` | Chrome — users expect translucency here |
-| Floating sheets, action trays | `GlassSheet` primitive (see SharedComponents) | Elevated glass, `elevated: true` |
-| Persistent Assistant Bar | `GlassBar` primitive | Floating chrome |
+| Scripture text, prayer body, article copy | **Matte** (`amenCream` / `amenCharcoal`) | Readability + reverence |
+| Navigation bars, tab bar, floating bars | **Glass** (`.ultraThinMaterial`) | Chrome |
+| Navigational/action cards (Space HeroCard, event tile) | **Glass** | Chrome that links to content |
+| Content cards (devotional, testimony, church note excerpt) | **Matte** with glass action strip at bottom | Content matte, controls glass |
+| Modal sheets | Glass header/handle bar + matte body | Hybrid |
+| Tags, chips, role badges | **Glass** (`.ultraThinMaterial`) | Control affordances |
 
-**Glass-on-glass is FORBIDDEN.** A `GlassCard` inside a `GlassSheet` must use a matte inner background, not another glass layer.
-
----
-
-## Existing Token References (do NOT re-declare these)
-
-These are already defined in `LiquidGlassTokens.swift` and must be consumed as-is:
-
-```swift
-LiquidGlassTokens.cornerRadiusSmall   // 14
-LiquidGlassTokens.cornerRadiusMedium  // 22
-LiquidGlassTokens.cornerRadiusLarge   // 32
-LiquidGlassTokens.capsuleRadius       // 999 (pill shape)
-
-LiquidGlassTokens.blurThin            // .ultraThinMaterial
-LiquidGlassTokens.blurRegular         // .thinMaterial
-LiquidGlassTokens.blurElevated        // .regularMaterial
-
-LiquidGlassTokens.motionFast          // 0.18s
-LiquidGlassTokens.motionNormal        // 0.32s
-LiquidGlassTokens.motionSlow          // 0.55s
-```
-
-And existing `BereanGlass.Impl` presets (`lensed`, `contextual`, `compressed`) via `BereanGlassSystem.swift`.
+**Test:** If removing glass would make spiritual content harder to read, it is on the wrong surface.
 
 ---
 
-## Canonical Glass Treatments
+## 3. Canonical Glass Treatments
 
-### Treatment 1 — `contextual` (default, balanced)
-- **Use on:** Home digest cards, Hub inbox rows, Life Planner day rows, Assistant Bar suggestions
-- **Material:** `LiquidGlassMaterial(tint: nil, elevated: false)` → `blurThin`
-- **Corner radius:** `cornerRadiusMedium` (22)
-- **Shadow:** `shadowSoft` (8% black, 14pt radius)
-- **Tint:** contextual — pass Space's theme color if available
+### GlassBar
+- Usage: tab bar, navigation bar, floating AssistantBar, sticky section headers
+- Material: `.ultraThinMaterial`
+- Border: LiquidGlassAdaptiveBorder (white-top 0.38, black-bottom 0.15)
+- Corner: capsule when floating; 0pt when pinned full-width
 
-### Treatment 2 — `lensed` (hero, premium)
-- **Use on:** Spaces `HeroCard`, Daily Digest hero area, Worship Mode overlay, full-screen sheets
-- **Material:** `LiquidGlassMaterial(tint: spaceColor, elevated: true)` → `blurElevated`
-- **Corner radius:** `cornerRadiusLarge` (32)
-- **Shadow:** `shadowFloating` (12% black, 24pt radius)
-- **Tint:** must bleed the Space's `amenColor` tint (amenGold / amenPurple / amenBlue)
+### GlassCard
+- Usage: navigational cards that open deeper content (Space card, Hub item, event tile)
+- Material: `.ultraThinMaterial`
+- Corner radius: 20pt
+- Rule: Never place scripture/prayer body text directly on this surface.
 
-### Treatment 3 — `compressed` (dense, efficient)
-- **Use on:** Hub swipe rows, Command Center stats, planner timeline items, chip rails
-- **Material:** `LiquidGlassMaterial(tint: nil, elevated: false)` → `blurThin`
-- **Corner radius:** `cornerRadiusSmall` (14)
-- **Shadow:** none (use separator lines instead)
+### GlassSheet
+- Usage: modal bottom sheets (Create Space, Tier Setup, permissions)
+- Material: `.thinMaterial`
+- Top corners: 28pt; bottom corners: 0pt (full-screen) or 20pt (card modal)
+- Handle: 4x28pt rounded rect, opacity 0.3
+- Body: Matte (amenCream / amenCharcoal)
+
+### GlassChip
+- Usage: faith-native tags, filter pills, pastoral role badges
+- Material: `.ultraThinMaterial`
+- Heights: small=28pt / default=32pt / large=40pt
+- Corner: Capsule
+- Selected state: amenGold tint fill, white label
+
+### HeroCard
+- Usage: Space/community featured card on dashboard
+- Cover region: image with matte gradient scrim
+- Content region: Matte (title, subtitle, avatars, next event) — NOT glass
+- Action row: GlassBar across bottom (Pray Together / Schedule / Notes / Ask Berean)
+- Corner: 24pt
 
 ---
 
-## Motion Rules
+## 4. Mood Reference
+Warm candlelight. Parchment. Evening study lamp. Never clinical or cold.
+- Light mode: amenCream backgrounds, gold accents, warm amber shadows
+- Dark mode: amenBlack/amenCharcoal backgrounds, gold edge highlights, candlelight glow on glass
 
-All animation must be wrapped in a reduce-motion guard:
+---
 
-```swift
-@Environment(\.accessibilityReduceMotion) private var reduceMotion
+## 5. Typography Scale
 
-let spring = reduceMotion
-    ? Animation.easeOut(duration: LiquidGlassTokens.motionFast)
-    : Animation.spring(response: LiquidGlassTokens.motionNormal, dampingFraction: 0.82)
-```
-
-This is **`Motion.adaptive`** as referenced in the Phase 2 instructions — agents must implement it exactly this way, not via a custom animation modifier that bypasses the environment.
-
-| Motion class | Spring response | Damping | Use |
+| Token | Size | Weight | Usage |
 |---|---|---|---|
-| Fast (micro) | 0.18s | 0.90 | Button presses, chip selection |
-| Normal (transition) | 0.32s | 0.82 | Card appear, sheet present |
-| Slow (hero) | 0.55s | 0.75 | HeroCard morph, Context Mode switch |
+| `digestGreeting` | 28pt | .light | "Good morning, {name}..." |
+| `sectionHeader` | 17pt | .semibold | Section headings |
+| `cardTitle` | 15pt | .medium | Card primary label |
+| `cardBody` | 14pt | .regular | Card secondary / preview text |
+| `chipLabel` | 12pt | .medium | Tags, chips |
+| `timestamp` | 12pt | .regular | Timestamps, metadata |
+| `verseText` | 16pt | .regular | Scripture body (always on matte) |
 
 ---
 
-## Faith-Formation UI Rules (visual enforcement)
+## 6. Motion System
 
-- No numeric engagement metrics on any card visible to others (likes, view counts, streak counts in shared surfaces)
-- Formation counts (reading days, prayer count) are shown ONLY in private `CommandCenter`/`AmenLife` surfaces, styled as a warm `GlassChip` — never a bold headline number
-- No infinite scroll in new surfaces — use paginated `TimelineRow` lists with "Load more" affordance
-- Spiritual counters are never colored red/orange (urgency hue) — use `amenGold` or `amenSlate`
-- Berean AI suggestions are styled as invitations (italic, lighter weight) not commands
+All animations pass through `Motion.adaptive` (see `AnimationTokens.swift`).
+
+| Animation type | Normal | Reduce Motion |
+|---|---|---|
+| Glass morph / layout | Spring: 0.28s response, 0.82 damping | Fade 0.2s |
+| Page / tab | ease-in-out 0.22s | Fade 0.15s |
+| Sheet present/dismiss | Spring: 0.35s, 0.85 | Cross-fade 0.25s |
+| Low power mode | Disable specular, simplify materials | Same as reduce-motion |
+
+---
+
+## 7. Spacing
+
+```
+cornerRadiusSmall    = 10
+cornerRadiusMedium   = 16
+cornerRadiusLarge    = 24   // HeroCard
+pillHeightSmall      = 32
+pillHeightDefault    = 40
+insetStandard        = 16
+insetTight           = 8
+insetLoose           = 24
+```

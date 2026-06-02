@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ONE — Liquid Camera</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold:     #D4AE38;
+    --indigo:   #4B5EC6;
+    --red:      #D95B4A;
+    --green:    #42B172;
+    --amber:    #C98A1A;
+    --glass-bg: rgba(255,255,255,0.07);
+    --blur:     20px;
+    --bg:       #0A0A0E;
+    --text:     #F5F0E8;
+    --text2:    rgba(245,240,232,0.55);
+    --text3:    rgba(245,240,232,0.28);
+    --sep:      rgba(255,255,255,0.09);
+    --spring:   cubic-bezier(0.34,1.56,0.64,1);
+    --ease-out: cubic-bezier(0.22,1,0.36,1);
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Viewfinder ────────────────────────────────────────────── */
+  .viewfinder {
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 35% 45%, #1a2a38 0%, transparent 70%),
+      radial-gradient(ellipse 50% 70% at 70% 60%, #1a1230 0%, transparent 65%),
+      radial-gradient(ellipse 80% 80% at 50% 50%, #0e1520 0%, #0A0A0E 100%);
+    overflow: hidden;
+  }
+
+  /* Subtle grain texture */
+  .viewfinder::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.045;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Subtle subject silhouette for realism */
+  .viewfinder-subject {
+    position: absolute;
+    bottom: 18%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 160px;
+    height: 280px;
+    background: radial-gradient(ellipse 60% 80% at 50% 35%, rgba(255,255,255,0.06) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 50% at 50% 60%, rgba(255,255,255,0.03) 0%, transparent 70%);
+    border-radius: 50% 50% 40% 40%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Focus ring */
+  .focus-ring {
+    position: absolute;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    border: 1.5px solid rgba(212,174,56,0.6);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 1;
+    animation: focusPulse 3s ease-in-out infinite;
+  }
+  @keyframes focusPulse {
+    0%,100% { opacity: 0.6; transform: translate(-50%,-50%) scale(1); }
+    50%      { opacity: 0.3; transform: translate(-50%,-50%) scale(0.96); }
+  }
+
+  /* ── Main UI layer ─────────────────────────────────────────── */
+  .ui-layer {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-top: max(env(safe-area-inset-top, 44px), 44px);
+    padding-bottom: max(env(safe-area-inset-bottom, 34px), 20px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    z-index: 10;
+  }
+
+  /* ── Glass mixin ───────────────────────────────────────────── */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--blur)) saturate(1.6);
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(1.6);
+    border: 0.5px solid var(--sep);
+  }
+
+  /* ── Top Bar ───────────────────────────────────────────────── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 16px;
+    padding: 10px 14px;
+    border-radius: 24px;
+  }
+
+  .top-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.09);
+    border: 0.5px solid var(--sep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 16px;
+    transition: background 0.15s, transform 0.1s;
+    flex-shrink: 0;
+  }
+  .top-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.15); }
+
+  .top-btn-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Privacy Pill */
+  .privacy-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.12s;
+    white-space: nowrap;
+    max-width: 220px;
+  }
+  .privacy-pill:hover { background: rgba(255,255,255,0.12); }
+  .privacy-pill:active { transform: scale(0.97); }
+  .privacy-pill-icon {
+    font-size: 13px;
+    color: var(--gold);
+  }
+  .privacy-pill-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.1px;
+  }
+  .privacy-pill-sub {
+    font-size: 11px;
+    color: var(--text2);
+    font-weight: 500;
+  }
+  .privacy-pill-chevron {
+    font-size: 10px;
+    color: var(--text3);
+    margin-left: 2px;
+  }
+  .privacy-pill-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  /* Flash toggle pill */
+  .flash-btn[data-state="off"]  .flash-icon::after { content: "⚡️"; }
+  .flash-btn[data-state="on"]   .flash-icon::after { content: "⚡"; color: var(--gold); }
+  .flash-btn[data-state="auto"] .flash-icon::after { content: "A"; font-size:13px; font-weight:700; color:var(--gold); }
+  .flash-icon { font-size: 16px; }
+
+  .flash-btn[data-state="on"]   { border-color: rgba(212,174,56,0.4); }
+  .flash-btn[data-state="auto"] { border-color: rgba(212,174,56,0.4); }
+
+  /* ── Provenance Badge ──────────────────────────────────────── */
+  .provenance-badge {
+    position: fixed;
+    top: max(env(safe-area-inset-top, 44px), 44px);
+    right: 16px;
+    margin-top: 62px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.12s;
+    z-index: 20;
+  }
+  .provenance-badge:active { transform: scale(0.95); }
+  .provenance-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .provenance-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+  }
+
+  .provenance-badge[data-type="original"] .provenance-dot { background: var(--green); }
+  .provenance-badge[data-type="original"] .provenance-label { color: var(--green); }
+  .provenance-badge[data-type="edited"]   .provenance-dot { background: var(--amber); }
+  .provenance-badge[data-type="edited"]   .provenance-label { color: var(--amber); }
+  .provenance-badge[data-type="ai"]       .provenance-dot { background: var(--indigo); }
+  .provenance-badge[data-type="ai"]       .provenance-label { color: var(--indigo); }
+
+  /* Provenance tooltip */
+  .provenance-tooltip {
+    position: fixed;
+    right: 16px;
+    background: rgba(20,20,28,0.96);
+    border: 0.5px solid var(--sep);
+    border-radius: 12px;
+    padding: 10px 14px;
+    max-width: 220px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text2);
+    z-index: 30;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s var(--ease-out);
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  .provenance-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  .provenance-tooltip strong { color: var(--text); display: block; margin-bottom: 3px; font-size: 13px; }
+
+  /* ── Format Chip Strip ─────────────────────────────────────── */
+  .bottom-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .format-strip-wrapper {
+    margin: 0 0 10px;
+    overflow: hidden;
+  }
+
+  .format-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text2);
+    font-weight: 500;
+    letter-spacing: 0.1px;
+    min-height: 18px;
+    margin-bottom: 6px;
+    transition: opacity 0.2s;
+    padding: 0 16px;
+  }
+
+  .format-chips {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-snap-type: x proximity;
+  }
+  .format-chips::-webkit-scrollbar { display: none; }
+
+  .format-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+    border: 0.5px solid var(--sep);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+  }
+  .format-chip:active { transform: scale(0.95); }
+  .format-chip.active {
+    border-color: rgba(212,174,56,0.5);
+    background: rgba(212,174,56,0.12);
+    color: var(--gold);
+  }
+  .format-chip .chip-icon {
+    font-size: 14px;
+    line-height: 1;
+  }
+  .format-chip.active .chip-icon { filter: none; }
+
+  /* Format strip glass backing */
+  .format-strip-glass {
+    margin: 0 16px;
+    border-radius: 20px;
+    overflow: hidden;
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
+    background: var(--glass-bg);
+    border: 0.5px solid var(--sep);
+  }
+
+  /* ── Capture Cluster ───────────────────────────────────────── */
+  .capture-cluster {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 14px 24px 0;
+  }
+
+  /* Media picker thumbnail */
+  .media-thumb {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1.5px solid var(--sep);
+    position: relative;
+    transition: transform 0.12s;
+    flex-shrink: 0;
+  }
+  .media-thumb:active { transform: scale(0.93); }
+  .media-thumb-inner {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1e2d3d 0%, #2d1e3d 50%, #1e3d2d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }
+  .media-thumb-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.12);
+  }
+
+  /* Capture button */
+  .capture-outer {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* Recording ring (expands on hold) */
+  .capture-ring {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 3px solid var(--red);
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 0.25s, transform 0.25s var(--spring);
+    pointer-events: none;
+  }
+  .capture-outer.recording .capture-ring {
+    opacity: 1;
+    transform: scale(1);
+    animation: recordPulse 1s ease-in-out infinite;
+  }
+  @keyframes recordPulse {
+    0%,100% { transform: scale(1); border-color: var(--red); }
+    50%      { transform: scale(1.06); border-color: rgba(217,91,74,0.6); }
+  }
+
+  .capture-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.92);
+    border: 3.5px solid rgba(255,255,255,0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.12s, background 0.2s;
+    position: relative;
+    z-index: 1;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .capture-btn:active { transform: scale(0.93); }
+  .capture-outer.recording .capture-btn {
+    background: var(--red);
+    border-color: rgba(217,91,74,0.5);
+  }
+
+  /* Photo flash animation */
+  .capture-btn.flash-anim {
+    animation: captureFlash 0.3s ease-out;
+  }
+  @keyframes captureFlash {
+    0%   { transform: scale(0.88); background: var(--gold); }
+    50%  { transform: scale(1.04); }
+    100% { transform: scale(1); background: rgba(255,255,255,0.92); }
+  }
+
+  /* Shutter icon inside button */
+  .shutter-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(0,0,0,0.2);
+    background: transparent;
+    transition: border-radius 0.2s;
+  }
+  .capture-outer.recording .shutter-icon {
+    border-radius: 4px;
+    background: rgba(255,255,255,0.9);
+    width: 18px;
+    height: 18px;
+    border: none;
+  }
+
+  /* Right side: timer / AI sparkles */
+  .capture-side-right {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.12s;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .capture-side-right:active { transform: scale(0.93); }
+
+  .sparkles-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: rgba(75,94,198,0.15);
+    border: 0.5px solid rgba(75,94,198,0.35);
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
+    transition: background 0.15s;
+  }
+  .sparkles-btn:hover { background: rgba(75,94,198,0.25); }
+
+  .timer-display {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .timer-display .timer-time {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--red);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+  }
+  .timer-display .timer-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: timerBlink 1s step-end infinite;
+  }
+  @keyframes timerBlink {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0; }
+  }
+  .capture-outer.recording ~ .capture-side-right .sparkles-btn { display: none; }
+  .capture-outer.recording ~ .capture-side-right .timer-display { display: flex; }
+
+  /* ── Privacy Sheet ─────────────────────────────────────────── */
+  .sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .sheet-overlay.open {
+    pointer-events: auto;
+    opacity: 1;
+  }
+  .sheet-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+  }
+  .sheet-panel {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    /* positioned below top bar: ~120px from top */
+    top: max(calc(env(safe-area-inset-top, 44px) + 66px), 110px);
+    border-radius: 20px;
+    padding: 18px 18px 20px;
+    transform: translateY(-12px) scale(0.97);
+    transition: transform 0.28s var(--spring), opacity 0.2s;
+    opacity: 0;
+    background: rgba(18,18,24,0.88);
+    backdrop-filter: blur(28px) saturate(1.8);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    border: 0.5px solid var(--sep);
+  }
+  .sheet-overlay.open .sheet-panel {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  .sheet-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 12px;
+  }
+
+  .audience-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .audience-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 16px;
+    border: 0.5px solid var(--sep);
+    background: var(--glass-bg);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .audience-chip.active {
+    border-color: rgba(212,174,56,0.5);
+    background: rgba(212,174,56,0.12);
+    color: var(--gold);
+  }
+  .audience-chip .aud-icon { font-size: 14px; }
+
+  .sheet-divider {
+    height: 0.5px;
+    background: var(--sep);
+    margin: 0 0 16px;
+  }
+
+  .lifetime-section {}
+  .lifetime-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .lifetime-label-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+  }
+  .lifetime-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  input[type="range"].lifetime-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--gold) var(--val,40%), rgba(255,255,255,0.12) var(--val,40%));
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"].lifetime-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid rgba(0,0,0,0.2);
+    box-shadow: 0 2px 8px rgba(212,174,56,0.4);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type="range"].lifetime-slider::-webkit-slider-thumb:active { transform: scale(1.15); }
+
+  .sheet-footer {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+  }
+  .sheet-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 12px;
+    border: 0.5px solid var(--sep);
+    background: var(--glass-bg);
+    color: var(--text2);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+  .sheet-btn:hover { background: rgba(255,255,255,0.1); }
+  .sheet-btn.primary {
+    background: rgba(212,174,56,0.18);
+    border-color: rgba(212,174,56,0.45);
+    color: var(--gold);
+  }
+  .sheet-btn.primary:hover { background: rgba(212,174,56,0.28); }
+
+  /* ── Screen-flash on capture ───────────────────────────────── */
+  .screen-flash {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    pointer-events: none;
+    z-index: 100;
+  }
+  .screen-flash.flash {
+    animation: screenFlash 0.35s ease-out forwards;
+  }
+  @keyframes screenFlash {
+    0%   { background: rgba(255,255,255,0.6); }
+    100% { background: rgba(255,255,255,0); }
+  }
+
+  /* ── Responsive / desktop framing ─────────────────────────── */
+  @media (min-width: 500px) {
+    .viewfinder, .ui-layer {
+      max-width: 390px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .ui-layer { transform: translateX(-50%); }
+    .sheet-overlay .sheet-panel,
+    .provenance-badge,
+    .provenance-tooltip { max-width: 390px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Viewfinder ────────────────────────────────────────────── -->
+<div class="viewfinder" aria-hidden="true">
+  <div class="viewfinder-subject"></div>
+  <div class="focus-ring"></div>
+</div>
+
+<!-- ── Screen flash ─────────────────────────────────────────── -->
+<div class="screen-flash" id="screenFlash" aria-hidden="true"></div>
+
+<!-- ── Provenance Badge ──────────────────────────────────────── -->
+<div
+  class="provenance-badge glass"
+  id="provenanceBadge"
+  data-type="original"
+  role="button"
+  tabindex="0"
+  aria-label="Provenance: Camera Original. Tap for details."
+  aria-haspopup="tooltip"
+>
+  <span class="provenance-dot"></span>
+  <span class="provenance-label" id="provenanceLabel">Camera · Original</span>
+</div>
+<div class="provenance-tooltip glass" id="provenanceTooltip" role="tooltip" aria-live="polite">
+  <strong id="provenanceTooltipTitle">Camera · Original</strong>
+  <span id="provenanceTooltipBody">This content was captured directly by your camera with no edits or AI generation applied.</span>
+</div>
+
+<!-- ── Main UI Layer ─────────────────────────────────────────── -->
+<div class="ui-layer">
+
+  <!-- Top Bar -->
+  <div class="top-bar glass" role="toolbar" aria-label="Camera controls">
+    <!-- Back -->
+    <button class="top-btn" aria-label="Close camera" id="backBtn">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <!-- Privacy Pill -->
+    <button
+      class="privacy-pill glass"
+      id="privacyPill"
+      aria-label="Privacy: Close Friends, fades after 30 days. Tap to change."
+      aria-haspopup="dialog"
+      aria-expanded="false"
+    >
+      <span class="privacy-pill-icon" aria-hidden="true">👥</span>
+      <span class="privacy-pill-inner">
+        <span class="privacy-pill-text">Close Friends</span>
+        <span class="privacy-pill-sub">Fades 30d</span>
+      </span>
+      <span class="privacy-pill-chevron" aria-hidden="true">▾</span>
+    </button>
+
+    <!-- Right controls -->
+    <div class="top-btn-group">
+      <!-- Flash toggle -->
+      <button
+        class="top-btn flash-btn"
+        id="flashBtn"
+        data-state="off"
+        aria-label="Flash: off. Tap to cycle flash modes."
+      >
+        <span class="flash-icon" aria-hidden="true"></span>
+      </button>
+      <!-- Flip camera -->
+      <button class="top-btn" id="flipBtn" aria-label="Flip camera">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <path d="M3 6.5C3 5.12 4.12 4 5.5 4h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M10.5 2.5L12.5 4L10.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M15 11.5C15 12.88 13.88 14 12.5 14h-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M7.5 15.5L5.5 14L7.5 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Spacer -->
+  <div style="flex:1"></div>
+
+  <!-- Bottom Section -->
+  <div class="bottom-section">
+    <!-- Format hint text -->
+    <div class="format-hint" id="formatHint" aria-live="polite" aria-atomic="true">
+      Quick moment — disappears after viewing
+    </div>
+
+    <!-- Format chip strip -->
+    <div class="format-strip-wrapper" role="navigation" aria-label="Capture format">
+      <div class="format-strip-glass">
+        <div class="format-chips" id="formatChips" role="listbox" aria-label="Select capture format">
+          <button class="format-chip active" data-format="snap"       role="option" aria-selected="true"  aria-label="Snap format">
+            <span class="chip-icon" aria-hidden="true">⚡</span>Snap
+          </button>
+          <button class="format-chip" data-format="post"       role="option" aria-selected="false" aria-label="Post format">
+            <span class="chip-icon" aria-hidden="true">🖼</span>Post
+          </button>
+          <button class="format-chip" data-format="story"      role="option" aria-selected="false" aria-label="Story format">
+            <span class="chip-icon" aria-hidden="true">◎</span>Story
+          </button>
+          <button class="format-chip" data-format="voice"      role="option" aria-selected="false" aria-label="Voice format">
+            <span class="chip-icon" aria-hidden="true">🎙</span>Voice
+          </button>
+          <button class="format-chip" data-format="reflection" role="option" aria-selected="false" aria-label="Reflection format">
+            <span class="chip-icon" aria-hidden="true">📖</span>Reflection
+          </button>
+          <button class="format-chip" data-format="memory"     role="option" aria-selected="false" aria-label="Memory format">
+            <span class="chip-icon" aria-hidden="true">♡</span>Memory
+          </button>
+          <button class="format-chip" data-format="album"      role="option" aria-selected="false" aria-label="Album format">
+            <span class="chip-icon" aria-hidden="true">⧉</span>Album
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Capture cluster -->
+    <div class="capture-cluster">
+
+      <!-- Media picker thumbnail -->
+      <button class="media-thumb" aria-label="Open photo library">
+        <div class="media-thumb-inner" aria-hidden="true">🌿</div>
+        <div class="media-thumb-overlay" aria-hidden="true"></div>
+      </button>
+
+      <!-- Capture button -->
+      <div class="capture-outer" id="captureOuter" aria-hidden="true">
+        <div class="capture-ring"></div>
+        <button
+          class="capture-btn"
+          id="captureBtn"
+          aria-label="Capture photo. Hold to record video."
+        >
+          <div class="shutter-icon"></div>
+        </button>
+      </div>
+
+      <!-- Right side: sparkles / timer -->
+      <div class="capture-side-right" aria-live="polite">
+        <button class="sparkles-btn" aria-label="AI features" id="sparklesBtn">✦</button>
+        <div class="timer-display" id="timerDisplay" aria-label="Recording duration">
+          <span class="timer-time" id="timerTime">0:00</span>
+          <span class="timer-dot" aria-hidden="true"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Privacy Sheet ──────────────────────────────────────────── -->
+<div
+  class="sheet-overlay"
+  id="sheetOverlay"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Privacy settings"
+  aria-hidden="true"
+>
+  <div class="sheet-scrim" id="sheetScrim" aria-hidden="true"></div>
+  <div class="sheet-panel">
+    <div class="sheet-title">Who can see this</div>
+
+    <div class="audience-chips" id="audienceChips" role="radiogroup" aria-label="Audience selection">
+      <button class="audience-chip active" data-aud="close-friends" role="radio" aria-checked="true" aria-label="Close Friends">
+        <span class="aud-icon" aria-hidden="true">👥</span> Close Friends
+      </button>
+      <button class="audience-chip" data-aud="prayer-circle" role="radio" aria-checked="false" aria-label="Prayer Circle">
+        <span class="aud-icon" aria-hidden="true">🙏</span> Prayer Circle
+      </button>
+      <button class="audience-chip" data-aud="community" role="radio" aria-checked="false" aria-label="Community">
+        <span class="aud-icon" aria-hidden="true">🌐</span> Community
+      </button>
+      <button class="audience-chip" data-aud="only-me" role="radio" aria-checked="false" aria-label="Only Me">
+        <span class="aud-icon" aria-hidden="true">🔒</span> Only Me
+      </button>
+    </div>
+
+    <div class="sheet-divider"></div>
+
+    <div class="lifetime-section">
+      <div class="lifetime-label">
+        <span class="lifetime-label-text">Content lifetime</span>
+        <span class="lifetime-value" id="lifetimeValue">30 days</span>
+      </div>
+      <input
+        type="range"
+        class="lifetime-slider"
+        id="lifetimeSlider"
+        min="0"
+        max="100"
+        value="40"
+        aria-label="Content lifetime slider"
+        aria-valuetext="30 days"
+      >
+    </div>
+
+    <div class="sheet-footer">
+      <button class="sheet-btn" id="sheetCancel" aria-label="Cancel privacy changes">Cancel</button>
+      <button class="sheet-btn primary" id="sheetApply" aria-label="Apply privacy settings">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Format hints ────────────────────────────────────────────
+  const formatHints = {
+    snap:       'Quick moment — disappears after viewing',
+    post:       'Full photo or video posted to your feed',
+    story:      'Ephemeral 24-hour visual story',
+    voice:      'Voice note with optional waveform cover',
+    reflection: 'Scripture-linked journal entry',
+    memory:     'Saved to your personal memory vault',
+    album:      'Add to a shared photo album',
+  };
+
+  const formatChipsEl = document.getElementById('formatChips');
+  const formatHintEl  = document.getElementById('formatHint');
+
+  formatChipsEl.querySelectorAll('.format-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      formatChipsEl.querySelectorAll('.format-chip').forEach(c => {
+        c.classList.remove('active');
+        c.setAttribute('aria-selected', 'false');
+      });
+      chip.classList.add('active');
+      chip.setAttribute('aria-selected', 'true');
+      const fmt = chip.dataset.format;
+      formatHintEl.style.opacity = '0';
+      setTimeout(() => {
+        formatHintEl.textContent = formatHints[fmt] || '';
+        formatHintEl.style.opacity = '1';
+      }, 100);
+    });
+  });
+
+  // ── Flash toggle ────────────────────────────────────────────
+  const flashBtn    = document.getElementById('flashBtn');
+  const flashStates = ['off', 'on', 'auto'];
+  const flashLabels = { off: 'Flash: off', on: 'Flash: on', auto: 'Flash: auto' };
+  let flashIdx = 0;
+
+  flashBtn.addEventListener('click', () => {
+    flashIdx = (flashIdx + 1) % flashStates.length;
+    const state = flashStates[flashIdx];
+    flashBtn.dataset.state = state;
+    flashBtn.setAttribute('aria-label', flashLabels[state] + '. Tap to cycle flash modes.');
+  });
+
+  // ── Privacy sheet ───────────────────────────────────────────
+  const privacyPill  = document.getElementById('privacyPill');
+  const sheetOverlay = document.getElementById('sheetOverlay');
+  const sheetScrim   = document.getElementById('sheetScrim');
+  const sheetCancel  = document.getElementById('sheetCancel');
+  const sheetApply   = document.getElementById('sheetApply');
+  const audienceChips = document.querySelectorAll('.audience-chip');
+
+  let privacyOpen = false;
+
+  function openSheet () {
+    privacyOpen = true;
+    sheetOverlay.classList.add('open');
+    sheetOverlay.setAttribute('aria-hidden', 'false');
+    privacyPill.setAttribute('aria-expanded', 'true');
+    sheetApply.focus();
+  }
+
+  function closeSheet () {
+    privacyOpen = false;
+    sheetOverlay.classList.remove('open');
+    sheetOverlay.setAttribute('aria-hidden', 'true');
+    privacyPill.setAttribute('aria-expanded', 'false');
+  }
+
+  privacyPill.addEventListener('click', () => {
+    privacyOpen ? closeSheet() : openSheet();
+  });
+  sheetScrim.addEventListener('click', closeSheet);
+  sheetCancel.addEventListener('click', closeSheet);
+  sheetApply.addEventListener('click', closeSheet);
+
+  audienceChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      audienceChips.forEach(c => { c.classList.remove('active'); c.setAttribute('aria-checked', 'false'); });
+      chip.classList.add('active');
+      chip.setAttribute('aria-checked', 'true');
+    });
+  });
+
+  // ── Lifetime slider ─────────────────────────────────────────
+  const slider       = document.getElementById('lifetimeSlider');
+  const lifetimeVal  = document.getElementById('lifetimeValue');
+
+  const lifetimeLookup = [
+    [0,   '1 hour'],
+    [10,  '6 hours'],
+    [20,  '24 hours'],
+    [30,  '3 days'],
+    [40,  '30 days'],
+    [55,  '90 days'],
+    [70,  '1 year'],
+    [85,  '5 years'],
+    [100, 'Forever'],
+  ];
+
+  function getLifetimeLabel (val) {
+    let label = lifetimeLookup[0][1];
+    for (const [threshold, text] of lifetimeLookup) {
+      if (val >= threshold) label = text;
+    }
+    return label;
+  }
+
+  function updateSlider () {
+    const v = slider.value;
+    const label = getLifetimeLabel(Number(v));
+    lifetimeVal.textContent = label;
+    slider.setAttribute('aria-valuetext', label);
+    slider.style.setProperty('--val', v + '%');
+  }
+
+  slider.addEventListener('input', updateSlider);
+  updateSlider(); // init
+
+  // ── Capture button — tap (photo) + hold (video) ─────────────
+  const captureBtn   = document.getElementById('captureBtn');
+  const captureOuter = document.getElementById('captureOuter');
+  const screenFlash  = document.getElementById('screenFlash');
+  const timerDisplay = document.getElementById('timerDisplay');
+  const timerTime    = document.getElementById('timerTime');
+
+  let holdTimer      = null;
+  let recording      = false;
+  let recordStart    = null;
+  let timerInterval  = null;
+
+  function formatTime (sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function startRecording () {
+    recording  = true;
+    recordStart = Date.now();
+    captureOuter.classList.add('recording');
+    captureBtn.setAttribute('aria-label', 'Recording video. Release to stop.');
+
+    // Show timer in right slot
+    timerDisplay.style.display = 'flex';
+
+    let elapsed = 0;
+    timerInterval = setInterval(() => {
+      elapsed++;
+      timerTime.textContent = formatTime(elapsed);
+    }, 1000);
+  }
+
+  function stopRecording () {
+    recording = false;
+    captureOuter.classList.remove('recording');
+    captureBtn.setAttribute('aria-label', 'Capture photo. Hold to record video.');
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    timerTime.textContent = '0:00';
+    timerDisplay.style.display = 'none';
+  }
+
+  function doPhotoCapture () {
+    // Screen flash
+    screenFlash.classList.remove('flash');
+    void screenFlash.offsetWidth; // reflow
+    screenFlash.classList.add('flash');
+    // Button animation
+    captureBtn.classList.add('flash-anim');
+    setTimeout(() => captureBtn.classList.remove('flash-anim'), 400);
+  }
+
+  captureBtn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      startRecording();
+    }, 350);
+  });
+
+  captureBtn.addEventListener('pointerup', () => {
+    if (holdTimer !== null) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+      doPhotoCapture();
+    } else if (recording) {
+      stopRecording();
+    }
+  });
+
+  captureBtn.addEventListener('pointercancel', () => {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    if (recording)  stopRecording();
+  });
+
+  // Keyboard accessibility for capture button
+  captureBtn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      doPhotoCapture();
+    }
+  });
+
+  // ── Provenance badge ─────────────────────────────────────────
+  const provenanceBadge   = document.getElementById('provenanceBadge');
+  const provenanceTooltip = document.getElementById('provenanceTooltip');
+  const provenanceTooltipTitle = document.getElementById('provenanceTooltipTitle');
+  const provenanceTooltipBody  = document.getElementById('provenanceTooltipBody');
+
+  const provenanceData = {
+    original: {
+      label: 'Camera · Original',
+      title: 'Camera · Original',
+      body:  'This content was captured directly by your camera with no edits or AI generation applied.',
+    },
+    edited: {
+      label: 'Edited',
+      title: 'Edited',
+      body:  'This content has been modified with filters, crops, or other editing tools after capture.',
+    },
+    ai: {
+      label: 'AI-Assisted',
+      title: 'AI-Assisted',
+      body:  'AI tools were used to enhance, generate, or substantially alter this content.',
+    },
+  };
+
+  // Cycle provenance type on badge tap (demo only)
+  const provenanceTypes = ['original', 'edited', 'ai'];
+  let provenanceIdx = 0;
+  let tooltipTimeout = null;
+
+  // Position tooltip just below badge
+  function positionTooltip () {
+    const rect = provenanceBadge.getBoundingClientRect();
+    provenanceTooltip.style.top = (rect.bottom + 8) + 'px';
+    provenanceTooltip.style.right = '16px';
+  }
+
+  function showTooltip () {
+    positionTooltip();
+    provenanceTooltip.classList.add('visible');
+    if (tooltipTimeout) clearTimeout(tooltipTimeout);
+    tooltipTimeout = setTimeout(() => {
+      provenanceTooltip.classList.remove('visible');
+    }, 2000);
+  }
+
+  provenanceBadge.addEventListener('click', () => {
+    // Cycle type for demo
+    provenanceIdx = (provenanceIdx + 1) % provenanceTypes.length;
+    const type = provenanceTypes[provenanceIdx];
+    const data = provenanceData[type];
+    provenanceBadge.dataset.type = type;
+    document.getElementById('provenanceLabel').textContent = data.label;
+    provenanceTooltipTitle.textContent = data.title;
+    provenanceTooltipBody.textContent  = data.body;
+    provenanceBadge.setAttribute('aria-label', 'Provenance: ' + data.label + '. Tap for details.');
+    showTooltip();
+  });
+
+  provenanceBadge.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); provenanceBadge.click(); }
+  });
+
+  // ── Back button (demo: alert) ────────────────────────────────
+  document.getElementById('backBtn').addEventListener('click', () => {
+    // In production this would dismiss the camera sheet
+  });
+
+  // ── Flip camera (demo: subtle UI feedback) ───────────────────
+  const flipBtn = document.getElementById('flipBtn');
+  flipBtn.addEventListener('click', () => {
+    flipBtn.style.transform = 'scale(0.88) rotateY(180deg)';
+    setTimeout(() => { flipBtn.style.transform = ''; }, 300);
+  });
+  flipBtn.style.transition = 'transform 0.28s cubic-bezier(0.34,1.56,0.64,1)';
+
+  // ── Sparkles button (demo: highlight) ───────────────────────
+  document.getElementById('sparklesBtn').addEventListener('click', () => {
+    const btn = document.getElementById('sparklesBtn');
+    btn.style.background = 'rgba(75,94,198,0.45)';
+    btn.style.boxShadow  = '0 0 20px rgba(75,94,198,0.5)';
+    setTimeout(() => {
+      btn.style.background = '';
+      btn.style.boxShadow  = '';
+    }, 600);
+  });
+
+  // ── Init slider style ────────────────────────────────────────
+  slider.style.setProperty('--val', slider.value + '%');
+
+})();
+</script>
+</body>
+</html>

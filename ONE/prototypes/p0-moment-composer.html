@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONE — Moment Composer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --gold:       #D4AE38;
+    --indigo:     #4B5EC6;
+    --red:        #D95B4A;
+    --green:      #42B172;
+    --glass-bg:   rgba(255,255,255,0.07);
+    --glass-blur: 20px;
+    --bg:         #0F0F12;
+    --text:       #F5F0E8;
+    --text2:      rgba(245,240,232,0.55);
+    --text3:      rgba(245,240,232,0.28);
+    --separator:  rgba(255,255,255,0.10);
+    --spring:     cubic-bezier(0.34,1.56,0.64,1);
+  }
+  body {
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ───────────────────────────────────────────────── */
+  .composer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 56px 20px 16px;
+    flex-shrink: 0;
+  }
+  .header-close {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--glass-bg);
+    border: 0.5px solid var(--separator);
+    color: var(--text2);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .header-title { font-size: 17px; font-weight: 700; }
+  .header-send {
+    padding: 8px 18px;
+    border-radius: 50px;
+    background: var(--gold);
+    color: #1A1000;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  .header-send:hover { opacity: 0.88; }
+  .header-send:active { transform: scale(0.95); }
+
+  /* ── Content Area ─────────────────────────────────────────── */
+  .composer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── Format Selector ──────────────────────────────────────── */
+  .format-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .format-scroll::-webkit-scrollbar { display: none; }
+  .format-chip {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    border-radius: 18px;
+    background: var(--glass-bg);
+    border: 0.5px solid var(--separator);
+    cursor: pointer;
+    transition: all 0.18s ease;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    min-width: 72px;
+  }
+  .format-chip:hover { background: rgba(255,255,255,0.11); }
+  .format-chip.active {
+    background: rgba(212,174,56,0.12);
+    border-color: rgba(212,174,56,0.35);
+  }
+  .format-icon { font-size: 24px; }
+  .format-label { font-size: 11px; font-weight: 600; color: var(--text2); }
+  .format-chip.active .format-label { color: var(--gold); }
+
+  /* ── Text Composer ────────────────────────────────────────── */
+  .composer-input {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.55;
+    resize: none;
+    outline: none;
+    min-height: 120px;
+    width: 100%;
+    font-family: inherit;
+    caret-color: var(--gold);
+  }
+  .composer-input::placeholder { color: var(--text3); }
+
+  /* ── Char counter ─────────────────────────────────────────── */
+  .char-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+  }
+  .char-count { font-size: 12px; color: var(--text3); }
+  .char-count.warn { color: var(--red); }
+
+  /* ── Provenance Badge ─────────────────────────────────────── */
+  .provenance-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+    border: 0.5px solid var(--separator);
+  }
+  .prov-icon { font-size: 18px; }
+  .prov-info { flex: 1; }
+  .prov-label { font-size: 13px; font-weight: 600; }
+  .prov-desc { font-size: 11px; color: var(--text3); }
+  .prov-badge {
+    padding: 4px 10px;
+    border-radius: 50px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .prov-captured { background: rgba(66,177,114,0.15); color: var(--green); border: 0.5px solid rgba(66,177,114,0.3); }
+  .prov-ai       { background: rgba(212,174,56,0.12); color: var(--gold);  border: 0.5px solid rgba(212,174,56,0.3); }
+  .prov-unknown  { background: rgba(255,255,255,0.07); color: var(--text3); border: 0.5px solid var(--separator); }
+
+  /* ── Privacy Contract Summary ─────────────────────────────── */
+  .privacy-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    border-radius: 50px;
+    border: 0.5px solid rgba(255,255,255,0.14);
+    box-shadow: 0 1px 0 0 rgba(255,255,255,0.18) inset;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+  .privacy-summary:hover { transform: scale(1.01); }
+  .privacy-summary:active { transform: scale(0.97); }
+  .ps-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ps-label { font-size: 13px; font-weight: 600; }
+  .ps-div { width: 1px; height: 14px; background: var(--separator); }
+  .ps-edit { font-size: 12px; color: var(--text3); margin-left: auto; }
+
+  /* ── Bottom Toolbar ───────────────────────────────────────── */
+  .composer-toolbar {
+    flex-shrink: 0;
+    padding: 12px 20px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border-top: 0.5px solid var(--separator);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .toolbar-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 6px;
+    border-radius: 10px;
+    transition: background 0.15s;
+  }
+  .toolbar-btn:hover { background: rgba(255,255,255,0.07); }
+  .toolbar-btn span { font-size: 22px; }
+  .toolbar-spacer { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="composer-header">
+  <button class="header-close" aria-label="Close composer">✕</button>
+  <div class="header-title">New Moment</div>
+  <button class="header-send" aria-label="Send moment">Send</button>
+</div>
+
+<!-- Body -->
+<div class="composer-body">
+
+  <!-- Format selector (the ONE capture surface: pick your intent first) -->
+  <div>
+    <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px;">What is this?</div>
+    <div class="format-scroll" role="listbox" aria-label="Moment format">
+      <div class="format-chip active" role="option" aria-selected="true" onclick="selectFormat(this)">
+        <span class="format-icon">💬</span>
+        <span class="format-label">Message</span>
+      </div>
+      <div class="format-chip" role="option" aria-selected="false" onclick="selectFormat(this)">
+        <span class="format-icon">⚡️</span>
+        <span class="format-label">Snap</span>
+      </div>
+      <div class="format-chip" role="option" aria-selected="false" onclick="selectFormat(this)">
+        <span class="format-icon">📷</span>
+        <span class="format-label">Post</span>
+      </div>
+      <div class="format-chip" role="option" aria-selected="false" onclick="selectFormat(this)">
+        <span class="format-icon">🎞</span>
+        <span class="format-label">Story</span>
+      </div>
+      <div class="format-chip" role="option" aria-selected="false" onclick="selectFormat(this)">
+        <span class="format-icon">🎙</span>
+        <span class="format-label">Voice</span>
+      </div>
+      <div class="format-chip" role="option" aria-selected="false" onclick="selectFormat(this)">
+        <span class="format-icon">🙏</span>
+        <span class="format-label">Reflection</span>
+      </div>
+      <div class="format-chip" role="option" aria-selected="false" onclick="selectFormat(this)">
+        <span class="format-icon">🗂</span>
+        <span class="format-label">Memory</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Text input -->
+  <textarea class="composer-input" placeholder="What's on your heart?" maxlength="10000"
+            oninput="updateChar(this)" aria-label="Moment text" rows="5"></textarea>
+  <div class="char-row">
+    <span class="char-count" id="char-count">0 / 10,000</span>
+  </div>
+
+  <!-- Provenance label (set automatically; shown for transparency) -->
+  <div class="provenance-row" aria-label="Content provenance">
+    <span class="prov-icon">🔍</span>
+    <div class="prov-info">
+      <div class="prov-label">Provenance</div>
+      <div class="prov-desc">How this content was created</div>
+    </div>
+    <span class="prov-badge prov-unknown" id="prov-badge">Unknown</span>
+  </div>
+
+  <!-- Privacy contract pill -->
+  <div>
+    <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px;">Privacy Contract</div>
+    <div class="privacy-summary" role="button" tabindex="0"
+         aria-label="Privacy contract: Close Friends, fades in 30 days, no reshare. Tap to edit."
+         onclick="alert('→ Opens p0-privacy-pill.html panel')">
+      <span class="ps-dot" style="background:#4B5EC6"></span>
+      <span class="ps-label" style="color:#7A89D8">Close Friends</span>
+      <span class="ps-div"></span>
+      <span class="ps-dot" style="background:rgba(212,174,56,0.6)"></span>
+      <span class="ps-label" style="color:rgba(212,174,56,0.8)">30 days</span>
+      <span class="ps-div"></span>
+      <span class="ps-dot" style="background:#42B172"></span>
+      <span class="ps-label" style="color:#42B172">Private</span>
+      <span class="ps-edit">Edit ›</span>
+    </div>
+    <!-- The three questions — always answered -->
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px;">
+      <div style="font-size:12px;color:var(--text3);">Who can see this? <span style="color:var(--text2)">Close Friends</span></div>
+      <div style="font-size:12px;color:var(--text3);">How long will it exist? <span style="color:var(--text2)">Fades in 30 days unless remembered</span></div>
+      <div style="font-size:12px;color:var(--text3);">Can it be reshared? <span style="color:var(--red)">No</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom Toolbar -->
+<div class="composer-toolbar">
+  <button class="toolbar-btn" aria-label="Attach media">
+    <span>📎</span>
+    <span>Media</span>
+  </button>
+  <button class="toolbar-btn" aria-label="Add location">
+    <span>📍</span>
+    <span>Place</span>
+  </button>
+  <button class="toolbar-btn" aria-label="Scripture reference">
+    <span>📖</span>
+    <span>Scripture</span>
+  </button>
+  <div class="toolbar-spacer"></div>
+  <button class="toolbar-btn" aria-label="Voice note">
+    <span>🎙</span>
+    <span>Voice</span>
+  </button>
+</div>
+
+<script>
+  function selectFormat(chip) {
+    document.querySelectorAll('.format-chip').forEach(c => {
+      c.classList.remove('active');
+      c.setAttribute('aria-selected', 'false');
+    });
+    chip.classList.add('active');
+    chip.setAttribute('aria-selected', 'true');
+  }
+
+  function updateChar(ta) {
+    const el = document.getElementById('char-count');
+    const len = ta.value.length;
+    el.textContent = `${len.toLocaleString()} / 10,000`;
+    el.classList.toggle('warn', len > 9500);
+
+    // Simulate provenance for text: always Unknown (no image analysis)
+    document.getElementById('prov-badge').textContent = 'Unknown';
+    document.getElementById('prov-badge').className = 'prov-badge prov-unknown';
+  }
+</script>
+</body>
+</html>

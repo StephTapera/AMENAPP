@@ -1,302 +1,191 @@
-# Cloud Functions Contract — Spiritual OS
-## STATUS: FROZEN · Do not edit without Lead Orchestrator sign-off
-
-All new Firebase Cloud Functions v2 callables and scheduled functions are
-documented here. Agents must consume these exact names and shapes.
-No client-side model calls — all AI/model traffic goes through these proxies.
+# FROZEN — Cloud Functions Contract · Spiritual OS
+> Version 1.0 · 2026-06-02 · Lead Orchestrator
+> ⚠️ FROZEN. All new functions are v6 callables. App Check + Auth required on every function.
+> Agents NEVER call AI models client-side. All model calls go through these server-side proxies.
 
 ---
 
-## Global Rules for All Functions
+## Universal Gating Requirements
 
-1. **App Check + Auth:** All callables set `enforceAppCheck: true` and verify `request.auth?.uid` before any logic. Throw `unauthenticated` if missing.
-2. **Rate limiting:** Use the shared `callWithTimeout(ms: 10000)` helper (existing in codebase). Callables that call external AI APIs additionally enforce per-user rate limits via Firestore counter (max 30 AI calls/hour).
-3. **No raw location stored:** Any CF that receives location data resolves it to an entity ID (churchId, eventId) and discards coordinates before writing to Firestore.
-4. **Berean proxy:** Functions marked `[Berean]` proxy requests to Anthropic Claude. System prompt is server-side only. The client never sees the system prompt or the raw API key.
-5. **Error codes:** Use Firebase `HttpsError` codes (`unauthenticated`, `permission-denied`, `invalid-argument`, `resource-exhausted`, `internal`). Never expose internal error details to the client.
-6. **Aegis integration:** Functions marked `[Aegis]` call `aegisGuardian` or `aegisContentCheck` before writing content.
+Every function here MUST enforce:
+1. `context.auth` present and valid (unauthenticated → reject)
+2. App Check token validated (permission-denied if missing)
+3. Caller UID must match `userId` in request payload (no cross-user reads)
+4. Rate limiting via existing `rateLimiter.js` (max 60 calls/min per UID)
 
 ---
 
-## Callable Functions
+## getSpiritualDigest
+Generates or retrieves current day's personalized digest.
 
-### `generateDailyDigest` [Berean] [Scheduled also]
+Request:
+```json
+{ "userId": "string", "forceRefresh": "boolean (optional, default false)" }
+```
 
-**Trigger:** Callable (pull-to-refresh) + Scheduled (6 AM local via timezone-aware schedule).  
-**Gating:** `enforceAppCheck: true`, Auth required.
-
-```typescript
-// Request
-interface GenerateDailyDigestRequest {
-  forceRefresh?: boolean;   // skip cache if true
-}
-
-// Response
-interface GenerateDailyDigestResponse {
-  ok: boolean;
-  date: string;             // "2026-06-01"
-  cachedAt: string | null;  // ISO timestamp if served from cache
+Response:
+```json
+{
+  "greeting": "string",
+  "items": [{ "itemId", "type", "title", "body", "sourceRef", "priority", "isRead" }],
+  "timeOfDay": "morning|afternoon|evening|night",
+  "generatedAt": "ISO8601"
 }
 ```
 
-**Logic:**
-1. Check `users/{uid}/dailyDigest/{today}` — if exists and < 6h old, return cached.
-2. Fetch: today's verse (Bible API), pending prayer requests, upcoming events (48h), unread mentions, pinned Berean sessions, birthdays.
-3. Call Anthropic Claude to generate `greeting` string. System prompt includes user's first name, today's verse, time of day.
-4. Write `DailyDigest` doc. Return `ok: true`.
+Proxies: Anthropic Claude (greeting + verse selection). Falls back to seeded verse if Claude unavailable.
+Writes to: `spiritualOS_digest/{userId}/items/*`
 
 ---
 
-### `getHubItems` 
+## getHubItems
+Returns paginated unified inbox stream.
 
-**Trigger:** Callable (initial page load + pull-to-refresh; real-time listener handles updates).  
-**Gating:** `enforceAppCheck: true`, Auth required.
-
-```typescript
-// Request
-interface GetHubItemsRequest {
-  pageSize?: number;        // default 25, max 50
-  afterCursor?: string;     // Firestore document ID for pagination
-  faithTagFilter?: string;  // "Prayer" | "Church" | etc. | null = all
-}
-
-// Response
-interface GetHubItemsResponse {
-  ok: boolean;
-  items: HubItem[];
-  nextCursor: string | null;
-  unreadCount: number;
+Request:
+```json
+{
+  "userId": "string",
+  "lastItemId": "string|null",
+  "pageSize": "number (max 30, default 20)",
+  "filterType": "string|null"
 }
 ```
 
----
+Response: `{ "items": [...], "hasMore": boolean, "nextCursor": "string|null" }`
 
-### `markHubItemRead`
-
-**Trigger:** Callable.  
-**Gating:** `enforceAppCheck: true`, Auth required.
-
-```typescript
-// Request
-interface MarkHubItemReadRequest {
-  itemId: string;
-  action: "read" | "archive" | "pin" | "unpin";
-}
-// Response: { ok: boolean }
-```
+No AI proxying — purely Firestore reads from pre-written `spiritualOS_hub` items.
 
 ---
 
-### `getLifePlannerEvents`
+## getPlannerEvents
+Returns planner events for a date range, merged from Space events + prayer plans.
 
-**Trigger:** Callable.  
-**Gating:** `enforceAppCheck: true`, Auth required.
-
-```typescript
-// Request
-interface GetLifePlannerEventsRequest {
-  startDate: string;        // "YYYY-MM-DD"
-  endDate: string;          // "YYYY-MM-DD", max 14 days ahead
-}
-
-// Response
-interface GetLifePlannerEventsResponse {
-  ok: boolean;
-  events: LifePlannerEvent[];
-  bereanSuggestions: BereanPlannerSuggestion[];
-}
-
-interface BereanPlannerSuggestion {
-  eventId: string;
-  suggestionText: string;  // "Men's study tonight — read Romans 12?"
-  deepLink: string;
+Request:
+```json
+{
+  "userId": "string",
+  "startDate": "ISO8601",
+  "endDate": "ISO8601",
+  "includeBereanSuggestions": "boolean (default true)"
 }
 ```
 
----
+Response: `{ "events": [...], "suggestions": [{ "itemId", "promptLabel", "bereanNote", "targetDate" }] }`
 
-### `mirrorSpaceEventToPlanner` [Internal, triggered by Space event write]
-
-**Trigger:** Firestore `onDocumentCreated` trigger on `spaces/{spaceId}/events/{eventId}`.  
-**Logic:** For each member in `spaces/{spaceId}/members/`, write a mirrored `LifePlannerEvent` to `users/{uid}/lifePlannerEvents/`. Idempotent (upsert by `sourceId`).
+AI proxying (optional): Claude for gentle bereanNote suggestions only when includeBereanSuggestions=true.
 
 ---
 
-### `createSpace` [Aegis]
+## getPlannerSuggestions
+Generates AI formation suggestions for upcoming dates (dismissible nudges).
 
-**Trigger:** Callable.  
-**Gating:** `enforceAppCheck: true`, Auth required.
-
-```typescript
-// Request
-interface CreateSpaceRequest {
-  name: string;             // max 60 chars
-  description: string;      // max 500 chars
-  coverTintHex: string;     // must be amenGold/amenPurple/amenBlue hex
-  churchAffiliation?: string;
-  liturgicalTagIds?: string[];
-  privacy: "public" | "private" | "secret";
-  encryptionEnabled?: boolean;
-  moderationEnabled?: boolean;
-  features: SpaceFeatures;
-  addBereanAsMember?: boolean;
-  initialMemberUids?: string[];  // max 50
-}
-
-// Response
-interface CreateSpaceResponse {
-  ok: boolean;
-  spaceId: string;
-  bereanMemberId: string | null;
+Request:
+```json
+{
+  "userId": "string",
+  "contextMode": "string",
+  "upcomingEventTitles": ["string"]
 }
 ```
 
-**Logic:**
-1. Validate all fields. Run `aegisContentCheck` on `name` + `description`.
-2. Create `spaces/{spaceId}` document.
-3. Write creator as `leader` in `spaces/{spaceId}/members/{uid}`.
-4. If `addBereanAsMember: true`, create a synthetic `bereanMemberId` entry and set `bereanMemberId` on the Space.
-5. If `initialMemberUids` provided, create member docs (role: `member`).
-6. If `privacy == "private"` and `encryptionEnabled: true`, flag Space for E2E key setup.
+Response: `{ "suggestions": [{ "surfaceContext", "promptLabel", "promptText", "priority" }] }`
+
+Proxies: Anthropic Claude.
+Hard rate: max 5 suggestions per user per day (CF-enforced, not just client-limited).
+Writes to: `spiritualOS_suggestions/{userId}/items/*`
+Formation rule: Claude prompt must be constrained to dismissible, invitational tone. No obligation or guilt language.
 
 ---
 
-### `getSpaceDashboard`
+## getAssistantResponse
+Berean assistant bar — handles text, voice, and vision (OCR verse detection) queries.
 
-**Trigger:** Callable.  
-**Gating:** `enforceAppCheck: true`, Auth required, caller must be Space member.
-
-```typescript
-// Request
-interface GetSpaceDashboardRequest {
-  spaceId: string;
-}
-
-// Response
-interface GetSpaceDashboardResponse {
-  ok: boolean;
-  space: Space;
-  members: SpaceMember[];        // up to 20 (full list via paginated sub-call)
-  nextEvent: SpaceEvent | null;
-  activePrayerRequests: SpacePrayerRequest[];  // max 5
-  activeSeriesTitle: string | null;
-  memberCount: number;
+Request:
+```json
+{
+  "userId": "string",
+  "query": "string (max 1000 chars)",
+  "queryType": "text|voice|vision",
+  "surfaceContext": "home|hub|planner|space|commandCenter|assistantBar",
+  "imageBase64": "string|null (vision only, max 2MB)",
+  "contextMode": "string"
 }
 ```
 
----
-
-### `getCommandCenter`
-
-**Trigger:** Callable (pull-to-refresh) + Scheduled (daily 7 AM).  
-**Gating:** `enforceAppCheck: true`, Auth required.
-
-```typescript
-// Request: {} (empty, uses auth uid)
-
-// Response
-interface GetCommandCenterResponse {
-  ok: boolean;
-  commandCenter: CommandCenter;
+Response:
+```json
+{
+  "answer": "string",
+  "sources": [{ "type": "scripture|bereanNote|churchNote|external", "ref", "title", "snippet" }],
+  "suggestedFollowUps": ["string (max 3)"],
+  "aiDisclosureLabel": "string (required)"
 }
 ```
 
+Proxies: Anthropic Claude + Pinecone (bereanMemory/churchNotes vectors) + Algolia (scripture search).
+Vision: image processed in-flight only — NOT stored. imageBase64 bytes are never persisted.
+
 ---
 
-### `generateSmartSuggestions` [Berean]
+## updateContextState
+Client pushes context mode updates to server for digest personalization.
 
-**Trigger:** Callable.  
-**Gating:** `enforceAppCheck: true`, Auth required.  
-**Rate limit:** Max 10 calls/hour per user (AI-backed).
-
-```typescript
-// Request
-interface GenerateSmartSuggestionsRequest {
-  currentSurface: SOSurface;
-  contextMode: ContextMode;        // from client contextState
-}
-
-// Response
-interface GenerateSmartSuggestionsResponse {
-  ok: boolean;
-  suggestions: Suggestion[];       // max 10
+Request:
+```json
+{
+  "userId": "string",
+  "mode": "default|worship|driving|travel|focus|rest",
+  "isSundayChurchTime": "boolean",
+  "isNearChurch": "boolean",
+  "isDriving": "boolean",
+  "isTraveling": "boolean",
+  "userPermissions": { "locationEnabled", "motionEnabled", "geofenceOptIn", "audioAutoPlay": "boolean" }
 }
 ```
 
-**Logic:** Sends minimal context (surface, mode, today's verse reference, user's active Space IDs, current time of day) to Claude. System prompt instructs Claude to return faith-native, gentle study/prayer prompts as structured JSON. Response is validated against `Suggestion[]` schema before write.
+Response: `{ "success": true }`
+Writes to: `spiritualOS_context/{userId}` (upsert).
+Privacy: Server never logs isNearChurch beyond the live document. No analytics pipeline receives this.
 
 ---
 
-### `updateContextState` [Aegis]
+## dismissSuggestion
+User dismisses a Berean suggestion or planner nudge.
 
-**Trigger:** Callable (called by on-device Context Engine, not directly by UI views).  
-**Gating:** `enforceAppCheck: true`, Auth required.
-
-```typescript
-// Request
-interface UpdateContextStateRequest {
-  // Client sends RESOLVED identifiers — never raw coordinates
-  nearbyChurchId?: string | null;
-  nearbyChurchName?: string | null;
-  isDriving?: boolean;
-  isTraveling?: boolean;
-  timeOfDay?: "morning" | "midday" | "evening" | "night";
-  dayOfWeek?: number;
-  lastKnownEventCheckIn?: string | null;
-  consentFlags?: {
-    location?: boolean;
-    motion?: boolean;
-    calendar?: boolean;
-  };
-}
-
-// Response: { ok: boolean; mode: ContextMode }
-```
-
-**Privacy:** CF computes `mode` and `subMode` server-side from the resolved identifiers. No raw location ever written to Firestore.
+Request: `{ "userId": "string", "itemId": "string", "collectionHint": "suggestions|planner" }`
+Response: `{ "success": true }`
+Writes: `isDismissed: true` on relevant document.
 
 ---
 
-### `askBerean` [Berean] [Aegis]
+## pinHubItem
+User pins or unpins a Hub item ("keep praying" gesture).
 
-**Trigger:** Callable (shared across all Berean surfaces).  
-**Gating:** `enforceAppCheck: true`, Auth required.  
-**Rate limit:** 30 AI calls/hour/user.
-
-```typescript
-// Request
-interface AskBereanRequest {
-  prompt: string;             // max 1000 chars
-  surface: SOSurface;
-  contextMode: ContextMode;
-  spaceId?: string | null;
-  imageBase64?: string | null;  // Vision OCR — max 4MB
-  voiceTranscript?: string | null;
-}
-
-// Response
-interface AskBereanResponse {
-  ok: boolean;
-  answer: string;
-  scriptureReferences: string[];   // ["Romans 8:28", …]
-  followUpPrompts: string[];       // max 3 gentle follow-ups
-  sessionId: string;
-}
-```
-
-**Logic:**
-1. `aegisContentCheck` on prompt.
-2. If `imageBase64` provided, run Vision OCR to extract text/verse reference before sending to Claude.
-3. Call Claude with scripture-grounded system prompt. Response must cite at least one scripture reference.
-4. Write session to `users/{uid}/bereanSessions/{sessionId}`.
+Request: `{ "userId": "string", "itemId": "string", "isPinned": "boolean" }`
+Response: `{ "success": true }`
+Writes: `isPinned` on `spiritualOS_hub/{userId}/items/{itemId}`.
 
 ---
 
-## Scheduled Functions
+## cleanupContextOnLogout
+Wipes context state document on logout.
 
-| Function | Schedule | Purpose |
-|---|---|---|
-| `generateDailyDigest` | 6 AM local per user (timezone-aware) | Pre-generate daily briefing |
-| `refreshCommandCenter` | Daily 7 AM | Aggregate formation stats |
-| `expireSuggestions` | Every 6h | Remove stale `suggestions` docs |
-| `mirrorSpaceEvents` | Firestore trigger | Keep `lifePlannerEvents` in sync |
+Request: `{ "userId": "string" }`
+Response: `{ "success": true }`
+Writes: Deletes `spiritualOS_context/{userId}`.
+Wire-in: Must be called in existing logout sequence (AuthenticationManager or equivalent).
+
+---
+
+## AI Disclosure Requirement
+Every response from `getAssistantResponse` and `getPlannerSuggestions` MUST include `aiDisclosureLabel`.
+Client MUST display this via existing `AmenAIUsageLabel` component (`AMENAPP/AMENAPP/AIIntelligence/AmenAIUsageLabel.swift`).
+
+---
+
+## Existing Functions Consumed (NOT modified)
+- `bereanFunctions` → AssistantBar scripture Q&A passthrough
+- `mlNotificationIntelligence` → Hub item prioritization
+- `prayerArcFunctions` → Planner prayer plan events
+- `eventFunctions` → Planner Space event data
+- `churchEnhancementFunctions` → Context Engine church location

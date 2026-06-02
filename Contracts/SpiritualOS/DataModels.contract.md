@@ -1,404 +1,153 @@
-# Data Models Contract — Spiritual OS
-## STATUS: FROZEN · Do not edit without Lead Orchestrator sign-off
-
-All new Firestore schemas are documented here. Agents must use exactly
-these field names and types — no client-side schema drift.
+# FROZEN — Data Models Contract · Spiritual OS
+> Version 1.0 · 2026-06-02 · Lead Orchestrator
+> ⚠️ FROZEN. Implement against these exact schemas. No field renames or additions without Lead sign-off.
 
 ---
 
-## Collection Map
+## Existing Collections (read-only — do NOT modify schemas)
+
+Consumed by Spiritual OS but not structurally changed:
+`users`, `posts`, `prayers`, `communities`, `spaces`, `events`, `messages`, `conversations`,
+`covenants`, `prayerReminders`, `bereanMemory`, `reflectionJourneys`, `savedResources`
+
+---
+
+## New Collection 1: `spiritualOS_digest/{userId}/items/{itemId}`
+Daily digest feed. Server-written (CF), client read-only except `isRead`.
 
 ```
-users/{uid}/
-  dailyDigest/{date}/            ← Agent A
-  hubItems/{itemId}/             ← Agent B
-  lifePlannerEvents/{eventId}/   ← Agent C
-  contextState (single doc)      ← Agent H
-  commandCenter (single doc)     ← Agent F
-
-spaces/{spaceId}/                ← Agents D + E
-  members/{uid}/
-  events/{eventId}/
-  prayerRequests/{requestId}/
-  studySeries/{seriesId}/
-
-suggestions/{uid}/               ← Agent G (global, user-scoped)
+itemId        String    Auto (CF-generated)
+userId        String    Owner UID (must match auth)
+type          String    "verse" | "prayerReminder" | "eventToday" | "mention" |
+                        "bereanStudy" | "birthday" | "spaceUpdate" | "readingPlan"
+title         String    Short display title (max 80 chars)
+body          String?   Preview text (max 280 chars)
+sourceRef     String?   Deep link route (e.g. "prayer/{id}", "space/{id}")
+sourceType    String?   Collection name of referenced document
+priority      Number    0–100, CF-assigned. Client sorts descending.
+isRead        Boolean   Client-writable on view
+createdAt     Timestamp Server timestamp
+expiresAt     Timestamp Default: end of current day (UTC)
+aegisFlags    Map?      Aegis flags that apply (e.g. {prayerPrivacy: true})
 ```
 
 ---
 
-## 1. Daily Digest — `users/{uid}/dailyDigest/{date}`
+## New Collection 2: `spiritualOS_hub/{userId}/items/{itemId}`
+Unified inbox stream. Pre-written by trigger/denormalization CFs.
 
-Document ID = `YYYY-MM-DD` (today's date, UTC).  
-Written by CF `generateDailyDigest` at 6 AM local (scheduled).
-
-```typescript
-interface DailyDigest {
-  uid: string;
-  date: string;                      // "2026-06-01"
-  generatedAt: Timestamp;
-
-  greeting: string;                  // "Good morning, {name}…" — from Berean AI
-  dailyVerse: {
-    reference: string;               // "Romans 8:28"
-    text: string;
-    translation: string;             // "NIV"
-  };
-
-  prayerReminders: PrayerReminder[]; // max 5 pending prayer items
-  spaceEvents: SpaceEventSummary[];  // next 48h events user is member of
-  mentions: MentionSummary[];        // unread @mentions across OpenTable + Notes
-  savedStudies: StudySummary[];      // pinned Berean sessions
-  birthdays: BirthdayEntry[];        // today's birthdays in connections
-
-  todayItems: TimelineItem[];        // ordered daily timeline (mixed types)
-
-  // Formation metrics — private, never shared
-  readingStreakDays: number;         // consecutive days of reading plan
-  prayerCountThisWeek: number;       // private count only
-  aegisFlags: {
-    location: boolean;               // was location used?
-    geofenceActive: boolean;
-  };
-}
-
-interface PrayerReminder {
-  requestId: string;
-  authorName: string;
-  snippet: string;                   // max 120 chars
-  daysSincePosted: number;
-  spaceId: string | null;
-}
-
-interface SpaceEventSummary {
-  spaceId: string;
-  spaceName: string;
-  eventTitle: string;
-  startsAt: Timestamp;
-  coverTintHex: string;              // hex for HeroCard tint
-}
-
-interface MentionSummary {
-  postId: string;
-  authorName: string;
-  snippet: string;
-  mentionedAt: Timestamp;
-  surface: "openTable" | "churchNotes" | "spaces";
-}
-
-interface StudySummary {
-  sessionId: string;
-  topic: string;
-  lastOpenedAt: Timestamp;
-  progressPercent: number;           // 0–100, private
-}
-
-interface BirthdayEntry {
-  uid: string;
-  displayName: string;
-  avatarURL: string;
-}
-
-interface TimelineItem {
-  id: string;
-  type: "verse" | "prayer" | "event" | "mention" | "study" | "birthday" | "note";
-  title: string;
-  subtitle: string | null;
-  timestamp: Timestamp | null;
-  deepLink: string;                  // internal route, not a URL
-  isCompleted: boolean;
-  spaceId: string | null;
-}
+```
+itemId         String
+userId         String    Owner UID
+type           String    "message" | "prayerRequest" | "churchNoteMention" |
+                         "bereanAnswer" | "groupInvite" | "eventInvite" |
+                         "mentorResponse" | "testimony"
+tag            String    "Prayer" | "Testimony" | "Church" | "Community" |
+                         "Mention" | "Berean" | "Event"
+title          String    Sender name or event title (max 80 chars)
+preview        String?   Content preview (max 160 chars, never full prayer body)
+senderUid      String?
+senderName     String?
+senderAvatar   String?   Avatar URL
+sourceRef      String    Deep link route to original content
+isPinned       Boolean   Client-writable ("keep praying" pin)
+isRead         Boolean   Client-writable
+isArchived     Boolean   Client-writable
+createdAt      Timestamp
+aegisFlags     Map?
 ```
 
-**Aegis flags:** `readingStreakDays` and `prayerCountThisWeek` are NEVER returned in public APIs. The Firestore rule restricts this document to `request.auth.uid == uid`.
+Index required: userId + createdAt DESC + isArchived == false
 
 ---
 
-## 2. Unified Hub Items — `users/{uid}/hubItems/{itemId}`
+## New Collection 3: `spiritualOS_planner/{userId}/events/{eventId}`
+Life Planner merged calendar events.
 
-Fan-out written by Cloud Functions. Client reads via real-time listener.
-
-```typescript
-interface HubItem {
-  id: string;
-  uid: string;
-  createdAt: Timestamp;
-  readAt: Timestamp | null;
-  archivedAt: Timestamp | null;
-  pinnedAt: Timestamp | null;        // "Keep Praying" pin
-
-  type: HubItemType;
-  faithTag: FaithTag;                // primary classification
-
-  // Polymorphic payload (only relevant fields populated per type)
-  payload: {
-    title: string;
-    subtitle: string | null;
-    bodySnippet: string | null;      // max 200 chars
-    authorName: string;
-    authorAvatarURL: string;
-    deepLink: string;                // internal route
-    spaceId: string | null;
-    spaceRole: SpaceRole | null;
-  };
-}
-
-type HubItemType =
-  | "directMessage"
-  | "prayerRequest"
-  | "prayerResponse"
-  | "churchNoteMention"
-  | "bereanAnswer"
-  | "spaceInvite"
-  | "eventInvite"
-  | "mentorResponse"
-  | "groupUpdate";
-
-type FaithTag = "Prayer" | "Testimony" | "Church" | "Community" | "Berean";
-type SpaceRole = "leader" | "pastor" | "moderator" | "member";
+```
+eventId        String
+userId         String    Owner UID
+sourceType     String    "spaceEvent" | "readingPlan" | "prayerPlan" |
+                         "gathering" | "personalNote" | "bereanSuggestion"
+title          String    (max 120 chars)
+description    String?   (max 500 chars)
+startDate      Timestamp
+endDate        Timestamp?
+isAllDay       Boolean   Default false
+isCompleted    Boolean   Client-writable
+spaceId        String?   If linked to a Space
+sourceRef      String?   Deep link to original event/plan
+bereanNote     String?   Gentle suggestion, max 140 chars. Dismissible. CF-written.
+isBereanNote   Boolean   True if AI-originated
+isDismissed    Boolean   Client-writable (dismisses berean suggestions)
+color          String?   "amenGold" | "amenPurple" | "amenBlue"
+createdAt      Timestamp
+aegisFlags     Map?
 ```
 
-**Index required:** `uid ASC, createdAt DESC` (composite, partial filter on `archivedAt == null`).  
-**Aegis:** `prayerRequest` and `prayerResponse` items are routed through `AegisGuardianHook` before write.
+Index required: userId + startDate ASC + isCompleted == false
 
 ---
 
-## 3. Life Planner Events — `users/{uid}/lifePlannerEvents/{eventId}`
+## New Collection 4: `spiritualOS_context/{userId}` (single doc per user)
+Live context state. CF-written only. Never retained beyond the document.
 
-Merged view of Space events (mirrored) + personal items created by user.
-
-```typescript
-interface LifePlannerEvent {
-  id: string;
-  uid: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-
-  source: "personal" | "spaceEvent" | "readingPlan" | "prayerPlan";
-  sourceId: string | null;           // spaceId or planId if mirrored
-
-  title: string;
-  notes: string | null;
-  startsAt: Timestamp;
-  endsAt: Timestamp | null;
-  isAllDay: boolean;
-  isCompleted: boolean;
-  completedAt: Timestamp | null;
-
-  bereanSuggestion: string | null;   // gentle study prompt from Berean AI
-  bereanSuggestionDismissed: boolean;
-
-  spaceId: string | null;
-  spaceName: string | null;
-  coverTintHex: string | null;
-}
+```
+userId                String
+mode                  String    "default" | "worship" | "driving" | "travel" | "focus" | "rest"
+timeOfDay             String    "morning" | "afternoon" | "evening" | "night"
+isSundayChurchTime    Boolean
+isNearChurch          Boolean   Only set if geofenceOptIn == true
+isDriving             Boolean   Motion-detected, clears feed, activates audio
+isTraveling           Boolean   Surfaces nearby churches
+lastUpdated           Timestamp
+userPermissions       Map       { locationEnabled, motionEnabled, geofenceOptIn, audioAutoPlay : Boolean }
+aegisAuditRef         String?   Ref to Aegis audit log for permission grant
 ```
 
-**Note:** Space events are mirrored into `lifePlannerEvents` by CF `mirrorSpaceEventToPlanner` when a user RSVPs or is a member. Client does NOT read directly from `spaces/{spaceId}/events/` for the planner view.
+Privacy: Never synced except via updateContextState CF. Deleted on logout.
 
 ---
 
-## 4. Spaces — `spaces/{spaceId}`
+## New Collection 5: `spiritualOS_suggestions/{userId}/items/{itemId}`
+Berean contextual suggestion chips for AssistantBar and surface nudges.
 
-Top-level Space document.
-
-```typescript
-interface Space {
-  id: string;
-  ownerId: string;                   // user who created
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-
-  name: string;                      // max 60 chars
-  description: string;               // max 500 chars
-  coverImageURL: string | null;
-  coverTintHex: string;              // one of amenGold/amenPurple/amenBlue hex
-  churchAffiliation: string | null;  // "First Baptist" etc.
-  liturgicalTagIds: string[];        // e.g. ["advent", "lent"]
-
-  privacy: "public" | "private" | "secret";
-  encryptionEnabled: boolean;        // for private prayer Spaces
-  moderationEnabled: boolean;
-  memberCount: number;               // denormalized
-
-  features: SpaceFeatures;
-  bereanMemberId: string | null;     // if Berean AI added as resident member
-
-  // Current study series
-  activeSeriesId: string | null;
-  activeSeriesTitle: string | null;
-}
-
-interface SpaceFeatures {
-  churchNotes: boolean;
-  bereanAsResident: boolean;
-  events: boolean;
-  resources: boolean;
-  prayerWall: boolean;
-}
 ```
-
-### Members — `spaces/{spaceId}/members/{uid}`
-
-```typescript
-interface SpaceMember {
-  uid: string;
-  displayName: string;
-  avatarURL: string;
-  role: SpaceRole;
-  joinedAt: Timestamp;
-  invitedBy: string | null;
-  notificationsEnabled: boolean;
-}
+itemId         String
+userId         String    Owner UID
+surfaceContext String    "home" | "hub" | "planner" | "space" | "commandCenter" | "assistantBar"
+promptLabel    String    Short chip label (max 28 chars)
+promptText     String    Full prompt sent to Berean on tap (max 200 chars)
+isDismissed    Boolean   Client-writable
+priority       Number    0–100 CF-assigned
+expiresAt      Timestamp Default: 24 hours from creation
+createdAt      Timestamp
 ```
-
-### Events — `spaces/{spaceId}/events/{eventId}`
-
-```typescript
-interface SpaceEvent {
-  id: string;
-  spaceId: string;
-  createdBy: string;
-  createdAt: Timestamp;
-
-  title: string;
-  description: string | null;
-  startsAt: Timestamp;
-  endsAt: Timestamp | null;
-  isOnline: boolean;
-  locationLabel: string | null;      // human-readable, never raw coords
-
-  rsvpCount: number;                 // denormalized
-  rsvpUids: string[];                // max 100 stored inline; overflow → subcollection
-}
-```
-
-### Prayer Requests — `spaces/{spaceId}/prayerRequests/{requestId}`
-
-```typescript
-interface SpacePrayerRequest {
-  id: string;
-  spaceId: string;
-  authorUid: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-
-  text: string;                      // max 2000 chars
-  isAnonymous: boolean;
-  isClosed: boolean;
-  closedAt: Timestamp | null;
-  prayerCount: number;               // private-ish — visible only to request author
-
-  aegisFlags: {
-    crisisEscalated: boolean;
-    moderationApplied: boolean;
-  };
-}
-```
-
-**Aegis:** All prayer request writes pass through `aegisGuardian` CF. Crisis signals trigger `AegisGuardianHook`. `authorUid` is hidden from non-members when `isAnonymous == true`.
 
 ---
 
-## 5. Context State — `users/{uid}/contextState` (single doc)
+## Collection 6: `spaces/{spaceId}` — Additive Fields Only
+Do NOT alter existing Space fields. These are NEW fields added to existing documents.
 
-Written by the Context Engine (CF + on-device). Read by all surfaces.
-
-```typescript
-interface ContextState {
-  uid: string;
-  updatedAt: Timestamp;
-
-  mode: ContextMode;
-  subMode: string | null;            // e.g. "drivingLong", "sundayMorning"
-
-  geofenceActive: boolean;
-  nearbyChurchId: string | null;     // resolved church ID, not raw location
-  nearbyChurchName: string | null;
-
-  isDriving: boolean;
-  isTraveling: boolean;
-  timeOfDay: "morning" | "midday" | "evening" | "night";
-  dayOfWeek: number;                 // 0=Sun … 6=Sat
-
-  // Consent flags — user controls each individually
-  locationConsentGranted: boolean;
-  motionConsentGranted: boolean;
-  calendarConsentGranted: boolean;
-
-  // Ephemeral — cleared after 30 min
-  lastKnownEventCheckIn: string | null;  // eventId
-}
-
-type ContextMode =
-  | "default"
-  | "worshipMode"      // Sunday + church geofence
-  | "driveMode"        // motion + driving
-  | "travelMode"       // travel detected
-  | "eveningReflection"; // evening + no active context
 ```
-
-**Privacy rules:** `contextState` document is `uid`-scoped. The CF never logs raw lat/lng — only resolved IDs (church, event). Location data is discarded after resolution. The `contextState` document does NOT contain coordinates.
+[NEW] heroCardEnabled       Boolean    Default false. Per-space feature flag.
+[NEW] activePrayerCount     Number     Denormalized CF-maintained count. Private.
+[NEW] currentStudySeries    String?    Current Berean study series title.
+[NEW] currentStudyRef       String?    Route to study.
+[NEW] dashboardUpdatedAt    Timestamp  HeroCard data freshness.
+[NEW] bereanMemberId        String?    Pseudo-UID if Berean added as space member.
+[NEW] encryptedPrayerWall   Boolean    Default false. E2E prayer encryption.
+```
 
 ---
 
-## 6. Command Center — `users/{uid}/commandCenter` (single doc)
-
-Aggregated private formation overview. Written by scheduled CF.
-
-```typescript
-interface CommandCenter {
-  uid: string;
-  updatedAt: Timestamp;
-
-  spaces: SpaceSummary[];            // active spaces user is member of
-  savedNotesCount: number;           // private
-  bereanSessionsCount: number;       // private
-  upcomingEventsCount: number;       // private
-  readingPlanProgress: number;       // 0.0–1.0, private
-
-  // Streaks — private, gentle, opt-in only
-  streakDays: number | null;         // null if user opted out
-  streakOptIn: boolean;
-}
-
-interface SpaceSummary {
-  spaceId: string;
-  spaceName: string;
-  role: SpaceRole;
-  coverTintHex: string;
-  unreadHubItems: number;
-  nextEventAt: Timestamp | null;
-}
-```
-
-**Formation UI rule:** `streakDays` is NEVER displayed as a headline number. Shown only as warm `GlassChip` text ("Active this week") when > 0. Color: `amenGold`, never red/orange.
+## Formation Count Rules
+- NEVER shown comparatively (no leaderboards, no peer comparison)
+- NEVER a primary screen element (must be secondary, dismissible, opt-in)
+- Always labeled with formation language ("days in the Word", not "streak")
+- `activePrayerCount` in Spaces: prayer hands icon badge only, not a social engagement metric
 
 ---
 
-## 7. Suggestions — `suggestions/{uid}` (single doc)
-
-Smart prompts served by `generateSmartSuggestions` CF.
-
-```typescript
-interface UserSuggestions {
-  uid: string;
-  updatedAt: Timestamp;
-  ttlSeconds: number;                // client-side cache TTL
-
-  suggestions: Suggestion[];         // max 10, ordered by priority
-}
-
-interface Suggestion {
-  id: string;
-  surface: SOSurface;                // which surface should show this
-  promptText: string;                // "Romans 12 — ready to read?"
-  iconSymbol: string;                // SF Symbol name
-  tintColor: string;                 // amenGold/amenPurple/amenBlue
-  priority: number;                  // 0–100, higher = show first
-  expiresAt: Timestamp;
-  deepLink: string;                  // where tapping takes user
-  bereanSessionSeed: string | null;  // pre-seeded Berean context if applicable
-}
-```
+## Aegis Integration
+Documents with non-empty `aegisFlags` route through `AmenConnectSpacesAegisService` before display.

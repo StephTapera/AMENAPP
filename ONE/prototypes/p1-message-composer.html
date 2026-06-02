@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ONE — Message Composer</title>
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --gold:     #D4AE38;
+    --indigo:   #4B5EC6;
+    --red:      #D95B4A;
+    --green:    #42B172;
+    --glass-bg: rgba(255,255,255,0.07);
+    --blur:     20px;
+    --bg:       #0F0F12;
+    --bg2:      #1A1A1D;
+    --text:     #F5F0E8;
+    --text2:    rgba(245,240,232,0.55);
+    --text3:    rgba(245,240,232,0.28);
+    --sep:      rgba(255,255,255,0.09);
+  }
+  body {
+    font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;
+    background:var(--bg); color:var(--text);
+    height:100dvh; display:flex; flex-direction:column; overflow:hidden;
+  }
+
+  /* ── Mock thread context ──────────────────────────────────── */
+  .mock-header {
+    padding:52px 20px 14px;
+    display:flex; align-items:center; gap:10px;
+    border-bottom:0.5px solid var(--sep);
+    background:var(--glass-bg); backdrop-filter:blur(var(--blur));
+    -webkit-backdrop-filter:blur(var(--blur));
+  }
+  .mock-avatar {
+    width:36px; height:36px; border-radius:50%;
+    background:linear-gradient(135deg,var(--indigo),var(--gold));
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700;
+  }
+  .mock-name { font-size:16px; font-weight:700; }
+  .mock-e2e { font-size:11px; color:var(--indigo); display:flex; align-items:center; gap:3px; }
+  .mock-spacer { flex:1; }
+  .thread-perms-btn {
+    font-size:12px; color:var(--text3);
+    padding:5px 12px; border-radius:50px;
+    background:rgba(255,255,255,0.05); border:0.5px solid var(--sep);
+    cursor:pointer;
+  }
+
+  /* ── Inherited thread contract pill ──────────────────────── */
+  .contract-bar {
+    padding:8px 16px;
+    display:flex; align-items:center; gap:8px;
+    font-size:11px; color:var(--text2);
+    border-bottom:0.5px solid var(--sep);
+    background:rgba(212,174,56,0.04);
+  }
+  .contract-bar-label { color:var(--text3); font-size:10px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
+  .contract-chip {
+    padding:3px 10px; border-radius:50px;
+    background:rgba(212,174,56,0.1); border:0.5px solid rgba(212,174,56,0.25);
+    font-size:11px; color:var(--gold);
+  }
+  .contract-override-btn {
+    margin-left:auto; font-size:11px; color:var(--text3);
+    background:none; border:none; cursor:pointer; padding:4px 8px;
+    border-radius:8px;
+  }
+  .contract-override-btn:hover { background:rgba(255,255,255,0.07); color:var(--text); }
+
+  /* ── Mock messages ──────────────────────────────────────────  */
+  .messages-area {
+    flex:1; padding:16px; overflow-y:auto; scrollbar-width:none;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .messages-area::-webkit-scrollbar { display:none; }
+  .bubble-in, .bubble-out {
+    max-width:72%; padding:10px 14px;
+    border-radius:18px; font-size:15px; line-height:1.45;
+    word-break:break-word;
+  }
+  .bubble-in {
+    background:var(--bg2); border:0.5px solid var(--sep);
+    border-bottom-left-radius:6px; align-self:flex-start;
+  }
+  .bubble-out {
+    background:rgba(75,94,198,0.25); border:0.5px solid rgba(75,94,198,0.4);
+    border-bottom-right-radius:6px; align-self:flex-end;
+  }
+  .consent-note { font-size:10px; color:var(--text3); align-self:flex-end; padding:0 4px; }
+
+  /* ── Composer Area ────────────────────────────────────────── */
+  .composer-area {
+    flex-shrink:0;
+    background:var(--glass-bg); backdrop-filter:blur(var(--blur));
+    -webkit-backdrop-filter:blur(var(--blur));
+    border-top:0.5px solid var(--sep);
+  }
+
+  /* Per-message permissions panel (hidden by default) */
+  .perm-panel {
+    display:none; padding:14px 16px 10px;
+    border-bottom:0.5px solid var(--sep);
+  }
+  .perm-panel.open { display:block; }
+  .perm-title { font-size:11px; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
+  .perm-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .perm-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; border-radius:12px;
+    background:rgba(255,255,255,0.04); border:0.5px solid var(--sep);
+  }
+  .perm-item-label { font-size:13px; color:var(--text2); }
+  /* mini toggle */
+  .mini-toggle { position:relative; width:36px; height:20px; flex-shrink:0; }
+  .mini-toggle input { opacity:0; width:0; height:0; }
+  .mini-slider {
+    position:absolute; inset:0; background:rgba(255,255,255,0.15); border-radius:50px; cursor:pointer;
+    transition:background 0.2s;
+  }
+  .mini-slider::before {
+    content:''; position:absolute; width:14px; height:14px;
+    left:3px; top:3px; background:white; border-radius:50%;
+    transition:transform 0.2s; box-shadow:0 1px 2px rgba(0,0,0,0.3);
+  }
+  .mini-toggle input:checked + .mini-slider { background:var(--green); }
+  .mini-toggle input:checked + .mini-slider::before { transform:translateX(16px); }
+
+  /* Restriction warning */
+  .perm-warning {
+    margin-top:8px; padding:8px 12px; border-radius:12px;
+    background:rgba(217,91,74,0.08); border:0.5px solid rgba(217,91,74,0.25);
+    font-size:11px; color:rgba(217,91,74,0.9);
+    display:flex; align-items:center; gap:6px;
+  }
+
+  /* Input row */
+  .input-row {
+    display:flex; align-items:flex-end; gap:10px;
+    padding:10px 16px;
+    padding-bottom:max(16px, env(safe-area-inset-bottom));
+  }
+  .input-actions { display:flex; align-items:center; gap:6px; }
+  .action-btn {
+    width:36px; height:36px; border-radius:50%;
+    background:rgba(255,255,255,0.07); border:0.5px solid var(--sep);
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; cursor:pointer; flex-shrink:0;
+    transition:background 0.15s; color:var(--text2);
+  }
+  .action-btn:hover { background:rgba(255,255,255,0.12); }
+  .action-btn.active { background:rgba(212,174,56,0.15); border-color:rgba(212,174,56,0.35); color:var(--gold); }
+
+  .text-input-wrap {
+    flex:1; min-height:36px; max-height:120px;
+    background:rgba(255,255,255,0.07); border:0.5px solid var(--sep);
+    border-radius:20px; overflow:hidden;
+    display:flex; align-items:center; padding:0 14px;
+  }
+  .text-input {
+    width:100%; background:transparent; border:none; outline:none;
+    color:var(--text); font-size:15px; font-family:inherit;
+    resize:none; line-height:1.4; padding:8px 0;
+    max-height:120px; overflow-y:auto; caret-color:var(--gold);
+  }
+  .text-input::placeholder { color:var(--text3); }
+
+  .send-btn {
+    width:36px; height:36px; border-radius:50%; border:none;
+    background:var(--indigo); color:white;
+    font-size:18px; cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform 0.15s, opacity 0.15s;
+    opacity:0.5;
+  }
+  .send-btn.ready { opacity:1; }
+  .send-btn:hover { transform:scale(1.08); }
+  .send-btn:active { transform:scale(0.92); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="mock-header">
+  <div class="mock-avatar">G</div>
+  <div>
+    <div class="mock-name">Grace M.</div>
+    <div class="mock-e2e">🔐 End-to-end encrypted</div>
+  </div>
+  <div class="mock-spacer"></div>
+  <button class="thread-perms-btn" onclick="alert('Thread-level privacy contract')">Contract ›</button>
+</div>
+
+<!-- Inherited contract reminder -->
+<div class="contract-bar" aria-label="Active privacy contract for this thread">
+  <span class="contract-bar-label">Thread Contract</span>
+  <span class="contract-chip">Close Friends</span>
+  <span class="contract-chip">No save</span>
+  <span class="contract-chip">No forward</span>
+  <button class="contract-override-btn" onclick="togglePerms()" id="override-btn" aria-expanded="false">Override for this message ›</button>
+</div>
+
+<!-- Mock thread messages -->
+<div class="messages-area">
+  <div class="bubble-in">Hey, are we still on for Friday? 🙏</div>
+  <div class="bubble-out">Yes! Bringing Isaiah 40.</div>
+  <div class="consent-note">No save · No forward · React ✓</div>
+  <div class="bubble-in">Perfect. I'll handle the opening prayer.</div>
+</div>
+
+<!-- Composer -->
+<div class="composer-area">
+
+  <!-- Per-message permission overrides -->
+  <div class="perm-panel" id="perm-panel" role="region" aria-label="Per-message permission overrides">
+    <div class="perm-title">Override for this message</div>
+    <div class="perm-grid">
+      <div class="perm-item">
+        <span class="perm-item-label">Forward</span>
+        <label class="mini-toggle" aria-label="Allow forwarding">
+          <input type="checkbox" onchange="checkWarnings()">
+          <span class="mini-slider"></span>
+        </label>
+      </div>
+      <div class="perm-item">
+        <span class="perm-item-label">Save</span>
+        <label class="mini-toggle" aria-label="Allow saving">
+          <input type="checkbox" onchange="checkWarnings()">
+          <span class="mini-slider"></span>
+        </label>
+      </div>
+      <div class="perm-item">
+        <span class="perm-item-label">Quote</span>
+        <label class="mini-toggle" aria-label="Allow quoting">
+          <input type="checkbox" onchange="checkWarnings()">
+          <span class="mini-slider"></span>
+        </label>
+      </div>
+      <div class="perm-item">
+        <span class="perm-item-label">Summarize</span>
+        <label class="mini-toggle" aria-label="Allow AI summary">
+          <input type="checkbox" onchange="checkWarnings()">
+          <span class="mini-slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="perm-warning" id="perm-warning" style="display:none">
+      ⚠️ Enabling forward or save reduces the recipient's privacy expectation. They'll see this change.
+    </div>
+  </div>
+
+  <!-- Input row -->
+  <div class="input-row">
+    <div class="input-actions">
+      <button class="action-btn" aria-label="Attach media">📎</button>
+      <button class="action-btn active" id="lock-btn" onclick="togglePerms()" aria-label="Per-message permissions" aria-expanded="false">🔐</button>
+    </div>
+    <div class="text-input-wrap">
+      <textarea class="text-input" id="text-input" placeholder="Message Grace…"
+                oninput="updateSend(this)" rows="1"
+                aria-label="Message text"></textarea>
+    </div>
+    <button class="send-btn" id="send-btn" aria-label="Send message" onclick="sendMessage()">↑</button>
+  </div>
+
+</div>
+
+<script>
+  let permOpen = false;
+
+  function togglePerms() {
+    permOpen = !permOpen;
+    document.getElementById('perm-panel').classList.toggle('open', permOpen);
+    document.getElementById('lock-btn').classList.toggle('active', permOpen);
+    document.getElementById('lock-btn').setAttribute('aria-expanded', permOpen);
+    document.getElementById('override-btn').setAttribute('aria-expanded', permOpen);
+  }
+
+  function checkWarnings() {
+    const inputs = document.querySelectorAll('.perm-grid input');
+    const anyEnabled = Array.from(inputs).some(i => i.checked);
+    document.getElementById('perm-warning').style.display = anyEnabled ? 'flex' : 'none';
+  }
+
+  function updateSend(ta) {
+    const btn = document.getElementById('send-btn');
+    // auto-expand textarea
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    btn.classList.toggle('ready', ta.value.trim().length > 0);
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('text-input');
+    if (!input.value.trim()) return;
+    const msgs = document.querySelector('.messages-area');
+    const div = document.createElement('div');
+    div.className = 'bubble-out';
+    div.textContent = input.value.trim();
+    msgs.appendChild(div);
+    const note = document.createElement('div');
+    note.className = 'consent-note';
+    note.textContent = 'No save · No forward · React ✓';
+    msgs.appendChild(note);
+    msgs.scrollTop = msgs.scrollHeight;
+    input.value = '';
+    input.style.height = 'auto';
+    document.getElementById('send-btn').classList.remove('ready');
+  }
+</script>
+</body>
+</html>
