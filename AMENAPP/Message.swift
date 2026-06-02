@@ -117,6 +117,7 @@ public class AppMessage: Identifiable, Equatable, Hashable {
 
     // Classification tags (e.g. "system", "prayerRequest")
     var tags: [String] = []
+    var detectedLanguage: String?
 
     init(
         id: String = UUID().uuidString,
@@ -160,7 +161,9 @@ public class AppMessage: Identifiable, Equatable, Hashable {
         replyToText: String? = nil,
         replyToAuthorName: String? = nil,
         replyCount: Int = 0,
-        poll: PollMessage? = nil
+        poll: PollMessage? = nil,
+        tags: [String] = [],
+        detectedLanguage: String? = nil
     ) {
         self.id = id
         self.text = text
@@ -204,6 +207,8 @@ public class AppMessage: Identifiable, Equatable, Hashable {
         self.replyToAuthorName = replyToAuthorName
         self.replyCount = replyCount
         self.poll = poll
+        self.tags = tags
+        self.detectedLanguage = detectedLanguage
     }
 
     var senderInitials: String {
@@ -413,5 +418,3 @@ public struct MessageLinkPreview: Identifiable, Equatable, Hashable {
         hasher.combine(id)
     }
 }
-
-

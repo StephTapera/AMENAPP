@@ -64,6 +64,43 @@ enum ShareRouter {
         )
     }
 
+    static func entityForProfilePost(_ post: ProfilePost, sourceSurface: String) -> ShareableEntity {
+        ShareableEntity(
+            id: post.id,
+            entityType: .post,
+            authorId: post.authorId,
+            authorName: post.authorName ?? "AMEN",
+            authorUsername: nil,
+            authorInitials: (post.authorName ?? "AM")
+                .split(separator: " ")
+                .prefix(2)
+                .compactMap { $0.first.map(String.init) }
+                .joined()
+                .uppercased(),
+            authorPhotoURL: post.authorProfileImageURL,
+            visibility: .public,
+            title: post.verseReference ?? "Post",
+            previewText: post.content,
+            mediaPreviewURL: post.imageURLs?.first,
+            route: ShareRouteDescriptor(
+                path: "post/\(post.id)",
+                webFallbackPath: "post/\(post.id)",
+                metadata: ["postId": post.id]
+            ),
+            externallyShareable: true,
+            attributionPolicy: .required,
+            sourceSurface: sourceSurface,
+            linkedPostId: post.id,
+            linkedChurchNoteId: nil,
+            churchId: nil,
+            churchName: nil,
+            groupId: nil,
+            prayerCircleId: nil,
+            verseReference: post.verseReference,
+            createdAt: post.createdAt
+        )
+    }
+
     static func present(post: Post, note: ChurchNote? = nil, sourceSurface: String) {
         SharePresenter.shared.present(entity: entity(for: post, note: note, sourceSurface: sourceSurface))
     }

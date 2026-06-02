@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AMEN Lane A Personal Memory OS</title>
+    <style>
+        :root {
+            --amenGold: #caa24d;
+            --amenPurple: #6547b8;
+            --amenBlue: #2f73d8;
+            --amenBlack: #101114;
+            --ink: #17181c;
+            --muted: #686d78;
+            --soft: #f6f2e9;
+            --matte: #fffdf8;
+            --matteDeep: #ebe5d8;
+            --line: rgba(16, 17, 20, 0.13);
+            --glass: rgba(255, 255, 255, 0.62);
+            --glassBright: rgba(255, 255, 255, 0.82);
+            --shadow: 0 22px 60px rgba(16, 17, 20, 0.14);
+            --radius: 8px;
+            --chromeRadius: 22px;
+            --motion: 180ms cubic-bezier(.2, .8, .2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            min-height: 100%;
+        }
+
+        body {
+            min-height: 100%;
+            margin: 0;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 18% 8%, rgba(202, 162, 77, 0.2), transparent 26%),
+                radial-gradient(circle at 82% 0%, rgba(47, 115, 216, 0.16), transparent 30%),
+                linear-gradient(135deg, #f8f4ec 0%, #ebe6dc 58%, #f3efe7 100%);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            letter-spacing: 0;
+        }
+
+        button,
+        input,
+        textarea {
+            font: inherit;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .app {
+            min-height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        .glass {
+            background: var(--glass);
+            border: 1px solid rgba(255, 255, 255, 0.78);
+            box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(24px) saturate(1.22);
+            -webkit-backdrop-filter: blur(24px) saturate(1.22);
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 14px clamp(16px, 3vw, 34px);
+            border-width: 0 0 1px;
+            border-radius: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 240px;
+        }
+
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background:
+                linear-gradient(145deg, rgba(202, 162, 77, 0.98), rgba(101, 71, 184, 0.86) 58%, rgba(47, 115, 216, 0.88)),
+                var(--amenBlack);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52), 0 12px 24px rgba(16, 17, 20, 0.16);
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.2;
+        }
+
+        .brand p {
+            margin: 2px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .search {
+            flex: 1;
+            max-width: 560px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 40px;
+            padding: 0 13px;
+            border-radius: var(--chromeRadius);
+            background: rgba(255, 255, 255, 0.58);
+            border: 1px solid rgba(16, 17, 20, 0.1);
+        }
+
+        .search input {
+            width: 100%;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: var(--ink);
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pill,
+        .icon-button,
+        .button {
+            min-height: 38px;
+            border: 1px solid rgba(16, 17, 20, 0.13);
+            background: rgba(255, 255, 255, 0.68);
+            color: var(--ink);
+            transition: transform var(--motion), border-color var(--motion), background var(--motion);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .privacy-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #3f8d60;
+        }
+
+        .icon-button {
+            width: 38px;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            font-size: 17px;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 13px;
+            border-radius: 8px;
+            font-weight: 750;
+            white-space: nowrap;
+        }
+
+        .button.primary {
+            color: white;
+            background: var(--amenBlack);
+            border-color: rgba(16, 17, 20, 0.36);
+        }
+
+        .button.blue {
+            color: white;
+            background: var(--amenBlue);
+            border-color: rgba(47, 115, 216, 0.38);
+        }
+
+        .pill:hover,
+        .icon-button:hover,
+        .button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(101, 71, 184, 0.34);
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(300px, 380px);
+            gap: 18px;
+            padding: 18px clamp(16px, 3vw, 34px) 28px;
+        }
+
+        .rail,
+        .memory,
+        .inspector {
+            min-width: 0;
+        }
+
+        .rail,
+        .inspector {
+            align-self: start;
+            position: sticky;
+            top: 86px;
+            border-radius: var(--chromeRadius);
+            padding: 14px;
+        }
+
+        .label {
+            margin: 4px 6px 10px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 850;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .notebook-list,
+        .contact-list,
+        .connection-list,
+        .claim-list {
+            display: grid;
+            gap: 9px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .nav-item,
+        .contact-card,
+        .connection-card,
+        .claim-card {
+            border: 1px solid rgba(16, 17, 20, 0.11);
+            border-radius: var(--radius);
+            background: rgba(255, 255, 255, 0.48);
+        }
+
+        .nav-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .nav-item.active {
+            background: rgba(255, 253, 248, 0.84);
+            border-color: rgba(202, 162, 77, 0.48);
+            box-shadow: inset 3px 0 0 var(--amenGold);
+        }
+
+        .icon {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            border-radius: 8px;
+            background: rgba(16, 17, 20, 0.06);
+        }
+
+        .nav-copy,
+        .contact-copy {
+            min-width: 0;
+        }
+
+        .nav-copy strong,
+        .contact-copy strong {
+            display: block;
+            overflow-wrap: anywhere;
+            font-size: 13px;
+        }
+
+        .nav-copy span,
+        .contact-copy span {
+            display: block;
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .rail-section + .rail-section {
+            margin-top: 18px;
+        }
+
+        .memory {
+            display: grid;
+            gap: 16px;
+        }
+
+        .hero {
+            border-radius: var(--chromeRadius);
+            padding: clamp(18px, 3vw, 28px);
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(260px, 34%);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .hero h2 {
+            max-width: 780px;
+            margin: 0;
+            font-size: clamp(26px, 4vw, 46px);
+            line-height: 1.02;
+            letter-spacing: 0;
+        }
+
+        .hero p {
+            max-width: 720px;
+            margin: 12px 0 0;
+            color: #414650;
+            font-size: 15px;
+            line-height: 1.55;
+        }
+
+        .policy-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 18px;
+        }
+
+        .policy-strip .pill {
+            background: rgba(255, 253, 248, 0.74);
+        }
+
+        .capture-panel {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            min-height: 230px;
+            border-radius: var(--radius);
+            background: var(--matte);
+            border: 1px solid var(--line);
+            overflow: hidden;
+        }
+
+        .capture-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px;
+            border-bottom: 1px solid var(--line);
+            background: #f5efe3;
+        }
+
+        .capture-head strong {
+            font-size: 13px;
+        }
+
+        .capture-panel textarea {
+            min-height: 108px;
+            resize: vertical;
+            border: 0;
+            outline: 0;
+            padding: 13px;
+            background: transparent;
+            color: var(--ink);
+            line-height: 1.45;
+        }
+
+        .capture-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px;
+            border-top: 1px solid var(--line);
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        .matte-panel {
+            border-radius: var(--radius);
+            background: var(--matte);
+            border: 1px solid var(--line);
+            box-shadow: 0 10px 32px rgba(16, 17, 20, 0.06);
+            overflow: hidden;
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+            background: #f4efe5;
+        }
+
+        .panel-head h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .panel-head span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .note-feed {
+            display: grid;
+            gap: 12px;
+            padding: 14px;
+        }
+
+        .note {
+            display: grid;
+            gap: 10px;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #fffaf0;
+        }
+
+        .note-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .note h4 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .note p {
+            margin: 0;
+            color: #383d47;
+            line-height: 1.5;
+        }
+
+        .tag-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            min-height: 24px;
+            padding: 0 8px;
+            border-radius: 999px;
+            background: rgba(47, 115, 216, 0.09);
+            color: #244f95;
+            font-size: 12px;
+            font-weight: 720;
+        }
+
+        .tag.gold {
+            background: rgba(202, 162, 77, 0.18);
+            color: #765d24;
+        }
+
+        .tag.purple {
+            background: rgba(101, 71, 184, 0.12);
+            color: #4f378f;
+        }
+
+        .provenance {
+            display: grid;
+            gap: 7px;
+            padding: 10px;
+            border-radius: var(--radius);
+            background: #f0e9dc;
+            border: 1px dashed rgba(16, 17, 20, 0.18);
+        }
+
+        .provenance strong {
+            font-size: 12px;
+        }
+
+        .provenance span,
+        .provenance li {
+            color: #555b66;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .provenance ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        .doc-suggestion {
+            display: grid;
+            gap: 12px;
+            padding: 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .doc-suggestion:last-child {
+            border-bottom: 0;
+        }
+
+        .doc-suggestion h4 {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .doc-suggestion p {
+            margin: 5px 0 0;
+            color: #464b55;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .preview-box {
+            padding: 10px;
+            border-radius: var(--radius);
+            background: #fff9ec;
+            border: 1px solid rgba(202, 162, 77, 0.28);
+        }
+
+        .preview-box strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+
+        .approval-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .toggle input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--amenPurple);
+        }
+
+        .connection-card,
+        .claim-card,
+        .contact-card {
+            padding: 12px;
+            background: rgba(255, 253, 248, 0.62);
+        }
+
+        .connection-card h4,
+        .claim-card h4 {
+            margin: 0 0 5px;
+            font-size: 14px;
+        }
+
+        .connection-card p,
+        .claim-card p {
+            margin: 0;
+            color: #4b505b;
+            font-size: 13px;
+            line-height: 1.42;
+        }
+
+        .confidence {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 9px;
+        }
+
+        .bar {
+            flex: 1;
+            height: 7px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(16, 17, 20, 0.1);
+        }
+
+        .fill {
+            height: 100%;
+            width: var(--value);
+            background: linear-gradient(90deg, var(--amenGold), var(--amenPurple), var(--amenBlue));
+        }
+
+        .confidence span {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 720;
+        }
+
+        .contact-card {
+            display: grid;
+            gap: 10px;
+        }
+
+        .contact-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border-radius: 8px;
+            color: white;
+            background: var(--amenPurple);
+            font-weight: 850;
+        }
+
+        .contact-note {
+            padding: 10px;
+            border-radius: var(--radius);
+            background: rgba(16, 17, 20, 0.045);
+            color: #424752;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .claim-list {
+            margin-top: 10px;
+        }
+
+        .claim-card {
+            background: rgba(255, 255, 255, 0.58);
+        }
+
+        .claim-type {
+            display: inline-flex;
+            margin-bottom: 8px;
+            padding: 4px 7px;
+            border-radius: 999px;
+            background: rgba(16, 17, 20, 0.07);
+            color: #333842;
+            font-size: 11px;
+            font-weight: 850;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .footer-note {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+            padding: 4px 6px 0;
+        }
+
+        @media (max-width: 1100px) {
+            .workspace {
+                grid-template-columns: 220px minmax(0, 1fr);
+            }
+
+            .inspector {
+                position: static;
+                grid-column: 1 / -1;
+            }
+
+            .content-grid,
+            .hero-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .topbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .brand {
+                min-width: 0;
+            }
+
+            .search {
+                max-width: none;
+                width: 100%;
+            }
+
+            .top-actions {
+                justify-content: flex-start;
+            }
+
+            .workspace {
+                grid-template-columns: 1fr;
+                padding: 14px;
+            }
+
+            .rail {
+                position: static;
+            }
+
+            .notebook-list {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 520px) {
+            .notebook-list {
+                grid-template-columns: 1fr;
+            }
+
+            .capture-actions,
+            .panel-head,
+            .note-header {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .button {
+                width: 100%;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="topbar glass" aria-label="AMEN Personal Memory OS chrome">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true"></div>
+                <div>
+                    <h1>AMEN Personal Memory OS</h1>
+                    <p>Lane A Phase 1 HTML prototype</p>
+                </div>
+            </div>
+            <label class="search" aria-label="Search living memory">
+                <span aria-hidden="true">⌕</span>
+                <input value="meeting promise to call Mara" aria-label="Search query">
+            </label>
+            <div class="top-actions">
+                <span class="pill"><span class="privacy-dot" aria-hidden="true"></span> Local-first preview</span>
+                <button class="icon-button" title="Privacy controls" aria-label="Privacy controls">◐</button>
+                <button class="button primary">New note</button>
+            </div>
+        </header>
+
+        <main class="workspace">
+            <aside class="rail glass" aria-label="Auto organized memory">
+                <section class="rail-section">
+                    <div class="label">Berean Notebooks</div>
+                    <ul class="notebook-list">
+                        <li><button class="nav-item active"><span class="icon">✦</span><span class="nav-copy"><strong>Today</strong><span>Auto-organized, no folders</span></span></button></li>
+                        <li><button class="nav-item"><span class="icon">✎</span><span class="nav-copy"><strong>Sermon drafts</strong><span>4 source-linked ideas</span></span></button></li>
+                        <li><button class="nav-item"><span class="icon">☷</span><span class="nav-copy"><strong>Family rhythms</strong><span>3 recurring themes</span></span></button></li>
+                        <li><button class="nav-item"><span class="icon">◇</span><span class="nav-copy"><strong>Discernment</strong><span>Claims require sources</span></span></button></li>
+                    </ul>
+                </section>
+
+                <section class="rail-section">
+                    <div class="label">Relationship Notes</div>
+                    <ul class="contact-list">
+                        <li class="contact-card">
+                            <div class="contact-main"><span class="avatar">M</span><span class="contact-copy"><strong>Mara Ellis</strong><span>Call promised Tuesday</span></span></div>
+                            <div class="contact-note">Remember: prefers text before scheduling. Source: May 27 pastoral planning note.</div>
+                        </li>
+                        <li class="contact-card">
+                            <div class="contact-main"><span class="avatar" style="background: var(--amenBlue);">J</span><span class="contact-copy"><strong>Jon Bell</strong><span>Ask about childcare plan</span></span></div>
+                            <div class="contact-note">Last discussed Sunday volunteer rotation. Source: May 30 conversation recap.</div>
+                        </li>
+                    </ul>
+                </section>
+            </aside>
+
+            <section class="memory" aria-label="Living memory workspace">
+                <section class="hero glass">
+                    <div class="hero-grid">
+                        <div>
+                            <h2>Living Memory that organizes itself and shows its work.</h2>
+                            <p>Notes, Berean claims, relationships, and document updates are grouped by context instead of manual folders. Every generated conclusion carries provenance, and every outward action remains a preview until the person opts in.</p>
+                            <div class="policy-strip" aria-label="Product constraints">
+                                <span class="pill">No vanity metrics</span>
+                                <span class="pill">No infinite feed</span>
+                                <span class="pill">Provenance required</span>
+                                <span class="pill">Action previews only</span>
+                            </div>
+                        </div>
+                        <form class="capture-panel" aria-label="Quick capture">
+                            <div class="capture-head">
+                                <strong>Quick capture</strong>
+                                <span class="tag gold">Private draft</span>
+                            </div>
+                            <textarea aria-label="Memory note">Mara asked whether the James study should include a short note on prayer before planning. Connect this to the living document, but do not update until I approve.</textarea>
+                            <div class="capture-actions">
+                                <label class="toggle"><input type="checkbox" checked> Suggest links</label>
+                                <button class="button blue" type="button">Save locally</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <div class="content-grid">
+                    <section class="matte-panel" aria-label="Living memory notes">
+                        <div class="panel-head">
+                            <div>
+                                <h3>Living Memory</h3>
+                                <span>Finite context set from current work, not a scroll loop</span>
+                            </div>
+                            <button class="button">Review sources</button>
+                        </div>
+                        <div class="note-feed">
+                            <article class="note">
+                                <div class="note-header">
+                                    <div>
+                                        <h4>James study needs a prayer bridge</h4>
+                                        <div class="tag-row"><span class="tag gold">Berean Notebook</span><span class="tag purple">Living Document candidate</span></div>
+                                    </div>
+                                    <span class="tag">Auto-organized</span>
+                                </div>
+                                <p>AI claim: This note appears related to the existing James study outline and Mara's question about prayer before planning.</p>
+                                <div class="provenance">
+                                    <strong>Provenance</strong>
+                                    <ul>
+                                        <li>Source note: Quick capture draft, current session.</li>
+                                        <li>Prior memory: "James study outline" from May 26.</li>
+                                        <li>Relationship note: Mara Ellis planning concern from May 27.</li>
+                                    </ul>
+                                </div>
+                            </article>
+
+                            <article class="note">
+                                <div class="note-header">
+                                    <div>
+                                        <h4>Follow-up with Jon before publishing volunteer plan</h4>
+                                        <div class="tag-row"><span class="tag purple">Relationship Note</span><span class="tag">Task preview</span></div>
+                                    </div>
+                                    <span class="tag gold">Needs consent</span>
+                                </div>
+                                <p>AI claim: Jon may need a direct check-in before the childcare section is shared with the group.</p>
+                                <div class="provenance">
+                                    <strong>Provenance</strong>
+                                    <ul>
+                                        <li>Source note: Sunday volunteer rotation recap, May 30.</li>
+                                        <li>Document reference: "Summer childcare plan v2".</li>
+                                        <li>Confidence basis: matching contact, topic, and pending decision language.</li>
+                                    </ul>
+                                </div>
+                            </article>
+                        </div>
+                    </section>
+
+                    <section class="matte-panel" aria-label="Living document suggestions">
+                        <div class="panel-head">
+                            <div>
+                                <h3>Living Documents</h3>
+                                <span>Suggested changes require opt-in</span>
+                            </div>
+                        </div>
+                        <article class="doc-suggestion">
+                            <div>
+                                <h4>Update "James study outline"</h4>
+                                <p>Suggested insertion: add a short prayer bridge before the planning application section.</p>
+                            </div>
+                            <div class="preview-box">
+                                <strong>Preview only</strong>
+                                <p>No document will be changed until the checkbox and apply button are both used.</p>
+                            </div>
+                            <div class="provenance">
+                                <strong>Provenance</strong>
+                                <span>Derived from current quick capture, May 26 outline memory, and Mara Ellis relationship note.</span>
+                            </div>
+                            <div class="approval-row">
+                                <label class="toggle"><input type="checkbox"> I approve this document update</label>
+                                <button class="button primary" type="button">Apply preview</button>
+                            </div>
+                        </article>
+                        <article class="doc-suggestion">
+                            <div>
+                                <h4>Draft reminder to Jon</h4>
+                                <p>Suggested message asks whether the childcare plan still works before sharing it more broadly.</p>
+                            </div>
+                            <div class="preview-box">
+                                <strong>Preview only</strong>
+                                <p>Message remains local and unsent. No external action is available from this prototype.</p>
+                            </div>
+                            <div class="provenance">
+                                <strong>Provenance</strong>
+                                <span>Derived from Jon Bell contact note, volunteer rotation recap, and childcare plan reference.</span>
+                            </div>
+                            <div class="approval-row">
+                                <label class="toggle"><input type="checkbox"> I approve creating a draft</label>
+                                <button class="button primary" type="button">Create draft</button>
+                            </div>
+                        </article>
+                    </section>
+                </div>
+            </section>
+
+            <aside class="inspector glass" aria-label="Thought connections and provenance inspector">
+                <section>
+                    <div class="label">Thought Connections</div>
+                    <ul class="connection-list">
+                        <li class="connection-card">
+                            <h4>Prayer before planning ↔ James outline</h4>
+                            <p>AI claim: These memories share teaching context, named contact, and planning language.</p>
+                            <div class="confidence"><div class="bar"><div class="fill" style="--value: 82%;"></div></div><span>82%</span></div>
+                            <div class="provenance"><strong>Provenance</strong><span>Quick capture, May 26 outline, May 27 Mara note.</span></div>
+                        </li>
+                        <li class="connection-card">
+                            <h4>Childcare plan ↔ volunteer rotation</h4>
+                            <p>AI claim: Related pending decisions involve Jon and Sunday volunteer scheduling.</p>
+                            <div class="confidence"><div class="bar"><div class="fill" style="--value: 74%;"></div></div><span>74%</span></div>
+                            <div class="provenance"><strong>Provenance</strong><span>May 30 recap, Summer childcare plan v2, Jon contact memory.</span></div>
+                        </li>
+                    </ul>
+                </section>
+
+                <section style="margin-top: 18px;">
+                    <div class="label">Berean Claim Checks</div>
+                    <ul class="claim-list">
+                        <li class="claim-card">
+                            <span class="claim-type">Needs source</span>
+                            <h4>"Planning should begin with prayer."</h4>
+                            <p>Claim is not treated as verified until linked to Scripture, sermon notes, or trusted source material.</p>
+                            <div class="provenance"><strong>Provenance</strong><span>Current quick capture only. Human review required.</span></div>
+                        </li>
+                        <li class="claim-card">
+                            <span class="claim-type">Sourced memory</span>
+                            <h4>"Mara prefers text before scheduling."</h4>
+                            <p>Contact guidance appears in a prior relationship note and is shown as memory, not universal fact.</p>
+                            <div class="provenance"><strong>Provenance</strong><span>Mara Ellis relationship note, May 27.</span></div>
+                        </li>
+                    </ul>
+                </section>
+
+                <p class="footer-note">Privacy-first prototype: no external calls, no deployment hooks, no analytics, and no social counters. The page intentionally presents a bounded workspace instead of an endless feed.</p>
+            </aside>
+        </main>
+    </div>
+</body>
+</html>

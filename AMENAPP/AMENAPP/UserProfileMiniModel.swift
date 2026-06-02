@@ -83,8 +83,81 @@ struct UserProfileMiniModel: Identifiable, Equatable {
     let suggestionScore: Double?
     let testimonyOverlapCount: Int?
     let topicOverlapCount: Int?
+    let publicVerificationSummary: AmenPublicVerificationSummary
     let isProfileUnavailable: Bool
     let isBlocked: Bool
+
+    init(
+        id: String,
+        username: String,
+        displayName: String,
+        roleTitle: String?,
+        bioShort: String?,
+        avatarURL: URL?,
+        followerCount: Int?,
+        sharedPrayerCount: Int?,
+        mutualConnectionCount: Int?,
+        mutualConnectionPreview: [MiniMutualUser],
+        city: String?,
+        pronoun: String?,
+        pronunciation: String?,
+        badges: [UserMiniBadge],
+        contextReasons: [UserMiniReason],
+        suggestionSource: UserMiniSuggestionSource,
+        credibility: UserMiniCredibility?,
+        canMessage: Bool,
+        isFollowed: Bool,
+        isSavedSuggestion: Bool,
+        profileRoute: String?,
+        trigger: UserMiniTrigger?,
+        directRelationshipReason: String?,
+        recentSharedEngagementReason: String?,
+        sharedTopicReason: String?,
+        communityReason: String?,
+        popularityReason: String?,
+        priorityExplanation: String?,
+        suggestionScore: Double?,
+        testimonyOverlapCount: Int?,
+        topicOverlapCount: Int?,
+        isProfileUnavailable: Bool,
+        isBlocked: Bool,
+        publicVerificationSummary: AmenPublicVerificationSummary = .empty
+    ) {
+        self.id = id
+        self.username = username
+        self.displayName = displayName
+        self.roleTitle = roleTitle
+        self.bioShort = bioShort
+        self.avatarURL = avatarURL
+        self.followerCount = followerCount
+        self.sharedPrayerCount = sharedPrayerCount
+        self.mutualConnectionCount = mutualConnectionCount
+        self.mutualConnectionPreview = mutualConnectionPreview
+        self.city = city
+        self.pronoun = pronoun
+        self.pronunciation = pronunciation
+        self.badges = badges
+        self.contextReasons = contextReasons
+        self.suggestionSource = suggestionSource
+        self.credibility = credibility
+        self.canMessage = canMessage
+        self.isFollowed = isFollowed
+        self.isSavedSuggestion = isSavedSuggestion
+        self.profileRoute = profileRoute
+        self.trigger = trigger
+        self.directRelationshipReason = directRelationshipReason
+        self.recentSharedEngagementReason = recentSharedEngagementReason
+        self.sharedTopicReason = sharedTopicReason
+        self.communityReason = communityReason
+        self.popularityReason = popularityReason
+        self.priorityExplanation = priorityExplanation
+        self.suggestionScore = suggestionScore
+        self.testimonyOverlapCount = testimonyOverlapCount
+        self.topicOverlapCount = topicOverlapCount
+        self.publicVerificationSummary = publicVerificationSummary
+        self.isProfileUnavailable = isProfileUnavailable
+        self.isBlocked = isBlocked
+    }
 }
 
 // MARK: - Supporting Types

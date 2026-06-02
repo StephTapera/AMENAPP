@@ -46,6 +46,47 @@ enum BereanModelMode: String, CaseIterable, Codable, Identifiable {
     var backendValue: String { rawValue }
 }
 
+enum BereanModeAccess: Equatable {
+    case full
+    case limited
+    case locked
+}
+
+enum BereanUserTier: String, CaseIterable, Codable {
+    case free
+    case plus
+    case pro
+    case founder
+
+    func access(for mode: BereanModelMode) -> BereanModeAccess {
+        switch (self, mode) {
+        case (.free, .core):
+            return .full
+        case (.free, .deep), (.free, .adaptive):
+            return .locked
+        case (.plus, .core):
+            return .full
+        case (.plus, .deep):
+            return .limited
+        case (.plus, .adaptive):
+            return .locked
+        case (.pro, _), (.founder, _):
+            return .full
+        }
+    }
+}
+
+struct BereanModeAuthorityResult: Codable, Equatable {
+    let acceptedMode: String?
+    let fallbackMode: String?
+    let entitlementRequired: Bool?
+    let quotaExceeded: Bool?
+    let deepCreditsRemaining: Int?
+    let fallbackReason: String?
+
+    var wasDowngraded: Bool { fallbackMode != nil }
+}
+
 // MARK: - BereanModelStore
 
 @MainActor

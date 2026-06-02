@@ -63,9 +63,15 @@
             ReferencedContainer = "container:AMENAPP.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+         <CommandLineArgument
+            argument = "-FIRDebugEnabled"
+            isEnabled = "YES">
+         </CommandLineArgument>
+      </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "OS&#x200b;_&#x200b;ACTIVITY&#x200b;_&#x200b;MODE"
+            key = "OS_ACTIVITY_MODE"
             value = "disable"
             isEnabled = "YES">
          </EnvironmentVariable>

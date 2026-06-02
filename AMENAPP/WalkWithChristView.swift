@@ -71,6 +71,8 @@ struct WalkProfile: Codable {
     var churchStatus: WalkChurchStatus = .unsure
     var currentNeed: WalkNeed = .start
     var pathAssigned: WalkPath = .newBeliever
+    var selectedSeason: WalkSpiritualSeason?
+    var checkInAnswers: [String] = []
     var onboardingComplete: Bool = false
     var completedModuleIDs: [String] = []
     var checkInCount: Int = 0
@@ -2621,12 +2623,14 @@ enum WalkReminderScheduler {
 
     /// Requests notification permission if needed, then schedules a daily reminder
     /// at the given hour with a rotating pool of gentle messages.
-    static func requestAndSchedule(hour: Int, messages: [String]) {
+    @discardableResult
+    static func requestAndSchedule(hour: Int, messages: [String]) -> Bool {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
             scheduleDailyReminder(hour: hour, messages: messages)
         }
+        return true
     }
 
     static func cancelAll() {

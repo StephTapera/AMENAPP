@@ -75,6 +75,8 @@ final class LocalPostDraft {
     var moderationPhaseRawValue: String
     var idempotencyToken: String?
     var inFlightPostId: String?
+    @Relationship(deleteRule: .cascade)
+    var mediaItems: [LocalPostDraftMediaItem]
     var createdAt: Date
     var updatedAt: Date
 
@@ -110,6 +112,7 @@ final class LocalPostDraft {
         self.moderationPhaseRawValue = LocalPostDraftModerationPhase.pending.rawValue
         self.idempotencyToken = nil
         self.inFlightPostId = nil
+        self.mediaItems = []
         self.createdAt = Date()
         self.updatedAt = Date()
     }
@@ -189,6 +192,38 @@ final class LocalPostDraft {
     }
 }
 
+@Model
+final class LocalPostDraftMediaItem {
+    var id: UUID
+    var draftId: UUID
+    var sortOrder: Int
+    var altText: String
+    var localFilePath: String
+    var sourceTypeRawValue: String
+    var mimeType: String
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        draftId: UUID,
+        sortOrder: Int,
+        altText: String,
+        localFilePath: String,
+        sourceTypeRawValue: String,
+        mimeType: String,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.draftId = draftId
+        self.sortOrder = sortOrder
+        self.altText = altText
+        self.localFilePath = localFilePath
+        self.sourceTypeRawValue = sourceTypeRawValue
+        self.mimeType = mimeType
+        self.createdAt = createdAt
+    }
+}
+
 // MARK: - CreatePostDraftStore
 
 /// Shared ModelContainer for LocalPostDraft persistence.
@@ -201,7 +236,7 @@ final class CreatePostDraftStore {
     let container: ModelContainer
 
     private init() {
-        let schema = Schema([LocalPostDraft.self])
+        let schema = Schema([LocalPostDraft.self, LocalPostDraftMediaItem.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             container = try ModelContainer(for: schema, configurations: config)

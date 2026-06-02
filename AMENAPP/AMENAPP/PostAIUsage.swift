@@ -36,6 +36,62 @@ struct PostAIUsage: Codable, Equatable {
     var modelVersion: String?
 
     @ServerTimestamp var createdAt: Date?
+
+    init(
+        usedAI: Bool,
+        aiUseTypes: [AIUseType],
+        primaryLabel: AIPublicLabel,
+        secondaryDetail: String? = nil,
+        userAcceptedSuggestion: Bool,
+        aiGeneratedPercentageEstimate: Int? = nil,
+        toneCheckSummary: ToneCheckSummary? = nil,
+        disclosureRequired: Bool,
+        rawPromptStored: Bool,
+        rawUserTextStored: Bool,
+        modelVersion: String? = nil,
+        createdAt: Date? = nil
+    ) {
+        self.usedAI = usedAI
+        self.aiUseTypes = aiUseTypes
+        self.primaryLabel = primaryLabel
+        self.secondaryDetail = secondaryDetail
+        self.userAcceptedSuggestion = userAcceptedSuggestion
+        self.aiGeneratedPercentageEstimate = aiGeneratedPercentageEstimate
+        self.toneCheckSummary = toneCheckSummary
+        self.disclosureRequired = disclosureRequired
+        self.rawPromptStored = rawPromptStored
+        self.rawUserTextStored = rawUserTextStored
+        self.modelVersion = modelVersion
+        self.createdAt = createdAt
+    }
+
+    init(
+        usedAI: Bool,
+        aiUseTypes: [AIUseType],
+        primaryLabel: AIPublicLabel,
+        secondaryDetails: [String],
+        userAcceptedSuggestion: Bool,
+        aiGeneratedPercentageEstimate: Int?,
+        disclosureRequired: Bool,
+        rawPromptStored: Bool,
+        rawUserTextStored: Bool,
+        modelVersion: String?,
+        toneCheckSummary: ToneCheckSummary?
+    ) {
+        self.init(
+            usedAI: usedAI,
+            aiUseTypes: aiUseTypes,
+            primaryLabel: primaryLabel,
+            secondaryDetail: secondaryDetails.first,
+            userAcceptedSuggestion: userAcceptedSuggestion,
+            aiGeneratedPercentageEstimate: aiGeneratedPercentageEstimate,
+            toneCheckSummary: toneCheckSummary,
+            disclosureRequired: disclosureRequired,
+            rawPromptStored: rawPromptStored,
+            rawUserTextStored: rawUserTextStored,
+            modelVersion: modelVersion
+        )
+    }
 }
 
 // MARK: - AIUseType
@@ -108,6 +164,33 @@ enum AIPublicLabel: String, Codable, CaseIterable {
         case .altTextAssisted:
             return "Amen AI generated accessibility descriptions for the media in this post."
         }
+    }
+
+    var displayPriority: Int {
+        switch self {
+        case .aiAssistedPost: return 1
+        case .translatedWithAI: return 2
+        case .aiAssistedTone: return 3
+        case .editedForSafety: return 4
+        case .notesSummarized: return 5
+        case .prayerAssisted: return 6
+        case .scriptureSuggested: return 7
+        case .bereanAssisted: return 8
+        case .toneChecked: return 9
+        case .altTextAssisted: return 10
+        }
+    }
+
+    var disclosureRequired: Bool {
+        isRequired
+    }
+
+    var disclosureExplanation: String {
+        disclosureCopy
+    }
+
+    static func from(useTypes: [AIUseType]) -> AIPublicLabel? {
+        PostAIUsage.resolveLabel(from: useTypes)
     }
 
     // Whether this label is immutable once set (client cannot remove it)

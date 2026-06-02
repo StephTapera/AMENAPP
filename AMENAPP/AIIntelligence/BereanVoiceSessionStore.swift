@@ -60,7 +60,7 @@ final class BereanVoiceStudySessionStore: ObservableObject {
     static let shared = BereanVoiceStudySessionStore()
 
     @Published private(set) var currentSession: BereanVoiceStudySession?
-    @Published private(set) var recentSessions: [BereanVoiceStudySession] = []
+    @Published var recentSessions: [BereanVoiceStudySession] = []
     @Published private(set) var isSaving = false
 
     private let db = Firestore.firestore()
@@ -170,3 +170,5 @@ final class BereanVoiceStudySessionStore: ObservableObject {
             : "We've been studying: \(refs). \(session.spiritualContext)"
     }
 }
+
+typealias BereanVoiceSessionStore = BereanVoiceStudySessionStore

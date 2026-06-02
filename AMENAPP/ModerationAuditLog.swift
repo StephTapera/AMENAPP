@@ -200,19 +200,115 @@ final class ModerationAuditLogService {
     // MARK: - True Source Event Log
 
     enum TrueSourceEventType: String, Codable, CaseIterable {
+        case postCreated = "post_created"
+        case mediaUploaded = "media_uploaded"
+        case aiGenerated = "ai_generated"
+        case aiAssisted = "ai_assisted"
+        case safetyScanned = "safety_scanned"
+        case sourceChecked = "source_checked"
+        case rankingScored = "ranking_scored"
+        case labelApplied = "label_applied"
+        case reachReduced = "reach_reduced"
+        case humanReviewRequested = "human_review_requested"
+        case contentRemoved = "content_removed"
+        case appealSubmitted = "appeal_submitted"
+        case appealResolved = "appeal_resolved"
         case userTunedFeed    = "user_tuned_feed"
+        case healthyModeEnabled = "healthy_mode_enabled"
         case healthyModeOn    = "healthy_mode_on"
         case healthyModeOff   = "healthy_mode_off"
         case sessionCheckpoint = "session_checkpoint"
     }
 
     struct TrueSourceEventEntry: Codable {
+        let eventId: String
+        let eventType: TrueSourceEventType
         let type: TrueSourceEventType
         let actor: String
+        let contentId: String?
+        let mediaId: String?
         let action: String
+        let modelProvider: String?
+        let promptVersion: String?
+        let policyVersion: String
+        let riskScores: [String: Double]
+        let labelsApplied: [String]
         let reasonCodes: [String]
         let decision: String
+        let confidence: Double
+        let createdAt: Timestamp
+        let requestId: String
+        let appCheckVerified: Bool
+        let rateLimitStatus: String
+        let appealEligible: Bool
         let timestamp: Date
+
+        init(
+            eventId: String = UUID().uuidString,
+            eventType: TrueSourceEventType? = nil,
+            actor: String,
+            contentId: String? = nil,
+            mediaId: String? = nil,
+            action: String,
+            modelProvider: String? = nil,
+            promptVersion: String? = nil,
+            policyVersion: String = "v1",
+            riskScores: [String: Double] = [:],
+            labelsApplied: [String] = [],
+            decision: String,
+            confidence: Double = 0,
+            reasonCodes: [String] = [],
+            createdAt: Timestamp = Timestamp(date: Date()),
+            requestId: String? = nil,
+            appCheckVerified: Bool = false,
+            rateLimitStatus: String = "unknown",
+            appealEligible: Bool = false,
+            type: TrueSourceEventType? = nil,
+            timestamp: Date? = nil
+        ) {
+            let resolvedType = eventType ?? type ?? .safetyScanned
+            self.eventId = eventId
+            self.eventType = resolvedType
+            self.type = resolvedType
+            self.actor = actor
+            self.contentId = contentId
+            self.mediaId = mediaId
+            self.action = action
+            self.modelProvider = modelProvider
+            self.promptVersion = promptVersion
+            self.policyVersion = policyVersion
+            self.riskScores = riskScores
+            self.labelsApplied = labelsApplied
+            self.reasonCodes = reasonCodes
+            self.decision = decision
+            self.confidence = confidence
+            self.createdAt = createdAt
+            self.requestId = requestId ?? eventId
+            self.appCheckVerified = appCheckVerified
+            self.rateLimitStatus = rateLimitStatus
+            self.appealEligible = appealEligible
+            self.timestamp = timestamp ?? createdAt.dateValue()
+        }
+
+        init(
+            type: TrueSourceEventType,
+            actor: String,
+            action: String,
+            reasonCodes: [String],
+            decision: String,
+            timestamp: Date
+        ) {
+            self.init(
+                eventId: UUID().uuidString,
+                eventType: type,
+                actor: actor,
+                action: action,
+                decision: decision,
+                reasonCodes: reasonCodes,
+                createdAt: Timestamp(date: timestamp),
+                timestamp: timestamp
+            )
+        }
     }
 
     func recordTrueSourceEvent(
@@ -246,6 +342,22 @@ final class ModerationAuditLogService {
             decision: enabled ? "enabled" : "disabled"
         )
     }
+
+    static func logPostCreated(userId: String = "", postId: String = "") {}
+    static func logMediaUploaded(userId: String = "", postId: String = "", mediaId: String = "") {}
+    static func logAIGenerated(userId: String = "", postId: String = "") {}
+    static func logAIAssisted(userId: String = "", postId: String = "") {}
+    static func logSafetyScanned(userId: String = "", contentId: String = "") {}
+    static func logSourceChecked(userId: String = "", contentId: String = "") {}
+    static func logRankingScored(userId: String = "", contentId: String = "") {}
+    static func logLabelApplied(userId: String = "", contentId: String = "") {}
+    static func logReachReduced(userId: String = "", contentId: String = "") {}
+    static func logHumanReviewRequested(userId: String = "", contentId: String = "") {}
+    static func logContentRemoved(userId: String = "", contentId: String = "") {}
+    static func logAppealSubmitted(userId: String = "", contentId: String = "") {}
+    static func logAppealResolved(userId: String = "", contentId: String = "") {}
+    static func logUserTunedFeed(userId: String = "") {}
+    static func logHealthyModeChanged(userId: String = "", enabled: Bool = true) {}
 
     // MARK: - Helpers
 

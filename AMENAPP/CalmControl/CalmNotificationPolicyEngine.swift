@@ -118,6 +118,15 @@ enum NotificationIntensityMode: String, Codable, CaseIterable {
         }
     }
 
+    var dailyLimit: Int {
+        switch self {
+        case .minimal: return 1
+        case .balanced: return 3
+        case .encouraging: return 5
+        case .activeCommunity: return 8
+        }
+    }
+
     // MARK: Category filter
 
     /// Returns true if a notification of the given category may be delivered

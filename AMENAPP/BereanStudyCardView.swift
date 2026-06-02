@@ -97,6 +97,16 @@ extension StudyCard.StudyCardType {
         case .christConnection: return "cross.fill"
         case .leaderReferral:   return "person.fill.questionmark"
         case .crisisResource:   return "exclamationmark.shield.fill"
+        case .text, .summaryCard: return "text.alignleft"
+        case .verseCard, .prayerCard: return "book.closed.fill"
+        case .crossReferenceCard: return "arrow.left.arrow.right"
+        case .historicalContextCard: return "clock.fill"
+        case .greekHebrewWordCard: return "textformat.abc"
+        case .discernmentFrameworkCard: return "checklist"
+        case .cautionCard, .safetyNoticeCard: return "exclamationmark.triangle.fill"
+        case .actionStepCard: return "arrow.right.circle.fill"
+        case .savedInsightCard: return "bookmark.fill"
+        case .mediaKeyMomentCard: return "play.rectangle.fill"
         }
     }
 
@@ -112,6 +122,14 @@ extension StudyCard.StudyCardType {
         case .christConnection: return Color(red: 0.85, green: 0.60, blue: 0.15)  // Gold
         case .leaderReferral:   return Color(red: 0.40, green: 0.60, blue: 0.80)  // Steel blue
         case .crisisResource:   return Color.orange
+        case .text, .summaryCard: return .secondary
+        case .verseCard, .crossReferenceCard, .prayerCard: return Color(red: 0.18, green: 0.44, blue: 0.80)
+        case .historicalContextCard: return Color(red: 0.70, green: 0.45, blue: 0.20)
+        case .greekHebrewWordCard, .discernmentFrameworkCard: return Color(red: 0.52, green: 0.26, blue: 0.73)
+        case .cautionCard, .safetyNoticeCard: return .orange
+        case .actionStepCard: return Color(red: 0.22, green: 0.62, blue: 0.28)
+        case .savedInsightCard: return Color(red: 0.85, green: 0.60, blue: 0.15)
+        case .mediaKeyMomentCard: return .purple
         }
     }
 

@@ -10,6 +10,7 @@
 
 import Testing
 import Foundation
+import UIKit
 @testable import AMENAPP
 
 @Suite("Berean Multimodal Safety")
@@ -21,25 +22,23 @@ struct BereanMultimodalSafetyTests {
     func voiceCommentRequiresTranscript() {
         // The VoiceCommentStatus model: only backend can set .published
         // Client always creates with .processing — transcript required server-side
-        let model = VoiceComment(from: try! JSONDecoder().decode(
-            VoiceComment.self,
-            from: try! JSONSerialization.data(withJSONObject: [
-                "id": "test-id",
-                "postId": "post-1",
-                "authorUid": "uid-1",
-                "type": "prayer",
-                "status": "processing",    // starts as processing, not published
-                "audioStoragePath": "path/audio.m4a",
-                "transcript": "",
-                "transcriptStatus": "pending",
-                "summary": "",
-                "language": "en",
-                "visibility": "public",
-                "counts": ["prayed": 0, "amen": 0, "encourage": 0, "replies": 0, "reports": 0],
-                "audioDurationMs": 1000,
-                "waveform": [0.5]
-            ] as [String: Any])
-        ).decoder)
+        let data = try! JSONSerialization.data(withJSONObject: [
+            "id": "test-id",
+            "postId": "post-1",
+            "authorUid": "uid-1",
+            "type": "prayer",
+            "status": "processing",
+            "audioStoragePath": "path/audio.m4a",
+            "transcript": "",
+            "transcriptStatus": "pending",
+            "summary": "",
+            "language": "en",
+            "visibility": "public",
+            "counts": ["prayed": 0, "amen": 0, "encourage": 0, "replies": 0, "reports": 0],
+            "audioDurationMs": 1000,
+            "waveform": [0.5]
+        ] as [String: Any])
+        let model = try! JSONDecoder().decode(VoiceComment.self, from: data)
         // A pending transcript means hasTranscript = false
         #expect(!model.hasTranscript)
         #expect(model.status == .processing)   // not yet published
@@ -164,7 +163,7 @@ struct BereanMultimodalSafetyTests {
     func sessionStoreHardDelete() async {
         let store = BereanVoiceSessionStore.shared
         // Create a test session in memory (no network needed for this check)
-        var session = BereanVoiceSession(uid: "test-uid")
+        var session = BereanVoiceStudySession(uid: "test-uid")
         session.isSaved = false
 
         // Simulate having it in recent sessions

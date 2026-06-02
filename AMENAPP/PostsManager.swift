@@ -294,6 +294,12 @@ struct Post: Identifiable, Codable, Equatable {
     // True Source metadata — written by backend enrichment; nil on posts not yet evaluated
     var trueSource: TrueSourceBundle? = nil
 
+    var hasReducedReach: Bool {
+        trueSource?.safety.hasReducedReach ?? false
+    }
+
+    var isTestContent: Bool = false
+
     var requiresAIGeneratedLabel: Bool {
         aiUsage?.usedAI == true && aiUsage?.disclosureRequired == true
     }
@@ -629,6 +635,7 @@ struct Post: Identifiable, Codable, Equatable {
         primaryAttachmentId = nil
         publicationVisibility = nil
         aiUsage = nil
+        isTestContent = content.lowercased().contains("#test") || authorId.hasPrefix("test")
     }
 
     func encode(to encoder: Encoder) throws {
@@ -811,6 +818,7 @@ struct Post: Identifiable, Codable, Equatable {
         self.hasSmartAttachment = hasSmartAttachment
         self.attachmentCount = attachmentCount
         self.primaryAttachmentId = primaryAttachmentId
+        self.isTestContent = content.lowercased().contains("#test") || authorId.hasPrefix("test")
     }
 
     var backendId: String {

@@ -53,6 +53,12 @@ enum ShareDestinationType: String, Codable {
     case story
     case copyLink
     case saved
+    case notes
+    case reminder
+    case privateReflection
+    case collection
+    case prayerCircle
+    case discussion
 }
 
 enum ShareContextMode: String, Codable {
@@ -126,8 +132,85 @@ struct SmartShareTarget: Identifiable, Equatable {
     let conversation: ChatConversation?
     let user: FollowUserProfile?
 
+    init(
+        id: String,
+        type: ShareTargetType,
+        title: String,
+        subtitle: String,
+        imageURL: URL?,
+        badge: String?,
+        score: Double,
+        reasons: [String],
+        isOnline: Bool,
+        conversation: ChatConversation?,
+        user: FollowUserProfile?
+    ) {
+        self.id = id
+        self.type = type
+        self.title = title
+        self.subtitle = subtitle
+        self.imageURL = imageURL
+        self.badge = badge
+        self.score = score
+        self.reasons = reasons
+        self.isOnline = isOnline
+        self.conversation = conversation
+        self.user = user
+    }
+
+    init(
+        id: String,
+        targetType: ShareTargetType,
+        displayName: String,
+        username: String?,
+        photoURL: String?,
+        subtitle: String,
+        badgeReason: String?,
+        score: Double,
+        reasons: [String],
+        isOnline: Bool,
+        isVerified: Bool,
+        churchAffiliation: String?,
+        conversation: ChatConversation?,
+        user: FollowUserProfile?
+    ) {
+        self.init(
+            id: id,
+            type: targetType,
+            title: displayName,
+            subtitle: subtitle,
+            imageURL: URL(string: photoURL ?? ""),
+            badge: badgeReason ?? (isVerified ? "Verified" : churchAffiliation),
+            score: score,
+            reasons: reasons,
+            isOnline: isOnline,
+            conversation: conversation,
+            user: user
+        )
+    }
+
+    var targetType: ShareTargetType { type }
+    var displayName: String { title }
+    var username: String? { user?.username }
+    var photoURL: String? { imageURL?.absoluteString }
+
     var primaryReason: String? {
         reasons.first ?? badge
+    }
+
+    var fallbackInitials: String {
+        let source = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? (username ?? "")
+            : title
+        let words = source
+            .replacingOccurrences(of: "-", with: " ")
+            .split(separator: " ")
+        if words.count >= 2 {
+            return words.prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
+        }
+        let letters = source.filter(\.isLetter)
+        let initials = String(letters.prefix(2)).uppercased()
+        return initials.isEmpty ? "AM" : initials
     }
 
     var accessibilityLabel: String {
@@ -172,6 +255,13 @@ struct SmartShareAction: Identifiable, Equatable {
 struct ShareActivityPayload: Identifiable {
     let id = UUID()
     let items: [Any]
+}
+
+enum RecipientLoadingState: Equatable {
+    case loading
+    case loaded([SmartShareTarget])
+    case empty(ShareFilterChip)
+    case error(String)
 }
 
 @MainActor
@@ -251,6 +341,16 @@ struct ShareDeepLinkBuilder {
         let encoded = post.firestoreId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? post.firestoreId
         return URL(string: "https://amenapp.com/post/\(encoded)") ?? URL(string: "https://amenapp.com")!
     }
+
+    func canonicalURL(for entity: ShareableEntity) -> URL {
+        let encoded = entity.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? entity.id
+        return URL(string: "amen://\(entity.entityType.rawValue)/\(encoded)") ?? URL(string: "amen://")!
+    }
+
+    func webFallbackURL(for entity: ShareableEntity) -> URL {
+        let encoded = entity.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? entity.id
+        return URL(string: "https://amenapp.com/\(entity.entityType.rawValue)/\(encoded)") ?? URL(string: "https://amenapp.com")!
+    }
 }
 
 struct SharePayloadFactory {
@@ -297,6 +397,44 @@ struct SharePayloadFactory {
             deepLink: deepLink,
             externalItems: externalItems,
             shareCardPayload: shareCardPayload
+        )
+    }
+
+    func makePayload(
+        for entity: ShareableEntity,
+        options: ShareContextOptions,
+        smartContextEnabled: Bool
+    ) -> SmartSharePayload {
+        let deepLink = linkBuilder.canonicalURL(for: entity)
+        let webURL = linkBuilder.webFallbackURL(for: entity)
+        var lines: [String] = []
+        if options.includeCaption, !entity.previewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            lines.append(entity.previewText)
+        }
+        if smartContextEnabled, options.includeAttribution {
+            lines.append("Shared from AMEN by \(entity.authorName)")
+        }
+        lines.append(deepLink.absoluteString)
+        let text = lines.joined(separator: "\n\n")
+        return SmartSharePayload(
+            text: text,
+            deepLink: deepLink,
+            externalItems: entity.externallyShareable ? [text, webURL] : [text],
+            shareCardPayload: AMENSharePayload(
+                postType: .text,
+                authorName: entity.authorName,
+                authorInitials: entity.authorInitials,
+                captionText: entity.previewText,
+                verseReference: entity.verseReference,
+                categoryLabel: entity.shareContentType.title,
+                imageData: nil,
+                thumbnailData: nil,
+                churchName: entity.churchName,
+                timestamp: entity.createdAt,
+                deepLinkURL: deepLink.absoluteString,
+                carouselCount: 1,
+                videoDuration: nil
+            )
         )
     }
 

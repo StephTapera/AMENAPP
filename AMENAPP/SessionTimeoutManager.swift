@@ -680,18 +680,26 @@ class AppReadyStateManager: ObservableObject {
     /// `isResolvingAuthState` Screen 1 and the white flash that followed its exit.
     @Published var isShowingLoadingScreen: Bool
 
-    private init() {
+    private let watchdogTimeoutNanos: UInt64
+    private var watchdogTask: Task<Void, Never>?
+
+    init(initialShowing: Bool? = nil, watchdogTimeoutNanos: UInt64 = 8_000_000_000) {
+        self.watchdogTimeoutNanos = watchdogTimeoutNanos
         // If a user session is already cached, start with the overlay visible.
         // This means the overlay is already `true` before ContentView renders its body,
         // so there is only ever ONE loading state — no dual-screen flicker.
         // Guard: Auth.auth() crashes if Firebase is not configured (test host).
-        isShowingLoadingScreen = FirebaseApp.app() != nil && Auth.auth().currentUser != nil
+        isShowingLoadingScreen = initialShowing ?? (FirebaseApp.app() != nil && Auth.auth().currentUser != nil)
+        if isShowingLoadingScreen {
+            armWatchdog()
+        }
     }
 
     /// Called when a user signs in (fresh install, sign-out + sign-back-in, update).
     func signalSignIn() {
         dlog("🚦 [LAUNCH] signalSignIn() → isShowingLoadingScreen = true")
         isShowingLoadingScreen = true
+        armWatchdog()
     }
 
     /// Called from ContentView.mainContent.onAppear — ensures the screen is showing
@@ -700,6 +708,7 @@ class AppReadyStateManager: ObservableObject {
         if !isShowingLoadingScreen {
             isShowingLoadingScreen = true
         }
+        armWatchdog()
     }
 
     /// Call once posts have been loaded (or after a maximum wait) to dismiss the screen.
@@ -709,8 +718,20 @@ class AppReadyStateManager: ObservableObject {
             return
         }
         dlog("🚦 [LAUNCH] signalReady() → isShowingLoadingScreen = false (animating out)")
+        watchdogTask?.cancel()
         withAnimation(.easeOut(duration: 0.2)) {
             isShowingLoadingScreen = false
+        }
+    }
+
+    private func armWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = Task { [weak self, watchdogTimeoutNanos] in
+            try? await Task.sleep(nanoseconds: watchdogTimeoutNanos)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.isShowingLoadingScreen = false
+            }
         }
     }
 }

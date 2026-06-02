@@ -22,6 +22,13 @@ import GoogleMaps
 #endif
 
 class AppDelegate: NSObject, UIApplicationDelegate {
+    private static var isUnitTestHostProcess: Bool {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil else {
+            return false
+        }
+        return NSClassFromString("XCTestCase") != nil
+            || NSClassFromString("XCTest.XCTestCase") != nil
+    }
     
     func application(
         _ application: UIApplication,
@@ -30,11 +37,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         dlog("🚀 AppDelegate: didFinishLaunchingWithOptions")
 
         // When running unit tests, skip all Firebase / push / network initialization.
-        // The test host app launches but tests do NOT need Firebase configured,
-        // and initializing push notifications or ATT in a simulator test process
-        // causes indefinite hangs that cancel all Swift Testing @Suite tests.
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
-            dlog("🧪 Test host detected — skipping Firebase & push initialization")
+        // A normal Xcode Run can inherit XCTestConfigurationFilePath from the scheme;
+        // only skip when XCTest is actually loaded into this app process.
+        if Self.isUnitTestHostProcess {
+            dlog("🧪 Unit test host detected — skipping Firebase & push initialization")
             return true
         }
         

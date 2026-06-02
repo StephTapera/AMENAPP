@@ -1025,7 +1025,7 @@ final class LiturgicalCalendarEngine {
 
     /// Returns the Nth weekday of a given month. weekday: 1=Sunday…7=Saturday.
     /// Pass n=-1 for the last occurrence.
-    private func nthWeekdayOfMonth(n: Int, weekday: Int, month: Int, year: Int) -> Date {
+    func nthWeekdayOfMonth(n: Int, weekday: Int, month: Int, year: Int) -> Date {
         let cal = Calendar.current
         if n > 0 {
             var components = DateComponents()
@@ -1047,7 +1047,7 @@ final class LiturgicalCalendarEngine {
         }
     }
 
-    private func thanksgivingDate(year: Int) -> Date {
+    func thanksgivingDate(year: Int) -> Date {
         let cal = Calendar.current
         // 4th Thursday of November
         var components = DateComponents()
@@ -1056,6 +1056,49 @@ final class LiturgicalCalendarEngine {
         components.weekday = 5 // Thursday
         components.weekdayOrdinal = 4
         return cal.date(from: components) ?? Date()
+    }
+
+    func nthWeekday(weekday: Int, ordinal: Int, month: Int, year: Int) -> Date {
+        nthWeekdayOfMonth(n: ordinal, weekday: weekday, month: month, year: year)
+    }
+
+    func lastWeekday(weekday: Int, month: Int, year: Int) -> Date {
+        nthWeekdayOfMonth(n: -1, weekday: weekday, month: month, year: year)
+    }
+
+    func passoverDate(year: Int) -> Date {
+        let lookup: [Int: (Int, Int)] = [
+            2024: (4, 22),
+            2025: (4, 12),
+            2026: (4, 1),
+            2027: (4, 21),
+            2028: (4, 10)
+        ]
+        if let (month, day) = lookup[year] {
+            return Calendar.current.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
+        }
+        return Calendar.current.date(byAdding: .day, value: -2, to: computeEaster(year: year)) ?? Date()
+    }
+
+    func firstfruitsDate(year: Int) -> Date {
+        let passover = passoverDate(year: year)
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: passover)
+        let daysUntilSunday = (8 - weekday) % 7
+        return calendar.date(byAdding: .day, value: daysUntilSunday == 0 ? 7 : daysUntilSunday, to: passover) ?? passover
+    }
+
+    func roshHashanahDate(year: Int) -> Date {
+        let lookup: [Int: (Int, Int)] = [
+            2024: (10, 3),
+            2025: (9, 22),
+            2026: (9, 11),
+            2027: (10, 1),
+            2028: (9, 20)
+        ]
+        let fallback = (9, 22)
+        let (month, day) = lookup[year] ?? fallback
+        return Calendar.current.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
     }
 
     private func canadianThanksgivingDate(year: Int) -> Date {

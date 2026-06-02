@@ -538,6 +538,13 @@ enum TSAccountStatus: String, Codable, Equatable {
     case restricted = "restricted"
     case suspended  = "suspended"
     case banned     = "banned"
+
+    var canPost: Bool {
+        switch self {
+        case .active, .warned: return true
+        case .restricted, .suspended, .banned: return false
+        }
+    }
 }
 
 struct TSEnforcementProfile: Codable, Equatable {
@@ -571,28 +578,71 @@ struct TSAbuseReportResult: Codable, Identifiable {
 // MARK: - Media Provenance
 
 enum TSCreatorDeclaration: String, Codable, CaseIterable, Equatable {
+    case original         = "original"
     case humanOriginal    = "human_original"
+    case edited           = "edited"
     case aiAssisted       = "ai_assisted"
     case aiGenerated      = "ai_generated"
     case editedOriginal   = "edited_original"
+    case reposted         = "reposted"
     case unknown          = "unknown"
 
     var displayLabel: String {
         switch self {
+        case .original:       return "I created this"
         case .humanOriginal:  return "Original human content"
+        case .edited:         return "I edited this"
         case .aiAssisted:     return "Human-led, AI-assisted"
         case .aiGenerated:    return "AI-generated"
         case .editedOriginal: return "Edited original content"
+        case .reposted:       return "Reposted from elsewhere"
         case .unknown:        return "Not specified"
         }
     }
 }
 
 enum TSProvenanceStatus: String, Codable, Equatable {
+    case original = "original"
+    case edited = "edited"
+    case aiAssisted = "ai_assisted"
+    case aiGenerated = "ai_generated"
+    case reposted = "reposted"
+    case sourceUncertain = "source_uncertain"
+    case verifiedSource = "verified_source"
+    case contextMissing = "context_missing"
     case verified = "verified"
     case pending  = "pending"
     case flagged  = "flagged"
     case unknown  = "unknown"
+
+    var displayLabel: String {
+        switch self {
+        case .original: return "Original media"
+        case .edited: return "Edited media"
+        case .aiAssisted: return "AI-assisted"
+        case .aiGenerated: return "AI-generated"
+        case .reposted: return "Reposted"
+        case .sourceUncertain: return "Source uncertain"
+        case .verifiedSource, .verified: return "Verified source"
+        case .contextMissing: return "Context missing"
+        case .pending: return "Pending review"
+        case .flagged: return "Flagged"
+        case .unknown: return "Source uncertain"
+        }
+    }
+
+    var requiresLabel: Bool {
+        switch self {
+        case .aiGenerated, .aiAssisted, .sourceUncertain, .contextMissing, .unknown:
+            return true
+        case .original, .edited, .reposted, .verifiedSource, .verified, .pending, .flagged:
+            return false
+        }
+    }
+
+    var limitSharing: Bool {
+        self == .sourceUncertain || self == .unknown || self == .contextMissing
+    }
 }
 
 struct TSMediaProvenance: Codable, Equatable {
@@ -608,4 +658,13 @@ struct TSMediaProvenance: Codable, Equatable {
     let boostEligible: Bool
     let labelRequired: Bool
     let policyVersion: String
+
+    var aiLabelType: AILabelType {
+        switch provenanceStatus {
+        case .aiGenerated: return .aiGenerated
+        case .aiAssisted: return .aiAssisted
+        case .sourceUncertain, .unknown: return .mayBeAI
+        default: return .none
+        }
+    }
 }

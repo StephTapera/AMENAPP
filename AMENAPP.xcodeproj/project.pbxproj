@@ -325,6 +325,8 @@
 		EF62A6102FCDD353002212E9 /* BereanIntelligenceAPIContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanIntelligenceAPIContract.swift; sourceTree = "<group>"; };
 		EF62A6112FCDD36A002212E9 /* LiquidGlassContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassContract.swift; sourceTree = "<group>"; };
 		EF62A6172FCDD473002212E9 /* connectSpacesPhase0.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = connectSpacesPhase0.ts; sourceTree = "<group>"; };
+		EF62A61A2FCDEFE0002212E9 /* TranslationVisibilityGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationVisibilityGuard.swift; sourceTree = "<group>"; };
+		EF62A6282FCE0A85002212E9 /* GetReadyContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetReadyContracts.swift; sourceTree = "<group>"; };
 		EF6854572FAB95B9000B840E /* AMENAPPUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENAPPUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		EF6854582FAB95B9000B840E /* ContextualReactionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualReactionUITests.swift; sourceTree = "<group>"; };
 		EF6854A72FAD7480000B840E /* Phase34DiscoveryComposerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase34DiscoveryComposerUITests.swift; sourceTree = "<group>"; };
@@ -1343,6 +1345,8 @@
 				EFFAA6302FC9A2EE004D4A2D /* NearbyPeopleView.swift */,
 				EF62A5592FCC6A3C002212E9 /* AccessibilityAI */,
 				EF62A60B2FCDD300002212E9 /* contracts */,
+				EF62A61A2FCDEFE0002212E9 /* TranslationVisibilityGuard.swift */,
+				EF62A6282FCE0A85002212E9 /* GetReadyContracts.swift */,
 			);
 			sourceTree = "<group>";
 		};

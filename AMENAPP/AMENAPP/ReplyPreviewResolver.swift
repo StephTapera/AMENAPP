@@ -151,6 +151,37 @@ struct ReplyPreviewResolver {
         return nil
     }
 
+    func resolve(
+        candidates: [DynamicReplyPreview],
+        viewerFollowing: Set<String>
+    ) -> DynamicReplyPreview? {
+        let eligible = candidates.filter { candidate in
+            candidate.isSafe && !candidate.isExpired
+        }
+
+        let priorities: [ReplyPreviewType] = [
+            .followedReply,
+            .bereanInsight,
+            .communityPulse,
+            .topReply
+        ]
+
+        for priority in priorities {
+            let matching = eligible.filter { candidate in
+                guard candidate.type == priority else { return false }
+                if priority == .followedReply {
+                    return !viewerFollowing.isDisjoint(with: Set(candidate.participantUserIds))
+                }
+                return true
+            }
+            if let best = matching.max(by: { $0.score < $1.score }) {
+                return best
+            }
+        }
+
+        return nil
+    }
+
     // MARK: - Scoring Formula (Section 15)
 
     /// Composite score for a single candidate.
@@ -204,3 +235,5 @@ struct ReplyPreviewResolver {
         )
     }
 }
+
+typealias BackendReplyPreviewResolver = ReplyPreviewResolver

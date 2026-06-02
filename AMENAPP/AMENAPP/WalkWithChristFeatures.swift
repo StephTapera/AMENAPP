@@ -242,10 +242,12 @@ final class SundayApplicationViewModel: ObservableObject {
     @Published var currentPath: SundayApplicationPath?
     @Published var isLoading = false
     @Published var completedStepIndices: Set<Int> = []
+    @Published private(set) var hasRealPath = false
 
     func loadLatestPath() async {
         guard let uid = Auth.auth().currentUser?.uid else {
-            currentPath = defaultApplicationPath()
+            currentPath = nil
+            hasRealPath = false
             return
         }
         isLoading = true
@@ -271,11 +273,14 @@ final class SundayApplicationViewModel: ObservableObject {
                     createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
                 )
                 completedStepIndices = Set(data["completedSteps"] as? [Int] ?? [])
+                hasRealPath = true
             } else {
-                currentPath = defaultApplicationPath()
+                currentPath = nil
+                hasRealPath = false
             }
         } catch {
-            currentPath = defaultApplicationPath()
+            currentPath = nil
+            hasRealPath = false
         }
         isLoading = false
     }

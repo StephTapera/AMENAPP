@@ -9,6 +9,22 @@ struct ChurchLivingNotesView: View {
     @State private var entries: [LivingEntry] = []
     @State private var listener: ListenerRegistration?
 
+    struct GroupedEntries {
+        let duringService: [LivingEntry]
+        let afterService: [LivingEntry]
+        let thisWeek: [LivingEntry]
+        let reflections: [LivingEntry]
+    }
+
+    static func group(entries: [LivingEntry]) -> GroupedEntries {
+        GroupedEntries(
+            duringService: entries.filter { $0.type == .churchNote || $0.type == .sermonInsight },
+            afterService: entries.filter { $0.type == .followUp || $0.type == .prayer },
+            thisWeek: entries.filter { $0.intent == .spiritualGrowth || $0.intent == .churchVisit },
+            reflections: entries.filter { $0.state == .needsReflection || $0.type == .reflection }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if !duringService.isEmpty {

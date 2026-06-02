@@ -189,16 +189,23 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
     var title: String
     var artist: String
     var subtitle: String?
+    var storefront: String?
     var musicKitID: String?
     var deepLinkURL: String?
     var webURL: String?
+    var canonicalURL: String?
+    var appURL: String?
     var artworkURL: String?
+    var artworkColors: MusicArtworkColors?
     var previewURL: String?
     var explicit: Bool?
     var durationMs: Int?
+    var mayRequireSubscription: Bool?
     var requiresSubscription: Bool?
     var requiresAppInstall: Bool?
+    var metadataVersion: Int?
     var addedAt: Date
+    var resolvedAt: Date?
 
     var albumArtURL: String? { artworkURL }
     var appleMusicURL: String? { provider == .appleMusic ? webURL : nil }
@@ -228,19 +235,27 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
         title: String,
         artist: String,
         subtitle: String? = nil,
+        storefront: String? = nil,
         musicKitID: String? = nil,
         appleMusicURL: String? = nil,
         albumArtURL: String? = nil,
+        artworkColors: MusicArtworkColors? = nil,
         spotifyTrackID: String? = nil,
         spotifyTrackURL: String? = nil,
         deepLinkURL: String? = nil,
         webURL: String? = nil,
+        canonicalURL: String? = nil,
+        appURL: String? = nil,
         previewURL: String? = nil,
         explicit: Bool? = nil,
         durationMs: Int? = nil,
+        requiresAccount: Bool? = nil,
+        mayRequireSubscription: Bool? = nil,
         requiresSubscription: Bool? = nil,
         requiresAppInstall: Bool? = nil,
-        addedAt: Date = Date()
+        metadataVersion: Int? = nil,
+        addedAt: Date = Date(),
+        resolvedAt: Date? = nil
     ) {
         let resolvedProvider = provider
             ?? (spotifyTrackID != nil || spotifyTrackURL != nil ? .spotify : .appleMusic)
@@ -256,16 +271,71 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
         self.title = title
         self.artist = artist
         self.subtitle = subtitle
+        self.storefront = storefront
         self.musicKitID = musicKitID
-        self.deepLinkURL = deepLinkURL ?? spotifyTrackURL ?? appleMusicURL
-        self.webURL = webURL ?? appleMusicURL ?? Self.spotifyTrackWebURL(from: spotifyTrackID)
+        self.deepLinkURL = deepLinkURL ?? appURL ?? spotifyTrackURL ?? appleMusicURL
+        self.webURL = webURL ?? canonicalURL ?? appleMusicURL ?? Self.spotifyTrackWebURL(from: spotifyTrackID)
+        self.canonicalURL = canonicalURL ?? self.webURL
+        self.appURL = appURL ?? self.deepLinkURL
         self.artworkURL = albumArtURL
+        self.artworkColors = artworkColors
         self.previewURL = previewURL
         self.explicit = explicit
         self.durationMs = durationMs
-        self.requiresSubscription = requiresSubscription ?? (resolvedProvider == .appleMusic ? true : nil)
-        self.requiresAppInstall = requiresAppInstall ?? (resolvedProvider == .spotify ? true : nil)
+        self.mayRequireSubscription = mayRequireSubscription
+        self.requiresSubscription = requiresSubscription ?? mayRequireSubscription ?? (resolvedProvider == .appleMusic ? true : nil)
+        self.requiresAppInstall = requiresAppInstall ?? requiresAccount ?? (resolvedProvider == .spotify ? true : nil)
+        self.metadataVersion = metadataVersion
         self.addedAt = addedAt
+        self.resolvedAt = resolvedAt
+    }
+
+    init(
+        id: String = UUID().uuidString,
+        provider: MusicProvider,
+        entityType: MusicEntityType = .song,
+        providerID: String,
+        storefront: String? = nil,
+        title: String,
+        artist: String,
+        subtitle: String? = nil,
+        albumArtURL: String? = nil,
+        deepLinkURL: String? = nil,
+        webURL: String? = nil,
+        canonicalURL: String? = nil,
+        appURL: String? = nil,
+        artworkColors: MusicArtworkColors? = nil,
+        explicit: Bool? = nil,
+        durationMs: Int? = nil,
+        requiresAccount: Bool? = nil,
+        mayRequireSubscription: Bool? = nil,
+        metadataVersion: Int? = nil,
+        addedAt: Date = Date(),
+        resolvedAt: Date? = nil
+    ) {
+        self.init(
+            id: id,
+            provider: provider,
+            entityType: entityType,
+            providerID: providerID,
+            title: title,
+            artist: artist,
+            subtitle: subtitle,
+            storefront: storefront,
+            albumArtURL: albumArtURL,
+            artworkColors: artworkColors,
+            deepLinkURL: deepLinkURL,
+            webURL: webURL,
+            canonicalURL: canonicalURL,
+            appURL: appURL,
+            explicit: explicit,
+            durationMs: durationMs,
+            requiresAccount: requiresAccount,
+            mayRequireSubscription: mayRequireSubscription,
+            metadataVersion: metadataVersion,
+            addedAt: addedAt,
+            resolvedAt: resolvedAt
+        )
     }
 
     private static func spotifyTrackWebURL(from trackID: String?) -> String? {
@@ -281,16 +351,23 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
         case title
         case artist
         case subtitle
+        case storefront
         case musicKitID
         case deepLinkURL
         case webURL
+        case canonicalURL
+        case appURL
         case artworkURL
+        case artworkColors
         case previewURL
         case explicit
         case durationMs
+        case mayRequireSubscription
         case requiresSubscription
         case requiresAppInstall
+        case metadataVersion
         case addedAt
+        case resolvedAt
         case appleMusicURL
         case albumArtURL
         case spotifyTrackID
@@ -313,18 +390,28 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
         title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
         artist = try c.decodeIfPresent(String.self, forKey: .artist) ?? ""
         subtitle = try c.decodeIfPresent(String.self, forKey: .subtitle)
+        storefront = try c.decodeIfPresent(String.self, forKey: .storefront)
         musicKitID = try c.decodeIfPresent(String.self, forKey: .musicKitID)
-        deepLinkURL = try c.decodeIfPresent(String.self, forKey: .deepLinkURL) ?? legacySpotifyTrackURL ?? legacyAppleMusicURL
+        appURL = try c.decodeIfPresent(String.self, forKey: .appURL)
+        deepLinkURL = try c.decodeIfPresent(String.self, forKey: .deepLinkURL) ?? appURL ?? legacySpotifyTrackURL ?? legacyAppleMusicURL
+        let decodedCanonicalURL = try c.decodeIfPresent(String.self, forKey: .canonicalURL)
         webURL = try c.decodeIfPresent(String.self, forKey: .webURL)
+            ?? decodedCanonicalURL
             ?? legacyAppleMusicURL
             ?? Self.spotifyTrackWebURL(from: legacySpotifyTrackID)
+        canonicalURL = decodedCanonicalURL ?? webURL
         artworkURL = try c.decodeIfPresent(String.self, forKey: .artworkURL) ?? legacyAlbumArtURL
+        artworkColors = try c.decodeIfPresent(MusicArtworkColors.self, forKey: .artworkColors)
         previewURL = try c.decodeIfPresent(String.self, forKey: .previewURL)
         explicit = try c.decodeIfPresent(Bool.self, forKey: .explicit)
         durationMs = try c.decodeIfPresent(Int.self, forKey: .durationMs)
+        mayRequireSubscription = try c.decodeIfPresent(Bool.self, forKey: .mayRequireSubscription)
         requiresSubscription = try c.decodeIfPresent(Bool.self, forKey: .requiresSubscription)
+            ?? mayRequireSubscription
         requiresAppInstall = try c.decodeIfPresent(Bool.self, forKey: .requiresAppInstall)
+        metadataVersion = try c.decodeIfPresent(Int.self, forKey: .metadataVersion)
         addedAt = try c.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
+        resolvedAt = try c.decodeIfPresent(Date.self, forKey: .resolvedAt)
         providerID = try c.decodeIfPresent(String.self, forKey: .providerID)
             ?? legacySpotifyTrackID
             ?? musicKitID
@@ -340,22 +427,58 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
         try c.encode(title, forKey: .title)
         try c.encode(artist, forKey: .artist)
         try c.encodeIfPresent(subtitle, forKey: .subtitle)
+        try c.encodeIfPresent(storefront, forKey: .storefront)
         try c.encodeIfPresent(musicKitID, forKey: .musicKitID)
         try c.encodeIfPresent(deepLinkURL, forKey: .deepLinkURL)
         try c.encodeIfPresent(webURL, forKey: .webURL)
+        try c.encodeIfPresent(canonicalURL, forKey: .canonicalURL)
+        try c.encodeIfPresent(appURL, forKey: .appURL)
         try c.encodeIfPresent(artworkURL, forKey: .artworkURL)
+        try c.encodeIfPresent(artworkColors, forKey: .artworkColors)
         try c.encodeIfPresent(previewURL, forKey: .previewURL)
         try c.encodeIfPresent(explicit, forKey: .explicit)
         try c.encodeIfPresent(durationMs, forKey: .durationMs)
+        try c.encodeIfPresent(mayRequireSubscription, forKey: .mayRequireSubscription)
         try c.encodeIfPresent(requiresSubscription, forKey: .requiresSubscription)
         try c.encodeIfPresent(requiresAppInstall, forKey: .requiresAppInstall)
+        try c.encodeIfPresent(metadataVersion, forKey: .metadataVersion)
         try c.encode(addedAt, forKey: .addedAt)
+        try c.encodeIfPresent(resolvedAt, forKey: .resolvedAt)
 
         // Legacy keys preserved for older surfaces and Firestore consumers.
         try c.encodeIfPresent(appleMusicURL, forKey: .appleMusicURL)
         try c.encodeIfPresent(albumArtURL, forKey: .albumArtURL)
         try c.encodeIfPresent(spotifyTrackID, forKey: .spotifyTrackID)
         try c.encodeIfPresent(spotifyTrackURL, forKey: .spotifyTrackURL)
+    }
+}
+
+struct AfterServiceReflectionDraft: Hashable {
+    var stoodOut: String
+    var application: String
+    var prayer: String
+    var continueStudy: Bool
+
+    func applying(
+        to note: ChurchNote,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> ChurchNote {
+        var updated = note
+        updated.permission = .privateNote
+        updated.sharedWith = []
+        updated.growthReflection = trimmedOptional(stoodOut)
+        updated.actionStepThisWeek = trimmedOptional(application)
+        updated.prayerFromSermon = trimmedOptional(prayer)
+        updated.shouldRevisit = continueStudy
+        updated.revisitDate = continueStudy ? calendar.date(byAdding: .day, value: 7, to: now) : nil
+        updated.updatedAt = now
+        return updated
+    }
+
+    private func trimmedOptional(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

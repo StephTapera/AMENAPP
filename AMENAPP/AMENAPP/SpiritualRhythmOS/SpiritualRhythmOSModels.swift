@@ -192,9 +192,43 @@ struct NotificationPreferences: Codable {
     var eveningDigestEnabled: Bool
     var morningDigestEnabled: Bool
 
+    init(
+        intensity: SpiritualNotificationIntensityMode,
+        enabledCategories: Set<SpiritualNotificationCategory>,
+        preferredVerseTime: String = "08:00",
+        preferredReminderTime: String = "19:00",
+        eveningDigestEnabled: Bool = true,
+        morningDigestEnabled: Bool = true
+    ) {
+        self.intensity = intensity
+        self.enabledCategories = enabledCategories
+        self.preferredVerseTime = preferredVerseTime
+        self.preferredReminderTime = preferredReminderTime
+        self.eveningDigestEnabled = eveningDigestEnabled
+        self.morningDigestEnabled = morningDigestEnabled
+    }
+
+    init(
+        intensity: NotificationIntensityMode,
+        enabledCategories: Set<SpiritualNotificationCategory>,
+        preferredVerseTime: String = "08:00",
+        preferredReminderTime: String = "19:00",
+        eveningDigestEnabled: Bool = true,
+        morningDigestEnabled: Bool = true
+    ) {
+        self.init(
+            intensity: SpiritualNotificationIntensityMode(rawValue: intensity.rawValue) ?? .balanced,
+            enabledCategories: enabledCategories,
+            preferredVerseTime: preferredVerseTime,
+            preferredReminderTime: preferredReminderTime,
+            eveningDigestEnabled: eveningDigestEnabled,
+            morningDigestEnabled: morningDigestEnabled
+        )
+    }
+
     static var defaults: NotificationPreferences {
         NotificationPreferences(
-            intensity: .balanced,
+            intensity: SpiritualNotificationIntensityMode.balanced,
             enabledCategories: [
                 .dailyVerse,
                 .readingReminder,
@@ -232,6 +266,16 @@ struct SabbathModeSettings: Codable {
         self.startHour = startHour
         self.endDay = endDay
         self.endHour = endHour
+    }
+
+    init(
+        isEnabled: Bool,
+        startDay: Int = 0,
+        startHour: Int = 18,
+        endDay: Int = 1,
+        endHour: Int = 6
+    ) {
+        self.init(enabled: isEnabled, startDay: startDay, startHour: startHour, endDay: endDay, endHour: endHour)
     }
 
     /// Returns `true` when Sabbath mode is both enabled and currently in effect.
@@ -279,6 +323,38 @@ struct SpiritualRhythmSettings: Codable {
     var pauseNotificationSentAt: Timestamp?
     var enabledStreakTypes: Set<SpiritualStreakType>
     var updatedAt: Timestamp?
+
+    init(
+        notificationPreferences: NotificationPreferences,
+        sabbathMode: SabbathModeSettings,
+        momentumState: SpiritualMomentumState = .growing,
+        lastActiveAt: Timestamp? = nil,
+        inactivityPauseActivatedAt: Timestamp? = nil,
+        pauseNotificationSentAt: Timestamp? = nil,
+        enabledStreakTypes: Set<SpiritualStreakType> = Set(SpiritualStreakType.allCases),
+        updatedAt: Timestamp? = nil
+    ) {
+        self.notificationPreferences = notificationPreferences
+        self.sabbathMode = sabbathMode
+        self.momentumState = momentumState
+        self.lastActiveAt = lastActiveAt
+        self.inactivityPauseActivatedAt = inactivityPauseActivatedAt
+        self.pauseNotificationSentAt = pauseNotificationSentAt
+        self.enabledStreakTypes = enabledStreakTypes
+        self.updatedAt = updatedAt
+    }
+
+    init(
+        sabbathMode: SabbathModeSettings,
+        notificationPreferences: NotificationPreferences,
+        inactivityPauseActivatedAt: Date?
+    ) {
+        self.init(
+            notificationPreferences: notificationPreferences,
+            sabbathMode: sabbathMode,
+            inactivityPauseActivatedAt: inactivityPauseActivatedAt.map(Timestamp.init(date:))
+        )
+    }
 
     // MARK: Computed
 

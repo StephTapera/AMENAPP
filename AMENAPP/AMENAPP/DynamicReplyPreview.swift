@@ -21,6 +21,7 @@ struct DynamicReplyPreview: Identifiable, Codable, Equatable, Hashable {
     let id: String
     let postId: String
     let replyId: String?
+    let sourceCommentIds: [String]
     let type: ReplyPreviewType
     let previewText: String
     let authorId: String?
@@ -46,7 +47,7 @@ struct DynamicReplyPreview: Identifiable, Codable, Equatable, Hashable {
     // MARK: Firestore Codable
 
     enum CodingKeys: String, CodingKey {
-        case id, postId, replyId, type, previewText
+        case id, postId, replyId, sourceCommentIds, type, previewText
         case authorId, authorDisplayName, avatarURLs, participantUserIds
         case score, generatedAt, expiresAt, moderationState, source
     }
@@ -56,6 +57,7 @@ struct DynamicReplyPreview: Identifiable, Codable, Equatable, Hashable {
         id                  = try c.decode(String.self, forKey: .id)
         postId              = try c.decode(String.self, forKey: .postId)
         replyId             = try c.decodeIfPresent(String.self, forKey: .replyId)
+        sourceCommentIds    = (try? c.decode([String].self, forKey: .sourceCommentIds)) ?? []
         type                = try c.decode(ReplyPreviewType.self, forKey: .type)
         previewText         = try c.decode(String.self, forKey: .previewText)
         authorId            = try c.decodeIfPresent(String.self, forKey: .authorId)
@@ -84,6 +86,7 @@ struct DynamicReplyPreview: Identifiable, Codable, Equatable, Hashable {
         id: String,
         postId: String,
         replyId: String? = nil,
+        sourceCommentIds: [String] = [],
         type: ReplyPreviewType,
         previewText: String,
         authorId: String? = nil,
@@ -99,6 +102,7 @@ struct DynamicReplyPreview: Identifiable, Codable, Equatable, Hashable {
         self.id                 = id
         self.postId             = postId
         self.replyId            = replyId
+        self.sourceCommentIds   = sourceCommentIds
         self.type               = type
         self.previewText        = previewText
         self.authorId           = authorId
@@ -117,6 +121,7 @@ struct DynamicReplyPreview: Identifiable, Codable, Equatable, Hashable {
 
 struct ReplyCandidate {
     let id: String
+    let postId: String
     let authorUID: String
     let authorDisplayName: String
     let text: String
@@ -125,6 +130,30 @@ struct ReplyCandidate {
     let spiritualUsefulness: Double
     let engagementScore: Double
     let safetyPassed: Bool
+
+    init(
+        id: String,
+        postId: String = "",
+        authorUID: String,
+        authorDisplayName: String,
+        text: String,
+        relevanceScore: Double,
+        spiritualUsefulness: Double,
+        engagementScore: Double,
+        createdAt: Date,
+        safetyPassed: Bool
+    ) {
+        self.id = id
+        self.postId = postId
+        self.authorUID = authorUID
+        self.authorDisplayName = authorDisplayName
+        self.text = text
+        self.createdAt = createdAt
+        self.relevanceScore = relevanceScore
+        self.spiritualUsefulness = spiritualUsefulness
+        self.engagementScore = engagementScore
+        self.safetyPassed = safetyPassed
+    }
 }
 
 // MARK: - ResolvedReplyPreview
@@ -137,6 +166,8 @@ struct ResolvedReplyPreview {
     let authorUID: String
     let avatarURL: String?
     let contentHash: String
+
+    var id: String { contentHash }
 }
 
 // MARK: - Preview Helpers (SwiftUI preview use only, never in production feed)

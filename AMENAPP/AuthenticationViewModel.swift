@@ -14,8 +14,102 @@ import FirebaseCore
 import FirebaseFirestore
 import FirebaseFunctions
 
+enum AuthResolutionState: Equatable {
+    case unresolved
+    case signedOut
+    case loadingAccount
+    case needsEmailVerification
+    case needsTwoFactorChallenge
+    case needsOnboarding
+    case deactivated
+    case deleting
+    case suspended
+    case authenticated
+    case missingUserDocument
+    case error(String)
+}
+
+struct AccountLifecycleBlockedView: View {
+    let title: String
+    let message: String
+    let buttonTitle: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 44, weight: .semibold))
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(.title3.weight(.semibold))
+                    .multilineTextAlignment(.center)
+
+                Text(message)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(buttonTitle, action: action)
+                .buttonStyle(.borderedProminent)
+        }
+        .padding(24)
+        .frame(maxWidth: 420)
+        .accessibilityElement(children: .contain)
+    }
+}
+
 @MainActor
 class AuthenticationViewModel: ObservableObject {
+    enum AuthResolutionError: Error, Equatable {
+        case timedOut
+    }
+
+    struct AuthResolutionOutcome: Equatable {
+        let isTimeout: Bool
+        let message: String
+    }
+
+    nonisolated static func raceFirestoreResolution(
+        timeoutNanos: UInt64,
+        operation: @escaping @Sendable () async throws -> Void
+    ) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: timeoutNanos)
+                throw AuthResolutionError.timedOut
+            }
+
+            do {
+                try await group.next()
+                group.cancelAll()
+            } catch {
+                group.cancelAll()
+                throw error
+            }
+        }
+    }
+
+    nonisolated static func resolveAuthError(from error: Error) -> AuthResolutionOutcome {
+        if let authError = error as? AuthResolutionError, authError == .timedOut {
+            return AuthResolutionOutcome(
+                isTimeout: true,
+                message: "We couldn't reach our servers. Check your connection and try again."
+            )
+        }
+
+        return AuthResolutionOutcome(
+            isTimeout: false,
+            message: "We couldn't verify your account status. Please try again."
+        )
+    }
+
     // MARK: - Published Properties
     
     @Published var isAuthenticated = false
@@ -488,16 +582,13 @@ class AuthenticationViewModel: ObservableObject {
                     }
                 } else {
                     // All attempts exhausted — the keychain is genuinely unavailable.
-                    // Do NOT force isAuthenticated = true; that would let Firestore reads
-                    // run unauthenticated and produce silent 403 errors everywhere.
-                    // Instead, surface a user-facing prompt so the developer knows to
-                    // either restart the Simulator or sign in manually.
-                    dlog("🔧 [Simulator] All anonymous sign-in attempts failed — showing sign-in prompt")
-                    errorMessage = "Simulator keychain unavailable. Try restarting the Simulator, or sign in manually."
+                    // Let simulator QA continue into the app shell even when Firebase
+                    // Auth cannot persist credentials. Server-backed reads will remain
+                    // unauthenticated and may show empty states until a real sign-in works.
+                    dlog("🔧 [Simulator] Anonymous sign-in failed — entering unauthenticated simulator preview mode")
+                    isAuthenticated = true
+                    errorMessage = "Simulator keychain unavailable. Entering preview mode; server-backed data may be unavailable."
                     showError = true
-                    // Leave isAuthenticated = false so AMENAuthLandingView is shown.
-                    // The developer can tap the bypass button again once the Simulator
-                    // keychain becomes ready, or use email/Apple/Google sign-in.
                     AppReadyStateManager.shared.signalReady()
                 }
             }

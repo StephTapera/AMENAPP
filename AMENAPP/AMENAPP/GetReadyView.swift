@@ -14,14 +14,34 @@ private struct GetReadyScrollOffsetKey: PreferenceKey {
     }
 }
 
-fileprivate struct GetReadyHeroMotion {
+struct GetReadyHeroMotion: Equatable {
     var progress: CGFloat = 0
     var velocity: CGFloat = 0
 
-    var overlayScale: CGFloat { 1 - (progress * 0.02) }
-    var overlayOffset: CGFloat { -(progress * 6) }
-    var glassOpacityBoost: Double { Double(progress) * 0.12 + Double(min(velocity, 1)) * 0.08 }
+    var overlayScale: CGFloat { max(0.988, 1 - (min(max(progress, 0), 1) * 0.012)) }
+    var overlayOffset: CGFloat { -(min(max(progress, 0), 1) * 18) }
+    var glassOpacityBoost: Double { Double(min(max(progress, 0), 1)) * 0.18 }
     var readingMode: Bool { velocity < 0.12 }
+    var dense: Bool { progress > 0.45 }
+}
+
+struct GetReadyComposerAction: Identifiable, Equatable, Hashable {
+    let id: String
+    let title: String
+    let icon: String
+
+    static let standard: [GetReadyComposerAction] = [
+        GetReadyComposerAction(id: "pray", title: "Pray", icon: "hands.sparkles"),
+        GetReadyComposerAction(id: "reflect", title: "Reflect", icon: "text.book.closed"),
+        GetReadyComposerAction(id: "share", title: "Share", icon: "square.and.arrow.up"),
+        GetReadyComposerAction(id: "save", title: "Save", icon: "bookmark")
+    ]
+
+    static let contextual: [GetReadyComposerAction] = [
+        GetReadyComposerAction(id: "route", title: "Route", icon: "location"),
+        GetReadyComposerAction(id: "remind", title: "Remind", icon: "bell"),
+        GetReadyComposerAction(id: "invite", title: "Invite", icon: "person.badge.plus")
+    ]
 }
 
 struct GetReadyView: View {

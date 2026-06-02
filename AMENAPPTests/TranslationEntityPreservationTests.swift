@@ -12,6 +12,7 @@ import Testing
 
 // MARK: - TranslationEntityPreservationTests
 
+@MainActor
 @Suite("TranslationEntityPreservation")
 struct TranslationEntityPreservationTests {
 

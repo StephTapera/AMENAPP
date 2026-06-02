@@ -7,6 +7,7 @@
 
 import Testing
 import Foundation
+import FirebaseCore
 @testable import AMENAPP
 
 // MARK: - TrueSourceEventType Coverage

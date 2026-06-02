@@ -34,6 +34,7 @@ enum NotificationRoute: Equatable {
     case prayer(prayerID: String)
     case churchNote(noteID: String)
     case churchPage(churchID: String)
+    case walkWithChrist
 
     // Failure states
     case unavailable(reason: String)
@@ -63,6 +64,8 @@ enum NotificationRoute: Equatable {
         case .churchNote:
             return .fallback
         case .churchPage:
+            return .fallback
+        case .walkWithChrist:
             return .fallback
         case .followRequests, .unavailable, .fallback:
             return .fallback
@@ -181,6 +184,8 @@ enum NotificationRouteResolver {
         case "church_page":
             guard let churchId = payload["churchId"], !churchId.isEmpty else { return nil }
             return .churchPage(churchID: churchId)
+        case "walk_with_christ":
+            return .walkWithChrist
         case "notifications_inbox":
             return .fallback
         default:
@@ -315,6 +320,9 @@ final class NotificationTapHandler {
 
         case .churchPage:
             NotificationDeepLinkRouter.shared.navigate(to: .notifications)
+
+        case .walkWithChrist:
+            NotificationCenter.default.post(name: .openWalkWithChristFromNotification, object: nil)
 
         // ── Unavailable content ────────────────────────────────────────────
         case .unavailable(let reason):

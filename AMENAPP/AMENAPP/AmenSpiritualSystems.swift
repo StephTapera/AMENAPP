@@ -78,6 +78,23 @@ enum AmenThreadLifecycleState: String, Codable, CaseIterable {
     case revived
     case answered
     case followUpNeeded
+
+    var displayName: String {
+        switch self {
+        case .active: return "Active"
+        case .dormant: return "Dormant"
+        case .revived: return "Revived"
+        case .answered: return "Answered"
+        case .followUpNeeded: return "Follow-up needed"
+        }
+    }
+}
+
+enum SpiritualPriorityInboxLoadState: Equatable {
+    case loading
+    case empty
+    case loaded([AmenSpiritualPriorityItem])
+    case error(String)
 }
 
 enum AmenComposeIntentKind: String, Codable, CaseIterable {

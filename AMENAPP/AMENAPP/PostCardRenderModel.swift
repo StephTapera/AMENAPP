@@ -53,6 +53,7 @@ struct PostCardRenderModel: Equatable {
     let hasWitnessMedia: Bool           // true when witnessMedia is non-nil
 
     var hasMedia: Bool { !mediaItems.isEmpty || !imageURLs.isEmpty }
+    var hasVideo: Bool { mediaItems.contains { $0.type == .video } }
     var mediaCount: Int { mediaItems.count + imageURLs.count }
 
     // MARK: - Server-confirmed engagement counts
@@ -115,6 +116,7 @@ struct PostCardRenderModel: Equatable {
     var editEligible: Bool { isUserPost && !isRemoved }
     var tipEligible: Bool { !isUserPost }
     var quoteEligible: Bool { !isRemoved }
+    var shareEligible: Bool { !isRemoved }
 }
 
 // MARK: - Init from Post
@@ -205,6 +207,7 @@ extension PostCardRenderModel {
         contentText: String = "Let all that you do be done in love. — 1 Cor 16:14",
         category: Post.PostCategory = .openTable,
         isUserPost: Bool = false,
+        authorVerificationType: VerificationType = .none,
         amenCount: Int = 12,
         flaggedForReview: Bool = false,
         isRemoved: Bool = false
@@ -217,8 +220,8 @@ extension PostCardRenderModel {
             authorInitials: "ST",
             authorAvatarURL: nil,
             authorIsPrivate: false,
-            authorIsVerified: false,
-            authorVerificationType: .none,
+            authorIsVerified: authorVerificationType != .none,
+            authorVerificationType: authorVerificationType,
             timeAgoDisplay: "2m",
             createdAt: Date(),
             contentText: contentText,

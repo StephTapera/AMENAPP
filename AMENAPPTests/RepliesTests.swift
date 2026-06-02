@@ -13,6 +13,7 @@
 //  Firebase is NOT imported. All tests exercise structs/enums with no I/O.
 //
 
+import Foundation
 import Testing
 @testable import AMENAPP
 
@@ -24,8 +25,8 @@ private func makeComment(
     authorId: String = "u1",
     content: String = "Test comment",
     parentCommentId: String? = nil
-) -> Comment {
-    Comment(
+) -> AMENAPP.Comment {
+    AMENAPP.Comment(
         id: id,
         postId: postId,
         authorId: authorId,
@@ -48,25 +49,23 @@ private func makeThread(
     parentAuthorUsername: String? = nil,
     parentAuthorName: String? = nil,
     parentPreviewText: String? = nil,
-    comment: Comment? = nil
+    comment: AMENAPP.Comment? = nil
 ) -> ReplyThread {
     let post: Post? = hasPost ? Post(
-        id: "p1",
+        firebaseId: "p1",
         authorId: "u1",
         authorName: "Author",
         authorUsername: "author",
         authorInitials: "A",
         authorProfileImageURL: nil,
         content: "Original post content",
-        category: .general,
-        mediaItems: [],
+        category: .openTable,
+        visibility: .everyone,
+        createdAt: Date(),
         amenCount: 0,
         commentCount: 0,
         repostCount: 0,
-        bookmarkCount: 0,
-        visibility: .public,
-        createdAt: Date(),
-        updatedAt: Date()
+        mediaItems: []
     ) : nil
     return ReplyThread(
         originalPost: post,

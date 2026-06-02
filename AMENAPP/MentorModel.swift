@@ -43,6 +43,10 @@ struct MentorshipPlan: Identifiable, Codable, Hashable {
 
     var isFree: Bool { priceMonthly == 0 }
     var priceLabel: String { isFree ? "Free" : "$\(String(format: "%.0f", priceMonthly))/mo" }
+    var storeKitProductId: String {
+        guard !isFree else { return "" }
+        return "amen.mentorship.\(id).monthly"
+    }
 
     init(id: String, name: String, priceMonthly: Double, stripePriceId: String,
          sessionsPerMonth: Int, includesChat: Bool, includesCheckIns: Bool,

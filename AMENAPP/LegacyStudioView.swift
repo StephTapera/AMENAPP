@@ -134,6 +134,31 @@ final class LegacyStudioViewModel: ObservableObject {
         persist()
     }
 
+    func makeStoryBookPDF() throws -> URL {
+        let fileName = "amen-legacy-storybook-\(UUID().uuidString).pdf"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 612, height: 792))
+
+        try renderer.writePDF(to: url) { context in
+            context.beginPage()
+            let body = entries
+                .sorted { ($0.eventYear ?? 0) < ($1.eventYear ?? 0) }
+                .map { entry in
+                    let year = entry.eventYear.map(String.init) ?? "Undated"
+                    return "\(year)\n\(entry.title)\n\(entry.body)"
+                }
+                .joined(separator: "\n\n")
+            let text = "AMEN Legacy Storybook\n\n" + (body.isEmpty ? "No entries yet." : body)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 14),
+                .foregroundColor: UIColor.label
+            ]
+            text.draw(in: CGRect(x: 48, y: 48, width: 516, height: 696), withAttributes: attributes)
+        }
+
+        return url
+    }
+
     var timeline: [LegacyEntry] {
         entries.filter { $0.type == .memory }.sorted { ($0.eventYear ?? 0) < ($1.eventYear ?? 0) }
     }

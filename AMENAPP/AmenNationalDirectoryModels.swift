@@ -3,6 +3,7 @@ import FirebaseFunctions
 
 enum AmenNationalDirectoryKind: String, CaseIterable, Codable, Identifiable {
     case publicK12School
+    case privateK12School
     case higherEducation
     case church
     case nonprofit
@@ -14,7 +15,7 @@ enum AmenNationalDirectoryKind: String, CaseIterable, Codable, Identifiable {
 
     var organizationType: AmenContextualOrganizationType {
         switch self {
-        case .publicK12School: return .school
+        case .publicK12School, .privateK12School: return .school
         case .higherEducation: return .university
         case .church: return .church
         case .nonprofit: return .nonprofit
@@ -27,8 +28,11 @@ enum AmenNationalDirectoryKind: String, CaseIterable, Codable, Identifiable {
 
 enum AmenNationalDirectorySource: String, CaseIterable, Codable, Identifiable {
     case ncesCCD
+    case ncesPSS
     case ncesIPEDS
     case irsEOBMF
+    case censusGeocoder
+    case osmStaticExtract
     case claimedAmenProfile
     case partnerImport
 
@@ -37,8 +41,11 @@ enum AmenNationalDirectorySource: String, CaseIterable, Codable, Identifiable {
     var displayName: String {
         switch self {
         case .ncesCCD: return "NCES Common Core of Data"
+        case .ncesPSS: return "NCES Private School Survey"
         case .ncesIPEDS: return "NCES IPEDS"
         case .irsEOBMF: return "IRS Exempt Organizations Business Master File"
+        case .censusGeocoder: return "U.S. Census Geocoder"
+        case .osmStaticExtract: return "OpenStreetMap Static Extract"
         case .claimedAmenProfile: return "Claimed AMEN Profile"
         case .partnerImport: return "Partner Import"
         }
@@ -46,10 +53,20 @@ enum AmenNationalDirectorySource: String, CaseIterable, Codable, Identifiable {
 
     var isOfficialPublicDataset: Bool {
         switch self {
-        case .ncesCCD, .ncesIPEDS, .irsEOBMF: return true
+        case .ncesCCD, .ncesPSS, .ncesIPEDS, .irsEOBMF, .censusGeocoder, .osmStaticExtract: return true
         case .claimedAmenProfile, .partnerImport: return false
         }
     }
+}
+
+enum AmenSmartNotesMode: String, CaseIterable, Codable, Hashable {
+    case churchNotes
+    case schoolNotes
+    case bibleStudyNotes
+    case meetingNotes
+    case sermonNotes
+    case classNotes
+    case eventNotes
 }
 
 enum AmenNationalDirectoryAction: String, CaseIterable, Codable {
@@ -76,6 +93,13 @@ struct AmenNationalDirectorySourceDescriptor: Identifiable, Hashable {
             refreshCadence: "Annual public release"
         ),
         AmenNationalDirectorySourceDescriptor(
+            id: .ncesPSS,
+            name: "NCES Private School Survey",
+            datasetPurpose: "Private elementary and secondary schools.",
+            allowedKinds: [.privateK12School],
+            refreshCadence: "Biennial public release"
+        ),
+        AmenNationalDirectorySourceDescriptor(
             id: .ncesIPEDS,
             name: "NCES IPEDS",
             datasetPurpose: "Postsecondary institutions and campuses.",
@@ -88,6 +112,20 @@ struct AmenNationalDirectorySourceDescriptor: Identifiable, Hashable {
             datasetPurpose: "Tax-exempt churches, ministries, nonprofits, schools, and organizations.",
             allowedKinds: [.church, .nonprofit, .ministry],
             refreshCadence: "IRS public extract update"
+        ),
+        AmenNationalDirectorySourceDescriptor(
+            id: .censusGeocoder,
+            name: "U.S. Census Geocoder",
+            datasetPurpose: "Address normalization and geographic enrichment for imported organizations.",
+            allowedKinds: [.publicK12School, .privateK12School, .higherEducation, .church, .nonprofit, .ministry, .business, .campusGroup],
+            refreshCadence: "On demand"
+        ),
+        AmenNationalDirectorySourceDescriptor(
+            id: .osmStaticExtract,
+            name: "OpenStreetMap Static Extract",
+            datasetPurpose: "Supplemental public location signals for organizations and campuses.",
+            allowedKinds: [.publicK12School, .privateK12School, .higherEducation, .church, .nonprofit, .ministry, .business, .campusGroup],
+            refreshCadence: "Periodic static import"
         )
     ]
 }

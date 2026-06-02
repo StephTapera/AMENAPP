@@ -90,11 +90,15 @@ enum ShareIntent: String, Codable, CaseIterable, Identifiable {
         case .shareWithChurch: return .church
         case .storyCard: return .story
         case .copyLink: return .copyLink
-        case .saveForLater, .addToNotes, .reflectPrivately: return .saved
-        case .encourageSomeone, .startConversation, .sendInMessage, .createPrayerShare, .createDiscussion:
+        case .saveForLater: return .collection
+        case .addToNotes: return .notes
+        case .reflectPrivately: return .privateReflection
+        case .createPrayerShare: return .prayerCircle
+        case .createDiscussion: return .discussion
+        case .encourageSomeone, .startConversation, .sendInMessage:
             return .directMessage
         case .remindMeLater:
-            return .externalApp
+            return .reminder
         }
     }
 }

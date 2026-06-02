@@ -93,6 +93,11 @@ final class LocalSelahSession {
         continuationEligibility = false
     }
 
+    func fail() {
+        phase = .failed
+        continuationEligibility = false
+    }
+
     func updateReflection(_ text: String) {
         reflectionText = text
         if !text.isEmpty { title = String(text.prefix(60)) }

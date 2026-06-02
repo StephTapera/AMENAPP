@@ -26,13 +26,12 @@ struct AmenNotificationEligibility {
     }
 }
 
-@MainActor
 final class NotificationPolicyEngine: ObservableObject {
     static let shared = NotificationPolicyEngine()
 
     private var uid: String? { Auth.auth().currentUser?.uid }
 
-    private init() {}
+    init() {}
 
     // MARK: - Client-side Eligibility (fast path; server is authoritative)
 

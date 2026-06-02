@@ -79,6 +79,8 @@ enum AmenSpiritualActivityType: String, Codable, CaseIterable, Identifiable {
     case scripture
     case bibleReading
     case prayerReflection
+    case prayer
+    case reflection
     case communityPresence
 
     var id: String { rawValue }
@@ -88,6 +90,8 @@ enum AmenSpiritualActivityType: String, Codable, CaseIterable, Identifiable {
         case .scripture: return "Scripture"
         case .bibleReading: return "Bible Reading"
         case .prayerReflection: return "Prayer & Reflection"
+        case .prayer: return "Prayer"
+        case .reflection: return "Reflection"
         case .communityPresence: return "Community Presence"
         }
     }

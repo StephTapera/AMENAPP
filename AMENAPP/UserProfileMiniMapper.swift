@@ -63,7 +63,8 @@ struct UserProfileMiniMapper {
             testimonyOverlapCount:          data["testimonyOverlapCount"] as? Int,
             topicOverlapCount:              data["topicOverlapCount"] as? Int,
             isProfileUnavailable:           data["isProfileUnavailable"] as? Bool ?? false,
-            isBlocked:                      data["isBlocked"] as? Bool ?? false
+            isBlocked:                      data["isBlocked"] as? Bool ?? false,
+            publicVerificationSummary:      publicVerificationSummary(data["publicVerificationSummary"])
         )
     }
 
@@ -146,6 +147,23 @@ struct UserProfileMiniMapper {
         let activeLabel   = dict["activeLabel"] as? String
         guard responseLabel != nil || activeLabel != nil else { return nil }
         return UserMiniCredibility(responseLabel: responseLabel, activeLabel: activeLabel)
+    }
+
+    private static func publicVerificationSummary(_ value: Any?) -> AmenPublicVerificationSummary {
+        guard let dict = value as? [String: Any] else { return .empty }
+        let safetyRaw = dict["safetyStanding"] as? String ?? ""
+        let safetyStanding = AmenSafetyStanding(rawValue: safetyRaw) ?? .active
+        let visibleBadges = dict["visibleBadges"] as? [String] ?? []
+
+        return AmenPublicVerificationSummary(
+            emailVerified: dict["emailVerified"] as? Bool ?? false,
+            phoneVerified: dict["phoneVerified"] as? Bool ?? false,
+            identityVerified: dict["identityVerified"] as? Bool ?? false,
+            creatorVerified: dict["creatorVerified"] as? Bool ?? false,
+            safetyStanding: safetyStanding,
+            visibleBadges: visibleBadges,
+            updatedAt: nil
+        )
     }
 
     // MARK: - URL Helper

@@ -188,8 +188,8 @@ struct AggregateHarmScoreTests {
 
 // MARK: - ProvenanceStatus enum coverage
 
-@Suite("ProvenanceStatus")
-struct ProvenanceStatusTests {
+@Suite("TrueSourceProvenanceStatus")
+struct TrueSourceProvenanceStatusTests {
 
     @Test("All provenance status cases have non-empty raw values")
     func allCasesHaveRawValues() {

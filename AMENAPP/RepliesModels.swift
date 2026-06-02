@@ -15,11 +15,94 @@ import FirebaseDatabase
 
 // MARK: - ReplyThread Model
 
+enum ReplyContextType: CaseIterable, Equatable {
+    case post
+    case prayer
+    case verseDiscussion
+    case churchNote
+    case berean
+
+    var label: String? {
+        switch self {
+        case .post: return nil
+        case .prayer: return "Prayer"
+        case .verseDiscussion: return "Verse"
+        case .churchNote: return "Church Note"
+        case .berean: return "Berean"
+        }
+    }
+
+    var icon: String? {
+        switch self {
+        case .post: return nil
+        case .prayer: return "hands.sparkles"
+        case .verseDiscussion: return "book"
+        case .churchNote: return "note.text"
+        case .berean: return "sparkles"
+        }
+    }
+}
+
+enum ReplyVisibilityState: Equatable {
+    case visible
+    case pendingApproval
+    case hidden
+    case parentDeleted
+    case parentUnavailable
+
+    var bannerText: String? {
+        switch self {
+        case .visible: return nil
+        case .pendingApproval: return "Pending approval"
+        case .hidden: return "Hidden reply"
+        case .parentDeleted: return "Original post was deleted"
+        case .parentUnavailable: return "Original post unavailable"
+        }
+    }
+
+    var bannerIcon: String? {
+        switch self {
+        case .visible: return nil
+        case .pendingApproval: return "clock"
+        case .hidden: return "eye.slash"
+        case .parentDeleted: return "trash"
+        case .parentUnavailable: return "exclamationmark.triangle"
+        }
+    }
+}
+
+enum ReplyFilter: CaseIterable, Equatable {
+    case all
+    case verse
+    case prayer
+    case notes
+
+    func matches(_ thread: ReplyThread) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .verse:
+            return thread.contextType == .verseDiscussion
+        case .prayer:
+            return thread.contextType == .prayer
+        case .notes:
+            return thread.contextType == .churchNote
+        }
+    }
+}
+
 /// Bundles an original post with the user's reply for display in the Replies tab
 struct ReplyThread: Identifiable {
     let id: String  // Use comment ID as the unique identifier
     let originalPost: Post
     let userReply: Comment
+    let contextType: ReplyContextType
+    let visibilityState: ReplyVisibilityState
+    let parentCommentId: String?
+    let parentAuthorName: String?
+    let parentAuthorUsername: String?
+    let parentPreviewText: String?
+    private let originalPostAvailable: Bool
     
     /// Sort by reply creation time (most recent first)
     var createdAt: Date {
@@ -30,6 +113,71 @@ struct ReplyThread: Identifiable {
         self.id = userReply.id ?? UUID().uuidString
         self.originalPost = originalPost
         self.userReply = userReply
+        self.contextType = .post
+        self.visibilityState = .visible
+        self.parentCommentId = nil
+        self.parentAuthorName = nil
+        self.parentAuthorUsername = nil
+        self.parentPreviewText = nil
+        self.originalPostAvailable = true
+    }
+
+    init(
+        originalPost: Post?,
+        userReply: Comment,
+        contextType: ReplyContextType,
+        visibilityState: ReplyVisibilityState,
+        parentCommentId: String?,
+        parentAuthorName: String?,
+        parentAuthorUsername: String?,
+        parentPreviewText: String?
+    ) {
+        self.id = userReply.id ?? UUID().uuidString
+        self.originalPost = originalPost ?? ReplyThread.unavailablePost()
+        self.userReply = userReply
+        self.contextType = contextType
+        self.visibilityState = visibilityState
+        self.parentCommentId = parentCommentId
+        self.parentAuthorName = parentAuthorName
+        self.parentAuthorUsername = parentAuthorUsername
+        self.parentPreviewText = parentPreviewText
+        self.originalPostAvailable = originalPost != nil
+    }
+
+    var canOpenThread: Bool {
+        originalPostAvailable
+    }
+
+    var replyTargetDisplay: String {
+        if let parentAuthorUsername, !parentAuthorUsername.isEmpty {
+            return "@\(parentAuthorUsername)"
+        }
+        if let parentAuthorName, !parentAuthorName.isEmpty {
+            return parentAuthorName
+        }
+        if originalPostAvailable, let username = originalPost.authorUsername, !username.isEmpty {
+            return "@\(username)"
+        }
+        return "this conversation"
+    }
+
+    var previewText: String? {
+        if let parentPreviewText, !parentPreviewText.isEmpty {
+            return parentPreviewText
+        }
+        return originalPostAvailable ? originalPost.content : nil
+    }
+
+    private static func unavailablePost() -> Post {
+        Post(
+            authorId: "",
+            authorName: "",
+            authorUsername: nil,
+            authorInitials: "",
+            content: "",
+            category: .openTable,
+            visibility: .everyone
+        )
     }
 }
 
