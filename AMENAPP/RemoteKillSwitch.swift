@@ -36,7 +36,15 @@ class RemoteKillSwitch: ObservableObject {
         // Default values (all enabled) are already set via property initializers.
         guard FirebaseApp.app() != nil else { return }
         let config = RemoteConfig.remoteConfig()
+        config.fetchAndActivate { [weak self] _, error in
+            if let error = error {
+                print("[RemoteKillSwitch] fetch error: \(error.localizedDescription)")
+            }
+            self?.applyFlags(config)
+        }
+    }
 
+    private func applyFlags(_ config: RemoteConfig) {
         feedEnabled = config.configValue(forKey: "kill_feed_enabled").boolValue
         bereanEnabled = config.configValue(forKey: "kill_berean_enabled").boolValue
         messagingEnabled = config.configValue(forKey: "kill_messaging_enabled").boolValue

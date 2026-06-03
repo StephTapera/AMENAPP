@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions
 
@@ -71,9 +72,10 @@ final class BereanTranslationCoordinator: ObservableObject {
         }
     }
 
-    func savePreferences(userId: String) async throws {
-        try await db.collection("translationPreferences").document(userId).setData([
-            "userId": userId,
+    func savePreferences() async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        try await db.collection("translationPreferences").document(uid).setData([
+            "userId": uid,
             "preferredLanguage": preferredLanguage.rawValue,
             "captionLanguages": captionLanguages.map(\.rawValue),
             "dualLanguageMode": dualLanguageMode,

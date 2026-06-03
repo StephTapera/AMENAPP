@@ -145,6 +145,9 @@ final class BereanRealtimeWebSocketTransport: ObservableObject {
         guard let data,
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
         receivedEvents.append(object)
+        if receivedEvents.count > 200 {
+            receivedEvents.removeFirst(receivedEvents.count - 200)
+        }
     }
 
     private func reconnect(after error: Error) async {
@@ -158,7 +161,8 @@ final class BereanRealtimeWebSocketTransport: ObservableObject {
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
 
-        let delayNs = UInt64(min(pow(2.0, Double(retryCount)) * 0.35, 4.0) * 1_000_000_000)
+        let jitter = Double.random(in: 0.5...1.5)
+        let delayNs = UInt64(min(pow(2.0, Double(retryCount)) * 0.35 * jitter, 4.0) * 1_000_000_000)
         try? await Task.sleep(nanoseconds: delayNs)
 
         do {

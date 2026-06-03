@@ -30,6 +30,6 @@ final class BereanContextualTranslationEngine {
 
     func updatePreferredLanguage(_ language: BereanSupportedLanguage, userId: String) async throws {
         translationCoordinator.preferredLanguage = language
-        try await translationCoordinator.savePreferences(userId: userId)
+        try await translationCoordinator.savePreferences()
     }
 }

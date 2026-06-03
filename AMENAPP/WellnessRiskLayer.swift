@@ -240,6 +240,7 @@ struct LanguageRiskAssessment {
     let isQuoted: Bool              // quoted/reposted — lowers weight
     let isSelfReferential: Bool
     let contextualModifier: Double  // sarcasm/joke/scripture detected → reduces weight
+    var timestamp: Date = Date()
 
     var effectiveWeight: Double {
         let base = category.baseWeight * confidence * contextualModifier
@@ -482,11 +483,8 @@ final class WellnessRiskService: ObservableObject {
         let fortyEightHoursAgo = now.addingTimeInterval(-48 * 3600)
 
         // Prune old language assessments
-        recentLanguageAssessments = recentLanguageAssessments.filter { _ in
-            // LanguageRiskAssessment has no timestamp — keep all for now
-            // In a full implementation, wrap with a timestamped container
-            true
-        }
+        let cutoff = Date().addingTimeInterval(-48 * 3600)
+        recentLanguageAssessments = recentLanguageAssessments.filter { $0.timestamp > cutoff }
         recentLanguageAssessments.append(contentsOf: assessments)
         _ = fortyEightHoursAgo
 

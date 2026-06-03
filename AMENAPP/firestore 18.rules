@@ -162,7 +162,9 @@ service cloud.firestore {
       // The sign-in screen (SignInView) must resolve usernames only after the user
       // has a Firebase token — i.e. after email/password pre-auth or via a
       // server-side Cloud Function that does not expose this collection publicly.
-      allow read: if isAuthenticated();
+      // Only allow exact-match lookups, not enumeration queries.
+      allow get: if isAuthenticated();
+      allow list: if false;
 
       // FIX #24 - Username race condition: split write into create/update/delete
       // to enforce ownership invariants at each operation type.
@@ -1272,7 +1274,8 @@ service cloud.firestore {
       // Now restricted to: author OR explicitly public (isPublic == true).
       allow read: if isAuthenticated()
         && (resource.data.authorId == request.auth.uid
-            || resource.data.get('isPublic', true) == true);
+            // Safety fix: testimonies default PRIVATE (not public) to protect personal spiritual narratives.
+            || resource.data.get('isPublic', false) == true);
       // AUTH-04: Testimonies require verified email.
       allow create: if isAuthenticated()
         && callerIsEmailVerified()
@@ -4698,6 +4701,31 @@ service cloud.firestore {
     match /one_reachBudgets/{uid} {
       allow read: if isSignedIn() && request.auth.uid == uid;
       allow write: if false;
+    }
+
+    // ============================================================================
+    // BEREAN REAL-TIME SESSIONS & TRANSLATION PREFERENCES
+    // ============================================================================
+
+    // Berean real-time session data — owner-only access
+    match /realtimeSessions/{sessionId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.ownerId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.ownerId;
+
+      match /translationChunks/{chunkId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == get(/databases/$(database)/documents/realtimeSessions/$(sessionId)).data.ownerId;
+      }
+
+      match /scriptureReferences/{refId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == get(/databases/$(database)/documents/realtimeSessions/$(sessionId)).data.ownerId;
+      }
+    }
+
+    // Translation preferences — owner-only access
+    match /translationPreferences/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     // ============================================================================

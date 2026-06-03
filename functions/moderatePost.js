@@ -13,6 +13,7 @@ const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { withRetry } = require("./retryHelper");
 
 const NVIDIA_API_KEY = defineSecret("NVIDIA_API_KEY");
 
@@ -22,6 +23,11 @@ const SAFETY_MODEL = "nvidia/llama-3.1-nemoguard-8b-content-safety";
 // If the safety check errors out, should the post stay visible?
 // false = fail closed (hide + queue for admin review) — matches Amen's "safe" promise.
 const FAIL_OPEN = false;
+
+// TTL helpers
+// TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
+const TTL_PENDING_MS  = 90 * 24 * 60 * 60 * 1000; // 90 days — unresolved items
+const TTL_RESOLVED_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — resolved items
 
 exports.moderatePost = onDocumentCreated(
   {
@@ -50,6 +56,7 @@ exports.moderatePost = onDocumentCreated(
           checkedAt: FieldValue.serverTimestamp(),
         },
       });
+      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
       await getFirestore().collection("moderationQueue").add({
         postRef: snap.ref.path,
         authorId: post.authorId || null,
@@ -58,6 +65,7 @@ exports.moderatePost = onDocumentCreated(
         categories: [],
         reason: "image_only_pending_visual_review",
         createdAt: FieldValue.serverTimestamp(),
+        expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
       return;
     }
@@ -87,6 +95,7 @@ exports.moderatePost = onDocumentCreated(
 
     // Anything not auto-approved goes to the Admin Center queue.
     if (status !== "approved") {
+      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
       await getFirestore().collection("moderationQueue").add({
         postRef: snap.ref.path,
         authorId: post.authorId || null,
@@ -94,6 +103,7 @@ exports.moderatePost = onDocumentCreated(
         status,
         categories,
         createdAt: FieldValue.serverTimestamp(),
+        expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
     }
   }
@@ -155,19 +165,28 @@ exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
       },
     });
 
-    // Mark every related queue item resolved.
+    // Mark every related queue item resolved, with short TTL for resolved items.
     const batch = db.batch();
+    const resolvedExpireAt = new Date(Date.now() + TTL_RESOLVED_MS);
     queueSnap.docs.forEach((d) => {
-      batch.update(d.ref, { status: "resolved", resolvedBy: request.auth.uid, resolvedAt: FieldValue.serverTimestamp() });
+      batch.update(d.ref, {
+        status: "resolved",
+        resolvedBy: request.auth.uid,
+        resolvedAt: FieldValue.serverTimestamp(),
+        expireAt: resolvedExpireAt,
+      });
     });
     if (queueId) {
       batch.update(db.collection("moderationQueue").doc(queueId), {
-        status: "resolved", resolvedBy: request.auth.uid, resolvedAt: FieldValue.serverTimestamp(),
+        status: "resolved",
+        resolvedBy: request.auth.uid,
+        resolvedAt: FieldValue.serverTimestamp(),
+        expireAt: resolvedExpireAt,
       });
     }
     await batch.commit();
 
-    console.log(`✅ Admin ${request.auth.uid} approved post ${postId}, stripped ${blockedUrls.size} blocked URL(s).`);
+    console.log(`[adminReviewPost] Admin ${request.auth.uid} approved post ${postId}, stripped ${blockedUrls.size} blocked URL(s).`);
     return { success: true, strippedMedia: blockedUrls.size };
   }
 
@@ -187,16 +206,20 @@ exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
 
   if (queueId) {
     await db.collection("moderationQueue").doc(queueId).update({
-      status: "rejected", resolvedBy: request.auth.uid, resolvedAt: FieldValue.serverTimestamp(),
+      status: "rejected",
+      resolvedBy: request.auth.uid,
+      resolvedAt: FieldValue.serverTimestamp(),
+      expireAt: new Date(Date.now() + TTL_RESOLVED_MS),
     });
   }
 
-  console.log(`🚫 Admin ${request.auth.uid} rejected post ${postId}.`);
+  console.log(`[adminReviewPost] Admin ${request.auth.uid} rejected post ${postId}.`);
   return { success: true };
 });
 
 async function checkSafety(text, apiKey) {
-  const res = await fetch(NIM_URL, {
+  // M-01: wrap NIM fetch in retry/backoff
+  const res = await withRetry(() => fetch(NIM_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -208,7 +231,7 @@ async function checkSafety(text, apiKey) {
       max_tokens: 100,
       temperature: 0,
     }),
-  });
+  }), 3, 500);
 
   if (!res.ok) {
     throw new Error(`NIM ${res.status}: ${await res.text()}`);

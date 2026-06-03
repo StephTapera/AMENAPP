@@ -149,7 +149,13 @@ final class BereanGrokCoordinator: ObservableObject {
             for i in 0..<steps.count {
                 guard !Task.isCancelled else { return }
                 thinkingStepIndex = i
-                try? await Task.sleep(nanoseconds: 1_400_000_000)
+                do {
+                    try await Task.sleep(nanoseconds: 1_400_000_000)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    // ignore other sleep interruptions
+                }
             }
         }
     }

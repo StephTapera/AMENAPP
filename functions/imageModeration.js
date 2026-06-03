@@ -11,6 +11,8 @@ const {initializeApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
 const {getStorage} = require("firebase-admin/storage");
 const vision = require("@google-cloud/vision");
+const {fileNCMECReport} = require("./ncmecReporter");
+const {withRetry} = require("./retryHelper");
 
 const NVIDIA_API_KEY = defineSecret("NVIDIA_API_KEY");
 // Vision model — same NVIDIA NIM endpoint, same key as NeMo Guard text checks.
@@ -22,6 +24,9 @@ const admin = require("firebase-admin");
 
 const db = getFirestore();
 const storage = getStorage();
+
+// TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
+const TTL_PENDING_MS = 90 * 24 * 60 * 60 * 1000; // 90 days — unresolved/blocked items
 
 // Lazy-initialize Vision client to avoid blocking module load (causes deploy timeout)
 let _visionClient = null;
@@ -44,17 +49,17 @@ exports.moderateUploadedImage = onObjectFinalized({
     const filePath = event.data.name;
     const contentType = event.data.contentType;
 
-    console.log(`🛡️ [IMAGE MOD] Processing file: ${filePath}`);
+    console.log(`[IMAGE MOD] Processing file: ${filePath}`);
 
     // Only process images
     if (!contentType || !contentType.startsWith("image/")) {
-        console.log(`⏭️  Skipping non-image file: ${contentType}`);
+        console.log(`[IMAGE MOD] Skipping non-image file: ${contentType}`);
         return null;
     }
 
     // Skip if already processed or in moderation folder
     if (filePath.includes("/moderated/") || filePath.includes("/deleted/")) {
-        console.log(`⏭️  Skipping already processed image`);
+        console.log(`[IMAGE MOD] Skipping already processed image`);
         return null;
     }
 
@@ -64,7 +69,7 @@ exports.moderateUploadedImage = onObjectFinalized({
         const context = pathParts[0]; // "posts", "profile_pictures", "messages", "church_notes"
         const userId = pathParts.length > 1 ? pathParts[1] : "unknown";
 
-        console.log(`📋 Context: ${context}, User: ${userId}`);
+        console.log(`[IMAGE MOD] Context: ${context}, User: ${userId}`);
 
         // Generate a short-lived signed URL so the vision LLM can fetch the image.
         const [signedUrl] = await storage.bucket(event.data.bucket).file(filePath).getSignedUrl({
@@ -83,12 +88,12 @@ exports.moderateUploadedImage = onObjectFinalized({
             }
         }
 
-        // Perform SafeSearch detection
+        // M-01: Perform SafeSearch detection with retry/backoff
         const imageUri = `gs://${event.data.bucket}/${filePath}`;
-        const [result] = await getVisionClient().safeSearchDetection(imageUri);
+        const [result] = await withRetry(() => getVisionClient().safeSearchDetection(imageUri), 3, 500);
         const safeSearch = result.safeSearchAnnotation;
 
-        console.log(`🔍 SafeSearch results:`, {
+        console.log(`[IMAGE MOD] SafeSearch results:`, {
             adult: safeSearch.adult,
             racy: safeSearch.racy,
             violence: safeSearch.violence,
@@ -107,20 +112,20 @@ exports.moderateUploadedImage = onObjectFinalized({
         if (decision.action !== "blocked") {
             try {
                 llmVerdict = await checkFaithContext(signedUrl, postCaption, NVIDIA_API_KEY.value());
-                console.log(`🧠 Vision LLM verdict: appropriate=${llmVerdict.appropriate}, confidence=${llmVerdict.confidence}, reason="${llmVerdict.reason}"`);
+                console.log(`[IMAGE MOD] Vision LLM verdict: appropriate=${llmVerdict.appropriate}, confidence=${llmVerdict.confidence}, reason="${llmVerdict.reason}"`);
 
                 if (decision.action === "review" && llmVerdict.appropriate && llmVerdict.confidence !== "low") {
                     decision = { action: "approved", reasons: [] };
-                    console.log("✅ LLM overrode SafeSearch review → approved");
+                    console.log("[IMAGE MOD] LLM overrode SafeSearch review -> approved");
                 } else if (decision.action === "review" && !llmVerdict.appropriate) {
                     decision = { action: "blocked", reasons: [llmVerdict.reason] };
-                    console.log("❌ LLM confirmed SafeSearch review → blocked");
+                    console.log("[IMAGE MOD] LLM confirmed SafeSearch review -> blocked");
                 } else if (decision.action === "approved" && !llmVerdict.appropriate && llmVerdict.confidence === "high") {
                     decision = { action: "blocked", reasons: [llmVerdict.reason] };
-                    console.log("❌ LLM overrode SafeSearch approved → blocked");
+                    console.log("[IMAGE MOD] LLM overrode SafeSearch approved -> blocked");
                 }
             } catch (llmErr) {
-                console.warn("⚠️ Vision LLM check failed, using SafeSearch verdict only:", llmErr.message);
+                console.warn("[IMAGE MOD] Vision LLM check failed, using SafeSearch verdict only:", llmErr.message);
             }
         }
 
@@ -147,11 +152,22 @@ exports.moderateUploadedImage = onObjectFinalized({
 
         // Take action based on decision
         if (decision.action === "blocked") {
-            console.log(`❌ BLOCKING image: ${decision.reasons.join(", ")}`);
+            console.log(`[IMAGE MOD] BLOCKING image: ${decision.reasons.join(", ")}`);
 
             // Delete the file
             await storage.bucket(event.data.bucket).file(filePath).delete();
-            console.log(`🗑️  Deleted inappropriate image: ${filePath}`);
+            console.log(`[IMAGE MOD] Deleted inappropriate image: ${filePath}`);
+
+            // NCMEC mandatory reporting: file a CyberTipline report whenever adult/CSAM
+            // content is confirmed blocked. This is a legal requirement under 18 U.S.C. § 2258A.
+            await fileNCMECReport({
+                contentRef: filePath,
+                contentType: contentType,
+                contentUrl: `https://firebasestorage.googleapis.com/v0/b/${event.data.bucket}/o/${encodeURIComponent(filePath)}`,
+                authorId: userId,
+                detectedCategories: decision.reasons,
+                detectedBy: safeSearchAction === "blocked" ? "cloud-vision-safesearch" : "nvidia-vision-llm",
+            }).catch((err) => console.error("[NCMEC] fileNCMECReport failed:", err.message));
 
             // Alert moderators
             await db.collection("moderatorAlerts").add({
@@ -185,6 +201,7 @@ exports.moderateUploadedImage = onObjectFinalized({
                     "moderation.checkedAt": admin.firestore.FieldValue.serverTimestamp(),
                 }).catch((e) => console.warn(`Could not update post ${postId}:`, e.message));
 
+                // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
                 await db.collection("moderationQueue").add({
                     postRef: `posts/${postId}`,
                     authorId: userId,
@@ -195,12 +212,13 @@ exports.moderateUploadedImage = onObjectFinalized({
                     // Stored so adminReviewPost can strip this dead URL from post.media.
                     blockedMediaUrl: `https://firebasestorage.googleapis.com/v0/b/${event.data.bucket}/o/${encodeURIComponent(filePath)}`,
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    expireAt: new Date(Date.now() + TTL_PENDING_MS),
                 });
             }
 
             return {action: "blocked", filePath};
         } else if (decision.action === "review") {
-            console.log(`⚠️  Flagging for review: ${decision.reasons.join(", ")}`);
+            console.log(`[IMAGE MOD] Flagging for review: ${decision.reasons.join(", ")}`);
 
             // Add to review queue
             await db.collection("moderatorAlerts").add({
@@ -252,16 +270,16 @@ exports.moderateUploadedImage = onObjectFinalized({
                         "moderation.provider": "cloud-vision-safesearch",
                         "moderation.checkedAt": admin.firestore.FieldValue.serverTimestamp(),
                     });
-                    console.log(`✅ Post ${postId} approved after image review`);
+                    console.log(`[IMAGE MOD] Post ${postId} approved after image review`);
                 }
             }
         }
 
-        console.log(`✅ Image approved: ${filePath}`);
+        console.log(`[IMAGE MOD] Image approved: ${filePath}`);
         return {action: "approved", filePath};
 
     } catch (error) {
-        console.error(`❌ Error moderating image ${filePath}:`, error);
+        console.error(`[IMAGE MOD] Error moderating image ${filePath}:`, error);
 
         // Log error but don't delete image (fail safe)
         await db.collection("imageModerationErrors").add({
@@ -336,6 +354,8 @@ function evaluateSafeSearch(safeSearch) {
  * Runs after SafeSearch to catch context-specific issues and prevent false positives
  * on biblical/spiritual imagery that generic SafeSearch may misclassify.
  *
+ * M-01: fetch call wrapped with withRetry for transient NVIDIA NIM failures.
+ *
  * @param {string} imageUrl   - Signed Storage URL (accessible by NVIDIA servers)
  * @param {string} postCaption - Post text / caption for context (may be empty)
  * @param {string} apiKey      - NVIDIA NIM API key
@@ -365,7 +385,8 @@ INAPPROPRIATE for this platform:
 Respond ONLY with valid JSON, no markdown:
 {"appropriate": true, "reason": "one sentence", "confidence": "high"}`;
 
-    const res = await fetch(NIM_URL, {
+    // M-01: wrap NVIDIA NIM Vision LLM fetch in retry/backoff
+    const res = await withRetry(() => fetch(NIM_URL, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -383,7 +404,7 @@ Respond ONLY with valid JSON, no markdown:
             max_tokens: 80,
             temperature: 0,
         }),
-    });
+    }), 3, 500);
 
     if (!res.ok) {
         throw new Error(`Vision LLM ${res.status}: ${await res.text()}`);
@@ -420,7 +441,7 @@ async function notifyUserOfRejection(userId, context, reasons) {
         const fcmToken = userDoc.data()?.fcmToken;
 
         if (!fcmToken) {
-            console.log(`⚠️  No FCM token for user ${userId}, skipping notification`);
+            console.log(`[IMAGE MOD] No FCM token for user ${userId}, skipping notification`);
             return;
         }
 
@@ -446,8 +467,8 @@ async function notifyUserOfRejection(userId, context, reasons) {
         };
 
         await admin.messaging().send(message);
-        console.log(`📬 Sent rejection notification to user ${userId}`);
+        console.log(`[IMAGE MOD] Sent rejection notification to user ${userId}`);
     } catch (error) {
-        console.error(`❌ Failed to send notification to user ${userId}:`, error);
+        console.error(`[IMAGE MOD] Failed to send notification to user ${userId}:`, error);
     }
 }

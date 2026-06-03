@@ -77,6 +77,7 @@ final class BereanChatSessionManager: ObservableObject {
     @Published var activeSessionID: UUID
 
     private let maxSessions = 10
+    private var saveTask: Task<Void, Never>?
 
     // UserDefaults keys — suffixed with UID at first load
     private var storageKey: String { "berean_sessions_v1_\(uid)" }
@@ -115,7 +116,7 @@ final class BereanChatSessionManager: ObservableObject {
             let raw = first.content.trimmingCharacters(in: .whitespacesAndNewlines)
             sessions[idx].title = String(raw.prefix(40))
         }
-        save()
+        scheduleSave()
     }
 
     /// Creates a fresh session, inserts at the front, activates it, and returns it.
@@ -128,7 +129,7 @@ final class BereanChatSessionManager: ObservableObject {
         let session = BereanChatSession()
         sessions.insert(session, at: 0)
         activeSessionID = session.id
-        save()
+        scheduleSave()
         return session
     }
 
@@ -137,7 +138,7 @@ final class BereanChatSessionManager: ObservableObject {
     func activate(_ id: UUID) {
         guard sessions.contains(where: { $0.id == id }) else { return }
         activeSessionID = id
-        save()
+        scheduleSave()
     }
 
     /// Deletes a session. If it was the active one, activates the next available session.
@@ -152,7 +153,7 @@ final class BereanChatSessionManager: ObservableObject {
                 activeSessionID = fresh.id
             }
         }
-        save()
+        scheduleSave()
     }
 
     /// Duplicates an existing session (copies messages into a new session at the front).
@@ -166,13 +167,22 @@ final class BereanChatSessionManager: ObservableObject {
         )
         copy.title = "Copy of \(source.displayTitle)".prefix(40).description
         sessions.insert(copy, at: 0)
-        save()
+        scheduleSave()
         return copy
     }
 
     // MARK: - Persistence
 
-    private func save() {
+    private func scheduleSave() {
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            performSave()
+        }
+    }
+
+    private func performSave() {
         guard let data = try? JSONEncoder().encode(sessions) else { return }
         UserDefaults.standard.set(data, forKey: storageKey)
         UserDefaults.standard.set(activeSessionID.uuidString, forKey: activeKey)
