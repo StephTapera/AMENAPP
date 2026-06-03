@@ -1228,6 +1228,10 @@ exports.processRefund          = spacesMonetization.processRefund;
 exports.getPayoutSummary       = spacesMonetization.getPayoutSummary;
 exports.hostKYCOnboarding      = spacesMonetization.hostKYCOnboarding;
 
+const covenantFunctions = require("./covenantFunctions");
+exports.createCovenantCheckoutSession = covenantFunctions.createCovenantCheckoutSession;
+exports.verifyCovenantMembership      = covenantFunctions.verifyCovenantMembership;
+
 const spacesEvents = require("./spacesEventsFunctions");
 exports.createSpaceEvent       = spacesEvents.createSpaceEvent;
 exports.rsvpToEvent            = spacesEvents.rsvpToEvent;
@@ -1353,3 +1357,28 @@ exports.one_activateRepairFlow   = oneFunctions.one_activateRepairFlow;
 exports.one_acceptRepairFlow     = oneFunctions.one_acceptRepairFlow;
 exports.one_verifyEntitlement    = oneFunctions.one_verifyEntitlement;
 exports.one_activateLegacy       = oneFunctions.one_activateLegacy;
+
+// ============================================================================
+// MESSAGING INTELLIGENCE — AI-powered in-conversation capabilities
+//   generateMessageCatchUp          — summarise recent messages (up to 100)
+//   generateThreadSummary           — thread summary with topics/prayers/questions
+//   detectMessagingSmartPills       — contextual action pills from message text
+//   translateMessage                — NIM translation preserving theological nuance
+//   detectMessageSafetyNudge        — NeMo Guard safety check on message text
+//   generateVoiceMessageSummary     — summarise a voice-message transcript
+//   detectMessageCrossSurfaceActions — detect berean/church_notes/selah/etc. actions
+// Secret: NVIDIA_API_KEY (already set for moderatePost)
+// Deploy: firebase deploy --only functions:generateMessageCatchUp,
+//           generateThreadSummary,detectMessagingSmartPills,translateMessage,
+//           detectMessageSafetyNudge,generateVoiceMessageSummary,
+//           detectMessageCrossSurfaceActions --project amen-5e359
+// ============================================================================
+
+const messagingIntelligence = require("./messagingIntelligenceFunctions");
+exports.generateMessageCatchUp           = messagingIntelligence.generateMessageCatchUp;
+exports.generateThreadSummary            = messagingIntelligence.generateThreadSummary;
+exports.detectMessagingSmartPills        = messagingIntelligence.detectMessagingSmartPills;
+exports.translateMessage                 = messagingIntelligence.translateMessage;
+exports.detectMessageSafetyNudge         = messagingIntelligence.detectMessageSafetyNudge;
+exports.generateVoiceMessageSummary      = messagingIntelligence.generateVoiceMessageSummary;
+exports.detectMessageCrossSurfaceActions = messagingIntelligence.detectMessageCrossSurfaceActions;

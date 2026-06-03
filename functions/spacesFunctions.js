@@ -81,9 +81,21 @@ exports.processSubscription = onCall({ enforceAppCheck: false }, async (request)
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
-  const { spaceId, tierId, storeKitTransactionId } = request.data ?? {};
+  const { spaceId, tierId, storeKitTransactionId, idempotencyKey } = request.data ?? {};
   if (!spaceId || !tierId || !storeKitTransactionId) {
     throw new HttpsError("invalid-argument", "spaceId, tierId, and storeKitTransactionId are required.");
+  }
+
+  // Idempotency: if the client sends the same key twice (e.g. app killed between
+  // notify and finish), return the already-written entitlement without re-writing.
+  if (idempotencyKey) {
+    const idemRef = db.collection("_idempotencyKeys").doc(`processSubscription_${idempotencyKey}`);
+    const idemSnap = await idemRef.get();
+    if (idemSnap.exists) {
+      const entRef = db.collection("spaces").doc(spaceId).collection("entitlements").doc(userId);
+      const entSnap = await entRef.get();
+      return { ok: true, entitlement: entSnap.data() ?? null, idempotent: true };
+    }
   }
 
   const tierSnap = await db.collection("spaces").doc(spaceId).collection("tiers").doc(tierId).get();
@@ -105,6 +117,11 @@ exports.processSubscription = onCall({ enforceAppCheck: false }, async (request)
     type: "subscription_created", userId, tierId,
     transactionId: storeKitTransactionId, ts: FieldValue.serverTimestamp(),
   });
+
+  if (idempotencyKey) {
+    const idemRef = db.collection("_idempotencyKeys").doc(`processSubscription_${idempotencyKey}`);
+    batch.set(idemRef, { createdAt: FieldValue.serverTimestamp(), userId, spaceId, tierId });
+  }
 
   await batch.commit();
   return { ok: true, entitlement };
