@@ -20,11 +20,22 @@ struct BereanPostContext: Codable, Hashable {
     let isSensitive: Bool
 
     func refreshed(from post: Post) -> BereanPostContext {
-        BereanPostContext(
+        // H-19: Only include post content if the post has not been flagged for review
+        // or removed by moderation. If moderation fields are set, withhold previewText.
+        // TODO: add moderationStatus check once a dedicated moderationStatus enum field
+        // is available on the Post model (currently using flaggedForReview + removed flags).
+        let safePreview: String
+        if post.removed || post.flaggedForReview {
+            safePreview = ""
+        } else {
+            safePreview = String(post.content.prefix(200))
+        }
+
+        return BereanPostContext(
             postId: postId,
             authorId: post.authorId,
             authorName: post.authorName,
-            previewText: String(post.content.prefix(200)),
+            previewText: safePreview,
             category: post.category.rawValue,
             verseReference: post.verseReference ?? verseReference,
             isSensitive: post.hasSensitiveContent
@@ -46,11 +57,17 @@ struct BereanPostContext: Codable, Hashable {
             parts.append("Attached verse: \(verseReference)")
         }
 
+        // M-12: When isSensitive is true, only include the category rather than raw previewText
+        // to avoid exposing sensitive post content to the LLM payload.
+        let contextText = isSensitive
+            ? "Category: \(category)"
+            : "Post content: \(previewText)"
+
         if isSensitive {
             parts.append("This is a private or sensitive post. Do not reveal or quote hidden details. Offer a careful biblical reflection based only on the safe summary.")
         }
 
-        parts.append("Safe summary: \(previewText)")
+        parts.append(contextText)
         parts.append("Help me understand what stands out spiritually, what scripture themes connect, and one wise next question to ask.")
 
         return parts.joined(separator: "\n")

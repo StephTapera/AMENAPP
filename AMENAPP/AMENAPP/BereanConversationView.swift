@@ -19,9 +19,12 @@ import FirebaseAuth
 
 struct BereanConversationView: View {
     @StateObject private var viewModel: BereanSpiritualViewModel
+    // M-11: Guardrail engine to analyze initialPrompt for crisis signals
+    @StateObject private var guardrailEngine = BereanGuardrailEngine()
     @State private var showScriptureInsight = false
     @State private var selectedPassageRef: String? = nil
     @State private var showJourney = false
+    @State private var showInitialPromptCrisisSheet = false
     @FocusState private var composerFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
@@ -56,9 +59,19 @@ struct BereanConversationView: View {
         .navigationBarHidden(true)
         .task {
             if let prompt = initialPrompt, !prompt.isEmpty {
+                // M-11: Run guardrail analysis on initialPrompt so the study-hub
+                // entry point has the same crisis detection as the chat entry point.
+                guardrailEngine.analyzeMessage(prompt, role: .user)
+                if guardrailEngine.communityPromptType == .crisis {
+                    showInitialPromptCrisisSheet = true
+                }
                 viewModel.currentInput = prompt
                 await viewModel.sendMessage()
             }
+        }
+        .sheet(isPresented: $showInitialPromptCrisisSheet) {
+            WellnessCrisisSheet()
+                .presentationDetents([.large])
         }
         .sheet(isPresented: $showScriptureInsight) {
             if let ref = selectedPassageRef {

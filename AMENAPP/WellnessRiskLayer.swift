@@ -950,7 +950,6 @@ struct WellnessCrisisSheet: View {
     @StateObject private var service = WellnessRiskService.shared
     @Environment(\.dismiss) private var dismiss
 
-    var onOpenBerean: (() -> Void)?
     var onFindChurch: (() -> Void)?
 
     var body: some View {
@@ -1006,11 +1005,6 @@ struct WellnessCrisisSheet: View {
 
                     // Smaller options
                     VStack(spacing: 10) {
-                        GlassCapsuleButton(label: "Talk to Berean") {
-                            service.recordHelpSeeking()
-                            onOpenBerean?()
-                        }
-
                         GlassCapsuleButton(label: "Find a church near me") {
                             service.recordHelpSeeking()
                             onFindChurch?()
@@ -1086,8 +1080,6 @@ struct WellnessUrgentEscalationView: View {
     @StateObject private var service = WellnessRiskService.shared
     @Environment(\.dismiss) private var dismiss
 
-    var onOpenBerean: (() -> Void)?
-
     var body: some View {
         ZStack {
             Color.white.ignoresSafeArea()
@@ -1141,11 +1133,6 @@ struct WellnessUrgentEscalationView: View {
                             if let url = URL(string: "tel://911") {
                                 UIApplication.shared.open(url)
                             }
-                        }
-
-                        GlassCapsuleButton(label: "Talk to Berean") {
-                            service.recordHelpSeeking()
-                            onOpenBerean?()
                         }
 
                         Button {
@@ -1371,9 +1358,6 @@ struct WellnessRiskOverlay: View {
                 .presentationDetents([.medium, .large])
             case .crisis:
                 WellnessCrisisSheet(
-                    onOpenBerean: {
-                        activeSheet = .berean
-                    },
                     onFindChurch: {
                         activeSheet = .findChurch
                     }

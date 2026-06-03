@@ -110,9 +110,14 @@ final class BereanGuardrailEngine: ObservableObject {
 
     private func detectCrisisSignals(in text: String) -> Bool {
         let crisisKeywords = [
+            // Active suicidal ideation
             "kill myself", "end it all", "no reason to live", "better off dead",
             "can't go on", "suicide", "self-harm", "hurt myself",
-            "overwhelming despair", "nothing left"
+            "overwhelming despair", "nothing left",
+            // Passive suicidal ideation — synced from WellnessRiskLayer vocabulary
+            "wish i was dead", "don't want to be here anymore",
+            "want to disappear", "wish i could just disappear",
+            "wouldn't mind if i never woke up"
         ]
         let lowercased = text.lowercased()
         return crisisKeywords.contains { lowercased.contains($0) }
