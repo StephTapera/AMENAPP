@@ -64,6 +64,9 @@ struct PrivacySettingsView: View {
     @State private var sensitiveContentLevel: String = "standard"
     @State private var analyticsOptOut = AMENAnalyticsService.shared.isUserOptedOut
 
+    // C-08: Prayer AI consent — controls whether prayer journal is processed by Anthropic AI
+    @State private var consentPrayerAI = false
+
     // Followers / Following visibility
     @State private var showFollowerCount = true
     @State private var showFollowingCount = true
@@ -587,6 +590,47 @@ struct PrivacySettingsView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
+                // MARK: PRAYER INSIGHTS AI — C-08
+                Text("PRAYER INSIGHTS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: Binding(
+                        get: { consentPrayerAI },
+                        set: { newValue in
+                            consentPrayerAI = newValue
+                            Task { await savePrayerAIConsent(newValue) }
+                        }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Prayer Insights AI")
+                                .font(.body)
+                            Text("Allow AI to analyze your prayer journal for weekly recaps. Content is processed by Anthropic AI.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("When enabled, your prayer journal entries are sent to Anthropic's AI to generate personalized weekly recaps. Disable at any time to stop AI processing.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
                 // MARK: BLOCKED ACCOUNTS
                 Text("BLOCKED ACCOUNTS")
                     .font(AMENFont.bold(11))
@@ -686,6 +730,8 @@ struct PrivacySettingsView: View {
                     showFollowingCount           = data["showFollowingCount"] as? Bool ?? true
                     showFollowersList            = data["showFollowersList"] as? Bool ?? true
                     showFollowingList            = data["showFollowingList"] as? Bool ?? true
+                    // C-08: Load prayer AI consent — defaults to false (opt-in, not opt-out)
+                    consentPrayerAI             = data["consentPrayerAI"] as? Bool ?? false
 
                     // Granular audience controls — migrate legacy booleans on first load
                     whoCanComment = AudienceOption(rawValue: data["whoCanComment"] as? String ?? "") ?? {
@@ -751,6 +797,22 @@ struct PrivacySettingsView: View {
                 isSaving = false
             }
             dlog("❌ Error saving privacy settings: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Save Prayer AI Consent (C-08)
+    // Stored as a top-level field on the user document so Cloud Functions can read
+    // it server-side before sending prayer text to Anthropic AI.
+    private func savePrayerAIConsent(_ consent: Bool) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        do {
+            try await db.collection("users").document(userId).updateData([
+                "consentPrayerAI":   consent,
+                "privacyUpdatedAt":  FieldValue.serverTimestamp()
+            ])
+            dlog("✅ Prayer AI consent updated: \(consent)")
+        } catch {
+            dlog("❌ Error saving prayer AI consent: \(error.localizedDescription)")
         }
     }
 }

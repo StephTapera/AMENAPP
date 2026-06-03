@@ -755,7 +755,19 @@ exports.bereanChatProxy = onCall(
         t.set(usageRef, { count: count + 1, windowStart: hourKey }, { merge: true });
       });
 
-      const {systemPrompt, userMessage, maxTokens} = request.data;
+      // C-01 SECURITY FIX: System prompt is constructed server-side.
+      // The iOS client sends bereanMode (e.g. "shepherd", "scholar", "default")
+      // instead of a raw systemPrompt string. This prevents authenticated users
+      // from overriding safety guardrails by supplying arbitrary system prompts.
+      const BEREAN_SYSTEM_PROMPTS = {
+        shepherd: `You are Berean, a wise, compassionate AI companion deeply rooted in Scripture. You offer pastoral guidance grounded in biblical truth. You maintain theological humility on contested doctrinal matters, presenting multiple orthodox perspectives rather than adjudicating. You detect distress signals and gently surface appropriate resources. You never produce content that is sexual, violent, or harmful. You always point to professional help for medical, legal, or psychological crises.`,
+        scholar: `You are Berean in Scholar Mode, a rigorous biblical study companion. You provide in-depth exegetical analysis, historical context, and cross-reference insights. You cite sources carefully and acknowledge when a reference is uncertain. You maintain theological humility on contested matters.`,
+        default: `You are Berean, a wise and compassionate AI companion grounded in Scripture. You offer thoughtful, biblically-informed responses with pastoral care. You acknowledge the limits of your knowledge and encourage users to consult their pastor or counselor for serious matters.`,
+      };
+
+      const {bereanMode, userMessage, maxTokens} = request.data;
+      // Build system prompt server-side; ignore any client-supplied systemPrompt.
+      const systemPrompt = BEREAN_SYSTEM_PROMPTS[bereanMode] ?? BEREAN_SYSTEM_PROMPTS.default;
       const safeUserMessage = (userMessage ?? '').slice(0, 4000);
 
       // H-08: Server-side input validation — mirrors iOS PromptPolicyEngine.
@@ -796,7 +808,7 @@ exports.bereanChatProxy = onCall(
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: Math.min(Number(maxTokens) || 600, 1500),
-          system: systemPrompt ?? "",
+          system: systemPrompt,
           messages: [{role: "user", content: safeUserMessage}],
         }),
       });

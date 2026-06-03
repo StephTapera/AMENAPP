@@ -216,6 +216,10 @@ service cloud.firestore {
       // NOTE: SignInView must be updated to query /usernameLookup instead of /users for
       // the username→email resolution step. See usernameLookup rule below.
       // CRITICAL: Backup codes must NEVER be stored in the user document.
+      // C-12 HARDENED: isAuthenticated() == (request.auth != null). Unauthenticated
+      // clients CANNOT read user profile documents, which includes spiritual fields
+      // (faithStage, primaryNeed, prayerThemes, consentPrayerAI, etc.). Never relax
+      // this to `if true` — doing so exposes sensitive spiritual profile data publicly.
       allow get: if isAuthenticated();
       allow list: if isAuthenticated();
 
@@ -2765,12 +2769,11 @@ service cloud.firestore {
     // ============================================================================
 
     match /appeals/{appealId} {
+      // Clients can read their own appeals; admins can read all.
       allow read: if isAuthenticated()
-        && resource.data.get('userId', '') == request.auth.uid;
-      allow create: if isAuthenticated()
-        && request.resource.data.get('userId', '') == request.auth.uid
-        && hasRequiredFields(['userId', 'reason', 'createdAt']);
-      allow update, delete: if false;
+        && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
+      // Appeals are created/updated exclusively by Cloud Functions (Admin SDK).
+      allow write: if false;
     }
 
     // ============================================================================
@@ -4726,6 +4729,50 @@ service cloud.firestore {
     // Translation preferences — owner-only access
     match /translationPreferences/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // =========================================================================
+    // SAFETY-HARDENING: NEW COLLECTIONS — explicit access control
+    // All written exclusively by Cloud Functions Admin SDK (never by clients).
+    // =========================================================================
+
+    // Legal-hold CSAM reports. No client or admin reads; delete is prohibited.
+    // Only the Functions Admin SDK may write (triggered by CSAM hash detection).
+    match /ncmecReports/{reportId} {
+      allow read, write: if false;
+    }
+
+    // Queue entries that trigger onCSAMDetected. Admin can read for dashboard;
+    // no client or admin writes (written by ncmecReporter.js Admin SDK only).
+    match /ncmecSubmissionQueue/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Tamper-evident audit log of all moderator review actions.
+    // Admin-readable for compliance audits; no writes from any client.
+    match /moderationAuditLog/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // SHA-256 hashes of banned phone numbers.
+    // Admin-readable only; written only by banUserPhone Cloud Function.
+    match /bannedPhones/{hash} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Critical review escalations (SLA-breached moderation items).
+    // Admin-readable; written by moderationSweep scheduled function only.
+    match /criticalReviewQueue/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Rate limiter counters. No client reads or writes.
+    match /rateLimits/{docId} {
+      allow read, write: if false;
     }
 
     // ============================================================================
