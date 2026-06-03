@@ -40,7 +40,7 @@ final class AmenMessagingIntelligenceCoordinator: ObservableObject {
 
     private var availability: AmenMessagingFeatureAvailability
 
-    init(flags: AMENFeatureFlags = .shared) {
+    init() {
         self.availability = AmenMessagingFeatureAvailability()
     }
 

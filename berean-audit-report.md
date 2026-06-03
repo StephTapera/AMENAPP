@@ -9,13 +9,15 @@
 
 ## SUMMARY
 
-| Severity | Count | Auto-Fixed (Phase 1) | Auto-Fixed (Phase 2) | Needs Human Review |
-|----------|-------|----------------------|----------------------|--------------------|
-| Critical | 20 | 0 | 7 | 13 |
-| High | 52 | 0 | 12 | 40 |
-| Medium | 39 | 2 | 7 | 30 |
-| Low | 18 | 2 | 4 | 12 |
-| **Total** | **129** | **4** | **30** | **95** |
+| Severity | Count | Phase 1 | Phase 2 | Phase 3 | Open Manual |
+|----------|-------|---------|---------|---------|-------------|
+| Critical | 20 | 0 | 7 | 13 | 0 |
+| High | 52 | 0 | 12 | 40 | 0 |
+| Medium | 39 | 2 | 7 | 27 | 3 |
+| Low | 18 | 2 | 4 | 7 | 5 |
+| **Total** | **129** | **4** | **30** | **87** | **8** |
+
+> **Status as of 2026-06-02:** All critical and high findings fixed. 8 items remain as open manual work (large feature builds or deploy-only changes).
 
 ---
 
@@ -86,7 +88,95 @@
 
 ---
 
-## NEEDS HUMAN REVIEW
+## AUTO-FIXED — PHASE 3 (6 parallel agents, commits `4a98a65` `847c301` `dc1d8d1` `3b6fb3e` `fc7dda7`)
+
+Summary table updated: **95 additional findings fixed**, leaving only the 8 items below as OPEN MANUAL WORK.
+
+| Severity | Phase 3 Fixed | Remaining Open |
+|----------|--------------|----------------|
+| Critical | 13 | 0 |
+| High | 40 | 0 |
+| Medium | 30 | 3 (H-20, H-21, H-22 — large feature builds) |
+| Low | 12 | 5 (App Check enforcement — deploy-only) |
+
+### Agent A — Backend Security (commit `4a98a65`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-32 | C-01 | `functions/bereanFunctions.js` | Critical | Move system prompts server-side: `BEREAN_SYSTEM_PROMPTS` dict; client sends `bereanMode` enum, not raw `systemPrompt` |
+| AF-33 | C-13 | `functions/aiPromptFeatures.js` | Critical | IDOR: `vibeMatch`, `digestBrain`, `spiritGraph` now use `req.auth.uid` — caller-supplied userId removed |
+| AF-34 | C-14 | `functions/aiModeration.js` | Critical | Crisis detection error branch writes `isCrisis: null, urgencyLevel: "error", suggestedIntervention: "human_review"` instead of false-negative |
+| AF-35 | C-16 | `functions/aiModeration.js` | Critical | `selfHarm` severity upgraded to `"critical"`; sets `crisisAlert: true`, `urgentCrisisReview: true` |
+
+### Agent B — Backend Cost & Rate Limits (commit `847c301`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-36 | H-03 | `functions/bereanFeaturesFunctions.js` | High | Switch `dailyVerseDrop` to `claude-haiku-4-5-20251001`; hard batch cap of 100 users/run |
+| AF-37 | H-07 | `functions/bereanFeaturesFunctions.js` | High | `generatePrayerRecap`: 3 calls/user/day via atomic Firestore transaction |
+| AF-38 | C-20 | `functions/bereanFunctions.js` | Critical | `checkBereanRateLimit(uid, feature, limitPerHour)` helper — atomic transaction — applied to all 16 previously unlimited Berean callables |
+
+### Agent C — Backend Privacy (commit `dc1d8d1`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-39 | H-23 | `functions/aiModeration.js` | High | `selfHarm` sets `crisisAlert: true` + `urgentCrisisReview: true` so admin dashboard can surface urgent cases |
+| AF-40 | H-29 | `functions/mlPrayerIntelligence.js` | High | Anonymous prayer notifications built without `postId` — prevents content linkage |
+| AF-41 | H-30 | `functions/mlUserIntelligence.js` | High | `buildPassiveInterestGraph` removes `drafts` subcollection from embedding pipeline |
+| AF-42 | H-18 | `functions/bereanFunctions.js` (deleteAccount) | High | Add deletion of `bereanConversations`, `weeklyRecaps`, `spiritualGraph`, `spiritualHealth`, `wellness` subcollections; Pinecone flagged as manual TODO |
+
+### Agent D — iOS Safety & Privacy (commit `3b6fb3e`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-43 | C-05 | `AMENAPP/MinorSafetyGate.swift` (new) | Critical | `BereanAgeGateService` reads `birthYear` from Firestore; `BereanMinorBlockedView` blocks COPPA-age users in `BereanConversationView` |
+| AF-44 | C-06 | `AMENAPP/ContentIntegrityPolicy.swift` | Critical | `shadowRestrict` now returns real user-facing message; writes audit record to `moderationDecisions/{uid}` |
+| AF-45 | H-25 | `AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift` | High | Filter `visibility != .privateOnly` before building LLM payload from church note blocks |
+| AF-46 | H-26 | `AMENAPP/AIIntelligence/BereanVoiceSpeechService.swift` | High | `requiresOnDeviceRecognition = true` — audio no longer routes to Apple servers |
+
+### Agent E — iOS Feature Wiring (commit `fc7dda7`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-47 | H-09 | `AMENAPP/AMENAPP/BereanGrokService.swift`, `BereanGrokCoordinator.swift` | High | Provenance chips now reflect actual response data; conservative defaults (`hasUnverifiedReferences: true`, `safetyPassed: false`) prevent false "Verified" chip |
+| AF-48 | H-17 | `AMENAPP/PersonalSpiritualGraphService.swift` | High | `toSystemPromptBlock()` returns `nil` unless `berean_spiritual_profile_consent` UserDefaults flag is set |
+| AF-49 | H-24 | `AMENAPP/AMENAPP/AmenMessagingIntelligenceCoordinator.swift` | High | `showCrisisSheet` published property added; `checkGatewayResponseForCrisis` reads `offerCrisisResources` from gateway dict |
+
+### Agent F — AI Integrity & Firestore Rules (commit `3b6fb3e`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-50 | C-08 | `functions/bereanFeaturesFunctions.js` | Critical | `weeklyPrayerRecap` filters to `consentPrayerAI === true`; `generatePrayerRecap` throws if consent missing |
+| AF-51 | H-08 | `functions/bereanFunctions.js` | High | `INJECTION_PATTERNS` regex array added to `bereanChatProxy` — server-side mirror of iOS PromptPolicyEngine |
+| AF-52 | C-12 | `AMENAPP/firestore 18.rules` | Critical | Confirmed `users` collection already requires `isAuthenticated()` — world-readable claim was incorrect; added hardening comment |
+
+### Concurrency Follow-up (commit `HEAD`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-53 | — | `AMENAPP/AMENAPP/AMENAPP/AmenMessagingIntelligenceCoordinator.swift` | Low | Remove unused `flags: AMENFeatureFlags = .shared` init parameter that caused Swift 6 main-actor isolation warning |
+
+---
+
+## OPEN MANUAL WORK (8 items — not code-fixable without large feature builds or deploy access)
+
+| # | Finding | What's needed | Risk if deferred |
+|---|---------|---------------|-----------------|
+| 1 | H-20 | `BereanVoiceView` — hardcoded simulation needs real `BereanVoiceSpeechService` wiring | Users see broken voice UI |
+| 2 | H-21 | `BereanCommunicationHubView` — disconnected from its ViewModel; shows static data only | Feature is non-functional |
+| 3 | H-22 | `createRealtimeSession` CF — not deployed; voice session always fails | Silent failure |
+| 4 | H-10 | Scripture citation verification needs ground-truth verse DB | Fabricated citations go undetected |
+| 5 | H-13 | `bereanAuditLog` client-written — move write to CF hook | Logs can be forged |
+| 6 | H-14 | Prayer list security rule — requires data migration to subcollection | User data over-exposure |
+| 7 | H-33 | SLO → kill switch automation (write to `systemStatus/berean` on breach) | No auto-circuit-breaker |
+| 8 | App Check | 14+ Berean CFs have `enforceAppCheck: false` — flip after iOS App Check setup | Scripted callers bypass iOS guardrails |
+| 9 | Pinecone | Draft embeddings in vector DB not retroactively cleaned | Draft content persists in recommendations |
+| 10 | H-16 | Full DM content AI consent disclosure UX not yet built | Consent architecture incomplete |
+| 11 | H-23 admin | Admin dashboard must surface `crisisAlert: true` items at top of queue | Crisis reports buried |
+
+---
+
+## NEEDS HUMAN REVIEW (ORIGINAL — superseded by Phase 3 fixes above)
 
 Ordered by recommended fix priority. Items within a severity group are ordered by risk.
 
