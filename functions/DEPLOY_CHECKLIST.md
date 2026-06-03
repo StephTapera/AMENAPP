@@ -1,5 +1,8 @@
 # Berean AI — Audit Fix Deploy Checklist
 
+> **Quick deploy:** `bash deploy-berean.sh` from the repo root runs all steps 1–6 automatically
+> (secret pre-checks, Firestore rules, then all 8 audit CFs in dependency order).
+
 Tracks all pending deploy steps from the Berean AI audit (berean-audit-report.md)
 and the Pinecone draft cleanup work.
 
