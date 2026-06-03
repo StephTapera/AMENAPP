@@ -134,7 +134,7 @@ function badgeTier(total) {
 // APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
 // See: https://firebase.google.com/docs/app-check/ios/default-providers
 // iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
-const askBerean = onCall({ enforceAppCheck: true }, async (request) => {
+const askBerean = onCall({ enforceAppCheck: true, secrets: ["BEREAN_LLM_KEY"] }, async (request) => {
   const db = getFirestore();
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -191,7 +191,7 @@ Return JSON with exactly these fields:
 });
 
 // detectDuplicate
-const detectDuplicate = onCall({ enforceAppCheck: false }, async (request) => {
+const detectDuplicate = onCall({ enforceAppCheck: true, secrets: ["EMBEDDING_KEY"] }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -226,7 +226,7 @@ const detectDuplicate = onCall({ enforceAppCheck: false }, async (request) => {
 });
 
 // computeReputation
-const computeReputation = onCall({ enforceAppCheck: false }, async (request) => {
+const computeReputation = onCall({ enforceAppCheck: true }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -249,7 +249,7 @@ const computeReputation = onCall({ enforceAppCheck: false }, async (request) => 
 });
 
 // postComment
-const postComment = onCall({ enforceAppCheck: false }, async (request) => {
+const postComment = onCall({ enforceAppCheck: true }, async (request) => {
   const db = getFirestore();
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -313,7 +313,7 @@ const postComment = onCall({ enforceAppCheck: false }, async (request) => {
 });
 
 // markHelpful
-const markHelpful = onCall({ enforceAppCheck: false }, async (request) => {
+const markHelpful = onCall({ enforceAppCheck: true }, async (request) => {
   const db = getFirestore();
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -353,7 +353,7 @@ const markHelpful = onCall({ enforceAppCheck: false }, async (request) => {
 });
 
 // updateWatchProgress
-const updateWatchProgress = onCall({ enforceAppCheck: false }, async (request) => {
+const updateWatchProgress = onCall({ enforceAppCheck: true }, async (request) => {
   const db = getFirestore();
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -379,7 +379,7 @@ const updateWatchProgress = onCall({ enforceAppCheck: false }, async (request) =
 });
 
 // getWatchProgress
-const getWatchProgress = onCall({ enforceAppCheck: false }, async (request) => {
+const getWatchProgress = onCall({ enforceAppCheck: true }, async (request) => {
   const db = getFirestore();
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");

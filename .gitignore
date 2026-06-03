@@ -122,3 +122,7 @@ functions/dist-notifications/
 
 # Agent scratch workspace
 .agent-scratch/
+
+# Local Cloud Function secrets — never commit
+functions/.env.local
+*.env.local

@@ -429,6 +429,39 @@
         { "fieldPath": "category", "order": "ASCENDING" },
         { "fieldPath": "useCount", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "comments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isDeleted", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "comments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isDeleted", "order": "ASCENDING" },
+        { "fieldPath": "embedding", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reputationEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "toUID", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reputationEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fromUID", "order": "ASCENDING" },
+        { "fieldPath": "commentId", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
