@@ -1501,3 +1501,17 @@ exports.auditAdminClaims       = adminClaims.auditAdminClaims;
 const bereanRealtime = require("./bereanRealtimeFunctions");
 exports.createRealtimeSession = bereanRealtime.createRealtimeSession;
 exports.bereanSLOCheck        = bereanRealtime.bereanSLOCheck;
+
+// ============================================================================
+// PINECONE CLEANUP — One-time cleanup of draft vectors + per-account cleanup
+//   cleanupDraftVectors — admin-only callable: deletes vectors with
+//     dominantType == "draft" from the user-interest-embeddings namespace.
+//     Run once after deploy: firebase functions:call cleanupDraftVectors --data '{}'
+//   deleteAccount (bereanFunctions.js) now calls deleteUserPineconeVectors
+//     internally on every account deletion (H-18 fix).
+//
+// Secrets required: PINECONE_API_KEY, PINECONE_HOST
+// Deploy: firebase deploy --only functions:cleanupDraftVectors --project amen-5e359
+// ============================================================================
+const pineconeCleanup = require("./pineconeCleanupFunctions");
+exports.cleanupDraftVectors = pineconeCleanup.cleanupDraftVectors;

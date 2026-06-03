@@ -37,6 +37,8 @@ const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY");
 const CLAUDE_API_KEY = defineSecret("CLAUDE_API_KEY");
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
+const PINECONE_API_KEY = defineSecret("PINECONE_API_KEY");
+const PINECONE_HOST    = defineSecret("PINECONE_HOST");
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -881,6 +883,7 @@ exports.bereanChatProxy = onCall(
 exports.deleteAccount = onCall(
     {
       region: REGION,
+      secrets: [PINECONE_API_KEY, PINECONE_HOST],
     },
     async (request) => {
       if (!request.auth) {
@@ -934,7 +937,22 @@ exports.deleteAccount = onCall(
       const wellnessSnap = await db.collection(`users/${uid}/wellness`).get();
       await Promise.all(wellnessSnap.docs.map((d) => d.ref.delete()));
 
-      // TODO: Pinecone vector deletion requires a separate admin operation — see berean-audit-report.md H-18
+      // H-18 FIX: Delete all Pinecone vectors belonging to this user.
+      // Covers: user-interest-embeddings, prayer-partner-pool, testimony-embeddings.
+      try {
+        const { deleteUserPineconeVectors } = require('./pineconeCleanupFunctions');
+        const pcApiKey = PINECONE_API_KEY.value();
+        const pcHost   = PINECONE_HOST.value();
+        if (pcApiKey && pcHost) {
+          const pineconeResults = await deleteUserPineconeVectors(uid, pcApiKey, pcHost);
+          console.log(`[deleteAccount] Pinecone vectors deleted for uid=${uid}:`, JSON.stringify(pineconeResults));
+        } else {
+          console.warn(`[deleteAccount] Pinecone secrets not configured — skipping vector deletion for uid=${uid}`);
+        }
+      } catch (pcErr) {
+        // Log but do not abort account deletion — Pinecone cleanup is best-effort.
+        console.error(`[deleteAccount] Pinecone cleanup error for uid=${uid}:`, pcErr.message);
+      }
 
       // 3. Delete user's posts
       const postsSnap = await db.collection("posts").where("authorId", "==", uid).get();
