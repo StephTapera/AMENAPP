@@ -14,8 +14,30 @@
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
+const admin = require("firebase-admin");
 
 const CLAUDE_API_KEY = defineSecret("CLAUDE_API_KEY");
+
+// ─── Rate limit helper ────────────────────────────────────────────────────────
+// Per-user hourly rate limiter backed by Firestore atomic transactions.
+// Mirrors checkBereanRateLimit in bereanRealtimeFunctions.js.
+async function checkShieldRateLimit(uid, feature, limitPerHour) {
+  const hourKey = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
+  const ref = admin.firestore()
+    .collection("users").doc(uid)
+    .collection("bereanUsage").doc(`${feature}_${hourKey}`);
+  await admin.firestore().runTransaction(async (t) => {
+    const snap = await t.get(ref);
+    const count = snap.exists ? (snap.data().count || 0) : 0;
+    if (count >= limitPerHour) {
+      throw new HttpsError(
+        "resource-exhausted",
+        `Hourly limit reached for ${feature}. Try again later.`,
+      );
+    }
+    t.set(ref, { count: count + 1, windowStart: hourKey }, { merge: true });
+  });
+}
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -61,6 +83,8 @@ exports.bereanShieldAnalyze = onCall(
   },
   async (request) => {
     requireAuth(request.auth);
+    // Rate limit: 10 shield analyses per user per hour
+    await checkShieldRateLimit(request.auth.uid, "shieldAnalyze", 10);
 
     const { claim } = request.data || {};
     if (!claim || typeof claim !== "string" || claim.trim().length === 0) {
@@ -159,6 +183,8 @@ exports.bereanCompassAnalyze = onCall(
   },
   async (request) => {
     requireAuth(request.auth);
+    // Rate limit: 20 compass analyses per user per hour
+    await checkShieldRateLimit(request.auth.uid, "compassAnalyze", 20);
 
     const { messages } = request.data || {};
     if (!Array.isArray(messages) || messages.length === 0) {

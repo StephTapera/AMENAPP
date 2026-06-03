@@ -156,8 +156,8 @@ exports.exportEngagementData = exportEngagementData;
 // Content Moderation: Export organic content integrity system
 exports.moderateContent = moderateContent;
 
-// Server-side post moderation (Firestore onWrite trigger)
-const {serverSidePostModeration} = require("./contentModeration");
+// Server-side post moderation (Firestore onWrite trigger — v2, separate file to avoid gen1/gen2 conflict)
+const {serverSidePostModeration} = require("./contentModerationTriggers");
 exports.serverSidePostModeration = serverSidePostModeration;
 
 // Image Moderation: Export Cloud Vision SafeSearch moderation
@@ -186,6 +186,10 @@ exports.addComment           = addComment;
 exports.toggleReaction       = toggleReaction;
 exports.onMediaFinalize      = onMediaFinalize;
 exports.onPostCreateValidate = onPostCreateValidate;
+
+// Comment Quality + Safety Gateway
+const { checkCommentQuality } = require('./commentGateway');
+exports.checkCommentQuality  = checkCommentQuality;
 
 // ============================================================================
 // TRUST SCORE — E2EE messaging safety layer
@@ -686,11 +690,11 @@ exports.manualCascadeDelete = authenticationHelpers.manualCascadeDelete;
 exports.onUserDocCreated = authenticationHelpers.onUserDocCreated;
 
 // M-02: Update birthYear with server-side age-downgrade protection (adults cannot re-declare as minors).
-exports.updateBirthYear = authenticationHelpers.updateBirthYear;
-
 // H-03: Ban evasion prevention — admin-only callable that hashes + records a banned phone number.
-// Wire into the accountSuspension flow to auto-ban phone on user ban.
-exports.banUserPhone = authenticationHelpers.banUserPhone;
+// Deployed as v1 functions to work around Cloud Run quota exhaustion.
+const authHelpersV1 = require("./authHelpersV1");
+exports.updateBirthYear = authHelpersV1.updateBirthYear;
+exports.banUserPhone    = authHelpersV1.banUserPhone;
 
 // P0: Account deletion pipeline (processes deletionRequests/{userId} — cascades
 // Storage, RTDB, Firestore, and Auth deletion. Created when user taps Delete Account.)
@@ -747,6 +751,14 @@ exports.bereanRankingLabels = berean.bereanRankingLabels;
 exports.bereanGenericProxy = berean.bereanGenericProxy;
 // exports.bereanChatProxy = berean.bereanChatProxy; // DISABLED: Using TypeScript version from Backend/functions
 exports.deleteAccount = berean.deleteAccount;
+// Study Assistant — routes all BereanContextActionEngine.swift calls
+exports.routeBereanContextualAction = berean.routeBereanContextualAction;
+// Sermon & seasonal features
+exports.bereanSmartReply              = berean.bereanSmartReply;
+exports.sermonSnapProxy               = berean.sermonSnapProxy;
+exports.bereanSermonWeekPlan          = berean.bereanSermonWeekPlan;
+exports.bereanSpiritualGraphAnalysis  = berean.bereanSpiritualGraphAnalysis;
+exports.bereanSeasonalPrompt          = berean.bereanSeasonalPrompt;
 
 // ============================================================================
 // BEREAN AUDIT LOG — H-13 FIX: server-authoritative audit trail
@@ -1226,6 +1238,19 @@ exports.moderatePrayerRequest    = moderatePrayerRequest;
 exports.moderateDMMessage        = moderateDMMessage;
 
 // ============================================================================
+// MODERATION GATEWAY — Unified pre-submit content safety callable
+//   checkContentSafety — called from iOS before any content write
+//     Covers: posts, comments, messages, DMs
+//     Returns: { decision, reason?, crisisEscalated, crisisResources?, decisionId }
+//     Self-harm: escalates to crisisEscalations/{uid}/{ts} + shows crisis resources
+//     All decisions persisted to moderationDecisions/{decisionId}
+//   Secret: NVIDIA_API_KEY (already set for other NeMo Guard CFs)
+//   Deploy: firebase deploy --only functions:checkContentSafety --project amen-5e359
+// ============================================================================
+const { checkContentSafety } = require("./moderationGateway");
+exports.checkContentSafety = checkContentSafety;
+
+// ============================================================================
 // AMEN SPACES — Monetization, Events, Live, AI Catch-up, Safety, Stripe
 //   Spaces Monetization (spacesFunctions.js):
 //     createSpaceTier, getSpaceEntitlement, processSubscription,
@@ -1304,6 +1329,7 @@ exports.processChurchNoteDocumentPDF  = churchNotesMedia.processChurchNoteDocume
 // ============================================================================
 // CHURCH NOTES AI CALLABLES
 //   churchNotesAICallables.js:
+//     generateChurchNoteDraft (full-pipeline: transcript → structured draft),
 //     generateChurchNoteSummary, generateChurchNoteStudyGuide,
 //     generateChurchNotePrayerPrompts, generateChurchNoteActionItems,
 //     detectChurchNoteScriptures, translateChurchNoteContent,
@@ -1313,6 +1339,7 @@ exports.processChurchNoteDocumentPDF  = churchNotesMedia.processChurchNoteDocume
 // ============================================================================
 
 const churchNotesAI = require("./churchNotesAICallables");
+exports.generateChurchNoteDraft           = churchNotesAI.generateChurchNoteDraft;
 exports.generateChurchNoteSummary         = churchNotesAI.generateChurchNoteSummary;
 exports.generateChurchNoteStudyGuide      = churchNotesAI.generateChurchNoteStudyGuide;
 exports.generateChurchNotePrayerPrompts   = churchNotesAI.generateChurchNotePrayerPrompts;
@@ -1421,13 +1448,14 @@ exports.detectMessageCrossSurfaceActions = messagingIntelligence.detectMessageCr
 // ============================================================================
 
 const discussion = require("./discussionFunctions");
-exports.askBerean           = discussion.askBerean;
-exports.detectDuplicate     = discussion.detectDuplicate;
-exports.computeReputation   = discussion.computeReputation;
-exports.postComment         = discussion.postComment;
-exports.markHelpful         = discussion.markHelpful;
-exports.updateWatchProgress = discussion.updateWatchProgress;
-exports.getWatchProgress    = discussion.getWatchProgress;
+exports.askBerean              = discussion.askBerean;
+exports.detectDuplicate        = discussion.detectDuplicate;
+exports.computeReputation      = discussion.computeReputation;
+exports.postComment            = discussion.postComment;
+exports.markHelpful            = discussion.markHelpful;
+exports.updateWatchProgress    = discussion.updateWatchProgress;
+exports.getWatchProgress       = discussion.getWatchProgress;
+exports.processEmbeddingQueue  = discussion.processEmbeddingQueue;
 
 // ============================================================================
 // APPEALS SYSTEM — User-facing content appeal pipeline (C-04)
@@ -1438,7 +1466,9 @@ exports.getWatchProgress    = discussion.getWatchProgress;
 // ============================================================================
 const appeals = require("./appeals");
 exports.submitAppeal = appeals.submitAppeal;
-exports.reviewAppeal = appeals.reviewAppeal;
+// reviewAppeal deployed as v1 to work around Cloud Run quota exhaustion.
+const { reviewAppeal } = require("./reviewAppealV1");
+exports.reviewAppeal = reviewAppeal;
 
 // ============================================================================
 // NCMEC CYBERTIPLINE — mandatory CSAM reporting pipeline (18 U.S.C. § 2258A)
@@ -1517,6 +1547,32 @@ const pineconeCleanup = require("./pineconeCleanupFunctions");
 exports.cleanupDraftVectors = pineconeCleanup.cleanupDraftVectors;
 
 // ============================================================================
+// AMEN AI FEATURES — Daily Digest, Creator Draft Assistant, RAG Search
+//
+//   getDailyDigest        — callable: 7-point morning card; cached in
+//                           dailyDigests/{uid}/dates/{dateKey};
+//                           rate limit 5/day per user
+//   generateCreatorDraft  — callable: draft-only (never publishes) for
+//                           mentors/churches; types: post|devotional|
+//                           studyGuide|announcement; rate limit 20/hour
+//   ragSearch             — callable: embed → Pinecone vector search across
+//                           churchNotes|savedVerses|posts|sermons|all;
+//                           multilingual TODO; rate limit 30/hour
+//
+// Secrets required: ANTHROPIC_API_KEY (getDailyDigest, generateCreatorDraft)
+//                   OPENAI_API_KEY (ragSearch embedding via mlClients.openaiEmbed)
+//                   PINECONE_API_KEY, PINECONE_HOST (ragSearch)
+//
+// Deploy:
+//   firebase deploy --only functions:getDailyDigest,generateCreatorDraft,ragSearch \
+//     --project amen-5e359
+// ============================================================================
+const amenAIFeatures = require("./amenAIFeatures");
+exports.getDailyDigest       = amenAIFeatures.getDailyDigest;
+exports.generateCreatorDraft = amenAIFeatures.generateCreatorDraft;
+exports.ragSearch            = amenAIFeatures.ragSearch;
+
+// ============================================================================
 // ADMIN CRISIS ALERT QUEUE — H-23: surfaces crisisAlert items at top of queue
 //   getCrisisAlertQueue — callable (moderator/admin): returns unresolved crisis
 //     alerts from moderatorAlerts + pastoralAlerts, sorted by urgency then time.
@@ -1530,3 +1586,29 @@ exports.cleanupDraftVectors = pineconeCleanup.cleanupDraftVectors;
 const adminModeration = require("./adminModerationFunctions");
 exports.getCrisisAlertQueue = adminModeration.getCrisisAlertQueue;
 exports.resolveAlert        = adminModeration.resolveAlert;
+
+// ============================================================================
+// BEREAN SHIELD & COMPASS — Claim truth-check + DM manipulation detection
+//   bereanShieldAnalyze  — callable: analyze claim across 5 truth dimensions
+//   bereanCompassAnalyze — callable: detect manipulation arc in DM transcript
+// Secret required: CLAUDE_API_KEY
+// Deploy: firebase deploy --only functions:bereanShieldAnalyze,bereanCompassAnalyze
+//         --project amen-5e359
+// ============================================================================
+const bereanShield = require("./bereanShield");
+exports.bereanShieldAnalyze  = bereanShield.bereanShieldAnalyze;
+exports.bereanCompassAnalyze = bereanShield.bereanCompassAnalyze;
+
+// ============================================================================
+// BEREAN AI FEATURES — Daily Verse Drop, Weekly Prayer Recap
+//   dailyVerseDrop      — scheduled daily 7am CT: personalized verse push
+//   weeklyPrayerRecap   — scheduled Sunday 8pm CT: AI prayer journal recap
+//   generatePrayerRecap — callable: on-demand prayer recap for current user
+// Secret required: CLAUDE_API_KEY
+// Deploy: firebase deploy --only functions:dailyVerseDrop,weeklyPrayerRecap,generatePrayerRecap
+//         --project amen-5e359
+// ============================================================================
+const bereanAIFeatures = require("./bereanFeaturesFunctions");
+exports.dailyVerseDrop     = bereanAIFeatures.dailyVerseDrop;
+exports.weeklyPrayerRecap  = bereanAIFeatures.weeklyPrayerRecap;
+exports.generatePrayerRecap = bereanAIFeatures.generatePrayerRecap;

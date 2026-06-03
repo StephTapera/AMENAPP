@@ -14,7 +14,16 @@ and the Pinecone draft cleanup work.
 - [ ] `firebase functions:secrets:set PINECONE_HOST`
 - [ ] `firebase functions:secrets:set OPENAI_API_KEY` (if not already set)
 - [ ] `firebase functions:secrets:set ANTHROPIC_API_KEY` (if not already set)
+- [ ] `firebase functions:secrets:set CLAUDE_API_KEY` (bereanShield, bereanFeaturesFunctions, bereanFunctions — Anthropic SDK direct key)
+- [ ] `firebase functions:secrets:set GOOGLE_VISION_API_KEY` (bereanFunctions — image safety)
 - [ ] `firebase functions:secrets:set NVIDIA_API_KEY` (for NeMo Guard moderatePost)
+- [ ] `firebase functions:secrets:set BEREAN_LLM_KEY` (discussionFunctions — Gemini key for askBerean; falls back to mock if unset)
+- [ ] `firebase functions:secrets:set EMBEDDING_KEY` (discussionFunctions — Gemini embeddings for detectDuplicate; falls back to mock if unset)
+- [ ] `firebase functions:secrets:set TRUESOURCE_SIGNING_KEY` (trueSource.js — content provenance signing)
+- [ ] `firebase functions:secrets:set ALGOLIA_APP_ID` (algoliaSync.js)
+- [ ] `firebase functions:secrets:set ALGOLIA_ADMIN_API_KEY` (algoliaSync.js)
+- [ ] `firebase functions:secrets:set ALGOLIA_INDEX_NAME` (algoliaSync.js)
+- [ ] `firebase functions:secrets:set IDEOGRAM_API_KEY` (studioImageGeneration.js)
 
 ---
 
@@ -45,6 +54,18 @@ firebase deploy \
 - [ ] `cleanupDraftVectors` — H-30: one-time Pinecone draft vector purge
 - [ ] `reportUnsafeAIResponse` — C-04: user-facing unsafe AI response report pipeline
 - [ ] `deleteAccount` — H-18: now deletes Pinecone vectors for the user on deletion
+- [ ] `bereanShieldAnalyze` — Berean Shield: claim truth-check (5 dimensions)
+- [ ] `bereanCompassAnalyze` — Berean Compass: DM manipulation arc detection
+- [ ] `dailyVerseDrop` — scheduled: personalized daily verse push (7am CT)
+- [ ] `weeklyPrayerRecap` — scheduled: AI prayer journal recap (Sunday 8pm CT)
+- [ ] `generatePrayerRecap` — callable: on-demand prayer recap for current user
+- [ ] `askBerean` — discussion: AI thread summary (BEREAN_LLM_KEY)
+- [ ] `detectDuplicate` — discussion: cosine-similarity duplicate comment check
+- [ ] `computeReputation` — discussion: points aggregation + badge tier
+- [ ] `postComment` — discussion: write comment after threshold passes
+- [ ] `markHelpful` — discussion: idempotent helpful-mark + reputation event
+- [ ] `updateWatchProgress` — discussion: upsert watch-progress doc
+- [ ] `getWatchProgress` — discussion: read watch-progress + shouldNudge flag
 
 ---
 

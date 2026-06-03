@@ -8,6 +8,7 @@
  */
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
@@ -119,6 +120,30 @@ function cosineSimilarity(a, b) {
   return denom === 0 ? 0 : dot / denom;
 }
 
+// ── Rate limit helper ─────────────────────────────────────────────────────────
+// Per-user rolling-window rate limiter backed by Firestore atomic transactions.
+// Uses the same pattern as checkBereanRateLimit in bereanRealtimeFunctions.js.
+// @param {object} db        — Firestore instance
+// @param {string} uid       — authenticated user id
+// @param {string} feature   — rate-limit bucket name (e.g. "postComment")
+// @param {number} maxPerHour
+async function discussionRateLimit(db, uid, feature, maxPerHour) {
+  const hourKey = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
+  const ref = db.collection("users").doc(uid)
+    .collection("discussionUsage").doc(`${feature}_${hourKey}`);
+  await db.runTransaction(async (t) => {
+    const snap = await t.get(ref);
+    const count = snap.exists ? (snap.data().count || 0) : 0;
+    if (count >= maxPerHour) {
+      throw new HttpsError(
+        "resource-exhausted",
+        `Rate limit reached for ${feature}. Try again later.`,
+      );
+    }
+    t.set(ref, { count: count + 1, windowStart: hourKey }, { merge: true });
+  });
+}
+
 // ── Cloud Functions ───────────────────────────────────────────────────────────
 
 const REPUTATION_POINTS = { helpfulMark:3, acceptedAnswer:10, firstComment:1, bereanCite:2 };
@@ -195,6 +220,10 @@ const detectDuplicate = onCall({ enforceAppCheck: true, secrets: ["EMBEDDING_KEY
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
+  const db = getFirestore();
+  // Rate limit: 30 duplicate checks per user per hour
+  await discussionRateLimit(db, userId, "detectDuplicate", 30);
+
   const threadId = String(request.data?.threadId ?? "").trim();
   const draftBody = String(request.data?.draftBody ?? "").trim();
   if (!threadId) throw new HttpsError("invalid-argument", "threadId is required.");
@@ -206,7 +235,6 @@ const detectDuplicate = onCall({ enforceAppCheck: true, secrets: ["EMBEDDING_KEY
     return { isDuplicate: false, similarCommentIds: [], similarityScore: 0, suggestion: null };
   }
 
-  const db = getFirestore();
   const draftVec = await embedText(draftBody);
 
   const commentsSnap = await db.collection("threads").doc(threadId).collection("comments")
@@ -226,14 +254,21 @@ const detectDuplicate = onCall({ enforceAppCheck: true, secrets: ["EMBEDDING_KEY
 });
 
 // computeReputation
+// IDOR fix: uid is always sourced from request.auth.uid — never accepted from caller data.
+// Rate limit: 20 calls per user per hour.
 const computeReputation = onCall({ enforceAppCheck: true }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
-  const uid = String(request.data?.uid ?? "").trim();
-  if (!uid) throw new HttpsError("invalid-argument", "uid is required.");
-
   const db = getFirestore();
+  // Rate limit: 20 reputation lookups per user per hour
+  await discussionRateLimit(db, userId, "computeReputation", 20);
+
+  // Always use the authenticated user's own UID — never trust caller-supplied uid.
+  // If a future public-profile page needs another user's reputation, that endpoint
+  // should be a separate, read-only, unauthenticated-safe CF with its own access control.
+  const uid = userId;
+
   const snap = await db.collection("reputationEvents").where("toUID","==",uid).limit(500).get();
 
   const breakdown = { helpfulMark:0, acceptedAnswer:0, firstComment:0, bereanCite:0 };
@@ -253,6 +288,9 @@ const postComment = onCall({ enforceAppCheck: true }, async (request) => {
   const db = getFirestore();
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+
+  // Rate limit: 20 comments per user per hour
+  await discussionRateLimit(db, userId, "postComment", 20);
 
   const threadId = String(request.data?.threadId ?? "").trim();
   const parentCommentId = request.data?.parentCommentId ? String(request.data.parentCommentId).trim() : null;
@@ -318,6 +356,9 @@ const markHelpful = onCall({ enforceAppCheck: true }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
+  // Rate limit: 60 helpful marks per user per hour
+  await discussionRateLimit(db, userId, "markHelpful", 60);
+
   const commentId = String(request.data?.commentId ?? "").trim();
   const threadId  = String(request.data?.threadId  ?? "").trim();
   if (!commentId) throw new HttpsError("invalid-argument", "commentId is required.");
@@ -358,6 +399,9 @@ const updateWatchProgress = onCall({ enforceAppCheck: true }, async (request) =>
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
+  // Rate limit: 120 progress updates per user per hour (high cadence for video progress)
+  await discussionRateLimit(db, userId, "updateWatchProgress", 120);
+
   const postId  = String(request.data?.postId ?? "").trim();
   const progressFraction = Number(request.data?.progressFraction);
   const durationSecs = Number(request.data?.durationSecs);
@@ -384,6 +428,9 @@ const getWatchProgress = onCall({ enforceAppCheck: true }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
+  // Rate limit: 120 progress reads per user per hour
+  await discussionRateLimit(db, userId, "getWatchProgress", 120);
+
   const postId = String(request.data?.postId ?? "").trim();
   if (!postId) throw new HttpsError("invalid-argument", "postId is required.");
 
@@ -394,6 +441,68 @@ const getWatchProgress = onCall({ enforceAppCheck: true }, async (request) => {
   const progressFraction = d?.progressFraction ?? 0;
   const transcriptRead   = d?.transcriptRead === true;
   return { progressFraction, transcriptRead, shouldNudge: progressFraction < 0.8 && !transcriptRead };
+});
+
+// ── Embedding queue worker ────────────────────────────────────────────────────
+// Processes docs written to embeddingQueue/{docId} by postComment.
+// Uses EMBEDDING_KEY env var; falls back to a zero-vector stub when absent so
+// duplicate detection still runs (cosine similarity returns 0 for all-zero vectors).
+
+const processEmbeddingQueue = onDocumentCreated("embeddingQueue/{docId}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+
+  const { commentId, threadId, body } = snap.data();
+  if (!commentId || !threadId || !body) {
+    logger.warn("processEmbeddingQueue: missing required fields", { commentId, threadId });
+    await snap.ref.delete();
+    return;
+  }
+
+  const db = getFirestore();
+  let embedding = null;
+
+  const embeddingKey = process.env.EMBEDDING_KEY;
+  if (embeddingKey) {
+    try {
+      // text-embedding-3-small via OpenAI-compatible endpoint
+      const https = require("https");
+      const payload = JSON.stringify({ input: body.slice(0, 8192), model: "text-embedding-3-small" });
+      embedding = await new Promise((resolve, reject) => {
+        const req = https.request(
+          { hostname: "api.openai.com", path: "/v1/embeddings", method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${embeddingKey}`,
+                       "Content-Length": Buffer.byteLength(payload) } },
+          (res) => {
+            let raw = "";
+            res.on("data", c => raw += c);
+            res.on("end", () => {
+              try { resolve(JSON.parse(raw).data?.[0]?.embedding ?? null); }
+              catch (e) { reject(e); }
+            });
+          }
+        );
+        req.on("error", reject);
+        req.write(payload);
+        req.end();
+      });
+    } catch (err) {
+      logger.error("processEmbeddingQueue: embedding API failed", err.message);
+      // Leave embedding null — comment is still posted, just won't participate in dup detection
+    }
+  } else {
+    // Stub: 1536-element zero vector (matches text-embedding-3-small dimension)
+    embedding = new Array(1536).fill(0);
+    logger.info("processEmbeddingQueue: EMBEDDING_KEY absent — using zero-vector stub");
+  }
+
+  if (embedding) {
+    await db.collection("threads").doc(threadId).collection("comments").doc(commentId)
+      .update({ embedding });
+  }
+
+  await snap.ref.delete();
+  logger.info(`processEmbeddingQueue: processed ${commentId}`);
 });
 
 // ── Exports ───────────────────────────────────────────────────────────────────
@@ -407,6 +516,7 @@ module.exports = {
   markHelpful,
   updateWatchProgress,
   getWatchProgress,
+  processEmbeddingQueue,
   // Internal helper exported for testing
   detectVerseKeys,
   cosineSimilarity,
