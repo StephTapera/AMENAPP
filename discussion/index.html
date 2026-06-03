@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>AMEN — Discussion V1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+<style>
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --gold:      #D4AE38;
+  --gold-dim:  rgba(212,174,56,0.14);
+  --gold-bdr:  rgba(212,174,56,0.38);
+  --glass-bg:  rgba(255,255,255,0.07);
+  --glass-bg2: rgba(255,255,255,0.04);
+  --glass-blur:20px;
+  --bg:        #0F0F12;
+  --bg2:       #1A1A1D;
+  --text:      #F5F0E8;
+  --text2:     rgba(245,240,232,0.55);
+  --text3:     rgba(245,240,232,0.28);
+  --sep:       rgba(255,255,255,0.09);
+  --spring:    cubic-bezier(0.34,1.56,0.64,1);
+  --green:     #42B172;
+  --purple:    #9B6FD4;
+  --teal:      #2AADA4;
+  --red:       #D95B4A;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;overscroll-behavior:none;
+  padding-bottom:env(safe-area-inset-bottom,24px);
+}
+.shell{max-width:480px;margin:0 auto;padding:0 0 100px;position:relative}
+
+/* ── Glass surface ─────────────────────────────────────────────────────────── */
+.glass{
+  background:var(--glass-bg);
+  backdrop-filter:blur(var(--glass-blur));
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  border:0.5px solid var(--sep);border-radius:16px;
+}
+
+/* ── Thread header ─────────────────────────────────────────────────────────── */
+.thread-header{
+  position:sticky;top:0;z-index:10;
+  background:rgba(15,15,18,0.88);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-bottom:0.5px solid var(--sep);padding:12px 16px 10px;
+}
+.post-card{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+.post-thumb{
+  width:52px;height:52px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(135deg,#1a1830,#2a1f3d);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;color:var(--text2);border:0.5px solid var(--sep);
+}
+.post-info{flex:1;min-width:0}
+.post-author{font-size:12px;color:var(--text3);margin-bottom:2px}
+.post-title{font-size:15px;font-weight:600;line-height:1.3;color:var(--text)}
+.post-type-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--text3);margin-top:4px;
+}
+.thread-meta{display:flex;align-items:center;justify-content:space-between}
+.thread-count{font-size:13px;color:var(--text2)}
+.berean-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 13px;border-radius:20px;border:1px solid var(--gold-bdr);
+  background:var(--gold-dim);color:var(--gold);font-size:13px;font-weight:600;
+  cursor:pointer;transition:background 0.2s,transform 0.15s;
+}
+.berean-btn:hover{background:rgba(212,174,56,0.22);transform:scale(1.02)}
+.berean-btn:active{transform:scale(0.97)}
+
+/* ── Locked banner ─────────────────────────────────────────────────────────── */
+.locked-banner{
+  display:none;align-items:center;gap:8px;
+  margin:12px 16px;padding:10px 14px;border-radius:12px;
+  background:rgba(217,91,74,0.1);border:0.5px solid rgba(217,91,74,0.3);
+  font-size:13px;color:rgba(217,91,74,0.9);
+}
+.locked-banner.visible{display:flex}
+
+/* ── Comment tree ──────────────────────────────────────────────────────────── */
+.comment-list{padding:12px 0}
+.comment-group{margin-bottom:2px}
+
+/* Root comment */
+.comment-card{
+  margin:0 12px 8px;border-radius:14px;overflow:visible;
+  transition:opacity 0.3s;
+}
+.comment-card.dimmed{opacity:0.25}
+.comment-card.accepted{border-left:2.5px solid var(--gold);border-radius:0 14px 14px 0;margin-left:14px}
+
+/* Reply indent */
+.replies{
+  margin-left:28px;border-left:1.5px solid var(--sep);padding-left:4px;
+  overflow:hidden;max-height:2000px;
+  transition:max-height 0.35s ease,opacity 0.25s ease;opacity:1;
+}
+.replies.collapsed{max-height:0;opacity:0}
+.depth-2-replies{margin-left:24px}
+
+/* Comment inner */
+.comment-inner{
+  padding:12px 14px 10px;
+  background:var(--glass-bg);
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+  border:0.5px solid var(--sep);border-radius:14px;
+}
+.comment-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.avatar{
+  width:32px;height:32px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:#fff;
+}
+.comment-meta{flex:1;min-width:0}
+.comment-author{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.trust-badge{
+  font-size:10px;padding:1px 7px;border-radius:10px;font-weight:600;
+}
+.badge-seeker{background:rgba(212,174,56,0.18);color:var(--gold);border:0.5px solid rgba(212,174,56,0.4)}
+.badge-berean{background:rgba(212,174,56,0.22);color:var(--gold);border:0.5px solid rgba(212,174,56,0.5)}
+.badge-elder{background:rgba(212,174,56,0.28);color:var(--gold);border:0.5px solid var(--gold-bdr)}
+.comment-time{font-size:11px;color:var(--text3)}
+.accepted-label{
+  font-size:11px;color:var(--gold);font-weight:600;
+  display:flex;align-items:center;gap:3px;margin-top:2px;
+}
+.comment-body{font-size:14px;line-height:1.55;color:var(--text);margin-bottom:10px}
+.comment-dest{font-size:11px;padding:1px 7px;border-radius:10px;display:inline-flex;align-items:center;gap:3px;margin-bottom:8px}
+.dest-reflection{background:rgba(155,111,212,0.15);color:var(--purple);border:0.5px solid rgba(155,111,212,0.3)}
+.dest-churchnotes{background:rgba(42,173,164,0.15);color:var(--teal);border:0.5px solid rgba(42,173,164,0.3)}
+
+/* Verse chips */
+.verse-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.verse-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 9px;border-radius:12px;font-size:12px;font-weight:500;
+  background:rgba(212,174,56,0.1);border:0.5px solid rgba(212,174,56,0.35);
+  color:var(--gold);cursor:pointer;transition:background 0.2s;
+}
+.verse-chip:hover{background:rgba(212,174,56,0.2)}
+.verse-chip.open{background:rgba(212,174,56,0.22);border-color:var(--gold)}
+.chip-chevron{transition:transform 0.25s var(--spring);display:inline-block;font-size:10px}
+.chip-chevron.rotated{transform:rotate(90deg)}
+
+/* Context card (inline) */
+.context-card{
+  margin:8px 0 4px;border-radius:12px;overflow:hidden;
+  max-height:0;opacity:0;
+  transition:max-height 0.35s ease-out,opacity 0.25s ease;
+}
+.context-card.open{max-height:400px;opacity:1}
+.context-card-inner{
+  background:rgba(212,174,56,0.06);
+  border:0.5px solid var(--gold-bdr);border-radius:12px;
+  border-top:2px solid var(--gold);padding:12px 14px 10px;
+}
+.ctx-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ctx-ref{font-size:13px;font-weight:700;color:var(--gold)}
+.ctx-translation-row{display:flex;gap:2px}
+.ctx-trans-btn{
+  padding:3px 8px;border-radius:8px;font-size:11px;font-weight:600;
+  border:0.5px solid var(--sep);background:transparent;color:var(--text3);cursor:pointer;
+}
+.ctx-trans-btn.active{background:var(--gold-dim);border-color:var(--gold-bdr);color:var(--gold)}
+.ctx-verse{
+  font-family:'Cormorant Garamond',Georgia,serif;
+  font-size:16px;line-height:1.65;color:var(--text);
+  font-style:italic;margin-bottom:8px;
+}
+.ctx-book-info{font-size:11px;color:var(--text3);margin-bottom:8px}
+.ctx-crossrefs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.ctx-crossref{
+  padding:2px 8px;border-radius:10px;font-size:11px;
+  background:var(--glass-bg2);border:0.5px solid var(--sep);color:var(--text2);
+  cursor:pointer;
+}
+.ctx-crossref:hover{border-color:var(--gold-bdr);color:var(--gold)}
+.ctx-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ctx-action{
+  padding:5px 11px;border-radius:10px;font-size:12px;font-weight:500;
+  border:0.5px solid var(--sep);background:transparent;color:var(--text2);
+  cursor:pointer;transition:background 0.2s,color 0.2s,border-color 0.2s;
+}
+.ctx-action:hover{background:var(--glass-bg2);color:var(--text)}
+.ctx-action.copied,.ctx-action.saved{border-color:var(--gold-bdr);color:var(--gold);background:var(--gold-dim)}
+.ctx-action.filter-active{border-color:rgba(42,173,164,0.5);color:var(--teal);background:rgba(42,173,164,0.1)}
+
+/* Thread filter banner */
+.filter-banner{
+  display:none;margin:0 12px 8px;padding:8px 12px;border-radius:10px;
+  background:rgba(42,173,164,0.1);border:0.5px solid rgba(42,173,164,0.3);
+  font-size:12px;color:var(--teal);
+  align-items:center;justify-content:space-between;
+}
+.filter-banner.visible{display:flex}
+.filter-clear{font-size:16px;cursor:pointer;line-height:1;color:var(--teal);background:none;border:none}
+
+/* Comment actions */
+.comment-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.action-btn{
+  display:flex;align-items:center;gap:4px;
+  padding:5px 10px;border-radius:10px;font-size:12px;font-weight:500;
+  border:0.5px solid var(--sep);background:transparent;color:var(--text3);
+  cursor:pointer;transition:all 0.2s;
+}
+.action-btn:hover{background:var(--glass-bg2);color:var(--text2)}
+.helpful-btn.marked{border-color:var(--gold-bdr);color:var(--gold);background:var(--gold-dim)}
+.helpful-btn.marked:disabled{opacity:0.7;cursor:default}
+.accept-btn{border-color:var(--sep);color:var(--text3)}
+.accept-btn.accepted{border-color:var(--gold-bdr);color:var(--gold);background:var(--gold-dim)}
+.reply-btn{color:var(--text3)}
+.collapse-btn{
+  margin-left:auto;padding:4px 8px;border-radius:8px;
+  font-size:11px;border:0.5px solid var(--sep);background:transparent;
+  color:var(--text3);cursor:pointer;
+}
+@keyframes helpful-pop{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+.helpful-pop{animation:helpful-pop 0.3s var(--spring)}
+
+/* ── Bottom sheets ─────────────────────────────────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;z-index:40;
+  background:rgba(0,0,0,0);backdrop-filter:blur(0px);
+  pointer-events:none;transition:background 0.3s,backdrop-filter 0.3s;
+}
+.overlay.visible{
+  background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);
+  pointer-events:auto;
+}
+.sheet{
+  position:fixed;bottom:0;left:0;right:0;z-index:50;
+  max-height:88dvh;
+  background:rgba(22,22,26,0.97);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-top:1px solid rgba(255,255,255,0.12);
+  border-radius:22px 22px 0 0;padding:0 0 env(safe-area-inset-bottom,16px);
+  transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.32,0.72,0,1);
+  overflow:hidden;
+}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--sep);margin:10px auto 0}
+.sheet-scroll{overflow-y:auto;max-height:calc(88dvh - 20px);padding:0 16px 24px}
+
+/* ── Berean sheet ──────────────────────────────────────────────────────────── */
+.berean-header{display:flex;align-items:center;justify-content:space-between;padding:16px 0 12px}
+.berean-title{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:600;color:var(--gold)}
+.sheet-close{
+  width:28px;height:28px;border-radius:50%;background:var(--glass-bg);
+  border:0.5px solid var(--sep);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:14px;color:var(--text2);
+}
+.berean-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:var(--text2)}
+.spinner{
+  width:20px;height:20px;border-radius:50%;
+  border:2px solid var(--sep);border-top-color:var(--gold);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.berean-section{margin-bottom:20px}
+.berean-section-title{
+  font-family:'Cormorant Garamond',Georgia,serif;
+  font-size:15px;font-weight:600;color:var(--gold);
+  margin-bottom:8px;display:flex;align-items:center;gap:6px;
+}
+.berean-summary{font-size:14px;line-height:1.6;color:var(--text)}
+.berean-list{list-style:none;display:flex;flex-direction:column;gap:6px}
+.berean-list li{
+  font-size:13px;line-height:1.5;color:var(--text2);
+  padding-left:14px;position:relative;
+}
+.berean-list.agreement li::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.berean-list.questions li::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--amber,rgba(212,174,56,0.6))}
+.berean-refs{display:flex;flex-wrap:wrap;gap:6px}
+.berean-ref-chip{
+  padding:4px 10px;border-radius:12px;font-size:12px;font-weight:500;
+  background:var(--gold-dim);border:0.5px solid var(--gold-bdr);color:var(--gold);
+  cursor:pointer;
+}
+.berean-study-list{list-style:none;display:flex;flex-direction:column;gap:8px;counter-reset:study}
+.berean-study-list li{
+  font-size:13px;line-height:1.55;color:var(--text2);
+  padding-left:22px;position:relative;counter-increment:study;
+}
+.berean-study-list li::before{
+  content:counter(study);position:absolute;left:0;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--glass-bg);border:0.5px solid var(--sep);
+  font-size:10px;display:flex;align-items:center;justify-content:center;
+  color:var(--text3);top:1px;
+}
+.mock-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:8px;font-size:11px;
+  background:rgba(255,255,255,0.05);border:0.5px solid var(--sep);color:var(--text3);
+  margin-bottom:12px;
+}
+
+/* ── Threshold sheet ───────────────────────────────────────────────────────── */
+.threshold-header{
+  display:flex;align-items:center;justify-content:space-between;padding:16px 0 6px;
+}
+.threshold-back{
+  display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:10px;
+  border:0.5px solid var(--sep);background:transparent;color:var(--text2);
+  font-size:13px;cursor:pointer;
+}
+.threshold-dots{display:flex;gap:5px;align-items:center}
+.t-dot{width:6px;height:6px;border-radius:3px;background:var(--sep);transition:all 0.25s}
+.t-dot.active{width:16px;background:var(--gold)}
+.threshold-step{display:none}
+.threshold-step.visible{display:block}
+
+/* Step 1 — consume nudge */
+.nudge-heading{font-size:17px;font-weight:700;margin-bottom:6px}
+.nudge-sub{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:14px}
+.progress-track{height:6px;background:var(--glass-bg);border-radius:3px;border:0.5px solid var(--sep);margin-bottom:16px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;background:var(--gold);transition:width 0.5s ease}
+.nudge-actions{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.btn-primary{
+  width:100%;padding:14px;border-radius:14px;font-size:15px;font-weight:700;
+  background:var(--gold);color:#0F0F12;border:none;cursor:pointer;
+  transition:transform 0.15s,filter 0.15s;
+}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-primary:active{transform:scale(0.97)}
+.btn-glass{
+  width:100%;padding:13px;border-radius:14px;font-size:15px;font-weight:600;
+  background:var(--glass-bg);border:0.5px solid var(--sep);color:var(--text);
+  cursor:pointer;transition:background 0.2s;
+}
+.btn-glass:hover{background:rgba(255,255,255,0.1)}
+.btn-skip{
+  text-align:center;font-size:13px;color:var(--text3);cursor:pointer;
+  padding:6px;text-decoration:underline;text-underline-offset:2px;
+}
+.btn-skip:hover{color:var(--text2)}
+
+/* Step 2 — duplicate check */
+.dup-loading{display:flex;align-items:center;gap:10px;padding:24px 0;color:var(--text2)}
+.dup-result{display:none}
+.dup-result.visible{display:block}
+.dup-clear{padding:24px 0;text-align:center}
+.dup-clear-icon{font-size:36px;margin-bottom:8px}
+.dup-clear-text{font-size:14px;color:var(--text2)}
+.dup-found-label{font-size:13px;color:var(--text3);margin-bottom:10px}
+.dup-comment-card{
+  padding:10px 12px;border-radius:12px;margin-bottom:12px;
+  background:var(--glass-bg2);border-left:2.5px solid var(--gold);border:0.5px solid var(--sep);border-left:2px solid var(--gold);
+}
+.dup-score{font-size:12px;color:var(--text3);margin-bottom:4px}
+.dup-comment-body{font-size:13px;color:var(--text2);line-height:1.5}
+.dup-actions{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.btn-secondary{
+  width:100%;padding:12px;border-radius:12px;font-size:14px;font-weight:600;
+  background:transparent;border:0.5px solid var(--sep);color:var(--text2);
+  cursor:pointer;transition:background 0.2s;
+}
+.btn-secondary:hover{background:var(--glass-bg)}
+.btn-tiny{
+  text-align:center;font-size:12px;color:var(--text3);cursor:pointer;padding:4px;
+}
+.dup-scenario-toggle{
+  margin-top:14px;text-align:center;
+  font-size:12px;color:var(--text3);cursor:pointer;text-decoration:underline;text-underline-offset:2px;
+}
+
+/* Step 3 — destination + composer */
+.dest-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.dest-card{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border-radius:14px;cursor:pointer;
+  border:1.5px solid var(--sep);background:var(--glass-bg2);
+  transition:border-color 0.2s,background 0.2s;
+}
+.dest-card.selected{border-color:var(--gold);background:var(--gold-dim)}
+.dest-icon{font-size:20px;flex-shrink:0}
+.dest-info h4{font-size:14px;font-weight:600;margin-bottom:2px}
+.dest-info p{font-size:12px;color:var(--text2)}
+.composer-area{
+  width:100%;min-height:80px;max-height:160px;
+  resize:none;overflow-y:auto;
+  background:var(--glass-bg);border:0.5px solid var(--sep);border-radius:12px;
+  color:var(--text);font-size:14px;line-height:1.5;padding:10px 12px;
+  font-family:inherit;outline:none;margin-bottom:4px;
+  transition:border-color 0.2s;
+}
+.composer-area:focus{border-color:var(--gold-bdr)}
+.composer-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.char-count{font-size:11px;color:var(--text3)}
+.char-count.warn{color:rgba(212,174,56,0.8)}
+.char-count.over{color:var(--red)}
+.composer-error{font-size:12px;color:var(--red);margin-bottom:8px;display:none}
+.btn-post{
+  width:100%;padding:15px;border-radius:14px;font-size:15px;font-weight:700;
+  background:var(--gold);color:#0F0F12;border:none;cursor:pointer;
+  transition:transform 0.15s,filter 0.15s;
+}
+.btn-post:hover{filter:brightness(1.08)}
+.btn-post:active{transform:scale(0.97)}
+.btn-post.success{background:#42B172;color:#fff}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Thread header ──────────────────────────────────────────────────────── -->
+  <div class="thread-header">
+    <div class="post-card">
+      <div class="post-thumb" id="post-thumb">🎬</div>
+      <div class="post-info">
+        <div class="post-author">Pastor James · 2 hr ago</div>
+        <div class="post-title">The Art of Sabbath Rest — Psalm 46:10</div>
+        <div class="post-type-badge"><span>🎬</span> Video · 24:18</div>
+      </div>
+    </div>
+    <div class="thread-meta">
+      <span class="thread-count" id="thread-count">7 comments</span>
+      <button class="berean-btn" onclick="openBerean()">✦ Ask Berean</button>
+    </div>
+  </div>
+
+  <!-- ── Thread locked banner ───────────────────────────────────────────────── -->
+  <div class="locked-banner" id="locked-banner">
+    🔒 This thread is paused for reflection. New comments are disabled.
+  </div>
+
+  <!-- ── Thread filter banner ───────────────────────────────────────────────── -->
+  <div class="filter-banner" id="filter-banner">
+    <span id="filter-label"></span>
+    <button class="filter-clear" onclick="clearFilter()">×</button>
+  </div>
+
+  <!-- ── Comment list ────────────────────────────────────────────────────────── -->
+  <div class="comment-list" id="comment-list"></div>
+
+</div><!-- .shell -->
+
+<!-- ── Overlay ──────────────────────────────────────────────────────────────── -->
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+<!-- ── Berean sheet ─────────────────────────────────────────────────────────── -->
+<div class="sheet" id="berean-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-scroll">
+    <div class="berean-header">
+      <div class="berean-title">✦ Ask Berean</div>
+      <div class="sheet-close" onclick="closeAll()">✕</div>
+    </div>
+    <div id="berean-loading" class="berean-loading">
+      <div class="spinner"></div>
+      <span>Analyzing thread…</span>
+    </div>
+    <div id="berean-content" style="display:none">
+      <div class="mock-badge">⚙ Mock mode — set BEREAN_LLM_KEY for live AI</div>
+      <div class="berean-section">
+        <div class="berean-section-title">📖 Summary</div>
+        <div class="berean-summary" id="b-summary"></div>
+      </div>
+      <div class="berean-section">
+        <div class="berean-section-title">✓ Agreement Points</div>
+        <ul class="berean-list agreement" id="b-agreement"></ul>
+      </div>
+      <div class="berean-section">
+        <div class="berean-section-title">? Open Questions</div>
+        <ul class="berean-list questions" id="b-questions"></ul>
+      </div>
+      <div class="berean-section">
+        <div class="berean-section-title">📚 Biblical References</div>
+        <div class="berean-refs" id="b-refs"></div>
+      </div>
+      <div class="berean-section">
+        <div class="berean-section-title">🎓 Study Questions</div>
+        <ol class="berean-study-list" id="b-study"></ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Threshold composer sheet ─────────────────────────────────────────────── -->
+<div class="sheet" id="threshold-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-scroll">
+    <div class="threshold-header">
+      <button class="threshold-back" onclick="thresholdBack()">‹ Back</button>
+      <div class="threshold-dots">
+        <div class="t-dot active" id="t-dot-1"></div>
+        <div class="t-dot"        id="t-dot-2"></div>
+        <div class="t-dot"        id="t-dot-3"></div>
+      </div>
+      <div class="sheet-close" onclick="closeAll()">✕</div>
+    </div>
+
+    <!-- Step 1: Consume nudge -->
+    <div class="threshold-step visible" id="t-step-1">
+      <div class="nudge-heading">Want to finish first?</div>
+      <div class="nudge-sub">You've watched <strong>45%</strong> of this video. Engaging with the full context helps the conversation.</div>
+      <div class="progress-track"><div class="progress-fill" style="width:45%"></div></div>
+      <div class="nudge-actions">
+        <button class="btn-primary" onclick="closeAll()">Finish Watching</button>
+        <button class="btn-glass" onclick="chooseTranscript()">📄 Read Transcript Instead</button>
+      </div>
+      <div class="btn-skip" onclick="skipToStep(3)">Post anyway</div>
+    </div>
+
+    <!-- Step 2: Duplicate check -->
+    <div class="threshold-step" id="t-step-2">
+      <div class="dup-loading" id="dup-loading">
+        <div class="spinner"></div>
+        <span>Checking if this angle is already covered…</span>
+      </div>
+      <div class="dup-result" id="dup-result">
+        <!-- Scenario A (duplicate found) -->
+        <div id="dup-scenario-a">
+          <div class="dup-found-label">A similar perspective exists in this thread:</div>
+          <div class="dup-comment-card">
+            <div class="dup-score">87% similarity</div>
+            <div class="dup-comment-body">"The Hebrew 'raphah' in Psalm 46:10 means more than just stopping activity—it implies releasing control."</div>
+          </div>
+          <div class="dup-actions">
+            <button class="btn-primary" onclick="supportExisting()">✓ Support this comment</button>
+            <button class="btn-glass" onclick="goToStep(3)">Add a new angle</button>
+            <div class="btn-tiny" onclick="goToStep(3)">Post my version anyway</div>
+          </div>
+        </div>
+        <!-- Scenario B (no duplicate) -->
+        <div id="dup-scenario-b" style="display:none">
+          <div class="dup-clear">
+            <div class="dup-clear-icon">✓</div>
+            <div class="nudge-heading" style="margin-bottom:6px">Your perspective adds something new.</div>
+            <div class="dup-clear-text">No similar comments found in this thread.</div>
+          </div>
+          <button class="btn-primary" onclick="goToStep(3)">Continue →</button>
+        </div>
+      </div>
+      <div class="dup-scenario-toggle" onclick="toggleDupScenario()">Switch demo scenario</div>
+    </div>
+
+    <!-- Step 3: Destination + composer -->
+    <div class="threshold-step" id="t-step-3">
+      <div style="font-size:16px;font-weight:700;margin-bottom:14px">Where should this go?</div>
+      <div class="dest-cards">
+        <div class="dest-card selected" data-dest="public" onclick="selectDest(this,'public')">
+          <div class="dest-icon">💬</div>
+          <div class="dest-info">
+            <h4>Public Reply</h4>
+            <p>Visible to everyone in this thread</p>
+          </div>
+        </div>
+        <div class="dest-card" data-dest="reflection" onclick="selectDest(this,'reflection')">
+          <div class="dest-icon">📔</div>
+          <div class="dest-info">
+            <h4>Private Reflection</h4>
+            <p>Saved only for you — not visible to others</p>
+          </div>
+        </div>
+        <div class="dest-card" data-dest="churchNotes" onclick="selectDest(this,'churchNotes')">
+          <div class="dest-icon">⛪</div>
+          <div class="dest-info">
+            <h4>Save to Church Notes</h4>
+            <p>Added to your personal Church Notes</p>
+          </div>
+        </div>
+      </div>
+      <textarea class="composer-area" id="composer-textarea"
+        placeholder="Write your reply…" maxlength="2000"
+        oninput="onComposerInput(this)"></textarea>
+      <div class="composer-meta">
+        <div style="font-size:11px;color:var(--text3)" id="replying-to-label"></div>
+        <div class="char-count" id="char-count">0 / 2000</div>
+      </div>
+      <div class="composer-error" id="composer-error">Please write something first.</div>
+      <button class="btn-post" id="post-btn" onclick="submitPost()">Post Reply</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Data + State + Logic ─────────────────────────────────────────────────── -->
+<script>
+// ── Mock data ────────────────────────────────────────────────────────────────
+
+const THREAD = {
+  id:'thread-001',postId:'post-001',postType:'video',isLocked:false,
+  postAuthorUID:'user-alpha',commentCount:7,
+};
+
+const USERS = {
+  'user-alpha':  {name:'Pastor James',   color:'#4B5EC6',rep:{total:87, tier:'berean'}},
+  'user-beta':   {name:'Sarah M.',       color:'#42B172',rep:{total:23, tier:'seeker'}},
+  'user-gamma':  {name:'David K.',       color:'#D95B4A',rep:{total:5,  tier:'none'}},
+  'user-delta':  {name:'Ruth L.',        color:'#7C5CBF',rep:{total:215,tier:'elder'}},
+  'user-epsilon':{name:'Marcus T.',      color:'#2AADA4',rep:{total:11, tier:'seeker'}},
+  'me':          {name:'You',            color:'#D4AE38',rep:{total:0,  tier:'none'}},
+};
+
+const VERSE_DB = {
+  'PSA.46.10':{ref:'Psalm 46:10',book:'Psalms · Old Testament',
+    ESV:'"Be still, and know that I am God. I will be exalted among the nations, I will be exalted in the earth!"',
+    KJV:'"Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth."',
+    NIV:'"He says, \'Be still, and know that I am God; I will be exalted among the nations.\'"',
+    crossRefs:['ISA.40.28','ROM.8.28']},
+  'HEB.4.9':{ref:'Hebrews 4:9',book:'Hebrews · New Testament',
+    ESV:'"So then, there remains a Sabbath rest for the people of God."',
+    KJV:'"There remaineth therefore a rest to the people of God."',
+    NIV:'"There remains, then, a Sabbath-rest for the people of God."',
+    crossRefs:['GEN.2.2','PSA.95.11']},
+  'HEB.4.10':{ref:'Hebrews 4:10',book:'Hebrews · New Testament',
+    ESV:'"...for whoever has entered God\'s rest has also rested from his works as God did from his."',
+    KJV:'"For he that is entered into his rest, he also hath ceased from his own works, as God did from his."',
+    NIV:'"...for anyone who enters God\'s rest also rests from their works, just as God did from his."',
+    crossRefs:['HEB.4.9']},
+  'MAT.11.28':{ref:'Matthew 11:28',book:'Matthew · New Testament',
+    ESV:'"Come to me, all who labor and are heavy laden, and I will give you rest."',
+    KJV:'"Come unto me, all ye that labour and are heavy laden, and I will give you rest."',
+    NIV:'"Come to me, all you who are weary and burdened, and I will give you rest."',
+    crossRefs:['PSA.55.22','JHN.15.5']},
+  'ROM.8.6':{ref:'Romans 8:6',book:'Romans · New Testament',
+    ESV:'"For to set the mind on the flesh is death, but to set the mind on the Spirit is life and peace."',
+    KJV:'"For to be carnally minded is death; but to be spiritually minded is life and peace."',
+    NIV:'"The mind governed by the flesh is death, but the mind governed by the Spirit is life and peace."',
+    crossRefs:['ROM.8.28','GAL.5.22']},
+  'JHN.15.5':{ref:'John 15:5',book:'John · New Testament',
+    ESV:'"I am the vine; you are the branches. Whoever abides in me and I in him bears much fruit, for apart from me you can do nothing."',
+    KJV:'"I am the vine, ye are the branches: He that abideth in me, and I in him, the same bringeth forth much fruit: for without me ye can do nothing."',
+    NIV:'"I am the vine; you are the branches. If you remain in me and I in you, you will bear much fruit; apart from me you can do nothing."',
+    crossRefs:['JHN.15.4','PSA.1.3']},
+  'ISA.40.28':{ref:'Isaiah 40:28',book:'Isaiah · Old Testament',
+    ESV:'"Have you not known? Have you not heard? The Lord is the everlasting God..."',
+    KJV:'"Hast thou not known? hast thou not heard, that the everlasting God, the LORD..."',
+    NIV:'"Do you not know? Have you not heard? The Lord is the everlasting God..."',
+    crossRefs:['PSA.46.10']},
+  'ROM.8.28':{ref:'Romans 8:28',book:'Romans · New Testament',
+    ESV:'"And we know that for those who love God all things work together for good."',
+    KJV:'"And we know that all things work together for good to them that love God."',
+    NIV:'"And we know that in all things God works for the good of those who love him."',
+    crossRefs:['GEN.50.20','JER.29.11']},
+  'PSA.55.22':{ref:'Psalm 55:22',book:'Psalms · Old Testament',
+    ESV:'"Cast your burden on the Lord, and he will sustain you."',
+    KJV:'"Cast thy burden upon the Lord, and he shall sustain thee."',
+    NIV:'"Cast your cares on the Lord and he will sustain you."',
+    crossRefs:['MAT.11.28']},
+  'GAL.5.22':{ref:'Galatians 5:22',book:'Galatians · New Testament',
+    ESV:'"But the fruit of the Spirit is love, joy, peace, patience, kindness..."',
+    KJV:'"But the fruit of the Spirit is love, joy, peace, longsuffering, gentleness..."',
+    NIV:'"But the fruit of the Spirit is love, joy, peace, forbearance, kindness..."',
+    crossRefs:['ROM.8.6']},
+};
+
+const MOCK_BEREAN = {
+  summary:'This thread explores Sabbath rest as active surrender rather than mere inactivity. Commenters consistently connect Psalm 46:10\'s "raphah" (releasing control) to New Testament themes of abiding in Christ and Spirit-led peace.',
+  agreementPoints:[
+    'Sabbath rest is relational and posture-based, not merely a cessation of activity',
+    'The Hebrew "raphah" (be still) implies releasing control — a trust exercise before God',
+    'Rest flows from abiding in Christ (John 15:5) rather than from personal spiritual effort',
+  ],
+  openQuestions:[
+    'How do we practice this daily surrender outside of formal Sabbath observance?',
+    'Does the Hebrews 4 "sabbath rest" refer to a future state or a present posture?',
+    'How do we teach this to people whose rest is prevented by circumstance?',
+  ],
+  biblicalRefs:['PSA.46.10','HEB.4.9','MAT.11.28','ROM.8.6','JHN.15.5'],
+  studyQuestions:[
+    'Study the Hebrew "raphah" in Psalm 46:10 — where else does this word appear, and what does it reveal?',
+    'Compare Matthew 11:28-30 with Hebrews 4:9-11. What kind of rest does each passage describe?',
+    'What practices in your daily life make space for the "abiding" John 15:5 describes?',
+    'How does Sabbath rest differ from leisure? What makes rest distinctly Christian?',
+  ],
+  isMock:true,
+};
+
+// Flat comment list — tree assembled from parentCommentId
+let COMMENTS = [
+  {id:'c1',  authorUID:'user-delta',   parentCommentId:null, depth:0, verseKeys:['PSA.46.10'],
+   body:'The Hebrew word "raphah" in Psalm 46:10 means more than just stopping activity — it implies releasing control. True Sabbath is a trust exercise.',
+   helpfulCount:12, isAcceptedAnswer:true,  destination:'public', createdAt: Date.now()-7200000},
+  {id:'c1a', authorUID:'user-beta',    parentCommentId:'c1', depth:1, verseKeys:['HEB.4.9','HEB.4.10'],
+   body:'This connects so powerfully to Hebrews 4:9-10. The "sabbath rest for the people of God" isn\'t just weekly — it\'s a posture.',
+   helpfulCount:5,  isAcceptedAnswer:false, destination:'public', createdAt: Date.now()-6000000},
+  {id:'c1a1',authorUID:'user-gamma',   parentCommentId:'c1a',depth:2, verseKeys:['MAT.11.28'],
+   body:'Yes! And it connects to Matthew 11:28 — "Come to me, all who labor… and I will give you rest." Rest as relationship, not just absence of work.',
+   helpfulCount:3,  isAcceptedAnswer:false, destination:'public', createdAt: Date.now()-5400000},
+  {id:'c1b', authorUID:'user-epsilon', parentCommentId:'c1', depth:1, verseKeys:[],
+   body:'Interesting — so Sabbath isn\'t passive but an active surrender. That reframes my whole understanding.',
+   helpfulCount:2,  isAcceptedAnswer:false, destination:'public', createdAt: Date.now()-4800000},
+  {id:'c2',  authorUID:'user-beta',    parentCommentId:null, depth:0, verseKeys:['ROM.8.6'],
+   body:'Romans 8:6 says "the mind controlled by the Spirit is life and peace." I think Sabbath rest is really about who controls the agenda of our day.',
+   helpfulCount:7,  isAcceptedAnswer:false, destination:'public', createdAt: Date.now()-3600000},
+  {id:'c2a', authorUID:'user-alpha',   parentCommentId:'c2', depth:1, verseKeys:[],
+   body:'Beautiful synthesis. The posture of surrender — whether Sabbath, prayer, or daily quiet — is the same Spirit-led movement.',
+   helpfulCount:9,  isAcceptedAnswer:false, destination:'public', createdAt: Date.now()-3000000},
+  {id:'c3',  authorUID:'user-alpha',   parentCommentId:null, depth:0, verseKeys:['JHN.15.5'],
+   body:'What I love about John 15:5 is that fruitfulness doesn\'t come from our striving — it comes from abiding. Sabbath is the ultimate abiding posture.',
+   helpfulCount:11, isAcceptedAnswer:false, destination:'public', createdAt: Date.now()-1800000},
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+const S = {
+  openSheet:     null,      // null | 'berean' | 'threshold'
+  collapsedIds:  new Set(), // comment IDs with collapsed replies
+  helpfulIds:    new Set(), // comments the current user has marked helpful
+  acceptedId:    'c1',      // currently accepted comment
+  openCards:     new Set(), // cardKey = `verseKey:commentId`
+  cardTrans:     {},        // cardKey → 'ESV'|'KJV'|'NIV'
+  threadFilter:  null,      // verseKey | null
+  bereanLoaded:  false,
+  threshold: {
+    parentId:   null,
+    step:       1,
+    skipStep1:  false,
+    choseTranscript: false,
+    dupScenario:'A',
+    dest:       'public',
+    body:       '',
+  },
+  currentUserId:'me',
+  isOwner: true,
+};
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function timeAgo(ms) {
+  const d = Date.now() - ms;
+  if (d < 60000)  return 'just now';
+  if (d < 3600000) return Math.floor(d/60000) + ' min ago';
+  if (d < 86400000) return Math.floor(d/3600000) + ' hr ago';
+  return Math.floor(d/86400000) + ' d ago';
+}
+
+function initials(name) { return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+
+function badgeHTML(tier) {
+  if (tier === 'none') return '';
+  const labels = {seeker:'Seeker',berean:'Berean',elder:'⭐ Elder'};
+  return `<span class="trust-badge badge-${tier}">${labels[tier]}</span>`;
+}
+
+function chipKey(verseKey, commentId) { return `${verseKey}:${commentId}`; }
+
+function renderVerseChips(verseKeys, commentId) {
+  if (!verseKeys.length) return '';
+  return `<div class="verse-chips">${verseKeys.map(vk => {
+    const ck = chipKey(vk, commentId);
+    const isOpen = S.openCards.has(ck);
+    const vd = VERSE_DB[vk];
+    const label = vd ? vd.ref : vk;
+    return `<span class="verse-chip${isOpen?' open':''}" onclick="toggleCard('${vk}','${commentId}')">
+      📖 ${label}<span class="chip-chevron${isOpen?' rotated':''}"> ›</span>
+    </span>`;
+  }).join('')}</div>`;
+}
+
+function renderContextCard(verseKey, commentId) {
+  const ck = chipKey(verseKey, commentId);
+  const isOpen = S.openCards.has(ck);
+  const vd = VERSE_DB[verseKey];
+  if (!vd) return `<div class="context-card${isOpen?' open':''}"></div>`;
+  const trans = S.cardTrans[ck] || 'ESV';
+  const verseText = vd[trans] || vd.ESV;
+  const filterActive = S.threadFilter === verseKey;
+  return `<div class="context-card${isOpen?' open':''}" id="card-${ck.replace(/[:.]/g,'-')}">
+    <div class="context-card-inner">
+      <div class="ctx-header">
+        <div class="ctx-ref">📖 ${vd.ref}</div>
+        <div class="ctx-translation-row">
+          ${['ESV','KJV','NIV'].map(t=>`<button class="ctx-trans-btn${trans===t?' active':''}" onclick="setTrans('${ck}','${t}')">${t}</button>`).join('')}
+        </div>
+      </div>
+      <div class="ctx-verse">${verseText}</div>
+      <div class="ctx-book-info">${vd.book}</div>
+      ${vd.crossRefs && vd.crossRefs.length ? `<div class="ctx-crossrefs">
+        ${vd.crossRefs.map(cr=>{const crd=VERSE_DB[cr];return`<span class="ctx-crossref" onclick="openCrossRef('${cr}','${commentId}')">${crd?crd.ref:cr}</span>`;}).join('')}
+      </div>` : ''}
+      <div class="ctx-actions">
+        <button class="ctx-action" id="copy-${ck.replace(/[:.]/g,'-')}" onclick="copyVerse('${ck}','${verseKey}')">Copy verse</button>
+        <button class="ctx-action" id="save-${ck.replace(/[:.]/g,'-')}" onclick="saveToNotes(this)">Add to Church Notes</button>
+        <button class="ctx-action${filterActive?' filter-active':''}" onclick="filterThread('${verseKey}','${vd.ref}')">Search thread</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderComment(comment, childrenMap) {
+  const user = USERS[comment.authorUID] || {name:comment.authorUID,color:'#888',rep:{total:0,tier:'none'}};
+  const isOwner = S.isOwner;
+  const isAccepted = S.acceptedId === comment.id;
+  const isMarked   = S.helpfulIds.has(comment.id);
+  const children   = childrenMap[comment.id] || [];
+  const isCollapsed = S.collapsedIds.has(comment.id);
+  const dimmed = S.threadFilter && !comment.verseKeys.includes(S.threadFilter);
+  const myId = S.currentUserId;
+  const isOwnerComment = comment.authorUID === myId;
+
+  let destBadge = '';
+  if (comment.destination === 'reflection') destBadge = '<span class="comment-dest dest-reflection">📔 Reflection</span>';
+  if (comment.destination === 'churchNotes') destBadge = '<span class="comment-dest dest-churchnotes">⛪ Church Notes</span>';
+
+  const verseChipsHTML = renderVerseChips(comment.verseKeys, comment.id);
+  const contextCardsHTML = comment.verseKeys.map(vk => renderContextCard(vk, comment.id)).join('');
+
+  const repliesHTML = children.length ? `
+    <div class="replies${isCollapsed?' collapsed':''}" id="replies-${comment.id}">
+      ${children.map(child => renderComment(child, childrenMap)).join('')}
+    </div>` : '';
+
+  return `<div class="comment-group">
+    <div class="comment-card${isAccepted?' accepted':''}${dimmed?' dimmed':''}" data-comment-id="${comment.id}">
+      <div class="comment-inner">
+        <div class="comment-top">
+          <div class="avatar" style="background:${user.color}">${initials(user.name)}</div>
+          <div class="comment-meta">
+            <div class="comment-author">
+              ${user.name} ${badgeHTML(user.rep.tier)}
+              ${isAccepted ? '<span style="font-size:11px;color:var(--gold)">✓</span>' : ''}
+            </div>
+            <div class="comment-time">${timeAgo(comment.createdAt)}</div>
+            ${isAccepted ? '<div class="accepted-label">✓ Accepted Answer</div>' : ''}
+          </div>
+          ${children.length ? `<button class="collapse-btn" onclick="toggleCollapse('${comment.id}')">${isCollapsed?'▼ Show':'▲ Hide'}</button>` : ''}
+        </div>
+        ${destBadge}
+        <div class="comment-body">${escHtml(comment.body)}</div>
+        ${verseChipsHTML}
+        ${contextCardsHTML}
+        <div class="comment-actions">
+          <button class="action-btn helpful-btn${isMarked?' marked':''}"
+            id="helpful-${comment.id}" onclick="markHelpful('${comment.id}')"
+            ${isMarked?'disabled':''}>
+            👍 Helpful (${comment.helpfulCount})
+          </button>
+          <button class="action-btn reply-btn" onclick="openThreshold('${comment.id}')">Reply</button>
+          ${isOwner && !isOwnerComment ? `<button class="action-btn accept-btn${isAccepted?' accepted':''}"
+            onclick="setAccepted('${comment.id}')">
+            ${isAccepted ? '✓ Accepted' : '✓ Accept'}
+          </button>` : ''}
+        </div>
+      </div>
+    </div>
+    ${repliesHTML}
+  </div>`;
+}
+
+function buildTree() {
+  const byParent = {};
+  for (const c of COMMENTS) {
+    const p = c.parentCommentId || '__root__';
+    if (!byParent[p]) byParent[p] = [];
+    byParent[p].push(c);
+  }
+  for (const key of Object.keys(byParent)) {
+    byParent[key].sort((a,b) => {
+      if (a.id === S.acceptedId) return -1;
+      if (b.id === S.acceptedId) return 1;
+      return a.createdAt - b.createdAt;
+    });
+  }
+  return byParent;
+}
+
+function renderThread() {
+  const map = buildTree();
+  const roots = map['__root__'] || [];
+  const list = document.getElementById('comment-list');
+  list.innerHTML = roots.map(r => renderComment(r, map)).join('');
+  document.getElementById('thread-count').textContent = COMMENTS.length + ' comments';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Sheet control ─────────────────────────────────────────────────────────────
+
+function openBerean() {
+  S.openSheet = 'berean';
+  document.getElementById('berean-sheet').classList.add('open');
+  document.getElementById('overlay').classList.add('visible');
+  if (!S.bereanLoaded) loadBerean();
+}
+
+function loadBerean() {
+  document.getElementById('berean-loading').style.display = 'flex';
+  document.getElementById('berean-content').style.display = 'none';
+  setTimeout(() => {
+    document.getElementById('berean-loading').style.display = 'none';
+    const bc = document.getElementById('berean-content');
+    bc.style.display = 'block';
+    const b = MOCK_BEREAN;
+    document.getElementById('b-summary').textContent = b.summary;
+    document.getElementById('b-agreement').innerHTML = b.agreementPoints.map(p=>`<li>${p}</li>`).join('');
+    document.getElementById('b-questions').innerHTML = b.openQuestions.map(p=>`<li>${p}</li>`).join('');
+    document.getElementById('b-refs').innerHTML = b.biblicalRefs.map(vk=>{
+      const vd = VERSE_DB[vk];
+      return `<span class="berean-ref-chip" onclick="scrollToVerse('${vk}')">${vd?vd.ref:vk}</span>`;
+    }).join('');
+    document.getElementById('b-study').innerHTML = b.studyQuestions.map(q=>`<li>${q}</li>`).join('');
+    S.bereanLoaded = true;
+  }, 1500);
+}
+
+function openThreshold(parentId) {
+  S.threshold.parentId = parentId;
+  S.threshold.step     = 1;
+  S.threshold.skipStep1 = false;
+  S.threshold.choseTranscript = false;
+  S.threshold.dest     = 'public';
+  document.getElementById('composer-textarea').value = '';
+  document.getElementById('char-count').textContent = '0 / 2000';
+  document.getElementById('char-count').className = 'char-count';
+  document.getElementById('composer-error').style.display = 'none';
+  document.getElementById('post-btn').className = 'btn-post';
+  document.getElementById('post-btn').textContent = 'Post Reply';
+
+  // Destination — reset to public
+  document.querySelectorAll('.dest-card').forEach(c=>c.classList.remove('selected'));
+  document.querySelector('[data-dest="public"]').classList.add('selected');
+
+  // Replying to label
+  if (parentId) {
+    const c = COMMENTS.find(x=>x.id===parentId);
+    const u = c ? USERS[c.authorUID] : null;
+    document.getElementById('replying-to-label').textContent = u ? `Replying to ${u.name}` : '';
+  } else {
+    document.getElementById('replying-to-label').textContent = '';
+  }
+
+  S.openSheet = 'threshold';
+  document.getElementById('threshold-sheet').classList.add('open');
+  document.getElementById('overlay').classList.add('visible');
+  showThresholdStep(1);
+}
+
+function closeAll() {
+  document.getElementById('berean-sheet').classList.remove('open');
+  document.getElementById('threshold-sheet').classList.remove('open');
+  document.getElementById('overlay').classList.remove('visible');
+  S.openSheet = null;
+}
+
+// ── Threshold step machine ────────────────────────────────────────────────────
+
+function showThresholdStep(n) {
+  S.threshold.step = n;
+  document.querySelectorAll('.threshold-step').forEach((el,i)=>{
+    el.classList.toggle('visible', i+1===n);
+  });
+  for (let i=1;i<=3;i++) {
+    const dot = document.getElementById(`t-dot-${i}`);
+    dot.classList.toggle('active', i===n);
+  }
+  if (n===2) startDupCheck();
+}
+
+function goToStep(n)   { showThresholdStep(n); }
+function skipToStep(n) { S.threshold.skipStep1=true; showThresholdStep(n); }
+
+function thresholdBack() {
+  const cur = S.threshold.step;
+  if (cur===1) { closeAll(); return; }
+  if (cur===2) { S.threshold.skipStep1 ? closeAll() : showThresholdStep(1); return; }
+  if (cur===3) { showThresholdStep(2); return; }
+}
+
+function chooseTranscript() {
+  S.threshold.choseTranscript = true;
+  showThresholdStep(2);
+}
+
+function startDupCheck() {
+  document.getElementById('dup-loading').style.display = 'flex';
+  document.getElementById('dup-result').classList.remove('visible');
+  setTimeout(() => {
+    document.getElementById('dup-loading').style.display = 'none';
+    const r = document.getElementById('dup-result');
+    r.classList.add('visible');
+    const isA = S.threshold.dupScenario === 'A';
+    document.getElementById('dup-scenario-a').style.display = isA ? 'block' : 'none';
+    document.getElementById('dup-scenario-b').style.display = isA ? 'none'  : 'block';
+  }, 1200);
+}
+
+function toggleDupScenario() {
+  S.threshold.dupScenario = S.threshold.dupScenario==='A'?'B':'A';
+  startDupCheck();
+}
+
+function supportExisting() {
+  const parentId = S.threshold.parentId;
+  if (parentId) markHelpful(parentId);
+  closeAll();
+}
+
+function selectDest(el, dest) {
+  document.querySelectorAll('.dest-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  S.threshold.dest = dest;
+}
+
+function onComposerInput(el) {
+  const len = el.value.length;
+  const cc = document.getElementById('char-count');
+  cc.textContent = len + ' / 2000';
+  cc.className = 'char-count' + (len>1800?' warn':'') + (len>=2000?' over':'');
+}
+
+function submitPost() {
+  const ta = document.getElementById('composer-textarea');
+  const body = ta.value.trim();
+  if (!body) {
+    document.getElementById('composer-error').style.display = 'block';
+    return;
+  }
+  document.getElementById('composer-error').style.display = 'none';
+
+  const btn = document.getElementById('post-btn');
+  btn.textContent = '✓ Posted';
+  btn.classList.add('success');
+
+  // Add comment to local state
+  const newId = 'c-' + Date.now();
+  COMMENTS.push({
+    id: newId,
+    authorUID: S.currentUserId,
+    parentCommentId: S.threshold.parentId,
+    depth: S.threshold.parentId ? (COMMENTS.find(c=>c.id===S.threshold.parentId)?.depth ?? 0) + 1 : 0,
+    verseKeys: [],
+    body: body,
+    helpfulCount: 0,
+    isAcceptedAnswer: false,
+    destination: S.threshold.dest,
+    createdAt: Date.now(),
+  });
+
+  setTimeout(() => { closeAll(); renderThread(); }, 1100);
+}
+
+// ── Comment interactions ──────────────────────────────────────────────────────
+
+function markHelpful(commentId) {
+  const btn = document.getElementById(`helpful-${commentId}`);
+  if (!btn || btn.disabled) return;
+  const c = COMMENTS.find(x=>x.id===commentId);
+  if (!c || c.authorUID === S.currentUserId) return;
+
+  S.helpfulIds.add(commentId);
+  c.helpfulCount += 1;
+  btn.classList.add('marked','helpful-pop');
+  btn.innerHTML = `👍 Helpful (${c.helpfulCount})`;
+  btn.disabled = true;
+  setTimeout(()=>btn.classList.remove('helpful-pop'), 350);
+}
+
+function setAccepted(commentId) {
+  S.acceptedId = S.acceptedId === commentId ? null : commentId;
+  if (S.acceptedId) {
+    COMMENTS.forEach(c=>{ c.isAcceptedAnswer = c.id === S.acceptedId; });
+  } else {
+    COMMENTS.forEach(c=>{ c.isAcceptedAnswer = false; });
+  }
+  renderThread();
+}
+
+function toggleCollapse(commentId) {
+  if (S.collapsedIds.has(commentId)) S.collapsedIds.delete(commentId);
+  else S.collapsedIds.add(commentId);
+  renderThread();
+}
+
+// ── Context cards ─────────────────────────────────────────────────────────────
+
+function toggleCard(verseKey, commentId) {
+  const ck = chipKey(verseKey, commentId);
+  if (S.openCards.has(ck)) S.openCards.delete(ck);
+  else S.openCards.add(ck);
+  renderThread();
+}
+
+function setTrans(cardKey, trans) {
+  S.cardTrans[cardKey] = trans;
+  renderThread();
+}
+
+function openCrossRef(verseKey, commentId) {
+  const ck = chipKey(verseKey, commentId);
+  S.openCards.add(ck);
+  renderThread();
+  setTimeout(()=>{
+    const el = document.getElementById('card-' + ck.replace(/[:.]/g,'-'));
+    if (el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }, 100);
+}
+
+function copyVerse(cardKey, verseKey) {
+  const vd = VERSE_DB[verseKey];
+  if (!vd) return;
+  const trans = S.cardTrans[cardKey] || 'ESV';
+  const text = `${vd.ref} — ${vd[trans] || vd.ESV}`;
+  navigator.clipboard.writeText(text).catch(()=>{});
+  const btnId = 'copy-' + cardKey.replace(/[:.]/g,'-');
+  const btn = document.getElementById(btnId);
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+  }
+}
+
+function saveToNotes(btn) {
+  btn.textContent = '✓ Saved';
+  btn.classList.add('saved');
+}
+
+function filterThread(verseKey, displayRef) {
+  if (S.threadFilter === verseKey) { clearFilter(); return; }
+  S.threadFilter = verseKey;
+  const banner = document.getElementById('filter-banner');
+  banner.classList.add('visible');
+  document.getElementById('filter-label').textContent = `Filtered: ${displayRef}`;
+  renderThread();
+}
+
+function clearFilter() {
+  S.threadFilter = null;
+  document.getElementById('filter-banner').classList.remove('visible');
+  renderThread();
+}
+
+function scrollToVerse(verseKey) {
+  closeAll();
+  // Find a card that references this verse and open it
+  const comment = COMMENTS.find(c => c.verseKeys.includes(verseKey));
+  if (comment) {
+    const ck = chipKey(verseKey, comment.id);
+    S.openCards.add(ck);
+    renderThread();
+    setTimeout(()=>{
+      const el = document.getElementById('card-'+ck.replace(/[:.]/g,'-'));
+      if (el) el.scrollIntoView({behavior:'smooth',block:'center'});
+    },100);
+  }
+}
+
+// ── Thread locked state ───────────────────────────────────────────────────────
+
+if (THREAD.isLocked) {
+  document.getElementById('locked-banner').classList.add('visible');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderThread();
+</script>
+</body>
+</html>

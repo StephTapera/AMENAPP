@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>AMEN — Thread View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+/* ─── Design tokens ──────────────────────────────────────────── */
+:root {
+  --gold:      #D4AE38;
+  --gold-dim:  rgba(212,174,56,0.15);
+  --glass-bg:  rgba(255,255,255,0.07);
+  --glass-bg2: rgba(255,255,255,0.04);
+  --glass-blur: 20px;
+  --bg:        #0F0F12;
+  --bg2:       #1A1A1D;
+  --text:      #F5F0E8;
+  --text2:     rgba(245,240,232,0.55);
+  --text3:     rgba(245,240,232,0.28);
+  --sep:       rgba(255,255,255,0.09);
+  --spring:    cubic-bezier(0.34,1.56,0.64,1);
+  --green:     #42B172;
+  --amber:     rgba(212,174,56,0.60);
+  --purple:    rgba(160,120,220,0.55);
+  --teal:      rgba(60,180,170,0.55);
+}
+
+/* ─── Reset / Base ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: env(safe-area-inset-bottom, 24px);
+  overscroll-behavior: none;
+}
+
+/* ─── Layout shell ───────────────────────────────────────────── */
+.shell {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 0 120px;
+  position: relative;
+}
+
+/* ─── Glass surface ──────────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 0.5px solid var(--sep);
+  border-radius: 16px;
+}
+
+/* ─── Thread header ──────────────────────────────────────────── */
+.thread-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(15,15,18,0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 0.5px solid var(--sep);
+  padding: 16px 16px 12px;
+}
+
+.thread-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.post-type-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.thread-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.thread-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.2px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.thread-stats {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.btn-berean {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gold-dim);
+  border: 0.5px solid var(--gold);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s var(--spring);
+  min-height: 44px;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-berean:hover { background: rgba(212,174,56,0.25); }
+.btn-berean:active { transform: scale(0.95); }
+
+.btn-berean-icon {
+  font-size: 15px;
+}
+
+/* ─── Locked banner ──────────────────────────────────────────── */
+.locked-banner {
+  margin: 12px 16px 0;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid var(--sep);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.4;
+}
+
+.locked-icon { font-size: 15px; flex-shrink: 0; }
+
+/* ─── Comment tree ───────────────────────────────────────────── */
+.comment-list {
+  padding: 12px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-group {
+  position: relative;
+}
+
+/* ─── Collapse toggle row ────────────────────────────────────── */
+.collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0 4px 0;
+  margin-bottom: 2px;
+  min-height: 28px;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.collapse-toggle:hover { color: var(--text2); }
+
+.chevron {
+  display: inline-block;
+  font-size: 11px;
+  transition: transform 0.25s ease;
+}
+.chevron.open { transform: rotate(90deg); }
+
+/* ─── Children container ─────────────────────────────────────── */
+.children-wrap {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.32s ease;
+}
+.children-wrap.open {
+  max-height: 4000px;
+}
+
+.children-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+/* ─── Depth indentation + connector ─────────────────────────── */
+.depth-1 { padding-left: 20px; position: relative; }
+.depth-2 { padding-left: 40px; position: relative; }
+
+.depth-1::before,
+.depth-2::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--sep);
+}
+.depth-2::before { left: 28px; }
+
+/* ─── Comment card ───────────────────────────────────────────── */
+.comment-card {
+  padding: 12px 13px;
+  position: relative;
+  transition: border-color 0.25s ease;
+}
+
+.comment-card.accepted {
+  border-left: 2px solid var(--gold) !important;
+  border-radius: 16px !important;
+  /* override glass left border */
+  border: 0.5px solid var(--sep);
+  border-left: 2px solid var(--gold);
+}
+
+.accepted-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  margin-bottom: 8px;
+  letter-spacing: 0.3px;
+}
+
+/* ─── Comment header ─────────────────────────────────────────── */
+.comment-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+.author-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.author-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 1px;
+}
+
+.author-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.badge-seeker {
+  background: rgba(212,174,56,0.18);
+  color: var(--amber);
+  border: 0.5px solid var(--amber);
+}
+
+.badge-berean {
+  background: rgba(212,174,56,0.18);
+  color: var(--gold);
+  border: 0.5px solid var(--gold);
+}
+
+.badge-elder {
+  background: rgba(212,174,56,0.22);
+  color: var(--gold);
+  border: 0.5px solid var(--gold);
+}
+
+.rel-time {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* ─── Comment body ───────────────────────────────────────────── */
+.comment-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+  margin-bottom: 9px;
+  word-break: break-word;
+}
+
+/* ─── Verse chips ────────────────────────────────────────────── */
+.verse-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+
+.verse-chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  background: var(--gold-dim);
+  border: 0.5px solid rgba(212,174,56,0.40);
+  border-radius: 20px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+}
+.verse-chip:hover { background: rgba(212,174,56,0.28); }
+.verse-chip:active { transform: scale(0.94); }
+
+/* ─── Destination badge ──────────────────────────────────────── */
+.dest-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.dest-reflection {
+  background: rgba(160,120,220,0.15);
+  color: rgba(200,170,255,0.90);
+  border: 0.5px solid var(--purple);
+}
+
+.dest-church {
+  background: rgba(60,180,170,0.13);
+  color: rgba(100,210,200,0.90);
+  border: 0.5px solid var(--teal);
+}
+
+/* ─── Action row ─────────────────────────────────────────────── */
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-helpful {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid rgba(212,174,56,0.45);
+  border-radius: 20px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s var(--spring), opacity 0.2s;
+  min-height: 36px;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-helpful:hover:not(:disabled) { background: var(--gold-dim); }
+.btn-helpful.marked {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  opacity: 0.6;
+  cursor: default;
+}
+.btn-helpful:disabled { cursor: default; }
+
+@keyframes helpful-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.btn-helpful.pop { animation: helpful-pop 0.28s var(--spring) forwards; }
+
+.btn-reply {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: 20px;
+  min-height: 36px;
+  transition: color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-reply:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+.btn-accept {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--sep);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--text3);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.btn-accept:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+.btn-accept.accepted { color: var(--gold); border-color: var(--gold); background: var(--gold-dim); }
+.btn-accept:active { transform: scale(0.9); }
+
+/* ─── Inline reply composer (stub) ──────────────────────────── */
+.reply-composer {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--glass-bg2);
+  border: 0.5px solid var(--sep);
+  border-radius: 12px;
+  display: none;
+  animation: fade-in 0.18s ease;
+}
+.reply-composer.visible { display: block; }
+
+.reply-input {
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  resize: none;
+  min-height: 56px;
+  line-height: 1.5;
+}
+.reply-input::placeholder { color: var(--text3); }
+
+.reply-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-cancel {
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 10px;
+  min-height: 36px;
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-cancel:hover { color: var(--text); }
+
+.btn-post {
+  background: var(--gold-dim);
+  border: 0.5px solid var(--gold);
+  border-radius: 20px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 16px;
+  cursor: pointer;
+  min-height: 36px;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-post:hover { background: rgba(212,174,56,0.28); }
+
+/* ─── Section divider ────────────────────────────────────────── */
+.section-divider {
+  margin: 20px 16px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 0.5px;
+  background: var(--sep);
+}
+
+/* ─── Context cards (verse stub) ─────────────────────────────── */
+.context-cards {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.context-card {
+  padding: 13px 14px;
+}
+
+.context-reference {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 5px;
+  letter-spacing: 0.5px;
+}
+
+.context-text {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.55;
+  font-style: italic;
+}
+
+/* ─── Ask Berean panel ───────────────────────────────────────── */
+.berean-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0);
+  pointer-events: none;
+  transition: background 0.3s ease;
+}
+.berean-overlay.open {
+  background: rgba(0,0,0,0.55);
+  pointer-events: all;
+}
+
+.berean-panel {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(100%);
+  width: min(480px, 100vw);
+  max-height: 82vh;
+  z-index: 201;
+  background: rgba(20,20,25,0.92);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 0.5px solid var(--sep);
+  border-top: 1.5px solid var(--gold);
+  border-radius: 24px 24px 0 0;
+  padding: 0 0 env(safe-area-inset-bottom, 24px);
+  overflow-y: auto;
+  transition: transform 0.4s cubic-bezier(0.32,0.72,0,1);
+  overscroll-behavior: contain;
+}
+.berean-panel.open {
+  transform: translateX(-50%) translateY(0);
+}
+
+.berean-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--sep);
+  border-radius: 2px;
+  margin: 10px auto 0;
+}
+
+.berean-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 0.5px solid var(--sep);
+  position: sticky;
+  top: 0;
+  background: rgba(20,20,25,0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  z-index: 1;
+}
+
+.berean-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gold);
+  letter-spacing: -0.2px;
+}
+
+.btn-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  border: 0.5px solid var(--sep);
+  color: var(--text2);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+.btn-close:hover { background: rgba(255,255,255,0.13); color: var(--text); }
+
+.berean-body {
+  padding: 0 18px 24px;
+}
+
+/* Berean sections */
+.berean-section {
+  margin-top: 20px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.berean-section.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.berean-section-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+  letter-spacing: -0.1px;
+}
+
+.berean-summary-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text2);
+}
+
+.berean-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.berean-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text2);
+}
+
+.berean-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 7px;
+}
+.berean-dot.gold { background: var(--gold); }
+.berean-dot.amber { background: var(--amber); }
+
+.berean-verse-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.berean-verse-chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  background: var(--gold-dim);
+  border: 0.5px solid rgba(212,174,56,0.40);
+  border-radius: 20px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.berean-verse-chip:hover { background: rgba(212,174,56,0.28); }
+
+.berean-questions {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  counter-reset: sq;
+}
+
+.berean-questions li {
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text2);
+  counter-increment: sq;
+}
+
+.berean-questions li::before {
+  content: counter(sq);
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+  border: 0.5px solid rgba(212,174,56,0.35);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+/* ─── Utility ────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Thread Header ─────────────────────────────────────── -->
+  <div class="thread-header">
+    <div class="thread-header-row">
+      <div class="post-type-icon" id="post-type-icon" aria-hidden="true"></div>
+      <div class="thread-meta">
+        <div class="thread-title" id="thread-title"></div>
+        <div class="thread-stats" id="thread-stats"></div>
+      </div>
+      <button class="btn-berean" id="btn-berean" aria-label="Ask Berean AI" aria-expanded="false">
+        <span class="btn-berean-icon" aria-hidden="true">✦</span> Ask Berean
+      </button>
+    </div>
+
+    <!-- Locked banner (hidden by default) -->
+    <div class="locked-banner hidden" id="locked-banner" role="status">
+      <span class="locked-icon" aria-hidden="true">🔒</span>
+      <span>This thread is paused for reflection.</span>
+    </div>
+  </div>
+
+  <!-- ── Comment Tree (rendered by JS) ─────────────────────── -->
+  <div class="comment-list" id="comment-list" role="list" aria-label="Discussion thread"></div>
+
+  <!-- ── Context Cards section ──────────────────────────────── -->
+  <div class="section-divider" id="verse-section-divider">Scripture</div>
+  <div class="context-cards" id="context-cards" aria-label="Referenced scripture"></div>
+
+</div><!-- /shell -->
+
+<!-- ── Ask Berean Panel ────────────────────────────────────── -->
+<div class="berean-overlay" id="berean-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Ask Berean AI panel">
+  <div class="berean-panel" id="berean-panel">
+    <div class="berean-handle" aria-hidden="true"></div>
+    <div class="berean-header">
+      <h2 class="berean-title">Ask Berean</h2>
+      <button class="btn-close" id="btn-close-berean" aria-label="Close Ask Berean panel">✕</button>
+    </div>
+    <div class="berean-body" id="berean-body">
+      <!-- sections injected by JS -->
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DATA MODEL
+═══════════════════════════════════════════════════════════ */
+
+// Badge tiers: none=0pts, seeker=10pts, berean=50pts, elder=200pts
+// Comment shape:
+// { id, authorUID, authorDisplayName, authorAvatarURL, parentCommentId, depth,
+//   body, verseKeys, destination, helpfulCount, isAcceptedAnswer, isDeleted,
+//   createdAt, reputation: { totalPoints, badgeTier } }
+
+const THREAD = {
+  id: 'thread-001',
+  title: 'What does it mean to "take every thought captive"? Is this about mental discipline or something deeper?',
+  postType: 'text',          // text | video | audio | image
+  isLocked: false,
+  commentCount: 7,
+  authorUID: 'user-alpha',   // thread owner (can accept answers)
+};
+
+// Current viewer — treated as thread author for demo
+const CURRENT_USER = { uid: 'user-alpha' };
+
+const AVATAR_COLORS = [
+  '#4A6FA5', '#6B5EA8', '#2E8B6E', '#B5582A',
+  '#7A3B6E', '#2D7FAA', '#A84A4A', '#4A8A5C',
+];
+
+function avatarColor(uid) {
+  let h = 0;
+  for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) & 0xFFFFFF;
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+function initials(name) {
+  return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+}
+
+// createdAt: minutes ago for display
+const NOW = Date.now();
+function minsAgo(n) { return new Date(NOW - n * 60 * 1000); }
+
+const COMMENTS = [
+  // ── Root 1 (depth 0) ──
+  {
+    id: 'c1',
+    authorUID: 'user-grace',
+    authorDisplayName: 'Grace Kim',
+    parentCommentId: null,
+    depth: 0,
+    body: 'Paul in 2 Corinthians 10:5 frames this as a warfare metaphor — we demolish arguments and "take captive every thought to make it obedient to Christ." I think it's more than mental hygiene. It's about recognizing which voices have authority in our minds and choosing to submit them to Jesus rather than our own logic or fear.',
+    verseKeys: ['2 Cor 10:5', 'Rom 12:2'],
+    destination: 'public',
+    helpfulCount: 14,
+    isAcceptedAnswer: false,
+    isDeleted: false,
+    createdAt: minsAgo(62),
+    reputation: { totalPoints: 210, badgeTier: 'elder' },
+  },
+
+  // ── Depth-1 reply to c1 ──
+  {
+    id: 'c1a',
+    authorUID: 'user-marcus',
+    authorDisplayName: 'Marcus Webb',
+    parentCommentId: 'c1',
+    depth: 1,
+    body: 'This is a great frame. The Greek "αἰχμαλωτίζοντες" (aichmalōtizontes) literally means "to lead captive as a prisoner of war." The image is military, not therapeutic. We're not just calming anxious thoughts — we're capturing rebellious ones and bringing them under the Lordship of Christ.',
+    verseKeys: ['2 Cor 10:5'],
+    destination: 'reflection',
+    helpfulCount: 8,
+    isAcceptedAnswer: false,
+    isDeleted: false,
+    createdAt: minsAgo(48),
+    reputation: { totalPoints: 72, badgeTier: 'berean' },
+  },
+
+  // ── Depth-2 reply to c1a ──
+  {
+    id: 'c1a1',
+    authorUID: 'user-alpha',
+    authorDisplayName: 'Steph T',
+    parentCommentId: 'c1a',
+    depth: 2,
+    body: 'That Greek word really shifts the tone for me. It's not passive — it implies active, intentional effort. So the discipline is real, but it's anchored in surrender rather than willpower alone.',
+    verseKeys: [],
+    destination: 'church',
+    helpfulCount: 3,
+    isAcceptedAnswer: false,
+    isDeleted: false,
+    createdAt: minsAgo(35),
+    reputation: { totalPoints: 5, badgeTier: 'none' },
+  },
+
+  // ── Root 2 (depth 0) ──
+  {
+    id: 'c2',
+    authorUID: 'user-david',
+    authorDisplayName: 'David Osei',
+    parentCommentId: null,
+    depth: 0,
+    body: 'I see a connection to the Berean model — the Bereans "examined the Scriptures every day to see if what Paul said was true" (Acts 17:11). Taking every thought captive isn't just about filtering bad thoughts out; it's about holding ALL thoughts — even good-sounding ones — up to Scripture. That's a posture of humility.',
+    verseKeys: ['Acts 17:11', 'Phil 4:8'],
+    destination: 'public',
+    helpfulCount: 11,
+    isAcceptedAnswer: false,
+    isDeleted: false,
+    createdAt: minsAgo(55),
+    reputation: { totalPoints: 60, badgeTier: 'berean' },
+  },
+
+  // ── Depth-1 reply to c2 ──
+  {
+    id: 'c2a',
+    authorUID: 'user-priya',
+    authorDisplayName: 'Priya Nair',
+    parentCommentId: 'c2',
+    depth: 1,
+    body: 'Absolutely. Philippians 4:8 extends this even further — whatever is true, noble, right, pure, lovely, admirable — think on these. That's not a defense mechanism; it's an offensive cultivation of a renewed mind. Both passages together suggest a full spiritual practice.',
+    verseKeys: ['Phil 4:8'],
+    destination: 'reflection',
+    helpfulCount: 6,
+    isAcceptedAnswer: false,
+    isDeleted: false,
+    createdAt: minsAgo(40),
+    reputation: { totalPoints: 18, badgeTier: 'seeker' },
+  },
+
+  // ── Root 3 (depth 0, no replies) ──
+  {
+    id: 'c3',
+    authorUID: 'user-joy',
+    authorDisplayName: 'Joy Olusegun',
+    parentCommentId: null,
+    depth: 0,
+    body: 'I think the "something deeper" framing resonates with me. Mental discipline apart from the Spirit is just stoicism. What makes taking thoughts captive Christian is the "to Christ" part — you're not just achieving mental clarity, you're aligning your inner life to a Person. The relationship is the method.',
+    verseKeys: ['Gal 5:25'],
+    destination: 'public',
+    helpfulCount: 19,
+    isAcceptedAnswer: false,
+    isDeleted: false,
+    createdAt: minsAgo(20),
+    reputation: { totalPoints: 88, badgeTier: 'berean' },
+  },
+
+  // ── Root 1 second reply (depth 1) — already in c1a tree ──
+  {
+    id: 'c1b',
+    authorUID: 'user-samuel',
+    authorDisplayName: 'Samuel Park',
+    parentCommentId: 'c1',
+    depth: 1,
+    body: 'I'd add that context matters here too — Paul was addressing Corinthians who were dealing with false apostles and sophistic arguments. The "thoughts" in view were actually theological arguments, not just personal anxious thoughts. It does apply broadly but that historical grounding matters.',
+    verseKeys: ['2 Cor 10:3-6'],
+    destination: 'public',
+    helpfulCount: 5,
+    isAcceptedAnswer: false,
+    isDeleted: false,
+    createdAt: minsAgo(44),
+    reputation: { totalPoints: 35, badgeTier: 'seeker' },
+  },
+];
+
+const VERSE_CONTEXT = {
+  '2 Cor 10:5': '"We demolish arguments and every pretension that sets itself up against the knowledge of God, and we take captive every thought to make it obedient to Christ." — 2 Corinthians 10:5 (NIV)',
+  'Rom 12:2':   '"Do not conform to the pattern of this world, but be transformed by the renewing of your mind." — Romans 12:2 (NIV)',
+  'Acts 17:11': '"The Bereans were of more noble character than those in Thessalonica, for they received the message with great eagerness and examined the Scriptures every day to see if what Paul said was true." — Acts 17:11 (NIV)',
+  'Phil 4:8':   '"Finally, brothers and sisters, whatever is true, whatever is noble, whatever is right, whatever is pure, whatever is lovely, whatever is admirable — think about such things." — Philippians 4:8 (NIV)',
+  'Gal 5:25':   '"Since we live by the Spirit, let us keep in step with the Spirit." — Galatians 5:25 (NIV)',
+  '2 Cor 10:3-6': '"For though we live in the world, we do not wage war as the world does. The weapons we fight with are not the weapons of the world. On the contrary, they have divine power to demolish strongholds." — 2 Corinthians 10:3-4 (NIV)',
+};
+
+const BEREAN_ANALYSIS = {
+  summary: 'This thread explores whether "taking every thought captive" (2 Cor 10:5) is about mental discipline, spiritual warfare, or a deeper posture of surrender. Contributors draw on Greek word study, Berean discernment, Philippians 4:8, and the historical Corinthian context to argue that this practice is distinctly Christian — relational and spirit-empowered, not merely cognitive.',
+  agreementPoints: [
+    'The Greek aichmalōtizontes frames the practice as active, military capture — not passive suppression.',
+    'The "to Christ" qualifier makes this practice distinctly Christian, not merely stoic or therapeutic.',
+    'The Berean model (Acts 17:11) enriches the practice: hold all thoughts — even good ones — to Scripture.',
+    'The goal is a renewed mind (Rom 12:2) through cultivation, not just defensive filtering.',
+  ],
+  openQuestions: [
+    'Does this practice require formal spiritual disciplines, or can it emerge organically through relationship with Christ?',
+    'How do we distinguish between godly conviction and obsessive, scrupulous thought patterns?',
+    'Is there a pastoral concern when this concept is weaponized against anxiety disorders?',
+  ],
+  biblicalRefs: ['2 Cor 10:3-6', 'Phil 4:8', 'Rom 12:2', 'Acts 17:11', 'Gal 5:25'],
+  studyQuestions: [
+    'Read 2 Corinthians 10:1-6 in full. What is the specific conflict Paul was addressing, and how does that sharpen the meaning of verse 5?',
+    'Compare "taking every thought captive" (2 Cor 10:5) with "renewing your mind" (Rom 12:2). Are these the same practice, or distinct but complementary?',
+    'In Philippians 4:8, Paul lists eight qualities to meditate on. How might intentional meditation on these reshape neural habits over time?',
+    'Joy\'s comment draws a line between stoicism and Christian mental discipline. What would you say is the most crucial practical difference?',
+    'How does understanding this as a "spiritual warfare" text (not a therapy text) change how you apply it?',
+  ],
+};
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+
+let state = {
+  comments: JSON.parse(JSON.stringify(COMMENTS)), // deep copy so we can mutate
+  collapsedGroups: {},   // parentId => true when collapsed
+  openReplyFor: null,    // comment id whose composer is open
+  acceptedId: null,
+  bereanOpen: false,
+};
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
+
+function relTime(date) {
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60)  return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function postTypeIcon(type) {
+  return { video: '🎬', audio: '🎙', text: '📝', image: '🖼' }[type] || '📝';
+}
+
+function badgeTier(tier) {
+  if (tier === 'none') return null;
+  const map = {
+    seeker: '<span class="badge badge-seeker">Seeker</span>',
+    berean: '<span class="badge badge-berean">✦ Berean</span>',
+    elder:  '<span class="badge badge-elder">★ Elder</span>',
+  };
+  return map[tier] || null;
+}
+
+function destBadgeHTML(dest) {
+  if (dest === 'reflection') return '<span class="dest-badge dest-reflection">Reflection</span>';
+  if (dest === 'church')     return '<span class="dest-badge dest-church">Church Notes</span>';
+  return '';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER ENGINE
+═══════════════════════════════════════════════════════════ */
+
+function buildTree() {
+  // Group comments by parentCommentId
+  const byParent = {};
+  state.comments.forEach(c => {
+    const key = c.parentCommentId || '__root__';
+    if (!byParent[key]) byParent[key] = [];
+    byParent[key].push(c);
+  });
+
+  // Sort roots: accepted first, then by createdAt asc
+  const roots = (byParent['__root__'] || []).slice().sort((a, b) => {
+    if (a.id === state.acceptedId) return -1;
+    if (b.id === state.acceptedId) return 1;
+    return a.createdAt - b.createdAt;
+  });
+
+  return { byParent, roots };
+}
+
+function renderCommentCard(comment) {
+  const isAccepted = comment.id === state.acceptedId;
+  const isOwner    = CURRENT_USER.uid === THREAD.authorUID;
+  const color      = avatarColor(comment.authorUID);
+  const inits      = initials(comment.authorDisplayName);
+  const badge      = badgeTier(comment.reputation.badgeTier);
+  const dest       = destBadgeHTML(comment.destination);
+
+  const verseChips = comment.verseKeys.map(v =>
+    `<button class="verse-chip" onclick="scrollToVerse('${v}')" aria-label="View ${v}">${v}</button>`
+  ).join('');
+
+  const helpfulBtn = `
+    <button class="btn-helpful ${comment._marked ? 'marked' : ''}"
+      id="helpful-${comment.id}"
+      onclick="markHelpful('${comment.id}')"
+      ${comment._marked ? 'disabled' : ''}
+      aria-label="Mark as helpful, ${comment.helpfulCount} marks"
+      aria-pressed="${comment._marked ? 'true' : 'false'}">
+      <span aria-hidden="true">🙏</span> Helpful (${comment.helpfulCount})
+    </button>`;
+
+  const replyBtn = THREAD.isLocked ? '' :
+    `<button class="btn-reply" onclick="toggleReply('${comment.id}')" aria-label="Reply to ${comment.authorDisplayName}">Reply</button>`;
+
+  const acceptBtn = isOwner && !THREAD.isLocked ?
+    `<button class="btn-accept ${isAccepted ? 'accepted' : ''}"
+      id="accept-${comment.id}"
+      onclick="toggleAccept('${comment.id}')"
+      aria-label="${isAccepted ? 'Remove accepted answer' : 'Mark as accepted answer'}"
+      aria-pressed="${isAccepted}">✓</button>` : '';
+
+  const acceptedLabel = isAccepted ?
+    `<div class="accepted-label" aria-label="Accepted answer"><span aria-hidden="true">✓</span> Accepted Answer</div>` : '';
+
+  return `
+    <div class="comment-card glass ${isAccepted ? 'accepted' : ''}"
+         id="card-${comment.id}"
+         role="listitem"
+         aria-label="Comment by ${comment.authorDisplayName}">
+      ${acceptedLabel}
+      <div class="comment-header">
+        <div class="avatar" style="background:${color}" aria-hidden="true">${inits}</div>
+        <div class="author-block">
+          <div class="author-name-row">
+            <span class="author-name">${escHtml(comment.authorDisplayName)}</span>
+            ${badge || ''}
+          </div>
+          <span class="rel-time">${relTime(comment.createdAt)}</span>
+        </div>
+      </div>
+      ${dest}
+      <div class="comment-body">${escHtml(comment.body)}</div>
+      ${verseChips ? `<div class="verse-chips" aria-label="Scripture references">${verseChips}</div>` : ''}
+      <div class="action-row">
+        ${helpfulBtn}
+        ${replyBtn}
+        ${acceptBtn}
+      </div>
+      ${THREAD.isLocked ? '' : `
+        <div class="reply-composer" id="composer-${comment.id}" aria-label="Reply composer">
+          <textarea class="reply-input" id="reply-input-${comment.id}" rows="3"
+            placeholder="Your reply to ${comment.authorDisplayName}…" aria-label="Reply text"></textarea>
+          <div class="reply-actions">
+            <button class="btn-cancel" onclick="closeReply('${comment.id}')">Cancel</button>
+            <button class="btn-post" onclick="postReply('${comment.id}')">Post</button>
+          </div>
+        </div>
+      `}
+    </div>`;
+}
+
+function renderGroup(comment, byParent) {
+  const children = byParent[comment.id] || [];
+  const hasChildren = children.length > 0;
+  const collapsed = !!state.collapsedGroups[comment.id];
+  const depthClass = comment.depth === 0 ? '' : `depth-${comment.depth}`;
+
+  let childrenHTML = '';
+  if (hasChildren) {
+    const childCards = children.map(c => renderGroup(c, byParent)).join('');
+    childrenHTML = `
+      <button class="collapse-toggle"
+        onclick="toggleCollapse('${comment.id}')"
+        aria-expanded="${!collapsed}"
+        aria-controls="children-${comment.id}"
+        aria-label="${collapsed ? 'Expand' : 'Collapse'} ${children.length} repl${children.length === 1 ? 'y' : 'ies'}">
+        <span class="chevron ${collapsed ? '' : 'open'}" id="chevron-${comment.id}" aria-hidden="true">▶</span>
+        ${children.length} repl${children.length === 1 ? 'y' : 'ies'}
+      </button>
+      <div class="children-wrap ${collapsed ? '' : 'open'}" id="children-${comment.id}">
+        <div class="children-inner">${childCards}</div>
+      </div>`;
+  }
+
+  return `
+    <div class="comment-group ${depthClass}" data-comment-id="${comment.id}">
+      ${renderCommentCard(comment)}
+      ${childrenHTML}
+    </div>`;
+}
+
+function renderThread() {
+  const { byParent, roots } = buildTree();
+  const list = document.getElementById('comment-list');
+  list.innerHTML = roots.map(r => renderGroup(r, byParent)).join('');
+  renderContextCards();
+}
+
+function renderContextCards() {
+  const allVerse = new Set(state.comments.flatMap(c => c.verseKeys));
+  const container = document.getElementById('context-cards');
+  const divider = document.getElementById('verse-section-divider');
+  if (allVerse.size === 0) {
+    container.innerHTML = '';
+    divider.classList.add('hidden');
+    return;
+  }
+  divider.classList.remove('hidden');
+  container.innerHTML = [...allVerse].map(v => {
+    const text = VERSE_CONTEXT[v] || `"${v}" — see your Bible app for the full text.`;
+    return `<div class="context-card glass" id="verse-${CSS.escape(v)}" aria-label="${v} scripture context">
+      <div class="context-reference">${v}</div>
+      <div class="context-text">${escHtml(text)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INTERACTIONS
+═══════════════════════════════════════════════════════════ */
+
+function toggleCollapse(parentId) {
+  state.collapsedGroups[parentId] = !state.collapsedGroups[parentId];
+  const wrap = document.getElementById(`children-${parentId}`);
+  const chevron = document.getElementById(`chevron-${parentId}`);
+  const btn = chevron ? chevron.closest('.collapse-toggle') : null;
+  if (!wrap || !chevron) return;
+
+  const collapsed = state.collapsedGroups[parentId];
+  wrap.classList.toggle('open', !collapsed);
+  chevron.classList.toggle('open', !collapsed);
+  if (btn) {
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    btn.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} replies`);
+  }
+}
+
+function markHelpful(commentId) {
+  const c = state.comments.find(x => x.id === commentId);
+  if (!c || c._marked) return;
+
+  c.helpfulCount++;
+  c._marked = true;
+
+  const btn = document.getElementById(`helpful-${commentId}`);
+  if (!btn) return;
+
+  btn.classList.add('pop');
+  btn.textContent = '';
+  btn.innerHTML = `<span aria-hidden="true">🙏</span> Helpful (${c.helpfulCount})`;
+  btn.classList.add('marked');
+  btn.disabled = true;
+  btn.setAttribute('aria-pressed', 'true');
+
+  btn.addEventListener('animationend', () => btn.classList.remove('pop'), { once: true });
+}
+
+function toggleReply(commentId) {
+  if (state.openReplyFor && state.openReplyFor !== commentId) {
+    closeReply(state.openReplyFor);
+  }
+  const composer = document.getElementById(`composer-${commentId}`);
+  if (!composer) return;
+  const isOpen = composer.classList.contains('visible');
+  if (isOpen) {
+    closeReply(commentId);
+  } else {
+    composer.classList.add('visible');
+    state.openReplyFor = commentId;
+    const ta = document.getElementById(`reply-input-${commentId}`);
+    if (ta) setTimeout(() => ta.focus(), 50);
+  }
+}
+
+function closeReply(commentId) {
+  const composer = document.getElementById(`composer-${commentId}`);
+  if (composer) {
+    composer.classList.remove('visible');
+    const ta = document.getElementById(`reply-input-${commentId}`);
+    if (ta) ta.value = '';
+  }
+  if (state.openReplyFor === commentId) state.openReplyFor = null;
+}
+
+function postReply(parentId) {
+  const ta = document.getElementById(`reply-input-${parentId}`);
+  const body = (ta ? ta.value : '').trim();
+  if (!body) return;
+
+  const parent = state.comments.find(c => c.id === parentId);
+  const newDepth = parent ? Math.min(parent.depth + 1, 2) : 0;
+
+  const newComment = {
+    id: `new-${Date.now()}`,
+    authorUID: CURRENT_USER.uid,
+    authorDisplayName: 'You',
+    parentCommentId: parentId,
+    depth: newDepth,
+    body,
+    verseKeys: [],
+    destination: 'public',
+    helpfulCount: 0,
+    isAcceptedAnswer: false,
+    isDeleted: false,
+    createdAt: new Date(),
+    reputation: { totalPoints: 5, badgeTier: 'none' },
+  };
+
+  state.comments.push(newComment);
+  THREAD.commentCount++;
+  closeReply(parentId);
+  renderThread();
+  updateHeader();
+
+  // Expand the parent's children after re-render
+  if (state.collapsedGroups[parentId]) {
+    state.collapsedGroups[parentId] = false;
+  }
+  // Scroll new card into view
+  setTimeout(() => {
+    const el = document.getElementById(`card-${newComment.id}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 60);
+}
+
+function toggleAccept(commentId) {
+  const wasAccepted = state.acceptedId === commentId;
+  state.acceptedId = wasAccepted ? null : commentId;
+  // Also update the data model flag
+  state.comments.forEach(c => { c.isAcceptedAnswer = c.id === state.acceptedId; });
+  renderThread();
+  // Scroll the accepted card to top of list if newly accepted
+  if (!wasAccepted) {
+    setTimeout(() => {
+      const el = document.getElementById(`card-${commentId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  }
+}
+
+function scrollToVerse(verseKey) {
+  const escaped = CSS.escape(verseKey);
+  const el = document.getElementById(`verse-${escaped}`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Flash highlight
+  el.style.transition = 'border-color 0.3s ease';
+  el.style.borderColor = 'var(--gold)';
+  setTimeout(() => { el.style.borderColor = ''; }, 1200);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BEREAN PANEL
+═══════════════════════════════════════════════════════════ */
+
+function openBerean() {
+  state.bereanOpen = true;
+  const overlay = document.getElementById('berean-overlay');
+  const panel   = document.getElementById('berean-panel');
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  panel.classList.add('open');
+  document.getElementById('btn-berean').setAttribute('aria-expanded', 'true');
+  document.body.style.overflow = 'hidden';
+
+  // Stagger section reveal
+  const sections = panel.querySelectorAll('.berean-section');
+  sections.forEach((s, i) => {
+    s.style.transitionDelay = `${i * 0.1}s`;
+    setTimeout(() => s.classList.add('revealed'), 80 + i * 100);
+  });
+
+  // Focus close button
+  setTimeout(() => document.getElementById('btn-close-berean').focus(), 350);
+}
+
+function closeBerean() {
+  state.bereanOpen = false;
+  const overlay = document.getElementById('berean-overlay');
+  const panel   = document.getElementById('berean-panel');
+  panel.classList.remove('open');
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  document.getElementById('btn-berean').setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+
+  // Reset reveals for next open
+  const sections = panel.querySelectorAll('.berean-section');
+  sections.forEach(s => {
+    s.classList.remove('revealed');
+    s.style.transitionDelay = '0s';
+  });
+
+  document.getElementById('btn-berean').focus();
+}
+
+function renderBereanBody() {
+  const a = BEREAN_ANALYSIS;
+  const agreeItems  = a.agreementPoints.map(p =>
+    `<li><span class="berean-dot gold" aria-hidden="true"></span><span>${escHtml(p)}</span></li>`
+  ).join('');
+  const openItems   = a.openQuestions.map(q =>
+    `<li><span class="berean-dot amber" aria-hidden="true"></span><span>${escHtml(q)}</span></li>`
+  ).join('');
+  const refChips    = a.biblicalRefs.map(r =>
+    `<button class="berean-verse-chip" onclick="closeBerean();setTimeout(()=>scrollToVerse('${r}'),300)" aria-label="View ${r}">${r}</button>`
+  ).join('');
+  const studyItems  = a.studyQuestions.map(q =>
+    `<li><span>${escHtml(q)}</span></li>`
+  ).join('');
+
+  document.getElementById('berean-body').innerHTML = `
+    <div class="berean-section" aria-label="Summary">
+      <h3 class="berean-section-title">Summary</h3>
+      <p class="berean-summary-text">${escHtml(a.summary)}</p>
+    </div>
+
+    <div class="berean-section" aria-label="Agreement points">
+      <h3 class="berean-section-title">Points of Agreement</h3>
+      <ul class="berean-list" role="list">${agreeItems}</ul>
+    </div>
+
+    <div class="berean-section" aria-label="Open questions">
+      <h3 class="berean-section-title">Open Questions</h3>
+      <ul class="berean-list" role="list">${openItems}</ul>
+    </div>
+
+    <div class="berean-section" aria-label="Biblical references">
+      <h3 class="berean-section-title">Biblical References</h3>
+      <div class="berean-verse-row" role="list">${refChips}</div>
+    </div>
+
+    <div class="berean-section" aria-label="Study questions">
+      <h3 class="berean-section-title">Study Questions</h3>
+      <ol class="berean-questions" role="list">${studyItems}</ol>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════════════ */
+
+function updateHeader() {
+  document.getElementById('post-type-icon').textContent = postTypeIcon(THREAD.postType);
+  document.getElementById('thread-title').textContent   = THREAD.title;
+  document.getElementById('thread-stats').textContent   =
+    `${state.comments.length} comments`;
+
+  const locked = document.getElementById('locked-banner');
+  locked.classList.toggle('hidden', !THREAD.isLocked);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════════════════════════ */
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EVENT WIRING
+═══════════════════════════════════════════════════════════ */
+
+document.getElementById('btn-berean').addEventListener('click', () => {
+  if (state.bereanOpen) closeBerean(); else openBerean();
+});
+
+document.getElementById('btn-close-berean').addEventListener('click', closeBerean);
+
+document.getElementById('berean-overlay').addEventListener('click', (e) => {
+  // Close if clicking the backdrop (not the panel)
+  if (!document.getElementById('berean-panel').contains(e.target)) closeBerean();
+});
+
+// Keyboard: Escape closes panel
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.bereanOpen) closeBerean();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════════ */
+
+renderBereanBody();
+updateHeader();
+renderThread();
+
+// Start all root comment children expanded by default
+// (they're open by default in CSS via .open class added by renderGroup)
+</script>
+</body>
+</html>

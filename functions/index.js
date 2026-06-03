@@ -1382,3 +1382,26 @@ exports.translateMessage                 = messagingIntelligence.translateMessag
 exports.detectMessageSafetyNudge         = messagingIntelligence.detectMessageSafetyNudge;
 exports.generateVoiceMessageSummary      = messagingIntelligence.generateVoiceMessageSummary;
 exports.detectMessageCrossSurfaceActions = messagingIntelligence.detectMessageCrossSurfaceActions;
+
+// ============================================================================
+// DISCUSSION SYSTEM V1 — Structured threads, Pre-Post Threshold, Ask Berean
+//   askBerean            — AI thread summary (mock when BEREAN_LLM_KEY unset)
+//   detectDuplicate      — cosine-similarity duplicate check (mock when EMBEDDING_KEY unset)
+//   computeReputation    — points aggregation + badge tier
+//   postComment          — write comment after threshold passes
+//   markHelpful          — idempotent helpful-mark + reputation event
+//   updateWatchProgress  — upsert watch-progress doc
+//   getWatchProgress     — read watch-progress + shouldNudge flag
+// Deploy: firebase deploy --only functions:askBerean,detectDuplicate,
+//           computeReputation,postComment,markHelpful,
+//           updateWatchProgress,getWatchProgress --project amen-5e359
+// ============================================================================
+
+const discussion = require("./discussionFunctions");
+exports.askBerean           = discussion.askBerean;
+exports.detectDuplicate     = discussion.detectDuplicate;
+exports.computeReputation   = discussion.computeReputation;
+exports.postComment         = discussion.postComment;
+exports.markHelpful         = discussion.markHelpful;
+exports.updateWatchProgress = discussion.updateWatchProgress;
+exports.getWatchProgress    = discussion.getWatchProgress;

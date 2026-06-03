@@ -13,26 +13,66 @@ struct AmenInlineObjectHubActionCluster: View {
             AmenInlineObjectHubPill(model: model, onTap: {})
                 .allowsHitTesting(false)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            actionRow
+        }
+        .transition(.opacity)
+    }
+
+    // MARK: - Action Row
+
+    @ViewBuilder
+    private var actionRow: some View {
+        if reduceTransparency {
+            solidActionRow
+        } else {
+            glassActionRow
+        }
+    }
+
+    /// iOS 26 glass: individual glass capsule per action, linked via GlassEffectContainer so
+    /// neighbouring buttons share a single refractive slab and morph between each other.
+    private var glassActionRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            GlassEffectContainer(spacing: 8) {
                 HStack(spacing: 8) {
                     ForEach(actions, id: \.self) { action in
-                        Button(actionLabel(for: action)) {
-                            onAction(action)
-                        }
-                        .buttonStyle(AmenHubGlassButtonStyle(reduceMotion: reduceMotion))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(minHeight: 44)
-                        .background(reduceTransparency ? Color.white.opacity(0.92) : AnyShapeStyle(.thinMaterial), in: Capsule())
-                        .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
-                        .foregroundStyle(.black.opacity(0.86))
-                        .accessibilityLabel(actionLabel(for: action))
+                        actionButton(for: action)
+                            .glassEffect(in: Capsule())  // must be last modifier on each button
                     }
                 }
             }
         }
-        .transition(.opacity)
     }
+
+    /// Reduce-transparency fallback: solid system-background capsule per button, no glass.
+    private var solidActionRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(actions, id: \.self) { action in
+                    actionButton(for: action)
+                        .background(Color(.systemBackground), in: Capsule())
+                        .overlay(Capsule().stroke(Color.primary.opacity(0.14), lineWidth: 0.8))
+                }
+            }
+        }
+    }
+
+    // MARK: - Individual Button
+
+    private func actionButton(for action: AmenInlineObjectHubAction) -> some View {
+        Button(actionLabel(for: action)) {
+            onAction(action)
+        }
+        .buttonStyle(AmenHubGlassButtonStyle(reduceMotion: reduceMotion))
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .frame(minHeight: 44)
+        .accessibilityLabel(actionLabel(for: action))
+    }
+
+    // MARK: - Labels
 
     private func actionLabel(for action: AmenInlineObjectHubAction) -> String {
         switch action {

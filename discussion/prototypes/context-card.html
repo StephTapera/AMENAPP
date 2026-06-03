@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>AMEN · Context Card Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet" />
+<style>
+/* ─── Design tokens ─────────────────────────────── */
+:root {
+  --gold:       #D4AE38;
+  --gold-dim:   rgba(212,174,56,0.15);
+  --glass-bg:   rgba(255,255,255,0.07);
+  --glass-bg2:  rgba(255,255,255,0.04);
+  --glass-blur: 20px;
+  --bg:         #0F0F12;
+  --bg2:        #1A1A1D;
+  --text:       #F5F0E8;
+  --text2:      rgba(245,240,232,0.55);
+  --text3:      rgba(245,240,232,0.28);
+  --sep:        rgba(255,255,255,0.09);
+  --spring:     cubic-bezier(0.34,1.56,0.64,1);
+  --radius-card: 16px;
+  --radius-pill: 20px;
+}
+
+/* ─── Reset / base ──────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  padding: 0;
+}
+
+/* ─── Page shell ────────────────────────────────── */
+.page-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 0 80px;
+}
+
+/* ─── Thread header ─────────────────────────────── */
+.thread-header {
+  padding: 56px 20px 16px;
+  border-bottom: 1px solid var(--sep);
+}
+.thread-back {
+  font-size: 13px;
+  color: var(--gold);
+  opacity: 0.8;
+  margin-bottom: 12px;
+  letter-spacing: 0.01em;
+}
+.thread-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.thread-meta {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 4px;
+}
+
+/* ─── Filter badge ──────────────────────────────── */
+.filter-banner {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 16px 0;
+  padding: 8px 12px;
+  background: rgba(212,174,56,0.12);
+  border: 0.5px solid rgba(212,174,56,0.35);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--gold);
+}
+.filter-banner.visible { display: flex; }
+.filter-banner-label { flex: 1; font-weight: 500; }
+.filter-clear {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 50%;
+  transition: background 0.15s;
+}
+.filter-clear:hover { background: rgba(212,174,56,0.2); }
+
+/* ─── Comment cards ─────────────────────────────── */
+.comment-list {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.comment-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 0.5px solid var(--sep);
+  border-radius: var(--radius-card);
+  padding: 14px 14px 12px;
+  transition: opacity 0.3s ease;
+}
+.comment-card.dimmed { opacity: 0.3; pointer-events: none; }
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(212,174,56,0.25);
+  border: 1.5px solid var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+.comment-author { font-size: 14px; font-weight: 600; }
+.comment-time   { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+.comment-body {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+}
+/* inline text wrapping around chips */
+.comment-body p { display: inline; }
+
+/* ─── Verse pill chip ────────────────────────────── */
+.verse-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(212,174,56,0.12);
+  border: 0.5px solid rgba(212,174,56,0.4);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  color: var(--gold);
+  font-weight: 500;
+  cursor: pointer;
+  vertical-align: middle;
+  min-height: 26px;
+  white-space: nowrap;
+  transition: background 0.15s, transform 0.15s var(--spring);
+  user-select: none;
+  position: relative;
+  top: -1px;
+}
+.verse-chip:hover  { background: rgba(212,174,56,0.2); }
+.verse-chip:active { transform: scale(0.96); }
+.chip-icon    { font-size: 11px; }
+.chip-chevron {
+  font-size: 11px;
+  display: inline-block;
+  transition: transform 0.25s var(--spring);
+  line-height: 1;
+}
+.verse-chip.expanded .chip-chevron { transform: rotate(90deg); }
+
+/* ─── Context card (expandable) ─────────────────── */
+.context-card-wrapper {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease-out;
+}
+.context-card-wrapper.open { max-height: 900px; }
+
+.context-card {
+  background: var(--glass-bg2);
+  border: 0.5px solid var(--sep);
+  border-top: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  margin-top: 8px;
+}
+/* nested (cross-ref) */
+.context-card-wrapper.nested { margin-left: 12px; }
+.context-card-wrapper.nested .context-card {
+  border-top-color: rgba(212,174,56,0.55);
+  background: rgba(255,255,255,0.03);
+}
+
+/* Card header */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-ref {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold);
+  letter-spacing: 0.01em;
+}
+
+/* Translation segmented control */
+.translation-seg {
+  display: flex;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--sep);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.trans-btn {
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  min-height: 28px;
+  letter-spacing: 0.02em;
+}
+.trans-btn.active {
+  background: var(--gold);
+  color: #0F0F12;
+  font-weight: 700;
+}
+
+/* Verse text */
+.verse-text-wrap {
+  position: relative;
+  min-height: 40px;
+  margin-bottom: 10px;
+}
+.verse-text {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 18px;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--text);
+  transition: opacity 0.2s ease;
+}
+.verse-text.fading { opacity: 0; }
+
+/* Book context */
+.verse-context {
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 12px;
+  letter-spacing: 0.01em;
+}
+
+/* Cross-reference chips row */
+.cross-refs-label {
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.cross-refs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+/* cross-ref chip — slightly smaller */
+.xref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 9px;
+  background: rgba(212,174,56,0.08);
+  border: 0.5px solid rgba(212,174,56,0.3);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  color: var(--gold);
+  font-weight: 500;
+  cursor: pointer;
+  min-height: 24px;
+  white-space: nowrap;
+  transition: background 0.15s;
+  user-select: none;
+}
+.xref-chip:hover { background: rgba(212,174,56,0.18); }
+.xref-chip .chip-chevron { font-size: 10px; }
+.xref-chip.expanded .chip-chevron { transform: rotate(90deg); }
+
+/* Actions row */
+.card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-top: 0.5px solid var(--sep);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+.card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--sep);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  min-height: 30px;
+  white-space: nowrap;
+}
+.card-action-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+}
+.card-action-btn.success {
+  background: rgba(212,174,56,0.18);
+  border-color: rgba(212,174,56,0.5);
+  color: var(--gold);
+}
+.card-action-btn.filter-active {
+  background: rgba(212,174,56,0.22);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ─── Utility ───────────────────────────────────── */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap;
+}
+</style>
+</head>
+
+<body>
+<div class="page-shell" role="main">
+
+  <!-- Thread header -->
+  <div class="thread-header">
+    <div class="thread-back">← Community &middot; General</div>
+    <div class="thread-title">What scriptures have been anchoring you this season?</div>
+    <div class="thread-meta">14 replies &middot; Started 3 hours ago</div>
+  </div>
+
+  <!-- Active filter banner (hidden until filter is applied) -->
+  <div class="filter-banner" id="filterBanner" role="status" aria-live="polite">
+    <span class="filter-banner-label" id="filterLabel">Filtered: John 3:16</span>
+    <button class="filter-clear" id="filterClearBtn" aria-label="Clear filter" title="Clear filter">×</button>
+  </div>
+
+  <!-- Comment thread -->
+  <div class="comment-list" id="commentList" role="feed" aria-label="Discussion thread">
+
+    <!-- Comment 1 -->
+    <article class="comment-card" id="comment-1" data-verses="JHN.3.16 ROM.8.28" aria-label="Comment by Marcus A.">
+      <div class="comment-header">
+        <div class="avatar" aria-hidden="true">MA</div>
+        <div>
+          <div class="comment-author">Marcus A.</div>
+          <div class="comment-time">3 hours ago</div>
+        </div>
+      </div>
+      <div class="comment-body">
+        Honestly, <span class="verse-chip" tabindex="0" role="button" aria-expanded="false"
+          data-verse="JHN.3.16" data-instance="1"
+          aria-label="Open Bible context card for John 3:16">
+          <span class="chip-icon">📖</span>
+          <span>John 3:16</span>
+          <span class="chip-chevron" aria-hidden="true">›</span>
+        </span>
+        has been my anchor. No matter how heavy things get, that reminder of God's love puts it all in perspective. And then
+        <span class="verse-chip" tabindex="0" role="button" aria-expanded="false"
+          data-verse="ROM.8.28" data-instance="1"
+          aria-label="Open Bible context card for Romans 8:28">
+          <span class="chip-icon">📖</span>
+          <span>Romans 8:28</span>
+          <span class="chip-chevron" aria-hidden="true">›</span>
+        </span>
+        — that promise that God is weaving everything together — is what I hold onto on hard days.
+      </div>
+      <!-- Card expansion zone for JHN.3.16 (instance 1) -->
+      <div class="context-card-wrapper" id="card-JHN.3.16-1" aria-hidden="true"></div>
+      <!-- Card expansion zone for ROM.8.28 (instance 1) -->
+      <div class="context-card-wrapper" id="card-ROM.8.28-1" aria-hidden="true"></div>
+    </article>
+
+    <!-- Comment 2 -->
+    <article class="comment-card" id="comment-2" data-verses="PSA.23.1" aria-label="Comment by Priya K.">
+      <div class="comment-header">
+        <div class="avatar" aria-hidden="true">PK</div>
+        <div>
+          <div class="comment-author">Priya K.</div>
+          <div class="comment-time">2 hours ago</div>
+        </div>
+      </div>
+      <div class="comment-body">
+        For me it's been
+        <span class="verse-chip" tabindex="0" role="button" aria-expanded="false"
+          data-verse="PSA.23.1" data-instance="1"
+          aria-label="Open Bible context card for Psalm 23:1">
+          <span class="chip-icon">📖</span>
+          <span>Psalm 23:1</span>
+          <span class="chip-chevron" aria-hidden="true">›</span>
+        </span>
+        — just that one sentence. Simple, but when anxiety hits in the middle of the night it's the line I come back to. The Lord as my shepherd means I'm not wandering alone.
+      </div>
+      <div class="context-card-wrapper" id="card-PSA.23.1-1" aria-hidden="true"></div>
+    </article>
+
+    <!-- Comment 3 -->
+    <article class="comment-card" id="comment-3" data-verses="MAT.5.9 JHN.3.16" aria-label="Comment by David O.">
+      <div class="comment-header">
+        <div class="avatar" aria-hidden="true">DO</div>
+        <div>
+          <div class="comment-author">David O.</div>
+          <div class="comment-time">1 hour ago</div>
+        </div>
+      </div>
+      <div class="comment-body">
+        With everything going on in the world right now, I keep returning to
+        <span class="verse-chip" tabindex="0" role="button" aria-expanded="false"
+          data-verse="MAT.5.9" data-instance="1"
+          aria-label="Open Bible context card for Matthew 5:9">
+          <span class="chip-icon">📖</span>
+          <span>Matthew 5:9</span>
+          <span class="chip-chevron" aria-hidden="true">›</span>
+        </span>
+        as a calling. And just like Marcus said,
+        <span class="verse-chip" tabindex="0" role="button" aria-expanded="false"
+          data-verse="JHN.3.16" data-instance="2"
+          aria-label="Open Bible context card for John 3:16">
+          <span class="chip-icon">📖</span>
+          <span>John 3:16</span>
+          <span class="chip-chevron" aria-hidden="true">›</span>
+        </span>
+        is the foundation everything else builds on.
+      </div>
+      <div class="context-card-wrapper" id="card-MAT.5.9-1" aria-hidden="true"></div>
+      <div class="context-card-wrapper" id="card-JHN.3.16-2" aria-hidden="true"></div>
+    </article>
+
+  </div><!-- /comment-list -->
+</div><!-- /page-shell -->
+
+<script>
+/* ═══════════════════════════════════════════════════
+   SEED DATA
+   ═══════════════════════════════════════════════════ */
+const VERSES = {
+  'JHN.3.16': {
+    ref: 'John 3:16',
+    context: 'New Testament · Gospel of John · Chapter 3',
+    translations: {
+      ESV: 'For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.',
+      KJV: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.',
+      NIV: 'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.'
+    },
+    crossRefs: ['ROM.5.8', '1JN.4.9']
+  },
+  'ROM.8.28': {
+    ref: 'Romans 8:28',
+    context: 'New Testament · Letter to the Romans · Chapter 8',
+    translations: {
+      ESV: 'And we know that for those who love God all things work together for good, for those who are called according to his purpose.',
+      KJV: 'And we know that all things work together for good to them that love God, to them who are the called according to his purpose.',
+      NIV: 'And we know that in all things God works for the good of those who love him, who have been called according to his purpose.'
+    },
+    crossRefs: ['GEN.50.20', 'JER.29.11']
+  },
+  'PSA.23.1': {
+    ref: 'Psalm 23:1',
+    context: 'Old Testament · Psalms · Chapter 23',
+    translations: {
+      ESV: 'The Lord is my shepherd; I shall not want.',
+      KJV: 'The Lord is my shepherd; I shall not want.',
+      NIV: 'The Lord is my shepherd, I lack nothing.'
+    },
+    crossRefs: ['JHN.10.11', 'ISA.40.11']
+  },
+  'MAT.5.9': {
+    ref: 'Matthew 5:9',
+    context: 'New Testament · Gospel of Matthew · Chapter 5 (Sermon on the Mount)',
+    translations: {
+      ESV: 'Blessed are the peacemakers, for they shall be called sons of God.',
+      KJV: 'Blessed are the peacemakers: for they shall be called the children of God.',
+      NIV: 'Blessed are the peacemakers, for they will be called children of God.'
+    },
+    crossRefs: ['ROM.12.18', 'JAM.3.18']
+  },
+  'ROM.5.8': {
+    ref: 'Romans 5:8',
+    context: 'New Testament · Letter to the Romans · Chapter 5',
+    translations: {
+      ESV: 'But God shows his love for us in that while we were still sinners, Christ died for us.',
+      KJV: 'But God commendeth his love toward us, in that, while we were yet sinners, Christ died for us.',
+      NIV: 'But God demonstrates his own love for us in this: While we were still sinners, Christ died for us.'
+    },
+    crossRefs: ['JHN.3.16']
+  },
+  '1JN.4.9': {
+    ref: '1 John 4:9',
+    context: 'New Testament · First Letter of John · Chapter 4',
+    translations: {
+      ESV: 'In this the love of God was made manifest among us, that God sent his only Son into the world, so that we might live through him.',
+      KJV: 'In this was manifested the love of God toward us, because that God sent his only begotten Son into the world, that we might live through him.',
+      NIV: 'This is how God showed his love among us: He sent his one and only Son into the world that we might live through him.'
+    },
+    crossRefs: ['JHN.3.16']
+  },
+  'GEN.50.20': {
+    ref: 'Genesis 50:20',
+    context: 'Old Testament · Genesis · Chapter 50',
+    translations: {
+      ESV: 'As for you, you meant evil against me, but God meant it for good, to bring it about that many people should be kept alive, as they are today.',
+      KJV: 'But as for you, ye thought evil against me; but God meant it unto good, to bring to pass, as it is this day, to save much people alive.',
+      NIV: 'You intended to harm me, but God intended it for good to accomplish what is now being done, the saving of many lives.'
+    },
+    crossRefs: ['ROM.8.28']
+  },
+  'JER.29.11': {
+    ref: 'Jeremiah 29:11',
+    context: 'Old Testament · Jeremiah · Chapter 29',
+    translations: {
+      ESV: 'For I know the plans I have for you, declares the Lord, plans for welfare and not for evil, to give you a future and a hope.',
+      KJV: 'For I know the thoughts that I think toward you, saith the Lord, thoughts of peace, and not of evil, to give you an expected end.',
+      NIV: '"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."'
+    },
+    crossRefs: ['ROM.8.28']
+  },
+  'JHN.10.11': {
+    ref: 'John 10:11',
+    context: 'New Testament · Gospel of John · Chapter 10',
+    translations: {
+      ESV: 'I am the good shepherd. The good shepherd lays down his life for the sheep.',
+      KJV: 'I am the good shepherd: the good shepherd giveth his life for the sheep.',
+      NIV: 'I am the good shepherd. The good shepherd lays down his life for the sheep.'
+    },
+    crossRefs: ['PSA.23.1']
+  },
+  'ISA.40.11': {
+    ref: 'Isaiah 40:11',
+    context: 'Old Testament · Isaiah · Chapter 40',
+    translations: {
+      ESV: 'He will tend his flock like a shepherd; he will gather the lambs in his arms; he will carry them in his bosom, and gently lead those that are with young.',
+      KJV: 'He shall feed his flock like a shepherd: he shall gather the lambs with his arm, and carry them in his bosom, and shall gently lead those that are with young.',
+      NIV: 'He tends his flock like a shepherd: He gathers the lambs in his arms and carries them close to his heart; he gently leads those that have young.'
+    },
+    crossRefs: ['PSA.23.1']
+  },
+  'ROM.12.18': {
+    ref: 'Romans 12:18',
+    context: 'New Testament · Letter to the Romans · Chapter 12',
+    translations: {
+      ESV: 'If possible, so far as it depends on you, live peaceably with all.',
+      KJV: 'If it be possible, as much as lieth in you, live peaceably with all men.',
+      NIV: 'If it is possible, as far as it depends on you, live at peace with everyone.'
+    },
+    crossRefs: ['MAT.5.9']
+  },
+  'JAM.3.18': {
+    ref: 'James 3:18',
+    context: 'New Testament · Letter of James · Chapter 3',
+    translations: {
+      ESV: 'And a harvest of righteousness is sown in peace by those who make peace.',
+      KJV: 'And the fruit of righteousness is sown in peace of them that make peace.',
+      NIV: 'Peacemakers who sow in peace reap a harvest of righteousness.'
+    },
+    crossRefs: ['MAT.5.9']
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════ */
+
+// Tracks active translation per card instance: key = "VERSE-instance"
+const cardState = {};
+
+// Active thread filter
+let activeFilter = null;
+
+// Church Notes marked verses
+const churchNoted = new Set();
+
+/* ═══════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════ */
+
+function stateKey(verseId, instance) {
+  return `${verseId}-${instance}`;
+}
+
+function getCardState(verseId, instance) {
+  const k = stateKey(verseId, instance);
+  if (!cardState[k]) cardState[k] = { translation: 'ESV', open: false };
+  return cardState[k];
+}
+
+/* ═══════════════════════════════════════════════════
+   BUILD CONTEXT CARD HTML
+   ═══════════════════════════════════════════════════ */
+
+function buildContextCard(verseId, instance, isNested = false) {
+  const data = VERSES[verseId];
+  if (!data) return '';
+  const st = getCardState(verseId, instance);
+  const verseText = data.translations[st.translation];
+  const noted = churchNoted.has(stateKey(verseId, instance));
+
+  const xrefChips = data.crossRefs.map(xref => {
+    const xdata = VERSES[xref];
+    if (!xdata) return '';
+    const xSt = getCardState(xref, `x-${instance}`);
+    return `
+      <span class="xref-chip ${xSt.open ? 'expanded' : ''}"
+            tabindex="0" role="button"
+            aria-expanded="${xSt.open}"
+            aria-label="Open context card for ${xdata.ref}"
+            data-xref="${xref}"
+            data-xinstance="x-${instance}">
+        <span class="chip-icon">📖</span>
+        <span>${xdata.ref}</span>
+        <span class="chip-chevron" aria-hidden="true">›</span>
+      </span>`;
+  }).join('');
+
+  const xrefWrappers = data.crossRefs.map(xref => {
+    const xSt = getCardState(xref, `x-${instance}`);
+    return `<div class="context-card-wrapper nested ${xSt.open ? 'open' : ''}"
+                 id="card-${xref}-x-${instance}"
+                 aria-hidden="${!xSt.open}">
+              ${xSt.open ? buildContextCard(xref, `x-${instance}`, true) : ''}
+            </div>`;
+  }).join('');
+
+  const filterActive = activeFilter === verseId;
+
+  return `
+    <div class="context-card" data-card-verse="${verseId}" data-card-instance="${instance}">
+      <div class="card-header">
+        <span class="card-ref">${data.ref}</span>
+        <div class="translation-seg" role="group" aria-label="Select translation">
+          ${['ESV','KJV','NIV'].map(t => `
+            <button class="trans-btn ${st.translation === t ? 'active' : ''}"
+                    data-trans="${t}"
+                    data-verse="${verseId}"
+                    data-instance="${instance}"
+                    aria-pressed="${st.translation === t}"
+                    aria-label="${t} translation">${t}</button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="verse-text-wrap">
+        <div class="verse-text" id="vt-${verseId}-${instance}">${verseText}</div>
+      </div>
+      <div class="verse-context">${data.context}</div>
+      <div class="cross-refs-label">Cross References</div>
+      <div class="cross-refs-row">${xrefChips}</div>
+      ${xrefWrappers}
+      <div class="card-actions">
+        <button class="card-action-btn" data-action="copy" data-verse="${verseId}" data-instance="${instance}"
+                aria-label="Copy ${data.ref} verse text">
+          📋 Copy verse
+        </button>
+        <button class="card-action-btn ${noted ? 'success' : ''}"
+                data-action="note" data-verse="${verseId}" data-instance="${instance}"
+                aria-label="${noted ? 'Added to Church Notes' : 'Add to Church Notes'}">
+          ${noted ? '✓ Added' : '📝 Add to Church Notes'}
+        </button>
+        <button class="card-action-btn ${filterActive ? 'filter-active' : ''}"
+                data-action="filter" data-verse="${verseId}" data-instance="${instance}"
+                aria-label="${filterActive ? 'Clear thread filter' : 'Filter thread to show only comments citing ' + data.ref}">
+          ${filterActive ? '🔍 Filtered' : '🔍 Search thread'}
+        </button>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════
+   RENDER / RE-RENDER A CARD WRAPPER
+   ═══════════════════════════════════════════════════ */
+
+function renderCardWrapper(wrapperId, verseId, instance, open) {
+  const wrapper = document.getElementById(wrapperId);
+  if (!wrapper) return;
+  if (open) {
+    wrapper.innerHTML = buildContextCard(verseId, instance);
+    // Force reflow then open
+    wrapper.offsetHeight; // eslint-disable-line no-unused-expressions
+    wrapper.classList.add('open');
+    wrapper.setAttribute('aria-hidden', 'false');
+  } else {
+    wrapper.classList.remove('open');
+    wrapper.setAttribute('aria-hidden', 'true');
+    // Clear after transition
+    wrapper.addEventListener('transitionend', () => {
+      if (!wrapper.classList.contains('open')) wrapper.innerHTML = '';
+    }, { once: true });
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   CHIP TOGGLE (main chips in comments)
+   ═══════════════════════════════════════════════════ */
+
+function toggleChip(chip) {
+  const verseId  = chip.dataset.verse;
+  const instance = chip.dataset.instance;
+  const st = getCardState(verseId, instance);
+  st.open = !st.open;
+  chip.classList.toggle('expanded', st.open);
+  chip.setAttribute('aria-expanded', st.open);
+  const wrapperId = `card-${verseId}-${instance}`;
+  renderCardWrapper(wrapperId, verseId, instance, st.open);
+}
+
+/* ═══════════════════════════════════════════════════
+   XREF CHIP TOGGLE (cross-ref chips inside a card)
+   ═══════════════════════════════════════════════════ */
+
+function toggleXrefChip(xchip) {
+  const xref      = xchip.dataset.xref;
+  const xinstance = xchip.dataset.xinstance;
+  const st = getCardState(xref, xinstance);
+  st.open = !st.open;
+  xchip.classList.toggle('expanded', st.open);
+  xchip.setAttribute('aria-expanded', st.open);
+  const wrapperId = `card-${xref}-${xinstance}`;
+  renderCardWrapper(wrapperId, xref, xinstance, st.open);
+}
+
+/* ═══════════════════════════════════════════════════
+   TRANSLATION SWITCH
+   ═══════════════════════════════════════════════════ */
+
+function switchTranslation(btn) {
+  const verseId  = btn.dataset.verse;
+  const instance = btn.dataset.instance;
+  const trans    = btn.dataset.trans;
+  const st = getCardState(verseId, instance);
+  if (st.translation === trans) return;
+  st.translation = trans;
+
+  // Update active button states
+  const seg = btn.closest('.translation-seg');
+  seg.querySelectorAll('.trans-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.trans === trans);
+    b.setAttribute('aria-pressed', b.dataset.trans === trans);
+  });
+
+  // Fade verse text
+  const vtEl = document.getElementById(`vt-${verseId}-${instance}`);
+  if (!vtEl) return;
+  vtEl.classList.add('fading');
+  setTimeout(() => {
+    vtEl.textContent = VERSES[verseId].translations[trans];
+    vtEl.classList.remove('fading');
+  }, 200);
+}
+
+/* ═══════════════════════════════════════════════════
+   COPY ACTION
+   ═══════════════════════════════════════════════════ */
+
+function copyVerse(btn) {
+  const verseId  = btn.dataset.verse;
+  const instance = btn.dataset.instance;
+  const st = getCardState(verseId, instance);
+  const text = `"${VERSES[verseId].translations[st.translation]}" — ${VERSES[verseId].ref} (${st.translation})`;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied';
+    btn.classList.add('success');
+    setTimeout(() => {
+      btn.innerHTML = '📋 Copy verse';
+      btn.classList.remove('success');
+    }, 1500);
+  }).catch(() => {
+    // Fallback for non-https
+    btn.textContent = '✓ Copied';
+    btn.classList.add('success');
+    setTimeout(() => {
+      btn.innerHTML = '📋 Copy verse';
+      btn.classList.remove('success');
+    }, 1500);
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   CHURCH NOTES ACTION
+   ═══════════════════════════════════════════════════ */
+
+function toggleChurchNote(btn) {
+  const verseId  = btn.dataset.verse;
+  const instance = btn.dataset.instance;
+  const key = stateKey(verseId, instance);
+  if (churchNoted.has(key)) {
+    // Already noted — keep it (the button stays marked permanently per spec)
+    return;
+  }
+  churchNoted.add(key);
+  // Animate: flash gold then stay
+  btn.classList.add('success');
+  btn.textContent = '✓ Added';
+  btn.setAttribute('aria-label', 'Added to Church Notes');
+  // Sparkle micro-animation via transform
+  btn.style.transform = 'scale(1.08)';
+  setTimeout(() => { btn.style.transform = ''; }, 300);
+}
+
+/* ═══════════════════════════════════════════════════
+   THREAD FILTER
+   ═══════════════════════════════════════════════════ */
+
+function applyFilter(verseId) {
+  activeFilter = verseId;
+  const data = VERSES[verseId];
+  const banner = document.getElementById('filterBanner');
+  const label  = document.getElementById('filterLabel');
+  label.textContent = `Filtered: ${data.ref}`;
+  banner.classList.add('visible');
+
+  document.querySelectorAll('.comment-card').forEach(card => {
+    const verses = (card.dataset.verses || '').split(' ');
+    card.classList.toggle('dimmed', !verses.includes(verseId));
+  });
+
+  // Update all filter buttons across all open cards
+  document.querySelectorAll('[data-action="filter"]').forEach(b => {
+    const isThis = b.dataset.verse === verseId;
+    b.classList.toggle('filter-active', isThis);
+    b.textContent = isThis ? '🔍 Filtered' : '🔍 Search thread';
+  });
+}
+
+function clearFilter() {
+  activeFilter = null;
+  document.getElementById('filterBanner').classList.remove('visible');
+  document.querySelectorAll('.comment-card').forEach(c => c.classList.remove('dimmed'));
+  document.querySelectorAll('[data-action="filter"]').forEach(b => {
+    b.classList.remove('filter-active');
+    b.textContent = '🔍 Search thread';
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   GLOBAL EVENT DELEGATION
+   ═══════════════════════════════════════════════════ */
+
+document.addEventListener('click', handleInteraction);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    const target = e.target;
+    if (target.classList.contains('verse-chip') ||
+        target.classList.contains('xref-chip')  ||
+        target.classList.contains('trans-btn')  ||
+        target.classList.contains('card-action-btn') ||
+        target.classList.contains('filter-clear')) {
+      e.preventDefault();
+      handleInteraction({ target });
+    }
+  }
+});
+
+function handleInteraction(e) {
+  const target = e.target;
+
+  // Main verse chip
+  if (target.closest('.verse-chip') && !target.closest('.context-card')) {
+    const chip = target.closest('.verse-chip');
+    toggleChip(chip);
+    return;
+  }
+
+  // Cross-ref chip inside a card
+  if (target.closest('.xref-chip')) {
+    const xchip = target.closest('.xref-chip');
+    toggleXrefChip(xchip);
+    return;
+  }
+
+  // Translation button
+  if (target.classList.contains('trans-btn')) {
+    switchTranslation(target);
+    return;
+  }
+
+  // Card action buttons
+  if (target.dataset.action === 'copy') {
+    copyVerse(target);
+    return;
+  }
+  if (target.dataset.action === 'note') {
+    toggleChurchNote(target);
+    return;
+  }
+  if (target.dataset.action === 'filter') {
+    const verseId = target.dataset.verse;
+    if (activeFilter === verseId) {
+      clearFilter();
+    } else {
+      applyFilter(verseId);
+    }
+    return;
+  }
+
+  // Filter clear button
+  if (target.id === 'filterClearBtn' || target.closest('#filterClearBtn')) {
+    clearFilter();
+    return;
+  }
+}
+</script>
+</body>
+</html>
