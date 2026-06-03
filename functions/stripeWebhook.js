@@ -1,33 +1,29 @@
-// stripeWebhook.js
+// stripeWebhook.js — v1 Cloud Function (avoids Cloud Run quota)
 // Stripe webhook endpoint with mandatory signature verification.
 // Every event is verified with stripe.webhooks.constructEvent() before processing.
 // STRIPE_WEBHOOK_SECRET must be set:
 //   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
 
 const admin = require("firebase-admin");
-const { onRequest } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
-
-const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
-const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
+const functions = require("firebase-functions");
 
 const db = () => admin.firestore();
 const serverTimestamp = () => admin.firestore.FieldValue.serverTimestamp();
 
-// Lazy-init Stripe client
 let stripeClient = null;
 function getStripe() {
   if (!stripeClient) {
-    stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
+    stripeClient = require("stripe")(process.env.STRIPE_SECRET_KEY);
   }
   return stripeClient;
 }
 
 // ─── Webhook Entry Point ─────────────────────────────────────────────────────
 
-exports.stripeWebhook = onRequest(
-  { region: "us-central1", secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] },
-  async (req, res) => {
+exports.stripeWebhook = functions
+  .region("us-central1")
+  .runWith({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] })
+  .https.onRequest(async (req, res) => {
     const sig = req.headers["stripe-signature"];
 
     let event;
@@ -35,7 +31,7 @@ exports.stripeWebhook = onRequest(
       event = getStripe().webhooks.constructEvent(
         req.rawBody,
         sig,
-        STRIPE_WEBHOOK_SECRET.value()
+        process.env.STRIPE_WEBHOOK_SECRET
       );
     } catch (err) {
       console.error("[Stripe] Signature verification failed:", err.message);
@@ -76,8 +72,7 @@ exports.stripeWebhook = onRequest(
     }
 
     return res.status(200).send({ received: true });
-  }
-);
+  });
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
@@ -100,7 +95,7 @@ async function handlePaymentSucceeded(paymentIntent, eventId) {
   });
 }
 
-async function handleSubscriptionUpdated(subscription, eventId) {
+async function handleSubscriptionUpdated(subscription, _eventId) {
   const userId = subscription.metadata?.userId;
   if (!userId) {
     console.warn(`[Stripe] subscription.updated ${subscription.id} has no metadata.userId`);
@@ -113,7 +108,7 @@ async function handleSubscriptionUpdated(subscription, eventId) {
   });
 }
 
-async function handleSubscriptionDeleted(subscription, eventId) {
+async function handleSubscriptionDeleted(subscription, _eventId) {
   const userId = subscription.metadata?.userId;
   if (!userId) {
     console.warn(`[Stripe] subscription.deleted ${subscription.id} has no metadata.userId`);
@@ -126,7 +121,7 @@ async function handleSubscriptionDeleted(subscription, eventId) {
   });
 }
 
-async function handleConnectAccountUpdated(account, eventId) {
+async function handleConnectAccountUpdated(account, _eventId) {
   const snapshot = await db()
     .collection("users")
     .where("stripeConnectedAccountId", "==", account.id)

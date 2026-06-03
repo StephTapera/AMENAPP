@@ -1,21 +1,18 @@
-// moderationSweep.js
+// moderationSweep.js — v1 Cloud Function (avoids Cloud Run quota)
 // Scheduled every 4h: finds aged moderation queue items and alerts admins.
-// Items pending >24h for normal content, or >2h for categories containing
-// "csam", "grooming", "trafficking" are escalated to criticalReviewQueue.
-//
-// Deploy:
-//   firebase deploy --only functions:moderationSweep --project amen-5e359
+// Items pending >24h for normal content, or >2h for critical categories
+// (csam, grooming, trafficking) are escalated to criticalReviewQueue.
 
-const { onSchedule } = require("firebase-functions/v2/scheduler");
+const functions = require("firebase-functions");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const CRITICAL_CATEGORIES = ["csam", "grooming", "trafficking", "child_safety", "minor_safety"];
 const NORMAL_SLA_HOURS = 24;
 const CRITICAL_SLA_HOURS = 2;
 
-exports.moderationSweep = onSchedule(
-  { schedule: "every 4 hours", region: "us-central1" },
-  async () => {
+exports.moderationSweep = functions.region("us-central1").pubsub
+  .schedule("every 4 hours")
+  .onRun(async (_context) => {
     const db = getFirestore();
 
     try {
@@ -44,7 +41,6 @@ exports.moderationSweep = onSchedule(
         );
 
         if (isCritical && ageMs > CRITICAL_SLA_HOURS * 3600 * 1000) {
-          // Escalate to criticalReviewQueue and write a critical moderatorAlert
           await db.collection("criticalReviewQueue").doc(doc.id).set({
             ...data,
             escalatedAt: FieldValue.serverTimestamp(),
@@ -61,7 +57,6 @@ exports.moderationSweep = onSchedule(
 
           criticalCount++;
         } else if (!isCritical) {
-          // Normal aged item — write a standard moderator alert
           await db.collection("moderatorAlerts").add({
             type: "pending_review_aged",
             contentRef,
@@ -74,8 +69,6 @@ exports.moderationSweep = onSchedule(
 
       console.log(`[moderationSweep] Checked ${count} aged items, escalated ${criticalCount} critical`);
     } catch (err) {
-      // Never throw — scheduled functions that throw won't retry cleanly.
       console.error("[moderationSweep] Error during sweep:", err);
     }
-  }
-);
+  });
