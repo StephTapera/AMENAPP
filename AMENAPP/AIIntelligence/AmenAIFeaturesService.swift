@@ -106,6 +106,15 @@ final class AmenAIFeaturesService: ObservableObject {
         dateKey: String,
         forceRefresh: Bool = false
     ) async throws -> AmenDailyDigestResponse {
+        // AUDIT GAP: No consent check before calling getDailyDigest. This CF reads
+        // the user's prayer reminders, mentor messages, and study progress — personal
+        // spiritual data. A BereanConsentManager.shared.hasGrantedDigestConsent() gate
+        // must be checked here (and enforced server-side) before the call proceeds.
+        //
+        // AUDIT GAP: No client-side daily quota guard. Although the server caches
+        // once per day, forceRefresh=true can trigger repeated LLM calls without limit.
+        // Add a local UserDefaults counter keyed to dateKey to prevent more than
+        // 3 forced refreshes per day per user before hitting the CF.
         let payload: [String: Any] = [
             "dateKey": dateKey,
             "timezone": TimeZone.current.identifier,
@@ -140,6 +149,18 @@ final class AmenAIFeaturesService: ObservableObject {
         audience: String = "faith community",
         tone: String = "warm"
     ) async throws -> CreatorDraftResponse {
+        // AUDIT GAP: No consent check before sending topic/audience text to the AI.
+        // Creator OS consent (confirming the user understands their input is processed
+        // by an AI system) must be verified via ConsentManager before this call.
+        //
+        // AUDIT GAP: No input length validation enforced client-side. The doc comment
+        // says 5–300 chars for topic but nothing guards this before the CF call.
+        // Add: guard (5...300).contains(topic.count) else { throw AmenAIFeaturesError.invalidInput }
+        //
+        // AUDIT GAP: No rate-limit guard. Repeated calls to generateCreatorDraft with
+        // different topics cost LLM tokens on every invocation. A per-user hourly or
+        // daily quota (e.g. 10 drafts/day for Creator tier, 3 for standard) must be
+        // enforced server-side in the CF and echoed here to prevent abuse.
         let payload: [String: Any] = [
             "type": type,
             "topic": topic,
@@ -178,6 +199,19 @@ final class AmenAIFeaturesService: ObservableObject {
         query: String,
         scope: RAGSearchScope = .all
     ) async throws -> RAGSearchResponse {
+        // AUDIT GAP: No input length validation enforced client-side. The doc comment
+        // says 3–500 chars but no guard exists before the CF is called.
+        // Add: guard (3...500).contains(query.count) else { throw AmenAIFeaturesError.invalidInput }
+        //
+        // AUDIT GAP: When scope includes "churchNotes" or "savedVerses", the CF
+        // embeds and searches the user's personal spiritual content. A consent check
+        // confirming the user has approved AI indexing of their private notes must be
+        // performed before calling ragSearch with those scopes.
+        //
+        // AUDIT GAP: No client-side rate-limit guard. Each ragSearch call triggers a
+        // Pinecone vector query with an LLM embedding round-trip. A debounce or
+        // per-minute call cap (e.g. max 10 queries/minute) should be applied at the
+        // call site (e.g. SearchView) and enforced server-side in the CF.
         let payload: [String: Any] = [
             "query": query,
             "scope": scope.rawValue,
@@ -222,11 +256,15 @@ enum CreatorDraftType: String, CaseIterable {
 
 enum AmenAIFeaturesError: LocalizedError {
     case draftOnlyViolation
+    /// Input failed client-side length validation before being sent to a CF.
+    case invalidInput
 
     var errorDescription: String? {
         switch self {
         case .draftOnlyViolation:
             return "Draft safety check failed. Please try again."
+        case .invalidInput:
+            return "Your input is too short or too long. Please adjust and try again."
         }
     }
 }

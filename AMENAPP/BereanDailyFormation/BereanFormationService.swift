@@ -10,6 +10,11 @@ enum BereanFormationService {
 
     // MARK: - Verse gate (single source of truth)
 
+    // AUDIT GAP: getVerse() always returns mock data (isMock: true). In production
+    // this must call the YouVersion Content API (or a CF proxy) to fetch licensed
+    // Scripture text. The [MOCK — XYZ] placeholder must never appear in a released
+    // build; add a #if DEBUG guard or a Remote Config flag to block mock text in
+    // non-debug builds. The YouVersion Content API requires an active content license.
     static func getVerse(_ ref: String, translation: String = "ESV") -> BereanVerse {
         let book = BereanMockData.verseDB[ref]
         let text = book?[translation] ?? book?.values.first
@@ -37,6 +42,18 @@ enum BereanFormationService {
 
     // MARK: - Card assembly (deterministic, no shuffle)
 
+    // AUDIT GAP: assembleCards() has no daily quota or rate-limit guard. When this
+    // function is wired to real AI-generated reflection content (e.g. a CF that
+    // calls the LLM to personalise the verse reflection), callers must check a
+    // Firestore-backed daily counter before invoking. A hard cap of 1 formation
+    // generation per user per UTC day should be enforced server-side in the CF and
+    // echoed client-side to prevent duplicate CF invocations.
+    //
+    // AUDIT GAP: assembleCards() has no BereanGuardrailEngine pass on any
+    // AI-generated reflection text. When real LLM-produced content replaces the
+    // hardcoded reflection strings in BereanVerseReflectionCard, each generated
+    // string must be passed through BereanGuardrailEngine (or its server-side
+    // equivalent) before being stored in Firestore and before being rendered.
     static func assembleCards(
         readingPlan: BereanReadingPlan,
         prayerList: [BereanPrayerItem],
