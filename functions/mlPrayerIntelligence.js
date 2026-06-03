@@ -92,10 +92,22 @@ const matchIntercessors = onDocumentCreated(
       const topMatches = scoredMatches.slice(0, 3);
 
       // 4. Send silent notifications to matched intercessors
+      // For anonymous prayer requests, postId is omitted so intercessors
+      // cannot navigate to the anonymous requester's content (H-29).
+      const notificationData = isAnonymous
+        ? {
+            type: "intercessor_match",
+            category: data.category || "general",
+          }
+        : {
+            type: "intercessor_match",
+            postId,
+            category: data.category || "general",
+          };
+
       for (const m of topMatches) {
         await db.collection("users").doc(m.userId).collection("notifications").add({
-          type: "intercessor_match",
-          postId,
+          ...notificationData,
           title: "Someone needs prayer",
           body: "Someone in your community needs prayer in an area you care deeply about.",
           // Never share requester info if anonymous

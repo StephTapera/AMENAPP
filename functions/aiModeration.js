@@ -347,7 +347,8 @@ const moderationLexicon = {
     ],
 
     // ── SELF-HARM / SUICIDE ───────────────────────────────────────────────────
-    // High severity: hold for crisis review + surface crisis resources.
+    // Critical severity: hold for crisis review + set crisisAlert + urgentCrisisReview flags.
+    // These flags surface the item at the top of the admin queue (above standard human_review).
     selfHarm: [
         "kill myself", "killing myself",
         "end my life", "end it all",
@@ -489,7 +490,7 @@ const categoryToSeverity = {
     hate:        "severe",
     sexual:      "high",
     minorSafety: "severe",
-    selfHarm:    "high",
+    selfHarm:    "critical",
     trafficking: "severe",
     doxxing:     "severe",
     fraud:       "high",
@@ -571,7 +572,7 @@ function performBasicModeration(content) {
         }
 
         if (severity === "high") {
-            return {
+            const result = {
                 isApproved: false,
                 flaggedReasons: [label],
                 flaggedCategory: hit.category,
@@ -579,6 +580,13 @@ function performBasicModeration(content) {
                 suggestedAction: "human_review",
                 confidence: 0.75,
             };
+            // Escalate selfHarm to crisis path — surfaced at top of admin queue
+            if (hit.category === "selfHarm") {
+                result.crisisAlert = true;
+                result.urgentCrisisReview = true;
+                result.action = result.suggestedAction; // preserve human_review, never downgrade
+            }
+            return result;
         }
 
         if (severity === "medium") {

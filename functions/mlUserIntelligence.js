@@ -42,16 +42,10 @@ const buildPassiveInterestGraph = onSchedule(
         // Collect ghost signals
         const signals = [];
 
-        // 1. Drafts never posted
-        const drafts = await db.collection("users").doc(uid)
-          .collection("drafts")
-          .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(thirtyDaysAgo))
-          .limit(20)
-          .get();
-        for (const d of drafts.docs) {
-          const text = d.data().content || "";
-          if (text.length > 20) signals.push({ text, weight: 0.9, type: "draft" });
-        }
+        // 1. Unsent drafts excluded from embedding pipeline per privacy audit H-30.
+        // Draft content represents thoughts the user chose NOT to share — vectorising
+        // unsent text and storing it in Pinecone violates user intent and privacy.
+        // (Previously this block queried the drafts subcollection and added to signals.)
 
         // 2. Profile visits without follow
         const visits = await db.collection("users").doc(uid)

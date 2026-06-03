@@ -131,12 +131,36 @@ function requireAuth(request) {
   }
 }
 
+/**
+ * Per-user hourly rate limiter backed by Firestore atomic transactions.
+ * @param {string} uid
+ * @param {string} feature
+ * @param {number} limitPerHour
+ */
+async function checkBereanRateLimit(uid, feature, limitPerHour) {
+  const hourKey = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
+  const ref = admin.firestore()
+      .collection('users').doc(uid)
+      .collection('bereanUsage').doc(`${feature}_${hourKey}`);
+  await admin.firestore().runTransaction(async (t) => {
+    const snap = await t.get(ref);
+    const count = snap.exists ? (snap.data().count || 0) : 0;
+    if (count >= limitPerHour) {
+      throw new HttpsError('resource-exhausted', `Hourly limit reached for ${feature}. Try again later.`);
+    }
+    t.set(ref, { count: count + 1, windowStart: hourKey }, { merge: true });
+  });
+}
+
 // ─── BIBLE Q&A ────────────────────────────────────────────────────────────────
 
 exports.bereanBibleQA = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'bible_qa', 20);
       const {prompt, maxTokens = 600} = request.data;
 
       const system = `You are Berean, a knowledgeable, humble biblical AI assistant for the AMEN faith community app.
@@ -179,6 +203,9 @@ exports.bereanMoralCounsel = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'moral_counsel', 10);
       const {prompt, maxTokens = 600} = request.data;
 
       const system = `You are Berean, a compassionate pastoral AI for the AMEN faith community.
@@ -198,6 +225,9 @@ exports.bereanBusinessQA = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'business_qa', 15);
       const {prompt, maxTokens = 500} = request.data;
 
       const system = `You are Berean, a faith-integrated business and technology advisor.
@@ -216,6 +246,9 @@ exports.bereanNoteSummary = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'note_summary', 30);
       const {prompt, maxTokens = 400} = request.data;
 
       const system = `You are Berean, a church note summarization assistant.
@@ -239,6 +272,9 @@ exports.bereanScriptureExtract = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'scripture_extract', 30);
       const {prompt, maxTokens = 300} = request.data;
 
       const system = `Extract all Bible verse references from the following text.
@@ -257,6 +293,9 @@ exports.bereanPostAssist = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'post_assist', 20);
       const {prompt, maxTokens = 300} = request.data;
 
       const system = `You are Berean, a faith community writing assistant.
@@ -281,6 +320,9 @@ exports.bereanCommentAssist = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'comment_assist', 20);
       const {prompt, maxTokens = 200} = request.data;
 
       const system = `You are Berean, a faith community comment advisor.
@@ -391,6 +433,9 @@ exports.bereanFeedExplainer = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'feed_explainer', 40);
       const {prompt, maxTokens = 100} = request.data;
 
       const system = `You are Berean, an assistant that explains why content was shown in a faith app feed.
@@ -409,6 +454,9 @@ exports.bereanNotificationText = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'notification_text', 20);
       const {prompt, maxTokens = 150} = request.data;
 
       const system = `You write push notification copy for a faith-based social app (AMEN).
@@ -427,6 +475,9 @@ exports.bereanReportTriage = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'report_triage', 20);
       const {prompt, maxTokens = 300} = request.data;
 
       const system = `You are a content moderation classifier for a faith-based community app.
@@ -821,6 +872,30 @@ exports.deleteAccount = onCall(
           await batch.commit();
         }
       }
+
+
+      // 2b. Delete additional subcollections missed in original implementation (H-18)
+      // bereanConversations
+      const bereanConvsSnap = await db.collection(`users/${uid}/bereanConversations`).get();
+      await Promise.all(bereanConvsSnap.docs.map((d) => d.ref.delete()));
+
+      // weeklyRecaps
+      const recapsSnap = await db.collection(`users/${uid}/weeklyRecaps`).get();
+      await Promise.all(recapsSnap.docs.map((d) => d.ref.delete()));
+
+      // spiritualGraph
+      const graphSnap = await db.collection(`users/${uid}/spiritualGraph`).get();
+      await Promise.all(graphSnap.docs.map((d) => d.ref.delete()));
+
+      // spiritualHealth
+      const healthSnap = await db.collection(`users/${uid}/spiritualHealth`).get();
+      await Promise.all(healthSnap.docs.map((d) => d.ref.delete()));
+
+      // wellness (prayerSentiment etc.)
+      const wellnessSnap = await db.collection(`users/${uid}/wellness`).get();
+      await Promise.all(wellnessSnap.docs.map((d) => d.ref.delete()));
+
+      // TODO: Pinecone vector deletion requires a separate admin operation — see berean-audit-report.md H-18
 
       // 3. Delete user's posts
       const postsSnap = await db.collection("posts").where("authorId", "==", uid).get();
