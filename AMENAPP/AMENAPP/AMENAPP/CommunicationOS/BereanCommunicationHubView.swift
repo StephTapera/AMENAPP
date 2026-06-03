@@ -1,17 +1,15 @@
 import SwiftUI
 
 struct BereanCommunicationHubView: View {
+    @StateObject private var viewModel = BereanCommunicationHubViewModel()
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedScope: CommunicationScope = .all
     @State private var searchText = ""
     @State private var selectedThreadID: String?
 
-    private let threads = CommunicationThreadPreview.samples
-    private let presences = PresencePreview.samples
-    private let digest = DigestPreview.sample
-
-    private var filteredThreads: [CommunicationThreadPreview] {
-        threads.filter { thread in
+    private var filteredThreads: [CommunicationThreadItem] {
+        viewModel.threads.filter { thread in
             (selectedScope == .all || thread.scope == selectedScope) &&
             (searchText.isEmpty || thread.title.localizedCaseInsensitiveContains(searchText) || thread.preview.localizedCaseInsensitiveContains(searchText))
         }
@@ -39,6 +37,8 @@ struct BereanCommunicationHubView: View {
             }
             .navigationTitle("Communion")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { viewModel.load() }
+            .onDisappear { viewModel.cleanup() }
         }
     }
 
@@ -95,7 +95,7 @@ struct BereanCommunicationHubView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(presences) { presence in
+                    ForEach(viewModel.presenceItems) { presence in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 8) {
                                 Circle()
@@ -124,18 +124,20 @@ struct BereanCommunicationHubView: View {
             HStack {
                 sectionTitle("Today’s Digest")
                 Spacer()
-                Text("2 unresolved")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.orange)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.orange.opacity(0.12), in: Capsule())
+                if viewModel.unresolvedCount > 0 {
+                    Text("\(viewModel.unresolvedCount) unresolved")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.12), in: Capsule())
+                }
             }
 
-            Text(digest.headline)
+            Text(viewModel.digestHeadline)
                 .font(.headline)
 
-            ForEach(digest.highlights, id: \.self) { item in
+            ForEach(viewModel.digestHighlights, id: \.self) { item in
                 HStack(alignment: .top, spacing: 8) {
                     Circle()
                         .fill(Color(red: 0.86, green: 0.62, blue: 0.24))
@@ -182,6 +184,28 @@ struct BereanCommunicationHubView: View {
             }
 
             scopeRail
+
+            switch viewModel.loadingState {
+            case .loading:
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .padding(.vertical, 32)
+                    Spacer()
+                }
+            case .empty:
+                Text("No threads yet. Start a prayer or study session with Berean.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 24)
+            case .error(let message):
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.orange)
+                    .padding(.vertical, 24)
+            default:
+                EmptyView()
+            }
 
             ForEach(filteredThreads) { thread in
                 Button {
@@ -364,102 +388,6 @@ struct BereanCommunicationHubView: View {
     private var animation: Animation {
         reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.32, dampingFraction: 0.82)
     }
-}
-
-private struct PresencePreview: Identifiable {
-    let id: String
-    let name: String
-    let detail: String
-    let tint: Color
-
-    static let samples: [PresencePreview] = [
-        .init(id: "1", name: "Praying", detail: "Quiet mode until 8:15 PM", tint: .orange),
-        .init(id: "2", name: "Deep study", detail: "In Romans study branch", tint: .blue),
-        .init(id: "3", name: "Available", detail: "Open for prayer requests", tint: .green)
-    ]
-}
-
-private struct DigestPreview {
-    let headline: String
-    let highlights: [String]
-
-    static let sample = DigestPreview(
-        headline: "Berean noticed a few threads worth your attention before the day closes.",
-        highlights: [
-            "A prayer request from Ava still has no follow-up after yesterday evening.",
-            "Your James 1 study branch now has three unresolved scripture replies.",
-            "Two saved reflections can be turned into journal entries."
-        ]
-    )
-}
-
-private struct CommunicationThreadPreview: Identifiable {
-    let id: String
-    let title: String
-    let preview: String
-    let expandedSummary: String
-    let timeLabel: String
-    let replyCount: Int
-    let needsFollowUp: Bool
-    let icon: String
-    let tint: Color
-    let scope: CommunicationScope
-    let presenceLabel: String
-
-    static let samples: [CommunicationThreadPreview] = [
-        .init(
-            id: "t1",
-            title: "Ava’s prayer chain",
-            preview: "Please keep praying for peace before tomorrow’s oncology appointment.",
-            expandedSummary: "Sensitive prayer thread with two supporters active, one pending follow-up, and a saved care reminder set for tomorrow morning.",
-            timeLabel: "8m",
-            replyCount: 12,
-            needsFollowUp: true,
-            icon: "hands.and.sparkles",
-            tint: .orange,
-            scope: .prayer,
-            presenceLabel: "Prayer"
-        ),
-        .init(
-            id: "t2",
-            title: "Romans 8 study room",
-            preview: "Nested reflection on suffering, adoption, and how hope should be framed pastorally.",
-            expandedSummary: "The branch includes quoted scripture replies, one AI recap, and a continuation point so the discussion can resume later without losing context.",
-            timeLabel: "24m",
-            replyCount: 18,
-            needsFollowUp: false,
-            icon: "book.pages",
-            tint: .blue,
-            scope: .study,
-            presenceLabel: "Studying"
-        ),
-        .init(
-            id: "t3",
-            title: "Remembered prayer about anxiety",
-            preview: "Semantic memory linked Philippians 4:6, a church note, and a saved Berean reflection from last month.",
-            expandedSummary: "This memory cluster ranks high because it combines explicit saves, repeated recall, and a recent prayer request from the same person.",
-            timeLabel: "1h",
-            replyCount: 3,
-            needsFollowUp: false,
-            icon: "brain.head.profile",
-            tint: .purple,
-            scope: .memory,
-            presenceLabel: "Recall"
-        ),
-        .init(
-            id: "t4",
-            title: "Jordan direct reflection",
-            preview: "Thank you for staying with me in that conversation. I needed the reminder not to isolate.",
-            expandedSummary: "Direct reflection thread with one pinned message, scheduled send enabled for the next check-in, and no unresolved moderation flags.",
-            timeLabel: "3h",
-            replyCount: 6,
-            needsFollowUp: false,
-            icon: "message",
-            tint: .green,
-            scope: .direct,
-            presenceLabel: "Available"
-        )
-    ]
 }
 
 #Preview {

@@ -62,9 +62,10 @@ struct BereanVoiceView: View {
     // Glass impl — default to .lensed for voice (most premium)
     var glassImpl: BereanGlass.Impl = .lensed
 
+    @StateObject private var speechService = BereanVoiceSpeechService()
+
     @State private var voiceState: BereanVoiceViewState = .idle
     @State private var voiceMode: BereanVoiceOrbMode = .listen
-    @State private var transcript: String = ""
     @State private var isMuted = false
     @State private var showTranscript = false
     @State private var orbPulse = false
@@ -77,6 +78,8 @@ struct BereanVoiceView: View {
 
     // Waveform timer
     private let waveTimer = Timer.publish(every: 0.07, on: .main, in: .common).autoconnect()
+
+    private var transcript: String { speechService.transcript }
 
     var body: some View {
         ZStack {
@@ -128,10 +131,32 @@ struct BereanVoiceView: View {
                 appeared = true
             }
             startBreathing()
+            Task { await speechService.requestPermissions() }
         }
         .onReceive(waveTimer) { _ in
             guard voiceState == .listening && !isMuted else { return }
             waveHeights = waveHeights.map { _ in CGFloat.random(in: 4...32) }
+        }
+        .onChange(of: speechService.isListening) { _, isListening in
+            guard isListening else { return }
+            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
+                voiceState = .listening
+            }
+        }
+        .onChange(of: speechService.isSpeaking) { _, isSpeaking in
+            if isSpeaking {
+                withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
+                    voiceState = .speaking(text: speechService.transcript)
+                }
+            } else if voiceState == .speaking(text: speechService.transcript) {
+                withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
+                    voiceState = .idle
+                }
+            }
+        }
+        .onChange(of: speechService.transcript) { _, newTranscript in
+            guard !newTranscript.isEmpty else { return }
+            onTranscriptReady?(newTranscript)
         }
     }
 
@@ -563,23 +588,38 @@ struct BereanVoiceView: View {
         HapticManager.impact(style: .medium)
         switch voiceState {
         case .idle:
-            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
-                voiceState = .listening
+            guard !speechService.permissionDenied else { return }
+            do {
+                try speechService.startListening()
+                withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
+                    voiceState = .listening
+                }
+            } catch {
+                // If the audio engine fails, stay idle
             }
         case .listening:
+            speechService.stopListening()
             withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
                 voiceState = .processing
             }
-            // Simulate processing → speaking
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-                withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
-                    voiceState = .speaking(text: "In Romans 8, Paul grounds assurance not in feelings but in the Spirit's witness and God's unbreakable purpose.")
+            // Transition to speaking — surface the captured transcript via TTS if non-empty,
+            // otherwise return to idle after a brief processing beat.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                let captured = self.speechService.transcript
+                if captured.isEmpty {
+                    withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
+                        self.voiceState = .idle
+                    }
+                } else {
+                    withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
+                        self.voiceState = .speaking(text: captured)
+                    }
                 }
-                followUpChips = ["What does covenant mean?", "Turn this into prayer", "Show cross-references"]
             }
         case .processing:
             break
         case .speaking:
+            speechService.stopSpeaking()
             withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
                 voiceState = .idle
             }
