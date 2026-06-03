@@ -29,12 +29,19 @@ final class AmenMessagingIntelligenceCoordinator: ObservableObject {
 
     @Published var pendingSafetyNudge: AmenSafetyNudgeContext? = nil
 
+    // MARK: — Crisis Resources
+
+    /// Set to true when offerCrisisResources is returned from the safe messaging gateway
+    /// or when on-device self-harm signals are detected in the sender's own message.
+    /// The hosting view observes this and presents WellnessCrisisSheet.
+    @Published var showCrisisSheet: Bool = false
+
     // MARK: — Availability
 
     private var availability: AmenMessagingFeatureAvailability
 
     init(flags: AMENFeatureFlags = .shared) {
-        self.availability = AmenMessagingFeatureAvailability(flags: flags)
+        self.availability = AmenMessagingFeatureAvailability()
     }
 
     // MARK: — Smart Pill Computation
@@ -164,5 +171,34 @@ final class AmenMessagingIntelligenceCoordinator: ObservableObject {
 
     func dismissSafetyNudge() {
         pendingSafetyNudge = nil
+    }
+
+    // Routes decision/question/task extraction chips to the catch-up surface
+    // until a dedicated extraction service exists.
+    func extractSmartContext(conversationId: String, messages: [AppMessage]) {
+        requestCatchUp(conversationId: conversationId, messages: messages)
+    }
+
+    // MARK: — Crisis Resource Surfacing
+
+    /// Call this after receiving a result from SafeMessagingService.sendMessage().
+    /// When the gateway returns .deliverWithResources (offerCrisisResources == true),
+    /// this sets showCrisisSheet so the hosting view can present WellnessCrisisSheet.
+    func handleSafetyGatewayResult(_ result: SafeMessagingService.SendResult) {
+        if case .deliverWithResources = result {
+            showCrisisSheet = true
+        }
+    }
+
+    /// Call this after receiving a raw gateway response dictionary directly.
+    /// Checks the offerCrisisResources field and surfaces crisis resources to the sender.
+    func checkGatewayResponseForCrisis(_ response: [String: Any]) {
+        if let offerCrisis = response["offerCrisisResources"] as? Bool, offerCrisis {
+            showCrisisSheet = true
+        }
+    }
+
+    func dismissCrisisSheet() {
+        showCrisisSheet = false
     }
 }

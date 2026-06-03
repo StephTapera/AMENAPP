@@ -210,19 +210,20 @@ final class BereanGrokService {
     // MARK: - Provenance
 
     func buildProvenance(
-        helperUsed: Bool,
-        externalContext: Bool,
-        sensitiveDetected: Bool,
-        scripturePassed: Bool
+        scripturePassed: Bool,
+        safetyPassed: Bool,
+        helperModelUsed: Bool,
+        externalContextUsed: Bool,
+        hasUnverifiedReferences: Bool
     ) -> BereanProvenanceRecord {
         BereanProvenanceRecord(
-            helperModelUsed: helperUsed,
-            externalContextUsed: externalContext,
-            scriptureChecked: true,
-            safetyReviewed: true,
-            bereanVerified: sensitiveDetected ? .needsCaution : (scripturePassed ? .passed : .limited),
-            requiresPastoralCare: sensitiveDetected,
-            sensitiveTopicDetected: sensitiveDetected
+            helperModelUsed: helperModelUsed,
+            externalContextUsed: externalContextUsed,
+            scriptureChecked: !hasUnverifiedReferences,  // only true if all refs verified
+            safetyReviewed: safetyPassed,
+            bereanVerified: hasUnverifiedReferences ? .needsCaution : (scripturePassed ? .passed : .limited),
+            requiresPastoralCare: false,
+            sensitiveTopicDetected: false
         )
     }
 

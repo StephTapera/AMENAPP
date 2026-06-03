@@ -173,12 +173,19 @@ final class BereanGrokCoordinator: ObservableObject {
         Analytics.logEvent("berean_provenance_sheet_opened", parameters: nil)
     }
 
-    func recordForMessage(helperUsed: Bool, externalUsed: Bool, sensitiveDetected: Bool) -> BereanProvenanceRecord {
+    func recordForMessage(
+        helperUsed: Bool,
+        externalUsed: Bool,
+        scriptureVerified: Bool = false,
+        safetyChecked: Bool = false,
+        hasUnverifiedReferences: Bool = true
+    ) -> BereanProvenanceRecord {
         BereanGrokService.shared.buildProvenance(
-            helperUsed: helperUsed,
-            externalContext: externalUsed,
-            sensitiveDetected: sensitiveDetected,
-            scripturePassed: true
+            scripturePassed: scriptureVerified,
+            safetyPassed: safetyChecked,
+            helperModelUsed: helperUsed,
+            externalContextUsed: externalUsed,
+            hasUnverifiedReferences: hasUnverifiedReferences
         )
     }
 

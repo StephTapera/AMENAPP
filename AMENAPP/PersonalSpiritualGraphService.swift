@@ -197,9 +197,14 @@ struct SpiritualGraphSnapshot: Codable {
     }
 
     /// Builds a system prompt block for Berean from this snapshot.
-    func toSystemPromptBlock() -> String {
+    /// Returns nil when the user has not consented to spiritual profile enrichment;
+    /// callers must skip injecting this block into Berean prompts.
+    func toSystemPromptBlock() -> String? {
+        guard UserDefaults.standard.bool(forKey: "berean_spiritual_profile_consent") else {
+            return nil
+        }
         guard !topStruggles.isEmpty || !activeRhythms.isEmpty else {
-            return ""
+            return nil
         }
 
         var lines: [String] = []

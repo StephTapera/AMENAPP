@@ -1394,6 +1394,24 @@ struct BereanAISettingsView: View {
                     .tint(.blue)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "berean_spiritual_profile_consent") },
+                        set: { UserDefaults.standard.set($0, forKey: "berean_spiritual_profile_consent") }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Personalised Berean responses")
+                                .font(AMENFont.semiBold(15))
+                            Text("Allow Berean to use your spiritual growth patterns to personalise responses. Your patterns are shared with Anthropic AI.")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))

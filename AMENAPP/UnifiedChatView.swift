@@ -843,7 +843,7 @@ struct UnifiedChatView: View {
             ReactionTrayOverlay(state: ReactionPresentationState.shared)
 
             // Layer 3: Liquid Glass context menu overlay
-            AmenMessageContextMenuOverlay(presenter: AmenMessageContextMenuPresenter.shared)
+            AmenContextMenuBubble(presenter: AmenMessageContextMenuPresenter.shared)
         }
         .navigationBarHidden(true)
         .withToast()
@@ -968,6 +968,14 @@ struct UnifiedChatView: View {
         // CF-2: Voice transcript panel — honest unavailable state until STT is wired
         .sheet(item: $pendingTranscriptMessage) { _ in
             unavailableTranscriptPanel
+        }
+        // Crisis resources: presented when safe messaging gateway detects self-harm
+        // signals in the sender's own message (offerCrisisResources == true).
+        .sheet(isPresented: Binding(
+            get: { intelligenceCoordinator.showCrisisSheet },
+            set: { if !$0 { intelligenceCoordinator.dismissCrisisSheet() } }
+        )) {
+            WellnessCrisisSheet()
         }
         // Phase 11: Media action overlay — floating tray over media messages
         .overlay(alignment: .bottom) {
@@ -1807,7 +1815,7 @@ struct UnifiedChatView: View {
         case .saveToNotes:
             presentSaveSheet(actions: [.saveToNotes])
         case .startReflection:
-            presentSaveSheet(actions: [.startReflection])
+            presentSaveSheet(actions: [.saveToSelah])
         case .createReminder:
             presentSaveSheet(actions: [.remindMe])
         case .askBerean:
@@ -1920,8 +1928,7 @@ struct UnifiedChatView: View {
         pendingSaveMessage = AmenMessageSaveContext(
             message: message,
             conversationName: conversation.name,
-            presentedActions: actions,
-            conversationId: conversation.id
+            presentedActions: actions
         )
     }
     
