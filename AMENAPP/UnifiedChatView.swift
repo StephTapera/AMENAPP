@@ -3269,8 +3269,7 @@ struct UnifiedChatView: View {
             )
         case .forward:
             Task {
-                if let shareText = URL(string: ""),
-                   !message.text.isEmpty {
+                if !message.text.isEmpty {
                     await MainActor.run {
                         let activity = UIActivityViewController(activityItems: [message.text], applicationActivities: nil)
                         if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -5889,6 +5888,12 @@ struct BereanTypingIndicatorBubble: View {
 struct BereanStreamingBubble: View {
     let text: String
 
+    private var maxBubbleWidth: CGFloat {
+        (UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds.width ?? 393) * 0.75
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             // Gold left accent bar
@@ -5918,7 +5923,7 @@ struct BereanStreamingBubble: View {
                         lineWidth: 1
                     )
             )
-            .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .leading)
+            .frame(maxWidth: maxBubbleWidth, alignment: .leading)
 
             Spacer()
         }
