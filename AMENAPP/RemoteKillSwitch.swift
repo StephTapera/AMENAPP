@@ -40,7 +40,9 @@ class RemoteKillSwitch: ObservableObject {
             if let error = error {
                 print("[RemoteKillSwitch] fetch error: \(error.localizedDescription)")
             }
-            self?.applyFlags(config)
+            Task { @MainActor [weak self] in
+                self?.applyFlags(RemoteConfig.remoteConfig())
+            }
         }
     }
 
@@ -53,8 +55,8 @@ class RemoteKillSwitch: ObservableObject {
         notificationsEnabled = config.configValue(forKey: "kill_notifications_enabled").boolValue
 
         maintenanceMode = config.configValue(forKey: "maintenance_mode").boolValue
-        maintenanceMessage = config.configValue(forKey: "maintenance_message").stringValue ?? ""
-        minimumAppVersion = config.configValue(forKey: "minimum_app_version").stringValue ?? "1.0"
+        maintenanceMessage = config.configValue(forKey: "maintenance_message").stringValue
+        minimumAppVersion = config.configValue(forKey: "minimum_app_version").stringValue
 
         // Default: all enabled if Remote Config hasn't been set
         if config.lastFetchStatus == .noFetchYet {
