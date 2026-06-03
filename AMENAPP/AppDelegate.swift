@@ -55,21 +55,34 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         #endif
         
-        // ✅ App Check MUST be configured BEFORE FirebaseApp.configure()
-        // Simulator uses the debug provider; real devices use App Attest.
-        #if targetEnvironment(simulator)
-        let providerFactory = AppCheckDebugProviderFactory()
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        dlog("✅ App Check configured with Debug Provider (simulator)")
+        // App Check MUST be configured BEFORE FirebaseApp.configure()
+        // so that all Firebase SDK calls are automatically attested.
+        // DEBUG builds use AppCheckDebugProviderFactory with a debug token —
+        // register the token printed to the console in Firebase Console → App Check → Apps.
+        // Release builds use AmenAppCheckProviderFactory (App Attest iOS 14+ / DeviceCheck iOS 13).
+        #if DEBUG
+        AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
+        dlog("✅ App Check configured with Debug Provider (DEBUG build)")
         #else
-        let providerFactory = AppCheckAppAttestProviderFactory()
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        dlog("✅ App Check configured with App Attest Provider (real device)")
+        AppCheck.setAppCheckProviderFactory(AmenAppCheckProviderFactory())
+        dlog("✅ App Check configured with AmenAppCheckProviderFactory (App Attest / DeviceCheck)")
         #endif
         
         // Configure Firebase AFTER App Check provider is set
         FirebaseApp.configure()
         dlog("✅ Firebase configured successfully")
+
+        // Simulator doesn't have keychain entitlements during development, so switch
+        // Auth to in-memory persistence to avoid errSecMissingEntitlement (-34018).
+        // Sessions won't survive app restart in the Simulator — that's acceptable.
+        #if targetEnvironment(simulator)
+        do {
+            try Auth.auth().useUserAccessGroup(nil)
+            dlog("✅ Auth persistence set to in-memory (simulator)")
+        } catch {
+            dlog("⚠️ Failed to configure auth persistence on simulator: \(error.localizedDescription)")
+        }
+        #endif
 
         // ✅ Initialize Crashlytics for production crash monitoring
         // Must be called after FirebaseApp.configure()

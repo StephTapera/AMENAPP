@@ -4,6 +4,12 @@
 // Collapsible context bar that floats above the composer in UnifiedChatView.
 // Shows Summary / Decisions / Questions / Actions / Media chips gated by feature flags.
 // Collapses on scroll-down, reveals on scroll-up/pause.
+//
+// Liquid Glass: collapsed pill and expanded chip row share the "context-bar" glass
+// identity so they morph between states via matchedGeometryEffect.
+// Shadow applied before .glassEffect() per kit rules.
+// Solid opaque fallback used when accessibilityReduceTransparency is on.
+// No glass applied to message thread content below this bar.
 
 import SwiftUI
 
@@ -38,9 +44,8 @@ struct SmartThreadContextBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    private var isVisible: Bool {
-        !isScrollingDown && availableChips.count > 0
-    }
+    // Namespace shared between collapsed pill and expanded chip row for glass morphing.
+    @Namespace private var barNamespace
 
     private var availableChips: [SmartContextChip] {
         guard AMENFeatureFlags.shared.messagesSmartContextEnabled else { return [] }
@@ -56,33 +61,103 @@ struct SmartThreadContextBar: View {
 
     var body: some View {
         if !availableChips.isEmpty {
-            chipRow
-                .opacity(isVisible ? 1 : 0)
-                .offset(y: isVisible ? 0 : 8)
-                .animation(
-                    reduceMotion ? .linear(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.8),
-                    value: isVisible
-                )
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Thread intelligence options")
+            Group {
+                if isScrollingDown {
+                    collapsedPill
+                } else {
+                    expandedChipRow
+                }
+            }
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.15) : .amenSpringEntry,
+                value: isScrollingDown
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Thread intelligence options")
         }
     }
 
-    private var chipRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                if false {
-                    loadingChip
-                }
-                ForEach(availableChips) { chip in
-                    contextChip(chip)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+    // MARK: - Collapsed pill
+
+    /// Shown while the user is scrolling down. Morphs into the chip row when scrolling stops.
+    @ViewBuilder
+    private var collapsedPill: some View {
+        let pillContent = HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+                .font(.caption.weight(.semibold))
+            Text("\(availableChips.count) insights")
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
         }
-        .background(barBackground)
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+
+        if reduceTransparency {
+            // Solid fallback — no glass when transparency is reduced.
+            pillContent
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color(.systemBackground))
+                        .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 4)
+                )
+                .padding(.horizontal, 16)
+                .accessibilityHint("Scroll up to expand thread insights")
+        } else {
+            // Shadow before .glassEffect() — required by kit rules.
+            pillContent
+                .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 4)
+                .glassEffect(GlassEffectStyle.subtle, in: Capsule(style: .continuous))
+                .glassEffectID("context-bar", in: barNamespace)
+                .padding(.horizontal, 16)
+                .accessibilityHint("Scroll up to expand thread insights")
+        }
     }
+
+    // MARK: - Expanded chip row
+
+    /// Shown when the user is not scrolling down. Morphs from the collapsed pill.
+    @ViewBuilder
+    private var expandedChipRow: some View {
+        if reduceTransparency {
+            // Solid fallback — no glass when transparency is reduced.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    if false { loadingChip }
+                    ForEach(availableChips) { chip in contextChip(chip) }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+            .background(Color(.systemBackground))
+            .padding(.horizontal, 16)
+        } else {
+            // Shadow before .glassEffect() — required by kit rules.
+            ScrollView(.horizontal, showsIndicators: false) {
+                GlassEffectContainer(spacing: 6) {
+                    HStack(spacing: 6) {
+                        if false { loadingChip }
+                        ForEach(availableChips) { chip in contextChip(chip) }
+                    }
+                }
+                .padding(.horizontal, 10)
+            }
+            .shadow(
+                color: .black.opacity(LiquidGlassTokens.shadowSoftOpacity),
+                radius: LiquidGlassTokens.shadowSoftRadius,
+                y: LiquidGlassTokens.shadowSoftY
+            )
+            // .glassEffect() is the absolute last modifier on the shell.
+            .glassEffect(
+                GlassEffectStyle.regular,
+                in: RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
+            )
+            .glassEffectID("context-bar", in: barNamespace)
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Loading chip
 
     private var loadingChip: some View {
         HStack(spacing: 6) {
@@ -93,8 +168,11 @@ struct SmartThreadContextBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(.ultraThinMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+        .glassEffect(GlassEffectStyle.subtle, in: Capsule(style: .continuous))
     }
+
+    // MARK: - Individual chip button
 
     private func contextChip(_ chip: SmartContextChip) -> some View {
         Button {
@@ -110,26 +188,22 @@ struct SmartThreadContextBar: View {
             .foregroundStyle(chipColor(chip))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(chipBackground(chip), in: Capsule())
-            .overlay(
-                Capsule()
-                    .strokeBorder(chipColor(chip).opacity(0.2), lineWidth: 0.75)
-            )
+            // Shadow before .glassEffect() — required by kit rules.
+            .shadow(color: chipColor(chip).opacity(0.12), radius: 8, y: 3)
+            .glassEffect(GlassEffectStyle.subtle.tint(chipColor(chip)), in: Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(chip.rawValue): \(chipAccessibilityHint(chip))")
     }
 
+    // MARK: - Helpers
+
     private func chipLabel(_ chip: SmartContextChip) -> String {
         switch chip {
-        case .decisions:
-            return "Decisions"
-        case .questions:
-            return "Questions"
-        case .actions:
-            return "Actions"
-        default:
-            return chip.rawValue
+        case .decisions: return "Decisions"
+        case .questions: return "Questions"
+        case .actions:   return "Actions"
+        default:         return chip.rawValue
         }
     }
 
@@ -144,13 +218,6 @@ struct SmartThreadContextBar: View {
         }
     }
 
-    private func chipBackground(_ chip: SmartContextChip) -> some ShapeStyle {
-        if reduceTransparency {
-            return AnyShapeStyle(chipColor(chip).opacity(0.15))
-        }
-        return AnyShapeStyle(.ultraThinMaterial)
-    }
-
     private func chipAccessibilityHint(_ chip: SmartContextChip) -> String {
         switch chip {
         case .summary:   return "Generate a thread summary"
@@ -161,14 +228,14 @@ struct SmartThreadContextBar: View {
         case .catchUp:   return "Catch up on missed messages"
         }
     }
+}
 
-    private var barBackground: some View {
-        Group {
-            if reduceTransparency {
-                Color(.systemBackground).opacity(0.98)
-            } else {
-                Rectangle().fill(.ultraThinMaterial)
-            }
-        }
-    }
+// MARK: - LiquidGlassTokens shadow bridge
+
+/// Private computed helpers so call sites read `.shadowSoftRadius` etc. rather than
+/// digging into the `Shadow` struct directly.
+private extension LiquidGlassTokens {
+    static var shadowSoftRadius: CGFloat { shadowSoft.radius }
+    static var shadowSoftY: CGFloat      { shadowSoft.y }
+    static var shadowSoftOpacity: Double { 0.08 }  // matches shadowSoft.color opacity
 }
