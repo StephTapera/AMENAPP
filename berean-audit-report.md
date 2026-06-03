@@ -23,10 +23,10 @@
 
 | # | Commit | File | Severity | Description |
 |---|--------|------|----------|-------------|
-| AF-1 | *(see git log)* | `functions/bereanFeaturesFunctions.js:20` | Medium | Crash bug: `admin.firestore` (function ref) → `admin.firestore()` (instance) |
-| AF-2 | *(see git log)* | `functions/bereanFeaturesFunctions.js:36` | Medium | Unsafe index access: `response.content[0].text` → optional-chained with fallback |
-| AF-3 | *(see git log)* | `functions/bereanFeaturesFunctions.js:287` | Medium | Wrong error type: `new Error('Unauthenticated')` → `HttpsError("unauthenticated")` |
-| AF-4 | *(see git log)* | `AMENAPP/AMENAPP/BereanGrokModels.swift:50` | Low | Duplicate analytics key on `.extractThemes` — would silence analytics for that pill |
+| AF-1 | `b858a75` | `functions/bereanFeaturesFunctions.js:20` | Medium | Crash bug: `admin.firestore` (function ref) → `admin.firestore()` (instance) |
+| AF-2 | `b858a75` | `functions/bereanFeaturesFunctions.js:36` | Medium | Unsafe index access: `response.content[0].text` → optional-chained with fallback |
+| AF-3 | `b858a75` | `functions/bereanFeaturesFunctions.js:287` | Medium | Wrong error type: `new Error('Unauthenticated')` → `HttpsError("unauthenticated")` |
+| AF-4 | `dbeb8a9` | `AMENAPP/AMENAPP/BereanGrokModels.swift:50` | Low | Duplicate analytics key on `.extractThemes` — would silence analytics for that pill |
 
 ---
 
