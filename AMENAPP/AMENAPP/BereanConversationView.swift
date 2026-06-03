@@ -192,10 +192,10 @@ struct BereanConversationView: View {
                 .padding(.top, 8)
                 .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8)), value: viewModel.messages.count)
             }
-            .onChange(of: viewModel.messages.count) { _ in
+            .onChange(of: viewModel.messages.count) {
                 withAnimation { proxy.scrollTo(viewModel.messages.last?.id ?? "loading", anchor: .bottom) }
             }
-            .onChange(of: viewModel.isLoading) { loading in
+            .onChange(of: viewModel.isLoading) { _, loading in
                 if loading { withAnimation { proxy.scrollTo("loading", anchor: .bottom) } }
             }
         }
