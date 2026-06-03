@@ -47,7 +47,7 @@ enum BereanComposerPill: String, CaseIterable, Identifiable, Equatable {
         switch self {
         case .simplifyFirst:      return "berean_summary_pill_tapped"
         case .summarizeLink:      return "berean_link_summary_created"
-        case .extractThemes:      return "berean_link_summary_created"
+        case .extractThemes:      return "berean_extract_themes_tapped"
         case .externalContext:    return "berean_external_context_started"
         case .checkScripture:     return "berean_scripture_check_started"
         case .createStudyOutline: return "berean_study_outline_created"
