@@ -647,18 +647,21 @@ exports.detectCrisis = onDocumentCreated("crisisDetectionRequests/{requestId}", 
 
             console.log(`✅ [CRISIS] Request ${requestId}: ${crisisResult.urgencyLevel}`);
         } catch (error) {
-            console.error(`❌ [CRISIS] Error:`, error);
-
+            console.error('[detectCrisis] error — routing to human review:', error);
+            // C-14 SECURITY FIX: Errors must NOT write isCrisis:false (false-negative).
+            // An errored crisis check is routed to human review so that a genuine
+            // crisis is never silently cleared by a transient AI/DB failure.
             await db.collection("crisisDetectionResults").doc(requestId).set({
-                isCrisis: false,
+                isCrisis: null,
                 crisisTypes: [],
-                urgencyLevel: "none",
+                urgencyLevel: "error",
                 recommendedResources: [],
                 confidence: 0.0,
-                suggestedIntervention: "none",
+                suggestedIntervention: "human_review",
+                errorAt: admin.firestore.Timestamp.now(),
                 error: error.message,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
+            }, { merge: true });
         }
     });
 

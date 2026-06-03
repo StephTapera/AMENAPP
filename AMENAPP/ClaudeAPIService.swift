@@ -92,12 +92,17 @@ actor ClaudeAPIService {
     private let functions = Functions.functions(region: "us-central1")
 
     // ─── Standard (non-streaming) ────────────────────────────────
+    // C-01 SECURITY FIX: `system` parameter is retained for call-site compatibility,
+    // but is no longer sent to the CF. The CF constructs the system prompt server-side
+    // from `bereanMode`. Pass the mode string ("shepherd", "scholar", "default");
+    // callers that previously passed a large system string are mapped to "default".
     func complete(
         system: String,
         userMessage: String,
-        maxTokens: Int = 1024
+        maxTokens: Int = 1024,
+        bereanMode: String = "default"
     ) async throws -> String {
-        try await completeWithValidation(system: system, userMessage: userMessage, maxTokens: maxTokens).text
+        try await completeWithValidation(system: system, userMessage: userMessage, maxTokens: maxTokens, bereanMode: bereanMode).text
     }
 
     /// Full response including scripture validation metadata.
@@ -105,10 +110,11 @@ actor ClaudeAPIService {
     func completeWithValidation(
         system: String,
         userMessage: String,
-        maxTokens: Int = 1024
+        maxTokens: Int = 1024,
+        bereanMode: String = "default"
     ) async throws -> BereanProxyResponse {
         let data: [String: Any] = [
-            "systemPrompt": system,
+            "bereanMode": bereanMode,
             "userMessage": userMessage,
             "maxTokens": maxTokens
         ]

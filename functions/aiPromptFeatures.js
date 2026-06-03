@@ -13,7 +13,7 @@
 
 'use strict';
 
-const { onCall } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 
@@ -54,8 +54,11 @@ exports.vibeMatch = onCall({
   secrets: [ANTHROPIC_API_KEY],
   enforceAppCheck: false,
 }, async (req) => {
-  const { currentUserId, targetUserId } = req.data;
-  if (!currentUserId || !targetUserId) throw new Error('Missing user IDs');
+  if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+  // C-13 SECURITY FIX: Use server-verified uid instead of client-supplied currentUserId.
+  const currentUserId = req.auth.uid;
+  const { targetUserId } = req.data;
+  if (!targetUserId) throw new Error('Missing user IDs');
 
   const db = admin.firestore();
   const [currentSnap, targetSnap] = await Promise.all([
@@ -93,8 +96,9 @@ exports.digestBrain = onCall({
   secrets: [ANTHROPIC_API_KEY],
   enforceAppCheck: false,
 }, async (req) => {
-  const { userId } = req.data;
-  if (!userId) throw new Error('Missing userId');
+  if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+  // C-13 SECURITY FIX: Use server-verified uid instead of client-supplied userId.
+  const userId = req.auth.uid;
 
   const db = admin.firestore();
   const [postsSnap, userSnap] = await Promise.all([
@@ -139,8 +143,11 @@ exports.spiritGraph = onCall({
   secrets: [ANTHROPIC_API_KEY],
   enforceAppCheck: false,
 }, async (req) => {
-  const { postId, currentUserId } = req.data;
-  if (!postId || !currentUserId) throw new Error('Missing postId or currentUserId');
+  if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+  // C-13 SECURITY FIX: Use server-verified uid instead of client-supplied currentUserId.
+  const currentUserId = req.auth.uid;
+  const { postId } = req.data;
+  if (!postId) throw new Error('Missing postId');
 
   const db = admin.firestore();
   const [postSnap, userSnap] = await Promise.all([
