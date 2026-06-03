@@ -32,6 +32,8 @@ final class BereanVoiceSpeechService: NSObject, ObservableObject {
 
     /// Request speech recognition and microphone permissions.
     /// Returns `true` if both are granted. Idempotent — safe to call before every listening session.
+    // Privacy: Berean voice input uses on-device speech recognition only.
+    // Audio does not leave the device for transcription.
     func requestPermissions() async -> Bool {
         let speechStatus: SFSpeechRecognizerAuthorizationStatus = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
@@ -69,7 +71,7 @@ final class BereanVoiceSpeechService: NSObject, ObservableObject {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest else { throw BereanVoiceError.audioEngineFailure("Failed to create recognition request") }
         recognitionRequest.shouldReportPartialResults = true
-        recognitionRequest.requiresOnDeviceRecognition = false
+        recognitionRequest.requiresOnDeviceRecognition = true
 
         let inputNode = audioEngine.inputNode
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in

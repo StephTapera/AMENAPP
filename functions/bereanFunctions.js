@@ -502,6 +502,9 @@ exports.bereanRankingLabels = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'ranking_labels', 30);
       const {prompt, maxTokens = 200} = request.data;
 
       const system = `You are a feed ranking classifier for a faith-based social app.
@@ -540,6 +543,9 @@ exports.sermonSnapProxy = onCall(
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Authentication required.");
       }
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'sermon_snap', 10);
 
       const {base64Image, prompt} = request.data;
 
@@ -605,6 +611,9 @@ exports.bereanGenericProxy = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'generic_proxy', 15);
       const {taskType, prompt, maxTokens = 400} = request.data;
 
       const system = `You are Berean, a faith-community AI assistant for the AMEN app.
@@ -748,6 +757,24 @@ exports.bereanChatProxy = onCall(
 
       const {systemPrompt, userMessage, maxTokens} = request.data;
       const safeUserMessage = (userMessage ?? '').slice(0, 4000);
+
+      // H-08: Server-side input validation — mirrors iOS PromptPolicyEngine.
+      // Cannot be bypassed by modified or non-iOS clients.
+      const INJECTION_PATTERNS = [
+        /ignore\s+(all\s+)?(previous|prior|above)\s+instructions/i,
+        /you\s+are\s+now\s+(?!berean)/i,
+        /system:\s*\[/i,
+        /new\s+instructions:/i,
+        /forget\s+(everything|all)\s+(you|i)/i,
+        /<\s*system\s*>/i,
+        /\[INST\]/i,
+        /###\s*(system|instruction)/i,
+      ];
+      const inputViolation = INJECTION_PATTERNS.find(p => p.test(safeUserMessage));
+      if (inputViolation) {
+        console.warn(`[bereanChatProxy] injection attempt blocked for uid=${uid}`);
+        throw new HttpsError('invalid-argument', 'Message contains disallowed content.');
+      }
 
       if (!userMessage || typeof userMessage !== "string") {
         throw new HttpsError("invalid-argument", "userMessage is required.");
@@ -933,6 +960,9 @@ exports.bereanSermonWeekPlan = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'sermon_plan', 5);
 
       const {title, topic, keyVerses, keyPoints, pastorName} = request.data;
       if (!topic || !keyVerses || !keyPoints) {
@@ -1005,6 +1035,9 @@ exports.bereanSpiritualGraphAnalysis = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'spiritual_graph', 5);
 
       const {patterns, rhythms} = request.data;
       if (!patterns) {
@@ -1065,6 +1098,9 @@ exports.bereanSeasonalPrompt = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await checkBereanRateLimit(uid, 'seasonal_prompt', 10);
 
       const {season, holiday, userContext, promptType} = request.data;
       if (!season) {

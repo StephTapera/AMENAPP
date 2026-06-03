@@ -261,9 +261,13 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
                 .getDocuments()
 
             let blocks = blocksSnap.documents.compactMap { try? $0.data(as: ChurchNoteBlockV2.self) }
-            let allowedBlocks = blocks.filter { block in
-                block.visibility == .privateOnly
-                    || block.visibility == .shareable
+            // H-25: Explicitly exclude .privateOnly blocks from LLM payload.
+            // Private notes must never leave the device for AI processing.
+            let llmBlocks = blocks.filter { block in
+                block.visibility != .privateOnly
+            }
+            let allowedBlocks = llmBlocks.filter { block in
+                block.visibility == .shareable
                     || block.visibility == .selectedForSelahEmphasis
                     || block.visibility == .selectedForPostPreview
             }

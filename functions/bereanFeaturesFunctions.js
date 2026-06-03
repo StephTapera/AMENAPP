@@ -26,10 +26,10 @@ function claudeClient(apiKey) {
   return new Anthropic({ apiKey });
 }
 
-async function callClaudeSDK(apiKey, system, userMessage, maxTokens = 1000) {
+async function callClaudeSDK(apiKey, system, userMessage, maxTokens = 1000, model = 'claude-opus-4-5') {
   const client = claudeClient(apiKey);
   const response = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model,
     max_tokens: maxTokens,
     system,
     messages: [{ role: 'user', content: userMessage }],
@@ -147,16 +147,17 @@ exports.dailyVerseDrop = onSchedule(
       .limit(500)
       .get();
 
-    console.log(`Processing ${usersSnap.size} users...`);
+    const eligibleUsers = usersSnap.docs.slice(0, 100); // hard cap: 100 users/run
+    console.log(`[dailyVerseDrop] Processing ${eligibleUsers.length} users (cap: 100)`);
 
-    const promises = usersSnap.docs.map(async (doc) => {
+    const promises = eligibleUsers.map(async (doc) => {
       const user = doc.data();
       const userId = doc.id;
 
       try {
         const context = buildUserContext(user);
         const raw = await callClaudeSDK(apiKey, buildDailyVersePrompt(context),
-          'Generate today\'s personalized verse drop.', 600);
+          'Generate today\'s personalized verse drop.', 600, 'claude-haiku-4-5-20251001');
         const verse = parseJSON(raw);
 
         await firestore.collection('users').doc(userId)
@@ -213,7 +214,10 @@ exports.weeklyPrayerRecap = onSchedule(
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const promises = usersSnap.docs.map(async (doc) => {
+    // C-08: Only process users who have consented to AI processing of their prayer content.
+    const eligibleWithConsent = usersSnap.docs.filter(doc => doc.data().consentPrayerAI === true);
+
+    const promises = eligibleWithConsent.map(async (doc) => {
       const user = doc.data();
       const userId = doc.id;
 
@@ -287,8 +291,31 @@ exports.generatePrayerRecap = onCall(
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError('unauthenticated', 'Sign in required.');
 
+    // Rate limit: 3 recaps per user per day
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const recapLimitRef = admin.firestore()
+        .collection('users').doc(userId)
+        .collection('bereanUsage').doc(`recap_${today}`);
+
+    await admin.firestore().runTransaction(async (t) => {
+        const snap = await t.get(recapLimitRef);
+        const count = snap.exists ? (snap.data().count || 0) : 0;
+        if (count >= 3) {
+            throw new HttpsError('resource-exhausted', 'Daily prayer recap limit reached. Try again tomorrow.');
+        }
+        t.set(recapLimitRef, { count: count + 1, day: today }, { merge: true });
+    });
+
     const apiKey = CLAUDE_API_KEY.value();
     const firestore = admin.firestore();
+
+    // C-08: Verify user has consented to AI processing of their prayer content.
+    const userDoc = await firestore.collection('users').doc(userId).get();
+    const userData = userDoc.data() || {};
+    if (!userData.consentPrayerAI) {
+      throw new HttpsError('failed-precondition',
+        'Prayer AI processing requires your consent. Enable it in Settings > Privacy > Prayer Insights.');
+    }
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -304,8 +331,7 @@ exports.generatePrayerRecap = onCall(
       return { error: 'no_prayers', message: 'No prayers found this week.' };
     }
 
-    const userDoc = await firestore.collection('users').doc(userId).get();
-    const user = userDoc.data() || {};
+    const user = userData;
     const userName = user.displayName || user.name || 'friend';
 
     const prayerText = prayersSnap.docs.map((p) => {

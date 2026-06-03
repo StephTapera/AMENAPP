@@ -21,6 +21,8 @@ struct BereanConversationView: View {
     @StateObject private var viewModel: BereanSpiritualViewModel
     // M-11: Guardrail engine to analyze initialPrompt for crisis signals
     @StateObject private var guardrailEngine = BereanGuardrailEngine()
+    // C-05: COPPA age gate — block confirmed under-13 users from Berean AI
+    @ObservedObject private var minorSafety = BereanAgeGateService.shared
     @State private var showScriptureInsight = false
     @State private var selectedPassageRef: String? = nil
     @State private var showJourney = false
@@ -38,48 +40,53 @@ struct BereanConversationView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Color.white.ignoresSafeArea()
+        // C-05: COPPA gate — block confirmed under-13 users from Berean AI
+        if minorSafety.isConfirmedUnder13 {
+            BereanMinorBlockedView()
+        } else {
+            ZStack(alignment: .bottom) {
+                Color.white.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Top bar
-                conversationNavBar
+                VStack(spacing: 0) {
+                    // Top bar
+                    conversationNavBar
 
-                // Message thread
-                messageList
-                    .safeAreaInset(edge: .bottom) {
-                        Color.clear.frame(height: 120)
-                    }
-            }
-
-            // Composer overlay
-            composerSection
-                .padding(.bottom, 12)
-        }
-        .navigationBarHidden(true)
-        .task {
-            if let prompt = initialPrompt, !prompt.isEmpty {
-                // M-11: Run guardrail analysis on initialPrompt so the study-hub
-                // entry point has the same crisis detection as the chat entry point.
-                guardrailEngine.analyzeMessage(prompt, role: .user)
-                if guardrailEngine.communityPromptType == .crisis {
-                    showInitialPromptCrisisSheet = true
+                    // Message thread
+                    messageList
+                        .safeAreaInset(edge: .bottom) {
+                            Color.clear.frame(height: 120)
+                        }
                 }
-                viewModel.currentInput = prompt
-                await viewModel.sendMessage()
+
+                // Composer overlay
+                composerSection
+                    .padding(.bottom, 12)
             }
-        }
-        .sheet(isPresented: $showInitialPromptCrisisSheet) {
-            WellnessCrisisSheet()
-                .presentationDetents([.large])
-        }
-        .sheet(isPresented: $showScriptureInsight) {
-            if let ref = selectedPassageRef {
-                ScriptureInsightView(reference: ref)
+            .navigationBarHidden(true)
+            .task {
+                if let prompt = initialPrompt, !prompt.isEmpty {
+                    // M-11: Run guardrail analysis on initialPrompt so the study-hub
+                    // entry point has the same crisis detection as the chat entry point.
+                    guardrailEngine.analyzeMessage(prompt, role: .user)
+                    if guardrailEngine.communityPromptType == .crisis {
+                        showInitialPromptCrisisSheet = true
+                    }
+                    viewModel.currentInput = prompt
+                    await viewModel.sendMessage()
+                }
             }
-        }
-        .sheet(isPresented: $showJourney) {
-            DiscipleshipJourneyView()
+            .sheet(isPresented: $showInitialPromptCrisisSheet) {
+                WellnessCrisisSheet()
+                    .presentationDetents([.large])
+            }
+            .sheet(isPresented: $showScriptureInsight) {
+                if let ref = selectedPassageRef {
+                    ScriptureInsightView(reference: ref)
+                }
+            }
+            .sheet(isPresented: $showJourney) {
+                DiscipleshipJourneyView()
+            }
         }
     }
 

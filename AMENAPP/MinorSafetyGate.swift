@@ -4,8 +4,8 @@ import FirebaseAuth
 
 /// Checks if the current user is under 13 (COPPA) and blocks AI features accordingly.
 @MainActor
-final class MinorSafetyService: ObservableObject {
-    static let shared = MinorSafetyService()
+final class BereanAgeGateService: ObservableObject {
+    static let shared = BereanAgeGateService()
     @Published private(set) var isConfirmedUnder13: Bool = false
     @Published private(set) var isLoaded: Bool = false
 
