@@ -12,17 +12,22 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { withRetry } = require("./retryHelper");
 
 const NVIDIA_API_KEY = defineSecret("NVIDIA_API_KEY");
 
 const NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 const SAFETY_MODEL = "nvidia/llama-3.1-nemoguard-8b-content-safety";
 
+// TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
+const TTL_PENDING_MS = 90 * 24 * 60 * 60 * 1000; // 90 days — unresolved items
+
 // ─────────────────────────────────────────────────────────────────────────────
 // checkSafety — shared NeMo Guard call (same implementation as moderatePost.js)
+// M-01: fetch wrapped with withRetry for transient NVIDIA NIM failures.
 // ─────────────────────────────────────────────────────────────────────────────
 async function checkSafety(text, apiKey) {
-  const res = await fetch(NIM_URL, {
+  const res = await withRetry(() => fetch(NIM_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -34,7 +39,7 @@ async function checkSafety(text, apiKey) {
       max_tokens: 100,
       temperature: 0,
     }),
-  });
+  }), 3, 500);
 
   if (!res.ok) {
     throw new Error(`NIM ${res.status}: ${await res.text()}`);
@@ -86,6 +91,7 @@ exports.moderateSanctuaryMessage = onDocumentCreated(
           checkedAt: FieldValue.serverTimestamp(),
         },
       });
+      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
       await getFirestore().collection("moderationQueue").add({
         contentRef: snap.ref.path,
         contentType: "sanctuary_message",
@@ -95,6 +101,7 @@ exports.moderateSanctuaryMessage = onDocumentCreated(
         status: "pending",
         categories: [],
         createdAt: FieldValue.serverTimestamp(),
+        expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
       return;
     }
@@ -122,6 +129,7 @@ exports.moderateSanctuaryMessage = onDocumentCreated(
     });
 
     if (status !== "approved") {
+      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
       await getFirestore().collection("moderationQueue").add({
         contentRef: snap.ref.path,
         contentType: "sanctuary_message",
@@ -131,6 +139,7 @@ exports.moderateSanctuaryMessage = onDocumentCreated(
         status,
         categories,
         createdAt: FieldValue.serverTimestamp(),
+        expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
     }
   }
@@ -164,6 +173,7 @@ exports.moderatePrayerRequest = onDocumentCreated(
           checkedAt: FieldValue.serverTimestamp(),
         },
       });
+      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
       await getFirestore().collection("moderationQueue").add({
         contentRef: snap.ref.path,
         contentType: "prayer_request",
@@ -172,6 +182,7 @@ exports.moderatePrayerRequest = onDocumentCreated(
         status: "pending",
         categories: [],
         createdAt: FieldValue.serverTimestamp(),
+        expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
       return;
     }
@@ -200,6 +211,7 @@ exports.moderatePrayerRequest = onDocumentCreated(
     });
 
     if (status !== "approved") {
+      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
       await getFirestore().collection("moderationQueue").add({
         contentRef: snap.ref.path,
         contentType: "prayer_request",
@@ -208,6 +220,7 @@ exports.moderatePrayerRequest = onDocumentCreated(
         status,
         categories,
         createdAt: FieldValue.serverTimestamp(),
+        expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
     }
   }
@@ -268,6 +281,7 @@ exports.moderateDMMessage = onDocumentCreated(
     });
 
     if (status !== "approved") {
+      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
       await getFirestore().collection("moderationQueue").add({
         contentRef: snap.ref.path,
         contentType: "dm_message",
@@ -277,6 +291,7 @@ exports.moderateDMMessage = onDocumentCreated(
         status,
         categories,
         createdAt: FieldValue.serverTimestamp(),
+        expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
     }
   }

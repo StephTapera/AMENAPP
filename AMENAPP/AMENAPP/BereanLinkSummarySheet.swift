@@ -42,7 +42,8 @@ struct BereanLinkSummarySheet: View {
         .presentationBackground(reduceTransparency ? .thickMaterial : .regularMaterial)
         .task { await load() }
         .onAppear {
-            Analytics.logEvent("berean_link_detected", parameters: ["url": url])
+            let urlDomain = URL(string: url)?.host ?? "unknown"
+            Analytics.logEvent("berean_link_detected", parameters: ["url_domain": urlDomain])
         }
     }
 

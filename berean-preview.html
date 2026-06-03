@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Berean — Daily Formation Companion (Preview)</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0A0A0F; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useCallback, useMemo, useEffect } = React;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AGENT A — DESIGN TOKENS & LIQUID GLASS PRIMITIVES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    const TOKENS = {
+      colors: {
+        goldPrimary:    '#C9A84C',
+        goldLight:      '#E8CB7A',
+        goldDim:        '#8A6F2E',
+        bgDeep:         '#0A0A0F',
+        bgMid:          '#111118',
+        bgPanel:        '#1A1A26',
+        glassFill:      'rgba(255, 255, 255, 0.04)',
+        glassBorder:    'rgba(201, 168, 76, 0.18)',
+        glassGlow:      'rgba(201, 168, 76, 0.10)',
+        textPrimary:    '#F5F0E8',
+        textSecondary:  '#B8AFA0',
+        textMuted:      '#6B6460',
+        crisisRed:      '#D93025',
+        crisisRedSoft:  'rgba(217, 48, 37, 0.15)',
+        tenderBlue:     '#4A9ECC',
+        tenderBlueSoft: 'rgba(74, 158, 204, 0.12)',
+        successGreen:   '#3DAA6E',
+      },
+      blur: {
+        sm: 'blur(8px)',
+        md: 'blur(16px)',
+        lg: 'blur(24px)',
+        xl: 'blur(40px)',
+      },
+      radius: {
+        sm:   '8px',
+        md:   '14px',
+        lg:   '20px',
+        xl:   '28px',
+        pill: '9999px',
+      },
+      spacing: {
+        xs:  '4px',
+        sm:  '8px',
+        md:  '16px',
+        lg:  '24px',
+        xl:  '40px',
+        xxl: '64px',
+      },
+      font: {
+        display: "'Cormorant Garamond', Georgia, serif",
+        ui:      "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif",
+      },
+      transition: 'all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    };
+
+    const T = TOKENS;
+
+    const fontStyle = `
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&display=swap');
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: ${T.colors.bgDeep}; }
+      button { outline: none; }
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: ${T.colors.glassBorder}; border-radius: 4px; }
+      @keyframes breathe {
+        0%, 100% { transform: scale(1); opacity: 0.7; }
+        50%       { transform: scale(1.18); opacity: 1; }
+      }
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+    `;
+
+    function GlassCard({ children, style, onClick, glow = false, elevated = false, danger = false, tender = false }) {
+      const [hovered, setHovered] = useState(false);
+      const isInteractive = Boolean(onClick);
+
+      const borderColor = danger ? T.colors.crisisRed : tender ? T.colors.tenderBlue : T.colors.glassBorder;
+      const fillColor   = danger ? T.colors.crisisRedSoft : tender ? T.colors.tenderBlueSoft
+                        : elevated ? 'rgba(255,255,255,0.07)' : T.colors.glassFill;
+
+      const boxShadow = [
+        `0 0 0 1px ${borderColor}`,
+        elevated ? '0 20px 60px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.35)'
+                 : '0 8px 32px rgba(0,0,0,0.40), 0 2px 8px rgba(0,0,0,0.25)',
+        (glow && !danger && !tender) ? `0 0 40px ${T.colors.glassGlow}` : null,
+        danger  ? `0 0 32px ${T.colors.crisisRedSoft}`  : null,
+        tender  ? `0 0 32px ${T.colors.tenderBlueSoft}` : null,
+      ].filter(Boolean).join(', ');
+
+      return (
+        <div
+          role={isInteractive ? 'button' : undefined}
+          tabIndex={isInteractive ? 0 : undefined}
+          onClick={onClick}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onKeyDown={isInteractive ? e => { if (e.key === 'Enter' || e.key === ' ') onClick?.(e); } : undefined}
+          style={{
+            position:             'relative',
+            background:           fillColor,
+            backdropFilter:       T.blur.md,
+            WebkitBackdropFilter: T.blur.md,
+            borderRadius:         T.radius.lg,
+            boxShadow,
+            padding:              T.spacing.lg,
+            transition:           T.transition,
+            cursor:               isInteractive ? 'pointer' : 'default',
+            transform:            hovered && isInteractive ? 'translateY(-2px) scale(1.005)' : 'translateY(0) scale(1)',
+            willChange:           'transform',
+            ...style,
+          }}
+        >
+          {children}
+        </div>
+      );
+    }
+
+    function GlassButton({ children, onClick, variant = 'primary', size = 'md', disabled = false, style }) {
+      const [hovered, setHovered] = useState(false);
+      const [pressed, setPressed] = useState(false);
+
+      const sizeMap = {
+        sm: { padding: '6px 14px',  fontSize: '12px', height: '30px' },
+        md: { padding: '9px 22px',  fontSize: '14px', height: '40px' },
+        lg: { padding: '13px 32px', fontSize: '16px', height: '52px' },
+      };
+      const dim = sizeMap[size] ?? sizeMap.md;
+
+      const variantMap = {
+        primary: {
+          background: hovered
+            ? `linear-gradient(135deg, ${T.colors.goldLight}, ${T.colors.goldPrimary})`
+            : `linear-gradient(135deg, ${T.colors.goldPrimary}, ${T.colors.goldDim})`,
+          color:      T.colors.bgDeep,
+          border:     `1px solid ${T.colors.goldLight}`,
+          boxShadow:  hovered ? `0 0 24px ${T.colors.glassGlow}` : `0 0 12px ${T.colors.glassGlow}`,
+          fontWeight: '600',
+        },
+        ghost: {
+          background: hovered ? 'rgba(255,255,255,0.07)' : T.colors.glassFill,
+          color:      T.colors.textPrimary,
+          border:     `1px solid ${T.colors.glassBorder}`,
+          boxShadow:  hovered ? `0 0 16px ${T.colors.glassGlow}` : 'none',
+          fontWeight: '500',
+        },
+        danger: {
+          background: hovered ? T.colors.crisisRed : T.colors.crisisRedSoft,
+          color:      hovered ? '#fff' : T.colors.crisisRed,
+          border:     `1px solid ${T.colors.crisisRed}`,
+          boxShadow:  'none',
+          fontWeight: '600',
+        },
+      };
+      const v = variantMap[variant] ?? variantMap.primary;
+
+      return (
+        <button
+          onClick={disabled ? undefined : onClick}
+          disabled={disabled}
+          onMouseEnter={() => !disabled && setHovered(true)}
+          onMouseLeave={() => { setHovered(false); setPressed(false); }}
+          onMouseDown={() => !disabled && setPressed(true)}
+          onMouseUp={() => setPressed(false)}
+          style={{
+            display:              'inline-flex',
+            alignItems:           'center',
+            justifyContent:       'center',
+            gap:                  T.spacing.xs,
+            borderRadius:         T.radius.pill,
+            backdropFilter:       T.blur.sm,
+            WebkitBackdropFilter: T.blur.sm,
+            fontFamily:           T.font.ui,
+            letterSpacing:        '0.02em',
+            transition:           T.transition,
+            cursor:               disabled ? 'not-allowed' : 'pointer',
+            opacity:              disabled ? 0.4 : 1,
+            transform:            pressed ? 'scale(0.96)' : hovered ? 'scale(1.03)' : 'scale(1)',
+            userSelect:           'none',
+            whiteSpace:           'nowrap',
+            ...dim,
+            ...v,
+            ...style,
+          }}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function VerseChip({ reference, translation = 'ESV', onClick }) {
+      const [hovered, setHovered] = useState(false);
+      return (
+        <span
+          onClick={onClick}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          role={onClick ? 'button' : undefined}
+          tabIndex={onClick ? 0 : undefined}
+          aria-label={`${reference} ${translation}`}
+          style={{
+            display:              'inline-flex',
+            alignItems:           'center',
+            gap:                  '4px',
+            padding:              '3px 10px',
+            borderRadius:         T.radius.pill,
+            background:           hovered ? 'rgba(201,168,76,0.18)' : 'rgba(201,168,76,0.10)',
+            border:               `1px solid ${hovered ? T.colors.goldPrimary : T.colors.goldDim}`,
+            color:                hovered ? T.colors.goldLight : T.colors.goldPrimary,
+            fontFamily:           T.font.display,
+            fontSize:             '12px',
+            fontStyle:            'italic',
+            cursor:               onClick ? 'pointer' : 'default',
+            transition:           T.transition,
+            backdropFilter:       T.blur.sm,
+            WebkitBackdropFilter: T.blur.sm,
+            whiteSpace:           'nowrap',
+            userSelect:           'none',
+          }}
+        >
+          {reference}
+          <span style={{ opacity: 0.6, fontSize: '10px', fontFamily: T.font.ui, fontStyle: 'normal' }}>
+            {translation}
+          </span>
+        </span>
+      );
+    }
+
+    function SectionLabel({ children, icon, style: overrideStyle }) {
+      return (
+        <div style={{
+          display:       'flex',
+          alignItems:    'center',
+          gap:           T.spacing.xs,
+          fontFamily:    T.font.ui,
+          fontSize:      '10px',
+          fontWeight:    '700',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color:         T.colors.goldPrimary,
+          opacity:       0.85,
+          userSelect:    'none',
+          ...overrideStyle,
+        }}>
+          {icon && <span aria-hidden="true" style={{ fontSize: '12px', lineHeight: 1, flexShrink: 0 }}>{icon}</span>}
+          <span>{children}</span>
+        </div>
+      );
+    }
+
+    function ArcCardStack({ cards = [], activeIndex = 0, onSelect }) {
+      const FAN_ROTATE    = 6;
+      const FAN_TX        = 44;
+      const FAN_SCALE     = 0.07;
+      const VISIBLE_RANGE = 2;
+
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: T.spacing.md }}>
+          <div
+            role="listbox"
+            aria-label="Card stack"
+            style={{ position: 'relative', width: '280px', height: '340px', userSelect: 'none' }}
+          >
+            {cards.map((card, idx) => {
+              const offset   = idx - activeIndex;
+              const absOff   = Math.abs(offset);
+              const sign     = Math.sign(offset);
+              const isActive = offset === 0;
+              if (absOff > VISIBLE_RANGE) return null;
+
+              const rotate     = sign * FAN_ROTATE * absOff;
+              const translateX = sign * FAN_TX * absOff;
+              const scale      = 1 - FAN_SCALE * absOff;
+              const zIndex     = 10 - absOff;
+              const opacity    = 1 - 0.18 * absOff;
+
+              return (
+                <div
+                  key={card.id}
+                  role="option"
+                  aria-selected={isActive}
+                  tabIndex={0}
+                  aria-label={`${card.type}: ${(card.preview ?? '').slice(0, 40)}`}
+                  onClick={() => !isActive && onSelect?.(idx)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onSelect?.(idx); }}
+                  style={{
+                    position:             'absolute',
+                    top:                  0,
+                    left:                 '50%',
+                    width:                '240px',
+                    marginLeft:           '-120px',
+                    height:               '100%',
+                    background:           isActive
+                      ? 'linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.04) 100%)'
+                      : T.colors.glassFill,
+                    backdropFilter:       T.blur.md,
+                    WebkitBackdropFilter: T.blur.md,
+                    borderRadius:         T.radius.xl,
+                    border:               `1px solid ${isActive ? T.colors.glassBorder : 'rgba(201,168,76,0.08)'}`,
+                    boxShadow:            isActive
+                      ? `0 0 0 1px ${T.colors.glassBorder}, 0 24px 64px rgba(0,0,0,0.55), 0 0 32px ${T.colors.glassGlow}`
+                      : '0 8px 24px rgba(0,0,0,0.35)',
+                    transform:            `translateX(${translateX}px) rotate(${rotate}deg) scale(${scale})`,
+                    transformOrigin:      'center bottom',
+                    zIndex,
+                    opacity,
+                    cursor:               isActive ? 'default' : 'pointer',
+                    transition:           T.transition,
+                    padding:              T.spacing.lg,
+                    display:              'flex',
+                    flexDirection:        'column',
+                    gap:                  T.spacing.sm,
+                    overflow:             'hidden',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: T.spacing.sm }}>
+                    <span aria-hidden="true" style={{ fontSize: '20px', lineHeight: 1, filter: isActive ? 'none' : 'brightness(0.7)' }}>
+                      {card.icon ?? '📖'}
+                    </span>
+                    <SectionLabel>{card.type}</SectionLabel>
+                  </div>
+                  {card.preview && (
+                    <p style={{
+                      fontFamily:          T.font.display,
+                      fontSize:            '14px',
+                      fontStyle:           'italic',
+                      color:               isActive ? T.colors.textPrimary : T.colors.textSecondary,
+                      lineHeight:          1.55,
+                      flex:                1,
+                      overflow:            'hidden',
+                      display:             '-webkit-box',
+                      WebkitLineClamp:     5,
+                      WebkitBoxOrient:     'vertical',
+                      transition:          T.transition,
+                    }}>
+                      {card.preview}
+                    </p>
+                  )}
+                  {card.chips?.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: T.spacing.xs, marginTop: 'auto' }}>
+                      {card.chips.map((c, ci) => (
+                        <VerseChip key={ci} reference={c.ref} translation={c.tr ?? 'ESV'} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div role="tablist" aria-label="Card navigation" style={{ display: 'flex', gap: T.spacing.sm, alignItems: 'center' }}>
+            {cards.map((card, idx) => {
+              const isActive = idx === activeIndex;
+              return (
+                <button
+                  key={card.id}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-label={`Card ${idx + 1}`}
+                  onClick={() => onSelect?.(idx)}
+                  style={{
+                    width:        isActive ? '20px' : '6px',
+                    height:       '6px',
+                    borderRadius: T.radius.pill,
+                    background:   isActive ? T.colors.goldPrimary : T.colors.textMuted,
+                    border:       'none',
+                    padding:      0,
+                    cursor:       'pointer',
+                    transition:   T.transition,
+                    boxShadow:    isActive ? `0 0 8px ${T.colors.goldDim}` : 'none',
+                    flexShrink:   0,
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AGENT D — DATA LAYER
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    const VERSE_DB = {
+      'Acts 17:11': {
+        ESV: '[MOCK — ESV] Now these Jews were more noble than those in Thessalonica; they received the word with all eagerness, examining the Scriptures daily to see if these things were so.',
+        NIV: '[MOCK — NIV] Now the Berean Jews received the message with great eagerness and examined the Scriptures every day to see if what Paul said was true.',
+        KJV: '[MOCK — KJV] These were more noble than those in Thessalonica, in that they received the word with all readiness of mind, and searched the scriptures daily, whether those things were so.',
+      },
+      'Psalm 46:10': {
+        ESV: '[MOCK — ESV] Be still, and know that I am God. I will be exalted among the nations, I will be exalted in the earth!',
+        NIV: '[MOCK — NIV] He says, "Be still, and know that I am God; I will be exalted among the nations, I will be exalted in the earth."',
+        KJV: '[MOCK — KJV] Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.',
+      },
+      'Isaiah 40:31': {
+        ESV: '[MOCK — ESV] But they who wait for the LORD shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary; they shall walk and not faint.',
+        NIV: '[MOCK — NIV] But those who hope in the LORD will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint.',
+      },
+      'Matthew 6:33': {
+        ESV: '[MOCK — ESV] But seek first the kingdom of God and his righteousness, and all these things will be added to you.',
+        NIV: '[MOCK — NIV] But seek first his kingdom and his righteousness, and all these things will be given to you as well.',
+        KJV: '[MOCK — KJV] But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you.',
+      },
+      'Romans 8:28': {
+        ESV: '[MOCK — ESV] And we know that for those who love God all things work together for good, for those who are called according to his purpose.',
+        NIV: '[MOCK — NIV] And we know that in all things God works for the good of those who love him, who have been called according to his purpose.',
+      },
+      'Lamentations 3:22-23': {
+        ESV: '[MOCK — ESV] The steadfast love of the LORD never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.',
+        NIV: "[MOCK — NIV] Because of the LORD's great love we are not consumed, for his compassions never fail. They are new every morning; great is your faithfulness.",
+      },
+      'Philippians 4:6-7': {
+        ESV: '[MOCK — ESV] Do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your minds in Christ Jesus.',
+        NIV: '[MOCK — NIV] Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts and your minds in Christ Jesus.',
+      },
+      '1 Peter 5:7': {
+        ESV: '[MOCK — ESV] Casting all your anxieties on him, because he cares for you.',
+        NIV: '[MOCK — NIV] Cast all your anxiety on him because he cares for you.',
+        KJV: '[MOCK — KJV] Casting all your care upon him; for he careth for you.',
+      },
+    };
+
+    function getVerse(ref, translation = 'ESV') {
+      const book = VERSE_DB[ref];
+      if (!book) {
+        return {
+          text:     `[MOCK — ${translation}] Verse text for ${ref} will be loaded from the YouVersion Content API in production.`,
+          citation: `${ref} (${translation})`,
+          isMock:   true,
+        };
+      }
+      const text = book[translation] ?? book[Object.keys(book)[0]];
+      return { text, citation: `${ref} (${translation})`, isMock: true };
+    }
+
+    function whySeeingThis(card) {
+      const detail = card.sourceDetail ?? '';
+      switch (card.source) {
+        case 'readingPlan':
+          return `This comes from your reading plan "${detail}". Berean ties each day's verse to where you actually are — not a random pick.`;
+        case 'prayerList':
+          return "You added this to your prayer list. Berean brings it back so you remember to pray again, and so you can celebrate when it's answered.";
+        case 'sanctuary':
+          return `This comes from activity in your Sanctuary "${detail}" — a community you chose to join.`;
+        case 'highlights':
+          return "You highlighted and annotated this verse. Berean surfaced it so you can continue that thread of thought.";
+        case 'memoryVerses':
+          return "Your spaced-repetition schedule says this verse is due for review today. Reviewing it now builds long-term retention.";
+        case 'liturgicalCalendar':
+          return `The church calendar marks this as ${detail}. You opted into seasonal prompts during onboarding.`;
+        default:
+          return "You selected this type of content in your Berean preferences.";
+      }
+    }
+
+    const TODAY = '2026-06-02';
+
+    const MOCK_USER = {
+      id:              'user_001',
+      name:            'Jordan',
+      tradition:       'non-denominational',
+      translationPref: 'ESV',
+    };
+
+    const MOCK_READING_PLAN = {
+      name:              'Through the Gospels in 90 Days',
+      currentDay:        23,
+      totalDays:         90,
+      todayPassageRef:   'Matthew 6:33',
+      todayPassageRange: 'Matthew 6:25–34',
+      progress:          23 / 90,
+    };
+
+    const MOCK_PRAYER_LIST = [
+      { id: 'p1', subject: "Mom's surgery recovery",                forWhom: 'Mom',  prayedOn: '2026-05-28', status: 'active',   sensitivity: 'tender'  },
+      { id: 'p2', subject: "Jake's job search",                     forWhom: 'Jake', prayedOn: '2026-06-01', status: 'active',   sensitivity: 'normal'  },
+      { id: 'p3', subject: 'Mental health — walking a dark season', forWhom: 'Self', prayedOn: '2026-05-30', status: 'active',   sensitivity: 'crisis'  },
+      { id: 'p4', subject: 'Gratitude for new community',           forWhom: 'Self', prayedOn: '2026-06-02', status: 'answered', sensitivity: 'normal'  },
+    ];
+
+    const MOCK_SANCTUARIES = [
+      { id: 's1', name: 'Oakwood Young Adults',  openPrayerRequests: 3, activeThreads: 2, recentActivity: 'Sofia shared a testimony this morning' },
+      { id: 's2', name: 'Morning Prayer Circle', openPrayerRequests: 7, activeThreads: 1, recentActivity: 'New prayer request from Marcus'        },
+    ];
+
+    const MOCK_HIGHLIGHTS = [
+      { verseRef: 'Isaiah 40:31', note: 'This hit me during the hard week. Still processing.',               savedOn: '2026-05-25' },
+      { verseRef: 'Romans 8:28',  note: 'Want to dig into the Greek for "called according to purpose".',    savedOn: '2026-06-01' },
+    ];
+
+    const MOCK_MEMORY_VERSES = [
+      { verseRef: 'Psalm 46:10',          srsDueDate: '2026-06-02', strength: 0.55, streak: 5  },
+      { verseRef: 'Lamentations 3:22-23', srsDueDate: '2026-06-04', strength: 0.80, streak: 12 },
+    ];
+
+    const MOCK_SEASONAL = {
+      liturgicalSeason: 'Ordinary Time',
+      prompt:           'Ordinary Time invites faithful attention to the everyday. Where is the sacred hiding in your routine today?',
+    };
+
+    function assembleCards(user, readingPlan, prayerList, sanctuaries, highlights, memoryVerses, seasonal, selectedTopics) {
+      const cards = [];
+
+      if (selectedTopics.includes('verse')) {
+        const verse = getVerse(readingPlan.todayPassageRef, user.translationPref);
+        cards.push({
+          id:           'card-verse',
+          cardType:     'verse',
+          type:         'Daily Verse',
+          icon:         '✦',
+          source:       'readingPlan',
+          sourceDetail: readingPlan.name,
+          preview:      verse.text.replace(/\[MOCK — \w+\] /, '').substring(0, 100) + '…',
+          chips:        [{ ref: readingPlan.todayPassageRef, tr: user.translationPref }],
+          data:         { verse, passageRange: readingPlan.todayPassageRange },
+        });
+      }
+
+      if (selectedTopics.includes('plan')) {
+        cards.push({
+          id:           'card-plan',
+          cardType:     'plan',
+          type:         'Reading Plan',
+          icon:         '📖',
+          source:       'readingPlan',
+          sourceDetail: readingPlan.name,
+          preview:      `Day ${readingPlan.currentDay} of ${readingPlan.totalDays} — ${readingPlan.todayPassageRange}`,
+          chips:        [],
+          data:         { readingPlan },
+        });
+      }
+
+      if (selectedTopics.includes('prayer')) {
+        const eligible = prayerList
+          .filter(p => p.status === 'active' && p.sensitivity !== 'crisis')
+          .sort((a, b) => new Date(a.prayedOn) - new Date(b.prayedOn));
+        if (eligible.length > 0) {
+          const prayer = eligible[0];
+          const daysSince = Math.floor((new Date(TODAY) - new Date(prayer.prayedOn)) / 86400000);
+          cards.push({
+            id:           `card-prayer-${prayer.id}`,
+            cardType:     'prayer',
+            type:         'Prayer Follow-up',
+            icon:         '🙏',
+            source:       'prayerList',
+            sourceDetail: 'Your prayer list',
+            preview:      `Praying for ${prayer.forWhom} — ${prayer.subject}${daysSince > 0 ? ` (${daysSince}d ago)` : ' (today)'}`,
+            chips:        [],
+            data:         { prayer },
+          });
+        }
+      }
+
+      if (selectedTopics.includes('sanctuary') && sanctuaries.length > 0) {
+        const s = sanctuaries[0];
+        cards.push({
+          id:           `card-sanctuary-${s.id}`,
+          cardType:     'sanctuary',
+          type:         'Sanctuary',
+          icon:         '⛪',
+          source:       'sanctuary',
+          sourceDetail: s.name,
+          preview:      `${s.openPrayerRequests} open prayer requests · ${s.recentActivity}`,
+          chips:        [],
+          data:         { sanctuary: s },
+        });
+      }
+
+      if (selectedTopics.includes('study') && highlights.length > 0) {
+        const h = highlights[highlights.length - 1];
+        cards.push({
+          id:           'card-study',
+          cardType:     'study',
+          type:         'Open Study',
+          icon:         '🔍',
+          source:       'highlights',
+          sourceDetail: 'Your highlights',
+          preview:      `"${h.note}"`,
+          chips:        [{ ref: h.verseRef, tr: user.translationPref }],
+          data:         { highlight: h },
+        });
+      }
+
+      if (selectedTopics.includes('memory')) {
+        const due = memoryVerses
+          .filter(v => v.srsDueDate <= TODAY)
+          .sort((a, b) => a.strength - b.strength)[0];
+        if (due) {
+          cards.push({
+            id:           `card-memory-${due.verseRef}`,
+            cardType:     'memory',
+            type:         'Memory Verse',
+            icon:         '🧠',
+            source:       'memoryVerses',
+            sourceDetail: 'Scripture memorization',
+            preview:      `${due.verseRef} — ${Math.round(due.strength * 100)}% strength · review due today`,
+            chips:        [{ ref: due.verseRef, tr: user.translationPref }],
+            data:         { memoryVerse: due },
+          });
+        }
+      }
+
+      if (selectedTopics.includes('seasonal') && seasonal) {
+        cards.push({
+          id:           'card-seasonal',
+          cardType:     'seasonal',
+          type:         'Seasonal Rhythm',
+          icon:         '🌿',
+          source:       'liturgicalCalendar',
+          sourceDetail: seasonal.liturgicalSeason,
+          preview:      seasonal.prompt,
+          chips:        [],
+          data:         { seasonal },
+        });
+      }
+
+      return cards;
+    }
+
+    function useBereanData() {
+      return {
+        user:          MOCK_USER,
+        readingPlan:   MOCK_READING_PLAN,
+        prayerList:    MOCK_PRAYER_LIST,
+        sanctuaries:   MOCK_SANCTUARIES,
+        highlights:    MOCK_HIGHLIGHTS,
+        memoryVerses:  MOCK_MEMORY_VERSES,
+        seasonal:      MOCK_SEASONAL,
+        getVerse,
+        assembleCards,
+        whySeeingThis,
+      };
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AGENT E — SAFETY LAYER
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    function MockLabel() {
+      return (
+        <span style={{
+          display:      'inline-block',
+          fontFamily:   T.font.ui,
+          fontSize:     '9px',
+          color:        T.colors.textMuted,
+          background:   'rgba(255,255,255,0.04)',
+          border:       '1px solid rgba(255,255,255,0.08)',
+          borderRadius: T.radius.sm,
+          padding:      '2px 7px',
+          marginTop:    '4px',
+          lineHeight:   1.4,
+        }}>
+          Prototype — mock text. Real Scripture from YouVersion license only.
+        </span>
+      );
+    }
+
+    function TenderBadge() {
+      return (
+        <span style={{
+          display:       'inline-flex',
+          alignItems:    'center',
+          gap:           '3px',
+          padding:       '2px 9px',
+          borderRadius:  T.radius.pill,
+          background:    T.colors.tenderBlueSoft,
+          border:        `1px solid rgba(74,158,204,0.25)`,
+          fontFamily:    T.font.ui,
+          fontSize:      '10px',
+          color:         T.colors.tenderBlue,
+          fontWeight:    '500',
+          letterSpacing: '0.05em',
+        }}>
+          🕊️ Gentle
+        </span>
+      );
+    }
+
+    function CrisisCard({ prayer }) {
+      return (
+        <GlassCard danger style={{ marginBottom: T.spacing.md }}>
+          <SectionLabel icon="🛡️" style={{ marginBottom: T.spacing.md }}>You're Not Alone</SectionLabel>
+
+          <p style={{
+            fontFamily:   T.font.display,
+            fontSize:     '20px',
+            color:        T.colors.textPrimary,
+            lineHeight:   1.55,
+            marginBottom: T.spacing.md,
+          }}>
+            You've been carrying something heavy. Berean can't carry it with you — but people can.
+          </p>
+
+          <p style={{
+            fontFamily:   T.font.ui,
+            fontSize:     '13px',
+            color:        T.colors.textSecondary,
+            lineHeight:   1.7,
+            marginBottom: T.spacing.lg,
+          }}>
+            If you're in crisis, please reach out to someone who loves you — your pastor, a trusted friend, or a professional counselor. You don't have to be alone in this.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: T.spacing.sm, marginBottom: T.spacing.lg }}>
+            {[
+              { title: '988 Suicide & Crisis Lifeline', sub: 'Call or text 988 — US only', href: 'tel:988' },
+              { title: 'Crisis Text Line',              sub: 'Text HOME to 741741',         href: 'sms:741741?&body=HOME' },
+            ].map(r => (
+              <a
+                key={r.href}
+                href={r.href}
+                style={{
+                  display:        'block',
+                  padding:        '10px 14px',
+                  background:     'rgba(217,48,37,0.08)',
+                  borderRadius:   T.radius.md,
+                  border:         '1px solid rgba(217,48,37,0.2)',
+                  textDecoration: 'none',
+                }}
+              >
+                <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textPrimary, fontWeight: '600', marginBottom: '2px' }}>{r.title}</p>
+                <p style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.textMuted }}>{r.sub}</p>
+              </a>
+            ))}
+          </div>
+
+          <blockquote style={{
+            fontFamily:  T.font.display,
+            fontSize:    '16px',
+            fontStyle:   'italic',
+            color:       T.colors.goldLight,
+            lineHeight:  1.55,
+            borderLeft:  `3px solid ${T.colors.goldDim}`,
+            paddingLeft: T.spacing.md,
+            marginTop:   T.spacing.md,
+          }}>
+            "Casting all your anxieties on him, because he cares for you."
+          </blockquote>
+          <div style={{ marginTop: '6px' }}>
+            <VerseChip reference="1 Peter 5:7" translation="ESV" />
+            <div style={{ marginTop: '4px' }}><MockLabel /></div>
+          </div>
+        </GlassCard>
+      );
+    }
+
+    function WhySheet({ card, onClose }) {
+      useEffect(() => {
+        const handler = e => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+      }, [onClose]);
+
+      return (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Why am I seeing this?"
+          onClick={onClose}
+          style={{
+            position:             'fixed',
+            inset:                0,
+            zIndex:               1000,
+            background:           'rgba(0,0,0,0.72)',
+            backdropFilter:       T.blur.sm,
+            WebkitBackdropFilter: T.blur.sm,
+            display:              'flex',
+            alignItems:           'flex-end',
+            justifyContent:       'center',
+            padding:              T.spacing.md,
+            animation:            'fadeUp 0.2s ease',
+          }}
+        >
+          <GlassCard
+            elevated
+            style={{ maxWidth: '460px', width: '100%', animation: 'fadeUp 0.25s ease' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <SectionLabel icon="💡" style={{ marginBottom: T.spacing.md }}>Why am I seeing this?</SectionLabel>
+            <p style={{ fontFamily: T.font.display, fontSize: '22px', color: T.colors.textPrimary, marginBottom: T.spacing.md }}>
+              {card.type}
+            </p>
+            <p style={{ fontFamily: T.font.ui, fontSize: '14px', color: T.colors.textSecondary, lineHeight: 1.65, marginBottom: T.spacing.lg }}>
+              {whySeeingThis(card)}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: T.spacing.sm }}>
+              <GlassButton variant="ghost" onClick={onClose}>Close</GlassButton>
+            </div>
+          </GlassCard>
+        </div>
+      );
+    }
+
+    function ConsentScreen({ integration, onAccept, onDecline }) {
+      const META = {
+        youversion: {
+          icon:    '📖',
+          name:    'YouVersion Bible',
+          reads:   'Your reading plans, bookmarks, and highlighted verses.',
+          why:     'So Berean ties your daily reflection to where you actually are in Scripture — not a random verse.',
+          default: 'Berean works without this. Your reading plan progress will be tracked manually.',
+        },
+        sanctuary: {
+          icon:    '⛪',
+          name:    'Sanctuaries',
+          reads:   'Open prayer requests and active threads in Sanctuaries you belong to.',
+          why:     'So Berean can surface community moments worth revisiting and people you could encourage.',
+          default: 'No Sanctuary content is read without this permission.',
+        },
+        prayerlist: {
+          icon:    '🙏',
+          name:    'Prayer List',
+          reads:   "Your personal prayer list — who you're praying for, and when.",
+          why:     'So Berean can gently remind you to pray again and celebrate answered prayer.',
+          default: 'No AI processes your prayer items without this permission.',
+        },
+        notifications: {
+          icon:    '🌅',
+          name:    'Morning Notifications',
+          reads:   'Nothing — this only schedules a single morning push notification.',
+          why:     'So Berean arrives each morning without you having to remember to open it.',
+          default: 'You can open Berean manually anytime without notifications.',
+        },
+      };
+
+      const m = META[integration] ?? META.youversion;
+
+      return (
+        <div style={{
+          minHeight:      '100vh',
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'center',
+          background:     `linear-gradient(160deg, ${T.colors.bgDeep}, ${T.colors.bgMid})`,
+          padding:        T.spacing.xl,
+          animation:      'fadeUp 0.3s ease',
+        }}>
+          <GlassCard elevated style={{ maxWidth: '420px', width: '100%' }}>
+            <div style={{ textAlign: 'center', marginBottom: T.spacing.xl }}>
+              <div style={{ fontSize: '44px', marginBottom: T.spacing.md }}>{m.icon}</div>
+              <h2 style={{ fontFamily: T.font.display, fontSize: '28px', color: T.colors.textPrimary, marginBottom: T.spacing.xs }}>
+                Connect {m.name}?
+              </h2>
+              <p style={{ fontFamily: T.font.ui, fontSize: '12px', color: T.colors.textMuted }}>
+                All integrations default OFF. You decide what Berean sees.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: T.spacing.md, marginBottom: T.spacing.xl }}>
+              {[
+                { label: 'What Berean reads', value: m.reads },
+                { label: 'Why it helps',      value: m.why   },
+              ].map(row => (
+                <div key={row.label}>
+                  <SectionLabel style={{ marginBottom: '6px' }}>{row.label}</SectionLabel>
+                  <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textSecondary, lineHeight: 1.65 }}>
+                    {row.value}
+                  </p>
+                </div>
+              ))}
+              <div style={{
+                padding:      T.spacing.md,
+                background:   T.colors.glassFill,
+                borderRadius: T.radius.md,
+                border:       `1px solid ${T.colors.glassBorder}`,
+              }}>
+                <p style={{ fontFamily: T.font.ui, fontSize: '12px', color: T.colors.textMuted, lineHeight: 1.6 }}>
+                  <strong style={{ color: T.colors.textSecondary }}>If you decline:</strong> {m.default}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: T.spacing.sm }}>
+              <GlassButton variant="ghost"   onClick={onDecline} style={{ flex: 1 }}>Not now</GlassButton>
+              <GlassButton variant="primary" onClick={onAccept}  style={{ flex: 1 }}>Connect</GlassButton>
+            </div>
+          </GlassCard>
+        </div>
+      );
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AGENT B — ONBOARDING FLOW
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    const TOPIC_OPTIONS = [
+      { id: 'verse',     label: 'Daily Verse & Reflection',  icon: '✦',  desc: 'One verse tied to where you are in Scripture, with a short invitation to reflect.' },
+      { id: 'plan',      label: 'Reading-Plan Momentum',     icon: '📖', desc: 'Know where you are today and keep your pace.' },
+      { id: 'prayer',    label: 'Prayer Follow-ups',         icon: '🙏', desc: "Revisit who you've been praying for; celebrate answered prayer." },
+      { id: 'sanctuary', label: 'Sanctuary Stirrings',       icon: '⛪', desc: 'Open requests and threads from your communities worth revisiting.' },
+      { id: 'study',     label: 'Open Study Thread',         icon: '🔍', desc: 'A passage you highlighted or a study left unfinished.' },
+      { id: 'memory',    label: 'Memory-Verse Practice',     icon: '🧠', desc: 'Spaced repetition to help Scripture take root.' },
+      { id: 'seasonal',  label: 'Seasonal Rhythm',           icon: '🌿', desc: 'Invitations shaped by the liturgical calendar.' },
+    ];
+
+    const INTEGRATIONS = ['youversion', 'sanctuary', 'prayerlist', 'notifications'];
+
+    function OnboardingFlow({ onComplete }) {
+      const [step,           setStep]           = useState('intro');
+      const [selectedTopics, setSelectedTopics] = useState(['verse', 'prayer']);
+      const [consentIdx,     setConsentIdx]     = useState(0);
+      const [consents,       setConsents]       = useState({});
+
+      const toggleTopic = useCallback(id => {
+        setSelectedTopics(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+      }, []);
+
+      const advanceConsent = useCallback(accepted => {
+        const key  = INTEGRATIONS[consentIdx];
+        const next = { ...consents, [key]: accepted };
+        setConsents(next);
+        if (consentIdx < INTEGRATIONS.length - 1) {
+          setConsentIdx(i => i + 1);
+        } else {
+          setStep('preparing');
+          setTimeout(() => onComplete({ selectedTopics, consents: next }), 2800);
+        }
+      }, [consentIdx, consents, selectedTopics, onComplete]);
+
+      if (step === 'consents') {
+        return (
+          <ConsentScreen
+            integration={INTEGRATIONS[consentIdx]}
+            onAccept={()  => advanceConsent(true)}
+            onDecline={() => advanceConsent(false)}
+          />
+        );
+      }
+
+      if (step === 'preparing') {
+        return (
+          <div style={{
+            minHeight:      '100vh',
+            display:        'flex',
+            flexDirection:  'column',
+            alignItems:     'center',
+            justifyContent: 'center',
+            background:     `linear-gradient(160deg, ${T.colors.bgDeep}, ${T.colors.bgMid})`,
+            padding:        T.spacing.xl,
+            textAlign:      'center',
+            animation:      'fadeUp 0.4s ease',
+          }}>
+            <div style={{ fontSize: '56px', marginBottom: T.spacing.xl, animation: 'breathe 2s ease-in-out infinite' }}>
+              ✦
+            </div>
+            <h2 style={{ fontFamily: T.font.display, fontSize: '34px', fontWeight: 300, color: T.colors.goldLight, marginBottom: T.spacing.md }}>
+              Your first Berean is being prepared.
+            </h2>
+            <p style={{ fontFamily: T.font.ui, fontSize: '14px', color: T.colors.textSecondary, lineHeight: 1.75, maxWidth: '320px' }}>
+              Overnight, Berean reads where you are in your walk and prepares a personal arc of reflection for morning.
+              Formation over information. Faithfulness over productivity.
+            </p>
+          </div>
+        );
+      }
+
+      if (step === 'topics') {
+        return (
+          <div style={{
+            minHeight:  '100vh',
+            background: `linear-gradient(160deg, ${T.colors.bgDeep}, ${T.colors.bgMid})`,
+            padding:    T.spacing.xl,
+            overflowY:  'auto',
+            animation:  'fadeUp 0.3s ease',
+          }}>
+            <div style={{ maxWidth: '480px', margin: '0 auto', width: '100%' }}>
+              <div style={{ padding: `${T.spacing.xl} 0 ${T.spacing.lg}` }}>
+                <SectionLabel icon="✦" style={{ marginBottom: T.spacing.sm }}>Berean</SectionLabel>
+                <h2 style={{ fontFamily: T.font.display, fontSize: '32px', fontWeight: 300, color: T.colors.textPrimary, lineHeight: 1.3, marginBottom: T.spacing.sm }}>
+                  What shapes your morning?
+                </h2>
+                <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textSecondary }}>
+                  Select the kinds of formation you want each day. You can change these anytime.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: T.spacing.sm, marginBottom: T.spacing.xl }}>
+                {TOPIC_OPTIONS.map(topic => {
+                  const active = selectedTopics.includes(topic.id);
+                  return (
+                    <GlassCard
+                      key={topic.id}
+                      onClick={() => toggleTopic(topic.id)}
+                      glow={active}
+                      style={{
+                        padding:    T.spacing.md,
+                        border:     active ? `1px solid ${T.colors.goldPrimary}` : `1px solid ${T.colors.glassBorder}`,
+                        display:    'flex',
+                        alignItems: 'flex-start',
+                        gap:        T.spacing.md,
+                      }}
+                    >
+                      <span style={{ fontSize: '22px', flexShrink: 0, marginTop: '1px' }}>{topic.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <p style={{
+                          fontFamily:   T.font.ui,
+                          fontSize:     '14px',
+                          fontWeight:   '600',
+                          color:        active ? T.colors.goldLight : T.colors.textPrimary,
+                          marginBottom: '3px',
+                        }}>
+                          {topic.label}
+                        </p>
+                        <p style={{ fontFamily: T.font.ui, fontSize: '12px', color: T.colors.textSecondary, lineHeight: 1.55 }}>
+                          {topic.desc}
+                        </p>
+                      </div>
+                      {active && (
+                        <span style={{ color: T.colors.goldPrimary, fontSize: '16px', flexShrink: 0, marginTop: '2px' }}>✓</span>
+                      )}
+                    </GlassCard>
+                  );
+                })}
+              </div>
+
+              <GlassButton
+                variant="primary"
+                size="lg"
+                style={{ width: '100%' }}
+                onClick={() => setStep('consents')}
+                disabled={selectedTopics.length === 0}
+              >
+                Continue — connect sources
+              </GlassButton>
+              <p style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.textMuted, textAlign: 'center', marginTop: T.spacing.md }}>
+                All integrations default OFF. You'll choose what to share next.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      // Intro screen
+      const actVerse = getVerse('Acts 17:11', 'ESV');
+      return (
+        <div style={{
+          minHeight:      '100vh',
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'center',
+          background:     `linear-gradient(160deg, ${T.colors.bgDeep}, ${T.colors.bgMid})`,
+          padding:        T.spacing.xl,
+          overflowY:      'auto',
+          animation:      'fadeUp 0.4s ease',
+        }}>
+          <div style={{ maxWidth: '380px', width: '100%' }}>
+            <div style={{
+              width:          '80px',
+              height:         '80px',
+              borderRadius:   '50%',
+              background:     `radial-gradient(circle at 38% 38%, ${T.colors.goldLight}, ${T.colors.goldDim})`,
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              margin:         '0 auto',
+              marginBottom:   T.spacing.xl,
+              boxShadow:      `0 0 48px ${T.colors.glassGlow}, 0 0 0 1px ${T.colors.glassBorder}`,
+              fontSize:       '30px',
+            }}>
+              ✦
+            </div>
+
+            <h1 style={{
+              fontFamily:    T.font.display,
+              fontSize:      '48px',
+              fontWeight:    300,
+              color:         T.colors.textPrimary,
+              letterSpacing: '0.03em',
+              textAlign:     'center',
+              marginBottom:  T.spacing.xs,
+            }}>
+              Berean
+            </h1>
+            <p style={{
+              fontFamily:    T.font.ui,
+              fontSize:      '11px',
+              color:         T.colors.goldLight,
+              letterSpacing: '0.12em',
+              fontWeight:    '500',
+              textAlign:     'center',
+              marginBottom:  T.spacing.xl,
+              textTransform: 'uppercase',
+              opacity:       0.85,
+            }}>
+              Examining the Scriptures daily
+            </p>
+
+            <GlassCard elevated style={{ marginBottom: T.spacing.xl }}>
+              <blockquote style={{
+                fontFamily:   T.font.display,
+                fontSize:     '19px',
+                fontStyle:    'italic',
+                color:        T.colors.textPrimary,
+                lineHeight:   1.55,
+                marginBottom: T.spacing.md,
+              }}>
+                {actVerse.text.replace(/\[MOCK — \w+\] /, '')}
+              </blockquote>
+              <div style={{ display: 'flex', gap: T.spacing.sm, flexWrap: 'wrap', marginBottom: T.spacing.sm }}>
+                <VerseChip reference="Acts 17:11" translation="ESV" />
+              </div>
+              <MockLabel />
+              <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textSecondary, lineHeight: 1.7, marginTop: T.spacing.md }}>
+                Berean helps you stay rooted. Every morning, a personal arc of reflection — tied to where you actually are in your walk.
+              </p>
+            </GlassCard>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: T.spacing.sm, marginBottom: T.spacing.xl }}>
+              {[
+                'Scripture tied to your reading plan, not random',
+                'Prayer follow-ups from your own list',
+                'Your community — not a feed of strangers',
+                'Formation over information. Faithfulness over productivity.',
+              ].map((point, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: T.spacing.sm }}>
+                  <span style={{ color: T.colors.goldPrimary, fontSize: '12px', flexShrink: 0, marginTop: '3px' }}>✦</span>
+                  <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textSecondary, lineHeight: 1.6 }}>{point}</p>
+                </div>
+              ))}
+            </div>
+
+            <GlassButton variant="primary" size="lg" style={{ width: '100%' }} onClick={() => setStep('topics')}>
+              Begin
+            </GlassButton>
+          </div>
+        </div>
+      );
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AGENT C — DAILY BEREAN FEED & ALL 7 CARD TYPES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    function VerseBlock({ text, style: overrideStyle }) {
+      const clean = text.replace(/\[MOCK — \w+\] /, '');
+      return (
+        <blockquote style={{
+          fontFamily:  T.font.display,
+          fontSize:    '21px',
+          fontStyle:   'italic',
+          color:       T.colors.textPrimary,
+          lineHeight:  1.58,
+          borderLeft:  `3px solid ${T.colors.goldPrimary}`,
+          paddingLeft: T.spacing.md,
+          margin:      0,
+          ...overrideStyle,
+        }}>
+          {clean}
+        </blockquote>
+      );
+    }
+
+    function StrengthBar({ pct, label }) {
+      return (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.textMuted }}>{label}</span>
+            <span style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.goldPrimary }}>{pct}%</span>
+          </div>
+          <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{
+              height:       '100%',
+              width:        `${pct}%`,
+              background:   `linear-gradient(90deg, ${T.colors.goldDim}, ${T.colors.goldPrimary})`,
+              borderRadius: '2px',
+              transition:   'width 0.8s ease',
+            }} />
+          </div>
+        </div>
+      );
+    }
+
+    function VerseReflectionCard({ card, user }) {
+      const { verse, passageRange } = card.data;
+      return (
+        <GlassCard elevated style={{ marginBottom: T.spacing.md }}>
+          <SectionLabel icon="✦" style={{ marginBottom: T.spacing.md }}>Daily Verse</SectionLabel>
+
+          <p style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.textMuted, marginBottom: T.spacing.sm, letterSpacing: '0.06em' }}>
+            {passageRange}
+          </p>
+
+          <VerseBlock text={verse.text} style={{ marginBottom: T.spacing.md }} />
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: T.spacing.xs, alignItems: 'center', marginBottom: T.spacing.lg }}>
+            <VerseChip reference={card.chips[0]?.ref ?? ''} translation={user.translationPref} />
+            <MockLabel />
+          </div>
+
+          <div style={{
+            background:   T.colors.glassFill,
+            borderRadius: T.radius.md,
+            padding:      T.spacing.md,
+            border:       `1px solid ${T.colors.glassBorder}`,
+          }}>
+            <SectionLabel style={{ marginBottom: '8px' }}>A moment to consider</SectionLabel>
+            <p style={{ fontFamily: T.font.display, fontSize: '16px', color: T.colors.textSecondary, lineHeight: 1.65 }}>
+              What does it look like to seek first — before the list, the inbox, the plans? Not as a task, but as an orientation. Where does your attention go first today?
+            </p>
+            <p style={{ fontFamily: T.font.ui, fontSize: '10px', color: T.colors.textMuted, marginTop: '8px', lineHeight: 1.5 }}>
+              This reflection is an invitation, not instruction. It does not represent any doctrinal position.
+            </p>
+          </div>
+        </GlassCard>
+      );
+    }
+
+    function ReadingPlanCard({ card }) {
+      const { readingPlan } = card.data;
+      const pct       = Math.round(readingPlan.progress * 100);
+      const remaining = readingPlan.totalDays - readingPlan.currentDay;
+      return (
+        <GlassCard style={{ marginBottom: T.spacing.md }}>
+          <SectionLabel icon="📖" style={{ marginBottom: T.spacing.md }}>Reading Plan</SectionLabel>
+          <p style={{ fontFamily: T.font.display, fontSize: '24px', color: T.colors.textPrimary, marginBottom: T.spacing.xs }}>
+            {readingPlan.name}
+          </p>
+          <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textSecondary, marginBottom: T.spacing.lg }}>
+            Day {readingPlan.currentDay} of {readingPlan.totalDays} — today's passage
+          </p>
+
+          <div style={{ marginBottom: T.spacing.lg }}>
+            <StrengthBar pct={pct} label={`${pct}% complete · ${remaining} days remaining`} />
+          </div>
+
+          <div style={{
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'space-between',
+            background:     T.colors.glassFill,
+            borderRadius:   T.radius.md,
+            padding:        T.spacing.md,
+            border:         `1px solid ${T.colors.glassBorder}`,
+          }}>
+            <div>
+              <p style={{ fontFamily: T.font.ui, fontSize: '10px', color: T.colors.textMuted, marginBottom: '4px' }}>Today's reading</p>
+              <VerseChip reference={readingPlan.todayPassageRange} />
+            </div>
+            <GlassButton variant="ghost" size="sm">Read now</GlassButton>
+          </div>
+        </GlassCard>
+      );
+    }
+
+    function PrayerFollowUpCard({ card }) {
+      const { prayer } = card.data;
+      const [action, setAction] = useState(null);
+      const daysSince = Math.floor((new Date(TODAY) - new Date(prayer.prayedOn)) / 86400000);
+
+      return (
+        <GlassCard
+          tender={prayer.sensitivity === 'tender'}
+          style={{ marginBottom: T.spacing.md }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: T.spacing.sm, marginBottom: T.spacing.md, flexWrap: 'wrap' }}>
+            <SectionLabel icon="🙏">Prayer Follow-up</SectionLabel>
+            {prayer.sensitivity === 'tender' && <TenderBadge />}
+          </div>
+
+          <p style={{ fontFamily: T.font.display, fontSize: '22px', color: T.colors.textPrimary, lineHeight: 1.4, marginBottom: T.spacing.sm }}>
+            {prayer.subject}
+          </p>
+          <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textSecondary, marginBottom: T.spacing.lg }}>
+            For {prayer.forWhom} · {daysSince === 0 ? 'today' : `${daysSince} day${daysSince === 1 ? '' : 's'} ago`}
+          </p>
+
+          {prayer.sensitivity === 'tender' && (
+            <div style={{
+              fontFamily:   T.font.ui,
+              fontSize:     '12px',
+              color:        T.colors.tenderBlue,
+              background:   T.colors.tenderBlueSoft,
+              borderRadius: T.radius.md,
+              padding:      '10px 14px',
+              marginBottom: T.spacing.md,
+              lineHeight:   1.6,
+            }}>
+              This is a tender request. Berean is holding it gently. Consider reaching out to {prayer.forWhom}, or sharing this with your pastor or a trusted friend in community.
+            </div>
+          )}
+
+          {!action ? (
+            <div style={{ display: 'flex', gap: T.spacing.sm, flexWrap: 'wrap' }}>
+              <GlassButton variant="primary" size="sm" onClick={() => setAction('prayed')}>Pray again</GlassButton>
+              <GlassButton variant="ghost"   size="sm" onClick={() => setAction('answered')}>Mark answered</GlassButton>
+              <GlassButton variant="ghost"   size="sm" onClick={() => setAction('checkin')}>Check in</GlassButton>
+            </div>
+          ) : (
+            <div style={{
+              padding:      T.spacing.md,
+              background:   'rgba(61,170,110,0.10)',
+              border:       `1px solid rgba(61,170,110,0.25)`,
+              borderRadius: T.radius.md,
+            }}>
+              <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.successGreen }}>
+                {action === 'prayed'   && '✓ Marked as prayed today.'}
+                {action === 'answered' && '✓ Celebrated as answered. Glory be.'}
+                {action === 'checkin'  && '✓ Reminder added to check in.'}
+              </p>
+            </div>
+          )}
+        </GlassCard>
+      );
+    }
+
+    function SanctuaryCard({ card }) {
+      const { sanctuary } = card.data;
+      return (
+        <GlassCard style={{ marginBottom: T.spacing.md }}>
+          <SectionLabel icon="⛪" style={{ marginBottom: T.spacing.md }}>Sanctuary</SectionLabel>
+          <p style={{ fontFamily: T.font.display, fontSize: '24px', color: T.colors.textPrimary, marginBottom: T.spacing.sm }}>
+            {sanctuary.name}
+          </p>
+          <p style={{ fontFamily: T.font.display, fontSize: '15px', fontStyle: 'italic', color: T.colors.textSecondary, marginBottom: T.spacing.lg }}>
+            "{sanctuary.recentActivity}"
+          </p>
+
+          <div style={{ display: 'flex', gap: T.spacing.md, marginBottom: T.spacing.lg }}>
+            {[
+              { label: 'Open prayer requests', value: sanctuary.openPrayerRequests },
+              { label: 'Active threads',        value: sanctuary.activeThreads       },
+            ].map(stat => (
+              <div key={stat.label} style={{
+                flex:         1,
+                textAlign:    'center',
+                background:   T.colors.glassFill,
+                borderRadius: T.radius.md,
+                padding:      T.spacing.md,
+                border:       `1px solid ${T.colors.glassBorder}`,
+              }}>
+                <p style={{ fontFamily: T.font.display, fontSize: '32px', color: T.colors.goldLight, fontWeight: 500, lineHeight: 1 }}>
+                  {stat.value}
+                </p>
+                <p style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.textMuted, marginTop: '4px' }}>
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <GlassButton variant="ghost" style={{ width: '100%' }}>Visit Sanctuary</GlassButton>
+        </GlassCard>
+      );
+    }
+
+    function StudyThreadCard({ card, user }) {
+      const { highlight } = card.data;
+      const verse = getVerse(highlight.verseRef, user.translationPref);
+      return (
+        <GlassCard style={{ marginBottom: T.spacing.md }}>
+          <SectionLabel icon="🔍" style={{ marginBottom: T.spacing.md }}>Open Study</SectionLabel>
+
+          <VerseBlock text={verse.text} style={{ marginBottom: T.spacing.sm }} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: T.spacing.xs, alignItems: 'center', marginBottom: T.spacing.lg }}>
+            <VerseChip reference={highlight.verseRef} translation={user.translationPref} />
+            <MockLabel />
+          </div>
+
+          {highlight.note && (
+            <div style={{
+              background:   T.colors.glassFill,
+              borderRadius: T.radius.md,
+              padding:      T.spacing.md,
+              border:       `1px solid ${T.colors.glassBorder}`,
+              marginBottom: T.spacing.lg,
+            }}>
+              <p style={{ fontFamily: T.font.ui, fontSize: '10px', color: T.colors.textMuted, marginBottom: '5px' }}>Your note · {highlight.savedOn}</p>
+              <p style={{ fontFamily: T.font.display, fontSize: '16px', fontStyle: 'italic', color: T.colors.textSecondary, lineHeight: 1.6 }}>
+                "{highlight.note}"
+              </p>
+            </div>
+          )}
+
+          <GlassButton variant="ghost" style={{ width: '100%' }}>Continue studying</GlassButton>
+        </GlassCard>
+      );
+    }
+
+    function MemoryVerseCard({ card, user }) {
+      const { memoryVerse } = card.data;
+      const [revealed, setRevealed] = useState(false);
+      const verse = getVerse(memoryVerse.verseRef, user.translationPref);
+      const pct   = Math.round(memoryVerse.strength * 100);
+
+      return (
+        <GlassCard style={{ marginBottom: T.spacing.md }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: T.spacing.md }}>
+            <SectionLabel icon="🧠">Memory Verse</SectionLabel>
+            <span style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.textMuted }}>
+              🔥 {memoryVerse.streak}-day streak
+            </span>
+          </div>
+
+          <p style={{ fontFamily: T.font.display, fontSize: '20px', color: T.colors.textPrimary, marginBottom: T.spacing.lg }}>
+            {memoryVerse.verseRef}
+          </p>
+
+          <div style={{ marginBottom: T.spacing.lg }}>
+            <StrengthBar pct={pct} label="Memory strength" />
+          </div>
+
+          {!revealed ? (
+            <>
+              <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textSecondary, marginBottom: T.spacing.md }}>
+                Try to recall this verse before revealing it.
+              </p>
+              <GlassButton variant="primary" style={{ width: '100%' }} onClick={() => setRevealed(true)}>
+                Reveal verse
+              </GlassButton>
+            </>
+          ) : (
+            <>
+              <VerseBlock text={verse.text} style={{ marginBottom: T.spacing.sm }} />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: T.spacing.xs, alignItems: 'center', marginBottom: T.spacing.lg }}>
+                <VerseChip reference={memoryVerse.verseRef} translation={user.translationPref} />
+                <MockLabel />
+              </div>
+              <div style={{ display: 'flex', gap: T.spacing.sm }}>
+                <GlassButton variant="primary" size="sm" style={{ flex: 1 }}>✓ I remembered it</GlassButton>
+                <GlassButton variant="ghost"   size="sm" style={{ flex: 1 }}>Practice again</GlassButton>
+              </div>
+            </>
+          )}
+        </GlassCard>
+      );
+    }
+
+    function SeasonalCard({ card }) {
+      const { seasonal } = card.data;
+      return (
+        <GlassCard style={{ marginBottom: T.spacing.md }}>
+          <SectionLabel icon="🌿" style={{ marginBottom: T.spacing.md }}>Seasonal Rhythm</SectionLabel>
+          <div style={{ marginBottom: T.spacing.lg }}>
+            <span style={{
+              display:       'inline-block',
+              padding:       '3px 12px',
+              background:    'rgba(61,170,110,0.10)',
+              border:        '1px solid rgba(61,170,110,0.25)',
+              borderRadius:  T.radius.pill,
+              fontFamily:    T.font.ui,
+              fontSize:      '11px',
+              color:         T.colors.successGreen,
+              letterSpacing: '0.06em',
+              fontWeight:    '500',
+            }}>
+              {seasonal.liturgicalSeason}
+            </span>
+          </div>
+          <p style={{
+            fontFamily: T.font.display,
+            fontSize:   '22px',
+            fontStyle:  'italic',
+            color:      T.colors.textPrimary,
+            lineHeight: 1.6,
+          }}>
+            "{seasonal.prompt}"
+          </p>
+        </GlassCard>
+      );
+    }
+
+    function CardRenderer({ card, user }) {
+      if (card.cardType === 'prayer' && card.data?.prayer?.sensitivity === 'crisis') return null;
+      switch (card.cardType) {
+        case 'verse':     return <VerseReflectionCard card={card} user={user} />;
+        case 'plan':      return <ReadingPlanCard      card={card} />;
+        case 'prayer':    return <PrayerFollowUpCard   card={card} />;
+        case 'sanctuary': return <SanctuaryCard        card={card} />;
+        case 'study':     return <StudyThreadCard       card={card} user={user} />;
+        case 'memory':    return <MemoryVerseCard       card={card} user={user} />;
+        case 'seasonal':  return <SeasonalCard          card={card} />;
+        default:          return null;
+      }
+    }
+
+    function DailyBereanFeed({ user, cards, prayerList }) {
+      const [arcIndex, setArcIndex] = useState(0);
+      const [whyCard,  setWhyCard]  = useState(null);
+
+      const crisisItems = prayerList.filter(p => p.sensitivity === 'crisis' && p.status === 'active');
+
+      if (cards.length === 0) {
+        return (
+          <div style={{
+            minHeight:      '100vh',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            background:     `linear-gradient(160deg, ${T.colors.bgDeep}, ${T.colors.bgMid})`,
+            padding:        T.spacing.xl,
+          }}>
+            <GlassCard elevated style={{ maxWidth: '360px', width: '100%', textAlign: 'center' }}>
+              <div style={{ fontSize: '40px', marginBottom: T.spacing.lg }}>✦</div>
+              <p style={{ fontFamily: T.font.display, fontSize: '24px', color: T.colors.textPrimary, lineHeight: 1.5, marginBottom: T.spacing.md }}>
+                Your Berean is being prepared overnight.
+              </p>
+              <p style={{ fontFamily: T.font.ui, fontSize: '13px', color: T.colors.textMuted }}>
+                Come back in the morning.
+              </p>
+            </GlassCard>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: `linear-gradient(160deg, ${T.colors.bgDeep}, ${T.colors.bgMid})`,
+          padding:    `0 ${T.spacing.md} ${T.spacing.xxl}`,
+          overflowX:  'hidden',
+        }}>
+          <div style={{ maxWidth: '480px', margin: '0 auto', width: '100%' }}>
+            <div style={{
+              padding:        `${T.spacing.xl} 0 ${T.spacing.lg}`,
+              display:        'flex',
+              justifyContent: 'space-between',
+              alignItems:     'flex-end',
+            }}>
+              <div>
+                <SectionLabel icon="✦" style={{ marginBottom: '4px' }}>Berean</SectionLabel>
+                <h1 style={{ fontFamily: T.font.display, fontSize: '30px', fontWeight: 300, color: T.colors.textPrimary, lineHeight: 1.2 }}>
+                  Good morning, {user.name}.
+                </h1>
+                <p style={{ fontFamily: T.font.ui, fontSize: '12px', color: T.colors.textMuted, marginTop: '3px' }}>
+                  Tuesday, June 2 · {cards.length} card{cards.length !== 1 ? 's' : ''} ready
+                </p>
+              </div>
+              <div style={{
+                width:          '40px',
+                height:         '40px',
+                borderRadius:   '50%',
+                background:     `radial-gradient(circle at 38% 38%, ${T.colors.goldPrimary}, ${T.colors.goldDim})`,
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                fontSize:       '16px',
+                flexShrink:     0,
+                boxShadow:      `0 0 24px ${T.colors.glassGlow}`,
+              }}>
+                ✦
+              </div>
+            </div>
+
+            <ArcCardStack cards={cards} activeIndex={arcIndex} onSelect={setArcIndex} />
+            <div style={{ height: T.spacing.xl }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: T.spacing.md }}>
+              <SectionLabel>Today's Arc</SectionLabel>
+              <span style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.textMuted }}>{cards.length} cards</span>
+            </div>
+
+            {cards.map(card => (
+              <div key={card.id}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                  <button
+                    onClick={() => setWhyCard(card)}
+                    style={{
+                      background:   'none',
+                      border:       'none',
+                      cursor:       'pointer',
+                      fontFamily:   T.font.ui,
+                      fontSize:     '11px',
+                      color:        T.colors.textMuted,
+                      padding:      '2px 8px',
+                      borderRadius: T.radius.pill,
+                      display:      'flex',
+                      alignItems:   'center',
+                      gap:          '4px',
+                      transition:   T.transition,
+                    }}
+                    aria-label={`Why am I seeing the ${card.type} card?`}
+                  >
+                    💡 Why am I seeing this?
+                  </button>
+                </div>
+                <CardRenderer card={card} user={user} />
+              </div>
+            ))}
+
+            {crisisItems.length > 0 && (
+              <div style={{ marginTop: T.spacing.xl }}>
+                <SectionLabel icon="🛡️" style={{ marginBottom: T.spacing.md }}>A note on something heavy</SectionLabel>
+                {crisisItems.map(prayer => (
+                  <CrisisCard key={prayer.id} prayer={prayer} />
+                ))}
+              </div>
+            )}
+
+            <div style={{ paddingTop: T.spacing.xl, textAlign: 'center' }}>
+              <p style={{ fontFamily: T.font.display, fontSize: '15px', fontStyle: 'italic', color: T.colors.textMuted, lineHeight: 1.6 }}>
+                Your next Berean arrives tomorrow morning.
+              </p>
+              <p style={{ fontFamily: T.font.ui, fontSize: '11px', color: T.colors.textMuted, marginTop: '6px', opacity: 0.7 }}>
+                Formation over information. Faithfulness over productivity.
+              </p>
+            </div>
+          </div>
+
+          {whyCard && <WhySheet card={whyCard} onClose={() => setWhyCard(null)} />}
+        </div>
+      );
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // AGENT F — APP ROOT
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    function BereanApp() {
+      const data = useBereanData();
+      const [appState, setAppState] = useState('onboarding');
+      const [prefs,    setPrefs]    = useState(null);
+
+      const cards = useMemo(() => {
+        if (!prefs) return [];
+        return data.assembleCards(
+          data.user,
+          data.readingPlan,
+          data.prayerList,
+          data.sanctuaries,
+          data.highlights,
+          data.memoryVerses,
+          data.seasonal,
+          prefs.selectedTopics,
+        );
+      }, [prefs, data]);
+
+      const handleOnboardingComplete = useCallback(result => {
+        setPrefs(result);
+        setAppState('feed');
+      }, []);
+
+      return (
+        <>
+          <style>{fontStyle}</style>
+          <div style={{ fontFamily: T.font.ui, minHeight: '100vh' }}>
+            {appState === 'onboarding'
+              ? <OnboardingFlow onComplete={handleOnboardingComplete} />
+              : <DailyBereanFeed user={data.user} cards={cards} prayerList={data.prayerList} />
+            }
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<BereanApp />);
+  </script>
+</body>
+</html>

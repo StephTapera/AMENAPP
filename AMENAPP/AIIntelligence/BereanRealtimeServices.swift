@@ -125,10 +125,11 @@ final class BereanScriptureResolutionEngine: ObservableObject {
     @Published private(set) var references: [BereanScriptureReference] = []
     private let functions = Functions.functions()
 
-    func resolve(text: String, sessionId: String? = nil) async throws -> [BereanScriptureReference] {
+    func resolve(text: String, sessionId: String? = nil, language: BereanSupportedLanguage = .english) async throws -> [BereanScriptureReference] {
         let result = try await functions.httpsCallable("resolveScriptureReferences").call([
             "text": text,
             "sessionId": sessionId ?? "",
+            "language": language.rawValue,
         ])
         guard let data = result.data as? [String: Any],
               let items = data["references"] as? [[String: Any]] else { return [] }

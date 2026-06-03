@@ -15,7 +15,6 @@ final class BereanScriptureKnowledgeGraph {
         language: BereanSupportedLanguage,
         sessionId: String? = nil
     ) async throws -> [BereanScriptureReference] {
-        _ = language
-        return try await scriptureEngine.resolve(text: text, sessionId: sessionId)
+        return try await scriptureEngine.resolve(text: text, sessionId: sessionId, language: language)
     }
 }

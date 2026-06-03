@@ -492,8 +492,11 @@ exports.sermonSnapProxy = onCall(
 
       const {base64Image, prompt} = request.data;
 
-      if (!base64Image || typeof base64Image !== "string") {
-        throw new HttpsError("invalid-argument", "base64Image is required.");
+      if (!base64Image || typeof base64Image !== 'string') {
+        throw new HttpsError('invalid-argument', 'base64Image is required.');
+      }
+      if (base64Image.length > 1_400_000) {
+        throw new HttpsError('invalid-argument', 'Image too large. Maximum size is approximately 1 MB.');
       }
 
       const apiKey = ANTHROPIC_API_KEY.value();
@@ -501,7 +504,7 @@ exports.sermonSnapProxy = onCall(
         throw new HttpsError("internal", "ANTHROPIC_API_KEY secret not configured.");
       }
 
-      const fetch = require("node-fetch");
+      const fetch = (await import("node-fetch")).default;
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -679,18 +682,21 @@ exports.bereanChatProxy = onCall(
         throw new HttpsError("unauthenticated", "Authentication required.");
       }
 
-      // Rate limit: 10 Berean calls per user per hour
+      // Rate limit: 10 Berean calls per user per hour (atomic transaction — prevents TOCTOU)
       const uid = request.auth.uid;
       const hourKey = new Date().toISOString().slice(0, 13); // e.g. "2026-03-21T14"
       const usageRef = admin.firestore().doc(`users/${uid}/bereanUsage/${hourKey}`);
-      const usageSnap = await usageRef.get();
-      const count = usageSnap.exists ? usageSnap.data().count : 0;
-      if (count >= 10) {
-        throw new HttpsError("resource-exhausted", "Berean usage limit reached. Try again later.");
-      }
-      await usageRef.set({count: count + 1}, {merge: true});
+      await admin.firestore().runTransaction(async (t) => {
+        const snap = await t.get(usageRef);
+        const count = snap.exists ? (snap.data().count || 0) : 0;
+        if (count >= 10) {
+          throw new HttpsError('resource-exhausted', 'Hourly limit reached. Try again later.');
+        }
+        t.set(usageRef, { count: count + 1, windowStart: hourKey }, { merge: true });
+      });
 
       const {systemPrompt, userMessage, maxTokens} = request.data;
+      const safeUserMessage = (userMessage ?? '').slice(0, 4000);
 
       if (!userMessage || typeof userMessage !== "string") {
         throw new HttpsError("invalid-argument", "userMessage is required.");
@@ -701,7 +707,7 @@ exports.bereanChatProxy = onCall(
         throw new HttpsError("internal", "ANTHROPIC_API_KEY secret not configured.");
       }
 
-      const fetch = require("node-fetch");
+      const fetch = (await import("node-fetch")).default;
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -711,9 +717,9 @@ exports.bereanChatProxy = onCall(
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: maxTokens ?? 600,
+          max_tokens: Math.min(Number(maxTokens) || 600, 1500),
           system: systemPrompt ?? "",
-          messages: [{role: "user", content: userMessage}],
+          messages: [{role: "user", content: safeUserMessage}],
         }),
       });
 
@@ -930,6 +936,13 @@ exports.bereanSpiritualGraphAnalysis = onCall(
         throw new HttpsError("invalid-argument", "patterns array is required.");
       }
 
+      const safePatterns = (Array.isArray(patterns) ? patterns : [])
+          .slice(0, 20)
+          .map(p => ({ ...p, category: String(p.category ?? '').slice(0, 100) }));
+      const safeRhythms = (Array.isArray(rhythms) ? rhythms : [])
+          .slice(0, 20)
+          .map(r => ({ ...r, rhythm: String(r.rhythm ?? '').slice(0, 100) }));
+
       const systemPrompt = `You are a pastoral AI assistant analyzing anonymized spiritual growth patterns.
 Given a user's struggle patterns and spiritual rhythm data, provide a brief, personalized insight.
 
@@ -950,10 +963,10 @@ Guidelines:
 - Never diagnose or label the person`;
 
       const userPrompt = `Patterns (struggles):
-${(patterns || []).map((p) => `- ${p.category}: ${p.count} times, intensity ${p.avgIntensity}, recurring: ${p.isRecurring}`).join("\n")}
+${safePatterns.map((p) => `- ${p.category}: ${p.count} times, intensity ${p.avgIntensity}, recurring: ${p.isRecurring}`).join("\n")}
 
 Rhythms (positive disciplines):
-${(rhythms || []).map((r) => `- ${r.rhythm}: ${r.engagements} engagements, consistent: ${r.isConsistent}`).join("\n")}
+${safeRhythms.map((r) => `- ${r.rhythm}: ${r.engagements} engagements, consistent: ${r.isConsistent}`).join("\n")}
 
 Provide pastoral insight as JSON.`;
 

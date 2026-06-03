@@ -685,6 +685,13 @@ exports.manualCascadeDelete = authenticationHelpers.manualCascadeDelete;
 // P0-2: Server-set ageTier — fires on user document creation, computes tier from birthYear.
 exports.onUserDocCreated = authenticationHelpers.onUserDocCreated;
 
+// M-02: Update birthYear with server-side age-downgrade protection (adults cannot re-declare as minors).
+exports.updateBirthYear = authenticationHelpers.updateBirthYear;
+
+// H-03: Ban evasion prevention — admin-only callable that hashes + records a banned phone number.
+// Wire into the accountSuspension flow to auto-ban phone on user ban.
+exports.banUserPhone = authenticationHelpers.banUserPhone;
+
 // P0: Account deletion pipeline (processes deletionRequests/{userId} — cascades
 // Storage, RTDB, Firestore, and Auth deletion. Created when user taps Delete Account.)
 const { processAccountDeletion } = require("./accountDeletion");
@@ -949,6 +956,9 @@ exports.stripeGetAccountStatus       = stripe.stripeGetAccountStatus;
 exports.stripeCreatePaymentIntent    = stripe.stripeCreatePaymentIntent;
 exports.stripeRequestPayout          = stripe.stripeRequestPayout;
 
+const { stripeWebhook } = require("./stripeWebhook");
+exports.stripeWebhook = stripeWebhook;
+
 // ============================================================================
 // ML CONTENT PIPELINE — Post ML analysis, virality, deletion cleanup
 // ============================================================================
@@ -1202,6 +1212,11 @@ const { moderatePost, adminReviewPost } = require("./moderatePost");
 exports.moderatePost   = moderatePost;
 exports.adminReviewPost = adminReviewPost;
 
+const { moderateSanctuaryMessage, moderatePrayerRequest, moderateDMMessage } = require("./moderateUGC");
+exports.moderateSanctuaryMessage = moderateSanctuaryMessage;
+exports.moderatePrayerRequest    = moderatePrayerRequest;
+exports.moderateDMMessage        = moderateDMMessage;
+
 // ============================================================================
 // AMEN SPACES — Monetization, Events, Live, AI Catch-up, Safety, Stripe
 //   Spaces Monetization (spacesFunctions.js):
@@ -1405,3 +1420,33 @@ exports.postComment         = discussion.postComment;
 exports.markHelpful         = discussion.markHelpful;
 exports.updateWatchProgress = discussion.updateWatchProgress;
 exports.getWatchProgress    = discussion.getWatchProgress;
+
+// ============================================================================
+// APPEALS SYSTEM — User-facing content appeal pipeline (C-04)
+//   submitAppeal   — callable: user submits appeal for removed/held post or prayer
+//   reviewAppeal   — callable (admin): approve or reject a pending appeal
+// Writes to: appeals/{appealId}, moderationQueue (status:"appeal"), moderationAuditLog
+// Deploy: firebase deploy --only functions:submitAppeal,reviewAppeal --project amen-5e359
+// ============================================================================
+const appeals = require("./appeals");
+exports.submitAppeal = appeals.submitAppeal;
+exports.reviewAppeal = appeals.reviewAppeal;
+
+// ============================================================================
+// NCMEC CYBERTIPLINE — mandatory CSAM reporting pipeline (18 U.S.C. § 2258A)
+//   onCSAMDetected: Firestore trigger on ncmecSubmissionQueue/{entryId}
+//     -> FCM alert to all admin users + moderatorAlerts write
+//   fileNCMECReport: internal helper called by imageModeration.js on confirmed blocks
+// Deploy: firebase deploy --only functions:onCSAMDetected --project amen-5e359
+// ============================================================================
+const ncmecReporter = require("./ncmecReporter");
+exports.onCSAMDetected = ncmecReporter.onCSAMDetected;
+
+// ============================================================================
+// AI SAFETY REPORTS — User-facing report pipeline for unsafe AI responses (C-04)
+//   reportUnsafeAIResponse — callable: submit a report for a harmful AI response
+// Writes to: aiReports/{reportId}
+// Deploy: firebase deploy --only functions:reportUnsafeAIResponse --project amen-5e359
+// ============================================================================
+const { reportUnsafeAIResponse } = require('./reportAIFunctions');
+exports.reportUnsafeAIResponse = reportUnsafeAIResponse;

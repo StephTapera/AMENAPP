@@ -252,6 +252,8 @@ struct BereanConvMessageBubble: View {
     let message: BereanSpiritualMessage
     let onPassageTap: (String) -> Void
 
+    @State private var showReportSheet = false
+
     var isUser: Bool { message.role == .user }
 
     var body: some View {
@@ -270,19 +272,31 @@ struct BereanConvMessageBubble: View {
                 }
 
                 // Bubble
-                Text(message.content)
-                    .font(AMENFont.regular(16))
-                    .foregroundColor(.primary)
-                    .lineSpacing(3)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        isUser
-                        ? AnyView(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color(.secondarySystemBackground)))
-                        : AnyView(Color.clear)
-                    )
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.82, alignment: isUser ? .trailing : .leading)
+                GeometryReader { geometry in
+                    Text(message.content)
+                        .font(AMENFont.regular(16))
+                        .foregroundColor(.primary)
+                        .lineSpacing(3)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            isUser
+                            ? AnyView(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color(.secondarySystemBackground)))
+                            : AnyView(Color.clear)
+                        )
+                        .frame(maxWidth: geometry.size.width * 0.82, alignment: isUser ? .trailing : .leading)
+                        .contextMenu {
+                            if !isUser {
+                                Button(role: .destructive) {
+                                    showReportSheet = true
+                                } label: {
+                                    Label("Report this response", systemImage: "flag")
+                                }
+                            }
+                        }
+                }
+                .fixedSize(horizontal: false, vertical: true)
 
                 if isUser { Spacer() }
             }
@@ -296,6 +310,14 @@ struct BereanConvMessageBubble: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+        .sheet(isPresented: $showReportSheet) {
+            ReportUnsafeAIResponseSheet(
+                messageId: message.id,
+                conversationId: message.conversationId,
+                surface: .bereanChat,
+                onSubmitted: { _ in }
+            )
+        }
     }
 }
 
