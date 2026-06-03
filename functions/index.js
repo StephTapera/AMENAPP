@@ -1515,3 +1515,18 @@ exports.bereanSLOCheck        = bereanRealtime.bereanSLOCheck;
 // ============================================================================
 const pineconeCleanup = require("./pineconeCleanupFunctions");
 exports.cleanupDraftVectors = pineconeCleanup.cleanupDraftVectors;
+
+// ============================================================================
+// ADMIN CRISIS ALERT QUEUE — H-23: surfaces crisisAlert items at top of queue
+//   getCrisisAlertQueue — callable (moderator/admin): returns unresolved crisis
+//     alerts from moderatorAlerts + pastoralAlerts, sorted by urgency then time.
+//     Intended for 30s-polling from the admin panel (crisis-queue.html).
+//   resolveAlert — callable (moderator/admin): marks an alert resolved with
+//     one of: safe | contacted_user | escalated_to_counselor |
+//             false_positive | referred_988
+// Deploy: firebase deploy --only functions:getCrisisAlertQueue,resolveAlert
+//         --project amen-5e359
+// ============================================================================
+const adminModeration = require("./adminModerationFunctions");
+exports.getCrisisAlertQueue = adminModeration.getCrisisAlertQueue;
+exports.resolveAlert        = adminModeration.resolveAlert;
