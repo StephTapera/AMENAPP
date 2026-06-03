@@ -37,10 +37,22 @@ final class AmenSpaceEntitlementService: ObservableObject {
     @Published var entitlementError: String?
 
     private let functions: Functions = Functions.functions()
+    private var cachedFetchKey: String?
+    private var cachedFetchTime: Date?
+    private let cacheTTL: TimeInterval = 300 // 5 minutes
 
     // MARK: - Public API
 
     func checkEntitlement(userId: String, spaceId: String) async -> AmenSpaceEntitlement? {
+        let fetchKey = "\(userId):\(spaceId)"
+        if let cachedKey = cachedFetchKey,
+           cachedKey == fetchKey,
+           let fetchTime = cachedFetchTime,
+           Date().timeIntervalSince(fetchTime) < cacheTTL,
+           let cached = currentEntitlement {
+            return cached
+        }
+
         isLoading = true
         entitlementError = nil
         defer { isLoading = false }
@@ -56,6 +68,8 @@ final class AmenSpaceEntitlementService: ObservableObject {
 
             let entitlement = try decode(AmenSpaceEntitlement.self, from: data)
             currentEntitlement = entitlement
+            cachedFetchKey = fetchKey
+            cachedFetchTime = Date()
             return entitlement
         } catch {
             entitlementError = "Could not verify membership. Please try again."
@@ -64,6 +78,8 @@ final class AmenSpaceEntitlementService: ObservableObject {
     }
 
     func refreshEntitlement(userId: String, spaceId: String) async {
+        cachedFetchKey = nil
+        cachedFetchTime = nil
         _ = await checkEntitlement(userId: userId, spaceId: spaceId)
     }
 

@@ -5,6 +5,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAnalytics
 import FirebaseAuth
 
 // MARK: - Chat ViewModel
@@ -28,6 +29,7 @@ final class AmenMinistryRoomChatViewModel: ObservableObject {
     }
 
     func startListening() {
+        Analytics.logEvent("ministry_room_chat_viewed", parameters: ["space_id": spaceId])
         let db = Firestore.firestore()
         listener = db
             .collection(AmenConnectSpacesFirestoreBinding.spacesCollection)

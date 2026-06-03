@@ -21,6 +21,7 @@
 //     PresenceRoster sheet (Phase 5) can show names with explicit consent.
 
 import SwiftUI
+import FirebaseFirestore
 
 struct PresenceLayer: View {
 
@@ -117,6 +118,13 @@ struct PresenceLayer: View {
 @MainActor
 final class PresenceLayerModel: ObservableObject {
     @Published private(set) var coViewerCount: Int = 0
+
+    // Phase 5 will assign this when wiring the presenceSessions listener.
+    var listenerHandle: ListenerRegistration?
+
+    deinit {
+        listenerHandle?.remove()
+    }
 
     func refresh(mediaId: String) async {
         // No-op until Phase 5. Leaving this surface here so the compose-in

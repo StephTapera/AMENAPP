@@ -181,6 +181,7 @@ final class AmenStoreKitService: ObservableObject {
             "spaceId": tier.spaceId,
             "tierId": tier.id,
             "storeKitTransactionId": transaction.id.description,
+            "idempotencyKey": UUID().uuidString,
         ]
         _ = try await callable.call(payload)
     }

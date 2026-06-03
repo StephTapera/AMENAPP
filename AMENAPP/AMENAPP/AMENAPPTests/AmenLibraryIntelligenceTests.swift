@@ -5,6 +5,10 @@
 // All tests are pure-Swift — no Firebase, no network, no UI dependencies.
 // Run with: Product ▶ Test (⌘U)
 
+import Foundation
+
+#if canImport(Testing)
+
 import XCTest
 @testable import AMENAPP
 
@@ -321,3 +325,5 @@ final class LibraryUserIsolationTests: XCTestCase {
         XCTAssertFalse(unrelated.contains { $0.bookId == uniqueId })
     }
 }
+
+#endif

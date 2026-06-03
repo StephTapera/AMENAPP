@@ -142,16 +142,36 @@ final class AmenCovenantCheckoutService: NSObject, ObservableObject {
         switch params["result"] {
         case "success":
             let membershipId = params["membershipId"] ?? ""
+            guard !membershipId.isEmpty else {
+                checkoutState = .failed(CheckoutError.invalidResponse)
+                return
+            }
+            Task { await verifyAndConfirmMembership(membershipId: membershipId) }
+        case "cancel":
+            checkoutState = .canceled
+        default:
+            checkoutState = .failed(CheckoutError.invalidResponse)
+        }
+    }
+
+    // MARK: - Server Membership Verification
+
+    /// Confirms with the server that the membership created by the Stripe webhook
+    /// actually exists before surfacing success to the UI. Trusting only the URL
+    /// param would allow a forged callback to unlock covenant features client-side.
+    private func verifyAndConfirmMembership(membershipId: String) async {
+        do {
+            _ = try await functions.httpsCallable("verifyCovenantMembership").call([
+                "membershipId": membershipId
+            ])
             checkoutState = .success(membershipId: membershipId)
             NotificationCenter.default.post(
                 name: .covenantCheckoutSucceeded,
                 object: nil,
                 userInfo: ["membershipId": membershipId]
             )
-        case "cancel":
-            checkoutState = .canceled
-        default:
-            checkoutState = .failed(CheckoutError.invalidResponse)
+        } catch {
+            checkoutState = .failed(CheckoutError.networkError(error))
         }
     }
 }
