@@ -131,7 +131,10 @@ function badgeTier(total) {
 }
 
 // askBerean
-const askBerean = onCall({ enforceAppCheck: false }, async (request) => {
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
+const askBerean = onCall({ enforceAppCheck: true }, async (request) => {
   const db = getFirestore();
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");

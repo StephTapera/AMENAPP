@@ -48,11 +48,14 @@ async function callClaude(apiKey, model, systemPrompt, userContent, maxTokens = 
 
 // ── 1. Vibe Match ─────────────────────────────────────────────────────────────
 // Returns a 1-sentence reason why two users might connect spiritually.
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 
 exports.vibeMatch = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.');
   // C-13 SECURITY FIX: Use server-verified uid instead of client-supplied currentUserId.
@@ -90,11 +93,14 @@ Why might they connect?`;
 
 // ── 2. Digest Brain ───────────────────────────────────────────────────────────
 // Returns a short prose paragraph summarizing a user's recent spiritual journey.
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 
 exports.digestBrain = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.');
   // C-13 SECURITY FIX: Use server-verified uid instead of client-supplied userId.
@@ -137,11 +143,14 @@ Speak directly to the user (second person). Return ONLY the paragraph.`;
 
 // ── 3. Spirit Graph ───────────────────────────────────────────────────────────
 // Returns a 1-sentence explanation of why a post appeared in the user's feed.
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 
 exports.spiritGraph = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.');
   // C-13 SECURITY FIX: Use server-verified uid instead of client-supplied currentUserId.
@@ -181,11 +190,14 @@ Why did this post appear in their feed?`;
 // ── 4. Testimony Resonance Score ──────────────────────────────────────────────
 // Returns affirming micro-copy for an action taken on a testimony post.
 // actionType: "amen" | "saved" | "lightbulb"
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 
 exports.testimonyResonanceScore = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   const { testimonyText, actionType } = req.data;
   if (!testimonyText || !actionType) throw new Error('Missing testimonyText or actionType');
@@ -219,11 +231,14 @@ Write a warm, specific affirmation for this moment.`;
 
 // ── 5. Living Word Engine ─────────────────────────────────────────────────────
 // Returns 3 contextual scripture suggestions for a post draft.
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 
 exports.livingWordEngine = onCall({
   region: REGION,
   secrets: [ANTHROPIC_API_KEY],
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (req) => {
   const { postText, category } = req.data;
   if (!postText || postText.trim().length < 20) return { suggestions: [] };

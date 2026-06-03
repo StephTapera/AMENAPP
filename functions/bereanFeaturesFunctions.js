@@ -280,12 +280,15 @@ exports.weeklyPrayerRecap = onSchedule(
 );
 
 // ─── 3. Generate Prayer Recap (callable) ─────────────────────────────────────
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 
 exports.generatePrayerRecap = onCall(
   {
     secrets: [CLAUDE_API_KEY],
     region: 'us-central1',
-    enforceAppCheck: false,
+    enforceAppCheck: true,
   },
   async (request) => {
     const userId = request.auth?.uid;

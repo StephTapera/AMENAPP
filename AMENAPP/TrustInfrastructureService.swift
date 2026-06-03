@@ -1,6 +1,7 @@
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 @MainActor
 final class TrustInfrastructureService: ObservableObject {
@@ -10,6 +11,8 @@ final class TrustInfrastructureService: ObservableObject {
     @Published private(set) var moderationCouncilQueueCount: Int = 0
 
     private lazy var db = Firestore.firestore()
+    // H-13 FIX: audit log writes go through a callable CF so userId is server-authoritative.
+    private let functions = Functions.functions()
 
     private init() {}
 
@@ -28,21 +31,24 @@ final class TrustInfrastructureService: ObservableObject {
         moderationCouncilQueueCount = moderationSnapshot.documents.count
     }
 
+    /// H-13 FIX: Audit trail writes are now server-authoritative via the `writeBereanAuditEntry`
+    /// Cloud Function. The server stamps `userId` from `request.auth.uid`, so the client
+    /// cannot forge the actor identity. The `collection` and `entityId` are forwarded as
+    /// metadata so the audit record retains context about which entity was affected.
     func appendAuditTrail(
         collection: String,
         entityId: String,
         action: String,
         metadata: [String: String] = [:]
     ) async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        try await db.collection(collection)
-            .document(entityId)
-            .collection("audit_log")
-            .addDocument(data: [
-                "actorId": uid,
-                "action": action,
-                "metadata": metadata,
-                "createdAt": FieldValue.serverTimestamp()
-            ])
+        guard Auth.auth().currentUser?.uid != nil else { return }
+        var fullMetadata = metadata
+        fullMetadata["collection"] = collection
+        fullMetadata["entityId"] = entityId
+        let payload: [String: Any] = [
+            "event": action,
+            "metadata": fullMetadata
+        ]
+        _ = try await functions.httpsCallable("writeBereanAuditEntry").call(payload)
     }
 }

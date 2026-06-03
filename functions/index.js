@@ -749,6 +749,14 @@ exports.bereanGenericProxy = berean.bereanGenericProxy;
 exports.deleteAccount = berean.deleteAccount;
 
 // ============================================================================
+// BEREAN AUDIT LOG — H-13 FIX: server-authoritative audit trail
+// writeBereanAuditEntry receives { event, metadata } from iOS client,
+// appends userId from request.auth.uid server-side (tamper-proof).
+// ============================================================================
+const bereanAudit = require("./bereanAuditFunctions");
+exports.writeBereanAuditEntry = bereanAudit.writeBereanAuditEntry;
+
+// ============================================================================
 // GENKIT-STYLE AI FLOWS — daily verse, notification text, digest
 // Replaces the external Genkit Cloud Run service (never deployed).
 // DailyVerseGenkitService and NotificationGenkitService call these instead.

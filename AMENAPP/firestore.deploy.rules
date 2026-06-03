@@ -251,7 +251,9 @@ service cloud.firestore {
         get(/databases/$(database)/documents/covenants/$(covenantId)).data.get('creatorId', '') == request.auth.uid;
     }
     match /usernameLookup/{username} {
-      allow read: if isAuthenticated();
+      // Only allow exact-match lookups, not enumeration queries.
+      allow get: if isAuthenticated();
+      allow list: if false;
       allow create, update, delete: if false;
     }
     match /users/{userId} {
@@ -328,7 +330,10 @@ service cloud.firestore {
             && (
               !exists(/databases/$(database)/documents/userSafetyRecords/$(userId))
               || get(/databases/$(database)/documents/userSafetyRecords/$(userId)).data.accountStatus != 'frozen'
-            ))
+            )
+            // M-03: Minors cannot reduce content filtering.
+            && (callerAgeTier() != 'tierB' && callerAgeTier() != 'tierC'
+                || request.resource.data.get('sensitiveContentLevel', 'restricted') == 'restricted'))
           ||
           (isCounterUpdate() && postsCountIncrementIsValid(userId))
           ||
@@ -532,6 +537,15 @@ service cloud.firestore {
         allow read: if isAuthenticated() && isOwner(userId);
         allow create, update: if isAuthenticated() && isOwner(userId);
         allow delete: if false;
+      }
+
+      // === PRAYERS SUBCOLLECTION (H-14 FIX) ===
+      // Only the owning user may access their own private prayers.
+      // This prevents any other authenticated user from reading another user's
+      // prayer subcollection documents.
+      match /prayers/{prayerId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId;
       }
     }
     function isPublicProfile(uid) {
@@ -1058,7 +1072,8 @@ service cloud.firestore {
     match /testimonies/{testimonyId} {
       allow read: if isAuthenticated()
         && (resource.data.authorId == request.auth.uid
-            || resource.data.get('isPublic', true) == true);
+            // Safety fix: testimonies default PRIVATE (not public) to protect personal spiritual narratives.
+            || resource.data.get('isPublic', false) == true);
       allow create: if isAuthenticated()
         && callerIsEmailVerified()
         && request.resource.data.authorId == request.auth.uid
@@ -1975,12 +1990,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     match /appeals/{appealId} {
+      // Clients can read their own appeals; admins can read all.
       allow read: if isAuthenticated()
-        && resource.data.get('userId', '') == request.auth.uid;
-      allow create: if isAuthenticated()
-        && request.resource.data.get('userId', '') == request.auth.uid
-        && hasRequiredFields(['userId', 'reason', 'createdAt']);
-      allow update, delete: if false;
+        && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
+      // Appeals are created/updated exclusively by Cloud Functions (Admin SDK).
+      allow write: if false;
     }
     match /spamReports/{reportId} {
       allow read: if isAuthenticated()
@@ -4310,6 +4324,57 @@ service cloud.firestore {
     }
     match /voiceCommentReactions/{docId} {
       allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // =========================================================================
+    // SAFETY-HARDENING: NEW COLLECTIONS — explicit access control
+    // All written exclusively by Cloud Functions Admin SDK (never by clients).
+    // =========================================================================
+
+    // Legal-hold CSAM reports. No client or admin reads; delete is prohibited.
+    // Only the Functions Admin SDK may write (triggered by CSAM hash detection).
+    match /ncmecReports/{reportId} {
+      allow read, write: if false;
+    }
+
+    // Queue entries that trigger onCSAMDetected. Admin can read for dashboard;
+    // no client or admin writes (written by ncmecReporter.js Admin SDK only).
+    match /ncmecSubmissionQueue/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Tamper-evident audit log of all moderator review actions.
+    // Admin-readable for compliance audits; no writes from any client.
+    match /moderationAuditLog/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // SHA-256 hashes of banned phone numbers.
+    // Admin-readable only; written only by banUserPhone Cloud Function.
+    match /bannedPhones/{hash} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Critical review escalations (SLA-breached moderation items).
+    // Admin-readable; written by moderationSweep scheduled function only.
+    match /criticalReviewQueue/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Rate limiter counters. No client reads or writes.
+    match /rateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    // L-02: Admin claim audit trail. Admins can read for compliance review;
+    // all writes are performed exclusively by Cloud Functions Admin SDK.
+    match /adminClaimLog/{entryId} {
+      allow read: if isAdmin();
       allow write: if false;
     }
   }

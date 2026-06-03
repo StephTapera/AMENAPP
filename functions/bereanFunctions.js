@@ -968,8 +968,11 @@ exports.deleteAccount = onCall(
 // Called by SermonWeekTransformationService.swift
 // Input:  { title, topic, keyVerses, keyPoints, pastorName, date }
 // Output: { days: [{ title, prompt, scriptureReference, actionStep, reflectionQuestion }] }
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 exports.bereanSermonWeekPlan = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
       const uid = request.auth?.uid;
@@ -1043,8 +1046,11 @@ Generate the 6-day plan as JSON.`;
 // Called by PersonalSpiritualGraphService for deeper pattern analysis.
 // Input:  { patterns: [{ category, count, avgIntensity, isRecurring }], rhythms: [{ rhythm, engagements, isConsistent }] }
 // Output: { insight, suggestedFocus, suggestedVerse, encouragement }
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 exports.bereanSpiritualGraphAnalysis = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
       const uid = request.auth?.uid;
@@ -1106,8 +1112,11 @@ Provide pastoral insight as JSON.`;
 // for AI-generated seasonal reflection content.
 // Input:  { season, holiday, userContext, promptType }
 // Output: { reflection, scripture, actionStep, prayer, followUpQuestion }
+// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
+// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
 exports.bereanSeasonalPrompt = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
       const uid = request.auth?.uid;
