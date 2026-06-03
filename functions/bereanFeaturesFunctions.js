@@ -11,13 +11,14 @@
 'use strict';
 
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { onCall } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
 
 const CLAUDE_API_KEY = defineSecret('CLAUDE_API_KEY');
-const db = admin.firestore;  // Use lazy accessor to avoid double-init
+// Note: admin.firestore() must be called as a function, not referenced as a property.
+// Each function body calls admin.firestore() directly to avoid double-init issues.
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ async function callClaudeSDK(apiKey, system, userMessage, maxTokens = 1000) {
     system,
     messages: [{ role: 'user', content: userMessage }],
   });
-  return response.content[0].text;
+  return response.content?.[0]?.text ?? '';
 }
 
 function parseJSON(raw) {
@@ -284,7 +285,7 @@ exports.generatePrayerRecap = onCall(
   },
   async (request) => {
     const userId = request.auth?.uid;
-    if (!userId) throw new Error('Unauthenticated');
+    if (!userId) throw new HttpsError('unauthenticated', 'Sign in required.');
 
     const apiKey = CLAUDE_API_KEY.value();
     const firestore = admin.firestore();
