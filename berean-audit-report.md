@@ -9,17 +9,17 @@
 
 ## SUMMARY
 
-| Severity | Count | Auto-Fixed | Needs Human Review |
-|----------|-------|------------|-------------------|
-| Critical | 20 | 0 | 20 |
-| High | 52 | 0 | 52 |
-| Medium | 39 | 2 | 37 |
-| Low | 18 | 2 | 16 |
-| **Total** | **129** | **4** | **125** |
+| Severity | Count | Auto-Fixed (Phase 1) | Auto-Fixed (Phase 2) | Needs Human Review |
+|----------|-------|----------------------|----------------------|--------------------|
+| Critical | 20 | 0 | 7 | 13 |
+| High | 52 | 0 | 12 | 40 |
+| Medium | 39 | 2 | 7 | 30 |
+| Low | 18 | 2 | 4 | 12 |
+| **Total** | **129** | **4** | **30** | **95** |
 
 ---
 
-## AUTO-FIXED (4 commits on this branch)
+## AUTO-FIXED — PHASE 1 (4 commits, initial audit run)
 
 | # | Commit | File | Severity | Description |
 |---|--------|------|----------|-------------|
@@ -27,6 +27,62 @@
 | AF-2 | `b858a75` | `functions/bereanFeaturesFunctions.js:36` | Medium | Unsafe index access: `response.content[0].text` → optional-chained with fallback |
 | AF-3 | `b858a75` | `functions/bereanFeaturesFunctions.js:287` | Medium | Wrong error type: `new Error('Unauthenticated')` → `HttpsError("unauthenticated")` |
 | AF-4 | `dbeb8a9` | `AMENAPP/AMENAPP/BereanGrokModels.swift:50` | Low | Duplicate analytics key on `.extractThemes` — would silence analytics for that pill |
+
+---
+
+## AUTO-FIXED — PHASE 2 (5 commits, second fix pass)
+
+### Backend Cloud Functions (commit `e81ad93` + `102965a`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-5 | H-02 | `functions/bereanFunctions.js` | Critical | Atomic rate limit — TOCTOU get/check/set replaced with Firestore transaction in `bereanChatProxy` |
+| AF-6 | H-05 | `functions/bereanFunctions.js` | High | Cap client-supplied `maxTokens` at 1500 via `Math.min()` in `bereanChatProxy` |
+| AF-7 | H-06 | `functions/bereanFunctions.js` | High | Cap user-supplied `userMessage` at 4000 chars before LLM call |
+| AF-8 | H-04 | `functions/bereanFunctions.js` | High | `sermonSnapProxy`: add base64 size cap (1.4MB), type check, fix `require("node-fetch")` → ESM import |
+| AF-9 | M-01 | `functions/bereanFunctions.js` | Medium | `bereanSpiritualGraphAnalysis`: bound `patterns`/`rhythms` arrays (max 20 items, 100 chars/field) |
+| AF-10 | M-02 | `functions/bereanShield.js` | Medium | `bereanShieldAnalyze`: wrap claim in `<claim>` XML delimiters; instruct model not to follow content |
+| AF-11 | M-03 | `functions/bereanShield.js` | Medium | `bereanCompassAnalyze`: replace `[Role]` prefix with pipe-delimited format to prevent spoofing |
+| AF-12 | C-04 | `functions/reportAIFunctions.js` + `functions/index.js` | Critical | Create `reportUnsafeAIResponse` CF — was missing, all user safety reports were silently failing |
+
+### iOS Reliability (commit `1ee3b76`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-13 | C-18 | `AMENAPP/WellnessRiskLayer.swift` | Critical | Add `timestamp` to `LanguageRiskAssessment`; prune to 48h window before appending (fixes acknowledged bug) |
+| AF-14 | C-19 | `AMENAPP/AIIntelligence/BereanRealtimeWebSocketTransport.swift` | Critical | Cap `receivedEvents` to last 200 items (was unbounded) |
+| AF-15 | H-31 | `AMENAPP/AIIntelligence/BereanRealtimeWebSocketTransport.swift` | High | Add ±50% random jitter to WebSocket exponential backoff |
+| AF-16 | H-32 | `AMENAPP/RemoteKillSwitch.swift` | High | Call `fetchAndActivate` before reading flags (kill switches were stale at cold start) |
+| AF-17 | L-07 | `AMENAPP/AMENAPP/BereanGrokCoordinator.swift` | Low | Replace `try? Task.sleep` with explicit `CancellationError` catch |
+| AF-18 | L-12 | `AMENAPP/BereanChatSessionManager.swift` | Low | Debounce `UserDefaults` writes to max once per 2s (was writing on every streaming token) |
+
+### iOS Safety Additions (commit `6f66b89`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-19 | C-15 | `AMENAPP/WellnessRiskLayer.swift` | Critical | Remove "Talk to Berean" from `WellnessCrisisSheet` and `WellnessUrgentEscalationView` |
+| AF-20 | H-19 | `AMENAPP/AMENAPP/BereanPostContext.swift` | High | Check `post.removed || post.flaggedForReview` before including content in Berean payload |
+| AF-21 | H-28 | `AMENAPP/BereanGuardrailSystem.swift` | High | Sync crisis keywords with `WellnessRiskLayer` — add 5 passive suicidal ideation phrases |
+| AF-22 | M-11 | `AMENAPP/AMENAPP/BereanConversationView.swift` | Medium | Run `BereanGuardrailEngine.analyzeMessage` on `initialPrompt` (study-hub entry was unguarded) |
+| AF-23 | M-12 | `AMENAPP/AMENAPP/BereanPostContext.swift` | Medium | Use `Category: \(category)` instead of raw `previewText` when `isSensitive == true` |
+
+### iOS UI/Quality + Firestore Rules (commits `e81ad93`, `1ee3b76`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-24 | M-05 | `AMENAPP/AMENAPP/BereanLinkSummarySheet.swift` | Medium | Log `url_domain` only to Analytics (not full URL with PII query params) |
+| AF-25 | M-07 | `AMENAPP/AMENAPP/BereanConversationView.swift` | Medium | Add long-press `.contextMenu` report button on assistant message bubbles |
+| AF-26 | M-09 | `AMENAPP/AMENAPP/BereanConversationView.swift` | Medium | Replace `UIScreen.main.bounds` (deprecated iOS 16+) with `GeometryReader` |
+| AF-27 | L-09 | `AMENAPP/AIIntelligence/BereanScriptureKnowledgeGraph.swift` | Low | Thread `language` parameter through to CF payload (was silently discarded) |
+| AF-28 | L-15 | `AMENAPP/AIIntelligence/BereanRealtimeTransportCoordinator.swift` | Low | Remove dead `BereanRealtimeTransportMode` single-case enum + unused `capabilities` property |
+| AF-29 | H-11 | `AMENAPP/firestore 18.rules` | High | Add owner-only security rules for `realtimeSessions/{sessionId}` and its subcollections |
+| AF-30 | H-12 | `AMENAPP/firestore 18.rules` + `BereanRealtimeServices.swift` | High | Add `translationPreferences/{userId}` Firestore rule; `savePreferences` now always uses Auth UID |
+
+### Concurrency Follow-up (commit `98a74a8`)
+
+| # | Finding | File | Severity | Description |
+|---|---------|------|----------|-------------|
+| AF-31 | H-32 follow-up | `AMENAPP/RemoteKillSwitch.swift` | Low | Dispatch `applyFlags` to `@MainActor` from `fetchAndActivate` completion; remove redundant `??` operators — 0 diagnostics |
 
 ---
 
