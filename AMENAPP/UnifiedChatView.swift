@@ -268,6 +268,12 @@ struct UnifiedChatView: View {
     // messageId → safety warning signals for recipient-side banner
     @State private var messageWarnings: [String: [SafetySignal]] = [:]
 
+    // MARK: — DM AI Consent (H-16)
+    // dmConsentShown_v1: true after the user has seen the consent sheet (either accepted or declined).
+    // consentDMProcessing is stored in UserDefaults by BereanDMConsentSheet.saveConsent(_:).
+    @AppStorage("dmConsentShown_v1") private var dmConsentShown = false
+    @State private var showDMConsentSheet = false
+
     // PERF: Computed once per render cycle rather than inline in the gradient,
     // preventing repeated trimmingCharacters calls on every keystroke.
     private var isMessageEmpty: Bool {
@@ -977,6 +983,20 @@ struct UnifiedChatView: View {
         )) {
             WellnessCrisisSheet()
         }
+        // H-16: DM AI consent — shown once before AI safety scanning begins.
+        // User may accept or decline; either way the sheet is not shown again.
+        .sheet(isPresented: $showDMConsentSheet) {
+            BereanDMConsentSheet(
+                onAccept: {
+                    dmConsentShown = true
+                    showDMConsentSheet = false
+                },
+                onDecline: {
+                    dmConsentShown = true
+                    showDMConsentSheet = false
+                }
+            )
+        }
         // Phase 11: Media action overlay — floating tray over media messages
         .overlay(alignment: .bottom) {
             if let mediaMsg = activeMediaActionMessage {
@@ -1044,6 +1064,10 @@ struct UnifiedChatView: View {
             // Restore any unsent draft for this conversation
             if let saved = UserDefaults.standard.string(forKey: messageDraftKey), !saved.isEmpty {
                 messageText = saved
+            }
+            // H-16: Show AI consent sheet once before any AI safety scanning begins
+            if !dmConsentShown {
+                showDMConsentSheet = true
             }
         }
         .onDisappear {

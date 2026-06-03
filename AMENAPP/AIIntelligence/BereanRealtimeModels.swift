@@ -118,12 +118,16 @@ struct BereanScriptureReference: Identifiable, Equatable {
     let reference: String
     let normalizedReference: String
     let confidence: Double
+    /// H-10: true when ScriptureReferenceValidator flagged this reference as
+    /// an unknown book or an out-of-range chapter/verse from LLM output.
+    var isUnverified: Bool
 
     init(id: String, data: [String: Any]) {
         self.id = id
         self.reference = data["reference"] as? String ?? ""
-        self.normalizedReference = data["normalizedReference"] as? String ?? reference
+        self.normalizedReference = data["normalizedReference"] as? String ?? (data["reference"] as? String ?? "")
         self.confidence = data["confidence"] as? Double ?? 0
+        self.isUnverified = false  // validated post-init in BereanScriptureKnowledgeGraph
     }
 }
 

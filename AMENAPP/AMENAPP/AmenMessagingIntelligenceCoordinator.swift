@@ -140,6 +140,10 @@ final class AmenMessagingIntelligenceCoordinator: ObservableObject {
         conversationId: String
     ) async -> MessageSafetyDecision {
         guard availability.safetyReview else { return .allow }
+        // H-16: Skip AI safety scanning if the user has explicitly declined consent.
+        // consentDMProcessing is persisted by BereanDMConsentSheet.saveConsent(_:).
+        // Default (no key present) is treated as false — consent must be affirmative.
+        guard UserDefaults.standard.bool(forKey: "consentDMProcessing") else { return .allow }
         return await AMENMessageSafetyEngine.shared.evaluate(
             text: text,
             senderUID: senderUID,
