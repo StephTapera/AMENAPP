@@ -1450,3 +1450,46 @@ exports.onCSAMDetected = ncmecReporter.onCSAMDetected;
 // ============================================================================
 const { reportUnsafeAIResponse } = require('./reportAIFunctions');
 exports.reportUnsafeAIResponse = reportUnsafeAIResponse;
+
+// ============================================================================
+// MODERATION SWEEP — scheduled every 4h: finds aged moderationQueue items and
+// alerts admins. Items pending >24h are flagged; items with CSAM/grooming/
+// trafficking categories pending >2h are escalated to criticalReviewQueue.
+// M-06: SLA sweep to prevent items from stalling in the moderation queue.
+// Deploy: firebase deploy --only functions:moderationSweep --project amen-5e359
+// ============================================================================
+const { moderationSweep } = require("./moderationSweep");
+exports.moderationSweep = moderationSweep;
+
+// ============================================================================
+// ADMIN CLAIMS — grantAdminRole, revokeAdminRole, bootstrapFirstAdmin,
+//               onUserAdminFlagChanged, auditAdminClaims (L-02)
+// Deploy: firebase deploy --only functions:grantAdminRole,revokeAdminRole,
+//         bootstrapFirstAdmin,onUserAdminFlagChanged,auditAdminClaims
+//         --project amen-5e359
+// ============================================================================
+const adminClaims = require("./adminClaims");
+exports.grantAdminRole         = adminClaims.grantAdminRole;
+exports.revokeAdminRole        = adminClaims.revokeAdminRole;
+exports.bootstrapFirstAdmin    = adminClaims.bootstrapFirstAdmin;
+exports.onUserAdminFlagChanged = adminClaims.onUserAdminFlagChanged;
+exports.auditAdminClaims       = adminClaims.auditAdminClaims;
+
+// ============================================================================
+// BEREAN REALTIME — H-22: Ephemeral OpenAI Realtime token broker
+//                   H-33: SLO check scheduled function + kill switch
+//
+//   createRealtimeSession — callable: brokers short-lived ephemeral token;
+//     iOS client (BereanRealtimeSessionManager.swift) calls this instead of
+//     hitting api.openai.com directly. Returns sessionId + clientSecret.
+//   bereanSLOCheck — scheduled every 5 minutes: reads bereanMetrics/hourly
+//     and writes systemStatus/berean { status: "degraded" } on SLO breach,
+//     which RemoteKillSwitch.swift picks up to disable Berean automatically.
+//
+// Secret required: OPENAI_API_KEY (already set for bereanFunctions.js)
+// Deploy: firebase deploy --only functions:createRealtimeSession,bereanSLOCheck
+//         --project amen-5e359
+// ============================================================================
+const bereanRealtime = require("./bereanRealtimeFunctions");
+exports.createRealtimeSession = bereanRealtime.createRealtimeSession;
+exports.bereanSLOCheck        = bereanRealtime.bereanSLOCheck;
