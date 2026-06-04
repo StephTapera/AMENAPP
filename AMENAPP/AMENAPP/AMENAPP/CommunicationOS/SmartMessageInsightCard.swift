@@ -34,7 +34,7 @@ struct SmartMessageInsightCard: View {
     @State private var appeared = false
 
     private var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "smartMessageContextEnabled")
+        (UserDefaults.standard.object(forKey: "smartMessageContextEnabled") as? Bool) ?? true
     }
 
     var body: some View {

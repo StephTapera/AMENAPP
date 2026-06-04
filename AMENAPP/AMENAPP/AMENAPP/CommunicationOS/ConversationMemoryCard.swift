@@ -36,7 +36,7 @@ struct ConversationMemoryCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "conversationMemoryEnabled")
+        (UserDefaults.standard.object(forKey: "conversationMemoryEnabled") as? Bool) ?? true
     }
 
     var body: some View {

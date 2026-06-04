@@ -14,7 +14,7 @@ struct ContactPrivateNotesView: View {
     @FocusState private var tagFieldFocused: Bool
 
     private var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "privateContactNotesEnabled")
+        (UserDefaults.standard.object(forKey: "privateContactNotesEnabled") as? Bool) ?? true
     }
 
     var body: some View {

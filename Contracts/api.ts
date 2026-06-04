@@ -1,6 +1,8 @@
 /**
  * Discussion System — Cloud Function API Signatures
- * Version: 1.0.0 | Status: FROZEN (Phase 0)
+ * Version: 1.1.0 | Status: AMENDED (Phase 1)
+ * v1.0.0 — Phase 0: 7 original callables (FROZEN)
+ * v1.1.0 — Phase 1: Added setAccepted callable
  * Amendment requires: RUNLOG entry + orchestrator approval
  *
  * Every callable Cloud Function in the discussion system is defined here.

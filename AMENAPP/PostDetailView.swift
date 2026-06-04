@@ -87,7 +87,7 @@ struct PostDetailView: View {
 
     // Single sheet enum — avoids "only presenting a single sheet" SwiftUI warning
     private enum DetailSheet: Identifiable {
-        case berean(String), share, profile, report, editPost
+        case berean(String), share, profile, report, editPost, discussion
         case quoteComposer(QuoteComposerContext)
         case commentsWithQuote(String)
         case shareExcerpt(String)
@@ -98,6 +98,7 @@ struct PostDetailView: View {
             case .profile:   return "profile"
             case .report:    return "report"
             case .editPost:  return "editPost"
+            case .discussion: return "discussion"
             case .quoteComposer(let context):
                 return "quoteComposer_\(context.id.uuidString)"
             case .commentsWithQuote(let text):
@@ -405,6 +406,14 @@ struct PostDetailView: View {
                 )
             case .editPost:
                 EditPostSheet(post: post)
+            case .discussion:
+                DiscussionThreadView(
+                    postId: postId,
+                    postTitle: post.content.isEmpty ? nil : String(post.content.prefix(80))
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(24)
             case .quoteComposer(let context):
                 QuoteComposerView(context: context)
             case .commentsWithQuote(let text):
@@ -692,7 +701,18 @@ struct PostDetailView: View {
                 }
             }
             .buttonStyle(.plain)
-            
+
+            // Discussion thread button
+            Button {
+                activeDetailSheet = .discussion
+            } label: {
+                Image(systemName: "bubble.left.and.bubble.right")
+                    .font(.systemScaled(17))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open discussion")
+
             // Join Fast button - only for prayer request posts
             if post.category == .prayer, post.topicTag == "Prayer Request" {
                 Button {

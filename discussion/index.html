@@ -942,9 +942,15 @@ async function loadBerean() {
   document.getElementById('berean-loading').style.display = 'flex';
   document.getElementById('berean-content').style.display = 'none';
 
-  // Try the real CF; fall back to MOCK_BEREAN when not connected to Firebase.
-  const remote = await callBackend('askBerean', { threadId: THREAD.id });
-  const b = remote ?? MOCK_BEREAN;
+  let b = MOCK_BEREAN;
+  try {
+    // Try the real CF; callBackend returns null when offline (no Firebase SDK).
+    const remote = await callBackend('askBerean', { threadId: THREAD.id });
+    if (remote) b = remote;
+  } catch (err) {
+    // CF error (rate-limit, auth, network) — fall through to MOCK_BEREAN
+    console.warn('[loadBerean] askBerean CF failed:', err?.message);
+  }
 
   document.getElementById('berean-loading').style.display = 'none';
   const bc = document.getElementById('berean-content');

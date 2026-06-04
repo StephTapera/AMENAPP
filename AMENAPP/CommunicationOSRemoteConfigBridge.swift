@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 
 // Call this after your Firebase Remote Config fetch completes.
 // Pass in the fetched values as a [String: Bool] dictionary.
@@ -13,19 +12,24 @@ import Combine
 //       CommunicationOSRemoteConfigBridge.applyRemoteConfig(values)
 //   }
 
+// All flags default ON. Set a key to false in Firebase Remote Config to disable remotely.
+private func commOSFlag(_ key: String) -> Bool {
+    (UserDefaults.standard.object(forKey: key) as? Bool) ?? true
+}
+
 @MainActor
 final class CommunicationOSFeatureFlags: ObservableObject {
     static let shared = CommunicationOSFeatureFlags()
     private init() {}
 
-    @Published var smartMessageContextEnabled: Bool = UserDefaults.standard.bool(forKey: "smartMessageContextEnabled")
-    @Published var conversationMemoryEnabled: Bool = UserDefaults.standard.bool(forKey: "conversationMemoryEnabled")
-    @Published var privateContactNotesEnabled: Bool = UserDefaults.standard.bool(forKey: "privateContactNotesEnabled")
-    @Published var smartReminderDetectionEnabled: Bool = UserDefaults.standard.bool(forKey: "smartReminderDetectionEnabled")
-    @Published var smartMusicDetectionEnabled: Bool = UserDefaults.standard.bool(forKey: "smartMusicDetectionEnabled")
-    @Published var smartLinkDetectionEnabled: Bool = UserDefaults.standard.bool(forKey: "smartLinkDetectionEnabled")
-    @Published var smartAttachmentMenuEnabled: Bool = UserDefaults.standard.bool(forKey: "smartAttachmentMenuEnabled")
-    @Published var liquidGlassMessagingEnabled: Bool = UserDefaults.standard.bool(forKey: "liquidGlassMessagingEnabled")
+    @Published var smartMessageContextEnabled: Bool = commOSFlag("smartMessageContextEnabled")
+    @Published var conversationMemoryEnabled: Bool = commOSFlag("conversationMemoryEnabled")
+    @Published var privateContactNotesEnabled: Bool = commOSFlag("privateContactNotesEnabled")
+    @Published var smartReminderDetectionEnabled: Bool = commOSFlag("smartReminderDetectionEnabled")
+    @Published var smartMusicDetectionEnabled: Bool = commOSFlag("smartMusicDetectionEnabled")
+    @Published var smartLinkDetectionEnabled: Bool = commOSFlag("smartLinkDetectionEnabled")
+    @Published var smartAttachmentMenuEnabled: Bool = commOSFlag("smartAttachmentMenuEnabled")
+    @Published var liquidGlassMessagingEnabled: Bool = commOSFlag("liquidGlassMessagingEnabled")
 
     func configure(from remoteConfig: [String: Bool]) {
         for (key, value) in remoteConfig {
@@ -51,7 +55,7 @@ struct CommunicationOSRemoteConfigBridge {
     }
 
     // Keys to fetch from Remote Config.
-    // All flags default OFF in code; set to true in Firebase Console to enable.
+    // All flags default ON in code; set to false in Firebase Console to disable remotely.
     static let allFlagKeys: [String] = [
         "smartMessageContextEnabled",
         "conversationMemoryEnabled",
