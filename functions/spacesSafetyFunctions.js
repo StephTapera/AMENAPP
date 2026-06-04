@@ -28,7 +28,7 @@ function localPrescreen(text) {
 
 // ── scanMessageForScam ────────────────────────────────────────────────────────
 
-exports.scanMessageForScam = onCall({ enforceAppCheck: false }, async (request) => {
+exports.scanMessageForScam = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -57,7 +57,7 @@ exports.scanMessageForScam = onCall({ enforceAppCheck: false }, async (request) 
 
 // ── verifyHost ────────────────────────────────────────────────────────────────
 
-exports.verifyHost = onCall({ enforceAppCheck: false }, async (request) => {
+exports.verifyHost = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -86,7 +86,7 @@ exports.verifyHost = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── submitModerationAction ────────────────────────────────────────────────────
 
-exports.submitModerationAction = onCall({ enforceAppCheck: false }, async (request) => {
+exports.submitModerationAction = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -138,7 +138,7 @@ exports.submitModerationAction = onCall({ enforceAppCheck: false }, async (reque
 
 // ── reviewJoinRequest ─────────────────────────────────────────────────────────
 
-exports.reviewJoinRequest = onCall({ enforceAppCheck: false }, async (request) => {
+exports.reviewJoinRequest = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 

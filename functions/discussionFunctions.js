@@ -6,9 +6,9 @@
  * Embedding key: process.env.EMBEDDING_KEY — if absent, duplicate check short-circuits.
  * DO NOT hardcode any keys here.
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
 
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const functions = require("firebase-functions/v1");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
@@ -135,7 +135,7 @@ async function discussionRateLimit(db, uid, feature, maxPerHour) {
     const snap = await t.get(ref);
     const count = snap.exists ? (snap.data().count || 0) : 0;
     if (count >= maxPerHour) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "resource-exhausted",
         `Rate limit reached for ${feature}. Try again later.`,
       );
@@ -156,16 +156,15 @@ function badgeTier(total) {
 }
 
 // askBerean
-// APP CHECK: Flip to enforceAppCheck: true requires iOS App Check to be initialized first.
-// See: https://firebase.google.com/docs/app-check/ios/default-providers
+// APP CHECK: Enforced server-side via context.app in v1.
 // iOS setup steps: 1) Add AppCheckProviderFactory in AppDelegate, 2) Configure DeviceCheck/AppAttest provider.
-const askBerean = onCall({ enforceAppCheck: true, secrets: ["BEREAN_LLM_KEY"] }, async (request) => {
+const askBerean = functions.region("us-central1").runWith({ secrets: ["BEREAN_LLM_KEY"] }).https.onCall(async (data, context) => {
   const db = getFirestore();
-  const userId = request.auth?.uid;
-  if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+  const userId = context.auth?.uid;
+  if (!userId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
 
-  const threadId = String(request.data?.threadId ?? "").trim();
-  if (!threadId) throw new HttpsError("invalid-argument", "threadId is required.");
+  const threadId = String(data?.threadId ?? "").trim();
+  if (!threadId) throw new functions.https.HttpsError("invalid-argument", "threadId is required.");
 
   // Rate limit: 1 per user+thread per 10 minutes
   const rlRef = db.collection("discussions").doc("rateLimits").collection("askBerean").doc(`${userId}_${threadId}`);
@@ -173,13 +172,13 @@ const askBerean = onCall({ enforceAppCheck: true, secrets: ["BEREAN_LLM_KEY"] },
   if (rlSnap.exists) {
     const last = rlSnap.data()?.lastCalledAt;
     if (last && (Date.now() - last.toMillis()) / 1000 < 600) {
-      throw new HttpsError("resource-exhausted", "Rate limit: wait 10 minutes between Berean queries.");
+      throw new functions.https.HttpsError("resource-exhausted", "Rate limit: wait 10 minutes between Berean queries.");
     }
   }
 
   const threadSnap = await db.collection("threads").doc(threadId).get();
-  if (!threadSnap.exists) throw new HttpsError("not-found", "Thread not found.");
-  if (threadSnap.data()?.isLocked) throw new HttpsError("failed-precondition", "Thread is locked.");
+  if (!threadSnap.exists) throw new functions.https.HttpsError("not-found", "Thread not found.");
+  if (threadSnap.data()?.isLocked) throw new functions.https.HttpsError("failed-precondition", "Thread is locked.");
 
   const commentsSnap = await db.collection("threads").doc(threadId).collection("comments")
     .where("isDeleted","==",false).orderBy("createdAt","asc").limit(50).get();
@@ -216,19 +215,19 @@ Return JSON with exactly these fields:
 });
 
 // detectDuplicate
-const detectDuplicate = onCall({ enforceAppCheck: true, secrets: ["EMBEDDING_KEY"] }, async (request) => {
-  const userId = request.auth?.uid;
-  if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+const detectDuplicate = functions.region("us-central1").runWith({ secrets: ["EMBEDDING_KEY"] }).https.onCall(async (data, context) => {
+  const userId = context.auth?.uid;
+  if (!userId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
 
   const db = getFirestore();
   // Rate limit: 30 duplicate checks per user per hour
   await discussionRateLimit(db, userId, "detectDuplicate", 30);
 
-  const threadId = String(request.data?.threadId ?? "").trim();
-  const draftBody = String(request.data?.draftBody ?? "").trim();
-  if (!threadId) throw new HttpsError("invalid-argument", "threadId is required.");
+  const threadId = String(data?.threadId ?? "").trim();
+  const draftBody = String(data?.draftBody ?? "").trim();
+  if (!threadId) throw new functions.https.HttpsError("invalid-argument", "threadId is required.");
   if (draftBody.length < 5 || draftBody.length > 2000) {
-    throw new HttpsError("invalid-argument", "draftBody must be 5–2000 characters.");
+    throw new functions.https.HttpsError("invalid-argument", "draftBody must be 5–2000 characters.");
   }
 
   if (!process.env.EMBEDDING_KEY) {
@@ -254,11 +253,11 @@ const detectDuplicate = onCall({ enforceAppCheck: true, secrets: ["EMBEDDING_KEY
 });
 
 // computeReputation
-// IDOR fix: uid is always sourced from request.auth.uid — never accepted from caller data.
+// IDOR fix: uid is always sourced from context.auth.uid — never accepted from caller data.
 // Rate limit: 20 calls per user per hour.
-const computeReputation = onCall({ enforceAppCheck: true }, async (request) => {
-  const userId = request.auth?.uid;
-  if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+const computeReputation = functions.region("us-central1").https.onCall(async (data, context) => {
+  const userId = context.auth?.uid;
+  if (!userId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
 
   const db = getFirestore();
   // Rate limit: 20 reputation lookups per user per hour
@@ -284,34 +283,34 @@ const computeReputation = onCall({ enforceAppCheck: true }, async (request) => {
 });
 
 // postComment
-const postComment = onCall({ enforceAppCheck: true }, async (request) => {
+const postComment = functions.region("us-central1").https.onCall(async (data, context) => {
   const db = getFirestore();
-  const userId = request.auth?.uid;
-  if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+  const userId = context.auth?.uid;
+  if (!userId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
 
   // Rate limit: 20 comments per user per hour
   await discussionRateLimit(db, userId, "postComment", 20);
 
-  const threadId = String(request.data?.threadId ?? "").trim();
-  const parentCommentId = request.data?.parentCommentId ? String(request.data.parentCommentId).trim() : null;
-  const body = String(request.data?.body ?? "").trim();
-  const destination = String(request.data?.destination ?? "public").trim();
-  const thresholdPassedAt = request.data?.thresholdPassedAt;
+  const threadId = String(data?.threadId ?? "").trim();
+  const parentCommentId = data?.parentCommentId ? String(data.parentCommentId).trim() : null;
+  const body = String(data?.body ?? "").trim();
+  const destination = String(data?.destination ?? "public").trim();
+  const thresholdPassedAt = data?.thresholdPassedAt;
 
-  if (!threadId) throw new HttpsError("invalid-argument", "threadId is required.");
-  if (body.length < 1 || body.length > 2000) throw new HttpsError("invalid-argument", "body must be 1–2000 characters.");
-  if (!["public","reflection","churchNotes"].includes(destination)) throw new HttpsError("invalid-argument", "Invalid destination.");
+  if (!threadId) throw new functions.https.HttpsError("invalid-argument", "threadId is required.");
+  if (body.length < 1 || body.length > 2000) throw new functions.https.HttpsError("invalid-argument", "body must be 1–2000 characters.");
+  if (!["public","reflection","churchNotes"].includes(destination)) throw new functions.https.HttpsError("invalid-argument", "Invalid destination.");
 
   const threadSnap = await db.collection("threads").doc(threadId).get();
-  if (!threadSnap.exists) throw new HttpsError("not-found", "Thread not found.");
-  if (threadSnap.data()?.isLocked) throw new HttpsError("failed-precondition", "Thread is locked.");
+  if (!threadSnap.exists) throw new functions.https.HttpsError("not-found", "Thread not found.");
+  if (threadSnap.data()?.isLocked) throw new functions.https.HttpsError("failed-precondition", "Thread is locked.");
 
   let depth = 0;
   if (parentCommentId) {
     const parentSnap = await db.collection("threads").doc(threadId).collection("comments").doc(parentCommentId).get();
-    if (!parentSnap.exists) throw new HttpsError("not-found", "Parent comment not found.");
+    if (!parentSnap.exists) throw new functions.https.HttpsError("not-found", "Parent comment not found.");
     depth = (parentSnap.data()?.depth ?? 0) + 1;
-    if (depth > 2) throw new HttpsError("invalid-argument", "Max reply depth is 2.");
+    if (depth > 2) throw new functions.https.HttpsError("invalid-argument", "Max reply depth is 2.");
   }
 
   const verseKeys = detectVerseKeys(body);
@@ -351,24 +350,24 @@ const postComment = onCall({ enforceAppCheck: true }, async (request) => {
 });
 
 // markHelpful
-const markHelpful = onCall({ enforceAppCheck: true }, async (request) => {
+const markHelpful = functions.region("us-central1").https.onCall(async (data, context) => {
   const db = getFirestore();
-  const userId = request.auth?.uid;
-  if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+  const userId = context.auth?.uid;
+  if (!userId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
 
   // Rate limit: 60 helpful marks per user per hour
   await discussionRateLimit(db, userId, "markHelpful", 60);
 
-  const commentId = String(request.data?.commentId ?? "").trim();
-  const threadId  = String(request.data?.threadId  ?? "").trim();
-  if (!commentId) throw new HttpsError("invalid-argument", "commentId is required.");
-  if (!threadId)  throw new HttpsError("invalid-argument", "threadId is required.");
+  const commentId = String(data?.commentId ?? "").trim();
+  const threadId  = String(data?.threadId  ?? "").trim();
+  if (!commentId) throw new functions.https.HttpsError("invalid-argument", "commentId is required.");
+  if (!threadId)  throw new functions.https.HttpsError("invalid-argument", "threadId is required.");
 
   const commentRef = db.collection("threads").doc(threadId).collection("comments").doc(commentId);
   const commentSnap = await commentRef.get();
-  if (!commentSnap.exists) throw new HttpsError("not-found", "Comment not found.");
-  if (commentSnap.data()?.isDeleted) throw new HttpsError("not-found", "Comment not found.");
-  if (commentSnap.data()?.authorUID === userId) throw new HttpsError("failed-precondition", "Cannot mark your own comment as helpful.");
+  if (!commentSnap.exists) throw new functions.https.HttpsError("not-found", "Comment not found.");
+  if (commentSnap.data()?.isDeleted) throw new functions.https.HttpsError("not-found", "Comment not found.");
+  if (commentSnap.data()?.authorUID === userId) throw new functions.https.HttpsError("failed-precondition", "Cannot mark your own comment as helpful.");
 
   const existing = await db.collection("reputationEvents")
     .where("fromUID","==",userId).where("commentId","==",commentId).where("type","==","helpfulMark")
@@ -389,29 +388,29 @@ const markHelpful = onCall({ enforceAppCheck: true }, async (request) => {
   batch.update(commentRef, { helpfulCount: FieldValue.increment(1) });
   await batch.commit();
 
-  logger.info(`markHelpful: ${userId} → ${commentId}`);
+  logger.info(`markHelpful: ${userId} -> ${commentId}`);
   return { eventId: eventRef.id, isNew: true, helpfulCount: (commentSnap.data()?.helpfulCount ?? 0) + 1 };
 });
 
 // updateWatchProgress
-const updateWatchProgress = onCall({ enforceAppCheck: true }, async (request) => {
+const updateWatchProgress = functions.region("us-central1").https.onCall(async (data, context) => {
   const db = getFirestore();
-  const userId = request.auth?.uid;
-  if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+  const userId = context.auth?.uid;
+  if (!userId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
 
   // Rate limit: 120 progress updates per user per hour (high cadence for video progress)
   await discussionRateLimit(db, userId, "updateWatchProgress", 120);
 
-  const postId  = String(request.data?.postId ?? "").trim();
-  const progressFraction = Number(request.data?.progressFraction);
-  const durationSecs = Number(request.data?.durationSecs);
-  const watchedSecs  = Number(request.data?.watchedSecs);
-  const transcriptRead = request.data?.transcriptRead === true;
+  const postId  = String(data?.postId ?? "").trim();
+  const progressFraction = Number(data?.progressFraction);
+  const durationSecs = Number(data?.durationSecs);
+  const watchedSecs  = Number(data?.watchedSecs);
+  const transcriptRead = data?.transcriptRead === true;
 
-  if (!postId) throw new HttpsError("invalid-argument", "postId is required.");
-  if (isNaN(progressFraction) || progressFraction < 0 || progressFraction > 1) throw new HttpsError("invalid-argument", "progressFraction must be 0–1.");
-  if (isNaN(durationSecs) || durationSecs <= 0) throw new HttpsError("invalid-argument", "durationSecs must be > 0.");
-  if (isNaN(watchedSecs)  || watchedSecs < 0)  throw new HttpsError("invalid-argument", "watchedSecs must be ≥ 0.");
+  if (!postId) throw new functions.https.HttpsError("invalid-argument", "postId is required.");
+  if (isNaN(progressFraction) || progressFraction < 0 || progressFraction > 1) throw new functions.https.HttpsError("invalid-argument", "progressFraction must be 0-1.");
+  if (isNaN(durationSecs) || durationSecs <= 0) throw new functions.https.HttpsError("invalid-argument", "durationSecs must be > 0.");
+  if (isNaN(watchedSecs)  || watchedSecs < 0)  throw new functions.https.HttpsError("invalid-argument", "watchedSecs must be >= 0.");
 
   const docId = `${userId}_${postId}`;
   await db.collection("watchProgress").doc(docId).set(
@@ -423,16 +422,16 @@ const updateWatchProgress = onCall({ enforceAppCheck: true }, async (request) =>
 });
 
 // getWatchProgress
-const getWatchProgress = onCall({ enforceAppCheck: true }, async (request) => {
+const getWatchProgress = functions.region("us-central1").https.onCall(async (data, context) => {
   const db = getFirestore();
-  const userId = request.auth?.uid;
-  if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+  const userId = context.auth?.uid;
+  if (!userId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
 
   // Rate limit: 120 progress reads per user per hour
   await discussionRateLimit(db, userId, "getWatchProgress", 120);
 
-  const postId = String(request.data?.postId ?? "").trim();
-  if (!postId) throw new HttpsError("invalid-argument", "postId is required.");
+  const postId = String(data?.postId ?? "").trim();
+  if (!postId) throw new functions.https.HttpsError("invalid-argument", "postId is required.");
 
   const snap = await db.collection("watchProgress").doc(`${userId}_${postId}`).get();
   if (!snap.exists) return { progressFraction: null, transcriptRead: false, shouldNudge: true };
@@ -448,62 +447,61 @@ const getWatchProgress = onCall({ enforceAppCheck: true }, async (request) => {
 // Uses EMBEDDING_KEY env var; falls back to a zero-vector stub when absent so
 // duplicate detection still runs (cosine similarity returns 0 for all-zero vectors).
 
-const processEmbeddingQueue = onDocumentCreated("embeddingQueue/{docId}", async (event) => {
-  const snap = event.data;
-  if (!snap) return;
-
-  const { commentId, threadId, body } = snap.data();
-  if (!commentId || !threadId || !body) {
-    logger.warn("processEmbeddingQueue: missing required fields", { commentId, threadId });
-    await snap.ref.delete();
-    return;
-  }
-
-  const db = getFirestore();
-  let embedding = null;
-
-  const embeddingKey = process.env.EMBEDDING_KEY;
-  if (embeddingKey) {
-    try {
-      // text-embedding-3-small via OpenAI-compatible endpoint
-      const https = require("https");
-      const payload = JSON.stringify({ input: body.slice(0, 8192), model: "text-embedding-3-small" });
-      embedding = await new Promise((resolve, reject) => {
-        const req = https.request(
-          { hostname: "api.openai.com", path: "/v1/embeddings", method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${embeddingKey}`,
-                       "Content-Length": Buffer.byteLength(payload) } },
-          (res) => {
-            let raw = "";
-            res.on("data", c => raw += c);
-            res.on("end", () => {
-              try { resolve(JSON.parse(raw).data?.[0]?.embedding ?? null); }
-              catch (e) { reject(e); }
-            });
-          }
-        );
-        req.on("error", reject);
-        req.write(payload);
-        req.end();
-      });
-    } catch (err) {
-      logger.error("processEmbeddingQueue: embedding API failed", err.message);
-      // Leave embedding null — comment is still posted, just won't participate in dup detection
+const processEmbeddingQueue = functions.region("us-central1").runWith({ secrets: ["EMBEDDING_KEY"] }).firestore
+  .document("embeddingQueue/{docId}")
+  .onCreate(async (snap, _context) => {
+    const { commentId, threadId, body } = snap.data();
+    if (!commentId || !threadId || !body) {
+      logger.warn("processEmbeddingQueue: missing required fields", { commentId, threadId });
+      await snap.ref.delete();
+      return;
     }
-  } else {
-    // Stub: 1536-element zero vector (matches text-embedding-3-small dimension)
-    embedding = new Array(1536).fill(0);
-    logger.info("processEmbeddingQueue: EMBEDDING_KEY absent — using zero-vector stub");
-  }
 
-  if (embedding) {
-    await db.collection("threads").doc(threadId).collection("comments").doc(commentId)
-      .update({ embedding });
-  }
+    const db = getFirestore();
+    let embedding = null;
 
-  await snap.ref.delete();
-  logger.info(`processEmbeddingQueue: processed ${commentId}`);
-});
+    const embeddingKey = process.env.EMBEDDING_KEY;
+    if (embeddingKey) {
+      try {
+        // text-embedding-3-small via OpenAI-compatible endpoint
+        const https = require("https");
+        const payload = JSON.stringify({ input: body.slice(0, 8192), model: "text-embedding-3-small" });
+        embedding = await new Promise((resolve, reject) => {
+          const req = https.request(
+            { hostname: "api.openai.com", path: "/v1/embeddings", method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${embeddingKey}`,
+                         "Content-Length": Buffer.byteLength(payload) } },
+            (res) => {
+              let raw = "";
+              res.on("data", c => raw += c);
+              res.on("end", () => {
+                try { resolve(JSON.parse(raw).data?.[0]?.embedding ?? null); }
+                catch (e) { reject(e); }
+              });
+            }
+          );
+          req.on("error", reject);
+          req.write(payload);
+          req.end();
+        });
+      } catch (err) {
+        logger.error("processEmbeddingQueue: embedding API failed", err.message);
+        // Leave embedding null — comment is still posted, just won't participate in dup detection
+      }
+    } else {
+      // Stub: 1536-element zero vector (matches text-embedding-3-small dimension)
+      embedding = new Array(1536).fill(0);
+      logger.info("processEmbeddingQueue: EMBEDDING_KEY absent — using zero-vector stub");
+    }
+
+    if (embedding) {
+      await db.collection("threads").doc(threadId).collection("comments").doc(commentId)
+        .update({ embedding });
+    }
+
+    await snap.ref.delete();
+    logger.info(`processEmbeddingQueue: processed ${commentId}`);
+  });
 
 // ── Exports ───────────────────────────────────────────────────────────────────
 

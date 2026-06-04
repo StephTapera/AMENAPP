@@ -18,7 +18,7 @@ const db = getFirestore();
 
 // ── routeContentAction ────────────────────────────────────────────────────────
 
-exports.routeContentAction = onCall({ enforceAppCheck: false }, async (request) => {
+exports.routeContentAction = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 

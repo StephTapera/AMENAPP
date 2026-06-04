@@ -11,7 +11,7 @@ const db = getFirestore();
 
 // ── createLiveRoom ────────────────────────────────────────────────────────────
 
-exports.createLiveRoom = onCall({ enforceAppCheck: false }, async (request) => {
+exports.createLiveRoom = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -55,7 +55,7 @@ exports.createLiveRoom = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── joinLiveRoom ──────────────────────────────────────────────────────────────
 
-exports.joinLiveRoom = onCall({ enforceAppCheck: false }, async (request) => {
+exports.joinLiveRoom = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -88,7 +88,7 @@ exports.joinLiveRoom = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── endLiveRoom ───────────────────────────────────────────────────────────────
 
-exports.endLiveRoom = onCall({ enforceAppCheck: false }, async (request) => {
+exports.endLiveRoom = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -127,7 +127,7 @@ exports.endLiveRoom = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── raiseHand ─────────────────────────────────────────────────────────────────
 
-exports.raiseHand = onCall({ enforceAppCheck: false }, async (request) => {
+exports.raiseHand = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -150,7 +150,7 @@ exports.raiseHand = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── muteParticipant ───────────────────────────────────────────────────────────
 
-exports.muteParticipant = onCall({ enforceAppCheck: false }, async (request) => {
+exports.muteParticipant = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 

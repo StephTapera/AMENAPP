@@ -12,7 +12,7 @@ const db = getFirestore();
 
 // ── createSpaceTier ──────────────────────────────────────────────────────────
 
-exports.createSpaceTier = onCall({ enforceAppCheck: false }, async (request) => {
+exports.createSpaceTier = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -43,7 +43,7 @@ exports.createSpaceTier = onCall({ enforceAppCheck: false }, async (request) => 
 
 // ── getSpaceEntitlement ──────────────────────────────────────────────────────
 
-exports.getSpaceEntitlement = onCall({ enforceAppCheck: false }, async (request) => {
+exports.getSpaceEntitlement = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -77,7 +77,7 @@ exports.getSpaceEntitlement = onCall({ enforceAppCheck: false }, async (request)
 
 // ── processSubscription ──────────────────────────────────────────────────────
 
-exports.processSubscription = onCall({ enforceAppCheck: false }, async (request) => {
+exports.processSubscription = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -129,7 +129,7 @@ exports.processSubscription = onCall({ enforceAppCheck: false }, async (request)
 
 // ── processRefund ────────────────────────────────────────────────────────────
 
-exports.processRefund = onCall({ enforceAppCheck: false }, async (request) => {
+exports.processRefund = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -155,7 +155,7 @@ exports.processRefund = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── getPayoutSummary ─────────────────────────────────────────────────────────
 
-exports.getPayoutSummary = onCall({ enforceAppCheck: false }, async (request) => {
+exports.getPayoutSummary = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -173,7 +173,7 @@ exports.getPayoutSummary = onCall({ enforceAppCheck: false }, async (request) =>
 
 // ── hostKYCOnboarding ────────────────────────────────────────────────────────
 
-exports.hostKYCOnboarding = onCall({ enforceAppCheck: false }, async (request) => {
+exports.hostKYCOnboarding = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 

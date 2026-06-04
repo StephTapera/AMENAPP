@@ -6,7 +6,8 @@ const FormData = require("form-data");
 
 const openAIKey = defineSecret("OPENAI_API_KEY");
 
-exports.openAIProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false }, async (request) => {
+// requires App Check token; disable locally via FUNCTIONS_EMULATOR
+exports.openAIProxy = onCall({ secrets: [openAIKey], enforceAppCheck: true }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const uid = request.auth.uid;
   const hourKey = new Date().toISOString().slice(0, 13);
@@ -27,7 +28,8 @@ exports.openAIProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false }, a
   return { text: json.choices?.[0]?.message?.content ?? "", usage: json.usage ?? null };
 });
 
-exports.whisperProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false, timeoutSeconds: 120, memory: "512MiB" }, async (request) => {
+// requires App Check token; disable locally via FUNCTIONS_EMULATOR
+exports.whisperProxy = onCall({ secrets: [openAIKey], enforceAppCheck: true, timeoutSeconds: 120, memory: "512MiB" }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const uid = request.auth.uid;
   const hourKey = new Date().toISOString().slice(0, 13);
@@ -59,7 +61,8 @@ exports.whisperProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false, ti
 });
 
 // transcribeAudio — client uploads audio to Storage, function downloads and transcribes via Whisper
-exports.transcribeAudio = onCall({ secrets: [openAIKey], enforceAppCheck: false, timeoutSeconds: 120, memory: "512MiB" }, async (request) => {
+// requires App Check token; disable locally via FUNCTIONS_EMULATOR
+exports.transcribeAudio = onCall({ secrets: [openAIKey], enforceAppCheck: true, timeoutSeconds: 120, memory: "512MiB" }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const uid = request.auth.uid;
 
@@ -114,7 +117,8 @@ exports.transcribeAudio = onCall({ secrets: [openAIKey], enforceAppCheck: false,
   return { text: json.text ?? "", confidence: Math.max(0, Math.min(1, 1.0 + avgLogprob)) };
 });
 
-exports.smartSuggestionsProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false }, async (request) => {
+// requires App Check token; disable locally via FUNCTIONS_EMULATOR
+exports.smartSuggestionsProxy = onCall({ secrets: [openAIKey], enforceAppCheck: true }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const { prompt, maxTokens } = request.data;
   if (!prompt) throw new HttpsError("invalid-argument", "prompt required.");

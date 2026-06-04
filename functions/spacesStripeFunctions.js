@@ -11,6 +11,8 @@
  * If STRIPE_SECRET_KEY is unset the function throws failed-precondition
  * so the emulator still starts cleanly.
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -21,7 +23,7 @@ const STRIPE_RETURN_BASE_URL = process.env.STRIPE_RETURN_BASE_URL ?? "https://am
 
 // ── createStripeConnectAccount ────────────────────────────────────────────────
 
-exports.createStripeConnectAccount = onCall({ enforceAppCheck: false }, async (request) => {
+exports.createStripeConnectAccount = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 

@@ -132,7 +132,7 @@ async function deleteBatched(host, apiKey, namespace, ids, batchSize = 100) {
  */
 exports.cleanupDraftVectors = onCall(
   {
-    enforceAppCheck: false, // admin-only; protected by custom-claim check below
+    enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR // admin-only; protected by custom-claim check below
     region: 'us-central1',
     secrets: [PINECONE_API_KEY, PINECONE_HOST],
     timeoutSeconds: 540,

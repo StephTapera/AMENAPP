@@ -11,7 +11,7 @@ const db = getFirestore();
 
 // ── createSpaceEvent ─────────────────────────────────────────────────────────
 
-exports.createSpaceEvent = onCall({ enforceAppCheck: false }, async (request) => {
+exports.createSpaceEvent = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -56,7 +56,7 @@ exports.createSpaceEvent = onCall({ enforceAppCheck: false }, async (request) =>
 
 // ── rsvpToEvent ──────────────────────────────────────────────────────────────
 
-exports.rsvpToEvent = onCall({ enforceAppCheck: false }, async (request) => {
+exports.rsvpToEvent = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -90,7 +90,7 @@ exports.rsvpToEvent = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── sendEventBroadcast ───────────────────────────────────────────────────────
 
-exports.sendEventBroadcast = onCall({ enforceAppCheck: false }, async (request) => {
+exports.sendEventBroadcast = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -120,7 +120,7 @@ exports.sendEventBroadcast = onCall({ enforceAppCheck: false }, async (request) 
 
 // ── listUpcomingEvents ───────────────────────────────────────────────────────
 
-exports.listUpcomingEvents = onCall({ enforceAppCheck: false }, async (request) => {
+exports.listUpcomingEvents = onCall({ enforceAppCheck: true }, async (request) => { // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 

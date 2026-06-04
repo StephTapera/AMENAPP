@@ -8,6 +8,46 @@ const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
 
+// ============================================================================
+// H-03: BAN EVASION PREVENTION — Phone number ban check
+// Hashes phone numbers with SHA-256 before storing so the raw number is never
+// persisted in Firestore. Checked on account creation and user doc creation.
+// ============================================================================
+
+const crypto = require("crypto");
+
+/**
+ * Hash a phone number with SHA-256 for safe storage in bannedPhones/{hash}.
+ * @param {string} phoneNumber - E.164 format phone number
+ * @returns {string} hex digest
+ */
+function hashPhoneNumber(phoneNumber) {
+  return crypto.createHash("sha256").update(phoneNumber.trim()).digest("hex");
+}
+
+/**
+ * Throws an HttpsError if the given phone number has been banned.
+ * No-ops silently when phoneNumber is absent (email-only accounts).
+ * @param {string|null|undefined} phoneNumber
+ */
+async function checkPhoneNotBanned(phoneNumber) {
+  if (!phoneNumber) return;
+  const hash = hashPhoneNumber(phoneNumber);
+  const banned = await admin.firestore().collection("bannedPhones").doc(hash).get();
+  if (banned.exists) {
+    throw new HttpsError(
+        "permission-denied",
+        "This phone number is not eligible for registration."
+    );
+  }
+}
+
+// ============================================================================
+// H-04: ACCOUNT CREATION RATE LIMIT
+// Imported here for use in reserveUsername.
+// ============================================================================
+const {enforceRateLimit} = require("./rateLimiter");
+
 /**
  * P0-2: Reserve a username using a transaction
  * This prevents race conditions when two users try to claim the same username
@@ -21,7 +61,7 @@ const {onDocumentCreated, onDocumentDeleted} = require("firebase-functions/v2/fi
 exports.reserveUsername = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: true, // Set to true in production with App Check
+      enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR // Set to true in production with App Check
     },
     async (request) => {
       const {username, userId} = request.data;
@@ -44,6 +84,13 @@ exports.reserveUsername = onCall(
             "You can only reserve usernames for yourself"
         );
       }
+
+      // H-04: Rate limit username reservation attempts per UID to prevent
+      // abuse of the account creation flow. Firebase Auth handles IP-level
+      // rate limiting for phone number verification separately.
+      // Note: rate limiting by IP is handled by Firebase Auth for phone numbers.
+      // Here we limit username reservation attempts by UID to prevent abuse of the creation flow.
+      await enforceRateLimit(requesterId, "account_create", 2, 86400); // 2 attempts per day per UID
 
       // Validate input
       if (!username || typeof username !== "string") {
@@ -130,7 +177,7 @@ exports.reserveUsername = onCall(
 exports.checkUsernameAvailability = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: true,
+      enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     },
     async (request) => {
       const {username} = request.data;
@@ -193,7 +240,7 @@ exports.checkUsernameAvailability = onCall(
 exports.resolveUsernameToEmail = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false, // Allow pre-auth callers; App Check still blocks invalid apps
+      enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR // Allow pre-auth callers; App Check still blocks invalid apps
     },
     async (request) => {
       const {username} = request.data;
@@ -281,7 +328,7 @@ exports.resolveUsernameToEmail = onCall(
 exports.backfillUsernameLookup = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false,
+      enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     },
     async (request) => {
       // Only allow authenticated admins (add your uid here)
@@ -641,7 +688,7 @@ async function cascadeDeleteUserData(userId) {
 exports.manualCascadeDelete = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: true,
+      enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     },
     async (request) => {
       const {userId} = request.data;
@@ -730,20 +777,53 @@ exports.onUserDocCreated = onDocCreated(
         return null;
       }
 
+      // H-03: Check if the phone number used for registration is banned.
+      // phoneNumber is written to the user doc by the client during sign-up.
+      // If banned, delete the newly-created user document so the account
+      // cannot be used, and disable the Auth account.
+      const phoneNumber = data.phoneNumber || null;
+      if (phoneNumber) {
+        try {
+          await checkPhoneNotBanned(phoneNumber);
+        } catch (banErr) {
+          console.warn(`[banCheck] Banned phone attempted registration: userId=${userId}`);
+          // Disable the Firebase Auth account to prevent sign-in
+          try {
+            await admin.auth().updateUser(userId, {disabled: true});
+          } catch (authErr) {
+            console.error(`[banCheck] Failed to disable Auth account ${userId}:`, authErr);
+          }
+          // Delete the Firestore user document so the account has no profile
+          try {
+            await admin.firestore().collection("users").doc(userId).delete();
+          } catch (fsErr) {
+            console.error(`[banCheck] Failed to delete user doc ${userId}:`, fsErr);
+          }
+          return null;
+        }
+      }
+
       const birthYear = data.birthYear;
       const currentYear = new Date().getFullYear();
       const ageTier = computeAgeTier(birthYear, currentYear);
 
       console.log(`[ageTier] userId=${userId} birthYear=${birthYear} → ageTier=${ageTier}`);
 
+      const updateFields = {
+        ageTier,
+        ageTierSetAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      // M-03: Minors must always have content filtering set to restricted.
+      if (ageTier === "tierB" || ageTier === "tierC") {
+        updateFields.sensitiveContentLevel = "restricted";
+      }
+
       try {
         await admin.firestore()
             .collection("users")
             .doc(userId)
-            .update({
-              ageTier,
-              ageTierSetAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
+            .update(updateFields);
         console.log(`✅ [ageTier] Set ageTier="${ageTier}" for user ${userId}`);
       } catch (err) {
         console.error(`❌ [ageTier] Failed to set ageTier for ${userId}:`, err);
@@ -763,7 +843,7 @@ exports.onUserDocCreated = onDocCreated(
 // ============================================================================
 
 exports.revokeUserSessions = onCall(
-    {region: "us-central1", enforceAppCheck: true},
+    {region: "us-central1", enforceAppCheck: true}, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be authenticated.");
@@ -793,7 +873,7 @@ exports.revokeUserSessions = onCall(
  *   functions.httpsCallable("setAdminClaim").call({ targetUid: "...", grant: true })
  */
 exports.setAdminClaim = onCall(
-    {region: "us-central1", enforceAppCheck: true},
+    {region: "us-central1", enforceAppCheck: true}, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     async (request) => {
       // Only existing admins can grant or revoke admin status
       if (!request.auth || request.auth.token.admin !== true) {
@@ -844,3 +924,116 @@ exports.setAdminClaim = onCall(
  *
  * After the first admin is set, use setAdminClaim() to manage subsequent admins.
  */
+
+// ============================================================================
+// H-03: banUserPhone — Admin-only callable
+// Hashes the target user's phone number and writes it to bannedPhones/{hash}.
+// Future registration attempts using the same phone will be blocked by
+// checkPhoneNotBanned() in onUserDocCreated.
+//
+// TODO: Wire this into the accountSuspension flow so that banning a user
+// automatically bans their phone number. Example call site:
+//   await admin.functions().httpsCallable("banUserPhone")({ userId: bannedUid });
+// ============================================================================
+
+exports.banUserPhone = onCall(
+    {region: "us-central1", enforceAppCheck: true}, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
+    async (request) => {
+      // Admin-only: caller must have the admin custom claim
+      if (!request.auth || request.auth.token.admin !== true) {
+        throw new HttpsError(
+            "permission-denied",
+            "Only admins can ban phone numbers."
+        );
+      }
+
+      const {userId} = request.data;
+      if (!userId || typeof userId !== "string") {
+        throw new HttpsError("invalid-argument", "userId (string) is required.");
+      }
+
+      const adminUid = request.auth.uid;
+
+      // Look up the user's phone number from Firebase Auth
+      let userRecord;
+      try {
+        userRecord = await admin.auth().getUser(userId);
+      } catch (err) {
+        console.error(`[banUserPhone] getUser(${userId}) failed:`, err);
+        throw new HttpsError("not-found", "User not found.");
+      }
+
+      const phoneNumber = userRecord.phoneNumber || null;
+      if (!phoneNumber) {
+        // Account has no phone number — nothing to ban on that dimension.
+        console.warn(`[banUserPhone] User ${userId} has no phone number — skipping phone ban.`);
+        return {success: true, phoneNumber: null, note: "no_phone_number"};
+      }
+
+      const hashedPhone = hashPhoneNumber(phoneNumber);
+
+      await admin.firestore().collection("bannedPhones").doc(hashedPhone).set({
+        hashedPhone,
+        bannedAt: admin.firestore.FieldValue.serverTimestamp(),
+        bannedBy: adminUid,
+        userId,
+        reason: "ban_evasion_prevention",
+      });
+
+      console.log(`[banUserPhone] Phone banned for userId=${userId} by admin=${adminUid}`);
+      return {success: true, userId, hashedPhone};
+    }
+);
+
+// ============================================================================
+// M-02: UPDATE BIRTH YEAR — server-enforced age-downgrade protection.
+// Adults (tierD) cannot re-declare as minors without moderator review.
+// Tier order (ascending privilege): blocked < tierB < tierC < tierD
+// ============================================================================
+
+const TIER_ORDER = ["blocked", "tierB", "tierC", "tierD"];
+
+exports.updateBirthYear = onCall(
+    {region: "us-central1", enforceAppCheck: true}, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Must be authenticated.");
+      }
+
+      const uid = request.auth.uid;
+      const {birthYear} = request.data || {};
+
+      if (!birthYear || typeof birthYear !== "number" || birthYear < 1900 || birthYear > new Date().getFullYear()) {
+        throw new HttpsError("invalid-argument", "A valid birthYear (number) is required.");
+      }
+
+      const db = admin.firestore();
+      const userDoc = await db.collection("users").doc(uid).get();
+      if (!userDoc.exists) {
+        throw new HttpsError("not-found", "User document not found.");
+      }
+
+      const existingData = userDoc.data();
+      const currentTier = existingData.ageTier || "tierD";
+      const currentYear = new Date().getFullYear();
+      const newTier = computeAgeTier(birthYear, currentYear);
+
+      // M-02: Prevent age downgrade. Adults cannot re-declare as minors.
+      if (TIER_ORDER.indexOf(newTier) < TIER_ORDER.indexOf(currentTier)) {
+        console.warn(`[updateBirthYear] Downgrade attempt uid=${uid} ${currentTier} -> ${newTier}`);
+        throw new HttpsError(
+            "permission-denied",
+            "Age changes that reduce your age tier require moderator review."
+        );
+      }
+
+      await db.collection("users").doc(uid).update({
+        birthYear,
+        ageTier: newTier,
+        ageTierSetAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log(`[updateBirthYear] uid=${uid} birthYear=${birthYear} ageTier=${newTier}`);
+      return {success: true, ageTier: newTier};
+    }
+);

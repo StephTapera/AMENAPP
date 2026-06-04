@@ -117,7 +117,7 @@ exports.getDailyDigest = onCall(
   {
     region: REGION,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: false, // flip to true once App Check is wired in all environments
+    enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR // flip to true once App Check is wired in all environments
     timeoutSeconds: 60,
   },
   async (request) => {
@@ -402,7 +402,7 @@ exports.generateCreatorDraft = onCall(
   {
     region: REGION,
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     timeoutSeconds: 60,
   },
   async (request) => {
@@ -547,7 +547,7 @@ exports.ragSearch = onCall(
   {
     region: REGION,
     secrets: ["PINECONE_API_KEY", "PINECONE_HOST"],
-    enforceAppCheck: false,
+    enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     timeoutSeconds: 30,
   },
   async (request) => {

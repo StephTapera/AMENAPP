@@ -22,6 +22,7 @@ const db = getFirestore();
 let stripeClient = null;
 function getStripe() {
   if (!stripeClient) {
+    // TODO: USE_DEFINE_SECRET — migrate to defineSecret() for this secret
     const secretKey = process.env.STRIPE_SECRET_KEY;
     if (!secretKey) throw new HttpsError("failed-precondition", "Stripe not configured.");
     stripeClient = require("stripe")(secretKey);
@@ -32,7 +33,7 @@ function getStripe() {
 // ── createCovenantCheckoutSession ────────────────────────────────────────────
 
 exports.createCovenantCheckoutSession = onCall(
-  { enforceAppCheck: false, secrets: ["STRIPE_SECRET_KEY"] },
+  { enforceAppCheck: true }, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -94,7 +95,7 @@ exports.createCovenantCheckoutSession = onCall(
 // ── verifyCovenantMembership ─────────────────────────────────────────────────
 
 exports.verifyCovenantMembership = onCall(
-  { enforceAppCheck: false, secrets: ["STRIPE_SECRET_KEY"] },
+  { enforceAppCheck: true }, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");

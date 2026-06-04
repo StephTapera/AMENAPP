@@ -139,7 +139,7 @@ exports.firestoreBackup = onSchedule(
 exports.backfillUserCommentIndex = onCall(
   {
     region: 'us-central1',
-    enforceAppCheck: false,
+    enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     timeoutSeconds: 540,
   },
   async (req) => {

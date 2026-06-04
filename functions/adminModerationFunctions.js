@@ -61,7 +61,7 @@ async function requireModerator(request) {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.getCrisisAlertQueue = onCall(
   {
-    enforceAppCheck: false, // admin tool — protected by role check below
+    enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR // admin tool — protected by role check below
     region: REGION,
     timeoutSeconds: 30,
   },
@@ -166,7 +166,7 @@ exports.getCrisisAlertQueue = onCall(
 // ─────────────────────────────────────────────────────────────────────────────
 exports.resolveAlert = onCall(
   {
-    enforceAppCheck: false,
+    enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     region: REGION,
     timeoutSeconds: 30,
   },
