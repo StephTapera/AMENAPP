@@ -1,24 +1,23 @@
-// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
-// reviewAppealV1.js — v1 Cloud Function (avoids Cloud Run quota)
+// reviewAppealV1.js — migrated to v2 (quota freed; was gen1 workaround)
 // Admin-only callable to approve or reject a pending content appeal.
-// submitAppeal is in appeals.js (already deployed as v2).
+// submitAppeal is in appeals.js (also v2).
 
-const functions = require("firebase-functions/v1");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
-exports.reviewAppeal = functions.region("us-central1").https.onCall(async (data, context) => {
-  if (!context.auth?.token?.admin) {
-    throw new functions.https.HttpsError("permission-denied", "Admin only.");
+exports.reviewAppeal = onCall({ enforceAppCheck: true }, async (request) => {
+  if (!request.auth?.token?.admin) {
+    throw new HttpsError("permission-denied", "Admin only.");
   }
 
-  const uid = context.auth.uid;
-  const { appealId, decision, adminNotes } = data || {};
+  const uid = request.auth.uid;
+  const { appealId, decision, adminNotes } = request.data ?? {};
 
   if (!appealId) {
-    throw new functions.https.HttpsError("invalid-argument", "appealId is required.");
+    throw new HttpsError("invalid-argument", "appealId is required.");
   }
   if (!["approved", "rejected"].includes(decision)) {
-    throw new functions.https.HttpsError("invalid-argument", "decision must be 'approved' or 'rejected'.");
+    throw new HttpsError("invalid-argument", "decision must be 'approved' or 'rejected'.");
   }
 
   const db = getFirestore();
@@ -26,7 +25,7 @@ exports.reviewAppeal = functions.region("us-central1").https.onCall(async (data,
   const appealSnap = await appealRef.get();
 
   if (!appealSnap.exists) {
-    throw new functions.https.HttpsError("not-found", `Appeal ${appealId} not found.`);
+    throw new HttpsError("not-found", `Appeal ${appealId} not found.`);
   }
 
   const appealData = appealSnap.data();
