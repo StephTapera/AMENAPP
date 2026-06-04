@@ -39,7 +39,7 @@ actor BereanRecommendationEngine {
         for contentObject: ContentObject,
         userId: String
     ) async throws -> [CommunityNode] {
-        guard CommunityOSFlagService.shared.isEnabled(.bereanContentConnector) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.bereanContentConnector) else {
             dlog("[BereanRecommendationEngine] Flag disabled — skipping community recommendations")
             return []
         }
@@ -93,23 +93,14 @@ actor BereanRecommendationEngine {
     // MARK: - Related Verse Recommendations
 
     /// Delegates to BereanContentConnector to surface the most relevant scripture chips.
-    func recommendRelatedVerses(for contentObject: ContentObject) -> [BereanScriptureChip] {
-        guard CommunityOSFlagService.shared.isEnabled(.bereanContentConnector) else {
-            dlog("[BereanRecommendationEngine] Flag disabled — skipping verse recommendations")
-            return []
-        }
-        return connector.findVerses(for: contentObject)
+    func recommendRelatedVerses(for contentObject: ContentObject) async -> [BereanScriptureChip] {
+        return await connector.findVerses(for: contentObject)
     }
 
     // MARK: - Reflection Prompts
 
     /// Returns 3 context-sensitive reflection questions tailored to the content kind and themes.
     func reflectionPrompts(for contentObject: ContentObject) -> [String] {
-        guard CommunityOSFlagService.shared.isEnabled(.bereanContentConnector) else {
-            dlog("[BereanRecommendationEngine] Flag disabled — skipping reflection prompts")
-            return []
-        }
-
         switch contentObject.kind {
 
         case .song:
@@ -202,11 +193,6 @@ actor BereanRecommendationEngine {
 
     /// Returns 2 prayer-focused prompts tailored to the content kind and themes.
     func prayerPrompts(for contentObject: ContentObject) -> [String] {
-        guard CommunityOSFlagService.shared.isEnabled(.bereanContentConnector) else {
-            dlog("[BereanRecommendationEngine] Flag disabled — skipping prayer prompts")
-            return []
-        }
-
         switch contentObject.kind {
 
         case .song:

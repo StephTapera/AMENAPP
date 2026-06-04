@@ -25,11 +25,16 @@ final class ChurchNotesMediaProcessingService: ObservableObject {
     private let functions = Functions.functions()
     private var jobListeners: [String: ListenerRegistration] = [:]
 
+    deinit { jobListeners.values.forEach { $0.remove() } }
+
     private var currentUID: String? { Auth.auth().currentUser?.uid }
 
     // MARK: - Upload audio
 
     /// Uploads a recorded audio file to Firebase Storage and creates a processing job.
+    /// After transcription completes, `generateChurchNoteDraft` is automatically called
+    /// so the user is presented with a structured draft (summary, key verses, action items,
+    /// discussion questions) for review without needing to tap individual generate buttons.
     /// The feature flag must be checked by the caller before invoking.
     func uploadAudioAndCreateJob(fileURL: URL, noteId: String, durationSeconds: Double) async {
         guard !uploadState.isInFlight else { return }
@@ -94,12 +99,20 @@ final class ChurchNotesMediaProcessingService: ObservableObject {
             let jobId = try await createProcessingJob(request: req)
             uploadState.phase = .complete(storagePath: storagePath)
 
-            // Fire-and-monitor: kick off the callable then listen for status changes.
+            // Fire-and-monitor: kick off transcription, then chain draft generation.
+            // Both steps run server-side; we rely on the Firestore listener for status.
+            // Draft generation is only attempted if transcription succeeds.
+            // The transcript is saved to Firestore by the CF even if draft generation fails.
             Task {
                 do {
                     try await callProcessAudio(noteId: noteId, jobId: jobId)
+                    // Transcription succeeded — automatically kick off draft generation.
+                    // This calls generateChurchNoteDraft which returns a structured draft
+                    // { summary, keyVerses, actionItems, discussionQuestions } for user review.
+                    try await callGenerateDraft(noteId: noteId, jobId: jobId)
                 } catch {
-                    // Status is already tracked in the Firestore listener; log the callable failure.
+                    // Status is tracked in the Firestore listener; partial transcript
+                    // is preserved in Firestore by the CF even on failure.
                 }
             }
             startListeningToJob(noteId: noteId, jobId: jobId)
@@ -238,6 +251,24 @@ final class ChurchNotesMediaProcessingService: ObservableObject {
         _ = try await functions
             .httpsCallable("rejectChurchNoteAIDraft")
             .call(["noteId": noteId, "jobId": jobId, "draftField": draftField.rawValue, "reason": reason])
+    }
+
+    // MARK: - Full-pipeline draft generation
+
+    /// Calls `generateChurchNoteDraft` — the single callable that takes a transcript
+    /// (already saved in Firestore by the audio/OCR step) and returns a structured draft:
+    /// { summary, keyVerses, actionItems, discussionQuestions }.
+    ///
+    /// The result is saved to `churchNotes/{noteId}.aiDraftState` with status
+    /// "pending_review". The Firestore listener will update the job, causing
+    /// `ChurchNotesAIDraftReviewView` to display the draft for user approval.
+    ///
+    /// This is the correct way to trigger AI generation after transcription.
+    /// Individual per-field callables (generateSummary, etc.) remain available
+    /// for on-demand regeneration of specific fields.
+    func generateDraft(noteId: String, jobId: String) async throws {
+        _ = try await functions.httpsCallable("generateChurchNoteDraft")
+            .call(["noteId": noteId, "jobId": jobId])
     }
 
     // MARK: - Content generation
@@ -428,6 +459,13 @@ final class ChurchNotesMediaProcessingService: ObservableObject {
 
     private func callProcessAudio(noteId: String, jobId: String) async throws {
         _ = try await functions.httpsCallable("processChurchNoteAudio")
+            .call(["noteId": noteId, "jobId": jobId])
+    }
+
+    /// Calls the full-pipeline draft generation CF after transcription completes.
+    /// Saved to Firestore as a draft pending user review — never auto-approved.
+    private func callGenerateDraft(noteId: String, jobId: String) async throws {
+        _ = try await functions.httpsCallable("generateChurchNoteDraft")
             .call(["noteId": noteId, "jobId": jobId])
     }
 

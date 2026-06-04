@@ -51,7 +51,7 @@ final class ContentMetadataExtractor {
     }
 
     /// Returns a human-readable fallback title for cases where metadata could not be fetched.
-    static func titleFallback(for kind: ContentObjectKind, rawURL: String) -> String {
+    nonisolated static func titleFallback(for kind: ContentObjectKind, rawURL: String) -> String {
         switch kind {
         case .song:          return "Shared Song"
         case .podcast:       return "Shared Podcast"

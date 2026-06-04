@@ -8,6 +8,7 @@ struct AmenCovenantStoryViewer: View {
     let covenantId: String
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @StateObject private var vm = AmenCovenantStoryViewerViewModel()
 
     private let timer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
@@ -188,8 +189,28 @@ struct AmenCovenantStoryViewer: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 34, height: 34)
-                .background(Circle().fill(Color.white.opacity(0.2)))
+                .background {
+                    if reduceTransparency {
+                        Circle().fill(Color(.systemBackground).opacity(0.85))
+                    } else {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay {
+                                Circle().fill(Color.white.opacity(0.14))
+                            }
+                            .overlay {
+                                Circle()
+                                    .stroke(Color.white.opacity(0.32), lineWidth: 0.5)
+                                    .blur(radius: 0.2)
+                            }
+                            .overlay {
+                                Circle()
+                                    .strokeBorder(Color.black.opacity(0.10), lineWidth: 0.8)
+                            }
+                    }
+                }
         }
+        .shadow(color: .black.opacity(0.12), radius: 14, x: 0, y: 6)
         .padding(.top, 56)
         .padding(.trailing, 20)
         .accessibilityLabel("Dismiss stories")
@@ -248,6 +269,10 @@ private struct StoryReactionButton: View {
     let label: String
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @GestureState private var isPressed = false
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
@@ -259,12 +284,37 @@ private struct StoryReactionButton: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 9)
-            .background(
-                Capsule()
-                    .fill(Color.white.opacity(0.18))
-            )
+            .background {
+                if reduceTransparency {
+                    Capsule(style: .continuous)
+                        .fill(Color(.systemBackground).opacity(0.85))
+                } else {
+                    Capsule(style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .fill(Color.white.opacity(0.16))
+                        }
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .stroke(Color.white.opacity(0.36), lineWidth: 0.5)
+                                .blur(radius: 0.2)
+                        }
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .strokeBorder(Color.black.opacity(0.10), lineWidth: 0.8)
+                        }
+                }
+            }
         }
         .buttonStyle(.plain)
+        .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 6)
+        .scaleEffect(reduceMotion ? 1 : (isPressed ? 0.96 : 1))
+        .animation(reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.84), value: isPressed)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in state = true }
+        )
         .accessibilityLabel(label)
     }
 }

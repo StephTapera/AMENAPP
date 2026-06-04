@@ -10,6 +10,7 @@ struct BereanLiveTranslationBar: View {
     var onEnd: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         HStack(spacing: 10) {
@@ -47,16 +48,11 @@ struct BereanLiveTranslationBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.ultraThinMaterial)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.10), lineWidth: 0.7)
-        }
-        .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 6)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isLive)
+        // barSurface applies the iOS 26 glass effect or the solid accessibility
+        // fallback. Glass is last in the modifier chain as required.
+        .modifier(TranslationBarSurface(reduceTransparency: reduceTransparency))
+        // Use amenEaseQuick for live/paused state swaps (selection-level change).
+        .animation(reduceMotion ? nil : .amenEaseQuick, value: isLive)
     }
 
     private var statusPill: some View {
@@ -69,10 +65,14 @@ struct BereanLiveTranslationBar: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
+        // Keep foregroundStyle as .primary so it adapts to light/dark while
+        // remaining fully opaque — legibility on the glass surface requires this.
         .foregroundStyle(.primary)
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
-        .background(Capsule().fill(Color(.systemBackground).opacity(0.88)))
+        // Opaque pill background: ensures status text is readable over any content
+        // visible through the outer glass bar. Do NOT apply a second glass layer here.
+        .background(Capsule().fill(Color(.systemBackground)))
         .accessibilityLabel(statusText)
     }
 
@@ -81,5 +81,33 @@ struct BereanLiveTranslationBar: View {
             return "Live \(Int(latencyMs)) ms"
         }
         return isLive ? "Live" : "Paused"
+    }
+}
+
+/// Applies the iOS 26 `.glassEffect()` surface to the translation bar, with a
+/// solid `Color(.systemBackground)` fallback when Reduce Transparency is on.
+/// Kept private to this file — do not duplicate glass logic from
+/// LiquidGlassTranslationCapsule.
+private struct TranslationBarSurface: ViewModifier {
+    let reduceTransparency: Bool
+
+    private let barShape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content
+                .background {
+                    barShape
+                        .fill(Color(.systemBackground))
+                }
+                .clipShape(barShape)
+                .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 6)
+        } else {
+            content
+                // Shadow before glass so it sits under the specular rim, not on top.
+                .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 6)
+                // iOS 26 Liquid Glass — must be last modifier.
+                .glassEffect(GlassEffectStyle.regular, in: barShape)
+        }
     }
 }

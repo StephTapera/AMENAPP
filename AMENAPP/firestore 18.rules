@@ -1016,10 +1016,16 @@ service cloud.firestore {
         && validLength(request.resource.data.name, 100)
         && validLength(request.resource.data.description, 500);
       // P2 FIX: Block changes to creatorId.
+      // S1 FIX: Adding/removing adminIds requires caller to already be in adminIds.
+      // This prevents any authenticated user from self-promoting to admin.
       allow update: if isAuthenticated()
         && (resource.data.creatorId == request.auth.uid
           || request.auth.uid in resource.data.get('adminIds', []))
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adminIds'])
+          || request.auth.uid in resource.data.get('adminIds', [])
+        );
       allow delete: if isAuthenticated()
         && resource.data.creatorId == request.auth.uid;
 
@@ -1066,10 +1072,15 @@ service cloud.firestore {
         && hasRequiredFields(['name', 'description', 'creatorId'])
         && validLength(request.resource.data.name, 100)
         && validLength(request.resource.data.description, 500);
+      // S1 FIX: Adding/removing adminIds requires caller to already be in adminIds.
       allow update: if isAuthenticated()
         && (resource.data.creatorId == request.auth.uid
           || request.auth.uid in resource.data.get('adminIds', []))
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adminIds'])
+          || request.auth.uid in resource.data.get('adminIds', [])
+        );
       allow delete: if isAuthenticated()
         && resource.data.creatorId == request.auth.uid;
 
@@ -4781,6 +4792,103 @@ service cloud.firestore {
 
     // Rate limiter counters. No client reads or writes.
     match /rateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // AI PIPELINE — SERVER-ONLY COLLECTIONS
+    // All writes go through Cloud Functions (Admin SDK). Clients have limited
+    // read access where needed (own records only).
+    // ============================================================================
+
+    // Moderation decisions — every content check writes a record here.
+    match /moderationDecisions/{decisionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Crisis escalations — self-harm signals from the safety pipeline.
+    match /crisisEscalations/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+      match /events/{eventId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+    }
+
+    // Comment moderation decisions — written by checkCommentQuality CF.
+    match /commentModerationDecisions/{decisionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Daily digest cache — getDailyDigest CF writes once per user per day.
+    match /dailyDigests/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+      match /dates/{dateKey} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
+    // ============================================================================
+    // Communication OS V1 — Thread Memory
+    // ============================================================================
+
+    match /threads/{threadId}/memories/{memoryId} {
+      // Read: only thread members
+      allow read: if request.auth != null
+        && exists(/databases/$(database)/documents/threads/$(threadId)/members/$(request.auth.uid));
+
+      // Write: only via Cloud Function (clients cannot write directly)
+      // The saveConversationMemory callable handles writes server-side
+      allow write: if false;
+    }
+
+    match /threads/{threadId}/messageContext/{messageId} {
+      // Read: only thread members
+      allow read: if request.auth != null
+        && exists(/databases/$(database)/documents/threads/$(threadId)/members/$(request.auth.uid));
+
+      // Write: server-only
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // Communication OS V1 — Private Contact Notes
+    // CRITICAL: user can ONLY read/write their OWN notes
+    // ============================================================================
+
+    match /users/{uid}/privateContactNotes/{contactUid} {
+      // Only the note owner can read/write their own notes
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid}/savedConversationObjects/{objectId} {
+      // Only the owner can access their saved objects
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ============================================================================
+    // Communication OS V1 — Post Context
+    // ============================================================================
+
+    match /posts/{postId}/postContext/main {
+      // Post context inherits post visibility
+      // Read: if the post itself is readable (defer to post rules)
+      // For V1: only the post author can read post context
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid;
+
+      // Write: server-only
+      allow write: if false;
+    }
+
+    match /posts/{postId}/moderation/main {
+      // Moderation docs: server-only read and write
+      // Clients CANNOT read or forge moderation results
       allow read, write: if false;
     }
 

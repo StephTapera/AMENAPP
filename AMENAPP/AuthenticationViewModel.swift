@@ -2133,6 +2133,8 @@ class AuthenticationViewModel: ObservableObject {
             return "This account is already linked"
         case AuthErrorCode.credentialAlreadyInUse.rawValue:
             return "This credential is already associated with another account"
+        case AuthErrorCode.keychainError.rawValue:
+            return "Sign in failed. Please restart the app and try again."
         default:
             return error.localizedDescription
         }

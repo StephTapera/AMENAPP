@@ -12,6 +12,8 @@
  * Runs every 12 hours. Each run only looks at content from the last 7 days
  * to keep Claude token usage bounded.
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");

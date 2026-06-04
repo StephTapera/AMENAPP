@@ -64,7 +64,7 @@ interface SpaceDoc {
 // ── createSpaceEvent ──────────────────────────────────────────────────────────
 
 export const createSpaceEvent = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -129,7 +129,7 @@ export const createSpaceEvent = functions.onCall(
 // ── rsvpToEvent ───────────────────────────────────────────────────────────────
 
 export const rsvpToEvent = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -169,7 +169,7 @@ export const rsvpToEvent = functions.onCall(
 // ── sendEventBroadcast ────────────────────────────────────────────────────────
 
 export const sendEventBroadcast = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -229,7 +229,7 @@ export const sendEventBroadcast = functions.onCall(
 // ── listUpcomingEvents ────────────────────────────────────────────────────────
 
 export const listUpcomingEvents = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");

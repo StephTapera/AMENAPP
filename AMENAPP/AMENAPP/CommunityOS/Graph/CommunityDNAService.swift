@@ -53,9 +53,9 @@ actor CommunityDNAService {
         // Prayer: prayer topic
         let prayerAffinity = scoreMap[.prayer]?.score ?? 0.0
 
-        // Teaching: teaching + discipleship
+        // Teaching: theology + discipleship
         let teachingAffinity = averaged(
-            scoreMap[.teaching]?.score,
+            scoreMap[.theology]?.score,
             scoreMap[.discipleship]?.score
         )
 
@@ -94,7 +94,7 @@ actor CommunityDNAService {
     /// computes a fresh DNA profile, saves it, and returns it.
     @discardableResult
     func refreshDNA(for userId: String) async throws -> CommunityDNAProfile {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[CommunityDNAService] meaningGraph flag off — skipping refreshDNA")
             return emptyProfile(for: userId)
         }
@@ -118,7 +118,7 @@ actor CommunityDNAService {
     ///   2. Firestore stored profile
     ///   3. Fresh computation from graph edges
     func getOrCreateDNA(for userId: String) async throws -> CommunityDNAProfile {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[CommunityDNAService] meaningGraph flag off — returning empty profile")
             return emptyProfile(for: userId)
         }

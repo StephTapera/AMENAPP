@@ -84,7 +84,7 @@ struct SelahGlassSegmentedControl<T: Hashable & CaseIterable & Identifiable>: Vi
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 0) {
-                ForEach(Array(T.allCases as! [T])) { item in
+                ForEach(Array(T.allCases)) { item in
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         withAnimation(reduceMotion ? .none

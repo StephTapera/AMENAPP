@@ -126,7 +126,10 @@ final class ScripturePrefetchManager {
     private func fetchVerseQuietly(reference: String, version: ScripturePassage.BibleVersion) async -> BibleVerse? {
         do {
             let passage = try await YouVersionBibleService.shared.fetchVerse(reference: reference, version: version)
-            return BibleVerse(reference: passage.reference, text: passage.text, translation: version.rawValue)
+            let parsed = ScriptureReferenceParser.parse(passage.reference)
+            let bookId = BibleBook.all.first(where: { $0.displayName == parsed.book })?.id ?? parsed.book.lowercased()
+            let ref = ScriptureReference(bookId: bookId, chapter: parsed.chapter, startVerse: parsed.verseStart, endVerse: parsed.verseEnd)
+            return BibleVerse(reference: ref, number: parsed.verseStart, text: passage.text, translation: version.rawValue)
         } catch {
             return nil
         }

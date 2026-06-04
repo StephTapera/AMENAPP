@@ -468,7 +468,7 @@ struct SignInView: View {
                     .fill(.white)
                     .shadow(color: .white.opacity(0.2), radius: 8, y: 4)
             )
-            .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
+            .animation(.amenEaseQuick, value: viewModel.isLoading)
         }
         .disabled(viewModel.isLoading || !isFormValid)
         .opacity(isFormValid ? 1.0 : 0.65)
@@ -618,35 +618,22 @@ struct SignInView: View {
     }
     
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 24)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.08),
-                        Color.white.opacity(0.04)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.ultraThinMaterial.opacity(0.3))
-                    .blur(radius: 1)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(
+        RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
+            .fill(LiquidGlassTokens.blurThin)
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
+                    .fill(
                         LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.2),
-                                Color.white.opacity(0.05)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
+                            colors: [Color.white.opacity(0.4), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .center
+                        )
                     )
+                    .blendMode(.screen)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.5), radius: 40, y: 20)
     }

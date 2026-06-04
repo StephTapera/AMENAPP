@@ -17,6 +17,8 @@
  *
  * All functions are idempotent and safe to retry.
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+
 
 'use strict';
 

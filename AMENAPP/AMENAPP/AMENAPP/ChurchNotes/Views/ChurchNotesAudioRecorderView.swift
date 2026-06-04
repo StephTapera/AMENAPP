@@ -17,6 +17,9 @@ struct ChurchNotesAudioRecorderView: View {
     @State private var isSubmitting = false
     @State private var submitError: String?
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -67,7 +70,7 @@ struct ChurchNotesAudioRecorderView: View {
                 .foregroundStyle(recorder.isRecording ? Color.red : Color.secondary)
         }
         .padding(.top, 20)
-        .animation(.easeInOut(duration: 0.3), value: recorder.isRecording)
+        .animation(reduceMotion ? nil : .amenEaseMedium, value: recorder.isRecording)
         .accessibilityLabel(recorderStatusLabel)
     }
 
@@ -109,6 +112,7 @@ struct ChurchNotesAudioRecorderView: View {
     @ViewBuilder
     private var controlDock: some View {
         if !hasPermission {
+            // Solid CTA — permission prompts are not chrome, they stay opaque.
             Button("Allow Microphone Access") {
                 Task { await requestMicPermission() }
             }
@@ -133,52 +137,152 @@ struct ChurchNotesAudioRecorderView: View {
                     .accessibilityLabel("Retry upload")
             }
         } else if recorder.hasRecording && !recorder.isRecording {
+            // Post-recording actions: floating glass capsule bar above content.
             VStack(spacing: 14) {
-                Button("Send for Transcription") {
-                    Task { await submitRecording() }
-                }
-                .buttonStyle(ChurchNotesActionButtonStyle(color: .accentColor))
-                .accessibilityLabel("Send recording for AI transcription")
-                .accessibilityHint("Uploads recording and generates a transcript draft for your review")
-
-                Button("Discard & Re-record") {
-                    recorder.discard()
-                    submitError = nil
-                }
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Discard recording and start again")
+                postRecordingDock
             }
         } else {
-            HStack(spacing: 32) {
-                if recorder.isRecording || recorder.isPaused {
-                    Button(action: { recorder.isPaused ? recorder.resume() : recorder.pause() }) {
-                        Image(systemName: recorder.isPaused ? "play.fill" : "pause.fill")
-                            .font(.title2)
-                            .frame(width: 56, height: 56)
-                            .background(Color(.secondarySystemFill), in: Circle())
-                    }
-                    .accessibilityLabel(recorder.isPaused ? "Resume recording" : "Pause recording")
+            // Live recording controls.
+            recordingControlDock
+        }
+    }
 
-                    Button(action: { recorder.stop() }) {
-                        Image(systemName: "stop.fill")
-                            .font(.title2)
-                            .frame(width: 56, height: 56)
-                            .background(Color.red.opacity(0.15), in: Circle())
-                            .foregroundStyle(.red)
+    /// Glass capsule bar shown after a recording is complete.
+    @ViewBuilder
+    private var postRecordingDock: some View {
+        if reduceTransparency {
+            VStack(spacing: 14) {
+                solidPostRecordingButtons
+            }
+        } else {
+            GlassEffectContainer(spacing: 0) {
+                HStack(spacing: 0) {
+                    Button {
+                        Task { await submitRecording() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "waveform.badge.plus")
+                                .font(.system(size: 17, weight: .medium))
+                            Text("Send for Transcription")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .frame(height: 44)
+                        .padding(.horizontal, 16)
                     }
-                    .accessibilityLabel("Stop recording")
-                } else {
-                    Button(action: { Task { await recorder.start() } }) {
-                        Image(systemName: "mic.fill")
-                            .font(.title2)
-                            .frame(width: 72, height: 72)
-                            .background(Color.red, in: Circle())
-                            .foregroundStyle(.white)
+                    .accessibilityLabel("Send recording for AI transcription")
+                    .accessibilityHint("Uploads recording and generates a transcript draft for your review")
+                    .glassEffect()
+
+                    Button {
+                        recorder.discard()
+                        submitError = nil
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 17, weight: .medium))
+                            .frame(width: 44, height: 44)
                     }
-                    .accessibilityLabel("Start recording")
-                    .accessibilityHint("Records sermon audio for AI transcription")
+                    .accessibilityLabel("Discard recording and start again")
+                    .glassEffect()
                 }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    /// Solid fallback for post-recording buttons (reduceTransparency).
+    @ViewBuilder
+    private var solidPostRecordingButtons: some View {
+        Button("Send for Transcription") {
+            Task { await submitRecording() }
+        }
+        .buttonStyle(ChurchNotesActionButtonStyle(color: .accentColor))
+        .accessibilityLabel("Send recording for AI transcription")
+        .accessibilityHint("Uploads recording and generates a transcript draft for your review")
+
+        Button("Discard & Re-record") {
+            recorder.discard()
+            submitError = nil
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .accessibilityLabel("Discard recording and start again")
+    }
+
+    /// Glass recording control buttons (mic, pause/resume, stop).
+    @ViewBuilder
+    private var recordingControlDock: some View {
+        if reduceTransparency {
+            solidRecordingControls
+        } else {
+            GlassEffectContainer(spacing: 16) {
+                HStack(spacing: 16) {
+                    if recorder.isRecording || recorder.isPaused {
+                        Button(action: { recorder.isPaused ? recorder.resume() : recorder.pause() }) {
+                            Image(systemName: recorder.isPaused ? "play.fill" : "pause.fill")
+                                .font(.title2)
+                                .frame(width: 56, height: 56)
+                        }
+                        .accessibilityLabel(recorder.isPaused ? "Resume recording" : "Pause recording")
+                        .glassEffect(in: Circle())
+                        .animation(.snappy, value: recorder.isPaused)
+
+                        Button(action: { recorder.stop() }) {
+                            Image(systemName: "stop.fill")
+                                .font(.title2)
+                                .foregroundStyle(.red)
+                                .frame(width: 56, height: 56)
+                        }
+                        .accessibilityLabel("Stop recording")
+                        .glassEffect(in: Circle())
+                    } else {
+                        Button(action: { Task { await recorder.start() } }) {
+                            Image(systemName: "mic.fill")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                                .frame(width: 72, height: 72)
+                                .background(Color.red, in: Circle())
+                        }
+                        .accessibilityLabel("Start recording")
+                        .accessibilityHint("Records sermon audio for AI transcription")
+                        // Red-filled mic button stays opaque — no glass on content,
+                        // only on chrome. The outer circle is the semantic action surface.
+                    }
+                }
+            }
+        }
+    }
+
+    /// Solid fallback recording controls (reduceTransparency).
+    @ViewBuilder
+    private var solidRecordingControls: some View {
+        HStack(spacing: 32) {
+            if recorder.isRecording || recorder.isPaused {
+                Button(action: { recorder.isPaused ? recorder.resume() : recorder.pause() }) {
+                    Image(systemName: recorder.isPaused ? "play.fill" : "pause.fill")
+                        .font(.title2)
+                        .frame(width: 56, height: 56)
+                        .background(Color(.secondarySystemFill), in: Circle())
+                }
+                .accessibilityLabel(recorder.isPaused ? "Resume recording" : "Pause recording")
+
+                Button(action: { recorder.stop() }) {
+                    Image(systemName: "stop.fill")
+                        .font(.title2)
+                        .frame(width: 56, height: 56)
+                        .background(Color.red.opacity(0.15), in: Circle())
+                        .foregroundStyle(.red)
+                }
+                .accessibilityLabel("Stop recording")
+            } else {
+                Button(action: { Task { await recorder.start() } }) {
+                    Image(systemName: "mic.fill")
+                        .font(.title2)
+                        .frame(width: 72, height: 72)
+                        .background(Color.red, in: Circle())
+                        .foregroundStyle(.white)
+                }
+                .accessibilityLabel("Start recording")
+                .accessibilityHint("Records sermon audio for AI transcription")
             }
         }
     }
@@ -347,6 +451,8 @@ final class ChurchNotesAudioRecorder: NSObject, ObservableObject, AVAudioRecorde
 struct ChurchNotesActionButtonStyle: ButtonStyle {
     let color: Color
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
@@ -355,6 +461,6 @@ struct ChurchNotesActionButtonStyle: ButtonStyle {
             .padding(.vertical, 14)
             .background(color.opacity(configuration.isPressed ? 0.8 : 1), in: RoundedRectangle(cornerRadius: 14))
             .padding(.horizontal, 32)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .amenEaseQuick, value: configuration.isPressed)
     }
 }

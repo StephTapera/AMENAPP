@@ -78,7 +78,7 @@ struct GivingJournalView: View {
             if let scripture = entry.scriptureRef, !scripture.isEmpty {
                 Label(scripture, systemImage: "book.closed.fill")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                    .foregroundStyle(AmenTheme.Colors.amenGoldText)
             }
 
             if !entry.privateTags.isEmpty {

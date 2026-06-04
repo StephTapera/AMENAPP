@@ -622,11 +622,48 @@ class PrayerWallViewModel: ObservableObject {
     
     func submitPrayer(content: String, category: PrayerWallCategory, isAnonymous: Bool) async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
-        
+
+        // ── MODERATION GATE (hard rule: no write without a decision record) ──
+        // Self-harm content must never be silently blocked — checkContentSafety
+        // writes crisisEscalations/ and returns crisis resources when detected.
+        do {
+            let safetyResult = try await ModerationGatewayService.check(
+                content: content,
+                contentType: .post, // prayer requests are treated as public posts
+                contextId: nil
+            )
+            if safetyResult.crisisEscalated {
+                // Show crisis support resources — do NOT block the prayer write
+                // (the person needs help, not to be silenced)
+                await MainActor.run {
+                    // Post a notification that the crisis UI layer listens to
+                    NotificationCenter.default.post(
+                        name: Notification.Name("showCrisisResources"),
+                        object: nil,
+                        userInfo: ["resources": safetyResult.crisisResources ?? []]
+                    )
+                }
+                // Still allow the prayer to be submitted (the server-side trigger
+                // keeps it visible to the author and routes it to crisis review)
+            } else if !safetyResult.canProceed {
+                dlog("🛡️ [PrayerWall] Content blocked by safety gate: \(safetyResult.userFacingReason)")
+                await MainActor.run {
+                    errorMessage = safetyResult.userFacingReason
+                }
+                return
+            }
+        } catch {
+            dlog("⚠️ [PrayerWall] Safety gate error (fail-closed): \(error)")
+            // Fail closed: do not write
+            await MainActor.run { errorMessage = "Unable to submit prayer. Please try again." }
+            return
+        }
+        // ── END MODERATION GATE ──────────────────────────────────────────────
+
         do {
             let userDoc = try await db.collection("users").document(currentUserId).getDocument()
             let userData = userDoc.data()
-            
+
             let prayerData: [String: Any] = [
                 "authorId": currentUserId,
                 "authorName": isAnonymous ? "Anonymous" : (userData?["username"] as? String ?? "Unknown"),
@@ -636,12 +673,13 @@ class PrayerWallViewModel: ObservableObject {
                 "timestamp": Timestamp(date: Date()),
                 "isAnonymous": isAnonymous,
                 "prayerCount": 0,
-                "isAnswered": false
+                "isAnswered": false,
+                "moderationStatus": "pending"
             ]
-            
+
             try await db.collection("prayerWall").addDocument(data: prayerData)
             await loadPrayers()
-            
+
         } catch {
             dlog("❌ Failed to submit prayer: \(error)")
         }

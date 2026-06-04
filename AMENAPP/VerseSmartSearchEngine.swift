@@ -88,10 +88,10 @@ class VerseSmartSearchEngine: ObservableObject {
                 reference: ref,
                 version: translation.apiVersion
             )
-            return [BibleVerse(reference: passage.reference, text: passage.text, translation: translation.rawValue)]
+            return [makeBibleVerse(reference: passage.reference, text: passage.text, translation: translation.rawValue)]
         } catch {
             // Fallback to local library
-            return LocalVerseLibrary.search(ref, translation: translation)
+            return LocalVerseLibrary.search(ref, translation: translation).map { makeBibleVerse(from: $0) }
         }
     }
     
@@ -179,10 +179,10 @@ class VerseSmartSearchEngine: ObservableObject {
                 version: translation.apiVersion,
                 limit: 15
             )
-            return passages.map { BibleVerse(reference: $0.reference, text: $0.text, translation: translation.rawValue) }
+            return passages.map { makeBibleVerse(reference: $0.reference, text: $0.text, translation: translation.rawValue) }
         } catch {
             // Fallback to local library
-            return LocalVerseLibrary.search(query, translation: translation)
+            return LocalVerseLibrary.search(query, translation: translation).map { makeBibleVerse(from: $0) }
         }
     }
     
@@ -193,7 +193,7 @@ class VerseSmartSearchEngine: ObservableObject {
         
         return verses.map { verse in
             var score = 0
-            let refLower = verse.reference.lowercased()
+            let refLower = verse.reference.displayString.lowercased()
             let textLower = verse.text.lowercased()
             
             // Base score by match type
@@ -268,7 +268,7 @@ class VerseSmartSearchEngine: ObservableObject {
         ]
         
         return popular.compactMap { ref in
-            let verses = LocalVerseLibrary.search(ref, translation: translation)
+            let verses = LocalVerseLibrary.search(ref, translation: translation).map { makeBibleVerse(from: $0) }
             guard let verse = verses.first else { return nil }
             return SmartVerseResult(
                 verse: verse,
@@ -278,11 +278,11 @@ class VerseSmartSearchEngine: ObservableObject {
             )
         }
     }
-    
+
     func getTopicalSuggestions(topic: VerseTopic, translation: BibleTranslation) -> [SmartVerseResult] {
         let keywords = topic.keywords.first ?? topic.rawValue
-        let verses = LocalVerseLibrary.search(keywords, translation: translation)
-        
+        let verses = LocalVerseLibrary.search(keywords, translation: translation).map { makeBibleVerse(from: $0) }
+
         return verses.prefix(5).map { verse in
             SmartVerseResult(
                 verse: verse,
@@ -291,5 +291,21 @@ class VerseSmartSearchEngine: ObservableObject {
                 topics: [topic]
             )
         }
+    }
+
+    // MARK: - Conversion Helpers
+
+    private func makeBibleVerse(from av: AttachableVerse) -> BibleVerse {
+        let parsed = ScriptureReferenceParser.parse(av.reference)
+        let bookId = BibleBook.all.first(where: { $0.displayName == parsed.book })?.id ?? parsed.book.lowercased()
+        let ref = ScriptureReference(bookId: bookId, chapter: parsed.chapter, startVerse: parsed.verseStart, endVerse: parsed.verseEnd)
+        return BibleVerse(reference: ref, number: parsed.verseStart, text: av.text, translation: av.translation)
+    }
+
+    private func makeBibleVerse(reference: String, text: String, translation: String) -> BibleVerse {
+        let parsed = ScriptureReferenceParser.parse(reference)
+        let bookId = BibleBook.all.first(where: { $0.displayName == parsed.book })?.id ?? parsed.book.lowercased()
+        let ref = ScriptureReference(bookId: bookId, chapter: parsed.chapter, startVerse: parsed.verseStart, endVerse: parsed.verseEnd)
+        return BibleVerse(reference: ref, number: parsed.verseStart, text: text, translation: translation)
     }
 }

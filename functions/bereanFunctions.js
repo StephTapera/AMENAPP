@@ -744,6 +744,14 @@ exports.bereanChatProxy = onCall(
         throw new HttpsError("unauthenticated", "Authentication required.");
       }
 
+      // COPPA guard — reject if caller is flagged as minor
+      const callerUid = context.auth?.uid;
+      if (!callerUid) throw new HttpsError('unauthenticated', 'Auth required');
+      const profile = await admin.firestore().collection('users').doc(callerUid).get();
+      if (profile.data()?.isMinor === true) {
+        throw new HttpsError('permission-denied', 'AI features unavailable for users under 13');
+      }
+
       // Rate limit: 10 Berean calls per user per hour (atomic transaction — prevents TOCTOU)
       const uid = request.auth.uid;
       const hourKey = new Date().toISOString().slice(0, 13); // e.g. "2026-03-21T14"
@@ -1185,5 +1193,344 @@ Generate a seasonal reflection as JSON.`;
         console.error("bereanSeasonalPrompt error:", e);
         throw new HttpsError("internal", "Failed to generate seasonal prompt.");
       }
+    },
+);
+
+// ============================================================================
+// ROUTE BEREAN CONTEXTUAL ACTION
+// Called by BereanContextActionEngine.swift for all in-context study actions.
+//
+// Implements 7 required actions (all DRAFT-ONLY — never writes to public feeds):
+//   explainVerse            — plain-language explanation + historical context
+//   scriptureContext        — historical/cultural/author background
+//   createStudyPlan         — multi-week study plan draft
+//   compareTranslations     — KJV / NIV / ESV / NLT side-by-side
+//   convertToChurchNote     — formatted Church Note draft
+//   createDiscussionQuestions — 5 discussion questions
+//   createPrayer            — prayer draft based on a passage
+//
+// Also handles legacy BereanContextAction rawValues surfaced by the iOS tray:
+//   explain, historicalContext, createStudy, compareScripture,
+//   saveToChurchNotes, discussWithGroup, turnIntoPrayer, prayAboutThis
+//
+// Input:  { action: string, payload: { selectedText, scriptureReference, ... } }
+// Output: { draft: string, type: string, scriptureReferences: [string],
+//           suggestedActions: [string], answer: string, title: string }
+//
+// Hard rules:
+//   - Returns draft in response. NEVER writes to posts / feeds / public collections.
+//   - Auth required. Rate limit: 20 calls/user/hour.
+//   - Input validation: scriptureReference ≤ 100 chars, text content ≤ 5000 chars.
+// ============================================================================
+
+const CONTEXTUAL_ACTION_RATE_LIMIT = 20;
+
+// Validate & sanitise the incoming payload
+function validateContextualPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HttpsError("invalid-argument", "payload is required.");
+  }
+
+  const ref    = String(payload.scriptureReference ?? "").trim();
+  const text   = String(payload.selectedText ?? "").trim();
+  const surr   = String(payload.surroundingText ?? "").trim();
+  const notes  = String(payload.notes ?? "").trim();
+
+  if (ref.length > 100) {
+    throw new HttpsError("invalid-argument", "scriptureReference must be ≤ 100 characters.");
+  }
+  const combinedText = [text, surr, notes].join(" ");
+  if (combinedText.length > 5000) {
+    throw new HttpsError("invalid-argument", "Text content must be ≤ 5000 characters total.");
+  }
+
+  return {
+    ref,
+    text: text.slice(0, 5000),
+    surr: surr.slice(0, 1000),
+    notes: notes.slice(0, 2000),
+  };
+}
+
+// Structured log helper
+function logContextAction(uid, action, durationMs, success) {
+  console.log(JSON.stringify({
+    event:      "berean_contextual_action",
+    uid,
+    action,
+    durationMs,
+    success,
+    ts:         new Date().toISOString(),
+  }));
+}
+
+// Normalise iOS rawValues to canonical action keys
+function normaliseAction(raw) {
+  const map = {
+    // Direct mappings for required 7 actions
+    "explainVerse":             "explainVerse",
+    "scriptureContext":         "scriptureContext",
+    "createStudyPlan":          "createStudyPlan",
+    "compareTranslations":      "compareTranslations",
+    "convertToChurchNote":      "convertToChurchNote",
+    "createDiscussionQuestions":"createDiscussionQuestions",
+    "createPrayer":             "createPrayer",
+    // iOS BereanContextAction rawValues → canonical
+    "explain":            "explainVerse",
+    "historicalContext":  "scriptureContext",
+    "createStudy":        "createStudyPlan",
+    "compareScripture":   "compareTranslations",
+    "saveToChurchNotes":  "convertToChurchNote",
+    "discussWithGroup":   "createDiscussionQuestions",
+    "turnIntoPrayer":     "createPrayer",
+    "prayAboutThis":      "createPrayer",
+    // Passthrough for generic ask
+    "askBerean":          "askBerean",
+    "reflect":            "askBerean",
+    "summarize":          "askBerean",
+    "simplify":           "askBerean",
+  };
+  return map[raw] ?? "askBerean";
+}
+
+// ── Action handlers ────────────────────────────────────────────────────────────
+
+async function handleExplainVerse(apiKey, ref, text) {
+  const subject = ref || text.slice(0, 200);
+  const system  = `You are Berean, a knowledgeable biblical study assistant for the AMEN faith community.
+Provide a clear, warm, plain-language explanation of the scripture passage requested.
+Include:
+1. What the verse means in plain language (2-3 sentences)
+2. The historical and cultural context when it was written (2-3 sentences)
+3. The theological significance and how it applies today (1-2 sentences)
+Tone: pastoral, accessible to all backgrounds, non-denominational.
+Do NOT fabricate scripture. Cite real supporting verses where helpful.`;
+
+  const user = ref
+    ? `Explain this Bible passage in plain language with historical context:\n"${ref}"${text ? `\n\nPassage text:\n"${text}"` : ""}`
+    : `Explain this scripture in plain language with historical context:\n"${text}"`;
+
+  const draft = await callOpenAI(apiKey, system, user, 700, 0.5);
+  return { draft, type: "explainVerse", title: `Explanation: ${subject.slice(0, 60)}` };
+}
+
+async function handleScriptureContext(apiKey, ref, text) {
+  const subject = ref || text.slice(0, 200);
+  const system  = `You are Berean, a biblical scholar assistant for the AMEN faith community.
+Provide detailed historical, cultural, and author context for the requested passage.
+Include:
+1. Who wrote it, when, and to whom (author context)
+2. The historical and cultural setting (2-3 sentences)
+3. Where this passage fits in the surrounding narrative (1-2 sentences)
+4. How this context shapes our understanding of the text (1-2 sentences)
+Tone: scholarly but accessible. Do not fabricate historical claims.`;
+
+  const user = ref
+    ? `Provide the historical/cultural background and author context for:\n"${ref}"${text ? `\n\nPassage text:\n"${text}"` : ""}`
+    : `Provide the historical/cultural background and author context for this scripture:\n"${text}"`;
+
+  const draft = await callOpenAI(apiKey, system, user, 800, 0.4);
+  return { draft, type: "scriptureContext", title: `Context: ${subject.slice(0, 60)}` };
+}
+
+async function handleCreateStudyPlan(apiKey, ref, text) {
+  const subject = ref || text.slice(0, 100);
+  const system  = `You are Berean, a discipleship study plan creator for the AMEN faith community.
+Create a structured multi-week personal Bible study plan for the requested topic or book.
+Format as a clear, actionable plan with:
+- Overview (1-2 sentences about the study goal)
+- Week-by-week breakdown (3–4 weeks minimum):
+  • Week title
+  • Key passages to read
+  • Focus question for the week
+  • One practical application step
+Tone: encouraging, growth-oriented, pastoral. This is a DRAFT for the user to review and personalize.`;
+
+  const user = `Create a multi-week Bible study plan for: "${subject}"${text && text !== subject ? `\n\nAdditional context:\n"${text}"` : ""}`;
+
+  const draft = await callOpenAI(apiKey, system, user, 900, 0.5);
+  return { draft, type: "createStudyPlan", title: `Study Plan: ${subject.slice(0, 60)}` };
+}
+
+async function handleCompareTranslations(apiKey, ref, text) {
+  if (!ref && !text) {
+    throw new HttpsError("invalid-argument", "A scripture reference or text is required for compareTranslations.");
+  }
+  const subject = ref || text.slice(0, 100);
+  const system  = `You are Berean, a Bible translation comparison assistant.
+Provide a side-by-side comparison of the requested verse in four major English translations:
+KJV (King James Version), NIV (New International Version), ESV (English Standard Version), NLT (New Living Translation).
+
+Format your response as:
+**KJV:** [text]
+**NIV:** [text]
+**ESV:** [text]
+**NLT:** [text]
+
+**Key Translation Differences:**
+[2-3 sentences noting any meaningful differences in word choice or emphasis]
+
+Only provide text for verses you are confident about. If uncertain, note that the user should verify in their Bible app.`;
+
+  const user = `Show the KJV, NIV, ESV, and NLT translations for: "${subject}"`;
+
+  const draft = await callOpenAI(apiKey, system, user, 600, 0.2);
+  return { draft, type: "compareTranslations", title: `Translations: ${subject.slice(0, 60)}` };
+}
+
+async function handleConvertToChurchNote(apiKey, ref, text, notes) {
+  const system  = `You are Berean, a Church Note formatting assistant for the AMEN app.
+Convert the provided scripture and user notes into a well-formatted Church Note draft.
+Structure:
+- **Scripture Reference:** [reference]
+- **Main Theme:** [one sentence]
+- **Key Insights:** [2–4 bullet points from the notes]
+- **Personal Application:** [1–2 sentences]
+- **Prayer Point:** [one sentence prayer prompt]
+
+This is a DRAFT for the user to review and personalize before saving. Do not add content not present in the input.`;
+
+  const user = `Create a Church Note draft from:
+Scripture: "${ref || "Not specified"}"
+Passage text: "${text}"
+${notes ? `User notes:\n"${notes}"` : ""}`;
+
+  const draft = await callOpenAI(apiKey, system, user, 600, 0.3);
+  return { draft, type: "convertToChurchNote", title: "Church Note Draft" };
+}
+
+async function handleCreateDiscussionQuestions(apiKey, ref, text) {
+  const subject = ref || text.slice(0, 100);
+  const system  = `You are Berean, a small group discussion facilitator for the AMEN faith community.
+Generate exactly 5 thoughtful discussion questions for the provided scripture passage.
+Questions should:
+1. Open with an observation question (what does the text say?)
+2. Include an interpretation question (what does it mean?)
+3. Include a context question (why did the author write this?)
+4. Include an application question (how does this apply to life?)
+5. Close with a personal reflection question (what does this mean for you personally?)
+Tone: warm, inclusive, non-divisive. These are DRAFT questions for a group leader to adapt.`;
+
+  const user = ref
+    ? `Generate 5 discussion questions for: "${ref}"${text ? `\n\nPassage text:\n"${text}"` : ""}`
+    : `Generate 5 discussion questions for this scripture:\n"${text}"`;
+
+  const draft = await callOpenAI(apiKey, system, user, 500, 0.5);
+  return { draft, type: "createDiscussionQuestions", title: `Discussion Questions: ${subject.slice(0, 60)}` };
+}
+
+async function handleCreatePrayer(apiKey, ref, text) {
+  const subject = ref || text.slice(0, 100);
+  const system  = `You are Berean, a prayer writing companion for the AMEN faith community.
+Write a personal, heartfelt prayer inspired by the provided scripture passage.
+The prayer should:
+- Open with adoration/acknowledgment of God (1-2 sentences)
+- Include confession or thanksgiving rooted in the passage (1-2 sentences)
+- Offer specific intercession or petition tied to the scripture (2-3 sentences)
+- Close with a commitment or surrender statement (1-2 sentences)
+Tone: warm, personal, non-denominational, conversational with God.
+This is a DRAFT prayer for the user to personalize before using.`;
+
+  const user = ref
+    ? `Write a prayer based on: "${ref}"${text ? `\n\nPassage text:\n"${text}"` : ""}`
+    : `Write a prayer based on this scripture:\n"${text}"`;
+
+  const draft = await callOpenAI(apiKey, system, user, 400, 0.6);
+  return { draft, type: "createPrayer", title: `Prayer: ${subject.slice(0, 60)}` };
+}
+
+async function handleAskBerean(apiKey, action, ref, text) {
+  const system = `You are Berean, a wise and compassionate biblical AI assistant for the AMEN faith community.
+Action requested: ${action}.
+Respond helpfully and biblically, with pastoral warmth. Cite scripture where relevant.`;
+  const user   = [ref ? `Scripture: "${ref}"` : "", text ? `Text: "${text}"` : ""].filter(Boolean).join("\n\n") ||
+                 "Please offer a biblical reflection.";
+  const draft  = await callOpenAI(apiKey, system, user, 600, 0.5);
+  return { draft, type: action, title: "Berean Study" };
+}
+
+// ── Main callable ─────────────────────────────────────────────────────────────
+
+exports.routeBereanContextualAction = onCall(
+    {
+      region:          REGION,
+      secrets:         [OPENAI_API_KEY],
+      enforceAppCheck: true,
+      timeoutSeconds:  60,
+    },
+    async (request) => {
+      // 1. Auth check
+      requireAuth(request);
+      const uid = request.auth.uid;
+
+      // 2. Rate limit: 20 calls/user/hour
+      await checkBereanRateLimit(uid, "contextual_action", CONTEXTUAL_ACTION_RATE_LIMIT);
+
+      // 3. Input validation
+      const { action: rawAction, payload: rawPayload } = request.data;
+
+      if (!rawAction || typeof rawAction !== "string") {
+        throw new HttpsError("invalid-argument", "action is required.");
+      }
+      if (rawAction.length > 100) {
+        throw new HttpsError("invalid-argument", "action must be ≤ 100 characters.");
+      }
+
+      const { ref, text, surr, notes } = validateContextualPayload(rawPayload);
+      const action = normaliseAction(rawAction);
+
+      const t0     = Date.now();
+      const apiKey = OPENAI_API_KEY.value();
+
+      let result;
+      try {
+        switch (action) {
+          case "explainVerse":
+            result = await handleExplainVerse(apiKey, ref, text || surr);
+            break;
+          case "scriptureContext":
+            result = await handleScriptureContext(apiKey, ref, text || surr);
+            break;
+          case "createStudyPlan":
+            result = await handleCreateStudyPlan(apiKey, ref, text || surr);
+            break;
+          case "compareTranslations":
+            result = await handleCompareTranslations(apiKey, ref, text || surr);
+            break;
+          case "convertToChurchNote":
+            result = await handleConvertToChurchNote(apiKey, ref, text || surr, notes);
+            break;
+          case "createDiscussionQuestions":
+            result = await handleCreateDiscussionQuestions(apiKey, ref, text || surr);
+            break;
+          case "createPrayer":
+            result = await handleCreatePrayer(apiKey, ref, text || surr);
+            break;
+          default:
+            result = await handleAskBerean(apiKey, rawAction, ref, text || surr);
+        }
+      } catch (err) {
+        logContextAction(uid, action, Date.now() - t0, false);
+        // Re-throw HttpsErrors as-is; wrap everything else
+        if (err instanceof HttpsError) throw err;
+        console.error("[routeBereanContextualAction] LLM error:", err.message);
+        throw new HttpsError("internal", "Berean could not complete this action. Please try again.");
+      }
+
+      logContextAction(uid, action, Date.now() - t0, true);
+
+      // 4. Return draft envelope — NEVER writes to public Firestore collections.
+      //    The iOS client stores this locally until the user explicitly saves/posts it.
+      return {
+        id:                  `berean_${uid}_${Date.now()}`,
+        draft:               result.draft,
+        type:                result.type,
+        title:               result.title,
+        answer:              result.draft,        // alias for BereanContextActionResult.answer
+        scriptureReferences: [],                  // client-side verse extraction handles this
+        suggestedActions:    [],
+        safetyNotice:        null,
+        threadId:            null,
+      };
     },
 );

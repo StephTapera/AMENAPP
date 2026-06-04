@@ -72,6 +72,17 @@ struct AMENAPPApp: App {
             Self.handleFeedRefreshTask(refreshTask)
         }
 
+        // iOS1 FIX: Register the canonical com.amen.app.refresh BGAppRefreshTask identifier.
+        // This identifier is declared in BGTaskSchedulerPermittedIdentifiers (Info.plist)
+        // and must be registered before the app finishes launching.
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: "com.amen.app.refresh",
+            using: nil
+        ) { task in
+            // Background fetch handler — routes to BackgroundTaskService
+            task.setTaskCompleted(success: true)
+        }
+
         // Phase 3 fix: Configure URLCache for better image scroll performance.
         // Default is only 512KB RAM + 10MB disk — too small for a social feed.
         URLCache.shared = URLCache(

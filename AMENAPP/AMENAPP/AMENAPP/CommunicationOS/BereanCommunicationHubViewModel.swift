@@ -100,6 +100,8 @@ final class BereanCommunicationHubViewModel: ObservableObject {
 
     private var listenerRegistration: ListenerRegistration?
 
+    deinit { listenerRegistration?.remove() }
+
     func load() {
         guard let uid = Auth.auth().currentUser?.uid else {
             loadingState = .error("Sign in to see your threads.")

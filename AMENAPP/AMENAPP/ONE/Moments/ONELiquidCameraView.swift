@@ -96,7 +96,13 @@ extension ONECameraSessionManager: AVCapturePhotoCaptureDelegate {
 
 private final class ONECameraPreviewUIView: UIView {
     override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
-    var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    var previewLayer: AVCaptureVideoPreviewLayer {
+        // layerClass guarantees this cast; guard surfaces any future regression cleanly.
+        guard let pl = layer as? AVCaptureVideoPreviewLayer else {
+            fatalError("ONECameraPreviewUIView: layer is not AVCaptureVideoPreviewLayer — layerClass override broken")
+        }
+        return pl
+    }
 }
 
 private struct ONECameraPreview: UIViewRepresentable {

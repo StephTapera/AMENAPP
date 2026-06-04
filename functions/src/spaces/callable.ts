@@ -79,7 +79,7 @@ interface SpaceEntitlement {
 // ── createSpaceTier ───────────────────────────────────────────────────────────
 
 export const createSpaceTier = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -140,7 +140,7 @@ export const createSpaceTier = functions.onCall(
 // ── getSpaceEntitlement ───────────────────────────────────────────────────────
 
 export const getSpaceEntitlement = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -192,7 +192,7 @@ export const getSpaceEntitlement = functions.onCall(
 // ── processSubscription ───────────────────────────────────────────────────────
 
 export const processSubscription = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -253,7 +253,7 @@ export const processSubscription = functions.onCall(
 // ── processRefund ─────────────────────────────────────────────────────────────
 
 export const processRefund = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -308,7 +308,7 @@ export const processRefund = functions.onCall(
 // ── getPayoutSummary ──────────────────────────────────────────────────────────
 
 export const getPayoutSummary = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -346,7 +346,7 @@ export const getPayoutSummary = functions.onCall(
 // ── hostKYCOnboarding ─────────────────────────────────────────────────────────
 
 export const hostKYCOnboarding = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");

@@ -1,3 +1,5 @@
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
 // stripeWebhook.js — v1 Cloud Function (avoids Cloud Run quota)
 // Stripe webhook endpoint with mandatory signature verification.
 // Every event is verified with stripe.webhooks.constructEvent() before processing.
@@ -5,7 +7,7 @@
 //   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
 
 const admin = require("firebase-admin");
-const functions = require("firebase-functions");
+const functions = require("firebase-functions/v1");
 
 const db = () => admin.firestore();
 const serverTimestamp = () => admin.firestore.FieldValue.serverTimestamp();

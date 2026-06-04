@@ -587,6 +587,56 @@ body{
 
 <!-- ── Data + State + Logic ─────────────────────────────────────────────────── -->
 <script>
+// ── Backend adapter ───────────────────────────────────────────────────────────
+// When window.__FIREBASE_FUNCTIONS__ is set (real app), delegates to Cloud Functions.
+// Otherwise returns null so callers can fall back to local mock behavior.
+async function callBackend(fnName, payload) {
+  const fns = window.__FIREBASE_FUNCTIONS__;
+  if (!fns) return null;
+  try {
+    const { httpsCallable } = window.__FIREBASE_FUNCTIONS_SDK__;
+    const fn = httpsCallable(fns, fnName);
+    const result = await fn(payload);
+    return result.data;
+  } catch (err) {
+    console.warn(`[callBackend] ${fnName} failed:`, err.message);
+    throw err; // re-throw so callers can handle specific errors (rate-limit, etc.)
+  }
+}
+
+// ── Threshold draft persistence ───────────────────────────────────────────────
+const DRAFT_KEY = 'amen_discussion_draft';
+
+function saveThresholdDraft(body) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      body, dest: S.threshold.dest, parentId: S.threshold.parentId,
+    }));
+  } catch (_) {}
+}
+
+function restoreThresholdDraft(parentId) {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (draft.parentId !== parentId) return; // different reply context — don't restore
+    if (draft.body) {
+      document.getElementById('composer-textarea').value = draft.body;
+      document.getElementById('char-count').textContent = draft.body.length + ' / 2000';
+    }
+    if (draft.dest) {
+      document.querySelectorAll('.dest-card').forEach(c => c.classList.remove('selected'));
+      const destEl = document.querySelector(`[data-dest="${draft.dest}"]`);
+      if (destEl) { destEl.classList.add('selected'); S.threshold.dest = draft.dest; }
+    }
+  } catch (_) {}
+}
+
+function clearThresholdDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+}
+
 // ── Mock data ────────────────────────────────────────────────────────────────
 
 const THREAD = {
@@ -888,24 +938,26 @@ function openBerean() {
   if (!S.bereanLoaded) loadBerean();
 }
 
-function loadBerean() {
+async function loadBerean() {
   document.getElementById('berean-loading').style.display = 'flex';
   document.getElementById('berean-content').style.display = 'none';
-  setTimeout(() => {
-    document.getElementById('berean-loading').style.display = 'none';
-    const bc = document.getElementById('berean-content');
-    bc.style.display = 'block';
-    const b = MOCK_BEREAN;
-    document.getElementById('b-summary').textContent = b.summary;
-    document.getElementById('b-agreement').innerHTML = b.agreementPoints.map(p=>`<li>${p}</li>`).join('');
-    document.getElementById('b-questions').innerHTML = b.openQuestions.map(p=>`<li>${p}</li>`).join('');
-    document.getElementById('b-refs').innerHTML = b.biblicalRefs.map(vk=>{
-      const vd = VERSE_DB[vk];
-      return `<span class="berean-ref-chip" onclick="scrollToVerse('${vk}')">${vd?vd.ref:vk}</span>`;
-    }).join('');
-    document.getElementById('b-study').innerHTML = b.studyQuestions.map(q=>`<li>${q}</li>`).join('');
-    S.bereanLoaded = true;
-  }, 1500);
+
+  // Try the real CF; fall back to MOCK_BEREAN when not connected to Firebase.
+  const remote = await callBackend('askBerean', { threadId: THREAD.id });
+  const b = remote ?? MOCK_BEREAN;
+
+  document.getElementById('berean-loading').style.display = 'none';
+  const bc = document.getElementById('berean-content');
+  bc.style.display = 'block';
+  document.getElementById('b-summary').textContent = b.summary;
+  document.getElementById('b-agreement').innerHTML = b.agreementPoints.map(p=>`<li>${p}</li>`).join('');
+  document.getElementById('b-questions').innerHTML = b.openQuestions.map(p=>`<li>${p}</li>`).join('');
+  document.getElementById('b-refs').innerHTML = b.biblicalRefs.map(vk=>{
+    const vd = VERSE_DB[vk];
+    return `<span class="berean-ref-chip" onclick="scrollToVerse('${vk}')">${vd?vd.ref:vk}</span>`;
+  }).join('');
+  document.getElementById('b-study').innerHTML = b.studyQuestions.map(q=>`<li>${q}</li>`).join('');
+  S.bereanLoaded = true;
 }
 
 function openThreshold(parentId) {
@@ -937,6 +989,7 @@ function openThreshold(parentId) {
   S.openSheet = 'threshold';
   document.getElementById('threshold-sheet').classList.add('open');
   document.getElementById('overlay').classList.add('visible');
+  restoreThresholdDraft(parentId); // restore any unfinished draft for this reply context
   showThresholdStep(1);
 }
 
@@ -1011,6 +1064,7 @@ function onComposerInput(el) {
   const cc = document.getElementById('char-count');
   cc.textContent = len + ' / 2000';
   cc.className = 'char-count' + (len>1800?' warn':'') + (len>=2000?' over':'');
+  saveThresholdDraft(el.value);
 }
 
 function submitPost() {
@@ -1023,13 +1077,12 @@ function submitPost() {
   document.getElementById('composer-error').style.display = 'none';
 
   const btn = document.getElementById('post-btn');
-  btn.textContent = '✓ Posted';
-  btn.classList.add('success');
+  btn.disabled = true;
+  btn.textContent = 'Posting…';
 
-  // Add comment to local state
-  const newId = 'c-' + Date.now();
-  COMMENTS.push({
-    id: newId,
+  // Optimistic local state
+  const newComment = {
+    id: 'c-' + Date.now(),
     authorUID: S.currentUserId,
     parentCommentId: S.threshold.parentId,
     depth: S.threshold.parentId ? (COMMENTS.find(c=>c.id===S.threshold.parentId)?.depth ?? 0) + 1 : 0,
@@ -1039,9 +1092,32 @@ function submitPost() {
     isAcceptedAnswer: false,
     destination: S.threshold.dest,
     createdAt: Date.now(),
-  });
-
+  };
+  COMMENTS.push(newComment);
+  clearThresholdDraft();
+  btn.textContent = '✓ Posted';
+  btn.classList.add('success');
   setTimeout(() => { closeAll(); renderThread(); }, 1100);
+
+  // Persist to backend; sync server-assigned verse keys on success
+  callBackend('postComment', {
+    threadId: THREAD.id,
+    parentCommentId: S.threshold.parentId || null,
+    body,
+    destination: S.threshold.dest,
+    thresholdPassedAt: new Date().toISOString(),
+  }).then(result => {
+    if (!result) return; // offline — local state is the source of truth
+    if (Array.isArray(result.verseKeys)) newComment.verseKeys = result.verseKeys;
+  }).catch(err => {
+    const msg = err?.message ?? '';
+    if (msg.includes('resource-exhausted')) {
+      console.warn('[postComment] rate limit reached');
+    } else {
+      console.warn('[postComment] failed:', msg);
+    }
+    // Local state is preserved — comment visible in demo even if backend is unreachable
+  });
 }
 
 // ── Comment interactions ──────────────────────────────────────────────────────
@@ -1052,22 +1128,48 @@ function markHelpful(commentId) {
   const c = COMMENTS.find(x=>x.id===commentId);
   if (!c || c.authorUID === S.currentUserId) return;
 
+  // Optimistic update
   S.helpfulIds.add(commentId);
   c.helpfulCount += 1;
   btn.classList.add('marked','helpful-pop');
   btn.innerHTML = `👍 Helpful (${c.helpfulCount})`;
   btn.disabled = true;
   setTimeout(()=>btn.classList.remove('helpful-pop'), 350);
+
+  // Persist to backend; revert on failure
+  callBackend('markHelpful', { commentId, threadId: THREAD.id }).then(result => {
+    if (result === null) return; // offline — local state is the source of truth
+    // Sync server-authoritative helpfulCount if returned
+    if (typeof result.helpfulCount === 'number') {
+      c.helpfulCount = result.helpfulCount;
+      btn.innerHTML = `👍 Helpful (${c.helpfulCount})`;
+    }
+  }).catch(() => {
+    // Revert optimistic update on hard failure
+    S.helpfulIds.delete(commentId);
+    c.helpfulCount = Math.max(0, c.helpfulCount - 1);
+    btn.classList.remove('marked');
+    btn.innerHTML = `👍 Helpful (${c.helpfulCount})`;
+    btn.disabled = false;
+  });
 }
 
 function setAccepted(commentId) {
-  S.acceptedId = S.acceptedId === commentId ? null : commentId;
-  if (S.acceptedId) {
-    COMMENTS.forEach(c=>{ c.isAcceptedAnswer = c.id === S.acceptedId; });
-  } else {
-    COMMENTS.forEach(c=>{ c.isAcceptedAnswer = false; });
-  }
+  const isAccepting  = S.acceptedId !== commentId;
+  const prevAccepted = S.acceptedId;
+
+  // Optimistic update
+  S.acceptedId = isAccepting ? commentId : null;
+  COMMENTS.forEach(c => { c.isAcceptedAnswer = c.id === S.acceptedId; });
   renderThread();
+
+  // Persist to backend; revert on hard failure
+  callBackend('setAccepted', { commentId, threadId: THREAD.id, isAccepted: isAccepting })
+    .catch(() => {
+      S.acceptedId = prevAccepted;
+      COMMENTS.forEach(c => { c.isAcceptedAnswer = c.id === S.acceptedId; });
+      renderThread();
+    });
 }
 
 function toggleCollapse(commentId) {

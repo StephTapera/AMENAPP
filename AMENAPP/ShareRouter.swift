@@ -107,4 +107,37 @@ enum ShareRouter {
             )
         )
     }
+
+    static func presentGroup(_ group: CommunityGroup, sourceSurface: String) {
+        let entity = ShareableEntity(
+            id: group.id,
+            entityType: .group,
+            authorId: group.creatorId,
+            authorName: group.name,
+            authorUsername: nil,
+            authorInitials: String(group.name.prefix(2)).uppercased(),
+            authorPhotoURL: group.coverImageURL,
+            visibility: group.isPrivate ? .privateOnly : .public,
+            title: group.name,
+            previewText: group.description,
+            mediaPreviewURL: group.coverImageURL,
+            route: ShareRouteDescriptor(
+                path: "group/\(group.id)",
+                webFallbackPath: "group/\(group.id)",
+                metadata: ["groupId": group.id]
+            ),
+            externallyShareable: !group.isPrivate,
+            attributionPolicy: .optional,
+            sourceSurface: sourceSurface,
+            linkedPostId: nil,
+            linkedChurchNoteId: nil,
+            churchId: nil,
+            churchName: nil,
+            groupId: group.id,
+            prayerCircleId: nil,
+            verseReference: nil,
+            createdAt: group.createdAt
+        )
+        SharePresenter.shared.present(entity: entity)
+    }
 }

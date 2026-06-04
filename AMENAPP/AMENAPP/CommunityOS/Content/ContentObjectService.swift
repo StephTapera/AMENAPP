@@ -42,7 +42,7 @@ actor ContentObjectService {
 
     /// Returns an existing ContentObject whose `rawURL` matches, or creates and saves a new one.
     func fetchOrCreate(rawURL: String) async throws -> ContentObject {
-        guard CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
             dlog("[ContentObjectService] contentDetectionEngine flag is OFF — aborting fetchOrCreate")
             throw ContentObjectServiceError.flagDisabled
         }
@@ -69,7 +69,7 @@ actor ContentObjectService {
 
     /// Fetches a single ContentObject by its document ID. Returns nil if not found.
     func fetch(id: String) async throws -> ContentObject? {
-        guard CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
             dlog("[ContentObjectService] contentDetectionEngine flag is OFF — aborting fetch")
             throw ContentObjectServiceError.flagDisabled
         }
@@ -89,7 +89,7 @@ actor ContentObjectService {
 
     /// Persists a ContentObject to Firestore (merge strategy — safe for create and update).
     func save(_ object: ContentObject) async throws {
-        guard CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
             dlog("[ContentObjectService] contentDetectionEngine flag is OFF — aborting save")
             throw ContentObjectServiceError.flagDisabled
         }
@@ -111,7 +111,7 @@ actor ContentObjectService {
         eventType: ContentEngagementEventType,
         userId: String
     ) async throws {
-        guard CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
             dlog("[ContentObjectService] contentDetectionEngine flag is OFF — aborting recordEngagement")
             throw ContentObjectServiceError.flagDisabled
         }
@@ -183,7 +183,7 @@ actor ContentObjectService {
 
     /// Fetches the top ContentObjects ordered by communityScore descending.
     func fetchTrending(limit: Int) async throws -> [ContentObject] {
-        guard CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
             dlog("[ContentObjectService] contentDetectionEngine flag is OFF — aborting fetchTrending")
             throw ContentObjectServiceError.flagDisabled
         }
@@ -201,7 +201,7 @@ actor ContentObjectService {
 
     /// Fetches ContentObjects of a specific kind, ordered by communityScore descending.
     func fetchByKind(_ kind: ContentObjectKind, limit: Int) async throws -> [ContentObject] {
-        guard CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
             dlog("[ContentObjectService] contentDetectionEngine flag is OFF — aborting fetchByKind")
             throw ContentObjectServiceError.flagDisabled
         }
@@ -295,7 +295,7 @@ actor ContentEngagementEventService {
 
     /// Persists a ContentEngagementEvent to `contentEngagement/{eventId}` and emits a debug log.
     func record(_ event: ContentEngagementEvent) async throws {
-        guard CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
             dlog("[ContentEngagementEventService] flag is OFF — skipping event record")
             return
         }

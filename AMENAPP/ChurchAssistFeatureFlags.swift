@@ -10,13 +10,13 @@ struct ChurchAssistFeatureFlags {
 
     // All flags off by default — enables safe incremental rollout
 
-    static var enableChurchAssistPill: Bool = false
-    static var enableArrivalPrompts: Bool = false
-    static var enableServiceMode: Bool = false
-    static var enablePostVisitReflection: Bool = false
-    static var enableVisitMemory: Bool = false
-    static var enableFirstVisitCompanion: Bool = false
-    static var enableRevisitSuggestions: Bool = false
+    static var enableChurchAssistPill: Bool = true
+    static var enableArrivalPrompts: Bool = true
+    static var enableServiceMode: Bool = true
+    static var enablePostVisitReflection: Bool = true
+    static var enableVisitMemory: Bool = true
+    static var enableFirstVisitCompanion: Bool = true
+    static var enableRevisitSuggestions: Bool = true
 
     #if DEBUG
     /// When true, overrides all flags to enabled for QA and development.

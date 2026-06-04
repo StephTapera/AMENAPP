@@ -150,35 +150,22 @@ struct AmenNotificationCard: View {
     // MARK: Body text with "Learn more" tappable link
 
     private var bodyText: some View {
-        Group {
-            Text(bodyLeading)
-                .foregroundStyle(.primary.opacity(0.75))
-            + Text(" Learn more")
-                .foregroundStyle(NotifGlassTokens.accentPurple)
-            + Text(bodyTrailing)
-                .foregroundStyle(.primary.opacity(0.75))
-        }
-        .font(.system(size: 15))
-        .lineSpacing(3)
-        .onTapGesture(perform: onLearnMore)  // full block is tappable; close enough
+        Text("\(bodyLeading) \(Text("Learn more").foregroundStyle(NotifGlassTokens.accentPurple)) about how this works.")
+            .foregroundStyle(.primary.opacity(0.75))
+            .font(.system(size: 15))
+            .lineSpacing(3)
+            .onTapGesture(perform: onLearnMore)
     }
 
     private var bodyLeading: String {
         switch action {
-        case .amen:
-            return "Your Amen goes to \(actorName) as encouragement."
-        case .repost:
-            return "This post will appear on your profile."
-        case .save:
-            return "Find this in your Saved tab anytime."
-        case .join:
-            return "You're now part of this community."
-        case .give:
-            return "Your generosity blesses \(actorName)."
+        case .amen:   return "Your Amen goes to \(actorName) as encouragement."
+        case .repost: return "This post will appear on your profile."
+        case .save:   return "Find this in your Saved tab anytime."
+        case .join:   return "You're now part of this community."
+        case .give:   return "Your generosity blesses \(actorName)."
         }
     }
-
-    private var bodyTrailing: String { " about how this works." }
 
     // MARK: Buttons
 
@@ -294,7 +281,6 @@ private struct CardButtonStyle: ButtonStyle {
     )
     .padding()
     .background(Color(hex: "#0D0D1A").ignoresSafeArea())
-    .environment(\.accessibilityReduceMotion, true)
 }
 
 #Preview("AmenNotificationCard — reduceTransparency") {
@@ -309,5 +295,4 @@ private struct CardButtonStyle: ButtonStyle {
     )
     .padding()
     .background(Color.purple.ignoresSafeArea())
-    .environment(\.accessibilityReduceTransparency, true)
 }

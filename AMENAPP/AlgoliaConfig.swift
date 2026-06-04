@@ -14,10 +14,13 @@ enum AlgoliaConfig {
     /// Found in: Algolia Dashboard → Settings → API Keys
     static let applicationID = "182SCN7O9S"
     
-    /// Your Search-Only API Key (safe for client-side use)
-    /// Found in: Algolia Dashboard → Settings → API Keys → Search-Only API Key
-    /// ✅ Safe to use in iOS app (read-only)
-    static let searchAPIKey = "8727f5af5779e9795b12b565bba20dc3"
+    /// Search-Only API Key — read from Config.xcconfig (gitignored).
+    /// The previous hardcoded key was rotated 2026-06-03 after it appeared in git history.
+    /// To set: add ALGOLIA_SEARCH_KEY = <your_key> to Config.xcconfig,
+    /// then add <key>ALGOLIA_SEARCH_KEY</key><string>$(ALGOLIA_SEARCH_KEY)</string> to Info.plist.
+    static let searchAPIKey: String = {
+        (Bundle.main.object(forInfoDictionaryKey: "ALGOLIA_SEARCH_KEY") as? String ?? "").trimmingCharacters(in: .whitespaces)
+    }()
     
     /// Write API Key: NEVER include in the client binary.
     /// Algolia sync must go through a Cloud Function (server-side).

@@ -85,7 +85,7 @@ struct AmenToast: View {
                 Text(subtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -202,7 +202,6 @@ struct AmenToast: View {
             undoWindow: 4.2,
             onUndo: {}
         )
-        .environment(\.accessibilityReduceMotion, true)
     }
 }
 
@@ -216,7 +215,6 @@ struct AmenToast: View {
             undoWindow: 6.0,
             onUndo: {}
         )
-        .environment(\.accessibilityReduceTransparency, true)
     }
 }
 

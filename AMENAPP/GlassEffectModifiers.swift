@@ -136,6 +136,17 @@ struct GlassEffectStyle {
         strokeWidth: 0.5,
         strokeOpacity: 0.1
     )
+
+    /// No-op glass effect — zero intensity/blur/stroke. Use when reduceTransparency
+    /// is on so the solid .background block shows through without changing view structure.
+    static let identity = GlassEffectStyle(
+        intensity: 0,
+        isInteractive: false,
+        tintColor: nil,
+        blurRadius: 0,
+        strokeWidth: 0,
+        strokeOpacity: 0
+    )
     
     /// Makes the glass effect interactive (responds to touch)
     func interactive() -> GlassEffectStyle {

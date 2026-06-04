@@ -168,6 +168,7 @@ struct BereanHomeView: View {
     @State private var pendingQuery: String? = nil
     @State private var showSettings    = false
     @State private var composerFocused = false
+    @State private var showDailyFormation = false
 
     @Environment(\.dismiss) private var dismiss
 
@@ -218,6 +219,29 @@ struct BereanHomeView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Back")
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showDailyFormation = true } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "sparkle")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.black.opacity(0.72))
+                            Text("Formation")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.black.opacity(0.72))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Capsule().fill(Color.white.opacity(0.52)))
+                                .overlay(Capsule().strokeBorder(Color.white.opacity(0.48), lineWidth: 0.5))
+                                .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Daily Formation")
                 }
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
@@ -282,6 +306,9 @@ struct BereanHomeView: View {
         }
         .sheet(isPresented: $showSettings) {
             BereanAISettingsView()
+        }
+        .sheet(isPresented: $showDailyFormation) {
+            BereanDailyFormationView()
         }
     }
 

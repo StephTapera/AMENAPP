@@ -10,6 +10,8 @@
  * AI backend: Claude (via Vertex AI or Anthropic API key in Secret Manager).
  * Falls back to a GPT-4o-mini prompt if Claude is unavailable.
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+
 
 "use strict";
 

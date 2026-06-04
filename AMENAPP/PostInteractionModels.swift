@@ -18,7 +18,7 @@ struct Comment: Identifiable, Codable, Equatable {
     var authorId: String
     var authorName: String
     var authorUsername: String
-    var authorInitials: String
+    var authorInitials: String = ""
     var authorProfileImageURL: String?
     var content: String
     var createdAt: Date
@@ -104,6 +104,29 @@ struct Comment: Identifiable, Codable, Equatable {
         self.approvalStatus = approvalStatus
     }
     
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id                   = try c.decodeIfPresent(String.self, forKey: .id)
+        postId               = try c.decode(String.self, forKey: .postId)
+        authorId             = try c.decode(String.self, forKey: .authorId)
+        authorName           = try c.decode(String.self, forKey: .authorName)
+        authorUsername       = try c.decode(String.self, forKey: .authorUsername)
+        // authorInitials may be absent from older CF-written documents — default to ""
+        authorInitials       = (try? c.decodeIfPresent(String.self, forKey: .authorInitials)) ?? ""
+        authorProfileImageURL = try c.decodeIfPresent(String.self, forKey: .authorProfileImageURL)
+        content              = try c.decode(String.self, forKey: .content)
+        createdAt            = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt            = try c.decode(Date.self, forKey: .updatedAt)
+        isEdited             = (try? c.decodeIfPresent(Bool.self, forKey: .isEdited)) ?? false
+        amenCount            = (try? c.decodeIfPresent(Int.self, forKey: .amenCount)) ?? 0
+        lightbulbCount       = (try? c.decodeIfPresent(Int.self, forKey: .lightbulbCount)) ?? 0
+        replyCount           = (try? c.decodeIfPresent(Int.self, forKey: .replyCount)) ?? 0
+        amenUserIds          = (try? c.decodeIfPresent([String].self, forKey: .amenUserIds)) ?? []
+        parentCommentId      = try c.decodeIfPresent(String.self, forKey: .parentCommentId)
+        mentionedUserIds     = try c.decodeIfPresent([String].self, forKey: .mentionedUserIds)
+        approvalStatus       = try c.decodeIfPresent(String.self, forKey: .approvalStatus)
+    }
+
     /// Display time ago
     var timeAgo: String {
         createdAt.timeAgoDisplay()

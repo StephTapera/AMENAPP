@@ -260,7 +260,7 @@ struct BereanGivingCounselView: View {
                 Text(rec.fitLabel.uppercased())
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1.8)
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                    .foregroundStyle(AmenTheme.Colors.amenGoldText)
                 Spacer()
                 if rec.destinationType == .reflect {
                     Image(systemName: "moon.stars.fill")

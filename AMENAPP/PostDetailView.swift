@@ -62,6 +62,9 @@ struct PostDetailView: View {
     @State private var rateLimitMessage: String? = nil   // Auto-dismissing rate limit notice
     @State private var rateLimitDismissTask: Task<Void, Never>? = nil
     @State private var showCommentsLoadError = false      // P2 FIX: surface loadComments failure
+    // Comment quality nudge sheet
+    @State private var showNudgeSheet = false
+    @State private var pendingNudge: CommentService.PendingCommentSubmission? = nil
     @State private var scrollOffset: CGFloat = 0
     @State private var carouselPage: Int = 0               // Active slide in media carousel
     /// Reactive scroll target — set by consumePendingCommentFocus() to trigger ScrollViewReader scrollTo.
@@ -408,6 +411,28 @@ struct PostDetailView: View {
                 CommentsView(post: post, prefillText: text)
             case .shareExcerpt(let text):
                 ShareSheet(items: [text])
+            }
+        }
+        // Comment quality nudge sheet — shown when checkCommentQuality returns "nudge"
+        .sheet(isPresented: $showNudgeSheet, onDismiss: {
+            // User swiped to dismiss (only possible for safety == .allow nudges)
+            // Treat as "edit" — keep commentText in place, do nothing
+            pendingNudge = nil
+        }) {
+            if let pending = pendingNudge {
+                CommentNudgeSheet(
+                    nudges: pending.nudges,
+                    safetyDecision: pending.safetyDecision,
+                    onEdit: {
+                        showNudgeSheet = false
+                        pendingNudge = nil
+                        // Re-focus the comment composer so user can edit
+                        isCommentFocused = true
+                    },
+                    onPostAnyway: {
+                        postAfterNudgeDismissal()
+                    }
+                )
             }
         }
         .task {
@@ -1053,6 +1078,12 @@ struct PostDetailView: View {
                         showRipple = false
                     }
                 }
+            } catch let nudgeErr as CommentService.CommentNudgeRequired {
+                // Quality gate returned "nudge" — surface the prompt sheet.
+                // Text is already cleared; we restore it so user can edit if they choose.
+                commentText = text
+                pendingNudge = nudgeErr.pending
+                showNudgeSheet = true
             } catch {
                 dlog("❌ Failed to post comment: \(error)")
                 let nsError = error as NSError
@@ -1063,6 +1094,29 @@ struct PostDetailView: View {
                     commentText = text  // restore on failure for other errors
                     UINotificationFeedbackGenerator().notificationOccurred(.error)
                 }
+            }
+        }
+    }
+
+    private func postAfterNudgeDismissal() {
+        guard let pending = pendingNudge else { return }
+        showNudgeSheet = false
+        pendingNudge = nil
+        isSubmittingComment = true
+        Task { @MainActor in
+            defer { isSubmittingComment = false }
+            do {
+                _ = try await commentService.resumeAfterNudge(pending)
+                if post.category == .testimonies {
+                    withAnimation(.easeOut(duration: 0.8)) { showRipple = true }
+                    Task {
+                        try? await Task.sleep(nanoseconds: 900_000_000)
+                        showRipple = false
+                    }
+                }
+            } catch {
+                dlog("❌ Failed to post comment after nudge: \(error)")
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
         }
     }

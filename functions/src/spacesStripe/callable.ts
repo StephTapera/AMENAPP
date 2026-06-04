@@ -77,7 +77,7 @@ async function buildAccountLink(
 // ── createStripeConnectAccount ────────────────────────────────────────────────
 
 export const createStripeConnectAccount = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) {

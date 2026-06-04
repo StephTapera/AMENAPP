@@ -110,7 +110,7 @@ struct AmenCareQueueView: View {
             if !vm.items.isEmpty {
                 Text("\(vm.items.count)")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.amenGoldText)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Color.amenGold.opacity(0.15))
@@ -148,11 +148,11 @@ struct AmenCareQueueView: View {
         VStack(spacing: 14) {
             Text("✦")
                 .font(.largeTitle)
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.amenGoldText)
                 .accessibilityHidden(true)
             Text("No care requests right now. The flock is at peace. ✦")
                 .font(.body)
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.amenGoldText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
         }

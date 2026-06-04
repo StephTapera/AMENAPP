@@ -164,7 +164,7 @@ final class VideoExplainService: ObservableObject {
             let reason = functionsErrorReason(error)
             let userMessage = userFacingMessage(for: error)
 
-            analytics.log(.aiGenerationFailed(
+            analytics.track(.aiGenerationFailed(
                 feature: "video_explain",
                 postId: postId,
                 reason: reason

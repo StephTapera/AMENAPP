@@ -160,8 +160,8 @@ struct SundayHomeView: View {
 
             HStack(spacing: 10) {
                 SundayActionChip(icon: "arrow.triangle.turn.up.right.circle", title: "Directions") {
-                    if let lat = church.latitude, let lon = church.longitude {
-                        let url = URL(string: "maps://?daddr=\(lat),\(lon)")!
+                    if let lat = church.latitude, let lon = church.longitude,
+                       let url = URL(string: "maps://?daddr=\(lat),\(lon)") {
                         UIApplication.shared.open(url)
                     }
                 }

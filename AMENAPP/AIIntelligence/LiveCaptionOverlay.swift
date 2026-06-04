@@ -43,20 +43,22 @@ struct LiveCaptionOverlay: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: 560, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(reduceTransparency ? Color(.systemBackground).opacity(0.98) : Color(.systemBackground).opacity(0.70))
-                .background {
-                    if !reduceTransparency {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.ultraThinMaterial)
-                    }
-                }
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.10), lineWidth: 0.7)
-        }
         .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 8)
+        .background {
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(.systemBackground).opacity(0.98))
+            } else {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        LiquidGlassSpecularRenderer(cornerRadius: 8, opacity: 0.18)
+                    }
+                    .overlay {
+                        LiquidGlassAdaptiveBorder(cornerRadius: 8, contrastBoost: false)
+                    }
+            }
+        }
         .accessibilityElement(children: .combine)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: visibleCaptions.map(\.id))
     }

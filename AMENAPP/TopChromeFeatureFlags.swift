@@ -11,7 +11,7 @@ struct TopChromeFeatureFlags {
         #if DEBUG
         if debugForceEnabled { return true }
         #endif
-        return false
+        return true
     }
 
     // Sub-flags (only evaluated when master is on)
@@ -25,6 +25,6 @@ struct TopChromeFeatureFlags {
 
     // Development override (set to true in DEBUG to force-enable)
     #if DEBUG
-    static var debugForceEnabled = false
+    static var debugForceEnabled = true
     #endif
 }

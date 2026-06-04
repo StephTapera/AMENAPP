@@ -1,5 +1,6 @@
+// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
 /**
- * NCMEC CyberTipline Mandatory Reporting Pipeline
+ * NCMEC CyberTipline Mandatory Reporting Pipeline — v1 Cloud Function
  *
  * Legal requirement: any platform that detects CSAM must file a report with
  * the National Center for Missing & Exploited Children (NCMEC) CyberTipline.
@@ -28,9 +29,9 @@
  *   in the ncmecReports document alongside the local reportId.
  */
 
-const {onDocumentCreated} = require("firebase-functions/v2/firestore");
-const {getFirestore, FieldValue} = require("firebase-admin/firestore");
-const {getMessaging} = require("firebase-admin/messaging");
+const functions = require("firebase-functions/v1");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 
 const db = getFirestore();
 
@@ -39,65 +40,51 @@ const db = getFirestore();
  *
  * Writes a tamper-evident record and queues the report for human operator review.
  * Does NOT make a live HTTP call to NCMEC (credentials required — see TODO above).
- *
- * @param {{
- *   contentRef: string,
- *   contentType: string,
- *   contentUrl: string,
- *   authorId: string,
- *   detectedCategories: string[],
- *   detectedBy: string,
- *   textPreview?: string
- * }} payload
- * @returns {Promise<{ reportId: string, queued: boolean }>}
  */
 async function fileNCMECReport(payload) {
-    const {
-        contentRef,
-        contentType,
-        contentUrl,
-        authorId,
-        detectedCategories,
-        detectedBy,
-        textPreview = "",
-    } = payload;
+  const {
+    contentRef,
+    contentType,
+    contentUrl,
+    authorId,
+    detectedCategories,
+    detectedBy,
+    textPreview = "",
+  } = payload;
 
-    const reportRef = db.collection("ncmecReports").doc();
-    const reportId = reportRef.id;
+  const reportRef = db.collection("ncmecReports").doc();
+  const reportId = reportRef.id;
 
-    // Tamper-evident legal-hold record. Never delete or modify this document.
-    await reportRef.set({
-        contentRef,
-        contentType,
-        contentUrl,
-        authorId,
-        detectedCategories,
-        detectedBy,
-        status: "pending_submission",
-        createdAt: FieldValue.serverTimestamp(),
-        legalHold: true,
-        preservedAt: FieldValue.serverTimestamp(),
-    });
+  // Tamper-evident legal-hold record. Never delete or modify this document.
+  await reportRef.set({
+    contentRef,
+    contentType,
+    contentUrl,
+    authorId,
+    detectedCategories,
+    detectedBy,
+    status: "pending_submission",
+    createdAt: FieldValue.serverTimestamp(),
+    legalHold: true,
+    preservedAt: FieldValue.serverTimestamp(),
+  });
 
-    // Submission queue for human operator (or future automated CyberTipline API).
-    const preview = textPreview
-        ? String(textPreview).slice(0, 100)
-        : "image";
+  const preview = textPreview ? String(textPreview).slice(0, 100) : "image";
 
-    const entryRef = db.collection("ncmecSubmissionQueue").doc();
-    await entryRef.set({
-        reportId,
-        contentRef,
-        authorId,
-        preview,
-        urgency: "critical",
-        status: "queued",
-        createdAt: FieldValue.serverTimestamp(),
-    });
+  const entryRef = db.collection("ncmecSubmissionQueue").doc();
+  await entryRef.set({
+    reportId,
+    contentRef,
+    authorId,
+    preview,
+    urgency: "critical",
+    status: "queued",
+    createdAt: FieldValue.serverTimestamp(),
+  });
 
-    console.log(`[NCMEC] Report queued: ${reportId}`);
+  console.log(`[NCMEC] Report queued: ${reportId}`);
 
-    return { reportId, queued: true };
+  return { reportId, queued: true };
 }
 
 /**
@@ -105,89 +92,82 @@ async function fileNCMECReport(payload) {
  *
  * Alerts all admin users via FCM and writes a high-priority moderatorAlert.
  * Fails closed: all errors are caught and logged; the trigger is never re-thrown
- * (avoids infinite Cloud Function retry loops on a poisoned document).
+ * (avoids Cloud Function retry loops on a poisoned document).
  */
-exports.onCSAMDetected = onDocumentCreated(
-    {
-        document: "ncmecSubmissionQueue/{entryId}",
-        region: "us-central1",
-    },
-    async (event) => {
-        const queueEntryId = event.params.entryId;
+exports.onCSAMDetected = functions.region("us-central1").firestore
+  .document("ncmecSubmissionQueue/{entryId}")
+  .onCreate(async (snap, context) => {
+    const queueEntryId = context.params.entryId;
 
-        try {
-            const entry = event.data.data();
-            if (!entry) {
-                console.error("[NCMEC] onCSAMDetected: empty document — entryId:", queueEntryId);
-                return null;
-            }
+    try {
+      const entry = snap.data();
+      if (!entry) {
+        console.error("[NCMEC] onCSAMDetected: empty document — entryId:", queueEntryId);
+        return null;
+      }
 
-            // Find all users with admin: true custom claim.
-            // Custom claims are set via Admin SDK: admin.auth().setCustomUserClaims(uid, { admin: true })
-            // We store a mirror in users/{uid}.isAdmin so we can query without listing all Auth users.
-            const adminsSnap = await db.collection("users")
-                .where("isAdmin", "==", true)
-                .get();
+      // Find all users with admin: true custom claim.
+      // We store a mirror in users/{uid}.isAdmin so we can query without listing all Auth users.
+      const adminsSnap = await db.collection("users")
+        .where("isAdmin", "==", true)
+        .get();
 
-            const tokens = [];
-            adminsSnap.forEach((doc) => {
-                const t = doc.data().fcmToken;
-                if (t) tokens.push(t);
-            });
+      const tokens = [];
+      adminsSnap.forEach((doc) => {
+        const t = doc.data().fcmToken;
+        if (t) tokens.push(t);
+      });
 
-            if (tokens.length > 0) {
-                const messaging = getMessaging();
-                await Promise.all(
-                    tokens.map((token) =>
-                        messaging.send({
-                            token,
-                            notification: {
-                                title: "CSAM Report Queued",
-                                body: "A critical child safety item requires immediate review.",
-                            },
-                            data: {
-                                type: "csam_mandatory_report",
-                                queueEntryId,
-                                urgency: "critical",
-                            },
-                            apns: {
-                                payload: {
-                                    aps: {
-                                        sound: "default",
-                                        "content-available": 1,
-                                    },
-                                },
-                                headers: {
-                                    "apns-priority": "10",
-                                },
-                            },
-                        }).catch((err) =>
-                            console.error(`[NCMEC] FCM send failed for token ${token.slice(0, 10)}…:`, err.message)
-                        )
-                    )
-                );
-                console.log(`[NCMEC] Admin FCM alerts sent to ${tokens.length} device(s)`);
-            } else {
-                console.warn("[NCMEC] No admin FCM tokens found — alert not delivered");
-            }
-
-            // High-priority alert record for the moderation dashboard.
-            await db.collection("moderatorAlerts").add({
+      if (tokens.length > 0) {
+        const messaging = getMessaging();
+        await Promise.all(
+          tokens.map((token) =>
+            messaging.send({
+              token,
+              notification: {
+                title: "CSAM Report Queued",
+                body: "A critical child safety item requires immediate review.",
+              },
+              data: {
                 type: "csam_mandatory_report",
                 queueEntryId,
                 urgency: "critical",
-                createdAt: FieldValue.serverTimestamp(),
-                read: false,
-            });
+              },
+              apns: {
+                payload: {
+                  aps: {
+                    sound: "default",
+                    "content-available": 1,
+                  },
+                },
+                headers: {
+                  "apns-priority": "10",
+                },
+              },
+            }).catch((err) =>
+              console.error(`[NCMEC] FCM send failed for token ${token.slice(0, 10)}…:`, err.message)
+            )
+          )
+        );
+        console.log(`[NCMEC] Admin FCM alerts sent to ${tokens.length} device(s)`);
+      } else {
+        console.warn("[NCMEC] No admin FCM tokens found — alert not delivered");
+      }
 
-            console.log(`[NCMEC] moderatorAlert written for queue entry: ${queueEntryId}`);
-        } catch (err) {
-            // Fail closed: log but never re-throw to avoid Cloud Function retry storms.
-            console.error("[NCMEC] onCSAMDetected error:", err);
-        }
+      await db.collection("moderatorAlerts").add({
+        type: "csam_mandatory_report",
+        queueEntryId,
+        urgency: "critical",
+        createdAt: FieldValue.serverTimestamp(),
+        read: false,
+      });
 
-        return null;
+      console.log(`[NCMEC] moderatorAlert written for queue entry: ${queueEntryId}`);
+    } catch (err) {
+      console.error("[NCMEC] onCSAMDetected error:", err);
     }
-);
+
+    return null;
+  });
 
 exports.fileNCMECReport = fileNCMECReport;

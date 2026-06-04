@@ -53,7 +53,27 @@ class CommentService: ObservableObject {
     // Using clientRequestId instead of content.hashValue avoids false matches
     // when two comments have identical content.
     private var optimisticComments: [String: String] = [:]  // clientRequestId -> tempId
-    
+
+    // ── Comment quality gate state ─────────────────────────────────────────
+    // When checkCommentQuality returns "nudge", we store the pending submission
+    // here so the UI can resume it after the user dismisses the nudge sheet.
+    struct PendingCommentSubmission {
+        let postId: String
+        let content: String
+        let clientCommentId: String
+        let mentionedUserIds: [String]?
+        let post: Post?
+        let nudges: [String]
+        let safetyDecision: CommentQualityResponse.SafetyDecision
+    }
+    @Published var pendingNudge: PendingCommentSubmission?
+
+    /// Error thrown when the server quality check returns "nudge".
+    /// The caller (PostDetailView) catches this and presents the nudge sheet.
+    struct CommentNudgeRequired: Error {
+        let pending: PendingCommentSubmission
+    }
+
     private init() {}
 
     // MARK: - Content Normalization
@@ -308,6 +328,68 @@ class CommentService: ObservableObject {
         let clientRequestId = UUID().uuidString
         optimisticComments[clientRequestId] = tempId
 
+        // ── SERVER QUALITY + SAFETY GATE ─────────────────────────────────────
+        // Call checkCommentQuality BEFORE writing to the database.
+        // The server stores a decision record keyed on uid+clientRequestId.
+        // addComment (CF) will reject writes that lack a valid decision record.
+        //
+        // fail-closed: .serverError → do not publish.
+        dlog("🛡️ [CommentGateway] Checking quality for comment on post: \(postId)")
+        let gatewayOutcome = await CommentQualityGateway.shared.check(
+            text: content,
+            postId: postId,
+            clientCommentId: clientRequestId
+        )
+        switch gatewayOutcome {
+        case .serverError(let message):
+            optimisticComments.removeValue(forKey: clientRequestId)
+            dlog("❌ [CommentGateway] Server error: \(message)")
+            throw NSError(
+                domain: "CommentService",
+                code: -20,
+                userInfo: [NSLocalizedDescriptionKey: message]
+            )
+
+        case .decided(let response):
+            switch response.decision {
+            case .block:
+                optimisticComments.removeValue(forKey: clientRequestId)
+                dlog("⛔ [CommentGateway] BLOCKED by safety check")
+                throw NSError(
+                    domain: "CommentService",
+                    code: -21,
+                    userInfo: [NSLocalizedDescriptionKey: "This comment was blocked by our safety system. Please review and revise before posting."]
+                )
+
+            case .nudge:
+                // Surface nudges to the UI. Throw CommentNudgeRequired so
+                // PostDetailView can show the nudge sheet. If the user chooses
+                // "post anyway", they call resumeAfterNudge(_:) which skips this check.
+                optimisticComments.removeValue(forKey: clientRequestId)
+                dlog("💡 [CommentGateway] Nudge required: \(response.nudges.count) suggestion(s)")
+                let pending = PendingCommentSubmission(
+                    postId: postId,
+                    content: content,
+                    clientCommentId: clientRequestId,
+                    mentionedUserIds: mentionedUserIds,
+                    post: post,
+                    nudges: response.nudges,
+                    safetyDecision: response.safetyDecision
+                )
+                pendingNudge = pending
+                throw CommentNudgeRequired(pending: pending)
+
+            case .publish:
+                dlog("✅ [CommentGateway] Quality check passed — proceeding to write")
+                // Continue to write path below
+            }
+        }
+        // ── END GATE ────────────────────────────────────────────────────────
+
+        // Re-add clientRequestId to optimisticComments (was removed on nudge/error)
+        // For the publish path, it was never removed so this is a no-op.
+        optimisticComments[clientRequestId] = tempId
+
         // P1-3 FIX: Write to database with retry logic and timeout
         let interactionsService = PostInteractionsService.shared
         var commentId: String?
@@ -560,7 +642,103 @@ class CommentService: ObservableObject {
 
         return finalComment
     }
-    
+
+    // MARK: - Resume after nudge (user chose "Post anyway")
+
+    /// Called when the user acknowledges the nudge sheet and chooses to post anyway.
+    /// The decision record already exists on the server (written by checkCommentQuality),
+    /// so we call the write path directly using the original clientCommentId.
+    ///
+    /// Returns the posted Comment (same contract as addComment).
+    func resumeAfterNudge(_ pending: PendingCommentSubmission) async throws -> Comment {
+        pendingNudge = nil
+        dlog("➡️ [CommentGateway] User chose to post anyway after nudge")
+
+        guard let userId = firebaseManager.currentUser?.uid else {
+            throw NSError(domain: "CommentService", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+
+        // Fetch user profile for author metadata
+        let userProfile: UserModel? = try? await userService.fetchUserProfile(userId: userId)
+        let authorUsername: String
+        let authorProfileImageURL: String?
+        if let profile = userProfile {
+            authorUsername = profile.username
+            authorProfileImageURL = profile.profileImageURL
+        } else {
+            authorUsername = "user\(userId.prefix(8))"
+            authorProfileImageURL = nil
+        }
+
+        // Haptic
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+
+        // Re-register the clientRequestId in the optimistic map
+        let tempId = UUID().uuidString
+        optimisticComments[pending.clientCommentId] = tempId
+
+        // Write directly — skips the quality gate (record already exists)
+        let interactionsService = PostInteractionsService.shared
+        var commentId: String?
+        var retryCount = 0
+        let maxRetries = 3
+        var lastError: Error?
+
+        while retryCount < maxRetries {
+            do {
+                commentId = try await withTimeout(seconds: 10) {
+                    try await interactionsService.addComment(
+                        postId: pending.postId,
+                        content: pending.content,
+                        authorInitials: self.firebaseManager.currentUser?.displayName?
+                            .prefix(2).uppercased() ?? "??",
+                        authorUsername: authorUsername,
+                        authorProfileImageURL: authorProfileImageURL,
+                        clientRequestId: pending.clientCommentId
+                    )
+                }
+                break
+            } catch {
+                lastError = error
+                retryCount += 1
+                if retryCount < maxRetries {
+                    try await Task.sleep(nanoseconds: UInt64(Double(retryCount) * 1_000_000_000))
+                }
+            }
+        }
+
+        guard let finalCommentId = commentId else {
+            optimisticComments.removeValue(forKey: pending.clientCommentId)
+            throw lastError ?? NSError(domain: "CommentService", code: -1,
+                                       userInfo: [NSLocalizedDescriptionKey: "Comment submission failed"])
+        }
+
+        optimisticComments.removeValue(forKey: pending.clientCommentId)
+        await NewAccountRestrictionService.shared.recordAction(.comment, userId: userId)
+
+        dlog("✅ [resumeAfterNudge] Comment written: \(finalCommentId)")
+
+        return Comment(
+            id: finalCommentId,
+            postId: pending.postId,
+            authorId: userId,
+            authorName: firebaseManager.currentUser?.displayName ?? "Unknown User",
+            authorUsername: authorUsername,
+            authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
+            authorProfileImageURL: authorProfileImageURL,
+            content: pending.content,
+            createdAt: Date(),
+            updatedAt: Date(),
+            amenCount: 0,
+            replyCount: 0,
+            amenUserIds: [],
+            parentCommentId: nil,
+            mentionedUserIds: pending.mentionedUserIds
+        )
+    }
+
     // MARK: - Helper: Extract Mentions
     
     private func extractMentionUsernames(from text: String) -> [String] {

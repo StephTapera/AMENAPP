@@ -53,7 +53,7 @@ public enum MessageType: String, Codable {
 
 public class AppMessage: Identifiable, Equatable, Hashable {
     public var id: String
-    let text: String
+    var text: String
     let isFromCurrentUser: Bool
     let timestamp: Date
     var senderId: String
@@ -70,6 +70,7 @@ public class AppMessage: Identifiable, Equatable, Hashable {
     var isDeleted: Bool = false
     var deletedBy: String?
     var editedAt: Date?
+    var detectedLanguage: String? = nil
 
     // New properties for delivery status and features
     var isSent: Bool = false

@@ -517,7 +517,7 @@ struct CauseBriefCard: View {
                 if let scripture = brief.scriptureRefs.first {
                     Text(scripture)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(AmenTheme.Colors.amenGold)
+                        .foregroundStyle(AmenTheme.Colors.amenGoldText)
                         .italic()
                 }
 

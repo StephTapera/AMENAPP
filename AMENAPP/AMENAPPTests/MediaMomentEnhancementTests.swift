@@ -1,3 +1,4 @@
+#if canImport(Testing)
 import Testing
 @testable import AMENAPP
 
@@ -67,3 +68,4 @@ struct MediaMomentEnhancementTests {
         service.removeMatching(anchor: anchor)
     }
 }
+#endif

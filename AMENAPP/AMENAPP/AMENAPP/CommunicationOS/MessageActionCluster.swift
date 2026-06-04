@@ -70,21 +70,19 @@ struct MessageActionCluster: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        // Shadow must sit before .glassEffect so it renders behind the glass surface.
+        GlassEffectContainer(spacing: 0) {
             clusterGrid
+                .padding(12)
         }
-        .padding(12)
-        .background(clusterBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.75)
-        )
         .shadow(color: .black.opacity(0.18), radius: 20, y: 6)
+        .glassEffect(reduceTransparency ? .subtle : .regular,
+                     in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .scaleEffect(appeared ? 1 : 0.92)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.72)) {
+            // .amenSpringEntry for show/hide per kit convention; linear fallback for Reduce Motion.
+            withAnimation(reduceMotion ? .linear(duration: 0.12) : .amenSpringEntry) {
                 appeared = true
             }
             AmenMessagingAnalytics.track(.messageActionClusterShown)
@@ -111,29 +109,35 @@ struct MessageActionCluster: View {
             VStack(spacing: 5) {
                 Image(systemName: action.icon)
                     .font(.system(size: 20, weight: .regular))
+                    .foregroundStyle(action.isDestructive ? Color.red : Color.primary)
                     .frame(width: 44, height: 44)
-                    .background(actionButtonBackground(action), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .foregroundStyle(action.isDestructive ? .red : .primary)
+                    // Reduce-transparency fallback: solid system fill — no glass layered on glass.
+                    .background {
+                        if reduceTransparency {
+                            Circle()
+                                .fill(action.isDestructive
+                                      ? Color.red.opacity(0.12)
+                                      : Color(.tertiarySystemBackground))
+                        }
+                    }
+                    // Glass circle for each icon — child elements inside the outer glass card,
+                    // not overlapping glass layers.
+                    .glassEffect(
+                        reduceTransparency
+                            ? .subtle       // identity-equivalent; background block above handles fill
+                            : (action.isDestructive ? .subtle.tint(.red) : .regular),
+                        in: Circle()
+                    )
                 Text(action.rawValue)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(action.isDestructive ? .red : .secondary)
+                    .foregroundStyle(action.isDestructive ? Color.red : Color.secondary)
                     .lineLimit(1)
             }
             .padding(.vertical, 4)
         }
+        // .amenSpringBouncy for selection/tap feedback per kit convention.
         .buttonStyle(ClusterButtonStyle())
         .accessibilityLabel(action.rawValue)
-    }
-
-    private func actionButtonBackground(_ action: MessageClusterAction) -> some ShapeStyle {
-        if action.isDestructive { return AnyShapeStyle(Color.red.opacity(0.1)) }
-        if reduceTransparency { return AnyShapeStyle(Color(.tertiarySystemBackground)) }
-        return AnyShapeStyle(.regularMaterial)
-    }
-
-    private var clusterBackground: some ShapeStyle {
-        if reduceTransparency { return AnyShapeStyle(Color(.systemBackground)) }
-        return AnyShapeStyle(.regularMaterial)
     }
 }
 
@@ -142,6 +146,7 @@ private struct ClusterButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.92 : 1)
             .opacity(configuration.isPressed ? 0.75 : 1)
-            .animation(.easeOut(duration: 0.09), value: configuration.isPressed)
+            // .amenSpringBouncy for selection/index changes per kit convention.
+            .animation(.amenSpringBouncy, value: configuration.isPressed)
     }
 }

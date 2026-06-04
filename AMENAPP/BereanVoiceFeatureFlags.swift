@@ -31,7 +31,7 @@ struct BereanVoiceFeatureFlags {
         #if DEBUG
         if debugForceEnabled { return true }
         #endif
-        return false
+        return true
     }
 
     /// Full-duplex streaming (simultaneous listen + speak).
@@ -39,7 +39,7 @@ struct BereanVoiceFeatureFlags {
         #if DEBUG
         if debugForceEnabled { return true }
         #endif
-        return false
+        return true
     }
 
     /// Barge-in / interrupt while Berean is speaking.
@@ -47,7 +47,7 @@ struct BereanVoiceFeatureFlags {
         #if DEBUG
         if debugForceEnabled { return true }
         #endif
-        return false
+        return true
     }
 
     /// Empathy mode — emotionally adaptive responses and pacing.
@@ -55,7 +55,7 @@ struct BereanVoiceFeatureFlags {
         #if DEBUG
         if debugForceEnabled { return true }
         #endif
-        return false
+        return true
     }
 
     /// Church Notes capture mode (live sermon transcription).
@@ -63,7 +63,7 @@ struct BereanVoiceFeatureFlags {
         #if DEBUG
         if debugForceEnabled { return true }
         #endif
-        return false
+        return true
     }
 
     /// Prayer mode — guided prayer with gentle TTS pacing.
@@ -71,7 +71,7 @@ struct BereanVoiceFeatureFlags {
         #if DEBUG
         if debugForceEnabled { return true }
         #endif
-        return false
+        return true
     }
 
     // -------------------------------------------------------------------------
@@ -81,6 +81,6 @@ struct BereanVoiceFeatureFlags {
     #if DEBUG
     /// Set to `true` in the Xcode scheme or a debug settings screen to enable
     /// all Live Voice flags at once during development.
-    static var debugForceEnabled = false
+    static var debugForceEnabled = true
     #endif
 }

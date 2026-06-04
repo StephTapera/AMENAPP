@@ -316,7 +316,10 @@ private final class WitnessSinglePreviewHostView: UIView {
     }
 
     var previewLayer: AVCaptureVideoPreviewLayer {
-        layer as! AVCaptureVideoPreviewLayer
+        guard let previewLayer = layer as? AVCaptureVideoPreviewLayer else {
+            fatalError("WitnessSinglePreviewHostView.layer is not AVCaptureVideoPreviewLayer — layerClass override failed")
+        }
+        return previewLayer
     }
 
     override init(frame: CGRect) {

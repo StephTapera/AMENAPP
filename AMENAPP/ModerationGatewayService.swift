@@ -22,15 +22,6 @@ import Foundation
 import FirebaseAuth
 import FirebaseFunctions
 
-// MARK: - Content Type
-
-enum ModerationContentType: String {
-    case post       = "post"
-    case comment    = "comment"
-    case message    = "message"
-    case dm         = "dm"
-}
-
 // MARK: - Result
 
 struct ModerationGatewayResult {
@@ -71,11 +62,11 @@ struct ModerationGatewayResult {
 
 // MARK: - Service
 
-@MainActor
 final class ModerationGatewayService {
 
     static let shared = ModerationGatewayService()
-    private lazy var functions = Functions.functions(region: "us-central1")
+    // Functions client is thread-safe; no MainActor isolation needed.
+    private let functions = Functions.functions(region: "us-central1")
 
     private init() {}
 

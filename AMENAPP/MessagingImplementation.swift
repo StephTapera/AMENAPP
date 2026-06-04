@@ -307,13 +307,33 @@ extension FirebaseMessagingService {
         if isLimited {
             let messageCounts = conversationData["messageCounts"] as? [String: Int] ?? [:]
             let currentCount = messageCounts[currentUserId] ?? 0
-            
+
             if currentCount >= 1 {
                 throw NSError(domain: "Permission", code: -1,
                     userInfo: [NSLocalizedDescriptionKey: "Message request already sent. Wait for them to follow you back."])
             }
         }
-        
+
+        // ── MODERATION GATE (hard rule: no message write without a decision record) ──
+        let safetyResult = try await ModerationGatewayService.check(
+            content: text,
+            contentType: .message,
+            contextId: conversationId
+        )
+        if safetyResult.crisisEscalated {
+            // Crisis resources must be shown — message is still delivered
+            // (crisisEscalations/ was already written server-side)
+            NotificationCenter.default.post(
+                name: Notification.Name("showCrisisResources"),
+                object: nil,
+                userInfo: ["resources": safetyResult.crisisResources ?? []]
+            )
+        } else if !safetyResult.canProceed {
+            throw NSError(domain: "Messaging", code: -2,
+                userInfo: [NSLocalizedDescriptionKey: safetyResult.userFacingReason])
+        }
+        // ── END MODERATION GATE ──────────────────────────────────────────────
+
         // Create message and update conversation in a batch
         let batch = db.batch()
         

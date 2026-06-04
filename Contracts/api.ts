@@ -203,6 +203,36 @@ export interface GetWatchProgressResponse {
 }
 
 // ─────────────────────────────────────────────────────────────
+// setAccepted
+// ─────────────────────────────────────────────────────────────
+//
+// Marks (or un-marks) a comment as the accepted answer for a thread.
+// Only the post's author (postAuthorUID) may call this.
+// When accepting: clears any previous accepted answer, awards acceptedAnswer
+//   reputation event (10 pts) to the comment author if not already awarded.
+// When un-accepting (isAccepted=false): removes isAcceptedAnswer flag only;
+//   reputation event is NOT revoked (prevents gaming).
+//
+// Auth: required; must be postAuthorUID
+// Side effect: updates comment.isAcceptedAnswer, optionally writes reputation event
+//
+// Path: /setAccepted
+
+export interface SetAcceptedRequest {
+  commentId: string;
+  threadId: string;
+  /** true = accept; false = un-accept */
+  isAccepted: boolean;
+}
+
+export interface SetAcceptedResponse {
+  /** ID of the acceptedAnswer reputation event, or null if already awarded / un-accepting */
+  eventId: string | null;
+  /** true = new event created; false = already existed or un-accepting */
+  isNew: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────
 // OUT-OF-SCOPE stubs (do not implement in V1)
 // ─────────────────────────────────────────────────────────────
 

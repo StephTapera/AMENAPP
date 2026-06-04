@@ -318,7 +318,7 @@ struct AmenMinistryMemorySearchView: View {
                 if result.actionItemId != nil {
                     Text("Action item")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.amenGoldText)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(

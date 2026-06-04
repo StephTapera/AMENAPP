@@ -10,6 +10,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFunctions
+import FirebaseFirestore
 import CryptoKit
 import AuthenticationServices
 import UIKit
@@ -150,7 +151,7 @@ struct MinimalAuthenticationView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.88), value: showEmailForm)
+        .animation(Motion.adaptive(.amenSpringStandard), value: showEmailForm)
         .onAppear {
             withAnimation(.easeOut(duration: 0.60).delay(0.08)) {
                 appeared = true
@@ -311,21 +312,7 @@ struct MinimalAuthenticationView: View {
                     }
                 }
                 .padding(28)
-                .background(
-                    RoundedRectangle(cornerRadius: 32, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.75), Color.white.opacity(0.25)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                )
+                .livingGlassMaterial(elevated: true)
                 .shadow(color: .black.opacity(0.09), radius: 28, x: 0, y: 14)
                 .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
                 .padding(.horizontal, 20)
@@ -428,12 +415,12 @@ struct MinimalAuthenticationView: View {
 
                         HStack(spacing: 0) {
                             modeTab(title: "Sign In", selected: isLogin) {
-                                withAnimation(.easeInOut(duration: 0.22)) {
+                                withAnimation(.amenEaseQuick) {
                                     isLogin = true; errorMessage = nil; signUpStep = 0
                                 }
                             }
                             modeTab(title: "Sign Up", selected: !isLogin) {
-                                withAnimation(.easeInOut(duration: 0.22)) {
+                                withAnimation(.amenEaseQuick) {
                                     isLogin = false; errorMessage = nil; signUpStep = 0
                                 }
                             }
@@ -548,7 +535,7 @@ struct MinimalAuthenticationView: View {
                                 RoundedRectangle(cornerRadius: 14)
                                     .fill(isCurrentStepValid ? Color.black : Color(white: 0.72))
                             )
-                            .animation(.easeInOut(duration: 0.2), value: isCurrentStepValid)
+                            .animation(.amenEaseQuick, value: isCurrentStepValid)
                         }
                         .disabled(isLoading || !isCurrentStepValid)
                         .padding(.horizontal, 32)
@@ -864,27 +851,24 @@ struct MinimalAuthenticationView: View {
         }
     }
     
-    /// Resolves a username to an email address using Cloud Function
+    /// Resolves a username to an email address.
+    /// Primary path: Cloud Function. Fallback: direct Firestore query.
     private func resolveUsernameToEmail(_ usernameInput: String) async throws -> String {
         let cleanUsername = usernameInput
             .trimmingCharacters(in: .whitespaces)
             .lowercased()
             .replacingOccurrences(of: "@", with: "")
-        
-        let functions = Functions.functions()
-        let callable = functions.httpsCallable("resolveUsernameToEmail")
-        
+
+        // Primary: Cloud Function (preferred — server-side validation)
         do {
+            let functions = Functions.functions()
+            let callable = functions.httpsCallable("resolveUsernameToEmail")
             let result = try await callable.call(["username": cleanUsername])
-            guard let data = result.data as? [String: Any],
-                  let email = data["email"] as? String, !email.isEmpty else {
-                throw NSError(domain: "Auth", code: 404, userInfo: [
-                    NSLocalizedDescriptionKey: "Username not found"
-                ])
+            if let data = result.data as? [String: Any],
+               let email = data["email"] as? String, !email.isEmpty {
+                return email
             }
-            return email
         } catch let error as NSError {
-            // Map Cloud Function errors to user-friendly messages
             if error.domain == "FIRFunctionsErrorDomain" {
                 let code = FunctionsErrorCode(rawValue: error.code)
                 switch code {
@@ -897,13 +881,38 @@ struct MinimalAuthenticationView: View {
                         NSLocalizedDescriptionKey: "This account does not have a password. Please sign in another way."
                     ])
                 default:
-                    throw NSError(domain: "Auth", code: 503, userInfo: [
-                        NSLocalizedDescriptionKey: "Sign-in unavailable. Please use your email address."
-                    ])
+                    break // fall through to Firestore fallback below
                 }
             }
-            throw error
+            // Non-Functions errors (network, App Check, keychain) — fall through to Firestore
         }
+
+        // Fallback 1: usernames/{username} document — standard pattern, no index required
+        let db = Firestore.firestore()
+        let usernameDoc = try? await db.collection("usernames").document(cleanUsername).getDocument()
+        if let email = usernameDoc?.data()?["email"] as? String, !email.isEmpty {
+            return email
+        }
+
+        // Fallback 2: users/{username} document — some apps store users keyed by username
+        let userDoc = try? await db.collection("users").document(cleanUsername).getDocument()
+        if let email = userDoc?.data()?["email"] as? String, !email.isEmpty {
+            return email
+        }
+
+        // Fallback 3: users field query — catches accounts stored with auto-generated doc IDs
+        let userSnap = try? await db.collection("users")
+            .whereField("username", isEqualTo: cleanUsername)
+            .limit(to: 1)
+            .getDocuments()
+        if let doc = userSnap?.documents.first,
+           let email = doc.data()["email"] as? String, !email.isEmpty {
+            return email
+        }
+
+        throw NSError(domain: "Auth", code: 404, userInfo: [
+            NSLocalizedDescriptionKey: "Incorrect username or password"
+        ])
     }
 
     private func getErrorMessage(for error: Error) -> String {
@@ -915,14 +924,21 @@ struct MinimalAuthenticationView: View {
             case .userNotFound:         return "No account found with this email"
             case .wrongPassword:        return "Incorrect password"
             case .networkError:         return "Network error — please check your connection"
-            default:                    return error.localizedDescription
+            case .keychainError:        return "Sign in failed. Please try again."
+            default:                    break
             }
         }
-        return error.localizedDescription
+        let nsError = error as NSError
+        // Suppress raw OS keychain / system strings — they're never user-actionable
+        let desc = nsError.localizedDescription
+        if desc.contains("keychain") || desc.contains("SecItem") || desc.contains("NSLocalizedFailureReasonErrorKey") {
+            return "Sign in failed. Please try again."
+        }
+        return desc
     }
 
     private func showError(_ message: String) {
-        withAnimation(.easeInOut(duration: 0.22)) {
+        withAnimation(.amenEaseQuick) {
             errorMessage = message
         }
         // Accessibility: announce error for VoiceOver users who won't see the banner
@@ -1189,7 +1205,7 @@ private struct EditorialDateField: View {
             VStack(spacing: 0) {
                 // Tap row
                 Button {
-                    withAnimation(.easeInOut(duration: 0.22)) {
+                    withAnimation(.amenEaseQuick) {
                         showPicker.toggle()
                     }
                 } label: {

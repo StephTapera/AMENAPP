@@ -9,6 +9,8 @@
  *   firebase functions:secrets:set LIVEKIT_URL    (e.g. wss://myproject.livekit.cloud)
  *   npm install livekit-server-sdk
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -17,7 +19,7 @@ const db = getFirestore();
 
 // ── getLivekitToken ───────────────────────────────────────────────────────────
 
-exports.getLivekitToken = onCall({ enforceAppCheck: false }, async (request) => {
+exports.getLivekitToken = onCall({ enforceAppCheck: true /* enforceAppCheck: true — requires App Check token from client; disable locally with env var if needed */ }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 

@@ -20,6 +20,17 @@
 //    Network / server errors return `.serverError`. The call site MUST treat
 //    serverError as fail-closed (do not write). This mirrors ThinkFirstServerValidator.
 //
+//  NUDGE UX:
+//    The primary compose path (CommentService.addComment → PostDetailView) fully
+//    handles the nudge sheet via CommentNudgeRequired error + CommentNudgeSheet.
+//
+//  TODO — secondary paths that catch CommentNudgeRequired generically and show
+//  a generic error toast (acceptable for now; full nudge sheet could be added later):
+//    - AMENAPP/FollowThroughInteractions.swift  line ~520  (action-thread comment)
+//    - AMENAPP/TestimoniesView.swift            line ~1501, ~2068
+//    - AMENAPP/PostInteractionsViewModel.swift  line ~77
+//    - AMENAPP/PrayerView.swift                 line ~2773
+//
 
 import Foundation
 import FirebaseAuth

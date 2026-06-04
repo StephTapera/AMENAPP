@@ -432,12 +432,17 @@ private struct ContextRailSection: View {
 
 /// Floating capsule at the top of the feed that shows current session info.
 /// Non-interactive. Fades out when the user is scrolling fast.
+///
+/// Glass surface: iOS 26 `.glassEffect(in: Capsule())` when transparency is
+/// allowed; solid `.ultraThinMaterial` capsule otherwise. Shadow is placed
+/// before the glass modifier so it sits under the specular rim.
 private struct AmbientStatusBar: View {
 
     let session: AmenMediaSession?
     let scrollVelocityFast: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var sessionLabel: String {
         guard let session = session, session.finiteQueue else { return "" }
@@ -452,42 +457,108 @@ private struct AmbientStatusBar: View {
 
     var body: some View {
         if shouldShow {
-            HStack(spacing: 6) {
-                Image(systemName: "infinity.circle")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.black.opacity(0.6))
-                    .accessibilityHidden(true)
-                Text(sessionLabel)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.black.opacity(0.75))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 2)
-            .opacity(scrollVelocityFast ? 0 : 1)
-            .animation(
-                reduceMotion ? .none : .easeInOut(duration: scrollVelocityFast ? 0.15 : 0.35),
-                value: scrollVelocityFast
-            )
-            .padding(.top, 4)
-            .accessibilityLabel(sessionLabel)
-            .accessibilityAddTraits(.isStaticText)
+            pillContent
+                .opacity(scrollVelocityFast ? 0 : 1)
+                .animation(
+                    reduceMotion ? .none : .easeInOut(duration: scrollVelocityFast ? 0.15 : 0.35),
+                    value: scrollVelocityFast
+                )
+                .padding(.top, 4)
+                .accessibilityLabel(sessionLabel)
+                .accessibilityAddTraits(.isStaticText)
         }
+    }
+
+    // MARK: Pill content
+
+    @ViewBuilder
+    private var pillContent: some View {
+        if reduceTransparency {
+            // Solid fallback — no blur when the user has requested reduced transparency.
+            labelRow
+                .background(Color(.systemBackground), in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.8))
+                .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 2)
+        } else {
+            // iOS 26 Liquid Glass capsule.
+            // Shadow before .glassEffect so it renders under the specular rim.
+            labelRow
+                .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 2)
+                .glassEffect(GlassEffectStyle.regular, in: Capsule())
+        }
+    }
+
+    private var labelRow: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "infinity.circle")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.black.opacity(0.6))
+                .accessibilityHidden(true)
+            Text(sessionLabel)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.black.opacity(0.75))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
     }
 }
 
 // MARK: - FloatingComposerDock
 
 /// Floating action dock anchored above the bottom safe area.
-/// Capsule shape with .ultraThinMaterial fill and four composer actions.
+///
+/// Glass surface: the dock `HStack` is wrapped in `GlassEffectContainer` and
+/// the outer container receives `.glassEffect(in: Capsule())` as its last
+/// modifier. The manual `.ultraThinMaterial` fill and stroke overlay are
+/// removed — the glass provides both automatically.
+///
+/// Fallback: when `accessibilityReduceTransparency` is true, a solid
+/// `Color(.systemBackground)` capsule is used instead.
+///
+/// The feed and post cards behind this dock stay flat and opaque.
 private struct FloatingComposerDock: View {
 
     let onContextRailToggle: () -> Void
     let reduceMotion: Bool
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
+        if reduceTransparency {
+            dockButtons
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(Color(.systemBackground))
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.8)
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 4)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Composer actions")
+        } else {
+            // iOS 26 Liquid Glass.
+            // GlassEffectContainer unites the buttons into a single shared blur
+            // surface. Shadow is placed before .glassEffect so it renders under
+            // the specular rim, not on top of it.
+            GlassEffectContainer(spacing: 0) {
+                dockButtons
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+            }
+            .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 4)
+            .glassEffect(GlassEffectStyle.regular, in: Capsule())
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Composer actions")
+        }
+    }
+
+    // MARK: Dock buttons (shared between glass and solid paths)
+
+    private var dockButtons: some View {
         HStack(spacing: 0) {
             DockButton(
                 icon: "sparkles",
@@ -529,19 +600,6 @@ private struct FloatingComposerDock: View {
                 NotificationCenter.default.post(name: .openCreatePost, object: nil)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
-                )
-        )
-        .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 4)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Composer actions")
     }
 }
 

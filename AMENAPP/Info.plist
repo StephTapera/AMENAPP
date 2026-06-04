@@ -43,6 +43,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.amenapp.feed.refresh</string>
+		<string>com.amen.app.refresh</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>
@@ -63,16 +64,12 @@
 	<string>$(YOUTUBE_API_KEY)</string>
 	<key>SPOTIFY_CLIENT_ID</key>
 	<string>$(SPOTIFY_CLIENT_ID)</string>
-	<key>SPOTIFY_CLIENT_SECRET</key>
-	<string>$(SPOTIFY_CLIENT_SECRET)</string>
 	<key>GOOGLE_VISION_API_KEY</key>
 	<string>$(GOOGLE_VISION_API_KEY)</string>
 	<key>VERTEX_AI_KEY</key>
 	<string>$(VERTEX_AI_KEY)</string>
-	<key>CLAUDE_API_KEY</key>
-	<string>$(CLAUDE_API_KEY)</string>
-	<key>OPENAI_API_KEY</key>
-	<string>$(OPENAI_API_KEY)</string>
+	<key>ALGOLIA_SEARCH_KEY</key>
+	<string>$(ALGOLIA_SEARCH_KEY)</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>

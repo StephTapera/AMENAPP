@@ -40,7 +40,7 @@ struct BereanStep1View: View {
             .bereanGlassCard()
         }
         .onAppear {
-            withAnimation(.spring(response: 0.48, dampingFraction: 0.84)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.84))) {
                 appeared = true
             }
         }
@@ -70,7 +70,7 @@ struct BereanStep2View: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.84)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.84))) {
                 appeared = true
             }
         }
@@ -126,7 +126,7 @@ struct BereanStep3View: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.82))) {
                 appeared = true
             }
         }
@@ -194,7 +194,7 @@ struct BereanStep4View: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.84)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.84))) {
                 appeared = true
             }
         }
@@ -293,12 +293,7 @@ struct BereanFocusCard: View {
                 .shadow(color: Color.black.opacity(0.16), radius: 10, x: 0, y: 4)
         } else {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(BereanColor.glassFill))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(BereanColor.glassStroke, lineWidth: 0.5)
-                )
+                .fill(Color(.secondarySystemBackground))
         }
     }
 }

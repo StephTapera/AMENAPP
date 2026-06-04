@@ -130,15 +130,20 @@ async function enforceRateLimit(userId, action, maxCount, windowSecs) {
  * Format: { maxCount, windowSecs }
  */
 const DEFAULT_LIMITS = {
-  login:            { maxCount: 5,   windowSecs: 900   },  // 5 per 15 min
-  password_reset:   { maxCount: 3,   windowSecs: 3600  },  // 3 per hour
-  follow:           { maxCount: 60,  windowSecs: 3600  },  // 60 per hour
-  unfollow:         { maxCount: 60,  windowSecs: 3600  },  // 60 per hour
-  post_create:      { maxCount: 20,  windowSecs: 3600  },  // 20 per hour
-  comment_create:   { maxCount: 60,  windowSecs: 3600  },  // 60 per hour
-  dm_send:          { maxCount: 100, windowSecs: 3600  },  // 100 per hour
-  report_submit:    { maxCount: 10,  windowSecs: 3600  },  // 10 per hour
-  push_send:        { maxCount: 50,  windowSecs: 3600  },  // 50 per hour
+  login:                              { maxCount: 5,   windowSecs: 900   },  // 5 per 15 min
+  password_reset:                     { maxCount: 3,   windowSecs: 3600  },  // 3 per hour
+  follow:                             { maxCount: 60,  windowSecs: 3600  },  // 60 per hour
+  unfollow:                           { maxCount: 60,  windowSecs: 3600  },  // 60 per hour
+  post_create:                        { maxCount: 20,  windowSecs: 3600  },  // 20 per hour
+  comment_create:                     { maxCount: 60,  windowSecs: 3600  },  // 60 per hour
+  dm_send:                            { maxCount: 100, windowSecs: 3600  },  // 100 per hour
+  report_submit:                      { maxCount: 10,  windowSecs: 3600  },  // 10 per hour
+  push_send:                          { maxCount: 50,  windowSecs: 3600  },  // 50 per hour
+  invite_send:                        { maxCount: 30,  windowSecs: 86400 },  // 30 invites per day (H-04)
+  account_create:                     { maxCount: 2,   windowSecs: 86400 },  // 2 username reservations per day (H-04)
+  // Church Notes AI pipeline (expensive external API calls)
+  church_notes_audio_process:         { maxCount: 5,   windowSecs: 3600  },  // 5 audio transcriptions per hour
+  church_notes_draft_generate:        { maxCount: 10,  windowSecs: 3600  },  // 10 draft generations per hour
 };
 
 /**

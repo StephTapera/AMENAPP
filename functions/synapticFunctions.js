@@ -25,6 +25,7 @@ let _anthropic = null;
 function getAnthropic() {
   if (!_anthropic) {
     const Anthropic = require("@anthropic-ai/sdk");
+    // TODO: USE_DEFINE_SECRET — migrate to defineSecret() for this secret
     _anthropic = new Anthropic.default({apiKey: process.env.ANTHROPIC_API_KEY});
   }
   return _anthropic;

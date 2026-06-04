@@ -15,6 +15,23 @@ const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { withRetry } = require("./retryHelper");
 
+// Shared decision persistence + crisis escalation
+function getGateway() { return require("./moderationGateway"); }
+
+// Self-harm phrase fast pre-check (mirrors moderationGateway.js)
+const SELF_HARM_PHRASES = [
+  "kill myself", "killing myself", "end my life", "end it all",
+  "suicide", "suicidal", "cut myself", "cutting myself",
+  "self harm", "selfharm", "want to die", "i want to die",
+  "no reason to live", "i cant go on", "i cannot go on",
+  "take my own life", "better off dead", "not worth living",
+  "overdose on purpose",
+];
+function detectSelfHarm(text) {
+  const lower = text.toLowerCase();
+  return SELF_HARM_PHRASES.some((p) => lower.includes(p));
+}
+
 const NVIDIA_API_KEY = defineSecret("NVIDIA_API_KEY");
 
 const NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
@@ -70,6 +87,9 @@ exports.moderatePost = onDocumentCreated(
       return;
     }
 
+    const authorId = post.authorId || post.userId || null;
+    const selfHarm = detectSelfHarm(text);
+
     let status;
     let categories = [];
     try {
@@ -81,27 +101,59 @@ exports.moderatePost = onDocumentCreated(
       status = FAIL_OPEN ? "approved" : "pending";
     }
 
+    // Self-harm posts must never be silently blocked — route to crisis review
+    if (selfHarm) {
+      status = "pending"; // Kept visible to author; surfaced as urgent for admin
+    }
+
     await snap.ref.update({
-      visible: status === "approved",
+      visible: status === "approved" || selfHarm,
       flaggedForReview: status === "pending" || status === "pending_image_review",
-      removed: status === "blocked",
+      removed: status === "blocked" && !selfHarm,
       moderation: {
-        status, // approved | blocked | pending
-        categories, // e.g. ["hate", "harassment"]
+        status,
+        categories,
         provider: "nvidia-nemoguard",
         checkedAt: FieldValue.serverTimestamp(),
+        crisisEscalated: selfHarm,
       },
     });
+
+    // Persist to canonical moderationDecisions/ and handle crisis escalation
+    const { persistDecision, escalateSelfHarm } = getGateway();
+    const decisionId = await persistDecision({
+      uid: authorId,
+      contentType: "post",
+      contextId: snap.ref.path,
+      decision: selfHarm ? "review" : (status === "approved" ? "allow" : status === "blocked" ? "block" : "review"),
+      reason: selfHarm ? "Self-harm language detected in post" : (categories.length ? categories.join(", ") : null),
+      detectedCategories: selfHarm ? ["self_harm", ...categories] : categories,
+      crisisEscalated: selfHarm,
+      contentLength: text.length,
+      source: "moderatePost_trigger",
+    }).catch((err) => {
+      console.error("[moderatePost] persistDecision error:", err.message);
+      return "unknown";
+    });
+
+    if (selfHarm) {
+      await escalateSelfHarm(authorId, text, "post", snap.ref.path, decisionId).catch((err) => {
+        console.error("[moderatePost] escalateSelfHarm error:", err.message);
+      });
+    }
 
     // Anything not auto-approved goes to the Admin Center queue.
     if (status !== "approved") {
       // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
       await getFirestore().collection("moderationQueue").add({
         postRef: snap.ref.path,
-        authorId: post.authorId || null,
+        authorId: authorId || null,
         preview: text.slice(0, 280),
         status,
         categories,
+        crisisEscalated: selfHarm,
+        priority: selfHarm ? "critical" : "normal",
+        moderationDecisionId: decisionId,
         createdAt: FieldValue.serverTimestamp(),
         expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });

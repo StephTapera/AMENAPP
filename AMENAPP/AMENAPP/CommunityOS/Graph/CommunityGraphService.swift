@@ -68,7 +68,7 @@ actor CommunityGraphService {
         event: ContentEngagementEvent,
         contentObject: ContentObject
     ) async {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[CommunityGraphService] meaningGraph flag off — skipping recordEngagement")
             return
         }
@@ -126,7 +126,7 @@ actor CommunityGraphService {
 
     /// Reads all edges for a user and returns aggregated affinity scores by topic.
     func getAffinityScores(for userId: String) async throws -> [CommunityAffinityScore] {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[CommunityGraphService] meaningGraph flag off — returning empty affinity scores")
             return []
         }
@@ -174,7 +174,7 @@ actor CommunityGraphService {
 
     /// Fetches the stored DNA profile from Firestore.
     func getDNAProfile(for userId: String) async throws -> CommunityDNAProfile? {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[CommunityGraphService] meaningGraph flag off — skipping getDNAProfile")
             return nil
         }
@@ -192,7 +192,7 @@ actor CommunityGraphService {
 
     /// Persists a DNA profile to Firestore.
     func saveDNAProfile(_ profile: CommunityDNAProfile) async throws {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[CommunityGraphService] meaningGraph flag off — skipping saveDNAProfile")
             return
         }
@@ -230,7 +230,7 @@ actor CommunityGraphService {
         userId: String,
         otherUserId: String
     ) async throws -> [CommunityAffinityTopic] {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[CommunityGraphService] meaningGraph flag off — returning empty shared topics")
             return []
         }
@@ -286,13 +286,13 @@ actor CommunityGraphService {
         case .song:
             return [.worship]
         case .sermon, .podcast, .video, .course, .article:
-            return [.teaching, .discipleship]
+            return [.theology, .discipleship]
         case .bibleVerse:
             return [.discipleship]
         case .prayerRequest:
             return [.prayer]
         case .book:
-            return [.teaching, .theology, .apologetics]
+            return [.theology, .apologetics]
         case .event:
             return [.missions, .leadership]
         case .testimony:

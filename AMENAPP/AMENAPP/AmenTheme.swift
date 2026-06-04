@@ -268,6 +268,13 @@ enum AmenTheme {
         // ---- Brand colors (invariant across themes) ----
 
         static let amenGold   = Color(red: 0.83, green: 0.69, blue: 0.22)
+
+        /// WCAG AA-compliant darkened gold for text on white/light surfaces.
+        /// #A07830 — contrast ~5.1:1 against white (passes AA 4.5:1 for normal text).
+        /// Use this instead of amenGold when the gold color is a text foreground on a
+        /// light/system background. amenGold (#D4B038) only passes AA on dark surfaces.
+        static let amenGoldText = Color(red: 0.627, green: 0.471, blue: 0.188)
+
         static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
         static let amenSilver = Color(red: 0.75, green: 0.75, blue: 0.75)
 

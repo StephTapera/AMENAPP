@@ -1,5 +1,5 @@
 const admin = require("firebase-admin");
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 const db = admin.firestore();
@@ -20,10 +20,14 @@ async function getUserNotificationPreference(uid, key) {
  * Notifies all intercessors when a prayer is answered.
  */
 exports.onPrayerAnswered = onCall(async (request) => {
-  const { prayerPostId, testimonyPostId, authorId } = request.data;
-  if (!prayerPostId || !testimonyPostId || !authorId) {
-    throw new Error("Missing required fields");
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const uid = request.auth.uid;
+  const { prayerPostId, testimonyPostId } = request.data;
+  if (!prayerPostId || !testimonyPostId) {
+    throw new HttpsError("invalid-argument", "Missing required fields");
   }
+  // Use the authenticated uid as the author — callers cannot impersonate others.
+  const authorId = uid;
 
   // Gather intercessors from witnesses
   const witnessSnap = await db

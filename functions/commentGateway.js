@@ -40,6 +40,10 @@ const db = admin.firestore();
 
 const REGION = 'us-central1';
 
+// Shared decision persistence from moderationGateway — mirrors the canonical
+// moderationDecisions/ write for comments so every content surface is covered.
+function getGateway() { return require('./moderationGateway'); }
+
 // ─── Rate-limit helper ────────────────────────────────────────────────────────
 // 60 checks per user per rolling hour
 const COMMENT_CHECK_LIMIT   = 60;
@@ -196,6 +200,8 @@ async function writeDecisionRecord(uid, clientCommentId, decision, safetyDecisio
   // Best-effort — never let a Firestore write failure block the response.
   try {
     const docId = `${uid}_${clientCommentId || admin.firestore().collection('_').doc().id}`;
+
+    // 1. Legacy commentModerationDecisions (existing; keep for backward compat)
     await db.collection('commentModerationDecisions').doc(docId).set({
       uid,
       clientCommentId: clientCommentId || null,
@@ -203,6 +209,23 @@ async function writeDecisionRecord(uid, clientCommentId, decision, safetyDecisio
       safetyDecision,
       nudgeCount: nudges.length,
       checkedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // 2. Canonical moderationDecisions/ (hard rule: every surface must write here)
+    const canonicalDecision = decision === 'publish' ? 'allow'
+                            : decision === 'nudge'   ? 'warn'
+                            : 'block';
+    const { persistDecision } = getGateway();
+    await persistDecision({
+      uid,
+      contentType: 'comment',
+      contextId: clientCommentId || null,
+      decision: canonicalDecision,
+      reason: nudges.length ? nudges[0] : null,
+      detectedCategories: safetyDecision !== 'allow' ? [safetyDecision] : [],
+      crisisEscalated: false,
+      contentLength: 0,
+      source: 'commentGateway',
     });
   } catch (err) {
     console.error('[commentGateway] Failed to write decision record:', err.message);

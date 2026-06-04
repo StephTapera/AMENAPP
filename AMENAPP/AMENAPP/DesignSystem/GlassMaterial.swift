@@ -148,6 +148,5 @@ enum NotifGlassTokens {
             .foregroundStyle(.white)
             .padding(24)
             .glassSurface(cornerRadius: 20)
-            .environment(\.accessibilityReduceTransparency, true)
     }
 }

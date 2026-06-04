@@ -72,18 +72,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseApp.configure()
         dlog("✅ Firebase configured successfully")
 
-        // Simulator doesn't have keychain entitlements during development, so switch
-        // Auth to in-memory persistence to avoid errSecMissingEntitlement (-34018).
-        // Sessions won't survive app restart in the Simulator — that's acceptable.
-        #if targetEnvironment(simulator)
-        do {
-            try Auth.auth().useUserAccessGroup(nil)
-            dlog("✅ Auth persistence set to in-memory (simulator)")
-        } catch {
-            dlog("⚠️ Failed to configure auth persistence on simulator: \(error.localizedDescription)")
-        }
-        #endif
-
         // ✅ Initialize Crashlytics for production crash monitoring
         // Must be called after FirebaseApp.configure()
         // Crashlytics automatically collects crashes; this enables it and sets
@@ -213,10 +201,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         // Initialize notification categories
         Task { @MainActor in
+            // iOS2 FIX: Register PRAYER_REQUEST and NEW_MESSAGE categories (and others)
+            // via NotificationManager so the system recognises action identifiers on
+            // incoming push payloads that carry a category key.
+            NotificationManager.shared.setupNotificationCategories()
+            dlog("✅ App notification categories initialized (PRAYER_REQUEST, NEW_MESSAGE, etc.)")
+
             // Church notifications (Find Church feature)
             ChurchNotificationManager.shared.setupNotificationCategories()
             dlog("✅ Church notification categories initialized")
-            
+
             // Visit Plan notifications (First Visit Companion feature)
             ChurchVisitNotificationScheduler.setupVisitPlanNotificationCategories()
             dlog("✅ Visit Plan notification categories initialized")

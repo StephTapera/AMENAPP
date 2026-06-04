@@ -2,54 +2,8 @@ import Foundation
 import FirebaseFunctions
 
 // MARK: - Response models
-
-/// Daily Digest morning card data (maps to getDailyDigest CF response)
-struct AmenDailyDigestResponse: Codable {
-    struct DailyVerse: Codable {
-        let reference: String
-        let text: String
-        let reflection: String
-    }
-    struct PrayerReminder: Codable {
-        let postId: String
-        let excerpt: String
-        let hoursAgo: Int
-    }
-    struct MentorMessage: Codable {
-        let threadId: String
-        let senderId: String
-        let senderName: String
-        let preview: String
-    }
-    struct ChurchEvent: Codable {
-        let eventId: String
-        let title: String
-        let startsAt: String?
-        let church: String
-    }
-    struct SpaceUpdate: Codable {
-        let spaceId: String
-        let spaceName: String
-        let summary: String
-        let unreadCount: Int
-    }
-    struct StudyProgress: Codable {
-        let studyId: String
-        let title: String
-        let progressPct: Double
-        let nextLesson: String?
-    }
-
-    let dailyVerse: DailyVerse
-    let prayerReminders: [PrayerReminder]
-    let unreadMentorMessages: [MentorMessage]
-    let churchEvents: [ChurchEvent]
-    let spaceUpdates: [SpaceUpdate]
-    let studiesToContinue: [StudyProgress]
-    let reflectionPrompt: String
-    let cached: Bool
-    let generatedAt: String
-}
+// Daily Digest is handled exclusively by AmenDailyDigestService (decodes AmenDailyDigest).
+// This service handles generateCreatorDraft and ragSearch only.
 
 /// Creator Draft response (maps to generateCreatorDraft CF response)
 struct CreatorDraftResponse: Codable {
@@ -94,44 +48,7 @@ final class AmenAIFeaturesService: ObservableObject {
 
     private init() {}
 
-    // MARK: A. Daily Digest
-
-    /// Fetches the morning digest card for the authenticated user.
-    /// Results are cached server-side in Firestore (once per day per user).
-    ///
-    /// - Parameters:
-    ///   - dateKey: ISO date string "YYYY-MM-DD" for today
-    ///   - forceRefresh: bypass server cache and recompute
-    func getDailyDigest(
-        dateKey: String,
-        forceRefresh: Bool = false
-    ) async throws -> AmenDailyDigestResponse {
-        // AUDIT GAP: No consent check before calling getDailyDigest. This CF reads
-        // the user's prayer reminders, mentor messages, and study progress — personal
-        // spiritual data. A BereanConsentManager.shared.hasGrantedDigestConsent() gate
-        // must be checked here (and enforced server-side) before the call proceeds.
-        //
-        // AUDIT GAP: No client-side daily quota guard. Although the server caches
-        // once per day, forceRefresh=true can trigger repeated LLM calls without limit.
-        // Add a local UserDefaults counter keyed to dateKey to prevent more than
-        // 3 forced refreshes per day per user before hitting the CF.
-        let payload: [String: Any] = [
-            "dateKey": dateKey,
-            "timezone": TimeZone.current.identifier,
-            "forceRefresh": forceRefresh,
-        ]
-        let result = try await functions
-            .httpsCallable("getDailyDigest")
-            .call(payload)
-
-        let data = try JSONSerialization.data(
-            withJSONObject: result.data as? [String: Any] ?? [:]
-        )
-        let decoder = JSONDecoder()
-        return try decoder.decode(AmenDailyDigestResponse.self, from: data)
-    }
-
-    // MARK: B. Creator Draft Assistant
+    // MARK: A. Creator Draft Assistant
 
     /// Generates a content draft for mentors and church creators.
     ///

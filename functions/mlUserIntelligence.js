@@ -8,7 +8,7 @@
 
 const admin = require("firebase-admin");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const {
   hfInference, pineconeUpsert, pineconeQuery,
   logFunction, checkRateLimit, sleep,
@@ -350,11 +350,11 @@ const predictCreationPropensity = onSchedule(
 const computeSessionIntent = onCall(
   { region: "us-central1" },
   async (request) => {
-    const { userId, timeOfDay, dayOfWeek, lastSessionBehavior } = request.data;
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.");
+    const uid = request.auth.uid;
+    const { timeOfDay, dayOfWeek, lastSessionBehavior } = request.data;
 
-    if (!userId) throw new Error("userId required");
-
-    const allowed = await checkRateLimit(userId, "sessionIntent", 5);
+    const allowed = await checkRateLimit(uid, "sessionIntent", 5);
     if (!allowed) throw new Error("Rate limited");
 
     const startMs = Date.now();

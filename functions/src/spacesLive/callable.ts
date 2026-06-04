@@ -47,7 +47,7 @@ interface LiveRoomDoc {
 // ── createLiveRoom ────────────────────────────────────────────────────────────
 
 export const createLiveRoom = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -99,7 +99,7 @@ export const createLiveRoom = functions.onCall(
 // ── joinLiveRoom ──────────────────────────────────────────────────────────────
 
 export const joinLiveRoom = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -149,7 +149,7 @@ export const joinLiveRoom = functions.onCall(
 // ── endLiveRoom ───────────────────────────────────────────────────────────────
 
 export const endLiveRoom = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -193,7 +193,7 @@ export const endLiveRoom = functions.onCall(
 // ── raiseHand ─────────────────────────────────────────────────────────────────
 
 export const raiseHand = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -226,7 +226,7 @@ export const raiseHand = functions.onCall(
 // ── muteParticipant ───────────────────────────────────────────────────────────
 
 export const muteParticipant = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");

@@ -353,6 +353,14 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
             ?? legacySpotifyTrackID
             ?? musicKitID
             ?? UUID().uuidString
+        storefront = nil
+        canonicalURL = nil
+        appURL = nil
+        artworkColors = nil
+        requiresAccount = false
+        mayRequireSubscription = false
+        metadataVersion = 1
+        resolvedAt = nil
     }
 
     func encode(to encoder: Encoder) throws {

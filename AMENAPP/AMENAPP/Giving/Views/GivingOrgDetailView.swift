@@ -187,10 +187,11 @@ struct GivingOrgDetailView: View {
                         .font(.system(size: 13))
                         .foregroundStyle(.white.opacity(0.80))
 
-                    if !org.theologicalAffiliations.isEmpty, org.theologicalAffiliations.first != .denominationallyNeutral {
+                    if let firstAffiliation = org.theologicalAffiliations.first,
+                       firstAffiliation != .denominationallyNeutral {
                         Text("·")
                             .foregroundStyle(.white.opacity(0.50))
-                        Text(org.theologicalAffiliations.first!.rawValue)
+                        Text(firstAffiliation.rawValue)
                             .font(.system(size: 13))
                             .foregroundStyle(.white.opacity(0.80))
                     }
@@ -331,7 +332,7 @@ struct GivingOrgDetailView: View {
                 HStack(spacing: 14) {
                     Text("$\(impact.amount)")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(AmenTheme.Colors.amenGold)
+                        .foregroundStyle(AmenTheme.Colors.amenGoldText)
                         .frame(minWidth: 50, alignment: .trailing)
 
                     VStack(alignment: .leading, spacing: 2) {

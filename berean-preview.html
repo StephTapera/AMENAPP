@@ -4,16 +4,37 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Berean — Daily Formation Companion (Preview)</title>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Google Fonts must be in <head> — @import inside a React-injected <style> is unreliable -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&display=swap" rel="stylesheet" />
+  <!-- defer lets the browser render #loading immediately while scripts download in parallel -->
+  <script defer src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script defer src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script defer src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     html, body { margin: 0; padding: 0; background: #0A0A0F; }
+    #loading {
+      position: fixed; inset: 0; display: flex; align-items: center;
+      justify-content: center; background: #0A0A0F; z-index: 9999;
+      font-family: -apple-system, sans-serif; font-size: 14px; color: #6B6460;
+      transition: opacity 0.4s ease;
+    }
+    /* Keyframes here so they're available before React mounts */
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50%       { transform: scale(1.18); opacity: 1; }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body>
+  <div id="loading">Preparing your Berean…</div>
   <div id="root"></div>
-  <script type="text/babel">
+  <script type="text/babel" data-presets="react">
     const { useState, useCallback, useMemo, useEffect } = React;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -71,21 +92,12 @@
     const T = TOKENS;
 
     const fontStyle = `
-      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&display=swap');
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: ${T.colors.bgDeep}; }
       button { outline: none; }
       ::-webkit-scrollbar { width: 4px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: ${T.colors.glassBorder}; border-radius: 4px; }
-      @keyframes breathe {
-        0%, 100% { transform: scale(1); opacity: 0.7; }
-        50%       { transform: scale(1.18); opacity: 1; }
-      }
-      @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(12px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
     `;
 
     function GlassCard({ children, style, onClick, glow = false, elevated = false, danger = false, tender = false }) {
@@ -633,21 +645,6 @@
       }
 
       return cards;
-    }
-
-    function useBereanData() {
-      return {
-        user:          MOCK_USER,
-        readingPlan:   MOCK_READING_PLAN,
-        prayerList:    MOCK_PRAYER_LIST,
-        sanctuaries:   MOCK_SANCTUARIES,
-        highlights:    MOCK_HIGHLIGHTS,
-        memoryVerses:  MOCK_MEMORY_VERSES,
-        seasonal:      MOCK_SEASONAL,
-        getVerse,
-        assembleCards,
-        whySeeingThis,
-      };
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1496,6 +1493,7 @@
     function DailyBereanFeed({ user, cards, prayerList }) {
       const [arcIndex, setArcIndex] = useState(0);
       const [whyCard,  setWhyCard]  = useState(null);
+      const closeWhySheet = useCallback(() => setWhyCard(null), []);
 
       const crisisItems = prayerList.filter(p => p.sensitivity === 'crisis' && p.status === 'active');
 
@@ -1616,7 +1614,7 @@
             </div>
           </div>
 
-          {whyCard && <WhySheet card={whyCard} onClose={() => setWhyCard(null)} />}
+          {whyCard && <WhySheet card={whyCard} onClose={closeWhySheet} />}
         </div>
       );
     }
@@ -1626,27 +1624,32 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     function BereanApp() {
-      const data = useBereanData();
       const [appState, setAppState] = useState('onboarding');
       const [prefs,    setPrefs]    = useState(null);
 
       const cards = useMemo(() => {
         if (!prefs) return [];
-        return data.assembleCards(
-          data.user,
-          data.readingPlan,
-          data.prayerList,
-          data.sanctuaries,
-          data.highlights,
-          data.memoryVerses,
-          data.seasonal,
+        return assembleCards(
+          MOCK_USER,
+          MOCK_READING_PLAN,
+          MOCK_PRAYER_LIST,
+          MOCK_SANCTUARIES,
+          MOCK_HIGHLIGHTS,
+          MOCK_MEMORY_VERSES,
+          MOCK_SEASONAL,
           prefs.selectedTopics,
         );
-      }, [prefs, data]);
+      }, [prefs]);
 
       const handleOnboardingComplete = useCallback(result => {
         setPrefs(result);
         setAppState('feed');
+      }, []);
+
+      // Dismiss the loading overlay as soon as React has painted.
+      useEffect(() => {
+        const el = document.getElementById('loading');
+        if (el) { el.style.opacity = '0'; setTimeout(() => el.remove(), 420); }
       }, []);
 
       return (
@@ -1655,7 +1658,7 @@
           <div style={{ fontFamily: T.font.ui, minHeight: '100vh' }}>
             {appState === 'onboarding'
               ? <OnboardingFlow onComplete={handleOnboardingComplete} />
-              : <DailyBereanFeed user={data.user} cards={cards} prayerList={data.prayerList} />
+              : <DailyBereanFeed user={MOCK_USER} cards={cards} prayerList={MOCK_PRAYER_LIST} />
             }
           </div>
         </>

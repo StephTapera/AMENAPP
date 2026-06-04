@@ -58,16 +58,19 @@ struct AmenRealtimeVoiceView: View {
 
 struct AmenVoiceCompanionSheet: View {
     var body: some View {
-        AmenLiquidGlassBottomSheet(
-            title: "Voice Companion",
-            subtitle: "Realtime captions and intent actions",
-            aiDisclosure: "AI-assisted voice draft"
-        ) {
-            AmenRealtimeVoiceView()
-        } footer: {
-            AmenLiquidGlassControlDock(placement: .bottom) {
-                AmenLiquidGlassPillButton(title: "Start", systemImage: "mic.fill", isLoading: false, isDisabled: false, action: {})
-                AmenLiquidGlassPillButton(title: "Close", systemImage: "xmark", isLoading: false, isDisabled: false, action: {})
+        // TODO: enable when implemented — BT2 Voice Companion
+        if AMENFeatureFlags.shared.amenRealtimeVoiceEnabled {
+            AmenLiquidGlassBottomSheet(
+                title: "Voice Companion",
+                subtitle: "Realtime captions and intent actions",
+                aiDisclosure: "AI-assisted voice draft"
+            ) {
+                AmenRealtimeVoiceView()
+            } footer: {
+                AmenLiquidGlassControlDock(placement: .bottom) {
+                    AmenLiquidGlassPillButton(title: "Start", systemImage: "mic.fill", isLoading: false, isDisabled: false, action: {})
+                    AmenLiquidGlassPillButton(title: "Close", systemImage: "xmark", isLoading: false, isDisabled: false, action: {})
+                }
             }
         }
     }

@@ -105,38 +105,26 @@ class LiquidGlassVerseSearchService: ObservableObject {
                     let passage = try await YouVersionBibleService.shared.fetchVerse(
                         reference: query, version: version
                     )
-                    apiResults = [BibleVerse(
-                        reference: passage.reference,
-                        text: passage.text,
-                        translation: selectedTranslation.rawValue
-                    )]
-                    
+                    apiResults = [makeBibleVerse(reference: passage.reference, text: passage.text, translation: selectedTranslation.rawValue)]
+
                 case .naturalLanguage:
                     // Extract topic from natural language
                     let extractedTopic = extractTopicFromNaturalLanguage(query)
                     let passages = try await YouVersionBibleService.shared.searchVerses(
                         query: extractedTopic, version: version, limit: 12
                     )
-                    apiResults = passages.map { BibleVerse(
-                        reference: $0.reference,
-                        text: $0.text,
-                        translation: selectedTranslation.rawValue
-                    )}
-                    
+                    apiResults = passages.map { makeBibleVerse(reference: $0.reference, text: $0.text, translation: selectedTranslation.rawValue) }
+
                 default:
                     // Keyword search for topic, person, date
                     let passages = try await YouVersionBibleService.shared.searchVerses(
                         query: query, version: version, limit: 12
                     )
-                    apiResults = passages.map { BibleVerse(
-                        reference: $0.reference,
-                        text: $0.text,
-                        translation: selectedTranslation.rawValue
-                    )}
+                    apiResults = passages.map { makeBibleVerse(reference: $0.reference, text: $0.text, translation: selectedTranslation.rawValue) }
                 }
             } catch {
                 dlog("⚠️ [LiquidGlassVerse] API failed, using local fallback")
-                apiResults = LocalVerseLibrary.search(query, translation: selectedTranslation)
+                apiResults = LocalVerseLibrary.search(query, translation: selectedTranslation).map { makeBibleVerse(from: $0) }
             }
             
             guard !Task.isCancelled else { return }
@@ -155,6 +143,22 @@ class LiquidGlassVerseSearchService: ObservableObject {
             .replacingOccurrences(of: "scripture about ", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return topic
+    }
+
+    // MARK: - Conversion Helpers
+
+    private func makeBibleVerse(from av: AttachableVerse) -> BibleVerse {
+        let parsed = ScriptureReferenceParser.parse(av.reference)
+        let bookId = BibleBook.all.first(where: { $0.displayName == parsed.book })?.id ?? parsed.book.lowercased()
+        let ref = ScriptureReference(bookId: bookId, chapter: parsed.chapter, startVerse: parsed.verseStart, endVerse: parsed.verseEnd)
+        return BibleVerse(reference: ref, number: parsed.verseStart, text: av.text, translation: av.translation)
+    }
+
+    private func makeBibleVerse(reference: String, text: String, translation: String) -> BibleVerse {
+        let parsed = ScriptureReferenceParser.parse(reference)
+        let bookId = BibleBook.all.first(where: { $0.displayName == parsed.book })?.id ?? parsed.book.lowercased()
+        let ref = ScriptureReference(bookId: bookId, chapter: parsed.chapter, startVerse: parsed.verseStart, endVerse: parsed.verseEnd)
+        return BibleVerse(reference: ref, number: parsed.verseStart, text: text, translation: translation)
     }
 }
 
@@ -535,10 +539,10 @@ struct LiquidGlassVerseResultCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
                 // Reference
-                Text(verse.reference)
+                Text(verse.reference.displayString)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(isSelected ? Color.black.opacity(0.85) : Color.black.opacity(0.65))
-                
+
                 // Text (truncated to 2 lines in mini view)
                 Text(verse.text)
                     .font(.system(size: 14))
@@ -597,20 +601,19 @@ struct LiquidGlassVerseFullDrawerView: View {
             case .all:
                 return true
             case .psalms:
-                return verse.reference.lowercased().contains("psalm")
+                return verse.reference.displayString.lowercased().contains("psalm")
             case .gospels:
                 let gospels = ["matthew", "mark", "luke", "john"]
-                return gospels.contains(where: { verse.reference.lowercased().contains($0) })
+                return gospels.contains(where: { verse.reference.displayString.lowercased().contains($0) })
             case .epistles:
                 let epistles = ["romans", "corinthians", "galatians", "ephesians", "philippians", "colossians", "thessalonians", "timothy", "titus", "philemon", "hebrews", "james", "peter", "john", "jude"]
-                return epistles.contains(where: { verse.reference.lowercased().contains($0) })
+                return epistles.contains(where: { verse.reference.displayString.lowercased().contains($0) })
             case .oldTestament:
-                // Simplified: check if NOT in New Testament books
                 let ntBooks = ["matthew", "mark", "luke", "john", "acts", "romans", "corinthians", "galatians", "ephesians", "philippians", "colossians", "thessalonians", "timothy", "titus", "philemon", "hebrews", "james", "peter", "jude", "revelation"]
-                return !ntBooks.contains(where: { verse.reference.lowercased().contains($0) })
+                return !ntBooks.contains(where: { verse.reference.displayString.lowercased().contains($0) })
             case .newTestament:
                 let ntBooks = ["matthew", "mark", "luke", "john", "acts", "romans", "corinthians", "galatians", "ephesians", "philippians", "colossians", "thessalonians", "timothy", "titus", "philemon", "hebrews", "james", "peter", "jude", "revelation"]
-                return ntBooks.contains(where: { verse.reference.lowercased().contains($0) })
+                return ntBooks.contains(where: { verse.reference.displayString.lowercased().contains($0) })
             }
         }
     }
@@ -1017,7 +1020,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                     .foregroundStyle(.secondary)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(selectedVerse?.reference ?? "")
+                    Text(selectedVerse?.reference.displayString ?? "")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(selectedVerse?.text ?? "")
@@ -1077,7 +1080,7 @@ struct FullLiquidGlassVerseResultCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 // Reference with selection indicator
                 HStack {
-                    Text(verse.reference)
+                    Text(verse.reference.displayString)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(isSelected ? Color.black.opacity(0.85) : Color.black.opacity(0.65))
                     

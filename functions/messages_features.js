@@ -10,6 +10,8 @@
  * Feature 08: analyzeThreadsForRevival   — daily 7AM, write revivalNudges docs
  * Feature 10: notifyPrayerRoomAnswered   — callable, FCM fan-out to prayedLog members
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+
 
 'use strict';
 

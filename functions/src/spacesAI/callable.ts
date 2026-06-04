@@ -49,7 +49,7 @@ interface StudyCompanionSettings {
 // ── generateRecap ─────────────────────────────────────────────────────────────
 
 export const generateRecap = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -102,7 +102,7 @@ export const generateRecap = functions.onCall(
 // ── searchTranscripts ─────────────────────────────────────────────────────────
 
 export const searchTranscripts = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -149,7 +149,7 @@ export const searchTranscripts = functions.onCall(
 // ── generateClip ──────────────────────────────────────────────────────────────
 
 export const generateClip = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -211,7 +211,7 @@ export const generateClip = functions.onCall(
 // ── studyCompanionQuery ───────────────────────────────────────────────────────
 
 export const studyCompanionQuery = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");

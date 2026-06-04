@@ -21,32 +21,39 @@ final class SeenStore {
 
     // MARK: - Private
 
-    private let defaults = UserDefaults.standard
+    private var _defaults: UserDefaults = .standard
     private let key = "AmenNotif.seenActions"
 
     private init() {}
+
+    #if DEBUG
+    internal convenience init(testSuite: String) {
+        self.init()
+        self._defaults = UserDefaults(suiteName: testSuite) ?? .standard
+    }
+    #endif
 
     // MARK: - Public API
 
     /// Returns `true` if the educational card for `action` has already been shown.
     func hasSeen(_ action: AmenAction) -> Bool {
-        let seen = defaults.stringArray(forKey: key) ?? []
+        let seen = _defaults.stringArray(forKey: key) ?? []
         return seen.contains(action.rawValue)
     }
 
     /// Records that the educational card for `action` has been shown.
     /// Idempotent — calling multiple times for the same action is safe.
     func markSeen(_ action: AmenAction) {
-        var seen = defaults.stringArray(forKey: key) ?? []
+        var seen = _defaults.stringArray(forKey: key) ?? []
         guard !seen.contains(action.rawValue) else { return }
         seen.append(action.rawValue)
-        defaults.set(seen, forKey: key)
+        _defaults.set(seen, forKey: key)
     }
 
     /// Clears all seen state — called from the Settings screen to let
     /// users see educational cards again (e.g. after a device restore or
     /// when explicitly requested via "Reset Notification Tips").
     func reset() {
-        defaults.removeObject(forKey: key)
+        _defaults.removeObject(forKey: key)
     }
 }

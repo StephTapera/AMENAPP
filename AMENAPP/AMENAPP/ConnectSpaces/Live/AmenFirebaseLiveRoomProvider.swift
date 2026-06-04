@@ -238,7 +238,12 @@ private struct LocalCapturePreview: UIViewRepresentable {
 
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
-        var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+        var previewLayer: AVCaptureVideoPreviewLayer {
+            guard let pl = layer as? AVCaptureVideoPreviewLayer else {
+                fatalError("PreviewView: layer is not AVCaptureVideoPreviewLayer — layerClass override broken")
+            }
+            return pl
+        }
     }
 }
 

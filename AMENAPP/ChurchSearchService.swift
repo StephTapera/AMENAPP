@@ -46,7 +46,10 @@ final class ChurchSearchService: ObservableObject {
         isSearching = true
         defer { isSearching = false }
 
-        let queryLocation = location.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
+        guard let coord = location else {
+            throw ChurchSearchError.locationUnavailable
+        }
+        let queryLocation = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
         let radiusMiles = max(5, radius / 1609.34)
 
         let results = try await dataService.searchChurches(
@@ -60,8 +63,23 @@ final class ChurchSearchService: ObservableObject {
         }
 
         let churches = results.compactMap { result -> Church? in
-            guard let entity = result.church else { return nil }
-            return Church(entity: entity, userLocation: queryLocation)
+            let distanceMiles = result.distance ?? result.church?.distance(from: queryLocation) ?? 0.0
+            let distanceStr = distanceMiles < 1 ? "< 1 mi" : String(format: "%.1f mi", distanceMiles)
+            let lat = result.church?.coordinate.latitude ?? 0.0
+            let lon = result.church?.coordinate.longitude ?? 0.0
+            let serviceTime = result.church?.serviceTimes.first
+                .map { "\($0.serviceType ?? "Service") \($0.time)" } ?? "Sunday Service"
+            return Church(
+                name: result.name,
+                denomination: result.church?.denomination ?? "Non-Denominational",
+                address: "\(result.address), \(result.city)",
+                distance: distanceStr,
+                distanceValue: distanceMiles,
+                serviceTime: serviceTime,
+                phone: result.church?.phoneNumber ?? "",
+                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                website: result.church?.website
+            )
         }
         .sorted { $0.distanceValue < $1.distanceValue }
 

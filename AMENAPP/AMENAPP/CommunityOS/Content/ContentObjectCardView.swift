@@ -78,7 +78,7 @@ struct ContentObjectCardView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(voiceOverLabel)
         .onAppear {
-            withAnimation(AppAnimation.fade) {
+            SwiftUI.withAnimation(AppAnimation.fade) {
                 isLoaded = true
             }
         }
@@ -220,7 +220,7 @@ struct ContentObjectCardView: View {
 
     private var openPillButton: some View {
         Button(action: {
-            withAnimation(AppAnimation.stateChange) {
+            SwiftUI.withAnimation(AppAnimation.stateChange) {
                 onTap()
             }
         }) {

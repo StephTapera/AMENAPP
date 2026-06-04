@@ -16,6 +16,11 @@ final class ChurchNotesCollaborationService: ObservableObject {
     private var presenceListener: ListenerRegistration?
     private var noteId: String?
 
+    deinit {
+        collaboratorsListener?.remove()
+        presenceListener?.remove()
+    }
+
     var currentUid: String? { Auth.auth().currentUser?.uid }
 
     func start(noteId: String, currentRole: ChurchNoteCollaboratorRole = .viewer) {

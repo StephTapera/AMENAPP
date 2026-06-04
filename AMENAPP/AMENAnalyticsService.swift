@@ -175,6 +175,12 @@ enum AMENAnalyticsEvent {
     case amenDailyHolidayShown(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
     case amenDailyDigestFallbackUsed(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
 
+    // Video Explain AI
+    case videoExplainTapped(postId: String, mediaId: String, surface: String)
+    case aiGenerationStarted(feature: String, postId: String)
+    case aiGenerationCompleted(feature: String, postId: String, durationMs: Int)
+    case aiGenerationFailed(feature: String, postId: String, reason: String)
+
     var name: String {
         switch self {
         case .feedSessionStarted: return "feed_session_started"
@@ -288,6 +294,10 @@ enum AMENAnalyticsEvent {
         case .amenDailyWeatherShown: return "amen_daily_weather_shown"
         case .amenDailyHolidayShown: return "amen_daily_holiday_shown"
         case .amenDailyDigestFallbackUsed: return "amen_daily_digest_fallback_used"
+        case .videoExplainTapped: return "video_explain_tapped"
+        case .aiGenerationStarted: return "ai_generation_started"
+        case .aiGenerationCompleted: return "ai_generation_completed"
+        case .aiGenerationFailed: return "ai_generation_failed"
         }
     }
 

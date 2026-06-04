@@ -28,7 +28,7 @@ actor MeaningRecommendationEngine {
     /// Fetches the user's DNA profile, queries communityNodes matching top affinity topics,
     /// returns up to 8 communities ordered by healthScore (not memberCount).
     func recommendCommunities(for userId: String) async throws -> [CommunityNode] {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[MeaningRecommendationEngine] Flag meaningGraph is off — skipping community recommendations")
             return []
         }
@@ -66,7 +66,7 @@ actor MeaningRecommendationEngine {
     /// Fetches content objects whose themes overlap with the user's top affinities,
     /// ordered by communityScore.
     func recommendContent(for userId: String, limit: Int) async throws -> [ContentObject] {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[MeaningRecommendationEngine] Flag meaningGraph is off — skipping content recommendations")
             return []
         }
@@ -98,7 +98,7 @@ actor MeaningRecommendationEngine {
     /// Used for mentor / community matching — NOT as a follow suggestion.
     /// Limit: 10 results.
     func findPeopleWithSharedMeaning(userId: String) async throws -> [String] {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[MeaningRecommendationEngine] Flag meaningGraph is off — skipping people matching")
             return []
         }
@@ -140,7 +140,7 @@ actor MeaningRecommendationEngine {
     /// Returns churchIds whose content themes match the user's DNA profile.
     /// Location filter is stubbed — Firestore geoqueries require a separate implementation.
     func recommendChurches(for userId: String, location: String?) async throws -> [String] {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[MeaningRecommendationEngine] Flag meaningGraph is off — skipping church recommendations")
             return []
         }
@@ -172,7 +172,7 @@ actor MeaningRecommendationEngine {
     /// Queries communities ordered by recent activity (lastActiveAt desc),
     /// filters to health >= .growing, does NOT order by member count.
     func findGrowingCommunities(limit: Int) async throws -> [CommunityNode] {
-        guard CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.meaningGraph) else {
             dlog("[MeaningRecommendationEngine] Flag meaningGraph is off — skipping growing communities query")
             return []
         }

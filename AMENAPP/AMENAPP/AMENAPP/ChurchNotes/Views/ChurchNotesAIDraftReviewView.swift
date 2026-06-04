@@ -19,6 +19,7 @@ struct ChurchNotesAIDraftReviewView: View {
     @State private var isEditing = false
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var availableFields: [(ChurchNoteDraftField, String)] {
         job.availableDraftFields
@@ -157,22 +158,42 @@ struct ChurchNotesAIDraftReviewView: View {
             HStack(spacing: 12) {
                 approveButton(field: field, text: isEditing ? editedText : text)
 
-                Button {
-                    if isEditing {
-                        isEditing  = false
-                        editedText = ""
-                    } else {
-                        editedText = text
-                        isEditing  = true
+                if reduceTransparency {
+                    Button {
+                        if isEditing {
+                            isEditing  = false
+                            editedText = ""
+                        } else {
+                            editedText = text
+                            isEditing  = true
+                        }
+                    } label: {
+                        Label(isEditing ? "Cancel Edit" : "Edit First", systemImage: isEditing ? "xmark" : "pencil")
+                            .font(.subheadline)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 10))
                     }
-                } label: {
-                    Label(isEditing ? "Cancel Edit" : "Edit First", systemImage: isEditing ? "xmark" : "pencil")
-                        .font(.subheadline)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityLabel(isEditing ? "Cancel editing" : "Edit draft before approving")
+                } else {
+                    Button {
+                        if isEditing {
+                            isEditing  = false
+                            editedText = ""
+                        } else {
+                            editedText = text
+                            isEditing  = true
+                        }
+                    } label: {
+                        Label(isEditing ? "Cancel Edit" : "Edit First", systemImage: isEditing ? "xmark" : "pencil")
+                            .font(.subheadline)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                    }
+                    .accessibilityLabel(isEditing ? "Cancel editing" : "Edit draft before approving")
+                    .glassEffect(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .animation(reduceMotion ? nil : .snappy, value: isEditing)
                 }
-                .accessibilityLabel(isEditing ? "Cancel editing" : "Edit draft before approving")
 
                 Spacer()
 
@@ -219,8 +240,9 @@ struct ChurchNotesAIDraftReviewView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(width: 36, height: 36)
-                    .background(Color(.secondarySystemFill), in: Circle())
             }
+            .background { if reduceTransparency { Circle().fill(Color(.systemBackground)) } }
+            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Circle())
             .accessibilityLabel("Reject this draft")
             .accessibilityHint("Rejects the draft without adding it to notes")
         }
@@ -291,17 +313,21 @@ struct ChurchNotesAIDraftReviewView: View {
                     ProgressView().scaleEffect(0.7)
                     Text(label)
                 }
+                .font(.callout)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             } else {
                 Label(label, systemImage: symbol)
+                    .font(.callout)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
             }
         }
-        .font(.callout)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 10))
         .disabled(isGenerating)
         .accessibilityLabel("Generate \(label)")
         .accessibilityHint("Generates AI-assisted \(label) draft from the transcript")
+        .glassEffect(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .animation(reduceMotion ? nil : .amenSpringStandard, value: isGenerating)
     }
 
     // MARK: - Empty state

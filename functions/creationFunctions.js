@@ -1,3 +1,4 @@
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
 // creationFunctions.js
 // AMEN Creator — AI Scene Builder + Living Templates
 // Cloud Functions for creation system

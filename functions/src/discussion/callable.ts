@@ -133,7 +133,6 @@ const NUMBERED_BOOK_MAP: Record<string, string> = {
   "1 john": "1JN",
   "2 john": "2JN",
   "3 john": "3JN",
-  "1 samuel": "1SA",
 };
 
 /**
@@ -187,7 +186,7 @@ export function detectVerseKeys(body: string): string[] {
 // ── askBerean ─────────────────────────────────────────────────────────────────
 
 export const askBerean = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -320,7 +319,7 @@ Return JSON with exactly these fields:
 // ── detectDuplicate ───────────────────────────────────────────────────────────
 
 export const detectDuplicate = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -392,7 +391,7 @@ export const detectDuplicate = functions.onCall(
 // ── computeReputation ─────────────────────────────────────────────────────────
 
 export const computeReputation = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -453,7 +452,7 @@ export const computeReputation = functions.onCall(
 // ── postComment ───────────────────────────────────────────────────────────────
 
 export const postComment = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -592,7 +591,7 @@ export const postComment = functions.onCall(
 // ── markHelpful ───────────────────────────────────────────────────────────────
 
 export const markHelpful = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -660,7 +659,7 @@ export const markHelpful = functions.onCall(
 // ── updateWatchProgress ───────────────────────────────────────────────────────
 
 export const updateWatchProgress = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -710,7 +709,7 @@ export const updateWatchProgress = functions.onCall(
 // ── getWatchProgress ──────────────────────────────────────────────────────────
 
 export const getWatchProgress = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");

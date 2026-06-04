@@ -18,6 +18,7 @@ enum ModerationContentType: String, Codable {
     case post
     case comment
     case dm         // direct message
+    case message    // general in-app message (chat/thread)
     case profile    // bio / display name / profile photo
     case prayer
     case churchNote = "church_note"

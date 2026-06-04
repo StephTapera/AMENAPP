@@ -1,8 +1,9 @@
+// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
 // authHelpersV1.js — v1 Cloud Functions (avoids Cloud Run quota)
 // Extracts banUserPhone and updateBirthYear from authenticationHelpers.js
 // as v1 callables so they can be deployed without consuming Cloud Run slots.
 
-const functions = require("firebase-functions");
+const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 

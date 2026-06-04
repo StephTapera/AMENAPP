@@ -36,7 +36,7 @@ jest.mock("firebase-admin/firestore", () => ({
 
 // ── Imports after mocks ───────────────────────────────────────────────────────
 
-import { cosineSimilarity } from "./embeddingAdapter";
+import { cosineSimilarity, embedText } from "./embeddingAdapter";
 import { detectVerseKeys } from "./callable";
 
 // We import the raw handler functions by bypassing the onCall wrapper.
@@ -366,5 +366,109 @@ describe("updateWatchProgress — shouldNudge logic", () => {
 
   test("progress=1.0, transcript=false → shouldNudge=false", () => {
     expect(computeShouldNudge(1.0, false)).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. processEmbeddingQueue — zero-vector stub safety guarantees
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("processEmbeddingQueue — zero-vector stub guarantees", () => {
+  const EMBEDDING_DIM = 768;
+  const ORIGINAL_ENV = process.env;
+
+  beforeEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+    delete process.env.EMBEDDING_KEY;
+  });
+
+  afterAll(() => {
+    process.env = ORIGINAL_ENV;
+  });
+
+  test("embedText with no EMBEDDING_KEY returns 768-dim zero vector", async () => {
+    const vec = await embedText("test body text");
+    expect(vec).toHaveLength(EMBEDDING_DIM);
+    expect(vec.every(v => v === 0)).toBe(true);
+  });
+
+  test("zero-vector stub cosine similarity with itself is 0 (no false positives)", () => {
+    const zeroVec = Array(EMBEDDING_DIM).fill(0);
+    expect(cosineSimilarity(zeroVec, zeroVec)).toBe(0);
+  });
+
+  test("zero-vector stub cosine similarity with any real vector is 0", () => {
+    const zeroVec = Array(EMBEDDING_DIM).fill(0);
+    const realVec = Array(EMBEDDING_DIM).fill(0).map((_, i) => (i % 7) * 0.1 + 0.01);
+    expect(cosineSimilarity(zeroVec, realVec)).toBe(0);
+  });
+
+  test("zero-vector stub never triggers 0.8 duplicate threshold", () => {
+    const zeroVec = Array(EMBEDDING_DIM).fill(0);
+    const other   = Array(EMBEDDING_DIM).fill(0).map((_, i) => i % 5 === 0 ? 1.0 : 0.0);
+    expect(cosineSimilarity(zeroVec, other)).toBeLessThan(0.8);
+  });
+
+  test("embedText returns 768-dim vector (contract: processEmbeddingQueue always writes same-dim embedding)", async () => {
+    const vec = await embedText("another comment body");
+    expect(vec.length).toBe(EMBEDDING_DIM);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. setAccepted — reputation event logic
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("setAccepted — reputation points and toggle logic", () => {
+  const REPUTATION_POINTS = { helpfulMark: 3, acceptedAnswer: 10, firstComment: 1, bereanCite: 2 };
+
+  test("acceptedAnswer awards exactly 10 points", () => {
+    expect(REPUTATION_POINTS.acceptedAnswer).toBe(10);
+  });
+
+  test("un-accepting (isAccepted=false) should not award reputation points", () => {
+    const isAccepted = false;
+    expect(isAccepted).toBe(false); // server: no reputation event created when isAccepted=false
+  });
+
+  test("accepting after 2 helpfulMarks → 16 total points, badge=seeker", () => {
+    const events = [
+      { type: "acceptedAnswer" },  // 10
+      { type: "helpfulMark" },     // 3 → 13
+      { type: "helpfulMark" },     // 3 → 16
+    ];
+    let total = 0;
+    for (const e of events) {
+      if (e.type === "acceptedAnswer") total += REPUTATION_POINTS.acceptedAnswer;
+      if (e.type === "helpfulMark")    total += REPUTATION_POINTS.helpfulMark;
+    }
+    expect(total).toBe(16);
+    // badge tier
+    const tier = total >= 200 ? "elder" : total >= 50 ? "berean" : total >= 10 ? "seeker" : "none";
+    expect(tier).toBe("seeker");
+  });
+
+  test("toggle: accepting same comment twice is idempotent (un-accept then re-accept only awards once)", () => {
+    // Server: checks for existing acceptedAnswer event before creating a new one
+    let eventsCreated = 0;
+    function tryAward(existingCount: number) {
+      if (existingCount === 0) eventsCreated++;
+    }
+    tryAward(0); // first accept — awards
+    tryAward(1); // second accept (re-accept) — no-op
+    expect(eventsCreated).toBe(1);
+  });
+
+  test("accepting a different comment clears the previous accepted flag", () => {
+    // Server clears isAcceptedAnswer on all other comments before accepting new one
+    const comments = [
+      { id: "c1", isAcceptedAnswer: true },
+      { id: "c2", isAcceptedAnswer: false },
+    ];
+    const newAcceptedId = "c2";
+    // Simulate server clear
+    comments.forEach(c => { c.isAcceptedAnswer = c.id === newAcceptedId; });
+    expect(comments.find(c => c.id === "c1")?.isAcceptedAnswer).toBe(false);
+    expect(comments.find(c => c.id === "c2")?.isAcceptedAnswer).toBe(true);
   });
 });

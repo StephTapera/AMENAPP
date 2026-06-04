@@ -193,7 +193,7 @@ struct AmenCovenantModerationView: View {
                 } else {
                     Text("\(platformQueueVM.items.count) pending")
                         .font(.caption)
-                        .foregroundStyle(platformQueueVM.items.isEmpty ? .secondary : .orange)
+                        .foregroundStyle(platformQueueVM.items.isEmpty ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.orange))
                 }
             }
 

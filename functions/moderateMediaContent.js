@@ -35,6 +35,8 @@
  *   post_context_match bool
  *   post_context_notes string
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+
 
 "use strict";
 

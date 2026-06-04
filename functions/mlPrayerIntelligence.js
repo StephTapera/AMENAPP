@@ -9,7 +9,7 @@
 const admin = require("firebase-admin");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const {
   hfInference, pineconeUpsert, pineconeQuery,
   logFunction, checkRateLimit, cosineSimilarity, sleep,
@@ -372,12 +372,14 @@ const detectSpiritualGift = onSchedule(
 const computeScriptureSentimentMatch = onCall(
   { region: "us-central1" },
   async (request) => {
-    const { text, userId } = request.data;
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.");
+    const uid = request.auth.uid;
+    const { text } = request.data;
     if (!text || text.length < 10) {
       return { scriptures: [] };
     }
 
-    const allowed = await checkRateLimit(userId || "anon", "scriptureSentiment", 10);
+    const allowed = await checkRateLimit(uid, "scriptureSentiment", 10);
     if (!allowed) throw new Error("Rate limited");
 
     const startMs = Date.now();

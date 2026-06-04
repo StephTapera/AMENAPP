@@ -54,14 +54,10 @@ struct BereanComposerActionPillRow: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(reduceTransparency
-                          ? AnyShapeStyle(Color(.secondarySystemBackground))
-                          : AnyShapeStyle(.regularMaterial))
-                    .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
-            )
-            .overlay(Capsule().stroke(Color.black.opacity(0.07), lineWidth: 0.5))
+            // Shadow before glass so it renders under the specular rim.
+            .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
+            .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(pill.rawValue)
@@ -74,6 +70,7 @@ struct BereanComposerActionPillRow: View {
 struct BereanThinkingStateBanner: View {
     let step: BereanThinkingStep
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         HStack(spacing: 8) {
@@ -91,8 +88,18 @@ struct BereanThinkingStateBanner: View {
                 .animation(.easeInOut(duration: 0.3), value: step)
             Spacer()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        // Solid fallback when user has opted out of transparency
+        .background {
+            if reduceTransparency {
+                Capsule(style: .continuous)
+                    .fill(Color(.systemBackground))
+            }
+        }
+        // Shadow before glass so it renders under the specular rim.
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
         .accessibilityLabel(step.rawValue)
     }
 }

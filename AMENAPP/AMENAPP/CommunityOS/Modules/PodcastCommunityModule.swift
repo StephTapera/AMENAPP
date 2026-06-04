@@ -201,7 +201,7 @@ struct PodcastCommunityHubView: View {
                     EmptyStateView(
                         icon: "note.text",
                         title: "No notes yet",
-                        message: "Be the first to capture a note from this episode."
+                        subtitle: "Be the first to capture a note from this episode."
                     )
                     .padding(.top, 40)
                 } else {
@@ -224,7 +224,7 @@ struct PodcastCommunityHubView: View {
                     EmptyStateView(
                         icon: "questionmark.bubble.fill",
                         title: "No questions yet",
-                        message: "Discussion questions will appear here once generated."
+                        subtitle: "Discussion questions will appear here once generated."
                     )
                     .padding(.top, 40)
                 } else {
@@ -250,7 +250,7 @@ struct PodcastCommunityHubView: View {
             EmptyStateView(
                 icon: "hands.sparkles.fill",
                 title: "Prayer is growing",
-                message: "Community prayers for this episode will appear here."
+                subtitle: "Community prayers for this episode will appear here."
             )
             .padding(.top, 40)
             .padding(.horizontal, 16)
@@ -281,7 +281,7 @@ struct PodcastCommunityHubView: View {
                     EmptyStateView(
                         icon: "text.book.closed.fill",
                         title: "Study material coming",
-                        message: "Key takeaways and study notes will appear here."
+                        subtitle: "Key takeaways and study notes will appear here."
                     )
                     .padding(.top, 40)
                 }
@@ -401,27 +401,3 @@ private struct DiscussionQuestionCardView: View {
     }
 }
 
-// MARK: - EmptyStateView (module-local)
-
-struct EmptyStateView: View {
-    let icon: String
-    let title: String
-    let message: String
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.largeTitle)
-                .foregroundStyle(Color(.secondaryLabel))
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(Color(.label))
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(Color(.secondaryLabel))
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(24)
-    }
-}

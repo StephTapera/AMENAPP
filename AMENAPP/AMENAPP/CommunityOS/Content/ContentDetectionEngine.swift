@@ -93,7 +93,7 @@ actor ContentDetectionEngine {
 
     /// Full async detection path: classifies the URL, fetches metadata, and returns a ContentObject.
     func detect(from rawURL: String) async -> ContentObject {
-        guard CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.contentDetectionEngine) else {
             dlog("[ContentDetectionEngine] flag is OFF — returning minimal article object")
             return makeMinimalObject(rawURL: rawURL, kind: .article, source: .unknown)
         }

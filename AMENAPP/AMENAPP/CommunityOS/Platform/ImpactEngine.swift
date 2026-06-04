@@ -150,7 +150,7 @@ actor ImpactEngine {
 
     /// Queries opportunities by matching affinityTopics array-contains-any.
     func fetchOpportunities(for communityNode: CommunityNode, limit: Int) async throws -> [RealWorldOpportunity] {
-        guard CommunityOSFlagService.shared.isEnabled(.realWorldImpactEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.realWorldImpactEngine) else {
             dlog("[ImpactEngine] Flag realWorldImpactEngine is off — skipping fetch for node")
             return []
         }
@@ -187,7 +187,7 @@ actor ImpactEngine {
 
     /// Fetches opportunities that match the user's DNA affinity topics.
     func fetchOpportunities(for userId: String) async throws -> [RealWorldOpportunity] {
-        guard CommunityOSFlagService.shared.isEnabled(.realWorldImpactEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.realWorldImpactEngine) else {
             dlog("[ImpactEngine] Flag realWorldImpactEngine is off — skipping fetch for user")
             return []
         }
@@ -228,7 +228,7 @@ actor ImpactEngine {
 
     /// Writes a new RealWorldOpportunity to Firestore.
     func createOpportunity(_ opportunity: RealWorldOpportunity) async throws {
-        guard CommunityOSFlagService.shared.isEnabled(.realWorldImpactEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.realWorldImpactEngine) else {
             dlog("[ImpactEngine] Flag realWorldImpactEngine is off — skipping create")
             return
         }
@@ -245,7 +245,7 @@ actor ImpactEngine {
     /// If community memberCount > CommunityEmergenceThresholds.minMembersForEventSuggestion,
     /// returns or creates meetup suggestions for the community.
     func suggestMeetups(for communityNode: CommunityNode) async throws -> [RealWorldOpportunity] {
-        guard CommunityOSFlagService.shared.isEnabled(.realWorldImpactEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.realWorldImpactEngine) else {
             dlog("[ImpactEngine] Flag realWorldImpactEngine is off — skipping meetup suggestions")
             return []
         }

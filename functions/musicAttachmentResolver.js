@@ -1,3 +1,4 @@
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 

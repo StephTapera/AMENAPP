@@ -67,12 +67,22 @@ final class ContentHeroViewModel: ObservableObject {
 
         dlog("[ContentHeroViewModel] joinCommunity() requested for node: \(communityNode?.id ?? "nil")")
 
-        // Optimistic UI update.
-        hasJoinedCommunity = true
-
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.prepare()
-        generator.impactOccurred()
+        let sanctuaryName = communityNode?.name ?? "Community"
+        AmenNotifications.fire(NotifContext(
+            action: .join,
+            actorName: sanctuaryName,
+            toneColors: (Color(hex: "#1B4332"), Color(hex: "#40916C")),
+            undoWindow: 4.2,
+            apply: {
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.prepare()
+                generator.impactOccurred()
+                self.hasJoinedCommunity = true
+            },
+            reverse: {
+                self.hasJoinedCommunity = false
+            }
+        ))
 
         // TODO: wire to Cloud Function when community membership CF is deployed.
         dlog("[ContentHeroViewModel] joinCommunity() — membership recorded (pending CF deploy).")

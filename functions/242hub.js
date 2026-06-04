@@ -8,6 +8,8 @@
  * 4. reviewCovenantApp      — Values Verified covenant assessment (callable)
  * 5. matchKingdomCommerce   — Kingdom Commerce matching + listing review (callable)
  */
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");

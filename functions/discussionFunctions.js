@@ -449,7 +449,7 @@ const getWatchProgress = functions.region("us-central1").https.onCall(async (dat
 
 const processEmbeddingQueue = functions.region("us-central1").runWith({ secrets: ["EMBEDDING_KEY"] }).firestore
   .document("embeddingQueue/{docId}")
-  .onCreate(async (snap, _context) => {
+  .onCreate(async (snap) => {
     const { commentId, threadId, body } = snap.data();
     if (!commentId || !threadId || !body) {
       logger.warn("processEmbeddingQueue: missing required fields", { commentId, threadId });
@@ -458,50 +458,74 @@ const processEmbeddingQueue = functions.region("us-central1").runWith({ secrets:
     }
 
     const db = getFirestore();
-    let embedding = null;
+    // Reuses embedText: Gemini text-embedding-004 (768-dim).
+    // Returns a 768-dim zero vector when EMBEDDING_KEY is absent — safe for dup detection (cosine → 0).
+    const embedding = await embedText(body);
 
-    const embeddingKey = process.env.EMBEDDING_KEY;
-    if (embeddingKey) {
-      try {
-        // text-embedding-3-small via OpenAI-compatible endpoint
-        const https = require("https");
-        const payload = JSON.stringify({ input: body.slice(0, 8192), model: "text-embedding-3-small" });
-        embedding = await new Promise((resolve, reject) => {
-          const req = https.request(
-            { hostname: "api.openai.com", path: "/v1/embeddings", method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${embeddingKey}`,
-                         "Content-Length": Buffer.byteLength(payload) } },
-            (res) => {
-              let raw = "";
-              res.on("data", c => raw += c);
-              res.on("end", () => {
-                try { resolve(JSON.parse(raw).data?.[0]?.embedding ?? null); }
-                catch (e) { reject(e); }
-              });
-            }
-          );
-          req.on("error", reject);
-          req.write(payload);
-          req.end();
-        });
-      } catch (err) {
-        logger.error("processEmbeddingQueue: embedding API failed", err.message);
-        // Leave embedding null — comment is still posted, just won't participate in dup detection
-      }
-    } else {
-      // Stub: 1536-element zero vector (matches text-embedding-3-small dimension)
-      embedding = new Array(1536).fill(0);
-      logger.info("processEmbeddingQueue: EMBEDDING_KEY absent — using zero-vector stub");
-    }
-
-    if (embedding) {
-      await db.collection("threads").doc(threadId).collection("comments").doc(commentId)
-        .update({ embedding });
-    }
-
+    await db.collection("threads").doc(threadId).collection("comments").doc(commentId)
+      .update({ embedding });
     await snap.ref.delete();
     logger.info(`processEmbeddingQueue: processed ${commentId}`);
   });
+
+// setAccepted — thread owner accepts a comment as the answer
+const setAccepted = functions.region("us-central1").https.onCall(async (data, context) => {
+  const db = getFirestore();
+  const userId = context.auth?.uid;
+  if (!userId) throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
+
+  const commentId  = String(data?.commentId  ?? "").trim();
+  const threadId   = String(data?.threadId   ?? "").trim();
+  const isAccepted = data?.isAccepted === true;
+
+  if (!commentId) throw new functions.https.HttpsError("invalid-argument", "commentId is required.");
+  if (!threadId)  throw new functions.https.HttpsError("invalid-argument", "threadId is required.");
+
+  const threadSnap = await db.collection("threads").doc(threadId).get();
+  if (!threadSnap.exists) throw new functions.https.HttpsError("not-found", "Thread not found.");
+  if (threadSnap.data()?.postAuthorUID !== userId) {
+    throw new functions.https.HttpsError("permission-denied", "Only the post author can accept an answer.");
+  }
+
+  const commentRef  = db.collection("threads").doc(threadId).collection("comments").doc(commentId);
+  const commentSnap = await commentRef.get();
+  if (!commentSnap.exists || commentSnap.data()?.isDeleted) {
+    throw new functions.https.HttpsError("not-found", "Comment not found.");
+  }
+
+  const batch = db.batch();
+  const now = FieldValue.serverTimestamp();
+
+  if (isAccepted) {
+    // Clear any existing accepted answer first
+    const prevSnap = await db.collection("threads").doc(threadId).collection("comments")
+      .where("isAcceptedAnswer", "==", true).limit(5).get();
+    prevSnap.forEach(doc => {
+      if (doc.id !== commentId) batch.update(doc.ref, { isAcceptedAnswer: false });
+    });
+  }
+
+  batch.update(commentRef, { isAcceptedAnswer: isAccepted });
+
+  let eventId = null;
+  if (isAccepted) {
+    const existing = await db.collection("reputationEvents")
+      .where("type", "==", "acceptedAnswer").where("commentId", "==", commentId).limit(1).get();
+    if (existing.empty) {
+      const evRef = db.collection("reputationEvents").doc();
+      eventId = evRef.id;
+      batch.set(evRef, {
+        id: eventId, type: "acceptedAnswer",
+        fromUID: userId, toUID: commentSnap.data()?.authorUID,
+        commentId, threadId, points: REPUTATION_POINTS.acceptedAnswer, createdAt: now,
+      });
+    }
+  }
+
+  await batch.commit();
+  logger.info(`setAccepted: comment=${commentId} isAccepted=${isAccepted}`);
+  return { eventId, isNew: !!eventId };
+});
 
 // ── Exports ───────────────────────────────────────────────────────────────────
 
@@ -512,6 +536,7 @@ module.exports = {
   computeReputation,
   postComment,
   markHelpful,
+  setAccepted,
   updateWatchProgress,
   getWatchProgress,
   processEmbeddingQueue,

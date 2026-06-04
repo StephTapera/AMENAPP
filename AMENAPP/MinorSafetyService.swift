@@ -230,23 +230,29 @@ final class MinorSafetyService {
             )
         }
 
-        // Cross-age protection: adult → minor
+        // Cross-age protection: minor → adult
         let senderIsAdult = !sender.isMinorOrUnknown
         let recipientIsMinor = recipient.isMinorOrUnknown
 
-        if senderIsAdult && recipientIsMinor {
-            // Even mutual follows don't unlock adult → minor DMs by default
-            // Only parentalConsent + mutual follow can unlock this
-            if recipient.ageVerificationStatus == .parentalConsent && hasMutualFollow {
+        // H-06: Minors cannot initiate DMs with adults they don't mutually follow.
+        // This prevents strangers masquerading as adults from waiting for minors to contact them.
+        if sender.isMinorOrUnknown && !recipientIsMinor {
+            if !hasMutualFollow {
                 return MinorSafetyPolicy(
-                    canSendDM: true,
+                    canSendDM: false,
                     canSendMedia: false,
                     canSendLinks: false,
                     canShareContactInfo: false,
                     riskThresholdMultiplier: 0.35,
-                    blockReason: nil
+                    blockReason: "Minors cannot send direct messages to adults they don't mutually follow."
                 )
             }
+        }
+
+        // Cross-age protection: adult → minor
+        if senderIsAdult && recipientIsMinor {
+            // SAFETY: Parental consent DM bypass removed. Any future adult→minor DM feature
+            // must be built from scratch with verified parent enrollment, not a flag check.
             return .adultToMinor
         }
 

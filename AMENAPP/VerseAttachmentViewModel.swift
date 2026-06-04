@@ -371,7 +371,11 @@ final class VerseAttachmentViewModel: ObservableObject {
         if trimmed.count >= 8 {
             let result = intentDetector.detect(in: trimmed)
             if result.confidence >= 0.6 {
-                topSuggestion = result.verse
+                let chip = result.verse
+                let parsed = ScriptureReferenceParser.parse(chip.reference)
+                let bookId = BibleBook.all.first(where: { $0.displayName == parsed.book })?.id ?? parsed.book.lowercased()
+                let ref = ScriptureReference(bookId: bookId, chapter: parsed.chapter, startVerse: parsed.verseStart, endVerse: parsed.verseEnd)
+                topSuggestion = BibleVerse(reference: ref, number: parsed.verseStart, text: chip.text, translation: chip.translation)
             } else {
                 topSuggestion = nil
             }

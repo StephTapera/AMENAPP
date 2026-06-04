@@ -17,6 +17,7 @@
 //   - Offline fallback when holiday_calendar is missing
 //
 
+#if canImport(Testing)
 import Testing
 import Foundation
 @testable import AMENAPP
@@ -665,3 +666,4 @@ struct OfflineFallbackTests {
         #expect(response.personalCelebration == nil)
     }
 }
+#endif

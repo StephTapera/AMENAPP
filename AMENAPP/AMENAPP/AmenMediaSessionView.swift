@@ -78,51 +78,19 @@ extension AmenMediaSession {
 }
 
 extension AmenMediaSession.SessionType {
-    var displayName: String {
-        switch self {
-        case .morningInspiration: return "Morning Inspiration"
-        case .friendsAndFamily: return "Friends & Family"
-        case .creativeDiscovery: return "Creative Discovery"
-        case .worshipAndMusic: return "Worship & Music"
-        case .learningSession: return "Learning Session"
-        case .sermonHighlights: return "Sermon Highlights"
-        case .selahReflection: return "Selah Reflection"
-        case .testimonies: return "Testimonies"
-        case .churchMoments: return "Church Moments"
-        case .encouragement: return "Encouragement"
-        case .custom: return "Custom Session"
-        }
-    }
-
     var systemIcon: String {
         switch self {
         case .morningInspiration: return "sunrise.fill"
-        case .friendsAndFamily: return "person.2.fill"
-        case .creativeDiscovery: return "sparkles"
-        case .worshipAndMusic: return "music.note"
-        case .learningSession: return "book.fill"
-        case .sermonHighlights: return "mic.fill"
-        case .selahReflection: return "moon.stars.fill"
-        case .testimonies: return "person.fill.checkmark"
-        case .churchMoments: return "building.columns.fill"
-        case .encouragement: return "heart.fill"
-        case .custom: return "slider.horizontal.3"
-        }
-    }
-
-    var defaultMaxItems: Int {
-        switch self {
-        case .morningInspiration: return 5
-        case .friendsAndFamily: return 8
-        case .creativeDiscovery: return 6
-        case .worshipAndMusic: return 7
-        case .learningSession: return 4
-        case .sermonHighlights: return 3
-        case .selahReflection: return 4
-        case .testimonies: return 5
-        case .churchMoments: return 6
-        case .encouragement: return 5
-        case .custom: return 10
+        case .friendsAndFamily:   return "person.2.fill"
+        case .creativeDiscovery:  return "sparkles"
+        case .worshipAndMusic:    return "music.note"
+        case .learningSession:    return "book.fill"
+        case .sermonHighlights:   return "mic.fill"
+        case .selahReflection:    return "moon.stars.fill"
+        case .testimonies:        return "person.fill.checkmark"
+        case .churchMoments:      return "building.columns.fill"
+        case .encouragement:      return "heart.fill"
+        case .custom:             return "slider.horizontal.3"
         }
     }
 }
@@ -217,7 +185,7 @@ final class AmenMediaSessionViewModel: ObservableObject {
 
     func triggerCheckpoint(_ reason: MediaSessionCheckpointReason) {
         guard checkpointsEnabled else { advance(); return }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+        withAnimation(.amenSpringStandard) {
             checkpoint = MediaSessionCheckpoint.checkpoint(for: reason)
         }
         AMENAnalyticsService.shared.track(.feedPacingPromptShown)
@@ -228,7 +196,7 @@ final class AmenMediaSessionViewModel: ObservableObject {
     func onSessionEnd() {
         guard completionReflectionEnabled else { return }
         session.status = .completed
-        withAnimation(.easeOut(duration: 0.3)) {
+        withAnimation(.amenEaseQuick) {
             showCompletionView = true
         }
         AMENAnalyticsService.shared.track(.feedSessionEnded(durationMinutes: Date().timeIntervalSince(startedAt) / 60, qualityScore: 0.8))
@@ -271,6 +239,7 @@ private extension Array {
 struct AmenMediaSessionView: View {
     @StateObject private var vm: AmenMediaSessionViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.dismiss) private var dismiss
     @State private var showReflectionSheet = false
 
@@ -308,8 +277,8 @@ struct AmenMediaSessionView: View {
             }
         }
         .ignoresSafeArea(edges: .top)
-        .animation(.easeOut(duration: 0.25), value: vm.checkpoint != nil)
-        .animation(.easeOut(duration: 0.25), value: vm.showCompletionView)
+        .animation(reduceMotion ? nil : .amenEaseQuick, value: vm.checkpoint != nil)
+        .animation(reduceMotion ? nil : .amenEaseQuick, value: vm.showCompletionView)
         .sheet(isPresented: $showReflectionSheet) {
             AmenMediaReflectionSheet(
                 mediaId: vm.currentMediaId,
@@ -328,18 +297,23 @@ struct AmenMediaSessionView: View {
     // MARK: Session Player
 
     private var sessionPlayerBody: some View {
-        VStack(spacing: 0) {
-            // Session progress header
-            sessionHeader
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                // Session progress header
+                sessionHeader
 
-            // Media area
-            mediaArea
-                .frame(maxHeight: .infinity)
+                // Media area — flat and opaque, no glass here
+                mediaArea
+                    .frame(maxHeight: .infinity)
 
-            // Control dock
+                // Bottom spacer so media content does not hide under the floating dock
+                Color.clear.frame(height: 104)
+            }
+            .background(Color(.systemBackground))
+
+            // Floating glass control dock — chrome only, floats above media
             sessionControlDock
         }
-        .background(Color(.systemBackground))
     }
 
     // MARK: Session Header
@@ -351,7 +325,10 @@ struct AmenMediaSessionView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
-                    .background(.regularMaterial, in: Circle())
+                    .background {
+                        if reduceTransparency { Circle().fill(Color(.systemBackground)) }
+                    }
+                    .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Circle())
             }
             .accessibilityLabel("Close session")
 
@@ -384,13 +361,19 @@ struct AmenMediaSessionView: View {
     private var mediaArea: some View {
         ZStack {
             if let postId = vm.currentMediaId {
-                AmenMediaDetailLoaderView(
-                    postID: postId,
-                    initialMediaIndex: 0,
-                    sourceContext: .saved,
-                    onClose: nil
-                )
-                .id(postId)
+                Color(.secondarySystemBackground)
+                    .overlay(
+                        VStack(spacing: 8) {
+                            Image(systemName: "play.rectangle.fill")
+                                .font(.system(size: 40, weight: .light))
+                                .foregroundStyle(.secondary)
+                            Text(postId)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
+                    )
+                    .id(postId)
             } else {
                 Color(.systemBackground)
             }
@@ -413,51 +396,101 @@ struct AmenMediaSessionView: View {
             }
     }
 
-    // MARK: Control Dock
+    // MARK: Control Dock (Floating Glass — iOS 26)
+    //
+    // Glass is applied to the chrome (buttons + capsule pill) only.
+    // The media content area behind this dock remains flat and opaque.
+    // reduceTransparency → solid fill fallback via GlassEffectContainer's
+    // built-in system behaviour; no manual branching needed.
 
     private var sessionControlDock: some View {
-        HStack(spacing: 0) {
-            // Previous
-            sessionAction(icon: "chevron.up", label: "Previous") { vm.previous() }
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+
+                // Previous
+                Button {
+                    vm.previous()
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 18, weight: .regular))
+                        Text("Prev")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(width: 48, height: 52)
+                }
+                .glassEffect()
+                .accessibilityLabel("Previous item")
                 .disabled(vm.session.currentIndex == 0)
 
-            Spacer()
-
-            // Reflect
-            sessionAction(icon: "moon.stars.fill", label: "Reflect") {
-                vm.reflectFromCheckpoint()
-                if AMENFeatureFlags.shared.mediaReflectionSheetEnabled {
-                    showReflectionSheet = true
-                } else {
-                    onReflect?()
+                // Reflect
+                Button {
+                    vm.reflectFromCheckpoint()
+                    if AMENFeatureFlags.shared.mediaReflectionSheetEnabled {
+                        showReflectionSheet = true
+                    } else {
+                        onReflect?()
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "moon.stars.fill")
+                            .font(.system(size: 18, weight: .regular))
+                        Text("Reflect")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(width: 52, height: 52)
                 }
+                .glassEffect()
+                .accessibilityLabel("Reflect on this item")
+
+                // Save
+                Button {
+                    AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "save"))
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "bookmark.fill")
+                            .font(.system(size: 18, weight: .regular))
+                        Text("Save")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(width: 48, height: 52)
+                }
+                .glassEffect()
+                .accessibilityLabel("Save this item")
+
+                // End session
+                Button {
+                    vm.onSessionEnd()
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "xmark.circle")
+                            .font(.system(size: 18, weight: .regular))
+                        Text("End")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 52)
+                }
+                .glassEffect()
+                .accessibilityLabel("End session")
+
+                // Next — intentional continuation pill
+                nextButton
             }
-
-            Spacer()
-
-            // Save
-            sessionAction(icon: "bookmark.fill", label: "Save") {
-                AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "save"))
-            }
-
-            Spacer()
-
-            // End session
-            sessionAction(icon: "xmark.circle", label: "End session") {
-                vm.onSessionEnd()
-            }
-
-            Spacer()
-
-            // Next (intentional continuation)
-            nextButton
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 16)
-        .background(.regularMaterial)
-        .overlay(alignment: .top) {
-            Divider()
-        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 32)
+        .shadow(
+            color: .black.opacity(reduceTransparency ? 0 : 0.14),
+            radius: 24,
+            x: 0,
+            y: 10
+        )
+        // Show/hide uses .amenSpring per kit convention
+        .animation(.amenSpringStandard, value: vm.session.currentIndex)
     }
 
     private var nextButton: some View {
@@ -472,13 +505,15 @@ struct AmenMediaSessionView: View {
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 18)
-            .padding(.vertical, 10)
+            .padding(.vertical, 13)
             .background(Color.black, in: Capsule())
         }
         .accessibilityLabel("Continue to next item")
         .disabled(vm.session.isComplete)
+        // Next button is its own tappable region — no extra glassEffect layer on top of Capsule
     }
 
+    // sessionAction helper kept for any future call sites; no longer used by the dock itself.
     private func sessionAction(icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 4) {
@@ -685,7 +720,7 @@ struct SessionProgressCapsule: View {
             Capsule()
                 .fill(Color.black)
                 .frame(width: max(6, 80 * fraction), height: 6)
-                .animation(.spring(response: 0.4, dampingFraction: 0.82), value: current)
+                .animation(.amenSpringStandard, value: current)
         }
         .accessibilityLabel("Progress: item \(current + 1) of \(total)")
         .accessibilityValue("\(Int(fraction * 100)) percent complete")

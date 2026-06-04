@@ -2,11 +2,14 @@ import SwiftUI
 
 struct BereanCommunicationHubView: View {
     @StateObject private var viewModel = BereanCommunicationHubViewModel()
+    @StateObject private var commFlags = CommunicationOSFeatureFlags.shared
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var selectedScope: CommunicationScope = .all
     @State private var searchText = ""
     @State private var selectedThreadID: String?
+    @State private var showingAttachmentMenu = false
 
     private var filteredThreads: [CommunicationThreadItem] {
         viewModel.threads.filter { thread in
@@ -33,9 +36,27 @@ struct BereanCommunicationHubView: View {
                     .padding(.bottom, 130)
                 }
 
-                composerBar
+                VStack(spacing: 0) {
+                    if commFlags.smartMessageContextEnabled {
+                        SmartMessageInsightCard(
+                            detectedItems: [],
+                            onAction: { _ in },
+                            onDismiss: { _ in }
+                        )
+                        .padding(.bottom, 4)
+                    }
+                    composerBar
+                }
             }
             .navigationTitle("Communion")
+            .sheet(isPresented: $showingAttachmentMenu) {
+                SmartMessageActionMenu(
+                    onAction: { _ in },
+                    onDismiss: { showingAttachmentMenu = false }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.hidden)
+            }
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { viewModel.load() }
             .onDisappear { viewModel.cleanup() }
@@ -306,6 +327,19 @@ struct BereanCommunicationHubView: View {
 
     private var composerBar: some View {
         HStack(spacing: 12) {
+            if commFlags.smartAttachmentMenuEnabled {
+                Button {
+                    showingAttachmentMenu = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 26, weight: .regular))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Attachment menu")
+            }
+
             VStack(alignment: .leading, spacing: 2) {
                 Text("Continue this study later")
                     .font(.subheadline.weight(.semibold))
@@ -322,17 +356,22 @@ struct BereanCommunicationHubView: View {
                 .padding(.vertical, 10)
                 .background(Color.primary, in: Capsule())
                 .foregroundStyle(Color(uiColor: .systemBackground))
+                .accessibilityLabel("Resume study session")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(.regularMaterial, in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(Color.white.opacity(0.65), lineWidth: 0.8)
+        // Solid opaque fallback honours the user's reduce-transparency preference
+        .background {
+            if reduceTransparency {
+                Capsule(style: .continuous)
+                    .fill(Color(.systemBackground))
+            }
         }
+        // Shadow applied before the glass surface so it renders beneath it.
+        .shadow(color: .black.opacity(0.08), radius: 18, y: 8)
+        .glassEffect(reduceTransparency ? .identity : GlassEffectStyle.regular, in: Capsule(style: .continuous))
         .padding(.horizontal, 18)
         .padding(.bottom, 20)
-        .shadow(color: .black.opacity(0.08), radius: 18, y: 8)
     }
 
     private func digestAction(_ title: String, emphasized: Bool = true) -> some View {

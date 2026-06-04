@@ -546,11 +546,6 @@ actor BereanContentConnector {
     /// Matches a ContentObject to relevant scripture chips using themes, title keywords,
     /// and any pre-linked verse references. Returns up to 5 deduplicated chips.
     func findVerses(for contentObject: ContentObject) -> [BereanScriptureChip] {
-        guard CommunityOSFlagService.shared.isEnabled(.bereanContentConnector) else {
-            dlog("[BereanContentConnector] Flag disabled — skipping verse lookup for \(contentObject.id)")
-            return []
-        }
-
         // Return cached result if still valid
         if let entry = cache[contentObject.id], entry.expiresAt > Date() {
             return entry.chips
@@ -598,11 +593,6 @@ actor BereanContentConnector {
 
     /// Pure theme lookup. Returns up to 5 deduplicated scripture chips.
     func findVerses(for themes: [String]) -> [BereanScriptureChip] {
-        guard CommunityOSFlagService.shared.isEnabled(.bereanContentConnector) else {
-            dlog("[BereanContentConnector] Flag disabled — skipping theme lookup")
-            return []
-        }
-
         let normalised = normalizedThemes(from: themes)
         var collected: [BereanScriptureChip] = []
 

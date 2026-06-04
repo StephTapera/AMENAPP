@@ -3,6 +3,11 @@
 // All generation uses NVIDIA NIM (meta/llama-3.1-70b-instruct) via the
 // OpenAI-compatible endpoint at integrate.api.nvidia.com.
 //
+// Architecture:
+//   iOS → Firebase Callable → Secret Manager (NVIDIA_API_KEY) → NVIDIA/LLM API
+//       → Firestore (result saved as draft) → UI (user reviews/approves/rejects)
+//   AI output is NEVER auto-posted. All drafts require explicit user approval.
+//
 // Wiring:
 //   1) Require and spread-export from index.js:
 //        const churchNotesAI = require("./churchNotesAICallables");
@@ -17,6 +22,7 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { enforceRateLimit } = require("./rateLimiter");
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -135,6 +141,198 @@ const BASE_CONFIG = {
   region: REGION,
   secrets: [NVIDIA_API_KEY],
 };
+
+// ─── 0. generateChurchNoteDraft (full-pipeline draft callable) ────────────────
+
+/**
+ * generateChurchNoteDraft
+ *
+ * Single-callable that accepts a transcript (or reads it from the note doc) and
+ * returns a fully structured draft object for user review. This is the canonical
+ * entry point from iOS after transcription completes.
+ *
+ * Responsibilities:
+ *   - Read transcript from Firestore (note.extractedText) if not supplied inline.
+ *   - Call NVIDIA NIM once to produce { summary, keyVerses, actionItems,
+ *     discussionQuestions } in a single structured JSON response.
+ *   - Save ALL fields to churchNotes/{noteId}.aiDraftState as a draft
+ *     (status: "pending_review") — NEVER as approved/committed content.
+ *   - Persist draft even if individual field parsing fails (partial-failure safe).
+ *   - Update the processing job status to "draft_ready".
+ *   - Return the full draft object to iOS for display in ChurchNotesAIDraftReviewView.
+ *
+ * The user MUST approve each field through approveChurchNoteAIDraft before any
+ * text is inserted into the note. This callable does not write to note content.
+ *
+ * Rate limit: 10 draft-generation calls per user per hour.
+ *
+ * Input:  { noteId, jobId?, transcript? }
+ *   - transcript: optional inline override; if omitted the note's extractedText is used.
+ * Output: { success: true, draft: { summary, keyVerses, actionItems, discussionQuestions } }
+ */
+exports.generateChurchNoteDraft = onCall(
+  { ...BASE_CONFIG, timeoutSeconds: 120 },
+  async (request) => {
+    // ── Auth ──────────────────────────────────────────────────────────────────
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const uid = request.auth.uid;
+
+    // ── Input validation ──────────────────────────────────────────────────────
+    const { noteId, jobId, transcript: inlineTranscript } = request.data || {};
+    if (!noteId || typeof noteId !== "string" || noteId.trim() === "") {
+      throw new HttpsError("invalid-argument", "noteId is required.");
+    }
+
+    // ── Rate limit: 10 draft-generation calls per user per hour ──────────────
+    await enforceRateLimit(uid, "church_notes_draft_generate", 10, 3600);
+
+    const db = getFirestore();
+
+    // ── Fetch note + ownership check ──────────────────────────────────────────
+    const noteSnap = await db.collection("churchNotes").doc(noteId).get();
+    if (!noteSnap.exists) {
+      throw new HttpsError("not-found", `Church note ${noteId} not found.`);
+    }
+    const note = noteSnap.data();
+    if (note.userId !== uid) {
+      throw new HttpsError("permission-denied", "You can only generate drafts for your own notes.");
+    }
+
+    // ── Resolve transcript ────────────────────────────────────────────────────
+    const transcript = (
+      inlineTranscript ||
+      note.extractedText ||
+      note.content ||
+      ""
+    ).trim();
+
+    if (!transcript) {
+      throw new HttpsError(
+        "failed-precondition",
+        "No transcript available. Complete audio/OCR processing before generating a draft."
+      );
+    }
+
+    const MAX_TRANSCRIPT_CHARS = 24_000; // ~6 000 tokens — safe NIM context window
+    const truncatedTranscript  = transcript.length > MAX_TRANSCRIPT_CHARS
+      ? transcript.slice(0, MAX_TRANSCRIPT_CHARS) + "\n\n[…transcript truncated for length]"
+      : transcript;
+
+    console.log(JSON.stringify({
+      event:            "generateChurchNoteDraft_start",
+      noteId,
+      jobId:            jobId || null,
+      uid,
+      transcriptLength: transcript.length,
+      truncated:        transcript.length > MAX_TRANSCRIPT_CHARS,
+    }));
+
+    // ── Set draft status to "generating" so iOS can show a spinner ────────────
+    await db.collection("churchNotes").doc(noteId).update({
+      "aiDraftState.status": "generating",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    // ── Single NIM call for all draft fields ──────────────────────────────────
+    const systemMsg =
+      "You are a pastoral AI assistant for a Christian social app. " +
+      "Your output is a JSON object that will be shown to the user as a DRAFT for their review. " +
+      "The user must approve each section before it is added to their notes. " +
+      "Be faithful to the source text, accurate with scripture references, and succinct. " +
+      "Return ONLY valid JSON — no markdown fences, no explanatory prose outside the JSON.";
+
+    const prompt =
+      `Given the following sermon transcript, produce a JSON object with exactly these keys:\n` +
+      `{\n` +
+      `  "summary": "<string: 150–250 word summary of the sermon, faith-centered>",\n` +
+      `  "keyVerses": ["<Book Chapter:Verse>", ...],\n` +
+      `  "actionItems": ["<string: practical action a believer can take this week>", ...],\n` +
+      `  "discussionQuestions": ["<string: open-ended question for group study>", ...]\n` +
+      `}\n\n` +
+      `Rules:\n` +
+      `- keyVerses: array of 2–6 Bible references mentioned or strongly implied (e.g. "John 3:16")\n` +
+      `- actionItems: array of 3–5 strings, each under 120 characters\n` +
+      `- discussionQuestions: array of 3–5 strings, each under 150 characters\n` +
+      `- summary: single string, 150–250 words\n` +
+      `- Return ONLY the JSON object\n\n` +
+      `---\nTRANSCRIPT:\n${truncatedTranscript}`;
+
+    let draft = {};
+    let nimError = null;
+
+    try {
+      const raw   = await callNIM(prompt, systemMsg, NVIDIA_API_KEY.value());
+      const clean = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      const parsed = JSON.parse(clean);
+
+      draft = {
+        summary:             typeof parsed.summary === "string"           ? parsed.summary.trim() : "",
+        keyVerses:           Array.isArray(parsed.keyVerses)              ? parsed.keyVerses.filter(Boolean).slice(0, 10) : [],
+        actionItems:         Array.isArray(parsed.actionItems)            ? parsed.actionItems.filter(Boolean).slice(0, 7) : [],
+        discussionQuestions: Array.isArray(parsed.discussionQuestions)    ? parsed.discussionQuestions.filter(Boolean).slice(0, 7) : [],
+      };
+    } catch (err) {
+      // ── Partial-failure: save what we have (empty draft) and surface the error.
+      // The transcript is already in Firestore from the pipeline step. The user
+      // can retry draft generation without re-uploading audio.
+      nimError = err.message;
+      console.error(JSON.stringify({
+        event:   "generateChurchNoteDraft_nim_error",
+        noteId,
+        message: nimError,
+      }));
+    }
+
+    // ── Persist draft to Firestore (always, even on partial failure) ──────────
+    const draftStatus = nimError ? "generation_failed" : "pending_review";
+
+    const noteUpdate = {
+      "aiDraftState.summary":             draft.summary             || null,
+      "aiDraftState.keyVerses":           draft.keyVerses           || [],
+      "aiDraftState.actionItems":         draft.actionItems         || [],
+      "aiDraftState.discussionQuestions": draft.discussionQuestions || [],
+      "aiDraftState.status":              draftStatus,
+      "aiDraftState.generatedAt":         FieldValue.serverTimestamp(),
+      updatedAt:                          FieldValue.serverTimestamp(),
+    };
+
+    if (nimError) {
+      noteUpdate["aiDraftState.generationError"] = nimError;
+    }
+
+    const batch = db.batch();
+    batch.update(db.collection("churchNotes").doc(noteId), noteUpdate);
+
+    if (jobId) {
+      batch.update(db.collection("churchNoteProcessingJobs").doc(jobId), {
+        status:    nimError ? "draft_failed" : "draft_ready",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+
+    console.log(JSON.stringify({
+      event:       "generateChurchNoteDraft_complete",
+      noteId,
+      jobId:       jobId || null,
+      draftStatus,
+      hasError:    !!nimError,
+    }));
+
+    // ── If NIM failed, surface a retryable error AFTER saving the draft stub ──
+    if (nimError) {
+      throw new HttpsError(
+        "internal",
+        `Draft generation failed: ${nimError}. Your transcript is saved — you can retry.`
+      );
+    }
+
+    return { success: true, draft };
+  }
+);
 
 // ─── 1. generateChurchNoteSummary ─────────────────────────────────────────────
 

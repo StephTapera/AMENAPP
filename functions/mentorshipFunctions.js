@@ -1,3 +1,5 @@
+// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
 // mentorshipFunctions.js
 // Mentorship subscription management via Stripe + Firestore
 

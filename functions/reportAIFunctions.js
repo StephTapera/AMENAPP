@@ -3,12 +3,15 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
+// These must match AIUnsafeResponseReporter.Reason rawValues in AIUnsafeResponseReporter.swift.
 const VALID_REASONS = [
-    'crisisMishandled',
-    'harassment',
-    'fabricatedScripture',
-    'harmful',
-    'theologicallyMisleading',
+    'unsafe_advice',
+    'false_doctrine',
+    'claims_divine_authority',
+    'crisis_mishandled',
+    'harassment_or_hate',
+    'private_info_leak',
+    'fabricated_scripture',
     'other',
 ];
 

@@ -900,10 +900,15 @@ service cloud.firestore {
         && hasRequiredFields(['name', 'description', 'creatorId'])
         && validLength(request.resource.data.name, 100)
         && validLength(request.resource.data.description, 500);
+      // S1 FIX: Adding/removing adminIds requires caller to already be in adminIds.
       allow update: if isAuthenticated()
         && (resource.data.creatorId == request.auth.uid
           || request.auth.uid in resource.data.get('adminIds', []))
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adminIds'])
+          || request.auth.uid in resource.data.get('adminIds', [])
+        );
       allow delete: if isAuthenticated()
         && resource.data.creatorId == request.auth.uid;
       match /members/{memberId} {
@@ -934,10 +939,15 @@ service cloud.firestore {
         && hasRequiredFields(['name', 'description', 'creatorId'])
         && validLength(request.resource.data.name, 100)
         && validLength(request.resource.data.description, 500);
+      // S1 FIX: Adding/removing adminIds requires caller to already be in adminIds.
       allow update: if isAuthenticated()
         && (resource.data.creatorId == request.auth.uid
           || request.auth.uid in resource.data.get('adminIds', []))
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adminIds'])
+          || request.auth.uid in resource.data.get('adminIds', [])
+        );
       allow delete: if isAuthenticated()
         && resource.data.creatorId == request.auth.uid;
       match /members/{memberId} {

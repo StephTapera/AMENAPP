@@ -68,10 +68,6 @@ actor PurityEngine {
     /// Synchronously classifies the purity of content from title + metadata signals.
     /// Checks metadata["lyrics"], metadata["description"], and the title itself.
     func classify(title: String, metadata: [String: String]) -> PurityRating {
-        guard CommunityOSFlagService.shared.isEnabled(.purityEngine) else {
-            return .unreviewed
-        }
-
         let corpus = buildCorpus(title: title, metadata: metadata)
 
         if hasAnySignal(from: explicitKeywords, in: corpus) {
@@ -107,10 +103,6 @@ actor PurityEngine {
     /// Uses NLTagger to extract nouns and noun phrases, then filters to
     /// faith-relevant themes. Returns up to 8 distinct theme strings.
     func extractThemes(title: String, metadata: [String: String]) -> [String] {
-        guard CommunityOSFlagService.shared.isEnabled(.purityEngine) else {
-            return []
-        }
-
         let corpus = buildCorpus(title: title, metadata: metadata)
         var rawTerms: [String] = []
 
@@ -174,10 +166,6 @@ actor PurityEngine {
 
     /// Runs classify + extractThemes on the ContentObject and returns an updated copy.
     func analyze(contentObject: ContentObject) -> ContentObject {
-        guard CommunityOSFlagService.shared.isEnabled(.purityEngine) else {
-            return contentObject
-        }
-
         let rating = classify(title: contentObject.title, metadata: contentObject.metadata)
         let themes = extractThemes(title: contentObject.title, metadata: contentObject.metadata)
 

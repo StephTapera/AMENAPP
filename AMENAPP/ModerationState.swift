@@ -24,4 +24,5 @@ struct ModerationState: Codable, Equatable {
     }
 
     static let pending = ModerationState(status: .pending)
+    static let active  = ModerationState(status: .approved)
 }

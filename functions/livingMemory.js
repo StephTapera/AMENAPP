@@ -11,6 +11,7 @@ const admin = require("firebase-admin");
 let _openai = null;
 let _openaiKey = null;
 function getOpenAI() {
+  // TODO: USE_DEFINE_SECRET — migrate to defineSecret() for this secret
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY environment variable is not set");
   // Re-create the client if the key has changed (e.g. rotated between cold starts)

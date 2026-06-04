@@ -521,7 +521,9 @@ struct AmenGlassMemoryCard<Item: Identifiable>: View {
                     .foregroundStyle(Color.black.opacity(0.50))
                     .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     .animation(
-                        reduceMotion ? .easeOut(duration: 0.12) : .amenSpringStandard,
+                        reduceMotion
+                            ? .easeOut(duration: 0.12)
+                            : .spring(response: 0.45, dampingFraction: 0.70),
                         value: isExpanded
                     )
             }
@@ -554,9 +556,11 @@ struct AmenGlassMemoryCard<Item: Identifiable>: View {
 
 /// Type-erased InsettableShape so `CommGlassSurface` can store any concrete shape
 /// without making the ViewModifier generic (which would force callers to annotate types).
+///
+/// The stored closures are `@Sendable` so the type stays warning-free in Swift 6 mode.
 private struct AnyInsettableShape: InsettableShape {
-    private let _path: (CGRect) -> Path
-    private let _inset: (CGFloat) -> AnyInsettableShape
+    private let _path: @Sendable (CGRect) -> Path
+    private let _inset: @Sendable (CGFloat) -> AnyInsettableShape
 
     init<S: InsettableShape>(_ shape: S) {
         _path = { shape.path(in: $0) }

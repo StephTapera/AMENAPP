@@ -188,7 +188,7 @@ struct AmenCommandCenterSection: View {
 
                         Text("\(count)")
                             .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(Color.amenGold)
+                            .foregroundStyle(Color.amenGoldText)
                             .accessibilityLabel("\(count) days in the Word")
 
                         Text("This is your private count — only you can see this.")

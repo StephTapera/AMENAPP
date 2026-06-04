@@ -6,6 +6,7 @@
 // All operations are gated on the .meaningGraph Remote Config flag.
 
 import Foundation
+import SwiftUI
 import FirebaseAuth
 
 // MARK: - CommunityGraphViewModel

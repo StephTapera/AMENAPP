@@ -35,7 +35,8 @@ struct AmenSpaceEventDetailView: View {
                         if event.isLive {
                             joinLiveCTA
                         }
-                        if event.replayRef != nil {
+                        // TODO: enable when implemented — BT4 Replay
+                        if event.replayRef != nil && AMENFeatureFlags.shared.replayEnabled {
                             replayButton
                         }
                     }

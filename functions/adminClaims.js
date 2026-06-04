@@ -1,3 +1,4 @@
+// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
 /**
  * adminClaims.js — v1 Cloud Functions (avoids Cloud Run quota)
  * Server-side admin role management via Firebase Custom Claims.
@@ -8,7 +9,7 @@
 
 'use strict';
 
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 
 const REGION = 'us-central1';

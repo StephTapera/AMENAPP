@@ -28,15 +28,7 @@ extension View {
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(BereanColor.glassFill)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(BereanColor.glassStroke, lineWidth: 0.5)
-                    )
+                    .fill(Color(.secondarySystemBackground))
                     .shadow(color: BereanColor.glassShadow, radius: 12, x: 0, y: 4)
             )
     }
@@ -45,15 +37,26 @@ extension View {
 // MARK: - Glass Capsule Modifier
 
 struct BereanGlassCapsuleModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
     func body(content: Content) -> some View {
         content
-            .background(
+            .background {
                 Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(Capsule().fill(BereanColor.glassFill))
-                    .overlay(Capsule().strokeBorder(BereanColor.glassStroke, lineWidth: 0.5))
+                    .fill(LiquidGlassTokens.blurThin)
+                    .overlay(alignment: .top) {
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(colorScheme == .dark ? 0.18 : 0.7), Color.white.opacity(0.05)],
+                                    startPoint: .top,
+                                    endPoint: .center
+                                )
+                            )
+                            .blendMode(.screen)
+                    }
                     .shadow(color: BereanColor.glassShadow, radius: 6, x: 0, y: 2)
-            )
+            }
     }
 }
 
@@ -72,6 +75,7 @@ struct BereanGlassOrb: View {
     var pulse: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @State private var breathing = false
 
     var body: some View {
@@ -91,8 +95,18 @@ struct BereanGlassOrb: View {
 
             // Glass circle
             Circle()
-                .fill(.ultraThinMaterial)
-                .overlay(Circle().fill(AmenTheme.Colors.glassFill))
+                .fill(LiquidGlassTokens.blurThin)
+                .overlay(alignment: .top) {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(colorScheme == .dark ? 0.18 : 0.7), Color.white.opacity(0.05)],
+                                startPoint: .top,
+                                endPoint: .center
+                            )
+                        )
+                        .blendMode(.screen)
+                }
                 .overlay(Circle().strokeBorder(BereanColor.glassStroke, lineWidth: 0.75))
                 .shadow(color: BereanColor.glassShadow, radius: 20, x: 0, y: 8)
                 .frame(width: size, height: size)
@@ -119,15 +133,7 @@ struct BereanGlassIconTile: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(BereanColor.glassFill)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(BereanColor.glassStroke, lineWidth: 0.5)
-                )
+                .fill(Color(.tertiarySystemFill))
                 .frame(width: size, height: size)
 
             Image(systemName: icon)
@@ -153,7 +159,7 @@ struct BereanPrimaryCTAStyle: ButtonStyle {
             )
             .shadow(color: AmenTheme.Colors.shadowFloating, radius: 14, x: 0, y: 6)
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(Motion.adaptive(Motion.springPress), value: configuration.isPressed)
     }
 }
 

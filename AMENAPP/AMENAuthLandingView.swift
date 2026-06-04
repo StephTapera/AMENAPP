@@ -266,28 +266,28 @@ struct AMENAuthLandingView: View {
     // MARK: - Entry animation
 
     private func runEntryAnimation() {
-        let easeOut35 = Animation.easeOut(duration: 0.35)
+        let stagger = Motion.adaptive(Motion.appearEase)
 
-        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
+        withAnimation(Motion.adaptive(.amenSpringEntry)) {
             logoScale   = 1.0
             logoOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.08)) {
+        withAnimation(stagger.delay(0.08)) {
             wordOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.18)) {
+        withAnimation(stagger.delay(0.18)) {
             btn1Opacity = 1; btn1Offset = 0
         }
-        withAnimation(easeOut35.delay(0.26)) {
+        withAnimation(stagger.delay(0.26)) {
             btn2Opacity = 1; btn2Offset = 0
         }
-        withAnimation(.easeOut(duration: 0.3).delay(0.32)) {
+        withAnimation(stagger.delay(0.32)) {
             divOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.38)) {
+        withAnimation(stagger.delay(0.38)) {
             btn3Opacity = 1; btn3Offset = 0
         }
-        withAnimation(.easeOut(duration: 0.3).delay(0.46)) {
+        withAnimation(stagger.delay(0.46)) {
             linkOpacity = 1
         }
     }

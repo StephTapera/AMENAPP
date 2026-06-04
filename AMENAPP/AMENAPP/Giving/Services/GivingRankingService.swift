@@ -41,11 +41,11 @@ final class GivingRankingService {
 
         // --- Cause match (0–30 pts)
         let causeMatches = org.causeCategories.filter { profile.causePreferences.contains($0) }
-        if !causeMatches.isEmpty {
+        if let firstCause = causeMatches.first {
             let pts = min(Double(causeMatches.count) * 15.0, 30.0)
             total += pts
-            tokens.append(.init(key: "cause_match:\(causeMatches.first!.rawValue.lowercased().replacingOccurrences(of: " ", with: "_"))",
-                               label: "Aligns with your cause: \(causeMatches.first!.rawValue)"))
+            tokens.append(.init(key: "cause_match:\(firstCause.rawValue.lowercased().replacingOccurrences(of: " ", with: "_"))",
+                               label: "Aligns with your cause: \(firstCause.rawValue)"))
         }
 
         // --- Geography match (0–20 pts)
@@ -63,10 +63,10 @@ final class GivingRankingService {
 
         // --- Giving style compatibility (0–10 pts)
         let styleMatches = org.givingStylesSupported.filter { profile.givingStylePreferences.contains($0) }
-        if !styleMatches.isEmpty {
+        if let firstStyle = styleMatches.first {
             total += 10
-            tokens.append(.init(key: "supports:\(styleMatches.first!.rawValue.lowercased())",
-                               label: "Supports \(styleMatches.first!.rawValue) giving"))
+            tokens.append(.init(key: "supports:\(firstStyle.rawValue.lowercased())",
+                               label: "Supports \(firstStyle.rawValue) giving"))
         }
 
         // --- Trust score (0–15 pts)

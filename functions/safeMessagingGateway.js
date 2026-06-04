@@ -6,6 +6,12 @@ const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
+// Import shared escalation + decision persistence from the gateway module.
+// Lazy-require so module load order doesn't matter at deploy time.
+function getGateway() {
+    return require('./moderationGateway');
+}
+
 // ============================================================================
 // SAFETY CLASSIFIERS
 // ============================================================================
@@ -692,10 +698,25 @@ exports.safeMessageGateway = onCall(async (request) => {
                 contentViolations: admin.firestore.FieldValue.increment(1)
             });
 
+            // Persist to canonical moderationDecisions/
+            const { persistDecision: pd1 } = getGateway();
+            const blockedDecisionId = await pd1({
+                uid: senderId,
+                contentType: 'message',
+                contextId: conversationId,
+                decision: 'block',
+                reason: `Critical risk: ${primaryThreat}`,
+                detectedCategories: [primaryThreat],
+                crisisEscalated: false,
+                contentLength: (messageContent || '').length,
+                source: 'safeMessageGateway_critical',
+            }).catch(() => 'unknown');
+
             return {
                 decision: 'blocked',
                 reason: primaryThreat,
                 riskScore: finalRisk,
+                decisionId: blockedDecisionId,
                 userFacingReason: getUserFacingExplanation(primaryThreat, 'blocked')
             };
         }
@@ -718,11 +739,26 @@ exports.safeMessageGateway = onCall(async (request) => {
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
+            // Persist to canonical moderationDecisions/
+            const { persistDecision: pd2 } = getGateway();
+            const heldDecisionId = await pd2({
+                uid: senderId,
+                contentType: 'message',
+                contextId: conversationId,
+                decision: 'review',
+                reason: `High risk: ${primaryThreat}`,
+                detectedCategories: [primaryThreat],
+                crisisEscalated: false,
+                contentLength: (messageContent || '').length,
+                source: 'safeMessageGateway_high',
+            }).catch(() => 'unknown');
+
             return {
                 decision: 'held',
                 reason: primaryThreat,
                 riskScore: finalRisk,
                 estimatedReviewTime: '2-24 hours',
+                decisionId: heldDecisionId,
                 userFacingReason: getUserFacingExplanation(primaryThreat, 'held')
             };
         }
@@ -738,22 +774,82 @@ exports.safeMessageGateway = onCall(async (request) => {
             };
         }
 
-        // SELF-HARM DETECTION - Special handling
+        // ================================================================
+        // SELF-HARM DETECTION — crisis escalation path (never silent block)
+        // ================================================================
         if (selfHarmScore > 0.6) {
-            // Allow delivery but flag for crisis resources
+            console.warn(`[safeMessageGateway] SELF-HARM detected senderId=${senderId} score=${selfHarmScore}`);
+
+            // 1. Persist a moderation decision record
+            const { persistDecision, escalateSelfHarm } = getGateway();
+            const decisionId = await persistDecision({
+                uid: senderId,
+                contentType: 'message',
+                contextId: conversationId,
+                decision: 'review',
+                reason: 'Self-harm language detected in message',
+                detectedCategories: ['self_harm'],
+                crisisEscalated: true,
+                contentLength: (messageContent || '').length,
+                source: 'safeMessageGateway',
+            }).catch((err) => {
+                console.error('[safeMessageGateway] persistDecision failed:', err.message);
+                return 'unknown';
+            });
+
+            // 2. Write crisisEscalations/{uid}/{timestamp} + moderatorAlerts
+            await escalateSelfHarm(
+                senderId,
+                messageContent,
+                'message',
+                conversationId,
+                decisionId
+            ).catch((err) => {
+                console.error('[safeMessageGateway] escalateSelfHarm failed:', err.message);
+            });
+
+            // 3. Return crisis resources to the client (not a silent block)
             return {
                 decision: 'deliver_with_resources',
                 reason: 'self_harm_detected',
                 riskScore: selfHarmScore,
-                offerCrisisResources: true
+                offerCrisisResources: true,
+                crisisEscalated: true,
+                decisionId,
+                crisisResources: [
+                    { name: '988 Suicide & Crisis Lifeline', number: '988', url: 'https://988lifeline.org' },
+                    { name: 'Crisis Text Line', instruction: 'Text HOME to 741741', url: 'https://www.crisistextline.org' },
+                    { name: 'SAMHSA National Helpline', number: '1-800-662-4357', url: 'https://www.samhsa.gov/find-help/national-helpline' },
+                ],
             };
         }
+
+        // ================================================================
+        // Persist final moderation decision for all non-crisis outcomes
+        // ================================================================
+        const finalDecision = finalRisk <= 0.5 ? 'allow' : (finalRisk <= 0.7 ? 'warn' : 'review');
+        const { persistDecision: persist } = getGateway();
+        const decisionId = await persist({
+            uid: senderId,
+            contentType: 'message',
+            contextId: conversationId,
+            decision: finalDecision,
+            reason: primaryThreat !== 'safe' ? primaryThreat : null,
+            detectedCategories: primaryThreat !== 'safe' ? [primaryThreat] : [],
+            crisisEscalated: false,
+            contentLength: (messageContent || '').length,
+            source: 'safeMessageGateway',
+        }).catch((err) => {
+            console.error('[safeMessageGateway] persistDecision failed:', err.message);
+            return 'unknown';
+        });
 
         // LOW RISK - Deliver normally
         return {
             decision: 'safe',
             riskScore: finalRisk,
-            reason: 'safe'
+            reason: 'safe',
+            decisionId,
         };
 
     } catch (error) {

@@ -112,28 +112,72 @@ struct MediaIntelligenceDock: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            dockHeader
-            contextSummary
-            actionsScrollView
-        }
-        .padding(16)
-        .background(dockBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.75)
-        )
-        .shadow(color: .black.opacity(0.15), radius: 20, y: 6)
-        .scaleEffect(appeared ? 1 : 0.94)
-        .opacity(appeared ? 1 : 0)
-        .onAppear {
-            withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.35, dampingFraction: 0.78)) {
-                appeared = true
+        dockShell
+            .scaleEffect(appeared ? 1 : 0.94)
+            .opacity(appeared ? 1 : 0)
+            .onAppear {
+                withAnimation(reduceMotion ? .linear(duration: 0.12) : .amenSpringEntry) {
+                    appeared = true
+                }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Media actions")
+    }
+
+    // MARK: - Dock shell
+
+    @ViewBuilder
+    private var dockShell: some View {
+        if reduceTransparency {
+            // Solid fallback — no glass layers when system transparency is off.
+            VStack(spacing: 0) {
+                dockHeader
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                Divider().opacity(0.2)
+                contextSummary
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, contextSummaryPadding)
+                actionsScrollView
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color(.systemBackground))
+            )
+        } else {
+            // Liquid Glass shell — shadow must come before .glassEffect().
+            GlassEffectContainer(spacing: 0) {
+                VStack(spacing: 0) {
+                    // Header: plain content, no glass on text/icons.
+                    dockHeader
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 8)
+                    Divider().opacity(0.2)
+                    contextSummary
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, contextSummaryPadding)
+                    actionsScrollView
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
+                }
+            }
+            // Shadow before glassEffect — required by kit rules.
+            .shadow(color: .black.opacity(0.15), radius: 20, y: 6)
+            // .glassEffect() is the absolute last modifier on the shell.
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Media actions")
+    }
+
+    /// Extra vertical padding for the context summary row only when it has content.
+    private var contextSummaryPadding: CGFloat {
+        switch viewModel.contextState {
+        case .idle: return 0
+        default: return 8
+        }
     }
 
     private var dockHeader: some View {
@@ -198,7 +242,9 @@ struct MediaIntelligenceDock: View {
                 Image(systemName: action.icon)
                     .font(.body)
                     .frame(width: 44, height: 44)
-                    .background(actionBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    // Per-action cells are plain rows within the glass container.
+                    // The container's GlassEffectContainer provides the unified surface.
+                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .foregroundStyle(.primary)
                 Text(action.rawValue)
                     .font(.system(size: 10, weight: .medium))
@@ -231,15 +277,6 @@ struct MediaIntelligenceDock: View {
         }
     }
 
-    private var dockBackground: some ShapeStyle {
-        if reduceTransparency { return AnyShapeStyle(Color(.systemBackground)) }
-        return AnyShapeStyle(.regularMaterial)
-    }
-
-    private var actionBackground: some ShapeStyle {
-        if reduceTransparency { return AnyShapeStyle(Color(.tertiarySystemBackground)) }
-        return AnyShapeStyle(.ultraThinMaterial)
-    }
 }
 
 private struct ClusterButtonStyle2: ButtonStyle {

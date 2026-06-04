@@ -32,6 +32,11 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
 
     private init() {}
 
+    deinit {
+        reflectionsListener?.remove()
+        bridgeListener?.remove()
+    }
+
     // MARK: - Reflections
 
     func startListeningToReflections(noteId: String) {

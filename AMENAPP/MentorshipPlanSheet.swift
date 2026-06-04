@@ -113,7 +113,7 @@ struct MentorshipPlanSheet: View {
         VStack(spacing: 12) {
             ForEach(plans) { plan in
                 let selected = selectedPlan?.id == plan.id
-                PlanCard(plan: plan, product: productsById[plan.storeKitProductId], isSelected: selected)
+                PlanCard(plan: plan, product: productsById[plan.stripePriceId], isSelected: selected)
                     .onTapGesture {
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             selectedPlan = plan
@@ -158,11 +158,11 @@ struct MentorshipPlanSheet: View {
             .padding(.vertical, 16)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.49, green: 0.23, blue: 0.93)))
         }
-        .disabled(isProcessing || (!plan.isFree && productsById[plan.storeKitProductId] == nil))
+        .disabled(isProcessing || (!plan.isFree && productsById[plan.stripePriceId] == nil))
         .padding(.horizontal, 18)
 
-        if !plan.isFree && productsById[plan.storeKitProductId] == nil {
-            Text("The App Store product \(plan.storeKitProductId) is not configured for this build.")
+        if !plan.isFree && productsById[plan.stripePriceId] == nil {
+            Text("The App Store product \(plan.stripePriceId) is not configured for this build.")
                 .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -172,14 +172,14 @@ struct MentorshipPlanSheet: View {
 
     private func primaryButtonTitle(for plan: MentorshipPlan) -> String {
         if plan.isFree { return "Start Free - \(plan.name)" }
-        if let product = productsById[plan.storeKitProductId] {
+        if let product = productsById[plan.stripePriceId] {
             return "Start \(plan.name) - \(product.displayPrice)"
         }
         return "Plan unavailable"
     }
 
     private func loadPaidProducts() async {
-        let ids = Array(Set(plans.filter { !$0.isFree }.map(\.storeKitProductId)))
+        let ids = Array(Set(plans.filter { !$0.isFree }.map(\.stripePriceId)))
         guard !ids.isEmpty else { return }
         isLoadingProducts = true
         defer { isLoadingProducts = false }
@@ -221,7 +221,7 @@ struct MentorshipPlanSheet: View {
     }
 
     private func purchasePaidPlan(_ plan: MentorshipPlan) async throws {
-        guard let product = productsById[plan.storeKitProductId] else {
+        guard let product = productsById[plan.stripePriceId] else {
             errorMessage = "This plan is not available for purchase on this device."
             return
         }
@@ -230,11 +230,11 @@ struct MentorshipPlanSheet: View {
         switch result {
         case .success(let verification):
             let transaction = try checkVerified(verification)
-            try await MentorshipService.shared.finalizeStoreKitRelationship(
+            try await MentorshipService.shared.finalizeRelationship(
                 mentorId: mentor.id,
                 planId: plan.id,
                 planName: plan.name,
-                transactionId: String(transaction.id),
+                subscriptionId: String(transaction.id),
                 mentorName: mentor.name,
                 mentorPhotoURL: mentor.photoURL
             )

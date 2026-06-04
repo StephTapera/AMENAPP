@@ -85,8 +85,16 @@ final class NotificationCoordinator: ObservableObject {
 
     /// Cancels itself when a new notification fires or undo/dismiss is called.
     private var dismissTimer: Task<Void, Never>?
+    private var _seenStore: SeenStore = .shared
 
     private init() {}
+
+    #if DEBUG
+    internal convenience init(seenStore: SeenStore) {
+        self.init()
+        self._seenStore = seenStore
+    }
+    #endif
 
     // MARK: - Public API
 
@@ -110,7 +118,7 @@ final class NotificationCoordinator: ObservableObject {
         switch override {
         case .smart:
             // First time → card; subsequent → toast
-            style = SeenStore.shared.hasSeen(ctx.action) ? .toast : .card
+            style = _seenStore.hasSeen(ctx.action) ? .toast : .card
         case .alwaysCard:
             style = .card
         case .toastOnly:
@@ -129,7 +137,7 @@ final class NotificationCoordinator: ObservableObject {
 
         // 5. Mark seen (only meaningful for card style, but safe to call always)
         if style == .card {
-            SeenStore.shared.markSeen(ctx.action)
+            _seenStore.markSeen(ctx.action)
         }
 
         // Present notification
@@ -162,7 +170,7 @@ final class NotificationCoordinator: ObservableObject {
     /// Resets the SeenStore so educational cards will appear again.
     /// Called from the Settings screen ("Reset Notification Tips").
     func resetSeen() {
-        SeenStore.shared.reset()
+        _seenStore.reset()
     }
 
     // MARK: - Private Helpers

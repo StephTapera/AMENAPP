@@ -39,18 +39,18 @@ struct LiquidGlassTranslationCapsule: View {
             .padding(.vertical, 9)
             .background {
                 if reduceTransparency {
-                    Capsule().fill(Color(.systemBackground))
-                } else {
-                    Capsule().fill(.ultraThinMaterial)
+                    Capsule()
+                        .fill(Color(.systemBackground))
+                        .overlay(Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 0.7))
                 }
             }
-            .overlay {
-                Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 0.7)
-            }
+            // Shadow before glass so it composites under the specular layer, not on top.
             .shadow(color: .black.opacity(0.06 + Double(behavior.compression) * 0.10), radius: 16, x: 0, y: 8)
+            // .identity disables the blur when reduceTransparency is on; solid background above shows through.
+            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
         }
         .accessibilityLabel("Caption language")
         .accessibilityValue(selectedLanguage.displayName)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: selectedLanguage.rawValue)
+        .animation(reduceMotion ? nil : .amenEaseQuick, value: selectedLanguage.rawValue)
     }
 }

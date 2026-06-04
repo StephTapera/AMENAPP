@@ -50,6 +50,7 @@ struct ContentView: View {
     @State private var selectedPostCategory: CreatePostView.PostCategory = .openTable
     @State private var showBereanQuickActions = false
     @State private var showBereanAssistantFromMenu = false
+    @State private var showBereanDailyFormation = false
     @State private var tabBarBadges = AMENBadgeCounts()
     @AppStorage("currentUserProfileImageURL") private var currentUserProfileImageURL: String = ""
     @State private var postingBarState: PostingBarState = .hidden
@@ -873,6 +874,10 @@ struct ContentView: View {
         .sheet(isPresented: $showFirstPostPrompt) {
             ONBFirstPostSheet(isPresented: $showFirstPostPrompt)
         }
+        // Berean Daily Formation — full-screen morning briefing (opened via "Daily Devotion" quick action)
+        .fullScreenCover(isPresented: $showBereanDailyFormation) {
+            BereanDailyFormationView()
+        }
         .onDisappear {
             // P0-3: Add comprehensive listener cleanup to prevent memory leaks
 
@@ -1422,7 +1427,7 @@ struct ContentView: View {
                                         showBereanQuickActions = false
                                     }
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                        showBereanAssistantFromMenu = true
+                                        showBereanDailyFormation = true
                                     }
                                 }
                             )

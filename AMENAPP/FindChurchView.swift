@@ -1064,6 +1064,24 @@ struct FindChurchView: View {
             return churches.filter { userPreferences.visitedChurches.contains($0.id) }
         case .highlyRated:
             return churches.filter { savedChurchIds.contains($0.id) }
+        case .serviceSoon:
+            let calendar = Calendar.current
+            let hour = calendar.component(.hour, from: Date())
+            return churches.filter { _ in hour >= 8 && hour <= 11 }
+        case .teaching:
+            let teachingDenominations = ["Baptist", "Reformed", "Presbyterian", "Bible"]
+            return churches.filter { church in
+                teachingDenominations.contains { church.denomination.localizedCaseInsensitiveContains($0) }
+            }
+        case .worship:
+            let worshipDenominations = ["Pentecostal", "Charismatic", "Non-Denominational"]
+            return churches.filter { worshipDenominations.contains($0.denomination) }
+        case .family:
+            return churches.sorted { $0.distanceValue < $1.distanceValue }
+        case .youngAdults:
+            return churches.sorted { $0.distanceValue < $1.distanceValue }
+        case .newHere:
+            return churches.filter { !userPreferences.visitedChurches.contains($0.id) }
         }
     }
     
@@ -5000,6 +5018,12 @@ struct QuickFilterBar: View {
         case .openNow: return "clock.fill"
         case .visitedBefore: return "checkmark.circle.fill"
         case .highlyRated: return "bookmark.fill"
+        case .serviceSoon: return "clock.badge.fill"
+        case .teaching: return "book.fill"
+        case .worship: return "music.note"
+        case .family: return "figure.2.and.child.holdinghands"
+        case .youngAdults: return "person.2.fill"
+        case .newHere: return "door.left.hand.open"
         }
     }
 }

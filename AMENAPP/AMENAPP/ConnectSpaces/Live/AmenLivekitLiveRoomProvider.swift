@@ -97,12 +97,12 @@ final class AmenLivekitLiveRoomProvider: NSObject, AmenLiveRoomProvider, Observa
     private func refreshParticipants() {
         participants = room.remoteParticipants.values.map { p in
             AmenLiveRoomParticipant(
-                id: p.identity.stringValue,
-                displayName: p.name ?? p.identity.stringValue,
+                id: p.identity?.stringValue ?? p.sid?.stringValue ?? UUID().uuidString,
+                displayName: p.name ?? p.identity?.stringValue ?? "Participant",
                 isHost: false,
                 isMod: false,
                 hasRaisedHand: false,
-                isMuted: !p.isMicrophoneEnabled,
+                isMuted: !p.isMicrophoneEnabled(),
                 joinedAt: Date()
             )
         }
@@ -171,7 +171,7 @@ private struct RemoteLivekitVideoView: View {
     let identity: String
 
     private var remoteParticipant: RemoteParticipant? {
-        room?.remoteParticipants.values.first { $0.identity.stringValue == identity }
+        room?.remoteParticipants.values.first { $0.identity?.stringValue == identity }
     }
 
     var body: some View {

@@ -26,7 +26,10 @@ struct BereanAlignmentSettingsView: View {
     var body: some View {
         Form {
             Section("Mode") {
-                Toggle("Simple Mode", isOn: $simpleModeEnabled)
+                // TODO: enable when implemented — BT3 Simple Mode
+                if AMENFeatureFlags.shared.simpleModeFeatureEnabled {
+                    Toggle("Simple Mode", isOn: $simpleModeEnabled)
+                }
                 Picker("Discernment Mode", selection: $discernmentModeRaw) {
                     ForEach(DiscernmentMode.allCases) { mode in
                         Text(mode.rawValue.capitalized).tag(mode.rawValue)

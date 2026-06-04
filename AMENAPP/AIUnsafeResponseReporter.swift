@@ -24,8 +24,9 @@ final class AIUnsafeResponseReporter {
     static let shared = AIUnsafeResponseReporter()
     private init() {}
 
-    /// Mirrors `UnsafeReportReason` on the backend. The display label is
-    /// what the user sees in the picker.
+    /// Mirrors `VALID_REASONS` on the backend (reportAIFunctions.js).
+    /// Raw values MUST stay in sync with the CF's VALID_REASONS array.
+    /// The display label is what the user sees in the picker.
     enum Reason: String, CaseIterable, Identifiable {
         case unsafeAdvice           = "unsafe_advice"
         case falseDoctrine          = "false_doctrine"
@@ -33,6 +34,7 @@ final class AIUnsafeResponseReporter {
         case crisisMishandled       = "crisis_mishandled"
         case harassmentOrHate       = "harassment_or_hate"
         case privateInfoLeak        = "private_info_leak"
+        case fabricatedScripture    = "fabricated_scripture"
         case other                  = "other"
 
         var id: String { rawValue }
@@ -45,6 +47,7 @@ final class AIUnsafeResponseReporter {
             case .crisisMishandled:      return "Crisis or self-harm not handled safely"
             case .harassmentOrHate:      return "Harassment or hate speech"
             case .privateInfoLeak:       return "Exposed personal information"
+            case .fabricatedScripture:   return "Fabricated or misquoted scripture"
             case .other:                 return "Other"
             }
         }

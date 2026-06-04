@@ -33,10 +33,6 @@ actor MediaIntelligenceEngine {
     /// Maps themes and content kind to CommunityAffinityTopic values.
     /// Combines kind-based defaults with signal matching from metadata and existing themes.
     func extractTopics(from contentObject: ContentObject) -> [CommunityAffinityTopic] {
-        guard CommunityOSFlagService.shared.isEnabled(.purityEngine) else {
-            return []
-        }
-
         var topics = Set<CommunityAffinityTopic>()
 
         // Kind-based primary mapping
@@ -140,10 +136,6 @@ actor MediaIntelligenceEngine {
     /// Starts from kind defaults, adds .reflection for worship-signal content,
     /// and adds .study for sermon/book/podcast/course kinds.
     func suggestCommunityLayers(for contentObject: ContentObject) -> [CommunityLayer] {
-        guard CommunityOSFlagService.shared.isEnabled(.purityEngine) else {
-            return contentObject.kind.defaultCommunityLayers
-        }
-
         var layers = Set<CommunityLayer>(contentObject.kind.defaultCommunityLayers)
 
         // Add .reflection if the content carries worship signals
@@ -177,10 +169,6 @@ actor MediaIntelligenceEngine {
     /// Deduplicates and merges purity themes from the content object with
     /// relevant metadata signals. Returns the top 6 distinct tags.
     func buildThemeTagCloud(for contentObject: ContentObject) -> [String] {
-        guard CommunityOSFlagService.shared.isEnabled(.purityEngine) else {
-            return []
-        }
-
         var seen = Set<String>()
         var tags: [String] = []
 

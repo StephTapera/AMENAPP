@@ -95,7 +95,7 @@ async function assertHostOrMod(spaceId: string, userId: string): Promise<SpaceDo
 // ── scanMessageForScam ────────────────────────────────────────────────────────
 
 export const scanMessageForScam = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -154,7 +154,7 @@ export const scanMessageForScam = functions.onCall(
 // ── verifyHost ────────────────────────────────────────────────────────────────
 
 export const verifyHost = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -189,7 +189,7 @@ export const verifyHost = functions.onCall(
 // ── submitModerationAction ────────────────────────────────────────────────────
 
 export const submitModerationAction = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
@@ -254,7 +254,7 @@ export const submitModerationAction = functions.onCall(
 // ── reviewJoinRequest ─────────────────────────────────────────────────────────
 
 export const reviewJoinRequest = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true // enforceAppCheck: true — requires App Check token; disable locally via FUNCTIONS_EMULATOR env var if needed },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");

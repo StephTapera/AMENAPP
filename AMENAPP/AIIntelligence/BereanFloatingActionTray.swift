@@ -8,44 +8,42 @@ struct BereanFloatingActionTray: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
+    @Namespace private var glassNamespace
     @State private var appeared = false
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(actions) { action in
-                    Button {
-                        onAction(action)
-                    } label: {
-                        Label(action.title, systemImage: action.systemImage)
-                            .labelStyle(.titleAndIcon)
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .background(chipBackground(for: action), in: Capsule())
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(Color.white.opacity(colorSchemeContrast == .increased ? 0.32 : 0.18), lineWidth: 0.8)
+        Group {
+            if reduceTransparency {
+                // Solid fallback — identical layout, no blur layers.
+                trayChrome
+                    .background(Color(.secondarySystemBackground), in: Capsule())
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(
+                                Color.primary.opacity(colorSchemeContrast == .increased ? 0.30 : 0.10),
+                                lineWidth: 0.8
                             )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(action.title)
+                    )
+            } else {
+                // iOS 26 native glass — GlassEffectContainer gives the tray one
+                // shared blur surface with a specular rim. .glassEffect() is the
+                // LAST modifier on each chip so it renders above all other layers.
+                GlassEffectContainer {
+                    trayChrome
                 }
+                .glassEffectID("berean-tray", in: glassNamespace)
             }
-            .padding(.horizontal, 10)
         }
-        .padding(.vertical, 8)
-        .background(trayBackground, in: Capsule())
-        .overlay(
-            Capsule()
-                .strokeBorder(Color.white.opacity(colorSchemeContrast == .increased ? 0.35 : 0.16), lineWidth: 0.8)
+        .shadow(
+            color: Color.black.opacity(reduceTransparency ? 0.08 : 0.18),
+            radius: 18,
+            y: 6
         )
-        .shadow(color: Color.black.opacity(reduceTransparency ? 0.08 : 0.14), radius: 14, y: 5)
-        .scaleEffect(appeared ? 1 : 0.98)
+        .scaleEffect(appeared ? 1 : 0.94)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.86)) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .amenSpringEntry) {
                 appeared = true
             }
         }
@@ -53,14 +51,81 @@ struct BereanFloatingActionTray: View {
         .accessibilityLabel("Berean actions")
     }
 
-    private var trayBackground: some ShapeStyle {
-        if reduceTransparency { return AnyShapeStyle(Color(.secondarySystemBackground)) }
-        return AnyShapeStyle(.regularMaterial)
+    // MARK: - Inner chrome (shared between glass and solid paths)
+
+    private var trayChrome: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(actions) { action in
+                    chipButton(for: action)
+                }
+            }
+            .padding(.horizontal, 10)
+        }
+        .padding(.vertical, 8)
     }
 
-    private func chipBackground(for action: BereanContextAction) -> some ShapeStyle {
-        if action == .askBerean { return AnyShapeStyle(Color.accentColor.opacity(0.18)) }
-        if reduceTransparency { return AnyShapeStyle(Color(.tertiarySystemBackground)) }
-        return AnyShapeStyle(.thinMaterial)
+    // MARK: - Chip buttons
+
+    @ViewBuilder
+    private func chipButton(for action: BereanContextAction) -> some View {
+        Button {
+            onAction(action)
+        } label: {
+            Label(action.title, systemImage: action.systemImage)
+                .labelStyle(.titleAndIcon)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                // Tint layer for the primary "Ask Berean" chip and solid chip fallbacks.
+                .background {
+                    if reduceTransparency {
+                        Capsule()
+                            .fill(
+                                action == .askBerean
+                                    ? AmenColor.accent.opacity(0.18)
+                                    : Color(.tertiarySystemBackground)
+                            )
+                    } else if action == .askBerean {
+                        // Accent wash sits below the glass specular layer.
+                        Capsule()
+                            .fill(AmenColor.accent.opacity(0.16))
+                    }
+                }
+                // .glassEffect() must be LAST. Omit on solid-fallback path so chips
+                // don't nest glass inside the already-solid tray.
+                .modify { view in
+                    if reduceTransparency {
+                        view
+                            .clipShape(Capsule())
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(
+                                        Color.white.opacity(
+                                            colorSchemeContrast == .increased ? 0.32 : 0.18
+                                        ),
+                                        lineWidth: 0.8
+                                    )
+                            )
+                    } else {
+                        view.glassEffect(in: Capsule())
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(action.title)
+        .animation(.amenEaseQuick, value: action)
+    }
+}
+
+// MARK: - View helper for conditional modifier chains
+
+private extension View {
+    /// Applies a modifier closure inline, keeping the modifier chain readable
+    /// and avoiding AnyView wrapping in branching contexts.
+    @ViewBuilder
+    func modify<T: View>(@ViewBuilder transform: (Self) -> T) -> some View {
+        transform(self)
     }
 }

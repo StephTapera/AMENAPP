@@ -25,8 +25,8 @@ final class TranslationFeatureFlags: ObservableObject {
     @Published private(set) var translationSystemEnabled: Bool = true
     @Published private(set) var gcpBackendEnabled: Bool = false   // No translateText Cloud Function deployed yet — use Apple on-device
     @Published private(set) var appleOnDeviceFallbackEnabled: Bool = true
-    @Published private(set) var autoTranslationEnabled: Bool = false    // Opt-in, not default
-    @Published private(set) var messagesTranslationEnabled: Bool = false // Off until legal review
+    @Published private(set) var autoTranslationEnabled: Bool = true
+    @Published private(set) var messagesTranslationEnabled: Bool = true
     @Published private(set) var analyticsEnabled: Bool = true
 
     // Meaning-Aware Translation (Accessibility Intelligence Layer)
@@ -40,9 +40,9 @@ final class TranslationFeatureFlags: ObservableObject {
     @Published private(set) var prayerTranslationEnabled: Bool = true
     @Published private(set) var commentsTranslationEnabled: Bool = true
     @Published private(set) var repliesTranslationEnabled: Bool = true
-    @Published private(set) var profileBioTranslationEnabled: Bool = false // Phase 3
-    @Published private(set) var resourceDescriptionTranslationEnabled: Bool = false // Phase 3
-    @Published private(set) var churchNotesTranslationEnabled: Bool = false // Phase 3
+    @Published private(set) var profileBioTranslationEnabled: Bool = true
+    @Published private(set) var resourceDescriptionTranslationEnabled: Bool = true
+    @Published private(set) var churchNotesTranslationEnabled: Bool = true
 
     // Language Intelligence Layer
     @Published private(set) var smartTranslationVisibilityEnabled: Bool = true
@@ -98,25 +98,25 @@ final class TranslationFeatureFlags: ObservableObject {
             "translation_system_enabled": true as NSObject,
             "translation_gcp_backend_enabled": true as NSObject,
             "translation_apple_fallback_enabled": true as NSObject,
-            "translation_auto_enabled": false as NSObject,
-            "translation_messages_enabled": false as NSObject,
+            "translation_auto_enabled": true as NSObject,
+            "translation_messages_enabled": true as NSObject,
             "translation_posts_enabled": true as NSObject,
             "translation_testimonies_enabled": true as NSObject,
             "translation_prayer_enabled": true as NSObject,
             "translation_comments_enabled": true as NSObject,
             "translation_replies_enabled": true as NSObject,
-            "translation_profile_bio_enabled": false as NSObject,
+            "translation_profile_bio_enabled": true as NSObject,
             "translation_max_chars": 5000 as NSObject,
             "translation_max_requests_per_day": 100 as NSObject,
             "translation_precompute_threshold": 50 as NSObject,
             "translation_meaning_aware_enabled": true as NSObject,
             "translation_natural_mode_enabled": true as NSObject,
             "translation_contextual_mode_enabled": true as NSObject,
-            "translation_smart_visibility_enabled": false as NSObject,
-            "translation_side_by_side_enabled": false as NSObject,
-            "translation_per_language_auto_enabled": false as NSObject,
-            "translation_creation_language_enabled": false as NSObject,
-            "translation_adaptive_enabled": false as NSObject,
+            "translation_smart_visibility_enabled": true as NSObject,
+            "translation_side_by_side_enabled": true as NSObject,
+            "translation_per_language_auto_enabled": true as NSObject,
+            "translation_creation_language_enabled": true as NSObject,
+            "translation_adaptive_enabled": true as NSObject,
         ])
 
         do {

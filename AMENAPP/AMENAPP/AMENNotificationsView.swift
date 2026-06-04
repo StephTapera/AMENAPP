@@ -69,7 +69,7 @@ final class AMENNotificationsViewModel: ObservableObject {
 
     func markAllReadRemote() {
         Task {
-            await NotificationService.shared.markAllAsReadViaQuery()
+            try? await NotificationService.shared.markAllAsRead()
             BadgeCountManager.shared.clearNotifications()
         }
     }
@@ -138,44 +138,43 @@ private extension View {
 private struct ActivityFilterChipBar: View {
     @Binding var selected: ActivityFilterCategory
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(ActivityFilterCategory.allCases) { category in
-                    Button {
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
-                            selected = category
+            GlassEffectContainer(spacing: 0) {
+                HStack(spacing: 6) {
+                    ForEach(ActivityFilterCategory.allCases) { category in
+                        let isSelected = selected == category
+                        Button {
+                            withAnimation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                                selected = category
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: category.iconName)
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(category.rawValue)
+                                    .font(AMENFont.semiBold(13))
+                            }
+                            .foregroundStyle(isSelected ? Color.white : AmenTheme.Colors.textPrimary)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(isSelected
+                                          ? AnyShapeStyle(AmenTheme.Colors.buttonPrimary)
+                                          : AnyShapeStyle(Color.clear))
+                            )
+                            .glassEffect(isSelected ? .regular : .subtle, in: Capsule())
                         }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: category.iconName)
-                                .font(.system(size: 11, weight: .semibold))
-                            Text(category.rawValue)
-                                .font(AMENFont.semiBold(13))
-                        }
-                        .foregroundStyle(selected == category ? Color.white : AmenTheme.Colors.textPrimary)
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(selected == category
-                                      ? AmenTheme.Colors.buttonPrimary
-                                      : .ultraThinMaterial)
-                                .overlay(
-                                    selected == category ? nil :
-                                        Capsule().fill(AmenTheme.Colors.glassFill)
-                                )
-                                .overlay(
-                                    selected == category ? nil :
-                                        Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5)
-                                )
-                        )
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 4)
         }
     }
 }
@@ -336,7 +335,7 @@ private struct ActivityActionButton: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(action.style == .primary ? AmenTheme.Colors.buttonPrimary : .ultraThinMaterial)
+                    .fill(action.style == .primary ? AnyShapeStyle(AmenTheme.Colors.buttonPrimary) : AnyShapeStyle(.ultraThinMaterial))
                     .overlay(
                         action.style == .secondary
                             ? Capsule().fill(AmenTheme.Colors.glassFill)
@@ -561,32 +560,32 @@ private struct TimeBucketSection: View {
 private struct FocusModePill: View {
     @Binding var isOn: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: isOn ? "moon.fill" : "moon")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(AmenTheme.Colors.iconPrimary)
-            Text("Focus Mode")
-                .font(AMENFont.semiBold(14))
-                .foregroundStyle(.primary)
-            Text(isOn ? "ON" : "OFF")
-                .font(AMENFont.bold(12))
-                .foregroundStyle(isOn ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .tint(AmenTheme.Colors.buttonPrimary)
-                .scaleEffect(0.8)
+        GlassEffectContainer(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: isOn ? "moon.fill" : "moon")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AmenTheme.Colors.iconPrimary)
+                Text("Focus Mode")
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.primary)
+                Text(isOn ? "ON" : "OFF")
+                    .font(AMENFont.bold(12))
+                    .foregroundStyle(isOn ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
+                Toggle("", isOn: $isOn)
+                    .labelsHidden()
+                    .tint(AmenTheme.Colors.buttonPrimary)
+                    .scaleEffect(0.8)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(AmenTheme.Colors.glassFill))
-                .overlay(Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
-                .shadow(color: AmenTheme.Colors.shadowCard, radius: 12, x: 0, y: 3)
-        )
-        .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.80)), value: isOn)
+        .shadow(color: AmenTheme.Colors.shadowCard, radius: 12, x: 0, y: 3)
+        .glassEffect(GlassEffectStyle.regular, in: Capsule())
+        .animation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.80)), value: isOn)
     }
 }
 
@@ -657,7 +656,7 @@ struct AMENNotificationsView: View {
             }
             .onAppear {
                 viewModel.markAllReadRemote()
-                Task { await NotificationService.shared.recordInboxOpened() }
+                // inbox opened tracking — no-op until NotificationService adds this
             }
         }
     }

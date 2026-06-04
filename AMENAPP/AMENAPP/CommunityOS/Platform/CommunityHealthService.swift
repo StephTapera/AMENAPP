@@ -81,7 +81,7 @@ actor CommunityHealthService {
     /// Fetches the current health signals for the given community.
     /// Returns nil if no document exists yet.
     func fetchHealthSignals(for communityId: String) async throws -> CommunityHealthSignals? {
-        guard CommunityOSFlagService.shared.isEnabled(.communityHealthEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.communityHealthEngine) else {
             dlog("[CommunityHealthService] Flag communityHealthEngine is off — skipping fetch")
             return nil
         }
@@ -99,7 +99,7 @@ actor CommunityHealthService {
     /// Atomically increments the relevant signal fields using Firestore FieldValue.increment.
     /// Only delta fields that are non-nil are written to Firestore.
     func updateHealthSignals(for communityId: String, delta: CommunityHealthDelta) async throws {
-        guard CommunityOSFlagService.shared.isEnabled(.communityHealthEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.communityHealthEngine) else {
             dlog("[CommunityHealthService] Flag communityHealthEngine is off — skipping update")
             return
         }
@@ -154,7 +154,7 @@ actor CommunityHealthService {
     /// Note: overallHealthScore is a computed property — we use a denormalized `overallHealthScore`
     /// field written by the server; if absent we fall back to sorting client-side.
     func getHealthLeaders(limit: Int) async throws -> [(communityId: String, signals: CommunityHealthSignals)] {
-        guard CommunityOSFlagService.shared.isEnabled(.communityHealthEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.communityHealthEngine) else {
             dlog("[CommunityHealthService] Flag communityHealthEngine is off — skipping leaders query")
             return []
         }
@@ -178,7 +178,7 @@ actor CommunityHealthService {
     /// Copies current health signals to the dailySignals subcollection for trend tracking.
     /// Uses today's ISO-8601 date string as the document ID.
     func snapshotDailyHealth(communityId: String) async throws {
-        guard CommunityOSFlagService.shared.isEnabled(.communityHealthEngine) else {
+        guard await CommunityOSFlagService.shared.isEnabled(.communityHealthEngine) else {
             dlog("[CommunityHealthService] Flag communityHealthEngine is off — skipping snapshot")
             return
         }

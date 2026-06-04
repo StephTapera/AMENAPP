@@ -15,7 +15,7 @@ const db = getFirestore();
 
 // ── generateRecap ─────────────────────────────────────────────────────────────
 
-exports.generateRecap = onCall({ enforceAppCheck: false }, async (request) => {
+exports.generateRecap = onCall({ enforceAppCheck: true /* enforceAppCheck: true — requires App Check token from client; disable locally with env var if needed */ }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -62,7 +62,7 @@ exports.generateRecap = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── searchTranscripts ─────────────────────────────────────────────────────────
 
-exports.searchTranscripts = onCall({ enforceAppCheck: false }, async (request) => {
+exports.searchTranscripts = onCall({ enforceAppCheck: true /* enforceAppCheck: true — requires App Check token from client; disable locally with env var if needed */ }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -106,7 +106,7 @@ exports.searchTranscripts = onCall({ enforceAppCheck: false }, async (request) =
 
 // ── generateClip ──────────────────────────────────────────────────────────────
 
-exports.generateClip = onCall({ enforceAppCheck: false }, async (request) => {
+exports.generateClip = onCall({ enforceAppCheck: true /* enforceAppCheck: true — requires App Check token from client; disable locally with env var if needed */ }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -139,7 +139,7 @@ exports.generateClip = onCall({ enforceAppCheck: false }, async (request) => {
 
 // ── studyCompanionQuery ───────────────────────────────────────────────────────
 
-exports.studyCompanionQuery = onCall({ enforceAppCheck: false }, async (request) => {
+exports.studyCompanionQuery = onCall({ enforceAppCheck: true /* enforceAppCheck: true — requires App Check token from client; disable locally with env var if needed */ }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 

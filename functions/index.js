@@ -1453,6 +1453,7 @@ exports.detectDuplicate        = discussion.detectDuplicate;
 exports.computeReputation      = discussion.computeReputation;
 exports.postComment            = discussion.postComment;
 exports.markHelpful            = discussion.markHelpful;
+exports.setAccepted            = discussion.setAccepted;
 exports.updateWatchProgress    = discussion.updateWatchProgress;
 exports.getWatchProgress       = discussion.getWatchProgress;
 exports.processEmbeddingQueue  = discussion.processEmbeddingQueue;
@@ -1612,3 +1613,33 @@ const bereanAIFeatures = require("./bereanFeaturesFunctions");
 exports.dailyVerseDrop     = bereanAIFeatures.dailyVerseDrop;
 exports.weeklyPrayerRecap  = bereanAIFeatures.weeklyPrayerRecap;
 exports.generatePrayerRecap = bereanAIFeatures.generatePrayerRecap;
+
+// ============================================================================
+// COMMUNICATION OS — Context detection, conversation memory, contact notes,
+//                    thread mini-summary, V1 text moderation
+//
+//   analyzeMessageContext    — callable: detect links/dates/music/tasks/memories
+//                              in a thread message; verifies caller is a member
+//   analyzePostContext       — callable: detect context signals in a draft post
+//   saveConversationMemory   — callable: save link/date/music/note/task/event/
+//                              memory item in threads/{id}/memories
+//   savePrivateContactNote   — callable: save private note about a contact
+//                              written to callerUid path only, never logged
+//   generateThreadMiniSummary — callable: summarize saved memories for a thread
+//                              (Remote Config gated: smartThreadMiniSummaryEnabled)
+//   moderateTextContent      — callable: rule-based V1 text moderation for
+//                              message|post|profile|comment; fails open
+//
+// No external secrets required (V1 is fully deterministic / rule-based).
+// Deploy: firebase deploy --only \
+//   functions:analyzeMessageContext,analyzePostContext,saveConversationMemory,\
+//   savePrivateContactNote,generateThreadMiniSummary,moderateTextContent \
+//   --project amen-5e359
+// ============================================================================
+const communicationOS = require("./communicationOS");
+exports.analyzeMessageContext     = communicationOS.analyzeMessageContext;
+exports.analyzePostContext        = communicationOS.analyzePostContext;
+exports.saveConversationMemory    = communicationOS.saveConversationMemory;
+exports.savePrivateContactNote    = communicationOS.savePrivateContactNote;
+exports.generateThreadMiniSummary = communicationOS.generateThreadMiniSummary;
+exports.moderateTextContent       = communicationOS.moderateTextContent;

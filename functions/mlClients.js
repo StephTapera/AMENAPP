@@ -317,6 +317,110 @@ async function checkRateLimit(userId, functionName, maxPerMinute = 10) {
 }
 
 // ═══════════════════════════════════════════
+// OPENAI EMBEDDING CLIENT
+// ═══════════════════════════════════════════
+//
+// Uses text-embedding-3-small (1536-dim) for semantic embeddings.
+// Caches results in Firestore under embeddings/{cacheKey} for 30 days
+// so identical texts are never re-embedded.
+// Falls back gracefully when OPENAI_API_KEY is unset.
+//
+
+const EMBED_MODEL = "text-embedding-3-small";
+const EMBED_CACHE_TTL_DAYS = 30;
+
+/**
+ * Embed a single text string. Returns a number[] vector.
+ * cacheKey — optional Firestore cache key (e.g. "post_abc123"). Pass null to skip caching.
+ */
+async function openaiEmbed(text, cacheKey = null) {
+  const db = admin.firestore();
+
+  // Firestore cache read
+  if (cacheKey) {
+    try {
+      const doc = await db.collection("embeddings").doc(cacheKey).get();
+      if (doc.exists) {
+        const d = doc.data();
+        const ageMs = Date.now() - (d.createdAt?.toMillis?.() ?? 0);
+        if (ageMs < EMBED_CACHE_TTL_DAYS * 86400000 && Array.isArray(d.vector)) {
+          return d.vector;
+        }
+      }
+    } catch (_) { /* non-fatal cache miss */ }
+  }
+
+  const apiKey = await getSecret("OPENAI_API_KEY");
+  if (!apiKey) {
+    console.warn("[openaiEmbed] OPENAI_API_KEY not configured — returning zero vector");
+    return new Array(1536).fill(0);
+  }
+
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ model: EMBED_MODEL, input: text }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`[openaiEmbed] HTTP ${response.status}: ${await response.text()}`);
+  }
+
+  const json = await response.json();
+  const vector = json.data?.[0]?.embedding;
+  if (!Array.isArray(vector)) throw new Error("[openaiEmbed] Unexpected response shape");
+
+  // Firestore cache write
+  if (cacheKey) {
+    try {
+      await db.collection("embeddings").doc(cacheKey).set({
+        vector,
+        model: EMBED_MODEL,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (_) { /* non-fatal */ }
+  }
+
+  return vector;
+}
+
+/**
+ * Embed an array of texts in one API call (batched).
+ * Returns a number[][] array in the same order as inputs.
+ */
+async function openaiEmbedBatch(texts) {
+  if (!texts || texts.length === 0) return [];
+
+  const apiKey = await getSecret("OPENAI_API_KEY");
+  if (!apiKey) {
+    console.warn("[openaiEmbedBatch] OPENAI_API_KEY not configured — returning zero vectors");
+    return texts.map(() => new Array(1536).fill(0));
+  }
+
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ model: EMBED_MODEL, input: texts }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`[openaiEmbedBatch] HTTP ${response.status}: ${await response.text()}`);
+  }
+
+  const json = await response.json();
+  const sorted = (json.data || []).sort((a, b) => a.index - b.index);
+  return sorted.map((d) => d.embedding);
+}
+
+// ═══════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════
 
@@ -341,6 +445,8 @@ function cosineSimilarity(a, b) {
 module.exports = {
   getSecret,
   hfInference,
+  openaiEmbed,
+  openaiEmbedBatch,
   pineconeUpsert,
   pineconeQuery,
   pineconeDelete,

@@ -165,12 +165,11 @@ final class JobSafetyEngine {
         if employer.isVerified { score = min(score + 0.10, 1.0) }
 
         // Moderation history penalty
-        switch employer.moderationState {
-        case .active: break
-        case .underReview: score -= 0.20
-        case .warned: score -= 0.30
-        case .restricted: score -= 0.50
-        case .suspended: return 0.0
+        switch employer.moderationState.status {
+        case .approved: break
+        case .pending:  score -= 0.20
+        case .flagged:  score -= 0.30
+        case .rejected: return 0.0
         }
 
         // Response rate quality signal
@@ -184,10 +183,9 @@ final class JobSafetyEngine {
 
     /// Evaluates a recruiter profile's trust level.
     func evaluateRecruiterTrust(_ employer: EmployerProfile) -> RecruiterTrustLevel {
-        switch employer.moderationState {
-        case .suspended: return .blocked
-        case .restricted: return .suspicious
-        case .warned: return .suspicious
+        switch employer.moderationState.status {
+        case .rejected: return .blocked
+        case .flagged:  return .suspicious
         default: break
         }
 

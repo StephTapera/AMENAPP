@@ -82,7 +82,7 @@ struct AmenHubSectionView: View {
             } label: {
                 Text("See all")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.amenGoldText)
             }
             .accessibilityLabel("See all hub items")
             .accessibilityHint("Opens the full Amen Hub inbox")

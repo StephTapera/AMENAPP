@@ -28,6 +28,7 @@ import FirebaseStorage
 ///   for future publication.
 struct CreatePostView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ObservedObject private var postsManager: PostsManager = .shared
     @ObservedObject private var draftsManager: DraftsManager = .shared
     @ObservedObject private var userService: UserService = .shared
@@ -90,8 +91,8 @@ struct CreatePostView: View {
     @State private var pollOptions: [String] = ["", ""]  // start with 2 blank options
     @State private var pollDuration: PollDuration = .oneDay
 
-    // MARK: - Action card (camera / poll menu)
-    @State private var showingActionCard = false
+    // MARK: - Attachment picker popup (glass floating card)
+    @State private var showingAttachmentPicker = false
 
     // MARK: - Toolbar expand/collapse
     @State private var isToolbarExpanded = false
@@ -217,7 +218,11 @@ struct CreatePostView: View {
     @State private var isThreadMode = false
     @State private var threadPosts: [String] = [""]  // Array of thread post texts
     @State private var currentThreadIndex = 0
-    
+
+    // MARK: - Smart Post Context Detection
+    @State private var postDetectedItems: [DetectedPostContextItem] = []
+    @State private var detectionTask: Task<Void, Never>?
+
     // MARK: - Initializer
     
     init(initialCategory: PostCategory? = nil) {
@@ -364,6 +369,12 @@ struct CreatePostView: View {
 
             // MARK: - Smart Composition Cues
             composerSuggestionRow
+
+            // MARK: - Smart Post Context Tray
+            SmartPostContextTray(
+                detectedItems: postDetectedItems,
+                onAction: { _, _ in }
+            )
 
             // Topic tag selector (required for OpenTable/Prayer)
             if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
@@ -895,7 +906,7 @@ struct CreatePostView: View {
         .interactiveDismissDisabled(!postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImageData.isEmpty || !linkURL.isEmpty || cameraImage != nil || showingPoll)
         // Verse drawer — top-level so it doesn't conflict with other sheets
         .verseDrawer(isPresented: $showingVersePickerSheet) { verse in
-            attachedVerseReference = verse.reference
+            attachedVerseReference = verse.reference.displayString
             attachedVerseText = verse.text
             verseAttachmentVM.attachVerse(verse, source: .manualSearch)
         }
@@ -915,7 +926,7 @@ struct CreatePostView: View {
                     replaceResults: verseAttachmentVM.quickReplaceResults,
                     onReplace: { newVerse in
                         verseAttachmentVM.attachVerse(newVerse, source: .replace)
-                        attachedVerseReference = newVerse.reference
+                        attachedVerseReference = newVerse.reference.displayString
                         attachedVerseText = newVerse.text
                     },
                     onOpenFullSearch: {
@@ -995,6 +1006,13 @@ struct CreatePostView: View {
             // the real username and avatar instead of the "@you" fallback.
             if userService.currentUser == nil {
                 await userService.fetchCurrentUser()
+            }
+        }
+        .onChange(of: isTextFieldFocused) { _, focused in
+            // Dismiss the attachment picker when the keyboard opens so it
+            // does not overlap the text editor.
+            if focused && showingAttachmentPicker {
+                withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
             }
         }
         .onAppear {
@@ -1564,8 +1582,22 @@ struct CreatePostView: View {
     private var threadsAttachmentBar: some View {
         let recommended = recommendedAttachmentIcon
         HStack(spacing: 20) {
-            attachmentBarIcon("photo", recommended: recommended) { showingImagePicker = true }
-            attachmentBarIcon("camera", recommended: recommended) { showingCamera = true }
+            // + button — opens the floating glass attachment picker card
+            Button {
+                withAnimation(.amenSpringStandard) {
+                    showingAttachmentPicker.toggle()
+                }
+                HapticManager.impact(style: .light)
+            } label: {
+                Image(systemName: showingAttachmentPicker ? "xmark" : "plus")
+                    .font(.systemScaled(18, weight: .medium))
+                    .foregroundStyle(showingAttachmentPicker ? Color.primary.opacity(0.75) : .secondary.opacity(0.65))
+                    .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(showingAttachmentPicker ? "Close attachment menu" : "Open attachment menu")
+
             attachmentBarIcon("chart.bar.xaxis", recommended: recommended) {
                 withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     showingPoll.toggle()
@@ -1577,7 +1609,25 @@ struct CreatePostView: View {
 
             Spacer()
         }
+        // Floating glass attachment picker card overlaid above the + button.
+        // The overlay is anchored to the top-leading corner of the bar so the
+        // card's bottom sits at the bar and the card opens upward.
+        .overlay(alignment: .topLeading) {
+            if showingAttachmentPicker {
+                attachmentPickerCard
+                    .offset(y: -attachmentPickerCardEstimatedHeight)
+                    .transition(
+                        .scale(scale: 0.88, anchor: .bottomLeading)
+                        .combined(with: .opacity)
+                    )
+                    .zIndex(10)
+                    .allowsHitTesting(true)
+            }
+        }
     }
+
+    /// Estimated height of the three-row picker card (3 × 64 pt rows + padding).
+    private let attachmentPickerCardEstimatedHeight: CGFloat = 208
 
     @ViewBuilder
     private func attachmentBarIcon(_ icon: String, recommended: String?, action: @escaping () -> Void) -> some View {
@@ -1591,6 +1641,30 @@ struct CreatePostView: View {
         }
         .buttonStyle(.plain)
     }
+
+    // MARK: - Glass Attachment Picker Card
+
+    /// Floating glass card — delegates to AttachmentPickerFloatingCard so that
+    /// @Environment(\.accessibilityReduceTransparency) is resolved inside its
+    /// own View body (the cleanest Swift pattern, matching BereanFloatingActionTray).
+    private var attachmentPickerCard: some View {
+        AttachmentPickerFloatingCard(
+            onCamera: {
+                withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
+                guard !showingPoll else { return }
+                showingCamera = true
+            },
+            onPhotos: {
+                withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
+                showingImagePicker = true
+            },
+            onFiles: {
+                withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
+                // TODO: wire document picker (UIDocumentPickerViewController) when Files attachment is enabled
+            }
+        )
+    }
+
 
     /// Bottom bar: reply options + action icons + character count + context panels
     private var threadsBottomBar: some View {
@@ -1610,9 +1684,8 @@ struct CreatePostView: View {
                     .foregroundColor(Color(hex: "6B48FF"))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(.ultraThinMaterial)
-                    .overlay(Capsule().strokeBorder(Color(hex: "6B48FF").opacity(0.3), lineWidth: 0.5))
-                    .clipShape(Capsule())
+                    .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+                    .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1740,22 +1813,9 @@ struct CreatePostView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.regularMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                )
-                .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
-        )
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+        .background { if reduceTransparency { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.systemBackground)) } }
+        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .opacity(insightEngine.result.readinessState == .empty ? 0.85 : 1.0)
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
@@ -1977,11 +2037,11 @@ struct CreatePostView: View {
                 }) {
                     ZStack {
                         Circle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(Circle().fill(Color.white.opacity(canPost ? 0.80 : 0.40)))
-                            .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                            .fill(Color.clear)
                             .frame(width: 38, height: 38)
                             .shadow(color: Color.black.opacity(canPost ? 0.10 : 0.04), radius: 6, x: 0, y: 2)
+                            .background { if reduceTransparency { Circle().fill(Color(.systemBackground)) } }
+                            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Circle())
 
                         if isPublishing {
                             ProgressView()
@@ -2016,37 +2076,9 @@ struct CreatePostView: View {
             }
             .padding(.horizontal, 4)
             .padding(.vertical, 8)
-            .background(
-                ZStack {
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.05)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.5),
-                                    Color.white.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                }
-            )
             .shadow(color: .black.opacity(0.06), radius: 12, y: 3)
-            .shadow(color: .white.opacity(0.4), radius: 6, y: -1)
+            .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
             .padding(.horizontal, 20)
             .padding(.bottom, 6)
         }
@@ -2400,8 +2432,18 @@ struct CreatePostView: View {
                             // Scripture intent detection for inline suggestions
                             verseAttachmentVM.analyzeDraftText(newValue)
                             scheduleSupportDraftAnalysis(for: newValue)
+                            // Smart post context detection (debounced 0.5 s)
+                            if PostingOSFeatureFlags.shared.smartPostContextEnabled {
+                                detectionTask?.cancel()
+                                detectionTask = Task {
+                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    guard !Task.isCancelled else { return }
+                                    let items = await PostComposerSmartDetectionService().detectAll(in: newValue)
+                                    await MainActor.run { postDetectedItems = items }
+                                }
+                            }
                         }
-                    
+
                     // Placeholder overlay
                     if postText.isEmpty {
                         EditorPlaceholderView(
@@ -3053,7 +3095,7 @@ struct CreatePostView: View {
     private func triggerPublishShake() {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.error)
-        withAnimation(.default) {
+        withAnimation(.amenEaseQuick) {
             shakePublishButton = true
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -3241,7 +3283,7 @@ struct CreatePostView: View {
             inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
             
             // P1 FIX: Shake topic tag button and show inline error
-            withAnimation(.default) {
+            withAnimation(.amenEaseQuick) {
                 shakeTopicTag = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -4534,7 +4576,11 @@ struct CreatePostView: View {
                     "scheduledFor": Timestamp(date: scheduledFor),
                     "createdAt": Timestamp(date: Date()),
                     "authorId": scheduledAuthorId,
-                    "status": "pending"
+                    "status": "pending",
+                    // moderationStatus ensures the scheduled post publisher CF
+                    // runs server-side NeMo Guard before publishing to posts/
+                    "moderationStatus": "pending",
+                    "clientSafetyVersion": 1
                 ]
                 
                 try await FirebaseManager.shared.firestore
@@ -4790,6 +4836,120 @@ struct CreatePostView: View {
                         .allowsHitTesting(false)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Attachment Picker Glass Components
+
+/// Floating glass card shown when the user taps the `+` button in the
+/// inline attachment bar. Handles its own reduce-transparency branching so
+/// `.glassEffect()` is always the last modifier in the non-reduced path.
+private struct AttachmentPickerFloatingCard: View {
+    let onCamera: () -> Void
+    let onPhotos: () -> Void
+    let onFiles: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if reduceTransparency {
+            cardRows
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color(.systemBackground))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.8)
+                        )
+                )
+                .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
+        } else {
+            cardRows
+                // .glassEffect() is last — iOS 26 glass surface for the card
+                .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: .black.opacity(0.10), radius: 20, y: 8)
+        }
+    }
+
+    private var cardRows: some View {
+        VStack(spacing: 0) {
+            AttachmentPickerRow(icon: "camera.fill", label: "Camera",
+                                accessibilityHint: "Take a photo with camera",
+                                action: onCamera)
+            rowDivider
+            AttachmentPickerRow(icon: "photo.fill", label: "Photos",
+                                accessibilityHint: "Choose from photo library",
+                                action: onPhotos)
+            rowDivider
+            AttachmentPickerRow(icon: "doc.fill", label: "Files",
+                                accessibilityHint: "Attach a file",
+                                action: onFiles)
+        }
+        .frame(width: 200)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var rowDivider: some View {
+        Divider()
+            .opacity(0.3)
+            .padding(.leading, 72)
+    }
+}
+
+/// Single row inside `AttachmentPickerFloatingCard`.
+/// The icon circle uses `.glassEffect(in: .circle)` as a separate glass element.
+private struct AttachmentPickerRow: View {
+    let icon: String
+    let label: String
+    let accessibilityHint: String
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                AttachmentPickerIconCircle(icon: icon)
+
+                Text(label)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityHint(accessibilityHint)
+    }
+}
+
+/// Icon circle for each picker row.
+/// Uses `.glassEffect(in: .circle)` on iOS 26; falls back to a filled
+/// secondary background when reduce-transparency is on.
+private struct AttachmentPickerIconCircle: View {
+    let icon: String
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if reduceTransparency {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(Color(.secondarySystemBackground)))
+                .clipShape(Circle())
+        } else {
+            // .glassEffect() is last — individual glass circle
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
         }
     }
 }
@@ -5210,6 +5370,8 @@ struct GlassCategoryBar: View {
     let namespace: Namespace.ID
     let onSelect: (CreatePostView.PostCategory) -> Void
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(categories, id: \.self) { category in
@@ -5232,27 +5394,9 @@ struct GlassCategoryBar: View {
         .padding(.vertical, 5)
         .frame(height: 48)
         // Outer pill — glass container
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.55),
-                                    Color.white.opacity(0.10)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 1)
-        )
-        .clipShape(Capsule())
+        .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
         // Static neon-red border around the outer capsule
         .overlay(
             Capsule()
@@ -5273,6 +5417,7 @@ private struct GlassCategorySegment: View {
     let action: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     // Label always visible so users can read every category at a glance.
     private var showLabel: Bool { true }
@@ -5283,22 +5428,10 @@ private struct GlassCategorySegment: View {
                 // Sliding selection lens — matched geometry so it travels between segments
                 if isSelected {
                     Capsule()
-                        .fill(.regularMaterial)
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.80),
-                                            Color.white.opacity(0.20)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
+                        .fill(Color.clear)
                         .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 2)
+                        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+                        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
                         .matchedGeometryEffect(id: "selectionLens", in: namespace)
                 }
 
@@ -5402,6 +5535,7 @@ struct TopicTagSheet: View {
     @Binding var isPresented: Bool
     @Binding var selectedCategory: CreatePostView.PostCategory
     @State private var searchText = ""
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     
     // OpenTable topic tags
     var openTableTags: [(String, String, Color)] {
@@ -5538,14 +5672,8 @@ struct TopicTagSheet: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(.black.opacity(0.1), lineWidth: 0.5)
-                            )
-                    )
+                    .background { if reduceTransparency { RoundedRectangle(cornerRadius: 12).fill(Color(.systemBackground)) } }
+                    .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .padding(.horizontal)
                     
                     if filteredTags.isEmpty {
@@ -6387,6 +6515,7 @@ struct ComposerSchedulePill: View {
     var onClear: () -> Void
 
     @State private var appeared = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var isScheduled: Bool { scheduledDate != nil }
 
@@ -6428,16 +6557,9 @@ struct ComposerSchedulePill: View {
                 .buttonStyle(.plain)
             }
         }
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(isScheduled ? Color.white.opacity(0.80) : Color.white.opacity(0.55)))
-                .overlay(Capsule().strokeBorder(
-                    isScheduled ? Color.black.opacity(0.18) : Color(white: 0.88).opacity(0.5),
-                    lineWidth: isScheduled ? 1.0 : 0.5
-                ))
-        )
         .shadow(color: isScheduled ? Color.black.opacity(0.08) : Color.black.opacity(0.04), radius: isScheduled ? 8 : 4, x: 0, y: 2)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
         .scaleEffect(appeared ? 1.0 : 0.88)
         .opacity(appeared ? 1.0 : 0)
         .onAppear {
@@ -8207,6 +8329,8 @@ struct LiquidGlassPostButtonAnimated: View {
     let state: UploadVisualState
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         GeometryReader { geo in
             let width = min(max(geo.size.width * 0.46, 148), 178)
@@ -8242,72 +8366,30 @@ struct LiquidGlassPostButtonAnimated: View {
     // MARK: - Idle / Pressed Capsule
 
     private func postCapsule(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        ZStack {
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.78), Color.white.opacity(0.44)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                )
-                .overlay(Capsule().stroke(Color.white.opacity(0.9), lineWidth: 1))
-                .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
-                .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
-
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.92), Color.white.opacity(0.0)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: width - 24, height: height * 0.28)
-                .offset(y: -height * 0.22)
-                .blur(radius: 0.4)
-
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Color.black.opacity(0.08))
-                        .frame(width: 22, height: 22)
-                    Image(systemName: "arrow.up")
-                        .font(.systemScaled(12, weight: .bold))
-                        .foregroundStyle(.primary)
-                }
-                Text("Post")
-                    .font(.systemScaled(min(max(height * 0.30, 17), 19), weight: .bold))
-                    .foregroundStyle(.black)
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(0.08))
+                    .frame(width: 22, height: 22)
+                Image(systemName: "arrow.up")
+                    .font(.systemScaled(12, weight: .bold))
+                    .foregroundStyle(.primary)
             }
+            Text("Post")
+                .font(.systemScaled(min(max(height * 0.30, 17), 19), weight: .bold))
+                .foregroundStyle(.black)
         }
         .frame(width: width, height: height)
-        .overlay(movingHighlight(cornerRadius: cornerRadius).clipShape(Capsule()))
+        .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
     }
 
     // MARK: - Uploading
 
     private func progressGlass(progress: CGFloat, size: CGFloat) -> some View {
         ZStack {
-            Circle()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.84), Color.white.opacity(0.50)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                )
-                .overlay(Circle().stroke(Color.white.opacity(0.95), lineWidth: 1))
-                .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
-
             Circle()
                 .stroke(Color.black.opacity(0.10), lineWidth: 6)
 
@@ -8321,54 +8403,31 @@ struct LiquidGlassPostButtonAnimated: View {
                 .foregroundStyle(.primary)
         }
         .frame(width: size, height: size)
+        .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+        .background { if reduceTransparency { Circle().fill(Color(.systemBackground)) } }
+        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Circle())
     }
 
     // MARK: - Success
 
     private func successCapsule(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        ZStack {
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.80), Color.white.opacity(0.56)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                )
-                .overlay(Capsule().stroke(Color.white.opacity(0.95), lineWidth: 1))
-                .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
-
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.94), Color.white.opacity(0.02)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: width - 26, height: height * 0.28)
-                .offset(y: -height * 0.22)
-
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Color.black)
-                        .frame(width: 22, height: 22)
-                    Image(systemName: "checkmark")
-                        .font(.systemScaled(11, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-                Text("Posted")
-                    .font(.systemScaled(min(max(height * 0.29, 16), 18), weight: .bold))
-                    .foregroundStyle(.black)
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(Color.black)
+                    .frame(width: 22, height: 22)
+                Image(systemName: "checkmark")
+                    .font(.systemScaled(11, weight: .bold))
+                    .foregroundStyle(.white)
             }
+            Text("Posted")
+                .font(.systemScaled(min(max(height * 0.29, 16), 18), weight: .bold))
+                .foregroundStyle(.black)
         }
         .frame(width: width, height: height)
-        .overlay(movingHighlight(cornerRadius: cornerRadius).clipShape(Capsule()))
+        .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
     }
 
     // MARK: - Shared Visual Layers
@@ -8384,24 +8443,6 @@ struct LiquidGlassPostButtonAnimated: View {
                 )
             )
             .frame(width: size, height: size)
-            .blur(radius: 10)
-    }
-
-    private func movingHighlight(cornerRadius: CGFloat) -> some View {
-        TimelineView(.animation(minimumInterval: 1 / 40)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            let phase = CGFloat((sin(t * 1.2) + 1) / 2)
-            LinearGradient(
-                colors: [.clear, Color.white.opacity(0.48), .clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .frame(width: 66, height: 180)
-            .rotationEffect(.degrees(18))
-            .offset(x: -54 + (phase * 108))
-            .blur(radius: 3.6)
-            .allowsHitTesting(false)
-        }
     }
 }
 

@@ -3578,11 +3578,25 @@ struct PostCard: View {
         logDebug("  BEFORE: hasSaidAmen=\(previousState), count=\(previousCount)", category: "AMEN")
         logDebug("  Source: Local @State", category: "AMEN")
 
-        // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.notification(type: .success)
-        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
-            hasSaidAmen.toggle()
-        }
+        // Fire smart notification (apply = optimistic toggle, reverse = rollback on undo)
+        let amenAuthorName = authorName
+        AmenNotifications.fire(NotifContext(
+            action: .amen,
+            actorName: amenAuthorName,
+            toneColors: (Color(hex: "#7B68EE"), Color(hex: "#C9A84C")),
+            undoWindow: 4.2,
+            apply: {
+                HapticManager.notification(type: .success)
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.hasSaidAmen = !self.hasSaidAmen
+                }
+            },
+            reverse: {
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.hasSaidAmen = !self.hasSaidAmen
+                }
+            }
+        ))
 
         logDebug("  OPTIMISTIC: hasSaidAmen=\(hasSaidAmen), count=\(amenCount)", category: "AMEN")
 
@@ -3701,11 +3715,25 @@ struct PostCard: View {
             }
         }
         
-        // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.notification(type: .success)
-        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
-            hasReposted.toggle()
-        }
+        // Fire smart notification (apply = optimistic toggle, reverse = rollback on undo)
+        let repostAuthorName = authorName
+        AmenNotifications.fire(NotifContext(
+            action: .repost,
+            actorName: repostAuthorName,
+            toneColors: (Color(hex: "#C9A84C"), Color(hex: "#FFD97D")),
+            undoWindow: 4.2,
+            apply: {
+                HapticManager.notification(type: .success)
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.hasReposted = !self.hasReposted
+                }
+            },
+            reverse: {
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.hasReposted = !self.hasReposted
+                }
+            }
+        ))
 
         logDebug("  OPTIMISTIC: hasReposted=\(hasReposted), count=\(repostCount)", category: "REPOST")
 
@@ -4028,13 +4056,25 @@ struct PostCard: View {
         logDebug("  Timestamp: \(Date())", category: "SAVE")
         logDebug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", category: "SAVE")
 
-        // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.impact(style: .light)
-        logDebug("  📤 Performing OPTIMISTIC UI update...", category: "SAVE")
-        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
-            isSaved.toggle()
-        }
-        
+        // Fire smart notification (apply = optimistic toggle, reverse = rollback on undo)
+        AmenNotifications.fire(NotifContext(
+            action: .save,
+            actorName: "Your Library",
+            toneColors: (Color(hex: "#2D6A4F"), Color(hex: "#52B788")),
+            undoWindow: 4.2,
+            apply: {
+                HapticManager.impact(style: .light)
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.isSaved = !self.isSaved
+                }
+            },
+            reverse: {
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.isSaved = !self.isSaved
+                }
+            }
+        ))
+
         logDebug("  ✅ OPTIMISTIC UPDATE COMPLETE: isSaved=\(isSaved)", category: "SAVE")
         logDebug("  Expected outcome: \(isSaved ? "SAVED" : "UNSAVED")", category: "SAVE")
         

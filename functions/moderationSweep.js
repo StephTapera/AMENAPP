@@ -1,9 +1,10 @@
+// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
 // moderationSweep.js — v1 Cloud Function (avoids Cloud Run quota)
 // Scheduled every 4h: finds aged moderation queue items and alerts admins.
 // Items pending >24h for normal content, or >2h for critical categories
 // (csam, grooming, trafficking) are escalated to criticalReviewQueue.
 
-const functions = require("firebase-functions");
+const functions = require("firebase-functions/v1");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const CRITICAL_CATEGORIES = ["csam", "grooming", "trafficking", "child_safety", "minor_safety"];
