@@ -113,6 +113,8 @@ struct SelahMediaHomeView: View {
                                             pauseItem = item
                                             showDeepMode = true
                                         }
+                                        .accessibilityLabel("Play moment")
+                                        .accessibilityAddTraits(.isButton)
                                 }
                             }
                             .padding(.horizontal, 20)
@@ -223,6 +225,8 @@ struct SelahMediaHomeView: View {
                                 selectedItem = ranked.item
                                 recordView(ranked.item)
                             }
+                            .accessibilityLabel("Media item")
+                            .accessibilityAddTraits(.isButton)
                             Divider().padding(.leading, 20)
                         }
                     }

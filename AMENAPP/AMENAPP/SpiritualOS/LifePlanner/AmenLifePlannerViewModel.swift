@@ -1,8 +1,44 @@
 import Foundation
+import Observation
+import FirebaseAuth
 import FirebaseFirestore
-import FirebaseFunctions
 
-// MARK: - PlannerSourceType
+// MARK: - PlannerEventType
+
+enum PlannerEventType {
+    case church
+    case prayer
+    case birthday
+    case volunteer
+    case reading
+
+    var label: String {
+        switch self {
+        case .church:    return "Church Event"
+        case .prayer:    return "Prayer"
+        case .birthday:  return "Birthday"
+        case .volunteer: return "Volunteer"
+        case .reading:   return "Bible Reading"
+        }
+    }
+}
+
+// MARK: - PlannerEvent
+
+struct PlannerEvent: Identifiable {
+    let id: String
+    let type: PlannerEventType
+    let title: String
+    let subtitle: String?       // space name, person name, etc.
+    let startTime: Date
+    let endTime: Date?
+    let spaceId: String?
+    let rsvpRequired: Bool
+    let userHasRSVPd: Bool
+    let suggestedReading: String?   // only for church events with study series
+}
+
+// MARK: - PlannerSourceType (retained for AmenLifePlannerSectionView compatibility)
 
 enum PlannerSourceType: String, Codable, CaseIterable {
     case spaceEvent        = "space_event"
@@ -13,202 +49,317 @@ enum PlannerSourceType: String, Codable, CaseIterable {
     case bereanSuggestion  = "berean_suggestion"
 }
 
-// MARK: - PlannerEvent
-
-struct PlannerEvent: Identifiable, Codable {
-    var id: String
-    var sourceType: PlannerSourceType
-    var title: String
-    var description: String?
-    var startDate: Date
-    var endDate: Date?
-    var isAllDay: Bool
-    var isCompleted: Bool
-    var spaceId: String?
-    var sourceRef: String?
-    var bereanNote: String?
-    var isBereanNote: Bool
-    var isDismissed: Bool
-    var color: String?
-}
-
-// MARK: - PlannerSuggestion
-
-struct PlannerSuggestion: Identifiable {
-    var id: String
-    var promptLabel: String
-    var bereanNote: String
-    var targetDate: Date
-}
-
 // MARK: - AmenLifePlannerViewModel
 
+@Observable
 @MainActor
-final class AmenLifePlannerViewModel: ObservableObject {
+final class AmenLifePlannerViewModel {
 
-    @Published var todayEvents: [PlannerEvent] = []
-    @Published var tomorrowEvents: [PlannerEvent] = []
-    @Published var bereanSuggestions: [PlannerSuggestion] = []
-    @Published var isLoading: Bool = false
+    // MARK: - Public State
 
+    var selectedDate: Date = Calendar.current.startOfDay(for: Date())
+    var isExpanded: Bool = false
+    var isLoading: Bool = false
+
+    // All loaded events keyed by calendar day (start of day)
+    private(set) var allEvents: [Date: [PlannerEvent]] = [:]
+
+    // MARK: - Derived
+
+    /// Events for a specific calendar day.
+    func events(for date: Date) -> [PlannerEvent] {
+        let key = Calendar.current.startOfDay(for: date)
+        return (allEvents[key] ?? []).sorted { $0.startTime < $1.startTime }
+    }
+
+    /// Events grouped by day for the current week.
+    var eventsThisWeek: [Date: [PlannerEvent]] {
+        let cal = Calendar.current
+        guard let week = cal.dateInterval(of: .weekOfYear, for: selectedDate) else { return [:] }
+        var result: [Date: [PlannerEvent]] = [:]
+        for offset in 0..<7 {
+            if let day = cal.date(byAdding: .day, value: offset, to: week.start) {
+                let key = cal.startOfDay(for: day)
+                result[key] = allEvents[key] ?? []
+            }
+        }
+        return result
+    }
+
+    /// AI suggestion text shown when certain conditions are met.
+    var todaySuggestion: String? {
+        _todaySuggestion
+    }
+
+    /// Events for today (convenience accessor used by section views).
+    var todayEvents: [PlannerEvent] {
+        events(for: Date())
+    }
+
+    /// Events for tomorrow.
+    var tomorrowEvents: [PlannerEvent] {
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        return events(for: tomorrow)
+    }
+
+    // MARK: - Private backing
+
+    private var _todaySuggestion: String?
     private let db = Firestore.firestore()
 
-    // MARK: Load
+    // MARK: - Load
 
     func load(userId: String) async {
         guard !userId.isEmpty else { return }
         isLoading = true
         defer { isLoading = false }
 
-        let calendar = Calendar.current
+        let cal = Calendar.current
         let now = Date()
+        guard let thirtyDaysOut = cal.date(byAdding: .day, value: 30, to: now) else { return }
 
-        guard
-            let todayStart  = calendar.dateInterval(of: .day, for: now)?.start,
-            let todayEnd    = calendar.dateInterval(of: .day, for: now)?.end,
-            let tomorrowStart = calendar.date(byAdding: .day, value: 1, to: todayStart),
-            let tomorrowEnd   = calendar.date(byAdding: .day, value: 1, to: todayEnd)
-        else {
-            return
-        }
+        var bucket: [Date: [PlannerEvent]] = [:]
 
-        let payload: [String: Any] = [
-            "userId": userId,
-            "todayStart": todayStart.timeIntervalSince1970,
-            "todayEnd": todayEnd.timeIntervalSince1970,
-            "tomorrowStart": tomorrowStart.timeIntervalSince1970,
-            "tomorrowEnd": tomorrowEnd.timeIntervalSince1970
-        ]
-
+        // ── 1. Church events per space ──────────────────────────────────────
         do {
-            let callable = Functions.functions().httpsCallable("getPlannerEvents")
-            let result = try await callable.call(payload)
+            let spacesSnap = try await db
+                .collection("users").document(userId)
+                .collection("spaces")
+                .getDocuments()
 
-            guard let data = result.data as? [String: Any] else { return }
+            for spaceDoc in spacesSnap.documents {
+                let spaceId = spaceDoc.documentID
+                let spaceName = spaceDoc.data()["name"] as? String ?? ""
 
-            let todayRaw      = data["today"] as? [[String: Any]] ?? []
-            let tomorrowRaw   = data["tomorrow"] as? [[String: Any]] ?? []
-            let suggestionsRaw = data["suggestions"] as? [[String: Any]] ?? []
+                let eventsSnap = try await db
+                    .collection("spaces").document(spaceId)
+                    .collection("events")
+                    .whereField("startTime", isGreaterThanOrEqualTo: Timestamp(date: now))
+                    .whereField("startTime", isLessThanOrEqualTo: Timestamp(date: thirtyDaysOut))
+                    .order(by: "startTime")
+                    .limit(to: 5)
+                    .getDocuments()
 
-            todayEvents = todayRaw.compactMap { Self.decodePlannerEvent($0) }
-                .filter { !$0.isDismissed }
-                .sorted { $0.startDate < $1.startDate }
+                for doc in eventsSnap.documents {
+                    let data = doc.data()
+                    guard let ts = data["startTime"] as? Timestamp else { continue }
+                    let start = ts.dateValue()
+                    let end: Date? = (data["endTime"] as? Timestamp)?.dateValue()
+                    let rsvpIds = data["rsvpUserIds"] as? [String] ?? []
+                    let studySeries = data["studySeries"] as? String
+                    let reading = studySeries.map { _ in data["suggestedReading"] as? String ?? "Romans 12" }
 
-            tomorrowEvents = tomorrowRaw.compactMap { Self.decodePlannerEvent($0) }
-                .filter { !$0.isDismissed }
-                .sorted { $0.startDate < $1.startDate }
-
-            bereanSuggestions = suggestionsRaw.compactMap { Self.decodePlannerSuggestion($0) }
-
-        } catch {
-            // Silent failure — planner degrades gracefully to empty state
-        }
-    }
-
-    // MARK: Toggle Complete
-
-    func toggleComplete(eventId: String, userId: String) async {
-        guard !eventId.isEmpty, !userId.isEmpty else { return }
-
-        // Optimistic local update
-        if let idx = todayEvents.firstIndex(where: { $0.id == eventId }) {
-            todayEvents[idx].isCompleted.toggle()
-        } else if let idx = tomorrowEvents.firstIndex(where: { $0.id == eventId }) {
-            tomorrowEvents[idx].isCompleted.toggle()
-        }
-
-        let currentValue: Bool
-        if let event = todayEvents.first(where: { $0.id == eventId }) {
-            currentValue = event.isCompleted
-        } else if let event = tomorrowEvents.first(where: { $0.id == eventId }) {
-            currentValue = event.isCompleted
-        } else {
-            return
-        }
-
-        do {
-            try await db
-                .collection("spiritualOS_planner")
-                .document(userId)
-                .collection("events")
-                .document(eventId)
-                .setData(["isCompleted": currentValue], merge: true)
-        } catch {
-            // Revert optimistic update on failure
-            if let idx = todayEvents.firstIndex(where: { $0.id == eventId }) {
-                todayEvents[idx].isCompleted.toggle()
-            } else if let idx = tomorrowEvents.firstIndex(where: { $0.id == eventId }) {
-                tomorrowEvents[idx].isCompleted.toggle()
+                    let event = PlannerEvent(
+                        id: doc.documentID,
+                        type: .church,
+                        title: data["title"] as? String ?? "Church Event",
+                        subtitle: spaceName.isEmpty ? nil : spaceName,
+                        startTime: start,
+                        endTime: end,
+                        spaceId: spaceId,
+                        rsvpRequired: data["rsvpRequired"] as? Bool ?? false,
+                        userHasRSVPd: rsvpIds.contains(userId),
+                        suggestedReading: reading
+                    )
+                    let key = cal.startOfDay(for: start)
+                    bucket[key, default: []].append(event)
+                }
             }
+        } catch {
+            // degrade gracefully
         }
+
+        // ── 2. Prayer plans ─────────────────────────────────────────────────
+        do {
+            let prayerSnap = try await db
+                .collection("users").document(userId)
+                .collection("prayerPlans")
+                .getDocuments()
+
+            for doc in prayerSnap.documents {
+                let data = doc.data()
+                guard let ts = data["scheduledTime"] as? Timestamp else { continue }
+                let start = ts.dateValue()
+
+                let event = PlannerEvent(
+                    id: doc.documentID,
+                    type: .prayer,
+                    title: data["title"] as? String ?? "Prayer",
+                    subtitle: data["frequency"] as? String,
+                    startTime: start,
+                    endTime: nil,
+                    spaceId: nil,
+                    rsvpRequired: false,
+                    userHasRSVPd: false,
+                    suggestedReading: nil
+                )
+                let key = cal.startOfDay(for: start)
+                bucket[key, default: []].append(event)
+            }
+        } catch {
+            // degrade gracefully
+        }
+
+        // ── 3. Bible reading plans ───────────────────────────────────────────
+        do {
+            let readingSnap = try await db
+                .collection("users").document(userId)
+                .collection("readingPlans")
+                .getDocuments()
+
+            for doc in readingSnap.documents {
+                let data = doc.data()
+                let event = PlannerEvent(
+                    id: doc.documentID,
+                    type: .reading,
+                    title: data["planName"] as? String ?? "Reading Plan",
+                    subtitle: data["todayReading"] as? String,
+                    startTime: cal.startOfDay(for: now),
+                    endTime: nil,
+                    spaceId: nil,
+                    rsvpRequired: false,
+                    userHasRSVPd: false,
+                    suggestedReading: data["todayReading"] as? String
+                )
+                let key = cal.startOfDay(for: now)
+                bucket[key, default: []].append(event)
+            }
+        } catch {
+            // degrade gracefully
+        }
+
+        // ── 4. Birthdays ─────────────────────────────────────────────────────
+        do {
+            let currentMonth = cal.component(.month, from: now)
+            let nextMonthDate = cal.date(byAdding: .month, value: 1, to: now) ?? now
+            let nextMonth = cal.component(.month, from: nextMonthDate)
+            let nextMonthStart = cal.date(from: cal.dateComponents([.year, .month], from: nextMonthDate)) ?? nextMonthDate
+            let firstWeekOfNextMonth = cal.date(byAdding: .day, value: 7, to: nextMonthStart) ?? nextMonthDate
+
+            let connectionsSnap = try await db
+                .collection("users").document(userId)
+                .collection("connections")
+                .getDocuments()
+
+            for doc in connectionsSnap.documents {
+                let data = doc.data()
+                guard
+                    let birthdayMonth = data["birthdayMonth"] as? Int,
+                    let birthdayDay   = data["birthdayDay"]   as? Int
+                else { continue }
+
+                let isThisMonth = birthdayMonth == currentMonth
+                var isEarlyNextMonth = false
+                if birthdayMonth == nextMonth {
+                    isEarlyNextMonth = birthdayDay <= 7 ||
+                        (cal.date(from: DateComponents(month: birthdayMonth, day: birthdayDay)).map { $0 <= firstWeekOfNextMonth } ?? false)
+                }
+
+                guard isThisMonth || isEarlyNextMonth else { continue }
+
+                let year = cal.component(.year, from: isThisMonth ? now : nextMonthDate)
+                var comps = DateComponents()
+                comps.year  = year
+                comps.month = birthdayMonth
+                comps.day   = birthdayDay
+                let birthdayDate = cal.date(from: comps) ?? now
+
+                let event = PlannerEvent(
+                    id: doc.documentID + "_birthday",
+                    type: .birthday,
+                    title: "\(data["displayName"] as? String ?? "Friend")'s Birthday",
+                    subtitle: nil,
+                    startTime: cal.startOfDay(for: birthdayDate),
+                    endTime: nil,
+                    spaceId: nil,
+                    rsvpRequired: false,
+                    userHasRSVPd: false,
+                    suggestedReading: nil
+                )
+                let key = cal.startOfDay(for: birthdayDate)
+                bucket[key, default: []].append(event)
+            }
+        } catch {
+            // degrade gracefully
+        }
+
+        // ── 5. Volunteer schedules ───────────────────────────────────────────
+        do {
+            let spacesSnap2 = try await db
+                .collection("users").document(userId)
+                .collection("spaces")
+                .getDocuments()
+
+            for spaceDoc in spacesSnap2.documents {
+                let spaceId = spaceDoc.documentID
+                let spaceName = spaceDoc.data()["name"] as? String ?? ""
+
+                let scheduleSnap = try await db
+                    .collection("spaces").document(spaceId)
+                    .collection("volunteers").document(userId)
+                    .collection("schedule")
+                    .whereField("startTime", isGreaterThanOrEqualTo: Timestamp(date: now))
+                    .getDocuments()
+
+                for doc in scheduleSnap.documents {
+                    let data = doc.data()
+                    guard let ts = data["startTime"] as? Timestamp else { continue }
+                    let start = ts.dateValue()
+
+                    let event = PlannerEvent(
+                        id: doc.documentID + "_vol",
+                        type: .volunteer,
+                        title: data["title"] as? String ?? "Volunteer Shift",
+                        subtitle: spaceName.isEmpty ? nil : spaceName,
+                        startTime: start,
+                        endTime: (data["endTime"] as? Timestamp)?.dateValue(),
+                        spaceId: spaceId,
+                        rsvpRequired: false,
+                        userHasRSVPd: false,
+                        suggestedReading: nil
+                    )
+                    let key = cal.startOfDay(for: start)
+                    bucket[key, default: []].append(event)
+                }
+            }
+        } catch {
+            // degrade gracefully
+        }
+
+        allEvents = bucket
+
+        // ── 6. Today suggestion ──────────────────────────────────────────────
+        await buildTodaySuggestion(userId: userId, cal: cal, now: now, bucket: bucket)
     }
 
-    // MARK: Dismiss Suggestion
+    // MARK: - Today Suggestion
 
-    func dismissSuggestion(itemId: String, userId: String) async {
-        guard !itemId.isEmpty, !userId.isEmpty else { return }
+    private func buildTodaySuggestion(userId: String, cal: Calendar, now: Date, bucket: [Date: [PlannerEvent]]) async {
+        let todayKey = cal.startOfDay(for: selectedDate)
+        let todayChurchEvents = (bucket[todayKey] ?? []).filter { $0.type == .church }
 
-        // Optimistic local removal
-        bereanSuggestions.removeAll { $0.id == itemId }
+        guard let event = todayChurchEvents.first, let spaceId = event.spaceId else {
+            _todaySuggestion = nil
+            return
+        }
 
         do {
-            let callable = Functions.functions().httpsCallable("dismissSuggestion")
-            _ = try await callable.call(["itemId": itemId, "userId": userId])
+            let notesSnap = try await db
+                .collection("users").document(userId)
+                .collection("notes")
+                .whereField("spaceId", isEqualTo: spaceId)
+                .whereField("createdAt", isGreaterThanOrEqualTo: Timestamp(date: todayKey))
+                .limit(to: 1)
+                .getDocuments()
+
+            if notesSnap.documents.isEmpty {
+                let reading = event.suggestedReading ?? "Romans 12"
+                _todaySuggestion = "\(event.title) tonight — suggested reading: \(reading)"
+            } else {
+                _todaySuggestion = nil
+            }
         } catch {
-            // Silent — suggestion is already gone from the local list; re-load will reconcile
+            _todaySuggestion = nil
         }
-    }
-
-    // MARK: Decoding helpers
-
-    private static func decodePlannerEvent(_ dict: [String: Any]) -> PlannerEvent? {
-        guard
-            let id        = dict["id"] as? String,
-            let typeRaw   = dict["sourceType"] as? String,
-            let title     = dict["title"] as? String,
-            let startTs   = dict["startDate"] as? TimeInterval
-        else { return nil }
-
-        let sourceType = PlannerSourceType(rawValue: typeRaw) ?? .personalNote
-        let startDate  = Date(timeIntervalSince1970: startTs)
-        let endDate: Date?
-        if let endTs = dict["endDate"] as? TimeInterval {
-            endDate = Date(timeIntervalSince1970: endTs)
-        } else {
-            endDate = nil
-        }
-
-        return PlannerEvent(
-            id:            id,
-            sourceType:    sourceType,
-            title:         title,
-            description:   dict["description"] as? String,
-            startDate:     startDate,
-            endDate:       endDate,
-            isAllDay:      dict["isAllDay"] as? Bool ?? false,
-            isCompleted:   dict["isCompleted"] as? Bool ?? false,
-            spaceId:       dict["spaceId"] as? String,
-            sourceRef:     dict["sourceRef"] as? String,
-            bereanNote:    dict["bereanNote"] as? String,
-            isBereanNote:  dict["isBereanNote"] as? Bool ?? false,
-            isDismissed:   dict["isDismissed"] as? Bool ?? false,
-            color:         dict["color"] as? String
-        )
-    }
-
-    private static func decodePlannerSuggestion(_ dict: [String: Any]) -> PlannerSuggestion? {
-        guard
-            let id          = dict["id"] as? String,
-            let promptLabel = dict["promptLabel"] as? String,
-            let bereanNote  = dict["bereanNote"] as? String,
-            let targetTs    = dict["targetDate"] as? TimeInterval
-        else { return nil }
-
-        return PlannerSuggestion(
-            id:          id,
-            promptLabel: promptLabel,
-            bereanNote:  bereanNote,
-            targetDate:  Date(timeIntervalSince1970: targetTs)
-        )
     }
 }

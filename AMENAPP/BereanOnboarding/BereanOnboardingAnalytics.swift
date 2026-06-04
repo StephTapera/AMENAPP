@@ -3,6 +3,7 @@
 // Protocol-backed analytics with privacy-safe payloads.
 
 import Foundation
+import FirebaseAnalytics
 
 // MARK: - Protocol
 
@@ -81,8 +82,24 @@ final class BereanOnboardingDefaultAnalytics: BereanOnboardingAnalyticsTracking 
     }
 
     private func log(_ event: String, _ params: [String: Any]) {
-        // TODO: Replace with AMENAnalyticsService.shared.track(event, properties:)
-        // Keep this fire-and-forget. Analytics must not block onboarding progression.
+        // Fire to Firebase Analytics — fire-and-forget, must not block onboarding progression.
+        // Firebase Analytics caps parameter values at 100 characters; coerce [String: Any] → [String: Any]
+        // by casting numeric values to Double (the only type Firebase accepts for numeric params).
+        var firebaseParams: [String: Any] = [:]
+        for (key, value) in params {
+            switch value {
+            case let s as String:
+                firebaseParams[key] = String(s.prefix(100))
+            case let i as Int:
+                firebaseParams[key] = Double(i)
+            case let d as Double:
+                firebaseParams[key] = d
+            default:
+                firebaseParams[key] = "\(value)".prefix(100).description
+            }
+        }
+        Analytics.logEvent(event, parameters: firebaseParams.isEmpty ? nil : firebaseParams)
+
         #if DEBUG
         print("[BereanAnalytics] \(event) \(params)")
         #endif

@@ -388,6 +388,8 @@ struct AMENAPPApp: App {
                 switch newPhase {
                 case .active:
                     BehavioralAwarenessEngine.shared.beginSession()
+                    // Start context-mode detection (driving, church, travel, event)
+                    AmenContextOrchestrator.shared.start()
                     Task { @MainActor in
                         await NotificationTapBootstrapper.shared.resumePendingRoute()
                     }
@@ -403,6 +405,11 @@ struct AMENAPPApp: App {
                     BehavioralAwarenessEngine.shared.endSession()
                     Self.scheduleBackgroundFeedRefresh()
                     PostsManager.shared.stopListeningForProfileUpdates()
+                    // MIC/WS LEAK FIX: Explicitly stop voice and realtime sessions when
+                    // the app backgrounds so the microphone and WebSocket are released
+                    // immediately rather than left open until the OS suspends the process.
+                    Task { await BereanVoiceSessionManager.shared.endSession() }
+                    Task { await BereanRealtimeSessionManager.shared.endCurrentSession() }
                     
                     // P1-3 FIX: Additional cleanup safeguard for background transitions.
                     // SwiftUI onDisappear isn't guaranteed during force-quit or low-memory kills,

@@ -267,7 +267,7 @@ struct FeatureDetailSheet: View {
     @ViewBuilder
     private var ctaButton: some View {
         if feature.requiredTier.isContactSales {
-            Link(destination: URL(string: "mailto:amenappmarketing@gmail.com?subject=Enterprise%20Inquiry%20-%20\(feature.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? feature.name)")!) {
+            Link(destination: URL(string: "mailto:amenappmarketing@gmail.com?subject=Enterprise%20Inquiry%20-%20\(feature.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? feature.name)") ?? URL(string: "mailto:amenappmarketing@gmail.com")!) {
                 ctaLabel("contact sales team", icon: "envelope.fill")
             }
         } else if userTier >= feature.requiredTier {

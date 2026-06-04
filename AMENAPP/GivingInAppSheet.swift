@@ -18,6 +18,7 @@ import SwiftUI
 import PassKit
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 // MARK: - Giving In-App Sheet
 
@@ -267,21 +268,19 @@ struct GivingInAppSheet: View {
                 }
                 .frame(height: 54)
             } else {
-                // Fallback card button (placeholder — wire to Stripe)
-                Button {
-                    guard effectiveAmount > 0 else { return }
-                    // TODO: Present Stripe payment sheet for non-Apple Pay users
-                    withAnimation { showSuccess = true }
-                } label: {
-                    Label("Donate with Card", systemImage: "creditcard.fill")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                        .foregroundStyle(.white)
+                // Card payments via Stripe — available on devices without Apple Pay
+                VStack(spacing: 8) {
+                    Label("Card payments coming soon", systemImage: "creditcard")
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
-                        .background(accent, in: RoundedRectangle(cornerRadius: 14))
+                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 14))
+                    Text("Please use Apple Pay or add a card to Apple Wallet to donate.")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(effectiveAmount <= 0)
             }
         }
     }
@@ -361,6 +360,7 @@ struct ApplePayButton: UIViewRepresentable {
 
     class Coordinator: NSObject, PKPaymentAuthorizationControllerDelegate {
         let parent: ApplePayButton
+        private let functions = Functions.functions()
         init(_ parent: ApplePayButton) { self.parent = parent }
 
         @objc func tapped() {
@@ -404,11 +404,26 @@ struct ApplePayButton: UIViewRepresentable {
             didAuthorizePayment payment: PKPayment,
             handler completion: @escaping (PKPaymentAuthorizationResult) -> Void
         ) {
-            // TODO: Send payment.token.paymentData to your Stripe backend
-            // POST /charge with { token: base64, amount: cents, nonprofitId, recurring }
-            dlog("✅ Apple Pay authorized for \(parent.nonprofit.name)")
-            completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
-            DispatchQueue.main.async { self.parent.onSuccess() }
+            let tokenData = payment.token.paymentData.base64EncodedString()
+            let amountCents = Int((parent.amount * 100).rounded())
+            let payload: [String: Any] = [
+                "applePayToken": tokenData,
+                "amountCents": amountCents,
+                "nonprofitId": parent.nonprofit.id,
+                "recurring": parent.recurringMode != .oneTime,
+                "recurringInterval": parent.recurringMode.rawValue.lowercased()
+            ]
+            Task {
+                do {
+                    _ = try await self.functions.httpsCallable("processGiving").call(payload)
+                    dlog("✅ Apple Pay processed for \(self.parent.nonprofit.name)")
+                    completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
+                } catch {
+                    dlog("❌ Apple Pay processing failed: \(error)")
+                    completion(PKPaymentAuthorizationResult(status: .failure, errors: [error]))
+                }
+                await MainActor.run { self.parent.onSuccess() }
+            }
         }
 
         func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {

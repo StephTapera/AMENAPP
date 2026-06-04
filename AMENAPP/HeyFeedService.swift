@@ -138,6 +138,11 @@ class HeyFeedService: ObservableObject {
         dlog("[HeyFeedService] Initialized")
     }
 
+    deinit {
+        listeners.forEach { $0.remove() }
+        listeners.removeAll()
+    }
+
     // MARK: - Listening
 
     func startListening() {

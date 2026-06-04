@@ -326,6 +326,8 @@ struct AlgorithmStateBar: View {
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.tertiary)
                         .onTapGesture { clearAll() }
+                        .accessibilityLabel("Dismiss")
+                        .accessibilityAddTraits(.isButton)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)

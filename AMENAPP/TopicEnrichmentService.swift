@@ -62,7 +62,7 @@ final class TopicEnrichmentService {
 
         for tag in tags {
             let canonicalKey = normalization.canonicalKey(for: tag.cluster)
-            if scoreMap[canonicalKey] == nil || scoreMap[canonicalKey]! < tag.confidence {
+            if (scoreMap[canonicalKey] ?? 0) < tag.confidence {
                 scoreMap[canonicalKey] = tag.confidence
             }
             if !keys.contains(canonicalKey) {

@@ -60,12 +60,14 @@ final class SocialGraphService {
         // Get following set
         let followingSnap = try await db.collection("follows")
             .whereField("followerId", isEqualTo: userId)
+            .limit(to: 500)
             .getDocuments()
         let followingIds = Set(followingSnap.documents.compactMap { $0["followingId"] as? String })
 
         // Get follower set
         let followerSnap = try await db.collection("follows")
             .whereField("followingId", isEqualTo: userId)
+            .limit(to: 500)
             .getDocuments()
         let followerIds = Set(followerSnap.documents.compactMap { $0["followerId"] as? String })
 

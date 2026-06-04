@@ -74,7 +74,7 @@ final class ListenerCounter {
     /// Call when a listener is registered.  maxExpected defaults to 1 for singletons.
     func attach(_ key: String, maxExpected: Int = 1) {
         counts[key, default: 0] += 1
-        let count = counts[key]!
+        let count = counts[key, default: 0]
         dlog("[Listener] + \(key) → \(count) active")
         if count > maxExpected {
             dlog("⚠️ [Listener] OVER LIMIT: \(key) has \(count) listeners (max \(maxExpected))")
@@ -85,7 +85,7 @@ final class ListenerCounter {
     func detach(_ key: String) {
         let before = counts[key, default: 0]
         counts[key] = max(0, before - 1)
-        dlog("[Listener] - \(key) → \(counts[key]!) active")
+        dlog("[Listener] - \(key) → \(counts[key, default: 0]) active")
     }
     
     /// Dump current listener state to console.

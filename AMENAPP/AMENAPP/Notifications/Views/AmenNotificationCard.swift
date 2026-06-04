@@ -175,7 +175,7 @@ struct AmenNotificationCard: View {
             Button(action: onPrimary) {
                 Text(action.primaryButtonTitle)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#0D0D1A"))
+                    .foregroundStyle(Color.primary)
                     .padding(.horizontal, 28)
                     .padding(.vertical, 13)
                     .background(

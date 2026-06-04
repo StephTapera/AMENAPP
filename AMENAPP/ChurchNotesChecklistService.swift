@@ -121,6 +121,11 @@ final class ChurchNotesChecklistService: ObservableObject {
 
     private init() {}
 
+    deinit {
+        listeners.values.forEach { $0.remove() }
+        listeners.removeAll()
+    }
+
     // MARK: - Firestore Path
 
     private func checklistRef(noteId: String, userId: String) -> CollectionReference {

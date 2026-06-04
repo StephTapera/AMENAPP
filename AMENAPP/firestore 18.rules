@@ -2316,7 +2316,7 @@ service cloud.firestore {
     // ============================================================================
 
     match /usernames/{username} {
-      allow get: if true;   // Availability check during sign-up (unauthenticated OK)
+      allow get: if request.auth != null;   // Availability check during sign-up (authenticated users only)
       allow list: if false; // Prevents scraping the full username registry
       allow create, update, delete: if false;  // Cloud Function only
     }
@@ -4890,6 +4890,269 @@ service cloud.firestore {
       // Moderation docs: server-only read and write
       // Clients CANNOT read or forge moderation results
       allow read, write: if false;
+    }
+
+    // ============================================================================
+    // MISSING COLLECTION RULES (added by audit)
+    // ============================================================================
+
+    // --- Pattern A: User-owned private data ---
+
+    match /prayerEntries/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /prayerPlans/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /prayerReflections/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /reflectionJourneys/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /spiritualGraph/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /bereanMemory/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /bereanSessions/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /bereanAccountability/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /memories/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /living_entries/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /mentorships/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /discipleshipEvents/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /actionItems/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    match /aiUsageEvents/{docId} {
+      allow read, write: if isOwner(resource.data.get('uid', resource.data.get('userId', resource.data.get('authorId', ''))));
+      allow create: if isAuthenticated() && request.resource.data.get('uid', request.resource.data.get('userId', request.resource.data.get('authorId', ''))) == request.auth.uid;
+    }
+
+    // --- Pattern B: userId-keyed (document ID is the userId) ---
+
+    match /whisperUsage/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Note: translationPreferences/{userId} already defined above (line ~4750)
+    // as owner-only read/write — no duplicate needed here.
+
+    // --- Pattern C: Authenticated read, owner write ---
+
+    match /stories/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /mediaPosts/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /highlights/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /covenants/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /connectSpaces/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /spaces/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /churchBulletins/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /churchPlans/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /churchProfiles/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /churchNoteFolders/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /bereanPulse/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /groupLinks/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /groupLinkTokens/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /joinRequests/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /knowledgeThreads/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /linkedPrayers/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /insights/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /contentObjects/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /dailyContent/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /creatorAssets/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /creatorProjects/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /amenConnectIntentSignals/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /heyfeed_requests/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /heyfeed_resonance/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /interactions/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    match /amenLibrary/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.get('authorId', request.resource.data.get('uid', '')) == request.auth.uid;
+    }
+
+    // --- Pattern D: Admin-only write, authenticated read ---
+
+    match /pastoral_care_signals/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /accountEvents/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /inboxMetadata/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /notificationQueue/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /onboarding/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /marketplace/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Special: PII-protected hashed phone lookup ---
+
+    match /churches/{churchId}/memberHashedPhones/{docId} {
+      allow read: if isAuthenticated() && get(/databases/$(database)/documents/churches/$(churchId)).data.get('adminUid', '') == request.auth.uid;
+      allow write: if isAdmin();
+    }
+
+    // --- Profile collection (same as users) ---
+
+    match /profile/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
     }
 
     // ============================================================================

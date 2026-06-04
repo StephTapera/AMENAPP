@@ -263,7 +263,7 @@ class SmartNotificationService {
             // If all remaining hours are quiet, deliver at best time tomorrow
             if nextHour >= 24 {
                 var components = calendar.dateComponents([.year, .month, .day], from: now)
-                components.day! += 1
+                components.day = (components.day ?? 0) + 1
                 components.hour = preferences.bestTimeOfDay
                 return calendar.date(from: components) ?? now.addingTimeInterval(3600)
             }

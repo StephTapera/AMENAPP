@@ -10,7 +10,7 @@ struct AmenLifePlannerSectionView: View {
     @ObservedObject var viewModel: AmenLifePlannerViewModel
     var userId: String
 
-    @AppStorage("spiritualOS_planner_enabled") private var isEnabled = false
+    @AppStorage("spiritualOS_planner_enabled") private var isEnabled = true
 
     // Date formatters — allocated once per view lifetime
     private static let dayFormatter: DateFormatter = {

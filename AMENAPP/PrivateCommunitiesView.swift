@@ -310,85 +310,17 @@ struct PrivateCommunitiesView: View {
                     
                     Divider()
                     
-                    // ✅ Coming Soon Features
-                    Button {
-                        showEventCalendar = true
-                    } label: {
-                        HStack {
-                            Label("Event Calendar", systemImage: "calendar")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
-                    Button {
-                        showModerationDashboard = true
-                    } label: {
-                        HStack {
-                            Label("Moderation Dashboard", systemImage: "shield.checkered")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
-                    Button {
-                        showDonationCenter = true
-                    } label: {
-                        HStack {
-                            Label("Donation Center", systemImage: "heart.circle.fill")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
-                    Button {
-                        showVolunteerHub = true
-                    } label: {
-                        HStack {
-                            Label("Volunteer Hub", systemImage: "hand.raised.fill")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
+                    // TODO: enable when implemented
+                    // Event Calendar, Moderation Dashboard, Donation Center,
+                    // Volunteer Hub, Community Insights, Language Settings
+                    // are hidden until their screens are built.
+
                     Divider()
-                    
+
                     Button {
                         showContactSales = true
                     } label: {
                         Label("Contact Sales Team", systemImage: "envelope.fill")
-                    }
-                    
-                    Button {
-                        showCommunityInsights = true
-                    } label: {
-                        HStack {
-                            Label("Community Insights", systemImage: "chart.bar.fill")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
-                    Button {
-                        showLanguageSettings = true
-                    } label: {
-                        HStack {
-                            Label("Language Settings", systemImage: "globe")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
                     }
                 } label: {
                     ZStack {

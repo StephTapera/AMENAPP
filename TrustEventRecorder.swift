@@ -34,6 +34,10 @@ actor TrustEventRecorder {
     private init() {
         schedulePeriodicFlush()
     }
+
+    deinit {
+        flushTask?.cancel()
+    }
     
     // MARK: - Feature Guard
     

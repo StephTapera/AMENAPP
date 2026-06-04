@@ -94,6 +94,13 @@ struct CreatePostView: View {
     // MARK: - Attachment picker popup (glass floating card)
     @State private var showingAttachmentPicker = false
 
+    // MARK: - Document picker (Files attachment)
+    @State private var showingDocumentPicker = false
+    @State private var attachedDocumentURL: URL? = nil
+
+    // MARK: - Creator Draft AI assistant
+    @State private var showingCreatorDraftSheet = false
+
     // MARK: - Toolbar expand/collapse
     @State private var isToolbarExpanded = false
 
@@ -420,6 +427,39 @@ struct CreatePostView: View {
             // Library photo grid
             if !selectedImageData.isEmpty {
                 ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
+            }
+
+            // Document attachment chip — shown when a file is selected from Files
+            if let docURL = attachedDocumentURL {
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.fill")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                    Text(docURL.lastPathComponent)
+                        .font(.system(size: 13, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(Color.primary)
+                    Spacer()
+                    Button {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                            attachedDocumentURL = nil
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(.systemGray6))
+                )
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
+                .accessibilityLabel("Attached file: \(docURL.lastPathComponent). Double-tap to remove.")
             }
 
             // Poll composer
@@ -888,6 +928,30 @@ struct CreatePostView: View {
             }
             .sheet(isPresented: $showAltTextSheet) {
                 altTextSheetContent
+            }
+            .sheet(isPresented: $showingCreatorDraftSheet) {
+                CreatorDraftAssistantSheet(
+                    initialDraftType: selectedCategory == .openTable ? "post" : selectedCategory.rawValue
+                ) { draft in
+                    postText = draft
+                    showingCreatorDraftSheet = false
+                } onDismiss: {
+                    showingCreatorDraftSheet = false
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .fileImporter(
+                isPresented: $showingDocumentPicker,
+                allowedContentTypes: [.item],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    attachedDocumentURL = urls.first
+                case .failure(let error):
+                    dlog("Document picker error: \(error)")
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("aiContentDetected"))) { notification in
                 if let userInfo = notification.userInfo,
@@ -1606,6 +1670,10 @@ struct CreatePostView: View {
             attachmentBarIcon("text.book.closed", recommended: recommended) { showingVersePickerSheet = true }
             attachmentBarIcon("link", recommended: recommended) { showingLinkSheet = true }
             attachmentBarIcon("calendar", recommended: recommended) { showingScheduleSheet = true }
+            attachmentBarIcon("sparkles", recommended: recommended) {
+                showingCreatorDraftSheet = true
+                AMENAnalyticsService.shared.track(.commOSCreatorDraftRequested(draftType: selectedCategory.rawValue))
+            }
 
             Spacer()
         }
@@ -1660,7 +1728,7 @@ struct CreatePostView: View {
             },
             onFiles: {
                 withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
-                // TODO: wire document picker (UIDocumentPickerViewController) when Files attachment is enabled
+                showingDocumentPicker = true
             }
         )
     }
@@ -3677,13 +3745,49 @@ struct CreatePostView: View {
                         return
                     }
                 }
-                
+
+                // ── Document upload (blocking, same pattern as image upload) ──
+                var uploadedDocumentURL: String? = nil
+                let capturedDocURL = await MainActor.run { attachedDocumentURL }
+                if let localDocURL = capturedDocURL {
+                    dlog("📎 Uploading attached document: \(localDocURL.lastPathComponent)")
+                    do {
+                        guard let userId = Auth.auth().currentUser?.uid else {
+                            throw NSError(domain: "CreatePostView", code: 401,
+                                          userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+                        }
+                        let docData = try Data(contentsOf: localDocURL)
+                        let filename = localDocURL.lastPathComponent
+                        let docRef = FirebaseManager.shared.storage.reference()
+                            .child("post_documents")
+                            .child(userId)
+                            .child("\(UUID().uuidString)_\(filename)")
+                        let docMeta = StorageMetadata()
+                        docMeta.contentType = "application/octet-stream"
+                        let _ = try await docRef.putDataAsync(docData, metadata: docMeta)
+                        uploadedDocumentURL = try await docRef.downloadURL().absoluteString
+                        dlog("✅ Document uploaded: \(uploadedDocumentURL ?? "nil")")
+                    } catch {
+                        await MainActor.run {
+                            isPublishing = false
+                            inFlightPostId = nil
+                            notifyPostingFailed()
+                            showError(
+                                title: "File Upload Failed",
+                                message: "Your document couldn't be uploaded. Please try again."
+                            )
+                        }
+                        dlog("❌ Document upload failed: \(error)")
+                        return
+                    }
+                }
+
                 // ⚡ WAIT: Get results from parallel tasks
                 let userDoc = try await userDataTask.value
                 let userData = userDoc.data()
                 let authorProfileImageURL = userData?["profileImageURL"] as? String
                 let authorUsername = userData?["username"] as? String
-                
+
                 // P1-3 FIX: Parallelize mention resolution
                 let mentionUsernames = Post.extractMentionUsernames(from: content)
                 var mentions: [MentionedUser] = []
@@ -3793,7 +3897,13 @@ struct CreatePostView: View {
                     newPost.taggedChurchId = taggedChurchId
                     newPost.taggedChurchName = taggedChurchName.isEmpty ? nil : taggedChurchName
                 }
-                
+
+                // Set document attachment if one was uploaded
+                if let docURL = uploadedDocumentURL {
+                    newPost.documentURL = docURL
+                    newPost.documentName = capturedDocURL?.lastPathComponent
+                }
+
                 dlog("   ✅ Post object created: \(postId)")
                 
                 // Save to Firestore immediately
@@ -3917,6 +4027,15 @@ struct CreatePostView: View {
                 let filteredAlt = imageAltTexts.filter { !$0.isEmpty }
                 if !filteredAlt.isEmpty {
                     postData["imageAltTexts"] = filteredAlt
+                }
+
+                // ✅ File attachment (document uploaded from Files picker)
+                if let docURL = uploadedDocumentURL {
+                    postData["documentURL"] = docURL
+                    if let name = capturedDocURL?.lastPathComponent {
+                        postData["documentName"] = name
+                    }
+                    dlog("   📎 Document attached: \(capturedDocURL?.lastPathComponent ?? "unknown")")
                 }
 
                 // SECURITY: Stamp every post with moderationStatus="pending" so the
@@ -4043,6 +4162,7 @@ struct CreatePostView: View {
                     // Clear state (P0-1, P1-2)
                     inFlightPostId = nil
                     postContentSource = nil  // reset source label for next post
+                    attachedDocumentURL = nil  // clear document attachment after successful post
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                     shouldPersistDraftOnExit = false
                     
@@ -8527,6 +8647,165 @@ struct LiquidGlassPostButtonDemoView: View {
             try? await Task.sleep(for: .milliseconds(1100))
             withAnimation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.9))) { uploadState = .idle }
         }
+    }
+}
+
+// MARK: - Creator Draft Assistant Sheet
+
+/// Presents a compact form that calls AmenAIFeaturesService.generateCreatorDraft and
+/// returns the draft text to the caller. The user must approve before publishing.
+private struct CreatorDraftAssistantSheet: View {
+    let initialDraftType: String
+    let onApply: (String) -> Void
+    let onDismiss: () -> Void
+
+    @State private var selectedType: CreatorDraftType = .post
+    @State private var topic: String = ""
+    @State private var selectedTone: String = "warm"
+    @State private var isGenerating = false
+    @State private var errorMessage: String?
+
+    private let tones = ["warm", "encouraging", "teaching", "formal"]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    consentBanner
+                    typePickerSection
+                    topicSection
+                    toneSection
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 4)
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("AI Draft Assistant")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onDismiss)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await generate() }
+                    } label: {
+                        if isGenerating {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Generate").fontWeight(.semibold)
+                        }
+                    }
+                    .disabled(topic.trimmingCharacters(in: .whitespacesAndNewlines).count < 5 || isGenerating)
+                }
+            }
+        }
+        .onAppear {
+            selectedType = CreatorDraftType(rawValue: initialDraftType) ?? .post
+        }
+    }
+
+    private var consentBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(.secondary)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("AI-assisted draft")
+                    .font(.subheadline.weight(.semibold))
+                Text("Your draft is generated on Anthropic's servers via a Cloud Function. Review it before publishing — no draft is posted without your approval.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var typePickerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Type").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(CreatorDraftType.allCases, id: \.self) { type in
+                        Button {
+                            selectedType = type
+                        } label: {
+                            Text(type.displayName)
+                                .font(.subheadline.weight(selectedType == type ? .semibold : .regular))
+                                .foregroundStyle(selectedType == type ? .primary : .secondary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .background(
+                                    Capsule()
+                                        .fill(selectedType == type ? Color.white.opacity(0.85) : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(4)
+                .background(.ultraThinMaterial, in: Capsule())
+            }
+        }
+    }
+
+    private var topicSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Topic").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            TextField("What should this \(selectedType.displayName.lowercased()) be about? (5–300 chars)", text: $topic, axis: .vertical)
+                .font(.body)
+                .lineLimit(3...6)
+                .padding(12)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+    }
+
+    private var toneSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Tone").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach(tones, id: \.self) { tone in
+                    Button {
+                        selectedTone = tone
+                    } label: {
+                        Text(tone.capitalized)
+                            .font(.caption.weight(selectedTone == tone ? .semibold : .regular))
+                            .foregroundStyle(selectedTone == tone ? .primary : .secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(selectedTone == tone ? Color.white.opacity(0.85) : Color(.secondarySystemBackground))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func generate() async {
+        guard !isGenerating else { return }
+        errorMessage = nil
+        isGenerating = true
+        do {
+            let response = try await AmenAIFeaturesService.shared.generateCreatorDraft(
+                type: selectedType.rawValue,
+                topic: topic.trimmingCharacters(in: .whitespacesAndNewlines),
+                tone: selectedTone
+            )
+            await MainActor.run { onApply(response.draft) }
+        } catch let error as AmenAIFeaturesError {
+            errorMessage = error.errorDescription
+        } catch {
+            errorMessage = "Something went wrong. Please try again."
+        }
+        isGenerating = false
     }
 }
 

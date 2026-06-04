@@ -245,6 +245,11 @@ struct Post: Identifiable, Codable, Equatable {
     var primaryTopicKey: String? = nil            // Highest-confidence topic key
     var feedContext: AmenFeedContextLabel? = nil  // Client-side enriched feed context label
 
+    // File attachment — Storage download URL for a document attached via Files picker
+    var documentURL: String? = nil
+    // Original filename shown in the composer chip and post card
+    var documentName: String? = nil
+
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
         case testimonies = "testimonies"  // ✅ Firebase-safe (lowercase)

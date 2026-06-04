@@ -25,7 +25,7 @@ struct AppealView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
 
             if didSubmit {
                 successView
@@ -59,11 +59,11 @@ struct AppealView: View {
             VStack(spacing: 8) {
                 Text("Appeal Submitted")
                     .font(.systemScaled(22, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.primary)
 
                 Text("We'll review this within 24 hours.\nYou'll be notified of the outcome.")
                     .font(.systemScaled(15))
-                    .foregroundColor(.white.opacity(0.55))
+                    .foregroundStyle(.primary.opacity(0.55))
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
             }
@@ -76,7 +76,7 @@ struct AppealView: View {
             } label: {
                 Text("Done")
                     .font(.systemScaled(16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
                     .background(
@@ -105,10 +105,10 @@ struct AppealView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Tell us more")
                             .font(.systemScaled(22, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.primary)
                         Text("Help us understand the context of your content so we can review your appeal fairly.")
                             .font(.systemScaled(14))
-                            .foregroundColor(.white.opacity(0.55))
+                            .foregroundStyle(.primary.opacity(0.55))
                             .lineSpacing(3)
                     }
 
@@ -134,7 +134,7 @@ struct AppealView: View {
                         Spacer()
                         Text("Decision: \(originalDecision.capitalized)")
                             .font(.systemScaled(12))
-                            .foregroundColor(.white.opacity(0.25))
+                            .foregroundStyle(.primary.opacity(0.25))
                         Spacer()
                     }
 
@@ -151,7 +151,7 @@ struct AppealView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundStyle(.primary.opacity(0.7))
                             .font(.systemScaled(15, weight: .medium))
                     }
                 }
@@ -174,7 +174,7 @@ struct AppealView: View {
 
             Text(aiReasoning.isEmpty ? "Flagged by automated safety systems." : aiReasoning)
                 .font(.systemScaled(14))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundStyle(.primary.opacity(0.7))
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -196,13 +196,13 @@ struct AppealView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your Appeal")
                 .font(.systemScaled(13, weight: .semibold))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundStyle(.primary.opacity(0.5))
 
             ZStack(alignment: .topLeading) {
                 if appealText.isEmpty {
                     Text("Explain the context of your content — why it was meant in a positive, faith-building way...")
                         .font(.systemScaled(14))
-                        .foregroundColor(.white.opacity(0.22))
+                        .foregroundStyle(.primary.opacity(0.22))
                         .padding(.top, 12)
                         .padding(.leading, 14)
                         .allowsHitTesting(false)
@@ -210,7 +210,7 @@ struct AppealView: View {
 
                 TextEditor(text: $appealText)
                     .font(.systemScaled(15))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundStyle(.primary.opacity(0.9))
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 120)
                     .padding(.horizontal, 10)
@@ -232,7 +232,7 @@ struct AppealView: View {
 
             Text("\(appealText.count) characters")
                 .font(.systemScaled(11))
-                .foregroundColor(.white.opacity(0.25))
+                .foregroundStyle(.primary.opacity(0.25))
         }
     }
 
@@ -254,7 +254,7 @@ struct AppealView: View {
                 Text(isSubmitting ? "Submitting..." : "Submit Appeal")
                     .font(.systemScaled(16, weight: .semibold))
             }
-            .foregroundColor(.white)
+            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
             .background(

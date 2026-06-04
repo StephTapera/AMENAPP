@@ -28,19 +28,22 @@ final class DiscussionThreadService {
         }
 
         let now = Timestamp(date: Date())
+        let authorUID = Auth.auth().currentUser?.uid
         let data: [String: Any] = [
-            "postId":       postId,
-            "postTitle":    postTitle as Any,
-            "postType":     "general",
-            "isLocked":     false,
-            "commentCount": 0,
-            "createdAt":    now,
-            "updatedAt":    now,
+            "postId":        postId,
+            "postTitle":     postTitle as Any,
+            "postType":      "general",
+            "postAuthorUID": authorUID as Any,
+            "isLocked":      false,
+            "commentCount":  0,
+            "createdAt":     now,
+            "updatedAt":     now,
         ]
         try await ref.setData(data, merge: true)
         let created = try await ref.getDocument()
         return (try? created.data(as: DiscussionThread.self)) ?? DiscussionThread(
             postId: postId, postTitle: postTitle, postType: "general",
+            postAuthorUID: authorUID,
             isLocked: false, commentCount: 0, bereanSummaryRef: nil,
             createdAt: now, updatedAt: now
         )

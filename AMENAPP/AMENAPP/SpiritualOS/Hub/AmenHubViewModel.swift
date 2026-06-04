@@ -15,6 +15,7 @@
 
 import Foundation
 import Firebase
+import FirebaseFirestore
 import FirebaseFunctions
 
 // MARK: - HubItemType
@@ -302,5 +303,188 @@ final class AmenHubViewModel: ObservableObject {
         } else {
             items = allItems
         }
+    }
+}
+
+// MARK: - AmenHubRealtimeViewModel
+// Real-time Firestore snapshot listener inbox.
+// Collection path: notifications/{uid}/items  ordered by timestamp desc, limit 50.
+// Senders with 3+ items are collapsed into a single summary row.
+
+@MainActor
+final class AmenHubRealtimeViewModel: ObservableObject {
+
+    // MARK: - Published
+
+    @Published var items: [AmenHubItem] = []
+    @Published var isLoading: Bool = false
+
+    // MARK: - Private
+
+    private let db = Firestore.firestore()
+    private var listener: ListenerRegistration?
+    /// UID stored when startListening(uid:) is called; reused by markAsRead(itemId:).
+    private var currentUID: String = ""
+
+    // MARK: - Computed
+
+    var unreadCount: Int {
+        items.filter { !$0.isRead }.count
+    }
+
+    // MARK: - Filter by AmenHubItemType? (used by SpiritualInboxView)
+
+    func filteredItems(for type: AmenHubItemType?) -> [AmenHubItem] {
+        guard let type else { return items }
+        return items.filter { $0.type == type }
+    }
+
+    // MARK: - Filter by HubFilter (used by AmenHubSectionView)
+
+    func filteredItems(for filter: HubFilter) -> [AmenHubItem] {
+        guard filter != .all else { return items }
+        return items.filter { filter.matches($0.type) }
+    }
+
+    // MARK: - Listener lifecycle
+
+    func startListening(uid: String) {
+        guard !uid.isEmpty else { return }
+        currentUID = uid
+        stopListening()
+        isLoading = true
+
+        listener = db
+            .collection("notifications")
+            .document(uid)
+            .collection("items")
+            .order(by: "timestamp", descending: true)
+            .limit(to: 50)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.isLoading = false
+                    guard error == nil, let docs = snapshot?.documents else { return }
+                    let raw = docs.compactMap { AmenHubRealtimeViewModel.decode(doc: $0) }
+                    self.items = AmenHubRealtimeViewModel.grouped(raw)
+                }
+            }
+    }
+
+    func stopListening() {
+        listener?.remove()
+        listener = nil
+    }
+
+    // MARK: - Mark as read (itemId only — uses stored UID)
+
+    func markAsRead(itemId: String) {
+        guard !currentUID.isEmpty,
+              let idx = items.firstIndex(where: { $0.id == itemId }),
+              !items[idx].isRead else { return }
+
+        items[idx].isRead = true
+
+        db.collection("notifications")
+            .document(currentUID)
+            .collection("items")
+            .document(itemId)
+            .updateData(["isRead": true]) { _ in }
+    }
+
+    // MARK: - Mark read (item + uid — used by AmenHubSectionView)
+
+    func markRead(item: AmenHubItem, uid: String) {
+        guard !item.isRead else { return }
+        if let idx = items.firstIndex(where: { $0.id == item.id }) {
+            items[idx].isRead = true
+        }
+        db.collection("notifications")
+            .document(uid)
+            .collection("items")
+            .document(item.id)
+            .updateData(["isRead": true]) { _ in }
+    }
+
+    // MARK: - Archive
+
+    func archive(item: AmenHubItem, uid: String) {
+        items.removeAll { $0.id == item.id }
+        db.collection("notifications")
+            .document(uid)
+            .collection("items")
+            .document(item.id)
+            .updateData(["isArchived": true]) { _ in }
+    }
+
+    // MARK: - Grouping
+    // Senders with 3+ items are collapsed into a single summary item.
+
+    private static func grouped(_ source: [AmenHubItem]) -> [AmenHubItem] {
+        var buckets: [String: [AmenHubItem]] = [:]
+        for item in source {
+            buckets[item.senderName, default: []].append(item)
+        }
+
+        var result: [AmenHubItem] = []
+        for item in source {
+            let bucket = buckets[item.senderName] ?? []
+            let count  = bucket.count
+
+            if count >= 3 {
+                if result.contains(where: { $0.id == "\(item.senderName)_group" }) { continue }
+                guard let newest = bucket.first else { continue }
+                let summary = AmenHubItem(
+                    id:             "\(item.senderName)_group",
+                    type:           newest.type,
+                    title:          "\(item.senderName) sent \(count) updates",
+                    body:           "",
+                    senderName:     item.senderName,
+                    senderPhotoURL: newest.senderPhotoURL,
+                    timestamp:      newest.timestamp,
+                    isRead:         bucket.allSatisfy(\.isRead),
+                    deepLink:       newest.deepLink
+                )
+                result.append(summary)
+            } else {
+                result.append(item)
+            }
+        }
+        return result
+    }
+
+    // MARK: - Decoding
+
+    private static func decode(doc: QueryDocumentSnapshot) -> AmenHubItem? {
+        let data = doc.data()
+        guard
+            let typeRaw  = data["type"]       as? String,
+            let type     = AmenHubItemType(rawValue: typeRaw),
+            let title    = data["title"]       as? String,
+            let body     = data["body"]        as? String,
+            let sender   = data["senderName"]  as? String,
+            let deepLink = data["deepLink"]    as? String
+        else { return nil }
+
+        let timestamp: Date
+        if let ts = data["timestamp"] as? Timestamp {
+            timestamp = ts.dateValue()
+        } else if let ms = data["timestamp"] as? Double {
+            timestamp = Date(timeIntervalSince1970: ms / 1000)
+        } else {
+            timestamp = Date()
+        }
+
+        return AmenHubItem(
+            id:             doc.documentID,
+            type:           type,
+            title:          title,
+            body:           body,
+            senderName:     sender,
+            senderPhotoURL: data["senderPhotoURL"] as? String,
+            timestamp:      timestamp,
+            isRead:         (data["isRead"] as? Bool) ?? false,
+            deepLink:       deepLink
+        )
     }
 }

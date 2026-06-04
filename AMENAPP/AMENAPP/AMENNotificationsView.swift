@@ -448,6 +448,8 @@ private struct ActivityNotificationRow: View {
         .padding(.vertical, 12)
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
+        .accessibilityLabel("Notification")
+        .accessibilityAddTraits(.isButton)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : -10)
         .onAppear {

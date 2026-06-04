@@ -1643,3 +1643,75 @@ exports.saveConversationMemory    = communicationOS.saveConversationMemory;
 exports.savePrivateContactNote    = communicationOS.savePrivateContactNote;
 exports.generateThreadMiniSummary = communicationOS.generateThreadMiniSummary;
 exports.moderateTextContent       = communicationOS.moderateTextContent;
+
+// ============================================================================
+// BEREAN OS — Wisdom Operating System Cloud Functions
+// ============================================================================
+const { bereanCreateProject } = require("./berean_os_projects");
+exports.bereanCreateProject = bereanCreateProject;
+
+const { bereanExtractProjectMemory } = require("./berean_os_memory");
+exports.bereanExtractProjectMemory = bereanExtractProjectMemory;
+
+const { bereanStartResearch } = require("./berean_os_research");
+exports.bereanStartResearch = bereanStartResearch;
+
+const { bereanClassifyStatement } = require("./berean_os_truth");
+exports.bereanClassifyStatement = bereanClassifyStatement;
+
+const { bereanFetchSources } = require("./berean_os_sources");
+exports.bereanFetchSources = bereanFetchSources;
+
+const { bereanWisdomAnalysis } = require("./berean_os_wisdom");
+exports.bereanWisdomAnalysis = bereanWisdomAnalysis;
+
+const { bereanGenerateDebate } = require("./berean_os_debate");
+exports.bereanGenerateDebate = bereanGenerateDebate;
+
+const { bereanAIMentorReview } = require("./berean_os_mentor");
+exports.bereanAIMentorReview = bereanAIMentorReview;
+
+const { bereanRefineDocument, bereanGenerateActionPlan } = require("./berean_os_documents");
+exports.bereanRefineDocument = bereanRefineDocument;
+exports.bereanGenerateActionPlan = bereanGenerateActionPlan;
+
+const { bereanConsultAdvisoryBoard } = require("./berean_os_advisory");
+exports.bereanConsultAdvisoryBoard = bereanConsultAdvisoryBoard;
+
+const { bereanArchiveProject, bereanUpdateProject } = require("./berean_os_projects");
+exports.bereanArchiveProject = bereanArchiveProject;
+exports.bereanUpdateProject = bereanUpdateProject;
+
+const { bereanDiscoverKnowledgeLinks } = require("./berean_os_graph");
+exports.bereanDiscoverKnowledgeLinks = bereanDiscoverKnowledgeLinks;
+
+const { bereanMultiPerspective } = require("./berean_os_perspectives");
+exports.bereanMultiPerspective = bereanMultiPerspective;
+
+// Discussion OS — Context Participation
+const discussionContextFunctions = require("./discussionContextFunctions");
+exports.updateReadProgress     = discussionContextFunctions.updateReadProgress;
+exports.updateAudioProgress    = discussionContextFunctions.updateAudioProgress;
+exports.updateCarouselProgress = discussionContextFunctions.updateCarouselProgress;
+exports.getContextScore        = discussionContextFunctions.getContextScore;
+
+// Discussion OS — Health Engine
+const discussionHealthFunctions = require("./discussionHealthFunctions");
+exports.analyzeDiscussionHealth = discussionHealthFunctions.analyzeDiscussionHealth;
+exports.autoAnalyzeHealth       = discussionHealthFunctions.autoAnalyzeHealth;
+
+// Discussion OS — Draft Intelligence
+const discussionDraftFunctions = require("./discussionDraftFunctions");
+exports.analyzeDraft = discussionDraftFunctions.analyzeDraft;
+
+// Discussion OS — Mediator
+const discussionMediatorFunctions = require("./discussionMediatorFunctions");
+exports.mediateDiscussion = discussionMediatorFunctions.mediateDiscussion;
+
+// Discussion OS — Community Memory
+const discussionMemoryFunctions = require("./discussionMemoryFunctions");
+exports.recordDiscussionOutcome = discussionMemoryFunctions.recordDiscussionOutcome;
+
+// Discussion OS — Command Center
+const discussionCommandFunctions = require("./discussionCommandFunctions");
+exports.getDiscussionDashboard = discussionCommandFunctions.getDiscussionDashboard;

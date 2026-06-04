@@ -463,6 +463,18 @@ final class AMENFeatureFlags: ObservableObject {
     /// Enables the Liquid Glass bottom bar (replaces solid bar when true).
     @Published private(set) var bottomBarLiquidGlassEnabled: Bool = true
 
+    // MARK: - System 36: Context-First Discussion OS
+    @Published private(set) var discussionModesEnabled: Bool = false
+    @Published private(set) var contextParticipationEnabled: Bool = false
+    @Published private(set) var discussionHealthEnabled: Bool = false
+    @Published private(set) var draftIntelligenceEnabled: Bool = false
+    @Published private(set) var discussionSummaryEnabled: Bool = false
+    @Published private(set) var discussionMediatorEnabled: Bool = false
+    @Published private(set) var communityMemoryEnabled: Bool = false
+    @Published private(set) var discussionActionsEnabled: Bool = false
+    @Published private(set) var participationTiersEnabled: Bool = false
+    @Published private(set) var discussionCommandCenterEnabled: Bool = false
+
     // MARK: - Cross-cutting
     @Published private(set) var analyticsEnabled: Bool = true
     @Published private(set) var performanceTelemetryEnabled: Bool = true
@@ -580,6 +592,42 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var mediaSyntheticDetectionEnabled: Bool = true
     @Published private(set) var contentCredentialsEnabled: Bool = true
     @Published private(set) var provenanceAuditChainEnabled: Bool = true
+
+    // MARK: - Berean OS (Wisdom Operating System)
+    /// Master switch: gates the Berean OS Hub entry point.
+    @Published private(set) var bereanOSProjectsEnabled: Bool = false
+    /// Research Engine: web + scripture research pipeline.
+    @Published private(set) var bereanOSResearchEngineEnabled: Bool = false
+    /// Wisdom Engine: structured wisdom analysis on any topic.
+    @Published private(set) var bereanOSWisdomEngineEnabled: Bool = false
+    /// Multi-Perspective: balanced multi-viewpoint theological analysis.
+    @Published private(set) var bereanOSMultiPerspectiveEnabled: Bool = false
+    /// Debate Engine: structured pro/con argument generation.
+    @Published private(set) var bereanOSDebateEngineEnabled: Bool = false
+    /// Social Knowledge Feed: community-curated knowledge items.
+    @Published private(set) var bereanOSSocialKnowledgeFeedEnabled: Bool = false
+    /// Advisory Boards: AI advisor board consultation.
+    @Published private(set) var bereanOSAdvisoryBoardsEnabled: Bool = false
+    /// Mentor OS: real + AI mentor relationship management.
+    @Published private(set) var bereanOSMentorOSEnabled: Bool = false
+    /// Knowledge Graph: personal concept-node knowledge graph.
+    @Published private(set) var bereanOSKnowledgeGraphEnabled: Bool = false
+    /// Onboarding: first-run onboarding flow for Berean OS.
+    @Published private(set) var bereanOSOnboardingEnabled: Bool = false
+    /// Memory Brain: project-scoped memory/insight extraction.
+    @Published private(set) var bereanOSMemoryBrainEnabled: Bool = false
+    /// Action Planner: AI-generated milestone-based action plans.
+    @Published private(set) var bereanOSActionPlannerEnabled: Bool = false
+    /// Truth Labels: epistemic status classification on claims.
+    @Published private(set) var bereanOSTruthLabelsEnabled: Bool = false
+    /// Source Explorer: deep source quality + citation explorer.
+    @Published private(set) var bereanOSSourceExplorerEnabled: Bool = false
+    /// Social Projects: publish + share projects with the community.
+    @Published private(set) var bereanOSSocialProjectsEnabled: Bool = false
+    /// Community Intelligence: collaborative knowledge actions.
+    @Published private(set) var bereanOSCommunityIntelligenceEnabled: Bool = false
+    /// Living Documents: AI-collaborative document writing.
+    @Published private(set) var bereanOSLivingDocumentsEnabled: Bool = false
 
     private init() {
         applyUITestOverrides()
@@ -992,6 +1040,25 @@ final class AMENFeatureFlags: ObservableObject {
             "synthetic_media_detection_enabled": true as NSObject,
             "content_credentials_enabled": true as NSObject,
             "provenance_audit_chain_enabled": true as NSObject,
+
+            // Berean OS — all default OFF until explicit Remote Config activation
+            "berean_os_projects_enabled": false as NSObject,
+            "berean_os_research_engine_enabled": false as NSObject,
+            "berean_os_wisdom_engine_enabled": false as NSObject,
+            "berean_os_multi_perspective_enabled": false as NSObject,
+            "berean_os_debate_engine_enabled": false as NSObject,
+            "berean_os_social_knowledge_feed_enabled": false as NSObject,
+            "berean_os_advisory_boards_enabled": false as NSObject,
+            "berean_os_mentor_os_enabled": false as NSObject,
+            "berean_os_knowledge_graph_enabled": false as NSObject,
+            "berean_os_onboarding_enabled": false as NSObject,
+            "berean_os_memory_brain_enabled": false as NSObject,
+            "berean_os_action_planner_enabled": false as NSObject,
+            "berean_os_truth_labels_enabled": false as NSObject,
+            "berean_os_source_explorer_enabled": false as NSObject,
+            "berean_os_social_projects_enabled": false as NSObject,
+            "berean_os_community_intelligence_enabled": false as NSObject,
+            "berean_os_living_documents_enabled": false as NSObject,
         ]
     }
 
@@ -1449,6 +1516,37 @@ final class AMENFeatureFlags: ObservableObject {
         contentForwardingEnabled            = config["content_forwarding_enabled"].boolValue
         contentAIRouterEnabled              = config["content_ai_router_enabled"].boolValue
         contentAuditLogEnabled              = config["content_audit_log_enabled"].boolValue
+
+        // Berean OS — Wisdom Operating System
+        bereanOSProjectsEnabled              = config["berean_os_projects_enabled"].boolValue
+        bereanOSResearchEngineEnabled        = config["berean_os_research_engine_enabled"].boolValue
+        bereanOSWisdomEngineEnabled          = config["berean_os_wisdom_engine_enabled"].boolValue
+        bereanOSMultiPerspectiveEnabled      = config["berean_os_multi_perspective_enabled"].boolValue
+        bereanOSDebateEngineEnabled          = config["berean_os_debate_engine_enabled"].boolValue
+        bereanOSSocialKnowledgeFeedEnabled   = config["berean_os_social_knowledge_feed_enabled"].boolValue
+        bereanOSAdvisoryBoardsEnabled        = config["berean_os_advisory_boards_enabled"].boolValue
+        bereanOSMentorOSEnabled              = config["berean_os_mentor_os_enabled"].boolValue
+        bereanOSKnowledgeGraphEnabled        = config["berean_os_knowledge_graph_enabled"].boolValue
+        bereanOSOnboardingEnabled            = config["berean_os_onboarding_enabled"].boolValue
+        bereanOSMemoryBrainEnabled           = config["berean_os_memory_brain_enabled"].boolValue
+        bereanOSActionPlannerEnabled         = config["berean_os_action_planner_enabled"].boolValue
+        bereanOSTruthLabelsEnabled           = config["berean_os_truth_labels_enabled"].boolValue
+        bereanOSSourceExplorerEnabled        = config["berean_os_source_explorer_enabled"].boolValue
+        bereanOSSocialProjectsEnabled        = config["berean_os_social_projects_enabled"].boolValue
+        bereanOSCommunityIntelligenceEnabled = config["berean_os_community_intelligence_enabled"].boolValue
+        bereanOSLivingDocumentsEnabled       = config["berean_os_living_documents_enabled"].boolValue
+
+        // System 36: Context-First Discussion OS
+        discussionModesEnabled          = config["discussion_modes_enabled"].boolValue
+        contextParticipationEnabled     = config["context_participation_enabled"].boolValue
+        discussionHealthEnabled         = config["discussion_health_enabled"].boolValue
+        draftIntelligenceEnabled        = config["draft_intelligence_enabled"].boolValue
+        discussionSummaryEnabled        = config["discussion_summary_enabled"].boolValue
+        discussionMediatorEnabled       = config["discussion_mediator_enabled"].boolValue
+        communityMemoryEnabled          = config["community_memory_enabled"].boolValue
+        discussionActionsEnabled        = config["discussion_actions_enabled"].boolValue
+        participationTiersEnabled       = config["participation_tiers_enabled"].boolValue
+        discussionCommandCenterEnabled  = config["discussion_command_center_enabled"].boolValue
     }
 
     private func applyUITestOverrides() {

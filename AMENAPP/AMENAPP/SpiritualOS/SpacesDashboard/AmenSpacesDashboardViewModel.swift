@@ -1,165 +1,233 @@
 // AmenSpacesDashboardViewModel.swift
-// AMEN Spiritual OS — Agent D: Spaces Dashboard HeroCard
-// ViewModel for the Space detail hero card surface.
-// Built 2026-06-02 — do not copy types; import SharedComponents instead.
+// AMEN Spiritual OS — Spaces Dashboard
+// Real Firestore data, parallel async/let loads, @Observable pattern.
+// Updated 2026-06-03 — migrated from ObservableObject to @Observable.
 
 import Foundation
+import Observation
 import FirebaseFirestore
 import SwiftUI
 
-// MARK: - SpaceDashboardEvent
+// MARK: - Support types
 
-struct SpaceDashboardEvent: Identifiable {
+struct MemberPreview: Identifiable {
+    let id: String
+    let photoURL: URL?
+    let displayName: String
+}
+
+struct SpaceEvent: Identifiable {
     let id: String
     let title: String
-    let date: Date
+    let startTime: Date
+    let location: String?
+}
+
+struct StudySeries {
+    let seriesTitle: String
+    let currentWeek: Int
+    let totalWeeks: Int
+    let suggestedReading: String?
+}
+
+struct ActivityItem: Identifiable {
+    let id: String
+    let actorName: String
+    let actorPhotoURL: URL?
+    let actionType: String
+    let summary: String
+    let timestamp: Date
 }
 
 // MARK: - AmenSpacesDashboardViewModel
 
+@Observable
 @MainActor
-final class AmenSpacesDashboardViewModel: ObservableObject {
+final class AmenSpacesDashboardViewModel {
 
-    // MARK: Published state
+    // MARK: - Exposed state
 
-    @Published var spaceTitle: String = ""
-    @Published var spaceSubtitle: String = ""
-    @Published var coverImageURL: URL? = nil
-    @Published var memberAvatarURLs: [URL] = []
-    @Published var memberCount: Int = 0
-    @Published var nextEvent: SpaceDashboardEvent? = nil
-    @Published var activePrayerCount: Int = 0
-    @Published var currentStudySeries: String? = nil
-    @Published var heroCardEnabled: Bool = false
-    @Published var isLoading: Bool = false
+    var memberPreviews: [MemberPreview] = []
+    var totalMemberCount: Int = 0
+    var activePrayerCount: Int = 0
+    var nextEvent: SpaceEvent? = nil
+    var currentStudySeries: StudySeries? = nil
+    var recentActivity: [ActivityItem] = []
+    var isLoading: Bool = false
 
-    // MARK: Private
+    // Per-space hero card gate (read from the space document)
+    var heroCardEnabled: Bool = false
+
+    // MARK: - Private
 
     private let spaceId: String
     private let db = Firestore.firestore()
 
-    // MARK: Init
+    // MARK: - Init
 
     init(spaceId: String) {
         self.spaceId = spaceId
     }
 
-    // MARK: Load
+    // MARK: - Load (parallel)
 
-    /// Reads space data from Firestore `spaces/{spaceId}` and its `members` subcollection.
-    /// All errors are swallowed gracefully — missing fields leave published defaults intact.
     func load() async {
         guard !spaceId.isEmpty else { return }
         isLoading = true
         defer { isLoading = false }
 
-        await loadSpaceDocument()
-        await loadMemberAvatars()
+        let spaceRef = db.collection("spaces").document(spaceId)
+
+        // Feature gate lives in the space document — load first (sequential)
+        await loadSpaceGate(spaceRef: spaceRef)
+
+        // Remaining subcollections load in parallel
+        async let membersResult  = loadMembers(spaceRef: spaceRef)
+        async let prayerResult   = loadActivePrayerCount(spaceRef: spaceRef)
+        async let eventResult    = loadNextEvent(spaceRef: spaceRef)
+        async let seriesResult   = loadCurrentStudySeries(spaceRef: spaceRef)
+        async let activityResult = loadRecentActivity(spaceRef: spaceRef)
+
+        let (members, prayerCount, event, series, activity) =
+            await (membersResult, prayerResult, eventResult, seriesResult, activityResult)
+
+        memberPreviews    = members.previews
+        totalMemberCount  = members.totalCount
+        activePrayerCount = prayerCount
+        nextEvent         = event
+        currentStudySeries = series
+        recentActivity    = activity
     }
 
     // MARK: - Private helpers
 
-    private func loadSpaceDocument() async {
+    private func loadSpaceGate(spaceRef: DocumentReference) async {
         do {
-            let doc = try await db
-                .collection("spaces")
-                .document(spaceId)
-                .getDocument()
-
-            guard let data = doc.data() else { return }
-
-            // Feature gate: per-space hero card toggle
-            heroCardEnabled = data["heroCardEnabled"] as? Bool ?? false
-
-            // Space identity
-            if let name = data["name"] as? String {
-                spaceTitle = name
-            }
-
-            // Cover image
-            if let coverString = data["coverImageURL"] as? String,
-               let url = URL(string: coverString) {
-                coverImageURL = url
-            }
-
-            // Member count → subtitle
-            if let count = data["memberCount"] as? Int {
-                memberCount = count
-                let noun = count == 1 ? "member" : "members"
-                spaceSubtitle = "\(count) \(noun)"
-            }
-
-            // Pastoral signal: active prayer count (private — NOT shown as social metric)
-            activePrayerCount = data["activePrayerCount"] as? Int ?? 0
-
-            // Current study series label
-            if let series = data["currentStudySeries"] as? String, !series.isEmpty {
-                currentStudySeries = series
-            }
-
-            // Next event
-            nextEvent = extractNextEvent(from: data)
-
+            let doc = try await spaceRef.getDocument()
+            heroCardEnabled = doc.data()?["heroCardEnabled"] as? Bool ?? false
         } catch {
-            // Firestore read failure — leave defaults; hero card stays hidden via heroCardEnabled=false
+            heroCardEnabled = false
         }
     }
 
-    private func loadMemberAvatars() async {
+    /// spaces/{spaceId}/members — orderBy joinedAt desc limit 5 + aggregate count
+    private func loadMembers(spaceRef: DocumentReference) async
+        -> (previews: [MemberPreview], totalCount: Int)
+    {
         do {
-            let snapshot = try await db
-                .collection("spaces")
-                .document(spaceId)
-                .collection("members")
+            let col = spaceRef.collection("members")
+
+            let countSnap = try await col.count.getAggregation(source: .server)
+            let total = Int(truncatingIfNeeded: countSnap.count)
+
+            let snap = try await col
+                .order(by: "joinedAt", descending: true)
                 .limit(to: 5)
                 .getDocuments()
 
-            memberAvatarURLs = snapshot.documents.compactMap { doc in
-                guard let photoString = doc.data()["photoURL"] as? String else { return nil }
-                return URL(string: photoString)
+            let previews: [MemberPreview] = snap.documents.map { doc in
+                let d = doc.data()
+                return MemberPreview(
+                    id: doc.documentID,
+                    photoURL: (d["photoURL"] as? String).flatMap(URL.init),
+                    displayName: d["displayName"] as? String ?? ""
+                )
+            }
+            return (previews, total)
+        } catch {
+            return ([], 0)
+        }
+    }
+
+    /// spaces/{spaceId}/prayerRequests where status == "active" — count()
+    private func loadActivePrayerCount(spaceRef: DocumentReference) async -> Int {
+        do {
+            let snap = try await spaceRef
+                .collection("prayerRequests")
+                .whereField("status", isEqualTo: "active")
+                .count
+                .getAggregation(source: .server)
+            return Int(truncatingIfNeeded: snap.count)
+        } catch {
+            return 0
+        }
+    }
+
+    /// spaces/{spaceId}/events where startTime >= now orderBy startTime asc limit 1
+    private func loadNextEvent(spaceRef: DocumentReference) async -> SpaceEvent? {
+        do {
+            let snap = try await spaceRef
+                .collection("events")
+                .whereField("startTime", isGreaterThanOrEqualTo: Timestamp(date: Date()))
+                .order(by: "startTime", descending: false)
+                .limit(to: 1)
+                .getDocuments()
+
+            guard let doc = snap.documents.first else { return nil }
+            let d = doc.data()
+            let title = d["title"] as? String ?? ""
+            guard !title.isEmpty else { return nil }
+            let startTime = (d["startTime"] as? Timestamp)?.dateValue() ?? Date()
+            return SpaceEvent(
+                id: doc.documentID,
+                title: title,
+                startTime: startTime,
+                location: d["location"] as? String
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    /// spaces/{spaceId}/studySeries where isCurrent == true limit 1
+    private func loadCurrentStudySeries(spaceRef: DocumentReference) async -> StudySeries? {
+        do {
+            let snap = try await spaceRef
+                .collection("studySeries")
+                .whereField("isCurrent", isEqualTo: true)
+                .limit(to: 1)
+                .getDocuments()
+
+            guard let doc = snap.documents.first else { return nil }
+            let d = doc.data()
+            let title = d["seriesTitle"] as? String ?? ""
+            guard !title.isEmpty else { return nil }
+            return StudySeries(
+                seriesTitle: title,
+                currentWeek: d["currentWeek"] as? Int ?? 1,
+                totalWeeks: d["totalWeeks"] as? Int ?? 1,
+                suggestedReading: d["suggestedReading"] as? String
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    /// spaces/{spaceId}/activity orderBy timestamp desc limit 5
+    private func loadRecentActivity(spaceRef: DocumentReference) async -> [ActivityItem] {
+        do {
+            let snap = try await spaceRef
+                .collection("activity")
+                .order(by: "timestamp", descending: true)
+                .limit(to: 5)
+                .getDocuments()
+
+            return snap.documents.compactMap { doc -> ActivityItem? in
+                let d = doc.data()
+                let actorName = d["actorName"] as? String ?? ""
+                let summary   = d["summary"]   as? String ?? ""
+                let ts = (d["timestamp"] as? Timestamp)?.dateValue() ?? Date()
+                return ActivityItem(
+                    id: doc.documentID,
+                    actorName: actorName,
+                    actorPhotoURL: (d["actorPhotoURL"] as? String).flatMap(URL.init),
+                    actionType: d["actionType"] as? String ?? "post",
+                    summary: summary,
+                    timestamp: ts
+                )
             }
         } catch {
-            // Avatars are decorative — failure is silent
+            return []
         }
-    }
-
-    /// Extracts the soonest upcoming event from the Firestore document.
-    /// Supports both an embedded `nextEvent` map and a top-level `nextEventTimestamp` field.
-    private func extractNextEvent(from data: [String: Any]) -> SpaceDashboardEvent? {
-        // Preferred shape: nextEvent: { id, title, timestamp }
-        if let map = data["nextEvent"] as? [String: Any] {
-            let id = map["id"] as? String ?? UUID().uuidString
-            let title = map["title"] as? String ?? ""
-            let timestamp = (map["timestamp"] as? Timestamp)?.dateValue() ?? Date()
-            guard !title.isEmpty else { return nil }
-            return SpaceDashboardEvent(id: id, title: title, date: timestamp)
-        }
-
-        // Fallback shape: separate nextEventTitle + nextEventTimestamp fields
-        if let title = data["nextEventTitle"] as? String,
-           !title.isEmpty,
-           let timestamp = (data["nextEventTimestamp"] as? Timestamp)?.dateValue() {
-            return SpaceDashboardEvent(id: UUID().uuidString, title: title, date: timestamp)
-        }
-
-        return nil
-    }
-
-    // MARK: - Actions builder
-
-    /// Returns the 4 standard HeroCard actions for the Spaces Dashboard surface.
-    /// Callers supply closures so navigation ownership stays in the view layer.
-    func buildActions(
-        onPrayTogether: @escaping () -> Void,
-        onSchedule: @escaping () -> Void,
-        onOpenNotes: @escaping () -> Void,
-        onAskBerean: @escaping () -> Void
-    ) -> [HeroCardAction] {
-        [
-            HeroCardAction(label: "Pray Together", icon: "hands.sparkles", action: onPrayTogether),
-            HeroCardAction(label: "Schedule",      icon: "calendar.badge.plus", action: onSchedule),
-            HeroCardAction(label: "Open Notes",    icon: "doc.text",        action: onOpenNotes),
-            HeroCardAction(label: "Ask Berean",    icon: "sparkles",        action: onAskBerean)
-        ]
     }
 }

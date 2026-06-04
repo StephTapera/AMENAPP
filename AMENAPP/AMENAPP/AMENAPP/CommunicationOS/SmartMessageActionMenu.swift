@@ -104,6 +104,7 @@ struct SmartMessageActionMenu: View {
 
     private func actionRow(_ action: MessageAttachmentAction) -> some View {
         Button {
+            AMENAnalyticsService.shared.track(.commOSActionTapped(actionKey: action.title))
             onAction(action)
             onDismiss()
         } label: {

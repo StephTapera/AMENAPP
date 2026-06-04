@@ -134,6 +134,17 @@ function requireAuth(request) {
 }
 
 /**
+ * Reject callers whose Firestore profile has isMinor === true (COPPA guard).
+ * @param {string} uid
+ */
+async function requireNotMinor(uid) {
+  const profile = await admin.firestore().collection('users').doc(uid).get();
+  if (profile.data()?.isMinor === true) {
+    throw new HttpsError('permission-denied', 'AI features unavailable for users under 13.');
+  }
+}
+
+/**
  * Per-user hourly rate limiter backed by Firestore atomic transactions.
  * @param {string} uid
  * @param {string} feature
@@ -163,7 +174,12 @@ exports.bereanBibleQA = onCall(
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
       await checkBereanRateLimit(uid, 'bible_qa', 20);
-      const {prompt, maxTokens = 600} = request.data;
+      const rawPrompt = request.data?.prompt;
+      const maxTokens = Math.min(Number(request.data?.maxTokens) || 600, 2000);
+      if (!rawPrompt || typeof rawPrompt !== 'string' || rawPrompt.length > 4000) {
+        throw new HttpsError('invalid-argument', 'prompt must be a non-empty string under 4000 characters.');
+      }
+      const prompt = rawPrompt;
 
       const system = `You are Berean, a knowledgeable, humble biblical AI assistant for the AMEN faith community app.
 Answer biblical questions with care, grace, and scriptural grounding.
@@ -189,7 +205,16 @@ exports.bereanBibleQAFallback = onCall(
     {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
-      const {prompt, maxTokens = 300} = request.data;
+      const uid = request.auth?.uid;
+      if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await requireNotMinor(uid);
+      await checkBereanRateLimit(uid, 'bible_qa_fallback', 20);
+      const rawPrompt = request.data?.prompt;
+      const maxTokens = Math.min(Number(request.data?.maxTokens) || 300, 2000);
+      if (!rawPrompt || typeof rawPrompt !== 'string' || rawPrompt.length > 4000) {
+        throw new HttpsError('invalid-argument', 'prompt must be a non-empty string under 4000 characters.');
+      }
+      const prompt = rawPrompt;
 
       const system = `You are Berean, a biblical AI assistant. Give a brief, scriptural answer to this question.
 Cite at least one Bible verse. Be concise (under 150 words). Tone: warm, non-divisive.`;
@@ -208,7 +233,12 @@ exports.bereanMoralCounsel = onCall(
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
       await checkBereanRateLimit(uid, 'moral_counsel', 10);
-      const {prompt, maxTokens = 600} = request.data;
+      const rawPrompt = request.data?.prompt;
+      const maxTokens = Math.min(Number(request.data?.maxTokens) || 600, 2000);
+      if (!rawPrompt || typeof rawPrompt !== 'string' || rawPrompt.length > 4000) {
+        throw new HttpsError('invalid-argument', 'prompt must be a non-empty string under 4000 characters.');
+      }
+      const prompt = rawPrompt;
 
       const system = `You are Berean, a compassionate pastoral AI for the AMEN faith community.
 Offer thoughtful, biblically-grounded moral guidance with empathy and grace.
@@ -230,7 +260,12 @@ exports.bereanBusinessQA = onCall(
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
       await checkBereanRateLimit(uid, 'business_qa', 15);
-      const {prompt, maxTokens = 500} = request.data;
+      const rawPrompt = request.data?.prompt;
+      const maxTokens = Math.min(Number(request.data?.maxTokens) || 500, 2000);
+      if (!rawPrompt || typeof rawPrompt !== 'string' || rawPrompt.length > 4000) {
+        throw new HttpsError('invalid-argument', 'prompt must be a non-empty string under 4000 characters.');
+      }
+      const prompt = rawPrompt;
 
       const system = `You are Berean, a faith-integrated business and technology advisor.
 Help believers integrate their faith into professional and entrepreneurial decisions.
@@ -616,7 +651,13 @@ exports.bereanGenericProxy = onCall(
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
       await checkBereanRateLimit(uid, 'generic_proxy', 15);
-      const {taskType, prompt, maxTokens = 400} = request.data;
+      const taskType = request.data?.taskType;
+      const rawPrompt = request.data?.prompt;
+      const maxTokens = Math.min(Number(request.data?.maxTokens) || 400, 2000);
+      if (!rawPrompt || typeof rawPrompt !== 'string' || rawPrompt.length > 4000) {
+        throw new HttpsError('invalid-argument', 'prompt must be a non-empty string under 4000 characters.');
+      }
+      const prompt = rawPrompt;
 
       const system = `You are Berean, a faith-community AI assistant for the AMEN app.
 Task type: ${taskType ?? "general"}.
@@ -745,7 +786,7 @@ exports.bereanChatProxy = onCall(
       }
 
       // COPPA guard — reject if caller is flagged as minor
-      const callerUid = context.auth?.uid;
+      const callerUid = request.auth?.uid;
       if (!callerUid) throw new HttpsError('unauthenticated', 'Auth required');
       const profile = await admin.firestore().collection('users').doc(callerUid).get();
       if (profile.data()?.isMinor === true) {

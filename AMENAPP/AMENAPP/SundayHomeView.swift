@@ -9,6 +9,18 @@ import FirebaseAnalytics
 
 struct SundayHomeView: View {
 
+    private static let displayDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, MMMM d"
+        return f
+    }()
+
+    private static let todayKeyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
     @ObservedObject private var gate = RestModeGate.shared
 
     // Navigation callbacks wired from HomeView / ContentView
@@ -379,9 +391,7 @@ struct SundayHomeView: View {
     }
 
     private var todayDateString: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "EEEE, MMMM d"
-        return fmt.string(from: Date())
+        Self.displayDateFormatter.string(from: Date())
     }
 
     private var timeOfDayGreeting: String {
@@ -450,9 +460,7 @@ struct SundayHomeView: View {
     }
 
     private var todayKey: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        return fmt.string(from: Date())
+        Self.todayKeyFormatter.string(from: Date())
     }
 }
 

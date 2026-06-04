@@ -276,8 +276,12 @@ struct AmenSpaceDetailView: View {
                             onLeave: { withAnimation { isSubscribed = false } }
                         )
 
-                        // Spiritual OS: hero card section (gated by AppStorage flag + per-space toggle)
-                        AmenSpacesHeroCardSection(spaceId: space.id, userId: currentUserId)
+                        // Spiritual OS: hero card section — passes real spaceName; bannerURL added when AmenConnectSpacesSpace gains the field
+                        AmenSpacesHeroCardSection(
+                            spaceId: space.id,
+                            bannerURL: nil,
+                            spaceName: space.name
+                        )
 
                         VStack(alignment: .leading, spacing: 24) {
                             // MARK: Coming Up section

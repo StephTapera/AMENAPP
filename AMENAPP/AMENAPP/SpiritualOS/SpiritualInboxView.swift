@@ -1,181 +1,183 @@
+// SpiritualInboxView.swift
+// AMEN Hub — Unified Inbox
+//
+// The primary Hub (Unified Inbox) surface for the AMEN app.
+// Wired to real Firestore via AmenHubRealtimeViewModel.
+// Replaces the legacy spiritual-signals inbox as the Messages tab (tab 2) root.
+//
+// Glass rules:
+//   • Filter bar: .regularMaterial — the ONLY glass surface
+//   • List rows: plain background — no LiquidGlassCard on rows
+
 import SwiftUI
 import FirebaseAuth
 
+// MARK: - SpiritualInboxView
+
 struct SpiritualInboxView: View {
-    @StateObject private var unsentService = UnsentThoughtsService.shared
-    @StateObject private var silenceService = SilenceIntelligenceService.shared
-    @StateObject private var driftService = ScriptureDriftService.shared
-    @StateObject private var gravityService = RelationalGravityService.shared
-    @StateObject private var eternalService = EternalWeightService.shared
-    @StateObject private var momentService = MomentInterceptionService.shared
-
-    @State private var selectedFilter: InboxFilter = .all
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    enum InboxFilter: String, CaseIterable {
-        case all = "All"
-        case urgent = "Urgent"
-        case relational = "Relational"
-        case patterns = "Patterns"
-        case eternal = "Eternal"
-    }
+    @StateObject var viewModel = AmenHubRealtimeViewModel()
+    @State private var selectedFilter: AmenHubItemType? = nil
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(UIColor.systemBackground).ignoresSafeArea()
+            VStack(spacing: 0) {
 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        filterBar
-
-                        if hasNoSignals {
-                            emptyStateCard
-                        } else {
-                            signalSections
+                // MARK: Filter bar (glass only here)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        FilterChip(label: "All", isSelected: selectedFilter == nil) {
+                            selectedFilter = nil
+                        }
+                        ForEach(AmenHubItemType.allCases, id: \.self) { type in
+                            FilterChip(label: type.label, isSelected: selectedFilter == type) {
+                                selectedFilter = type
+                            }
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 40)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
                 }
+                .background(.regularMaterial)
+
+                // MARK: Items list
+                List {
+                    let displayItems = viewModel.filteredItems(for: selectedFilter)
+                    if displayItems.isEmpty && !viewModel.isLoading {
+                        ContentUnavailableView(
+                            "You're all caught up",
+                            systemImage: "checkmark.circle",
+                            description: Text("No \(selectedFilter?.label ?? "") items")
+                        )
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(displayItems) { item in
+                            HubItemRow(item: item)
+                                .swipeActions(edge: .leading) {
+                                    Button {
+                                        // Post prayer notification
+                                    } label: {
+                                        Label("Pray", systemImage: "heart.fill")
+                                    }
+                                    .tint(.teal)
+                                }
+                                .swipeActions(edge: .trailing) {
+                                    Button {
+                                        viewModel.markAsRead(itemId: item.id)
+                                    } label: {
+                                        Label("Read", systemImage: "checkmark")
+                                    }
+                                    .tint(.blue)
+                                }
+                                .accessibilityLabel(
+                                    "\(item.title) from \(item.senderName), \(item.timestamp.formatted(.relative(presentation: .named)))"
+                                )
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        }
+                    }
+                }
+                .listStyle(.plain)
             }
-            .navigationTitle("Spiritual Inbox")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("Hub")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
+                    if viewModel.unreadCount > 0 {
+                        Text("\(viewModel.unreadCount) unread")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
-                            .symbolRenderingMode(.hierarchical)
                     }
-                    .accessibilityLabel("Close Spiritual Inbox")
                 }
             }
         }
         .task {
-            unsentService.startListening()
-            silenceService.startListening()
-            driftService.startListening()
-            gravityService.startListening()
-            eternalService.startListening()
-        }
-    }
-
-    private var hasNoSignals: Bool {
-        unsentService.activeThoughts.isEmpty &&
-        silenceService.silenceSignals.isEmpty &&
-        driftService.driftSignals.isEmpty &&
-        gravityService.nodes.filter { $0.currentState != .peaceful }.isEmpty
-    }
-
-    private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(InboxFilter.allCases, id: \.self) { filter in
-                    filterPill(filter)
-                }
+            if let uid = Auth.auth().currentUser?.uid {
+                viewModel.startListening(uid: uid)
             }
         }
-        .accessibilityElement(children: .contain)
-    }
-
-    private func filterPill(_ filter: InboxFilter) -> some View {
-        Button(action: { withAnimation(.spring(response: 0.3)) { selectedFilter = filter } }) {
-            Text(filter.rawValue)
-                .font(.subheadline)
-                .fontWeight(selectedFilter == filter ? .semibold : .regular)
-                .foregroundStyle(selectedFilter == filter ? Color.primary : Color.secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background {
-                    if selectedFilter == filter {
-                        Capsule().fill(Color.primary.opacity(0.08))
-                    } else {
-                        Capsule().fill(Color.clear)
-                    }
-                }
-                .overlay(Capsule().stroke(Color.primary.opacity(0.12), lineWidth: 1))
+        .onDisappear {
+            viewModel.stopListening()
         }
-        .accessibilityLabel("\(filter.rawValue) filter")
-        .accessibilityAddTraits(selectedFilter == filter ? .isSelected : [])
-    }
-
-    @ViewBuilder
-    private var signalSections: some View {
-        if !unsentService.activeThoughts.isEmpty && (selectedFilter == .all || selectedFilter == .urgent) {
-            SpiritualInboxSectionCard(title: "Unprocessed Thoughts", icon: "bubble.left.and.text.bubble.right", count: unsentService.activeThoughts.count) {
-                VStack(spacing: 10) {
-                    ForEach(unsentService.activeThoughts.prefix(3)) { thought in
-                        SpiritualInboxThreadRow(
-                            title: String((thought.draftText.prefix(60))) + "...",
-                            subtitle: "Saved from \(thought.sourceSurface)",
-                            flags: thought.riskFlags
-                        )
-                    }
-                }
-            }
-        }
-
-        if !silenceService.silenceSignals.isEmpty && (selectedFilter == .all || selectedFilter == .patterns) {
-            SpiritualInboxSectionCard(title: "Quiet Patterns", icon: "moon.stars", count: silenceService.silenceSignals.count) {
-                VStack(spacing: 10) {
-                    ForEach(silenceService.silenceSignals.prefix(3)) { signal in
-                        SilenceInsightCard(signal: signal)
-                    }
-                }
-            }
-        }
-
-        if !driftService.driftSignals.isEmpty && (selectedFilter == .all || selectedFilter == .patterns) {
-            SpiritualInboxSectionCard(title: "Scripture Patterns", icon: "book.closed", count: driftService.driftSignals.count) {
-                VStack(spacing: 10) {
-                    ForEach(driftService.driftSignals.prefix(2)) { signal in
-                        ScriptureDriftInsightCard(signal: signal)
-                    }
-                }
-            }
-        }
-
-        let tensionNodes = gravityService.nodes.filter {
-            $0.currentState == .tense || $0.currentState == .unresolved || $0.currentState == .needsPrayer
-        }
-        if !tensionNodes.isEmpty && (selectedFilter == .all || selectedFilter == .relational) {
-            SpiritualInboxSectionCard(title: "Relationships", icon: "person.2", count: tensionNodes.count) {
-                VStack(spacing: 10) {
-                    ForEach(tensionNodes.prefix(3)) { node in
-                        RelationshipStateCard(node: node, compact: true)
-                    }
-                }
-            }
-        }
-    }
-
-    private var emptyStateCard: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.seal")
-                .font(.system(size: 40))
-                .foregroundStyle(Color.secondary)
-            Text("Your spiritual inbox is clear.")
-                .font(.headline)
-                .foregroundStyle(Color.primary)
-            Text("Keep walking forward.")
-                .font(.subheadline)
-                .foregroundStyle(Color.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(32)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 16, y: 6)
-        .accessibilityElement(children: .combine)
     }
 }
 
-// MARK: - Section Card Wrapper
+// MARK: - HubItemRow
+
+struct HubItemRow: View {
+    let item: AmenHubItem
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Unread dot
+            Circle()
+                .fill(item.isRead ? Color.clear : Color("amenGold"))
+                .frame(width: 8, height: 8)
+                .padding(.top, 6)
+
+            // Avatar
+            AsyncImage(url: URL(string: item.senderPhotoURL ?? "")) { phase in
+                switch phase {
+                case .success(let img):
+                    img.resizable().scaledToFill()
+                default:
+                    Image(systemName: "person.circle.fill")
+                        .resizable()
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 40, height: 40)
+            .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(item.title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text(item.timestamp, style: .relative)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !item.body.isEmpty {
+                    Text(item.body)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Text(item.senderName)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - FilterChip
+
+struct FilterChip: View {
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color("amenGold") : Color.secondary.opacity(0.15))
+                .foregroundStyle(isSelected ? .white : .primary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+// MARK: - Legacy Spiritual Inbox Support Views
+// Kept for backward compatibility with SpiritualInboxSectionCard and SpiritualInboxThreadRow
+// references throughout the codebase.
 
 struct SpiritualInboxSectionCard<Content: View>: View {
     let title: String
@@ -219,8 +221,6 @@ struct SpiritualInboxSectionCard<Content: View>: View {
         .shadow(color: Color.black.opacity(0.05), radius: 14, y: 5)
     }
 }
-
-// MARK: - Thread Row
 
 struct SpiritualInboxThreadRow: View {
     let title: String

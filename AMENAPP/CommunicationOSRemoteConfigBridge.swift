@@ -30,6 +30,7 @@ final class CommunicationOSFeatureFlags: ObservableObject {
     @Published var smartLinkDetectionEnabled: Bool = commOSFlag("smartLinkDetectionEnabled")
     @Published var smartAttachmentMenuEnabled: Bool = commOSFlag("smartAttachmentMenuEnabled")
     @Published var liquidGlassMessagingEnabled: Bool = commOSFlag("liquidGlassMessagingEnabled")
+    @Published var ragSearchEnabled: Bool = commOSFlag("ragSearchEnabled")
 
     func configure(from remoteConfig: [String: Bool]) {
         for (key, value) in remoteConfig {
@@ -43,6 +44,7 @@ final class CommunicationOSFeatureFlags: ObservableObject {
         smartLinkDetectionEnabled = remoteConfig["smartLinkDetectionEnabled"] ?? smartLinkDetectionEnabled
         smartAttachmentMenuEnabled = remoteConfig["smartAttachmentMenuEnabled"] ?? smartAttachmentMenuEnabled
         liquidGlassMessagingEnabled = remoteConfig["liquidGlassMessagingEnabled"] ?? liquidGlassMessagingEnabled
+        ragSearchEnabled = remoteConfig["ragSearchEnabled"] ?? ragSearchEnabled
     }
 }
 
@@ -70,5 +72,6 @@ struct CommunicationOSRemoteConfigBridge {
         "imageModerationEnabled",
         "smartThreadMiniSummaryEnabled",
         "nvidiaSafetyProviderEnabled",
+        "ragSearchEnabled",
     ]
 }

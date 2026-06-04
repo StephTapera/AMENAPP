@@ -12,6 +12,8 @@
 
 import Foundation
 import Combine
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - PostFollowUp
 
@@ -93,6 +95,12 @@ final class PostFollowUpService: ObservableObject {
     // MARK: Published State
 
     @Published private(set) var pendingFollowUps: [PostFollowUp] = []
+
+    private let db = Firestore.firestore()
+
+    private func followUpsRef(for userId: String) -> CollectionReference {
+        db.collection("users").document(userId).collection("followUps")
+    }
 
     // MARK: - Schedule Definitions
 
@@ -362,26 +370,24 @@ final class PostFollowUpService: ObservableObject {
         // Optimistic local state update
         pendingFollowUps.append(contentsOf: newFollowUps)
 
-        // TODO: Persist to server via URLSession:
-        //   POST /api/followups/schedule
-        //   Body: {
-        //     "postId": postId,
-        //     "followUps": newFollowUps.map { [
-        //       "id": $0.id,
-        //       "type": $0.type.rawValue,
-        //       "triggerAfter": $0.triggerAfter,
-        //       "deepLinkAction": $0.deepLinkAction
-        //     ]}
-        //   }
-        //
-        // Firebase/Firestore alternative:
-        //   lazy var db = Firestore.firestore()
-        //   let batch = db.batch()
-        //   newFollowUps.forEach { followUp in
-        //     let ref = db.collection("followUps").document(followUp.id)
-        //     batch.setData([...], forDocument: ref)
-        //   }
-        //   try await batch.commit()
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let batch = db.batch()
+        for followUp in newFollowUps {
+            let ref = followUpsRef(for: userId).document(followUp.id)
+            batch.setData([
+                "id": followUp.id,
+                "postId": followUp.postId,
+                "triggerAfter": followUp.triggerAfter,
+                "type": followUp.type.rawValue,
+                "suggestion": followUp.suggestion,
+                "actionLabel": followUp.actionLabel,
+                "deepLinkAction": followUp.deepLinkAction,
+                "isDismissed": followUp.isDismissed,
+                "isCompleted": followUp.isCompleted,
+                "createdAt": Timestamp(date: Date())
+            ], forDocument: ref)
+        }
+        try? await batch.commit()
     }
 
     // MARK: - Fetch Pending Follow-Ups
@@ -392,25 +398,31 @@ final class PostFollowUpService: ObservableObject {
     ///
     /// - Parameter userId: The authenticated user's ID.
     func fetchPendingFollowUps(for userId: String) async {
-        // TODO: Replace stub with real server/Firestore fetch:
-        //   GET /api/followups/pending?userId=\(userId)
-        //   Response: { "followUps": [ PostFollowUp JSON array ] }
-        //
-        // Firebase alternative:
-        //   lazy var db = Firestore.firestore()
-        //   let snapshot = try await db.collection("followUps")
-        //     .whereField("userId", isEqualTo: userId)
-        //     .whereField("isDismissed", isEqualTo: false)
-        //     .whereField("isCompleted", isEqualTo: false)
-        //     .getDocuments()
-        //   let fetched = snapshot.documents.compactMap { try? $0.data(as: PostFollowUp.self) }
-        //   pendingFollowUps = fetched.filter { shouldTrigger($0) }
+        guard let snapshot = try? await followUpsRef(for: userId)
+            .whereField("isDismissed", isEqualTo: false)
+            .whereField("isCompleted", isEqualTo: false)
+            .getDocuments() else { return }
 
-        // Local stub: filter already-loaded follow-ups by trigger time
-        let now = Date()
-        // For production: publishedAt would come from the post record
-        // This stub assumes follow-ups were created at app launch for demonstration
-        let _ = now   // silence unused warning in stub
+        let fetched: [PostFollowUp] = snapshot.documents.compactMap { doc in
+            let d = doc.data()
+            guard let id = d["id"] as? String,
+                  let postId = d["postId"] as? String,
+                  let triggerAfter = d["triggerAfter"] as? TimeInterval,
+                  let typeRaw = d["type"] as? String,
+                  let type = PostFollowUp.FollowUpType(rawValue: typeRaw),
+                  let suggestion = d["suggestion"] as? String,
+                  let actionLabel = d["actionLabel"] as? String,
+                  let deepLinkAction = d["deepLinkAction"] as? String
+            else { return nil }
+            return PostFollowUp(
+                id: id, postId: postId, triggerAfter: triggerAfter, type: type,
+                suggestion: suggestion, actionLabel: actionLabel,
+                deepLinkAction: deepLinkAction,
+                isDismissed: d["isDismissed"] as? Bool ?? false,
+                isCompleted: d["isCompleted"] as? Bool ?? false
+            )
+        }
+        pendingFollowUps = fetched
     }
 
     // MARK: - Dismiss Follow-Up
@@ -428,13 +440,9 @@ final class PostFollowUpService: ObservableObject {
         }
         pendingFollowUps.removeAll { $0.id == id && $0.isDismissed }
 
-        // TODO: Persist dismissal to server:
-        //   PATCH /api/followups/\(id)/dismiss
-        //
-        // Firebase alternative:
-        //   try await Firestore.firestore()
-        //     .collection("followUps").document(id)
-        //     .updateData(["isDismissed": true])
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        try? await followUpsRef(for: userId).document(id)
+            .updateData(["isDismissed": true])
     }
 
     // MARK: - Complete Follow-Up
@@ -449,13 +457,9 @@ final class PostFollowUpService: ObservableObject {
         }
         pendingFollowUps.removeAll { $0.id == id && $0.isCompleted }
 
-        // TODO: Persist completion to server:
-        //   PATCH /api/followups/\(id)/complete
-        //
-        // Firebase alternative:
-        //   try await Firestore.firestore()
-        //     .collection("followUps").document(id)
-        //     .updateData(["isCompleted": true, "completedAt": Timestamp(date: Date())])
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        try? await followUpsRef(for: userId).document(id)
+            .updateData(["isCompleted": true, "completedAt": Timestamp(date: Date())])
     }
 
     // MARK: - Tension Detection
@@ -478,6 +482,7 @@ final class PostFollowUpService: ObservableObject {
         // - Repeated negative sentiment words ("wrong", "disagree", "false")
         // - Reply depth spikes (argument threads)
         // - Repeated same-user activity (escalation pattern)
+        print("⚠️ PostFollowUpService: detectCommentTension is a stub — server NLP endpoint not yet implemented. Returning 0.0.")
         return 0.0   // stub: no tension detected
     }
 
@@ -501,6 +506,7 @@ final class PostFollowUpService: ObservableObject {
         //     .httpsCallable("summarizeCommentThemes")
         //     .call(["postId": postId])
         //   return (result.data as? [String: Any])?["themes"] as? [String] ?? []
+        print("⚠️ PostFollowUpService: summarizeCommentThemes is a stub — server AI summary endpoint not yet implemented. Returning empty array.")
         return []   // stub: no themes available until server endpoint implemented
     }
 

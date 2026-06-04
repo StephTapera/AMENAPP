@@ -1,4 +1,4 @@
-import { onCall, CallableRequest } from "firebase-functions/v2/https";
+import { onCall, CallableRequest, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 
@@ -7,13 +7,13 @@ const db = admin.firestore();
 // MARK: - Shared helpers
 
 function requireAuth(request: CallableRequest): string {
-    if (!request.auth?.uid) throw new Error("unauthenticated");
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Must be signed in.");
     return request.auth.uid;
 }
 
 function requireAppCheck(request: CallableRequest): void {
     if (request.app == null) {
-        throw new Error("App Check required.");
+        throw new HttpsError("failed-precondition", "App Check required.");
     }
 }
 

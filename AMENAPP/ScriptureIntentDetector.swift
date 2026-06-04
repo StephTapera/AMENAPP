@@ -210,7 +210,7 @@ final class ScriptureIntentDetector {
                 }
             }
             if score > 0 {
-                if bestMatch == nil || score > bestMatch!.score {
+                if score > (bestMatch?.score ?? 0) {
                     bestMatch = (entry, score)
                 }
             }

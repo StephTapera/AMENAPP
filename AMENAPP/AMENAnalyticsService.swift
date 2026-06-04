@@ -181,6 +181,11 @@ enum AMENAnalyticsEvent {
     case aiGenerationCompleted(feature: String, postId: String, durationMs: Int)
     case aiGenerationFailed(feature: String, postId: String, reason: String)
 
+    // Communication OS
+    case commOSActionTapped(actionKey: String)
+    case commOSContactNoteSaved
+    case commOSCreatorDraftRequested(draftType: String)
+
     var name: String {
         switch self {
         case .feedSessionStarted: return "feed_session_started"
@@ -298,6 +303,9 @@ enum AMENAnalyticsEvent {
         case .aiGenerationStarted: return "ai_generation_started"
         case .aiGenerationCompleted: return "ai_generation_completed"
         case .aiGenerationFailed: return "ai_generation_failed"
+        case .commOSActionTapped: return "comm_os_action_tapped"
+        case .commOSContactNoteSaved: return "comm_os_contact_note_saved"
+        case .commOSCreatorDraftRequested: return "comm_os_creator_draft_requested"
         }
     }
 
@@ -397,6 +405,10 @@ enum AMENAnalyticsEvent {
             return ["node_type": type]
         case .creationIntentSelected(let intent):
             return ["intent": intent]
+        case .commOSActionTapped(let actionKey):
+            return ["action_key": actionKey]
+        case .commOSCreatorDraftRequested(let draftType):
+            return ["draft_type": draftType]
         default:
             return [:]
         }

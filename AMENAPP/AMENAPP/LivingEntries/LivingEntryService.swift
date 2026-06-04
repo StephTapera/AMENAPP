@@ -98,6 +98,7 @@ final class LivingEntryService: ObservableObject {
         let userId = try requireUserId()
         let listener = db.collection("users").document(userId).collection("living_entries")
             .order(by: "updatedAt", descending: true)
+            .limit(to: 100)
             .addSnapshotListener { snapshot, _ in
                 let entries = snapshot?.documents.compactMap { try? $0.data(as: LivingEntry.self) } ?? []
                 onUpdate(entries)
@@ -112,6 +113,7 @@ final class LivingEntryService: ObservableObject {
         let listener = db.collection("users").document(userId).collection("living_entries")
             .whereField("churchId", isEqualTo: churchId)
             .order(by: "updatedAt", descending: true)
+            .limit(to: 100)
             .addSnapshotListener { snapshot, _ in
                 let entries = snapshot?.documents.compactMap { try? $0.data(as: LivingEntry.self) } ?? []
                 onUpdate(entries)
@@ -144,6 +146,7 @@ final class LivingEntryService: ObservableObject {
         let listener = db.collection("users").document(userId).collection("living_entries")
             .whereField("state", isEqualTo: LivingEntryState.needsReflection.rawValue)
             .order(by: "updatedAt", descending: true)
+            .limit(to: 100)
             .addSnapshotListener { snapshot, _ in
                 let entries = snapshot?.documents.compactMap { try? $0.data(as: LivingEntry.self) } ?? []
                 onUpdate(entries)

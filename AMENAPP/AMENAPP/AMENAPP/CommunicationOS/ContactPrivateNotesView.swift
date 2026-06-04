@@ -41,6 +41,7 @@ struct ContactPrivateNotesView: View {
                             Task {
                                 isSaving = true
                                 await onSave(noteText, tags)
+                                AMENAnalyticsService.shared.track(.commOSContactNoteSaved)
                                 isSaving = false
                                 onDismiss()
                             }

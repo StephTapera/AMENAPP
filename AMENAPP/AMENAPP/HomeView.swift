@@ -47,6 +47,9 @@ struct HomeView: View {
     @State private var tapCount = 0
     #endif
 
+    // MARK: - Context Mode (AmenContextOrchestrator)
+    @State private var currentContextMode: AmenContextMode = .standard
+
     // MARK: - Scroll Detection for Dynamic UI (OPTIMIZED)
     @State private var scrollOffset: CGFloat = 0
     @State private var lastScrollOffset: CGFloat = 0
@@ -260,6 +263,14 @@ struct HomeView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .caughtUpOpenBerean)) { _ in
                     showBereanAssistant = true
                 }
+                // Context mode reactive updates
+                .onReceive(NotificationCenter.default.publisher(for: .amenContextModeChanged)) { notification in
+                    if let mode = notification.object as? AmenContextMode {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            currentContextMode = mode
+                        }
+                    }
+                }
                 #if DEBUG
                 .sheet(isPresented: $showAdminCleanup) {
                     AdminCleanupView()
@@ -328,6 +339,9 @@ struct HomeView: View {
                         viewModel: digestViewModel,
                         userId: Auth.auth().currentUser?.uid ?? ""
                     )
+
+                    // Spiritual OS — Context Mode Banners
+                    contextModeBanner
 
                     // Expandable Category Pills
                     if isCategoriesExpanded {
@@ -450,6 +464,34 @@ struct HomeView: View {
             insertion: .move(edge: .top).combined(with: .opacity).animation(.spring(response: 0.15, dampingFraction: 0.8)),
             removal: .move(edge: .top).combined(with: .opacity).animation(.spring(response: 0.15, dampingFraction: 0.8))
         ))
+    }
+
+    // MARK: - Context Mode Banner
+
+    @ViewBuilder
+    private var contextModeBanner: some View {
+        switch currentContextMode {
+        case .driving:
+            DrivingModeBanner()
+                .padding(.top, 4)
+                .transition(.move(edge: .top).combined(with: .opacity))
+        case .church:
+            SundayModeCalloutBanner()
+                .padding(.top, 4)
+                .transition(.move(edge: .top).combined(with: .opacity))
+        case .event:
+            if let space = AmenContextOrchestrator.shared.eventCheckInSpace {
+                EventCheckInBanner(spaceName: space.name, spaceId: space.spaceId)
+                    .padding(.top, 4)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        case .travel:
+            TravelModeBanner()
+                .padding(.top, 4)
+                .transition(.move(edge: .top).combined(with: .opacity))
+        case .standard:
+            EmptyView()
+        }
     }
 
     private var selectedCategoryView: some View {

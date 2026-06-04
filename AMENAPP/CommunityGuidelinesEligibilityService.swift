@@ -164,14 +164,14 @@ final class CommunityGuidelinesEligibilityService: ObservableObject {
             }
 
             if let lastPost = serverLastPost {
-                if sessionState.lastPostAt == nil || lastPost > sessionState.lastPostAt! {
+                if sessionState.lastPostAt.map({ lastPost > $0 }) ?? true {
                     sessionState.lastPostAt = lastPost
                     UserDefaults.standard.set(lastPost, forKey: Keys.lastPostAt)
                 }
             }
 
             if let lastAck = serverLastAck {
-                if sessionState.lastGuidelinesAcknowledgedAt == nil || lastAck > sessionState.lastGuidelinesAcknowledgedAt! {
+                if sessionState.lastGuidelinesAcknowledgedAt.map({ lastAck > $0 }) ?? true {
                     sessionState.lastGuidelinesAcknowledgedAt = lastAck
                     UserDefaults.standard.set(lastAck, forKey: Keys.lastAcknowledgedAt)
                 }

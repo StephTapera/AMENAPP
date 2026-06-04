@@ -36,6 +36,7 @@
     "@google-cloud/translate": "^8.0.0",
     "@google-cloud/vertexai": "^1.10.0",
     "@google-cloud/vision": "^4.3.3",
+    "@google/generative-ai": "^0.24.1",
     "firebase-admin": "^13.6.1",
     "firebase-functions": "^7.2.5",
     "form-data": "^4.0.0",

@@ -160,7 +160,6 @@ async function fanOutToFollowerRelationships(
 
   if (followersSnap.empty) return;
 
-  const batch = db.batch();
   const now = admin.firestore.Timestamp.now();
 
   const unseenField =
@@ -170,27 +169,32 @@ async function fanOutToFollowerRelationships(
       ? "unseenPrayerCount"
       : "unseenNoteCount";
 
-  for (const doc of followersSnap.docs) {
-    const viewerId: string | undefined = doc.data().followerId;
-    if (!viewerId) continue;
+  const BATCH_CHUNK = 400;
+  const docs = followersSnap.docs;
+  for (let i = 0; i < docs.length; i += BATCH_CHUNK) {
+    const batch = db.batch();
+    const chunk = docs.slice(i, i + BATCH_CHUNK);
+    for (const doc of chunk) {
+      const viewerId: string | undefined = doc.data().followerId;
+      if (!viewerId) continue;
 
-    const docId = `${viewerId}_${targetId}`;
-    const ref = db.collection("relationship_activity_state").doc(docId);
+      const docId = `${viewerId}_${targetId}`;
+      const ref = db.collection("relationship_activity_state").doc(docId);
 
-    batch.set(
-      ref,
-      {
-        viewerId,
-        targetId,
-        [unseenField]: admin.firestore.FieldValue.increment(1),
-        lastActivityAt: now,
-        computedAt: now,
-      },
-      { merge: true }
-    );
+      batch.set(
+        ref,
+        {
+          viewerId,
+          targetId,
+          [unseenField]: admin.firestore.FieldValue.increment(1),
+          lastActivityAt: now,
+          computedAt: now,
+        },
+        { merge: true }
+      );
+    }
+    await batch.commit();
   }
-
-  await batch.commit();
 }
 
 // ---------------------------------------------------------------------------
@@ -206,6 +210,9 @@ export const markRelationshipSeen = onCall(
     const { targetIds } = request.data as { targetIds: string[] };
     if (!Array.isArray(targetIds) || targetIds.length === 0) {
       throw new functions.https.HttpsError("invalid-argument", "targetIds must be a non-empty array.");
+    }
+    if (targetIds.length > 400) {
+      throw new functions.https.HttpsError("invalid-argument", "Maximum 400 targets per call.");
     }
 
     const batch = db.batch();

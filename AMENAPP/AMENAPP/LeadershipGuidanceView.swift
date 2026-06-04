@@ -445,14 +445,40 @@ private struct ConnectLeaderSheet: View {
 
     private func sendRequest() {
         isSending = true
-        // TODO: Call Cloud Function `createLeaderConnection`
-        // For now, simulate a success after 1s
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            isSending = false
+        Task { @MainActor in
+            await performSendRequest()
+        }
+    }
+
+    @MainActor
+    private func performSendRequest() async {
+        defer { isSending = false }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        let db = Firestore.firestore()
+        let requestId = UUID().uuidString
+        let payload: [String: Any] = [
+            "id": requestId,
+            "fromUserId": uid,
+            "leaderUsername": leaderUsername.trimmingCharacters(in: .whitespaces).lowercased(),
+            "leaderRole": leaderRole.trimmingCharacters(in: .whitespaces),
+            "shareProfile": shareProfile,
+            "status": "pending",
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+
+        do {
+            try await db
+                .collection("users").document(uid)
+                .collection("leaderConnectionRequests")
+                .document(requestId)
+                .setData(payload)
             didSend = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                dismiss()
-            }
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            dismiss()
+        } catch {
+            // Surface error in the form without crashing
+            isSending = false
         }
     }
 }

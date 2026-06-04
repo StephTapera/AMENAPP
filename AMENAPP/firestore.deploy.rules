@@ -1722,7 +1722,7 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /usernames/{username} {
-      allow get: if true;
+      allow get: if request.auth != null;
       allow list: if false;
       allow create, update, delete: if false;
     }

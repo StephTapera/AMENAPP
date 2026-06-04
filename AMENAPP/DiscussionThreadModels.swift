@@ -14,6 +14,7 @@ struct DiscussionThread: Identifiable, Codable {
     var postId: String
     var postTitle: String?
     var postType: String              // "general" | "political" | …
+    var postAuthorUID: String?        // UID of the original post author (used for host-only features)
     var isLocked: Bool
     var commentCount: Int
     var bereanSummaryRef: String?     // Firestore path to latest BereanThreadSummary

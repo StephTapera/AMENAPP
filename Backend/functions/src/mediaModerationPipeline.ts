@@ -1,5 +1,5 @@
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
-import { onCall } from "firebase-functions/v2/https";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import vision from "@google-cloud/vision";
 import axios from "axios";
@@ -96,8 +96,8 @@ interface PipelineResult {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function requireAppCheckAndAuth(context: { app?: unknown; auth?: { uid?: string } }): string {
-  if (!context.app) throw new Error("App Check required.");
-  if (!context.auth?.uid) throw new Error("Authentication required.");
+  if (!context.app) throw new HttpsError("failed-precondition", "App Check required.");
+  if (!context.auth?.uid) throw new HttpsError("unauthenticated", "Authentication required.");
   return context.auth.uid;
 }
 

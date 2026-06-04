@@ -508,14 +508,12 @@ struct ContentView: View {
                     }
 
                     keepMountedTab(isActive: viewModel.selectedTab == 2) {
-                        MessagesView()
-                            .id("messages")
-                            .environmentObject(messagingCoordinator)
+                        SpiritualInboxView()
+                            .id("hub")
                             .task {
                                 NotificationAggregationService.shared.updateCurrentScreen(.messages)
                                 BadgeCountManager.shared.clearMessages()
                             }
-                            .ageGated(feature: .directMessages)
                     }
 
                     keepMountedTab(isActive: viewModel.selectedTab == 3) {

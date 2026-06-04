@@ -203,7 +203,7 @@ final class ChurchJourneyPlanViewModel: ObservableObject {
         }
 
         var components = calendar.dateComponents([.year, .month, .day], from: Date())
-        components.day! += daysAhead
+        components.day = (components.day ?? 0) + daysAhead
         components.hour = hour
         components.minute = minute
         components.second = 0

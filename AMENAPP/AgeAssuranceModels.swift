@@ -131,8 +131,48 @@ struct UserAgeProfile: Codable {
         }
     }
     
+    // MARK: - Codable
+
+    enum CodingKeys: String, CodingKey {
+        case dateOfBirth, tier, verificationStatus, verificationMethods
+        case lastVerified, aiRiskScore, verificationAttempts, lastVerificationAttempt
+        case countryCode, parentalSupervisionEnabled, parentUserId, createdAt, updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        dateOfBirth = try container.decode(Date.self, forKey: .dateOfBirth)
+
+        // Compute tier from DOB if missing in Firestore
+        if let storedTier = try container.decodeIfPresent(AMENAgeAssuranceTier.self, forKey: .tier) {
+            tier = storedTier
+        } else {
+            let age = Calendar.current.dateComponents([.year], from: dateOfBirth, to: Date()).year ?? 0
+            if age < AppConfig.Legal.minimumAge {
+                tier = .underMinimum
+            } else if age < 18 {
+                tier = .teen
+            } else {
+                tier = .adult
+            }
+        }
+
+        verificationStatus = try container.decodeIfPresent(AMENAgeVerificationStatus.self, forKey: .verificationStatus) ?? .declared
+        verificationMethods = try container.decodeIfPresent([AgeVerificationMethod].self, forKey: .verificationMethods) ?? [.dateOfBirth]
+        lastVerified = try container.decodeIfPresent(Date.self, forKey: .lastVerified) ?? Date()
+        aiRiskScore = try container.decodeIfPresent(Double.self, forKey: .aiRiskScore) ?? 0.0
+        verificationAttempts = try container.decodeIfPresent(Int.self, forKey: .verificationAttempts) ?? 0
+        lastVerificationAttempt = try container.decodeIfPresent(Date.self, forKey: .lastVerificationAttempt)
+        countryCode = try container.decodeIfPresent(String.self, forKey: .countryCode) ?? "US"
+        parentalSupervisionEnabled = try container.decodeIfPresent(Bool.self, forKey: .parentalSupervisionEnabled) ?? false
+        parentUserId = try container.decodeIfPresent(String.self, forKey: .parentUserId)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+    }
+
     // MARK: - Initialization
-    
+
     init(
         dateOfBirth: Date,
         countryCode: String = "US",

@@ -618,6 +618,42 @@ struct PrivacySettingsView: View {
                     .tint(.blue)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "consentCreatorAI") },
+                        set: { UserDefaults.standard.set($0, forKey: "consentCreatorAI") }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Creator AI Drafts")
+                                .font(.body)
+                            Text("Let Berean help draft posts and content for you")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "consentAIIndexingPersonalContent") },
+                        set: { UserDefaults.standard.set($0, forKey: "consentAIIndexingPersonalContent") }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Personal Content Indexing")
+                                .font(.body)
+                            Text("Allow AI to search your church notes and saved verses")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))

@@ -48,6 +48,9 @@ struct MinimalAuthenticationView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Namespace private var namespace
 
+    // H14 FIX: Discard-confirmation alert when user has started sign-up and taps Back
+    @State private var showDiscardAlert = false
+
     // Forgot password flow
     @State private var showPasswordResetAlert = false
     @State private var resetEmail = ""
@@ -179,6 +182,28 @@ struct MinimalAuthenticationView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("A password reset link has been sent to \(resetEmail). Please check your inbox.")
+        }
+        // H14 FIX: Confirm discard when user taps Back mid-sign-up
+        .alert("Discard sign-up?", isPresented: $showDiscardAlert) {
+            Button("Discard", role: .destructive) {
+                if showsEmailFormOnAppear {
+                    dismiss()
+                } else {
+                    withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.88))) {
+                        showEmailForm = false
+                        errorMessage = nil
+                        signUpStep = 0
+                        fullName = ""
+                        email = ""
+                        password = ""
+                        confirmPassword = ""
+                        hasPickedBirthDate = false
+                    }
+                }
+            }
+            Button("Keep editing", role: .cancel) { }
+        } message: {
+            Text("Your sign-up progress will be lost.")
         }
     }
 
@@ -333,7 +358,13 @@ struct MinimalAuthenticationView: View {
             // Nav bar with back arrow
             HStack {
                 Button {
-                    if showsEmailFormOnAppear {
+                    // H14 FIX: Guard against accidental data loss mid-sign-up.
+                    // If the user is on a sign-up step beyond step 0 and has typed
+                    // into any field, confirm before discarding their progress.
+                    let hasProgress = !isLogin && (signUpStep > 0 || !fullName.isEmpty || !email.isEmpty)
+                    if hasProgress {
+                        showDiscardAlert = true
+                    } else if showsEmailFormOnAppear {
                         dismiss()
                     } else {
                         withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.88))) {

@@ -11,6 +11,12 @@ struct AmenCovenantPaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTier: CovenantTier?
 
+    private static let currencyFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        return f
+    }()
+
     enum PaywallContext {
         case lockedRoom(roomName: String)
         case lockedEvent(eventTitle: String)
@@ -278,8 +284,7 @@ struct AmenCovenantPaywallView: View {
     }
 
     private func formattedPrice(_ tier: CovenantTier) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
+        let formatter = Self.currencyFormatter
         formatter.currencyCode = tier.currency
         let priceStr = formatter.string(from: NSNumber(value: tier.price)) ?? "\(tier.price)"
         return "\(priceStr)\(tier.billingPeriod.displayLabel)"
@@ -292,6 +297,12 @@ private struct TierCard: View {
     let tier: CovenantTier
     let isSelected: Bool
     let onSelect: () -> Void
+
+    private static let currencyFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        return f
+    }()
 
     var body: some View {
         Button(action: onSelect) {
@@ -346,8 +357,7 @@ private struct TierCard: View {
     }
 
     private func formatPrice(_ tier: CovenantTier) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
+        let formatter = Self.currencyFormatter
         formatter.currencyCode = tier.currency
         let s = formatter.string(from: NSNumber(value: tier.price)) ?? "\(tier.price)"
         return "\(s)\(tier.billingPeriod.displayLabel)"

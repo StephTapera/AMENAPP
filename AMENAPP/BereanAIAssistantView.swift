@@ -7272,7 +7272,7 @@ struct BereanConversationDrawer: View {
         let named = groups.keys
             .filter { !$0.isEmpty }
             .sorted()
-            .map { (tag: $0, conversations: groups[$0]!) }
+            .map { (tag: $0, conversations: groups[$0] ?? []) }
         let untagged = groups[""].map { (tag: "", conversations: $0) }
         return named + (untagged.map { [$0] } ?? [])
     }

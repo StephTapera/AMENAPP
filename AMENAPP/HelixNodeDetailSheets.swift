@@ -364,7 +364,7 @@ struct HelixAddNodeSheet: View {
 
                 LazyVStack(spacing: 8) {
                     ForEach(validNodes) { existingNode in
-                        let nodeId = existingNode.id!
+                        let nodeId = existingNode.id ?? ""
                         let isConnected = selectedConnections.contains(nodeId)
                         Button {
                             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {

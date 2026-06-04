@@ -199,7 +199,9 @@ final class SmartShareBackendService {
         ])
         let data = result.data as? [String: Any] ?? [:]
         return StoryCardResponse(
-            deepLink: (data["deepLink"] as? String).flatMap(URL.init(string:)) ?? URL(string: "amen://\(entity.route.path)")!,
+            deepLink: (data["deepLink"] as? String).flatMap(URL.init(string:))
+                ?? URL(string: "amen://\(entity.route.path)")
+                ?? URL(string: "amen://home")!,
             caption: data["caption"] as? String ?? entity.title
         )
     }

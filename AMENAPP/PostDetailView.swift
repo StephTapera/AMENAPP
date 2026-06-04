@@ -82,6 +82,11 @@ struct PostDetailView: View {
     // Prayer features — fasting chain
     @State private var isFasting = false
 
+    // Destructive action confirmation dialogs
+    @State private var showDeletePostConfirm = false
+    @State private var showBlockConfirm = false
+    @State private var blockTargetId: String? = nil
+
     // Scroll-driven sheet expansion (0 = compact hero visible, 1 = full-screen sheet)
 
 
@@ -444,6 +449,28 @@ struct PostDetailView: View {
                 )
             }
         }
+        // H1b — confirm before deleting own post
+        .confirmationDialog("Delete this post?", isPresented: $showDeletePostConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                postsManager.deletePost(postId: post.id)
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This can't be undone.")
+        }
+        // H1a — confirm before blocking another user
+        .confirmationDialog("Block this user?", isPresented: $showBlockConfirm, titleVisibility: .visible) {
+            Button("Block", role: .destructive) {
+                Task {
+                    try? await BlockService.shared.blockUser(userId: blockTargetId ?? "")
+                    dismiss()
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("They won't be able to see your content and you won't see theirs.")
+        }
         .task {
             await loadComments()
             consumePendingCommentFocus()
@@ -756,8 +783,7 @@ struct PostDetailView: View {
                         Label("Edit Post", systemImage: "pencil")
                     }
                     Button(role: .destructive) {
-                        postsManager.deletePost(postId: post.id)
-                        dismiss()
+                        showDeletePostConfirm = true
                     } label: {
                         Label("Delete Post", systemImage: "trash")
                     }
@@ -768,10 +794,8 @@ struct PostDetailView: View {
                         Label("Report", systemImage: "flag")
                     }
                     Button {
-                        Task {
-                            try? await BlockService.shared.blockUser(userId: post.authorId)
-                            dismiss()
-                        }
+                        blockTargetId = post.authorId
+                        showBlockConfirm = true
                     } label: {
                         Label("Block \(post.authorName)", systemImage: "hand.raised")
                     }

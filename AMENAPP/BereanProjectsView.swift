@@ -6,7 +6,8 @@ import SwiftUI
 
 // MARK: - Models
 
-struct BereanProject: Identifiable, Codable {
+/// Local AI workspace project — distinct from BereanProject in BereanOSModels.swift.
+struct BereanAIProject: Identifiable, Codable {
     let id: UUID
     var title: String
     var iconSymbol: String
@@ -18,8 +19,8 @@ struct BereanProject: Identifiable, Codable {
     var lastUpdated: Date
     var folder: String?           // optional folder grouping
 
-    static func empty(title: String = "") -> BereanProject {
-        BereanProject(id: UUID(), title: title, iconSymbol: "folder",
+    static func empty(title: String = "") -> BereanAIProject {
+        BereanAIProject(id: UUID(), title: title, iconSymbol: "folder",
                       colorKey: "indigo", description: "", chatCount: 0,
                       isPinned: false, memoryEnabled: true, lastUpdated: Date(), folder: nil)
     }
@@ -30,28 +31,28 @@ struct BereanProject: Identifiable, Codable {
 enum BereanProjectStore {
     static let key = "amen_berean_projects_v2"
 
-    static func load() -> [BereanProject] {
+    static func load() -> [BereanAIProject] {
         if let data = UserDefaults.standard.data(forKey: key),
-           let saved = try? JSONDecoder().decode([BereanProject].self, from: data) {
+           let saved = try? JSONDecoder().decode([BereanAIProject].self, from: data) {
             return saved
         }
         return defaultProjects
     }
 
-    static func save(_ projects: [BereanProject]) {
+    static func save(_ projects: [BereanAIProject]) {
         guard let data = try? JSONEncoder().encode(projects) else { return }
         UserDefaults.standard.set(data, forKey: key)
     }
 
-    private static let defaultProjects: [BereanProject] = [
-        BereanProject(id: UUID(), title: "Bible Study", iconSymbol: "book.pages",
+    private static let defaultProjects: [BereanAIProject] = [
+        BereanAIProject(id: UUID(), title: "Bible Study", iconSymbol: "book.pages",
                       colorKey: "indigo", description: "Personal scripture study and reflections",
                       chatCount: 4, isPinned: true, memoryEnabled: true, lastUpdated: .now, folder: nil),
-        BereanProject(id: UUID(), title: "Prayer Journal", iconSymbol: "hands.sparkles",
+        BereanAIProject(id: UUID(), title: "Prayer Journal", iconSymbol: "hands.sparkles",
                       colorKey: "purple", description: "Prayers, intercessions, answered prayers",
                       chatCount: 7, isPinned: false, memoryEnabled: true,
                       lastUpdated: Calendar.current.date(byAdding: .day, value: -1, to: .now)!, folder: nil),
-        BereanProject(id: UUID(), title: "Church Notes", iconSymbol: "doc.plaintext",
+        BereanAIProject(id: UUID(), title: "Church Notes", iconSymbol: "doc.plaintext",
                       colorKey: "teal", description: "Sermon notes and teaching materials",
                       chatCount: 3, isPinned: false, memoryEnabled: false,
                       lastUpdated: Calendar.current.date(byAdding: .day, value: -3, to: .now)!, folder: nil),
@@ -104,21 +105,21 @@ private let bereanCollections: [BereanCollection] = [
 
 struct BereanProjectsView: View {
     @Environment(\.dismiss) private var dismiss
-    var onProjectSelected: ((BereanProject) -> Void)? = nil
+    var onProjectSelected: ((BereanAIProject) -> Void)? = nil
 
-    @State private var projects: [BereanProject] = BereanProjectStore.load()
+    @State private var projects: [BereanAIProject] = BereanProjectStore.load()
     @State private var searchQuery = ""
     @State private var showNewProject = false
-    @State private var selectedProject: BereanProject? = nil
+    @State private var selectedProject: BereanAIProject? = nil
     @State private var showMemorySettings = false
 
-    private var filtered: [BereanProject] {
+    private var filtered: [BereanAIProject] {
         searchQuery.isEmpty ? projects : projects.filter {
             $0.title.localizedCaseInsensitiveContains(searchQuery)
         }
     }
-    private var pinned: [BereanProject]   { filtered.filter { $0.isPinned } }
-    private var unpinned: [BereanProject] { filtered.filter { !$0.isPinned } }
+    private var pinned: [BereanAIProject]   { filtered.filter { $0.isPinned } }
+    private var unpinned: [BereanAIProject] { filtered.filter { !$0.isPinned } }
 
     var body: some View {
         NavigationStack {
@@ -266,7 +267,7 @@ struct BereanProjectsView: View {
 
     // MARK: - Project Grid (2 column)
 
-    private func projectGrid(_ items: [BereanProject]) -> some View {
+    private func projectGrid(_ items: [BereanAIProject]) -> some View {
         LazyVGrid(
             columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
             spacing: 12
@@ -280,7 +281,7 @@ struct BereanProjectsView: View {
         .padding(.bottom, 12)
     }
 
-    private func projectCard(_ project: BereanProject) -> some View {
+    private func projectCard(_ project: BereanAIProject) -> some View {
         let accent = Color.bereanProjectAccent(project.colorKey)
 
         return Button {
@@ -386,7 +387,7 @@ struct BereanProjectsView: View {
     // MARK: - Context Menu
 
     @ViewBuilder
-    private func projectContextMenu(_ project: BereanProject) -> some View {
+    private func projectContextMenu(_ project: BereanAIProject) -> some View {
         Button { selectedProject = project } label: {
             Label("Open", systemImage: "arrow.right.square")
         }
@@ -446,7 +447,7 @@ struct BereanProjectsView: View {
 // MARK: - BereanProjectDetailView
 
 struct BereanProjectDetailView: View {
-    let project: BereanProject
+    let project: BereanAIProject
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedTab: ProjTab = .overview
@@ -460,7 +461,7 @@ struct BereanProjectDetailView: View {
         case notes    = "Notes"
     }
 
-    init(project: BereanProject) {
+    init(project: BereanAIProject) {
         self.project = project
         self.accent = Color.bereanProjectAccent(project.colorKey)
     }
@@ -688,7 +689,7 @@ struct BereanProjectDetailView: View {
 
 struct BereanNewProjectSheet: View {
     @Environment(\.dismiss) private var dismiss
-    var onCreate: (BereanProject) -> Void
+    var onCreate: (BereanAIProject) -> Void
 
     @State private var title = ""
     @State private var description = ""
@@ -789,7 +790,7 @@ struct BereanNewProjectSheet: View {
                     Button("Create") {
                         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !t.isEmpty else { return }
-                        let project = BereanProject(
+                        let project = BereanAIProject(
                             id: UUID(), title: t, iconSymbol: icons[selectedIconIndex],
                             colorKey: selectedColorKey,
                             description: description.trimmingCharacters(in: .whitespacesAndNewlines),

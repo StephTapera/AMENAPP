@@ -11,7 +11,7 @@ enum BereanFormationCardType: String {
 
 // MARK: - Sensitivity
 
-enum BereanPrayerSensitivity: String {
+enum BereanPrayerSensitivity: String, Codable, CaseIterable {
     case normal, tender, crisis
 }
 

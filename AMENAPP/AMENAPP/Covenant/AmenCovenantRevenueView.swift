@@ -12,6 +12,14 @@ struct AmenCovenantRevenueView: View {
     @State private var loading = false
     @State private var selectedPeriod = Period.thisMonth
 
+    private static let currencyFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "USD"
+        f.maximumFractionDigits = 0
+        return f
+    }()
+
     enum Period: String, CaseIterable {
         case thisMonth = "This Month"
         case last3Months = "3 Months"
@@ -265,11 +273,7 @@ struct AmenCovenantRevenueView: View {
     }
 
     private func formatCurrency(_ value: Double) -> String {
-        let f = NumberFormatter()
-        f.numberStyle = .currency
-        f.currencyCode = "USD"
-        f.maximumFractionDigits = 0
-        return f.string(from: NSNumber(value: value)) ?? "$\(Int(value))"
+        Self.currencyFormatter.string(from: NSNumber(value: value)) ?? "$\(Int(value))"
     }
 
     private func loadData() async {

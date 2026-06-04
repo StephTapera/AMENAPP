@@ -130,7 +130,7 @@ final class AmenSafetyModerationCoordinator: ObservableObject {
     /// - Returns `.safe` immediately when `textModerationEnabled` is false.
     /// - Returns `.safe` on any provider error — moderation errors must never block the user.
     func moderate(text: String, context: AmenModerationContext) async -> AmenModerationResult {
-        guard UserDefaults.standard.bool(forKey: "textModerationEnabled") else {
+        guard (UserDefaults.standard.object(forKey: "textModerationEnabled") as? Bool) ?? true else {
             return .safe
         }
         do {

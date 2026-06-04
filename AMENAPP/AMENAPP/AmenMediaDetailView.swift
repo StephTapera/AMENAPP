@@ -758,24 +758,75 @@ private struct AmenMediaOverflowSheet: View {
     let post: Post
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showReport = false
+    @State private var showProfile = false
+    @State private var savedSuccessfully = false
+    @State private var copiedLink = false
+
+    private var postURL: URL {
+        ShareDeepLinkBuilder().webFallbackURL(for: post)
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                Button("Share") {}
-                Button("Save") {}
-                Button("Copy Link") {}
-                Button("Open Profile") {}
-                Button("Report", role: .destructive) {}
+                ShareLink(item: postURL) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+
+                Button {
+                    Task {
+                        try? await SavedPostsService.shared.savePost(postId: post.firestoreId)
+                        await MainActor.run {
+                            savedSuccessfully = true
+                            HapticManager.impact(style: .light)
+                        }
+                    }
+                } label: {
+                    Label(
+                        savedSuccessfully ? "Saved!" : "Save",
+                        systemImage: savedSuccessfully ? "bookmark.fill" : "bookmark"
+                    )
+                }
+
+                Button {
+                    UIPasteboard.general.string = postURL.absoluteString
+                    copiedLink = true
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label(
+                        copiedLink ? "Copied!" : "Copy Link",
+                        systemImage: copiedLink ? "checkmark" : "link"
+                    )
+                }
+
+                Button {
+                    showProfile = true
+                } label: {
+                    Label("Open Profile", systemImage: "person.circle")
+                }
+
+                Button("Report", role: .destructive) {
+                    showReport = true
+                }
             }
             .navigationTitle("Post Actions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
+                    Button("Done") { dismiss() }
                 }
             }
+        }
+        .sheet(isPresented: $showReport) {
+            ReportPostSheet(
+                post: post,
+                postAuthor: post.authorName,
+                category: post.category.cardCategory
+            )
+        }
+        .fullScreenCover(isPresented: $showProfile) {
+            UserProfileView(userId: post.authorId, showsDismissButton: true)
         }
     }
 }

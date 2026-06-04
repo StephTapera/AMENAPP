@@ -1,4 +1,10 @@
 import SwiftUI
+import FirebaseFunctions
+import FirebaseFirestore
+import FirebaseAuth
+import UserNotifications
+import PhotosUI
+import EventKit
 
 struct BereanCommunicationHubView: View {
     @StateObject private var viewModel = BereanCommunicationHubViewModel()
@@ -10,6 +16,33 @@ struct BereanCommunicationHubView: View {
     @State private var searchText = ""
     @State private var selectedThreadID: String?
     @State private var showingAttachmentMenu = false
+
+    // MARK: - Detection wiring
+    @State private var hubDetectedItems: [DetectedMessageContext] = []
+    @State private var detectionTask: Task<Void, Never>?
+
+    // MARK: - Contact notes
+    @State private var showingContactNotes = false
+    @State private var selectedContactUID = ""
+
+    // MARK: - Photo picker
+    @State private var showingPhotosPicker = false
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
+
+    // MARK: - Poll / send-later / share sheets
+    @State private var showingPollComposer = false
+    @State private var showingSendLaterSheet = false
+    @State private var sendLaterDate = Date().addingTimeInterval(3600)
+    @State private var showingShareSheet = false
+    @State private var shareContent = ""
+
+    // MARK: - Conversation memories
+    @State private var conversationMemories: [ConversationMemoryItem] = []
+    @State private var memoriesLoadTask: Task<Void, Never>?
+
+    // MARK: - RAG Search
+    @State private var ragResults: [RAGSearchResult] = []
+    @State private var ragSearchTask: Task<Void, Never>?
 
     private var filteredThreads: [CommunicationThreadItem] {
         viewModel.threads.filter { thread in
@@ -29,6 +62,15 @@ struct BereanCommunicationHubView: View {
                         presenceRail
                         digestCard
                         commandPalettePreview
+                        if commFlags.conversationMemoryEnabled && !conversationMemories.isEmpty {
+                            ConversationMemoryCard(
+                                memories: conversationMemories,
+                                onDelete: { item in conversationMemories.removeAll { $0.id == item.id } }
+                            )
+                        }
+                        if !ragResults.isEmpty {
+                            ragResultsSection
+                        }
                         threadsSection
                     }
                     .padding(.horizontal, 20)
@@ -39,9 +81,9 @@ struct BereanCommunicationHubView: View {
                 VStack(spacing: 0) {
                     if commFlags.smartMessageContextEnabled {
                         SmartMessageInsightCard(
-                            detectedItems: [],
-                            onAction: { _ in },
-                            onDismiss: { _ in }
+                            detectedItems: hubDetectedItems,
+                            onAction: { item in handleInsightAction(item) },
+                            onDismiss: { item in hubDetectedItems.removeAll { $0.id == item.id } }
                         )
                         .padding(.bottom, 4)
                     }
@@ -49,19 +91,270 @@ struct BereanCommunicationHubView: View {
                 }
             }
             .navigationTitle("Communion")
+            .onChange(of: searchText) { _, newValue in
+                if CommunicationOSFeatureFlags.shared.smartMessageContextEnabled {
+                    detectionTask?.cancel()
+                    detectionTask = Task {
+                        try? await Task.sleep(nanoseconds: 400_000_000)
+                        guard !Task.isCancelled else { return }
+                        let result = await AmenSmartContextDetectionEngine.shared.detect(in: newValue)
+                        let converted = AmenContextDetectionBridge.toMessageContextItems(from: result)
+                        await MainActor.run {
+                            hubDetectedItems = converted
+                            if !converted.isEmpty {
+                                AMENAnalyticsService.shared.track(.commOSActionTapped(actionKey: "context_detected"))
+                            }
+                        }
+                    }
+                }
+
+                if CommunicationOSFeatureFlags.shared.ragSearchEnabled && newValue.count >= 3 {
+                    ragSearchTask?.cancel()
+                    ragSearchTask = Task {
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        guard !Task.isCancelled else { return }
+                        let response = try? await AmenAIFeaturesService.shared.ragSearch(query: newValue, scope: .all)
+                        await MainActor.run {
+                            ragResults = response?.results ?? []
+                        }
+                    }
+                } else if newValue.isEmpty {
+                    ragResults = []
+                }
+            }
             .sheet(isPresented: $showingAttachmentMenu) {
                 SmartMessageActionMenu(
-                    onAction: { _ in },
+                    onAction: { action in handleAttachmentAction(action) },
                     onDismiss: { showingAttachmentMenu = false }
                 )
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.hidden)
             }
+            .sheet(isPresented: $showingContactNotes) {
+                ContactPrivateNotesView(
+                    contactUID: viewModel.threads.first?.id ?? "",
+                    contactDisplayName: "This Contact",
+                    onSave: { note, tags in
+                        await savePrivateContactNote(
+                            note: note,
+                            tags: tags,
+                            contactUID: viewModel.threads.first?.id ?? ""
+                        )
+                    },
+                    onDismiss: { showingContactNotes = false }
+                )
+            }
+            .photosPicker(isPresented: $showingPhotosPicker, selection: $selectedPhotoItems, maxSelectionCount: 1, matching: .images)
+            .sheet(isPresented: $showingSendLaterSheet) {
+                NavigationStack {
+                    VStack(spacing: 24) {
+                        Text("Send Later")
+                            .font(.headline)
+                        DatePicker("Schedule time", selection: $sendLaterDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                            .datePickerStyle(.graphical)
+                            .padding(.horizontal)
+                        Button("Set Reminder") {
+                            Task { await scheduleLocalReminderAt(sendLaterDate) }
+                            showingSendLaterSheet = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.bottom)
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { showingSendLaterSheet = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showingShareSheet) {
+                if !shareContent.isEmpty {
+                    ShareSheet(items: [shareContent as Any])
+                        .presentationDetents([.medium, .large])
+                }
+            }
+            .sheet(isPresented: $showingPollComposer) {
+                NavigationStack {
+                    VStack(spacing: 16) {
+                        Image(systemName: "chart.bar.xaxis")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                        Text("Poll Composer")
+                            .font(.headline)
+                        Text("Ask your thread a question and let everyone vote.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") { showingPollComposer = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+            }
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { viewModel.load() }
-            .onDisappear { viewModel.cleanup() }
+            .onAppear {
+                viewModel.load()
+                memoriesLoadTask = Task { await loadRecentMemories() }
+            }
+            .onDisappear {
+                viewModel.cleanup()
+                memoriesLoadTask?.cancel()
+                detectionTask?.cancel()
+                ragSearchTask?.cancel()
+            }
         }
     }
+
+    // MARK: - Insight action handler
+
+    private func handleInsightAction(_ item: DetectedMessageContext) {
+        switch item.type {
+        case .date:
+            sendLaterDate = Date().addingTimeInterval(3600)
+            showingSendLaterSheet = true
+            hubDetectedItems.removeAll { $0.id == item.id }
+        case .link:
+            if let url = URL(string: item.actionLabel), UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+            }
+            hubDetectedItems.removeAll { $0.id == item.id }
+        case .music, .task, .memory:
+            hubDetectedItems.removeAll { $0.id == item.id }
+        }
+    }
+
+    // MARK: - Attachment action handler
+
+    private func handleAttachmentAction(_ action: MessageAttachmentAction) {
+        showingAttachmentMenu = false
+        switch action {
+        case .camera:
+            showingPhotosPicker = true
+        case .photoLibrary:
+            showingPhotosPicker = true
+        case .polls:
+            showingPollComposer = true
+        case .sendLater:
+            showingSendLaterSheet = true
+        case .createReminder:
+            Task { await scheduleLocalReminder() }
+        case .saveMemory:
+            guard !searchText.isEmpty else { return }
+            Task { await saveMemoryFromText(searchText) }
+        case .addContactNote:
+            showingContactNotes = true
+        case .shareLink:
+            shareContent = searchText.isEmpty ? "Check out Amen — faith-first community." : searchText
+            showingShareSheet = true
+        case .createEvent:
+            if let url = URL(string: "calshow://") {
+                UIApplication.shared.open(url)
+            }
+        case .createTask:
+            Task { await scheduleLocalReminder() }
+        }
+    }
+
+    // MARK: - Firebase helpers
+
+    private func scheduleLocalReminder() async {
+        let center = UNUserNotificationCenter.current()
+        let status = await center.notificationSettings()
+        if status.authorizationStatus != .authorized {
+            let granted = try? await center.requestAuthorization(options: [.alert, .sound])
+            guard granted == true else { return }
+        }
+        let content = UNMutableNotificationContent()
+        content.title = "Amen Reminder"
+        content.body = searchText.isEmpty ? "Follow up on your thread" : String(searchText.prefix(100))
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 3600, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        try? await center.add(request)
+    }
+
+    private func scheduleLocalReminderAt(_ date: Date) async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        if settings.authorizationStatus != .authorized {
+            let granted = try? await center.requestAuthorization(options: [.alert, .sound])
+            guard granted == true else { return }
+        }
+        let content = UNMutableNotificationContent()
+        content.title = "Amen Reminder"
+        content.body = searchText.isEmpty ? "Follow up on your thread" : String(searchText.prefix(100))
+        content.sound = .default
+        let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        try? await center.add(request)
+    }
+
+    private func saveMemoryFromText(_ text: String) async {
+        guard let threadId = viewModel.threads.first?.id else { return }
+        do {
+            _ = try await Functions.functions(region: "us-central1")
+                .httpsCallable("saveConversationMemory")
+                .call(["threadId": threadId, "type": "memory", "title": String(text.prefix(200))] as [String: Any])
+        } catch {
+            // Fail silently — memory save is non-critical
+        }
+    }
+
+    private func savePrivateContactNote(note: String, tags: [String], contactUID: String) async {
+        guard !contactUID.isEmpty else { return }
+        do {
+            _ = try await Functions.functions(region: "us-central1")
+                .httpsCallable("savePrivateContactNote")
+                .call(["contactUid": contactUID, "note": note, "tags": tags] as [String: Any])
+        } catch {
+            // Fail silently — note save is non-critical
+        }
+    }
+
+    private func loadRecentMemories() async {
+        guard let uid = Auth.auth().currentUser?.uid,
+              let threadId = viewModel.threads.first?.id else { return }
+        do {
+            let snapshot = try await Firestore.firestore()
+                .collection("threads").document(threadId)
+                .collection("memories")
+                .order(by: "createdAt", descending: true)
+                .limit(to: 20)
+                .getDocuments()
+            let items = snapshot.documents.compactMap { doc -> ConversationMemoryItem? in
+                let data = doc.data()
+                guard let typeRaw = data["type"] as? String,
+                      let title = data["title"] as? String else { return nil }
+                let type: ConversationMemoryType = {
+                    switch typeRaw {
+                    case "link": return .link
+                    case "date": return .date
+                    case "music": return .music
+                    case "note": return .note
+                    case "task": return .task
+                    case "event": return .event
+                    default: return .memory
+                    }
+                }()
+                let body = data["body"] as? String
+                let ts = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+                return ConversationMemoryItem(id: UUID(), type: type, title: title, body: body, timestamp: ts)
+            }
+            _ = uid
+            await MainActor.run { conversationMemories = items }
+        } catch {
+            // No-op — memory display is best-effort
+        }
+    }
+
+    // MARK: - Background
 
     private var background: some View {
         LinearGradient(
@@ -143,7 +436,7 @@ struct BereanCommunicationHubView: View {
     private var digestCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                sectionTitle("Today’s Digest")
+                sectionTitle("Today's Digest")
                 Spacer()
                 if viewModel.unresolvedCount > 0 {
                     Text("\(viewModel.unresolvedCount) unresolved")
@@ -194,6 +487,40 @@ struct BereanCommunicationHubView: View {
             }
             .padding(16)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+    }
+
+    private var ragResultsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("Search Results")
+            ForEach(ragResults) { result in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(result.title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(result.excerpt)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    HStack(spacing: 6) {
+                        Text(result.type.capitalized)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.secondary.opacity(0.1), in: Capsule())
+                        Spacer()
+                        Text(String(format: "%.0f%%", result.score * 100))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(14)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.45), lineWidth: 0.8)
+                }
+            }
         }
     }
 
@@ -360,14 +687,12 @@ struct BereanCommunicationHubView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        // Solid opaque fallback honours the user's reduce-transparency preference
         .background {
             if reduceTransparency {
                 Capsule(style: .continuous)
                     .fill(Color(.systemBackground))
             }
         }
-        // Shadow applied before the glass surface so it renders beneath it.
         .shadow(color: .black.opacity(0.08), radius: 18, y: 8)
         .glassEffect(reduceTransparency ? .identity : GlassEffectStyle.regular, in: Capsule(style: .continuous))
         .padding(.horizontal, 18)
