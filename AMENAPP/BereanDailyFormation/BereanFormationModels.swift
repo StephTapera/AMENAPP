@@ -122,3 +122,33 @@ struct BereanMockUser {
     static let tradition        = "non-denominational"
     static let translationPref  = "ESV"
 }
+
+// MARK: - Seasonal rhythm (liturgical calendar)
+
+extension BereanSeasonalRhythm {
+    static func current() -> BereanSeasonalRhythm {
+        let month = Calendar.current.component(.month, from: Date())
+        switch month {
+        case 12, 1:
+            return BereanSeasonalRhythm(
+                liturgicalSeason: "Advent / Christmas",
+                prompt: "Advent is a season of waiting and longing. Where is God asking you to be patient today?"
+            )
+        case 2, 3:
+            return BereanSeasonalRhythm(
+                liturgicalSeason: "Epiphany / Lent",
+                prompt: "Lent invites honest self-examination. What is God revealing to you about yourself?"
+            )
+        case 4, 5:
+            return BereanSeasonalRhythm(
+                liturgicalSeason: "Easter / Eastertide",
+                prompt: "Resurrection changes everything. Where do you need to live out of the hope of Easter today?"
+            )
+        default:
+            return BereanSeasonalRhythm(
+                liturgicalSeason: "Ordinary Time",
+                prompt: "Ordinary Time invites faithful attention to the everyday. Where is the sacred hiding in your routine today?"
+            )
+        }
+    }
+}

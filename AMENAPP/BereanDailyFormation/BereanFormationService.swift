@@ -10,16 +10,21 @@ enum BereanFormationService {
 
     // MARK: - Verse gate (single source of truth)
 
-    // AUDIT GAP: getVerse() always returns mock data (isMock: true). In production
-    // this must call the YouVersion Content API (or a CF proxy) to fetch licensed
-    // Scripture text. The [MOCK — XYZ] placeholder must never appear in a released
-    // build; add a #if DEBUG guard or a Remote Config flag to block mock text in
-    // non-debug builds. The YouVersion Content API requires an active content license.
     static func getVerse(_ ref: String, translation: String = "ESV") -> BereanVerse {
+        guard !ref.isEmpty else {
+            return BereanVerse(text: "", citation: "", isMock: false)
+        }
         let book = BereanMockData.verseDB[ref]
         let text = book?[translation] ?? book?.values.first
-            ?? "[MOCK — \(translation)] Verse text for \(ref) will be loaded from the YouVersion Content API in production. This placeholder must never appear in a released build."
+            ?? "[MOCK — \(translation)] \(ref)"
+#if !DEBUG
+        // Mock verse text must never ship — block the verse card in release builds
+        // until a YouVersion Content API license is obtained and integrated.
+        assert(false, "BereanFormationService.getVerse() returned mock text in a non-DEBUG build. Integrate the YouVersion Content API before release.")
+        return BereanVerse(text: "", citation: "", isMock: false)
+#else
         return BereanVerse(text: text, citation: "\(ref) (\(translation))", isMock: true)
+#endif
     }
 
     // MARK: - Clean display text (strips [MOCK — XYZ] prefix)

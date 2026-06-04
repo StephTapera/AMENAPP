@@ -1,51 +1,65 @@
 // BereanDailyFormationView.swift
-// AMENAPP — Berean Daily Formation Companion
-//
 // Root view: shows onboarding on first launch, feed thereafter.
-// @AppStorage key: "bereanFormationOnboardingDone"
+// Real Firestore data loaded via BereanFormationDataService (consent-gated).
+// Reading plan verse text requires YouVersion license — mock ONLY in DEBUG.
 
 import SwiftUI
+import FirebaseAuth
 
 struct BereanDailyFormationView: View {
 
-    private static let allTopics: Set<String> = ["verse", "plan", "prayer", "sanctuary", "study", "memory", "seasonal"]
-    // AUDIT GAP: allConsents hardcodes all integrations as enabled, bypassing the
-    // consent collected in BereanFormationOnboardingView. The onboarding result
-    // (BereanFormationPrefs) must be persisted (e.g. UserDefaults / Firestore) and
-    // read here so that prayerList / sanctuary data is only included when the user
-    // actually granted consent for those integrations. Until that wiring exists,
-    // cards are assembled as if all consents are true regardless of user choice.
-    private static let allConsents: [String: Bool] = ["youversion": true, "sanctuary": true, "prayerlist": true, "notifications": true]
+    @StateObject private var dataService = BereanFormationDataService.shared
+    @AppStorage("bereanFormationOnboardingDone") private var onboardingDone = false
 
-    // AUDIT GAP: prayerList is sourced from BereanMockData in production. A real
-    // Firestore fetch (users/{uid}/prayerItems) gated on consents["prayerlist"] == true
-    // must replace this before shipping. Shipping mock prayer data risks confusing
-    // users and exposes the mock placeholder text in a released build.
-    private let prayerList = BereanMockData.prayerList
+    private var currentUserName: String {
+        Auth.auth().currentUser?.displayName ?? "Friend"
+    }
 
-    // AUDIT GAP: assembleCards() is called unconditionally with BereanMockData.
-    // In production this data must come from Firestore / YouVersion API, and each
-    // data source must be gated on the corresponding consent flag. The mock path
-    // must be compiled out with #if DEBUG or a Remote Config feature flag.
     private var cards: [BereanFormationCard] {
         BereanFormationService.assembleCards(
-            readingPlan: BereanMockData.readingPlan,
-            prayerList: prayerList,
-            sanctuaries: BereanMockData.sanctuaries,
-            highlights: BereanMockData.highlights,
-            memoryVerses: BereanMockData.memoryVerses,
-            seasonal: BereanMockData.seasonal,
-            translationPref: BereanMockUser.translationPref,
-            selectedTopics: Self.allTopics
+            readingPlan: readingPlan,
+            prayerList: dataService.prayerList,
+            sanctuaries: dataService.sanctuaries,
+            highlights: dataService.highlights,
+            memoryVerses: dataService.memoryVerses,
+            seasonal: BereanSeasonalRhythm.current(),
+            translationPref: UserDefaults.standard.string(forKey: "bibleTranslationPref") ?? "ESV",
+            selectedTopics: dataService.prefs.selectedTopics
         )
     }
 
-    var body: some View {
-        BereanDailyFormationFeedView(
-            userName: BereanMockUser.name,
-            cards: cards,
-            prayerList: prayerList
+    private var readingPlan: BereanReadingPlan {
+        // Verse text from YouVersion requires a content license — mock in DEBUG only.
+        // In release the verse card is omitted (selectedTopics controls this via the flag below).
+#if DEBUG
+        return BereanMockData.readingPlan
+#else
+        // Return a zero-progress plan; getVerse() will return an empty string that is
+        // filtered by assembleCards when todayPassageRef is blank.
+        return BereanReadingPlan(
+            name: "", currentDay: 0, totalDays: 1,
+            todayPassageRef: "", todayPassageRange: ""
         )
+#endif
+    }
+
+    var body: some View {
+        Group {
+            if !onboardingDone {
+                BereanFormationOnboardingView { prefs in
+                    dataService.savePrefs(prefs)
+                    onboardingDone = true
+                    Task { await dataService.loadData() }
+                }
+            } else {
+                BereanDailyFormationFeedView(
+                    userName: currentUserName,
+                    cards: cards,
+                    prayerList: dataService.prayerList
+                )
+                .task { await dataService.loadData() }
+            }
+        }
     }
 }
 
