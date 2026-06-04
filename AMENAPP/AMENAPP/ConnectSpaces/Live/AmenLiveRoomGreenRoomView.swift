@@ -3,6 +3,7 @@
 // Built: 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 
 struct AmenLiveRoomGreenRoomView: View {
     let room: AmenLiveRoom
@@ -50,6 +51,9 @@ struct AmenLiveRoomGreenRoomView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will start the live room for all invited participants.")
+        }
+        .onAppear {
+            Analytics.logEvent("live_room_green_room_viewed", parameters: nil)
         }
     }
 

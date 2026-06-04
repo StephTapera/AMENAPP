@@ -3,6 +3,7 @@
 // Built 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 
 // MARK: - File Stub Model
 
@@ -97,6 +98,9 @@ struct AmenMinistryRoomFilesTab: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(hex: "070607"))
+        .onAppear {
+            Analytics.logEvent("ministry_room_files_tab_viewed", parameters: nil)
+        }
         .overlay(alignment: .bottom) {
             if showUploadToast {
                 uploadToast

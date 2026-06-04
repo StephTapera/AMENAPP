@@ -10,6 +10,7 @@
 // Callable proxy: AmenConnectSpacesPhase0BindingService.swift
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -157,6 +158,9 @@ struct AmenEdifyingCommentsView: View {
             }
             Divider()
             composerView
+        }
+        .onAppear {
+            Analytics.logEvent("edifying_comments_viewed", parameters: nil)
         }
         .task {
             vm.startListening()

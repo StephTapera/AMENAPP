@@ -33,7 +33,7 @@ enum CommunityOSFlag: String, CaseIterable {
     case autoChurchLibrary          = "church_worship_library_enabled"
     case realWorldImpactEngine      = "real_world_impact_engine_enabled"
 
-    /// Conservative default — always false until Remote Config delivers a value.
+    /// All Community OS features default to false — enable via Remote Config.
     var defaultValue: Bool { false }
 
     var displayName: String {

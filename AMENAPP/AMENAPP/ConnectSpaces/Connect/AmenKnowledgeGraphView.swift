@@ -8,6 +8,7 @@
 // Callable proxy: AmenConnectSpacesPhase0BindingService.swift
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseAuth
 
 // MARK: - ViewModel
@@ -102,6 +103,9 @@ struct AmenKnowledgeGraphView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Formation Journey")
         .navigationBarTitleDisplayMode(.large)
+        .onAppear {
+            Analytics.logEvent("knowledge_graph_viewed", parameters: nil)
+        }
     }
 
     // MARK: - Glass header

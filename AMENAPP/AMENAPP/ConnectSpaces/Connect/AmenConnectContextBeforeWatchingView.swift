@@ -7,6 +7,7 @@
 //   - noScriptureWithoutProvenance: scripture ref count only shown (never raw unverified refs)
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFirestore
 
 // MARK: - ViewModel
@@ -222,6 +223,9 @@ struct AmenConnectContextBeforeWatchingView: View {
         .background(Color(hex: "070607"))
         .task {
             await viewModel.loadContext(videoId: video.id)
+        }
+        .onAppear {
+            Analytics.logEvent("connect_context_before_watching_viewed", parameters: nil)
         }
     }
 

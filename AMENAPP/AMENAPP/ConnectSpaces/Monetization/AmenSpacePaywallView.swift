@@ -6,6 +6,7 @@
 // Written: 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 
 // MARK: - Paywall View
 
@@ -43,6 +44,9 @@ struct AmenSpacePaywallView: View {
         }
         .presentationDragIndicator(.visible)
         .presentationDetents([.large])
+        .onAppear {
+            Analytics.logEvent("space_paywall_viewed", parameters: nil)
+        }
     }
 
     // MARK: - Header

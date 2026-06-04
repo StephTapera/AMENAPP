@@ -292,7 +292,7 @@ struct BereanFormationOnboardingView: View {
 
     private func consentView(for idx: Int) -> some View {
         let key  = INTEGRATIONS[idx]
-        let meta = INTEGRATION_META[key]!
+        let meta = INTEGRATION_META[key] ?? IntegrationMeta(icon: "⚙️", name: key, reads: "", why: "", ifDeclined: "")
 
         return ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
@@ -377,7 +377,7 @@ struct BereanFormationOnboardingView: View {
             Image(systemName: "sparkle")
                 .font(.system(size: 48, weight: .ultraLight))
                 .foregroundStyle(NotifGlassTokens.goldLight)
-                .symbolEffect(.breathe)
+                .symbolEffect(.breathe, isActive: !reduceMotion)
             Text("Your first Berean is being prepared.")
                 .font(.custom("Georgia", size: 32).weight(.light))
                 .foregroundStyle(NotifGlassTokens.goldLight)
@@ -413,7 +413,7 @@ struct BereanFormationPrimaryButton: View {
                 .foregroundStyle(disabled ? Color.white.opacity(0.35) : Color(hex: "#0A0A0F"))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(disabled ? Color.white.opacity(0.08) : NotifGlassTokens.primaryButtonGradient)
+                .background(disabled ? AnyShapeStyle(Color.white.opacity(0.08)) : AnyShapeStyle(NotifGlassTokens.primaryButtonGradient))
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)

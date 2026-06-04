@@ -3,6 +3,7 @@
 // Built: 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 
 struct AmenLiveQAQueueView: View {
     let participants: [AmenLiveRoomParticipant]
@@ -78,6 +79,9 @@ struct AmenLiveQAQueueView: View {
                 if isHost {
                     muteAllFooter
                 }
+            }
+            .onAppear {
+                Analytics.logEvent("live_qa_queue_viewed", parameters: nil)
             }
         }
     }

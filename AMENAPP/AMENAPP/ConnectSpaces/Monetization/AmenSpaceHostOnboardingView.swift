@@ -9,6 +9,7 @@
 // Written: 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFunctions
 
 // MARK: - Step Definition
@@ -77,6 +78,9 @@ struct AmenSpaceHostOnboardingView: View {
                     .padding(.horizontal, 24)
                     .padding(.bottom, 32)
             }
+        }
+        .onAppear {
+            Analytics.logEvent("space_host_onboarding_viewed", parameters: nil)
         }
     }
 

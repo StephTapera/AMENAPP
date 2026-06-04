@@ -13,6 +13,7 @@ struct BereanDailyFormationFeedView: View {
 
     @State private var arcIndex: Int = 0
     @State private var whyCard: BereanFormationCard? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var crisisItems: [BereanPrayerItem] {
         BereanFormationSafetyEngine.crisisItems(from: prayerList)
@@ -36,7 +37,7 @@ struct BereanDailyFormationFeedView: View {
                     // Crisis banner — above arc, never inside arc
                     if !crisisItems.isEmpty {
                         ForEach(crisisItems) { item in
-                            BereanCrisisCard(prayer: item)
+                            BereanFormationCrisisCard(prayer: item)
                                 .padding(.horizontal, 20)
                                 .padding(.bottom, 16)
                         }
@@ -91,7 +92,7 @@ struct BereanDailyFormationFeedView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: whyCard == nil)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: whyCard == nil)
     }
 
     // MARK: - Header

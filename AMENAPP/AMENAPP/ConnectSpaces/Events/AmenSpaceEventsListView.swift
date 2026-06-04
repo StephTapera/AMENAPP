@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAnalytics
 
 struct AmenSpaceEventsListView: View {
     let events: [AmenSpaceEvent]
@@ -39,6 +40,9 @@ struct AmenSpaceEventsListView: View {
                     .padding(.vertical, 2)
                 }
             }
+        }
+        .onAppear {
+            Analytics.logEvent("space_events_list_viewed", parameters: nil)
         }
     }
 }

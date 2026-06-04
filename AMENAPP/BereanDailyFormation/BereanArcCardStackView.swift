@@ -10,6 +10,7 @@ struct BereanArcCardStackView: View {
     let cards: [BereanFormationCard]
     @Binding var activeIndex: Int
     var onWhyTapped: ((BereanFormationCard) -> Void)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 16) {
@@ -28,7 +29,7 @@ struct BereanArcCardStackView: View {
                 ForEach(Array(cards.enumerated()), id: \.element.id) { idx, card in
                     let isActive = idx == activeIndex
                     Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
                             activeIndex = idx
                         }
                     } label: {
@@ -38,7 +39,7 @@ struct BereanArcCardStackView: View {
                             .shadow(color: isActive ? NotifGlassTokens.goldPrimary.opacity(0.5) : .clear, radius: 4)
                     }
                     .buttonStyle(.plain)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: activeIndex)
+                    .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8), value: activeIndex)
                     .accessibilityLabel("Card \(idx + 1) of \(cards.count)")
                     .accessibilityAddTraits(isActive ? [.isSelected] : [])
                 }

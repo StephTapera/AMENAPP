@@ -6,6 +6,7 @@
 // Matte background throughout the content area. Glass only on section header chrome.
 
 import SwiftUI
+import FirebaseAnalytics
 
 // MARK: - Main View
 
@@ -24,6 +25,9 @@ struct AmenMinistryRoomCareTab: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(hex: "070607"))
+        .onAppear {
+            Analytics.logEvent("ministry_room_care_tab_viewed", parameters: nil)
+        }
     }
 
     // MARK: - Glass Section Header (chrome only)

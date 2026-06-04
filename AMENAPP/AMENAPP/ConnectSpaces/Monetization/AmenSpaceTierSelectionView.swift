@@ -6,6 +6,7 @@
 // Written: 2026-06-02
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFunctions
 
 // MARK: - View
@@ -70,6 +71,9 @@ struct AmenSpaceTierSelectionView: View {
                     Spacer(minLength: 32)
                 }
             }
+        }
+        .onAppear {
+            Analytics.logEvent("space_tier_selection_viewed", parameters: nil)
         }
     }
 

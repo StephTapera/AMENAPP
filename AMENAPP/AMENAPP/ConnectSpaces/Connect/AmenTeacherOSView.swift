@@ -9,6 +9,7 @@
 // Callable proxy: AmenConnectSpacesPhase0BindingService.swift
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -98,6 +99,9 @@ struct AmenTeacherOSView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Teacher Studio")
         .navigationBarTitleDisplayMode(.large)
+        .onAppear {
+            Analytics.logEvent("teacher_os_viewed", parameters: nil)
+        }
         .task {
             await vm.loadMetrics()
         }

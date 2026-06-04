@@ -8,6 +8,7 @@
 
 import SwiftUI
 import AVKit
+import FirebaseAnalytics
 
 // MARK: - ViewModel
 
@@ -174,6 +175,7 @@ struct AmenConnectGlassControlsView: View {
             vm.provenanceSummary = provenanceSummary
             vm.startObserving()
             vm.showControls()
+            Analytics.logEvent("connect_glass_controls_viewed", parameters: nil)
         }
     }
 

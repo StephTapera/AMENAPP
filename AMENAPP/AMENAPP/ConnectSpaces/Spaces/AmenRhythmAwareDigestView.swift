@@ -6,6 +6,7 @@
 // Glass summary card when active; matte rest card when sabbath.
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -252,6 +253,9 @@ struct AmenRhythmAwareDigestView: View {
                         .padding(.horizontal, 4)
                 }
             }
+        }
+        .onAppear {
+            Analytics.logEvent("rhythm_aware_digest_viewed", parameters: nil)
         }
         .task {
             guard !isSabbath else { return }

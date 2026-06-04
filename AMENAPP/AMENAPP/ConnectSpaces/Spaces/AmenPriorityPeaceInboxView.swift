@@ -7,6 +7,7 @@
 // Empty state: matte "All clear ✦" in amenGold.
 
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -455,6 +456,9 @@ struct AmenPriorityPeaceInboxView: View {
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        .onAppear {
+            Analytics.logEvent("priority_peace_inbox_viewed", parameters: nil)
+        }
         .task {
             await viewModel.load(
                 spaceId: spaceId,

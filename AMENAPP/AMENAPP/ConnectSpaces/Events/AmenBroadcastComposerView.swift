@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAnalytics
 import FirebaseFunctions
 
 private enum BroadcastState: Equatable {
@@ -43,6 +44,9 @@ struct AmenBroadcastComposerView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 24)
             }
+        }
+        .onAppear {
+            Analytics.logEvent("broadcast_composer_viewed", parameters: nil)
         }
         .sheet(isPresented: $showEventPicker) {
             EventPickerSheet(
