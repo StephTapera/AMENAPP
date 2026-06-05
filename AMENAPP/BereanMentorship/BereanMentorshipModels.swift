@@ -21,28 +21,7 @@ struct BereanMentorship: Identifiable, Codable {
     var nextSessionDate: Date?
 }
 
-// MARK: - Mentorship status
-
-enum BereanMentorshipStatus: String, Codable, CaseIterable {
-    case active, paused, completed
-
-    var displayName: String {
-        switch self {
-        case .active:    return "Active"
-        case .paused:    return "Paused"
-        case .completed: return "Completed"
-        }
-    }
-
-    // Color is NOT Codable — computed only
-    var color: Color {
-        switch self {
-        case .active:    return Color(hex: "#4CAF82")   // soft green
-        case .paused:    return Color(hex: "#C9A84C")   // gold
-        case .completed: return Color.white.opacity(0.35)
-        }
-    }
-}
+// BereanMentorshipStatus is defined in BereanOSModels.swift (single source of truth)
 
 // MARK: - Mentor signal
 

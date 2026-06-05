@@ -1,11 +1,26 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
-const admin = require("firebase-admin");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { defineSecret } = require("firebase-functions/params");
+const admin = require("firebase-admin");
 
 const BEREAN_LLM_KEY = defineSecret("BEREAN_LLM_KEY");
 const db = admin.firestore();
+
+async function callGemini(prompt, apiKey) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    }
+  );
+  if (!res.ok) return null;
+  const json = await res.json();
+  const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  try { return JSON.parse(cleaned); } catch { return null; }
+}
 
 exports.analyzeDiscussionHealth = onCall({ secrets: [BEREAN_LLM_KEY] }, async (request) => {
   const { threadId } = request.data;
@@ -19,27 +34,19 @@ exports.analyzeDiscussionHealth = onCall({ secrets: [BEREAN_LLM_KEY] }, async (r
     .get();
 
   const comments = snap.docs.map(d => d.data().body || "").filter(Boolean);
-  if (comments.length === 0) {
-    await db.collection("threads").doc(threadId).collection("health").doc("current").set({
-      status: "healthy", escalationSignals: [], lastAnalyzedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-    return { status: "healthy" };
-  }
-
   let status = "healthy", escalationSignals = [];
-  try {
-    const genAI = new GoogleGenerativeAI(BEREAN_LLM_KEY.value());
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `Analyze this discussion's health. Comments:\n${comments.slice(0, 20).join("\n---\n")}\n\nRespond JSON: {"status":"healthy|active|heated|escalating|needsReview","escalationSignals":["..."]}`;
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      const parsed = JSON.parse(match[0]);
-      status = parsed.status || "healthy";
-      escalationSignals = parsed.escalationSignals || [];
+
+  if (comments.length > 0) {
+    const key = process.env.BEREAN_LLM_KEY || "";
+    if (key) {
+      const prompt = `Analyze this discussion's health. Comments:\n${comments.slice(0, 20).join("\n---\n")}\n\nRespond JSON: {"status":"healthy|active|heated|escalating|needsReview","escalationSignals":["..."]}`;
+      const parsed = await callGemini(prompt, key).catch(() => null);
+      if (parsed) {
+        status = parsed.status || "healthy";
+        escalationSignals = parsed.escalationSignals || [];
+      }
     }
-  } catch (_) { /* fail open */ }
+  }
 
   await db.collection("threads").doc(threadId).collection("health").doc("current").set({
     status, escalationSignals, lastAnalyzedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -52,13 +59,12 @@ exports.autoAnalyzeHealth = onDocumentWritten("threads/{threadId}", async (event
   if (!after) return;
   const count = after.commentCount || 0;
   if (count > 0 && count % 10 === 0) {
-    const db2 = admin.firestore();
-    const snap = await db2.collection("threads").doc(event.params.threadId)
-      .collection("comments").where("isDeleted","==",false).limit(50).get();
-    const comments = snap.docs.map(d => d.data().body || "").filter(Boolean);
-    if (comments.length === 0) return;
-    await db2.collection("threads").doc(event.params.threadId).collection("health").doc("current").set({
-      status: "active", escalationSignals: [], lastAnalyzedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    await admin.firestore()
+      .collection("threads").doc(event.params.threadId)
+      .collection("health").doc("current")
+      .set({
+        status: "active", escalationSignals: [],
+        lastAnalyzedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
   }
 });

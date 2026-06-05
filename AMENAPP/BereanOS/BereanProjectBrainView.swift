@@ -4,6 +4,43 @@
 
 import SwiftUI
 
+// MARK: - BereanProjectMemoryEntryType display helpers
+
+private extension BereanProjectMemoryEntryType {
+    var displayName: String {
+        switch self {
+        case .insight: return "Insight"
+        case .fact: return "Fact"
+        case .question: return "Question"
+        case .decision: return "Decision"
+        case .reference: return "Reference"
+        case .note: return "Note"
+        }
+    }
+
+    var systemIcon: String {
+        switch self {
+        case .insight: return "lightbulb"
+        case .fact: return "checkmark.circle"
+        case .question: return "questionmark.circle"
+        case .decision: return "checkmark.diamond"
+        case .reference: return "link"
+        case .note: return "note.text"
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .insight: return .yellow
+        case .fact: return .green
+        case .question: return .blue
+        case .decision: return .purple
+        case .reference: return .orange
+        case .note: return .secondary
+        }
+    }
+}
+
 // MARK: - BereanProjectBrainView
 
 struct BereanProjectBrainView: View {
@@ -97,7 +134,7 @@ struct BereanProjectBrainView: View {
                     selectedType = nil
                 }
 
-                ForEach(BereanProjectMemoryEntryType.allCases) { type in
+                ForEach(BereanProjectMemoryEntryType.allCases, id: \.self) { type in
                     chipButton(label: type.displayName,
                                icon: type.systemIcon,
                                isSelected: selectedType == type) {
@@ -158,9 +195,11 @@ struct BereanProjectBrainView: View {
     @ViewBuilder
     private func entryRow(_ entry: BereanProjectMemoryEntry) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            // Compact confidence badge on the left
-            BereanConfidenceBadge(level: entry.confidence, compact: true)
-                .padding(.top, 3)
+            // Type indicator dot
+            Circle()
+                .fill(entry.entryType.accentColor)
+                .frame(width: 8, height: 8)
+                .padding(.top, 6)
 
             VStack(alignment: .leading, spacing: 4) {
                 // Content body — 3 lines
@@ -194,7 +233,7 @@ struct BereanProjectBrainView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(entry.entryType.displayName): \(entry.content). Confidence: \(entry.confidence.displayName).")
+        .accessibilityLabel("\(entry.entryType.displayName): \(entry.content).")
     }
 
     // MARK: Empty states

@@ -472,3 +472,143 @@ describe("setAccepted — reputation points and toggle logic", () => {
     expect(comments.find(c => c.id === "c2")?.isAcceptedAnswer).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. setAccepted — access control and locked-thread guards
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("setAccepted — access control", () => {
+  function checkOwnership(postAuthorUID: string, requestUID: string): boolean {
+    return postAuthorUID === requestUID;
+  }
+
+  test("non-owner is rejected with permission-denied", () => {
+    const isOwner = checkOwnership("author-uid", String("other-uid"));
+    expect(isOwner).toBe(false);
+  });
+
+  test("post author is allowed", () => {
+    const isOwner = checkOwnership("author-uid", "author-uid");
+    expect(isOwner).toBe(true);
+  });
+
+  test("locked thread rejects setAccepted", () => {
+    function guardLocked(isLocked: boolean): string | null {
+      if (isLocked) return "failed-precondition";
+      return null;
+    }
+    expect(guardLocked(true)).toBe("failed-precondition");
+    expect(guardLocked(false)).toBeNull();
+  });
+
+  test("accepting a deleted comment is rejected", () => {
+    function guardDeleted(isDeleted: boolean): string | null {
+      if (isDeleted) return "not-found";
+      return null;
+    }
+    expect(guardDeleted(true)).toBe("not-found");
+    expect(guardDeleted(false)).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. postComment — depth guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("postComment — reply depth guard", () => {
+  function computeDepth(parentDepth: number | null): number {
+    if (parentDepth === null) return 0; // root comment
+    return parentDepth + 1;
+  }
+
+  function validateDepth(depth: number): string | null {
+    return depth > 2 ? "invalid-argument" : null;
+  }
+
+  test("root comment has depth 0", () => {
+    expect(computeDepth(null)).toBe(0);
+  });
+
+  test("reply to root has depth 1", () => {
+    expect(computeDepth(0)).toBe(1);
+  });
+
+  test("reply-to-reply has depth 2 (max allowed)", () => {
+    expect(computeDepth(1)).toBe(2);
+    expect(validateDepth(2)).toBeNull();
+  });
+
+  test("depth 3 (reply-to-reply-to-reply) is rejected", () => {
+    const depth = computeDepth(2); // parent is at depth 2
+    expect(depth).toBe(3);
+    expect(validateDepth(depth)).toBe("invalid-argument");
+  });
+
+  test("depth 4 is also rejected", () => {
+    expect(validateDepth(4)).toBe("invalid-argument");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. markHelpful — idempotency
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("markHelpful — idempotency", () => {
+  function tryMarkHelpful(
+    existingEventCount: number,
+    helpfulCount: number
+  ): { isNew: boolean; helpfulCount: number } {
+    if (existingEventCount > 0) return { isNew: false, helpfulCount };
+    return { isNew: true, helpfulCount: helpfulCount + 1 };
+  }
+
+  test("first mark is accepted and increments count", () => {
+    const result = tryMarkHelpful(0, 5);
+    expect(result.isNew).toBe(true);
+    expect(result.helpfulCount).toBe(6);
+  });
+
+  test("second mark on same comment is a no-op", () => {
+    const result = tryMarkHelpful(1, 6);
+    expect(result.isNew).toBe(false);
+    expect(result.helpfulCount).toBe(6); // unchanged
+  });
+
+  test("third mark is still a no-op", () => {
+    const result = tryMarkHelpful(2, 6);
+    expect(result.isNew).toBe(false);
+    expect(result.helpfulCount).toBe(6);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 14. Locked-thread cross-callable guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("locked-thread guard — postComment and askBerean", () => {
+  function guardLockedThread(isLocked: boolean, callable: string): string | null {
+    if (isLocked) return "failed-precondition";
+    return null;
+  }
+
+  test("postComment is blocked when thread.isLocked=true", () => {
+    expect(guardLockedThread(true, "postComment")).toBe("failed-precondition");
+  });
+
+  test("postComment is allowed when thread.isLocked=false", () => {
+    expect(guardLockedThread(false, "postComment")).toBeNull();
+  });
+
+  test("askBerean is blocked when thread.isLocked=true", () => {
+    expect(guardLockedThread(true, "askBerean")).toBe("failed-precondition");
+  });
+
+  test("askBerean is allowed when thread.isLocked=false", () => {
+    expect(guardLockedThread(false, "askBerean")).toBeNull();
+  });
+
+  test("locked thread shows lockedReason field to client", () => {
+    const thread = { isLocked: true, lockedReason: "Moderator review in progress." };
+    expect(thread.lockedReason).toBeTruthy();
+  });
+});

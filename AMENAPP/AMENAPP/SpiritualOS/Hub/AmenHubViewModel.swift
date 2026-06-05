@@ -392,6 +392,22 @@ final class AmenHubRealtimeViewModel: ObservableObject {
             .updateData(["isRead": true]) { _ in }
     }
 
+    // MARK: - Pray for item
+
+    /// Records a "prayed for" action under notifications/{uid}/prayedFor/{itemId}.
+    /// Write is best-effort — failures are silently discarded (not safety-critical).
+    func prayForItem(itemId: String, title: String) {
+        guard !currentUID.isEmpty else { return }
+        db.collection("notifications")
+            .document(currentUID)
+            .collection("prayedFor")
+            .document(itemId)
+            .setData([
+                "title":    title,
+                "prayedAt": Timestamp(date: Date())
+            ], merge: true) { _ in }
+    }
+
     // MARK: - Mark read (item + uid — used by AmenHubSectionView)
 
     func markRead(item: AmenHubItem, uid: String) {

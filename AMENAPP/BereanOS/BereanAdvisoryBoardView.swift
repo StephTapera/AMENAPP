@@ -317,8 +317,8 @@ private struct BereanCreateBoardSheet: View {
                 let advisor = BereanAIAdvisor(
                     id: UUID().uuidString,
                     role: preset.role,
-                    systemPrompt: preset.systemPrompt,
                     specialization: preset.specialization,
+                    systemPrompt: preset.systemPrompt,
                     lastResponseAt: nil
                 )
                 try await service.addAdvisor(advisor, boardId: board.id)
@@ -512,3 +512,4 @@ struct BereanPerspectiveCard: View {
         }
     }
 }
+

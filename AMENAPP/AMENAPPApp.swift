@@ -102,6 +102,20 @@ struct AMENAPPApp: App {
             UserDefaults.standard.set(true, forKey: UserDefaultsKeys.rememberMe)
         }
 
+        // Register default values for all new feature flags so they are ON out-of-the-box.
+        // register(defaults:) only applies when the key has never been explicitly set;
+        // it never overwrites a value the user or Remote Config has already written.
+        UserDefaults.standard.register(defaults: [
+            "amen_discovery_rails_enabled":   true,
+            "amen_journey_engine_enabled":    true,
+            "amen_journey_selection_enabled": true,
+            "amen_collapsible_hero_enabled":  true,
+            "amen_mentor_channel_hero_enabled":  true,
+            "amen_mentor_channel_rails_enabled": true,
+            "amen_church_hub_enabled":        true,
+            "amen_church_hub_live_enabled":   true
+        ])
+
         // Pre-warm taptic engine generators so first user interaction fires with zero latency.
         // This is synchronous but extremely cheap (~0.1ms).
         HapticManager.prepareAll()

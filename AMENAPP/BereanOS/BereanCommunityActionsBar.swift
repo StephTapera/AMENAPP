@@ -208,7 +208,7 @@ private struct BereanCommunityActionSheet: View {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
             )
-            .foregroundStyle(isSelected ? .accentColor : .primary)
+            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])

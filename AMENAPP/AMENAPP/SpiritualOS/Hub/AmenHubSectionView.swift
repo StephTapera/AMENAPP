@@ -139,7 +139,7 @@ struct AmenHubSectionView: View {
         } else {
             VStack(spacing: 8) {
                 ForEach(viewModel.items.prefix(5)) { item in
-                    HubItemRow(
+                    HubSectionItemRow(
                         item: item,
                         onMarkRead: { viewModel.markRead(itemId: item.id, userId: userId) },
                         onPin: {
@@ -194,9 +194,9 @@ struct AmenHubSectionView: View {
     }
 }
 
-// MARK: - HubItemRow
+// MARK: - HubSectionItemRow
 
-private struct HubItemRow: View {
+private struct HubSectionItemRow: View {
 
     let item: HubItem
     let onMarkRead: () -> Void
@@ -454,7 +454,7 @@ struct AmenHubFullSheetView: View {
                             .padding(.vertical, 40)
                     } else {
                         ForEach(viewModel.items) { item in
-                            HubItemRow(
+                            HubSectionItemRow(
                                 item: item,
                                 onMarkRead: {
                                     viewModel.markRead(itemId: item.id, userId: userId)

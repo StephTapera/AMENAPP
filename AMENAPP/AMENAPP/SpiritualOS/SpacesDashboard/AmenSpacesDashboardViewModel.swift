@@ -16,7 +16,7 @@ struct MemberPreview: Identifiable {
     let displayName: String
 }
 
-struct SpaceEvent: Identifiable {
+struct SpaceDashboardEvent: Identifiable {
     let id: String
     let title: String
     let startTime: Date
@@ -50,7 +50,7 @@ final class AmenSpacesDashboardViewModel {
     var memberPreviews: [MemberPreview] = []
     var totalMemberCount: Int = 0
     var activePrayerCount: Int = 0
-    var nextEvent: SpaceEvent? = nil
+    var nextEvent: SpaceDashboardEvent? = nil
     var currentStudySeries: StudySeries? = nil
     var recentActivity: [ActivityItem] = []
     var isLoading: Bool = false
@@ -118,7 +118,7 @@ final class AmenSpacesDashboardViewModel {
             let col = spaceRef.collection("members")
 
             let countSnap = try await col.count.getAggregation(source: .server)
-            let total = Int(truncatingIfNeeded: countSnap.count)
+            let total = countSnap.count.intValue
 
             let snap = try await col
                 .order(by: "joinedAt", descending: true)
@@ -147,14 +147,14 @@ final class AmenSpacesDashboardViewModel {
                 .whereField("status", isEqualTo: "active")
                 .count
                 .getAggregation(source: .server)
-            return Int(truncatingIfNeeded: snap.count)
+            return snap.count.intValue
         } catch {
             return 0
         }
     }
 
     /// spaces/{spaceId}/events where startTime >= now orderBy startTime asc limit 1
-    private func loadNextEvent(spaceRef: DocumentReference) async -> SpaceEvent? {
+    private func loadNextEvent(spaceRef: DocumentReference) async -> SpaceDashboardEvent? {
         do {
             let snap = try await spaceRef
                 .collection("events")
@@ -168,7 +168,7 @@ final class AmenSpacesDashboardViewModel {
             let title = d["title"] as? String ?? ""
             guard !title.isEmpty else { return nil }
             let startTime = (d["startTime"] as? Timestamp)?.dateValue() ?? Date()
-            return SpaceEvent(
+            return SpaceDashboardEvent(
                 id: doc.documentID,
                 title: title,
                 startTime: startTime,

@@ -44,7 +44,10 @@ final class DiscussionThreadService {
         return (try? created.data(as: DiscussionThread.self)) ?? DiscussionThread(
             postId: postId, postTitle: postTitle, postType: "general",
             postAuthorUID: authorUID,
-            isLocked: false, commentCount: 0, bereanSummaryRef: nil,
+            transcriptRef: nil,
+            isLocked: false, lockedReason: nil,
+            commentCount: 0, bereanSummaryRef: nil,
+            spaceId: nil, channelType: nil,
             createdAt: now, updatedAt: now
         )
     }
@@ -61,7 +64,8 @@ final class DiscussionThreadService {
             .whereField("destination", isEqualTo: "public")
             .order(by: "createdAt", descending: false)
             .limit(to: 100)
-            .addSnapshotListener { snap, _ in
+            .addSnapshotListener { snap, error in
+                if let error { print("[DiscussionThreadService] listenComments error: \(error)"); return }
                 Task { @MainActor in
                     let comments = snap?.documents
                         .compactMap { try? $0.data(as: DiscussionComment.self) } ?? []
@@ -75,7 +79,8 @@ final class DiscussionThreadService {
         onChange: @escaping (DiscussionThread?) -> Void
     ) -> ListenerRegistration {
         db.collection("threads").document(threadId)
-            .addSnapshotListener { snap, _ in
+            .addSnapshotListener { snap, error in
+                if let error { print("[DiscussionThreadService] listenThread error: \(error)"); return }
                 Task { @MainActor in
                     onChange(try? snap?.data(as: DiscussionThread.self))
                 }
@@ -87,7 +92,8 @@ final class DiscussionThreadService {
         onChange: @escaping (BereanThreadSummary?) -> Void
     ) -> ListenerRegistration {
         db.document(path)
-            .addSnapshotListener { snap, _ in
+            .addSnapshotListener { snap, error in
+                if let error { print("[DiscussionThreadService] listenBereanSummary error: \(error)"); return }
                 Task { @MainActor in
                     onChange(try? snap?.data(as: BereanThreadSummary.self))
                 }
@@ -158,6 +164,47 @@ final class DiscussionThreadService {
     func markHelpful(threadId: String, commentId: String) async throws {
         let callable = functions.httpsCallable("markHelpful")
         _ = try await callable.call(["threadId": threadId, "commentId": commentId])
+    }
+
+    // MARK: - Cloud Function: setAccepted
+
+    func setAccepted(threadId: String, commentId: String, isAccepted: Bool) async throws {
+        let callable = functions.httpsCallable("setAccepted")
+        _ = try await callable.call([
+            "threadId":   threadId,
+            "commentId":  commentId,
+            "isAccepted": isAccepted
+        ])
+    }
+
+    // MARK: - Cloud Function: getWatchProgress
+
+    func getWatchProgress(postId: String) async throws -> (progressFraction: Double, shouldNudge: Bool) {
+        let callable = functions.httpsCallable("getWatchProgress")
+        let result = try await callable.call(["postId": postId])
+        guard let data = result.data as? [String: Any] else { return (0, true) }
+        let fraction   = data["progressFraction"] as? Double ?? 0
+        let shouldNudge = data["shouldNudge"] as? Bool ?? true
+        return (fraction, shouldNudge)
+    }
+
+    // MARK: - Cloud Function: updateWatchProgress
+
+    func updateWatchProgress(
+        postId: String,
+        progressFraction: Double,
+        durationSecs: Double,
+        watchedSecs: Double,
+        transcriptRead: Bool = false
+    ) async throws {
+        let callable = functions.httpsCallable("updateWatchProgress")
+        _ = try await callable.call([
+            "postId":           postId,
+            "progressFraction": progressFraction,
+            "durationSecs":     durationSecs,
+            "watchedSecs":      watchedSecs,
+            "transcriptRead":   transcriptRead
+        ])
     }
 
     // MARK: - Cloud Function: computeReputation

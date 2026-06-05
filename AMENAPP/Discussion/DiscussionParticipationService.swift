@@ -1,57 +1,70 @@
 // DiscussionParticipationService.swift — AMEN App
 import Foundation
-import FirebaseRemoteConfig
+import SwiftUI
+import FirebaseFunctions
 
-enum ParticipationTier: String, Codable, Sendable {
-    case observer, contributor, champion, leader
+enum ParticipationTier: String, Codable, CaseIterable {
+    case none, observer, participant, contributor, mentor, expert, leader, host
 
-    var label: String {
+    var displayName: String {
         switch self {
+        case .none:        return ""
         case .observer:    return "Observer"
+        case .participant: return "Participant"
         case .contributor: return "Contributor"
-        case .champion:    return "Champion"
-        case .leader:      return "Discussion Leader"
+        case .mentor:      return "Mentor"
+        case .expert:      return "Expert"
+        case .leader:      return "Community Leader"
+        case .host:        return "Host"
         }
     }
 
     var icon: String {
         switch self {
+        case .none:        return ""
         case .observer:    return "eye"
-        case .contributor: return "bubble.left"
-        case .champion:    return "star.fill"
-        case .leader:      return "crown.fill"
+        case .participant: return "bubble.left"
+        case .contributor: return "star"
+        case .mentor:      return "person.2.circle"
+        case .expert:      return "checkmark.seal"
+        case .leader:      return "crown"
+        case .host:        return "house"
         }
     }
-}
 
-struct TierAchievement: Identifiable, Sendable {
-    let id = UUID()
-    let tier: ParticipationTier
-    let unlockedAt: Date
-    let reason: String
+    var color: Color {
+        switch self {
+        case .none:        return .clear
+        case .observer:    return Color.white.opacity(0.4)
+        case .participant: return Color.white.opacity(0.6)
+        case .contributor: return .blue
+        case .mentor:      return .green
+        case .expert:      return Color(hex: "#C9A84C")
+        case .leader:      return .purple
+        case .host:        return Color(hex: "#C9A84C")
+        }
+    }
+
+    var showsInComposer: Bool { self != .none && self != .observer }
 }
 
 @MainActor
 final class DiscussionParticipationService {
     static let shared = DiscussionParticipationService()
     private init() {}
+    private let functions = Functions.functions()
 
-    private(set) var currentTier: ParticipationTier = .observer
-    private(set) var achievements: [TierAchievement] = []
+    var isEnabled: Bool { AMENFeatureFlags.shared.participationTiersEnabled }
 
-    private var isEnabled: Bool {
-        RemoteConfig.remoteConfig().configValue(forKey: "discussion_participation").boolValue
-    }
-
-    func recordActivity(commentCount: Int, helpfulCount: Int) {
-        guard isEnabled else { return }
-        let newTier: ParticipationTier
-        if helpfulCount >= 10     { newTier = .leader }
-        else if helpfulCount >= 5 { newTier = .champion }
-        else if commentCount >= 3 { newTier = .contributor }
-        else                      { newTier = .observer }
-        guard newTier != currentTier else { return }
-        achievements.append(TierAchievement(tier: newTier, unlockedAt: Date(), reason: "Active participation"))
-        currentTier = newTier
+    func getTier(threadId: String) async -> ParticipationTier {
+        guard isEnabled else { return .none }
+        let callable = functions.httpsCallable("computeReputation")
+        guard let result = try? await callable.call(["threadId": threadId]),
+              let data = result.data as? [String: Any],
+              let tierRaw = data["tier"] as? String,
+              let tier = ParticipationTier(rawValue: tierRaw) else {
+            return .participant
+        }
+        return tier
     }
 }

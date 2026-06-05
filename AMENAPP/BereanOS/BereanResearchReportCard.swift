@@ -92,13 +92,15 @@ struct BereanResearchReportCard: View {
 
     private var modeColor: Color {
         switch report.researchMode {
-        case .quick:      return Color.blue
-        case .deep:       return Color.indigo
-        case .academic:   return Color(red: 0.4, green: 0.2, blue: 0.8)
-        case .biblical:   return Color(red: 0.6, green: 0.3, blue: 0.1)
-        case .market:     return Color.green
-        case .community:  return Color.teal
-        case .multiAgent: return Color(red: 0.2, green: 0.2, blue: 0.6)
+        case .quick:       return Color.blue
+        case .deep:        return Color.indigo
+        case .balanced:    return Color.cyan
+        case .scriptural:  return Color(red: 0.5, green: 0.25, blue: 0.0)
+        case .academic:    return Color(red: 0.4, green: 0.2, blue: 0.8)
+        case .biblical:    return Color(red: 0.6, green: 0.3, blue: 0.1)
+        case .market:      return Color.green
+        case .community:   return Color.teal
+        case .multiAgent:  return Color(red: 0.2, green: 0.2, blue: 0.6)
         }
     }
 

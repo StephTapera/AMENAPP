@@ -16,13 +16,11 @@ struct BereanConfidenceBadge: View {
 
     private var badgeColor: Color {
         switch level {
-        case .verified:     return Color.green
-        case .supported:    return Color.blue
-        case .likely:       return Color(red: 0.13, green: 0.70, blue: 0.67)   // teal
-        case .uncertain:    return Color.orange
-        case .speculative:  return Color(red: 0.60, green: 0.50, blue: 0.10)   // yellow-brown
-        case .opinion:      return Color.gray
-        case .aiGenerated:  return Color.purple
+        case .certain:     return Color.green
+        case .probable:    return Color.blue
+        case .uncertain:   return Color.orange
+        case .speculative: return Color(red: 0.60, green: 0.50, blue: 0.10)
+        case .unsupported: return Color.gray
         }
     }
 
@@ -30,13 +28,11 @@ struct BereanConfidenceBadge: View {
 
     private var abbreviation: String {
         switch level {
-        case .verified:     return "VF"
-        case .supported:    return "SP"
-        case .likely:       return "LK"
-        case .uncertain:    return "UN"
-        case .speculative:  return "SC"
-        case .opinion:      return "OP"
-        case .aiGenerated:  return "AI"
+        case .certain:     return "CT"
+        case .probable:    return "PR"
+        case .uncertain:   return "UN"
+        case .speculative: return "SP"
+        case .unsupported: return "NS"
         }
     }
 

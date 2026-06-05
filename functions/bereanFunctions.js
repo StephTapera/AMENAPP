@@ -28,17 +28,19 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const { callModel } = require("./router/callModel");
 
 // ─── Secrets ──────────────────────────────────────────────────────────────────
-// Store these in Firebase Secret Manager:
-//   firebase functions:secrets:set OPENAI_API_KEY
-//   firebase functions:secrets:set CLAUDE_API_KEY   (optional — only if using Claude)
-const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+// bereanBibleQA + bereanMoralCounsel now route through callModel (Claude via the
+// router); they declare ANTHROPIC_API_KEY + NVIDIA_API_KEY + PINECONE secrets.
+// Remaining functions that still call OpenAI directly keep OPENAI_API_KEY.
+const OPENAI_API_KEY        = defineSecret("OPENAI_API_KEY");
+const ANTHROPIC_API_KEY     = defineSecret("ANTHROPIC_API_KEY");
+const CLAUDE_API_KEY        = defineSecret("CLAUDE_API_KEY");
+const NVIDIA_API_KEY        = defineSecret("NVIDIA_API_KEY");
+const PINECONE_API_KEY      = defineSecret("PINECONE_API_KEY");
+const PINECONE_HOST         = defineSecret("PINECONE_HOST");
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY");
-const CLAUDE_API_KEY = defineSecret("CLAUDE_API_KEY");
-const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
-const PINECONE_API_KEY = defineSecret("PINECONE_API_KEY");
-const PINECONE_HOST    = defineSecret("PINECONE_HOST");
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -167,29 +169,51 @@ async function checkBereanRateLimit(uid, feature, limitPerHour) {
 
 // ─── BIBLE Q&A ────────────────────────────────────────────────────────────────
 
+// ── Migrated to callModel router (Claude, fail_closed, NVIDIA guards, Pinecone retrieval).
+// Response format unchanged so BereanOrchestrator.swift requires no iOS update.
 exports.bereanBibleQA = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
+    {
+      region: REGION,
+      enforceAppCheck: true,
+      secrets: [ANTHROPIC_API_KEY, NVIDIA_API_KEY, PINECONE_API_KEY, PINECONE_HOST],
+    },
     async (request) => {
       requireAuth(request);
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await requireNotMinor(uid);
       await checkBereanRateLimit(uid, 'bible_qa', 20);
+
       const rawPrompt = request.data?.prompt;
-      const maxTokens = Math.min(Number(request.data?.maxTokens) || 600, 2000);
       if (!rawPrompt || typeof rawPrompt !== 'string' || rawPrompt.length > 4000) {
         throw new HttpsError('invalid-argument', 'prompt must be a non-empty string under 4000 characters.');
       }
-      const prompt = rawPrompt;
 
-      const system = `You are Berean, a knowledgeable, humble biblical AI assistant for the AMEN faith community app.
-Answer biblical questions with care, grace, and scriptural grounding.
-Always cite specific Bible verses inline (e.g. John 3:16) when making factual or theological claims.
-If uncertain, say "I'm not certain" and suggest consulting a pastor or scholar.
-Do not fabricate scripture references. Tone: warm, pastoral, non-divisive across denominations.`;
+      const systemPrompt = [
+        "You are Berean, a knowledgeable, humble biblical AI assistant for the AMEN faith community app.",
+        "Answer biblical questions with care, grace, and scriptural grounding.",
+        "Always cite specific Bible verses inline (e.g. John 3:16) when making factual or theological claims.",
+        "If uncertain, say \"I'm not certain\" and suggest consulting a pastor or scholar.",
+        "Do not fabricate scripture references. Tone: warm, pastoral, non-divisive across denominations.",
+        "Clearly separate Scripture from interpretation. Flag uncertain answers.",
+      ].join("\n");
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.5);
+      const result = await callModel({
+        task: "berean_answer",
+        input: rawPrompt,
+        systemPrompt,
+        userId: uid,
+      });
 
-      // Extract citations from response (verse patterns like "John 3:16")
+      if (result.blocked) {
+        const reason = result.reason === "input_guard_failed"
+          ? "Your question could not be processed. Please rephrase and try again."
+          : "Berean is unable to answer right now. Please try again shortly.";
+        throw new HttpsError("failed-precondition", reason);
+      }
+
+      // Extract citations for the response envelope (router already validated they exist).
+      const content = result.output ?? "";
       const citations = [];
       const versePattern = /\b([1-3]?\s?[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s+(\d+):(\d+(?:-\d+)?)\b/g;
       let match;
@@ -197,57 +221,91 @@ Do not fabricate scripture references. Tone: warm, pastoral, non-divisive across
         citations.push(match[0]);
       }
 
-      return makeResponse(content, "openai", "gpt-4o", [...new Set(citations)]);
+      return makeResponse(content, result.provider ?? "anthropic", "claude-opus-4-7", [...new Set(citations)]);
     },
 );
 
+// ── Migrated: uses berean_explain task (Claude, fail_closed, NVIDIA guards, Pinecone retrieval).
 exports.bereanBibleQAFallback = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
+    {
+      region: REGION,
+      enforceAppCheck: true,
+      secrets: [ANTHROPIC_API_KEY, NVIDIA_API_KEY, PINECONE_API_KEY, PINECONE_HOST],
+    },
     async (request) => {
       requireAuth(request);
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
       await requireNotMinor(uid);
       await checkBereanRateLimit(uid, 'bible_qa_fallback', 20);
+
       const rawPrompt = request.data?.prompt;
-      const maxTokens = Math.min(Number(request.data?.maxTokens) || 300, 2000);
       if (!rawPrompt || typeof rawPrompt !== 'string' || rawPrompt.length > 4000) {
         throw new HttpsError('invalid-argument', 'prompt must be a non-empty string under 4000 characters.');
       }
-      const prompt = rawPrompt;
 
-      const system = `You are Berean, a biblical AI assistant. Give a brief, scriptural answer to this question.
-Cite at least one Bible verse. Be concise (under 150 words). Tone: warm, non-divisive.`;
+      const systemPrompt = [
+        "You are Berean, a biblical AI assistant. Give a brief, scriptural answer.",
+        "Cite at least one Bible verse (e.g. John 3:16). Be concise (under 150 words). Tone: warm, non-divisive.",
+      ].join("\n");
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.4);
-      return makeResponse(content, "openai", "gpt-4o-fallback");
+      const result = await callModel({
+        task: "berean_explain",
+        input: rawPrompt,
+        systemPrompt,
+        userId: uid,
+      });
+
+      if (result.blocked) {
+        throw new HttpsError("failed-precondition", "Berean is unable to answer right now. Please try again.");
+      }
+
+      return makeResponse(result.output ?? "", result.provider ?? "anthropic", "claude-sonnet-4-6");
     },
 );
 
 // ─── MORAL COUNSEL ────────────────────────────────────────────────────────────
 
+// ── Migrated to callModel router (Claude pastoral_reply, fail_closed, NVIDIA output guard).
 exports.bereanMoralCounsel = onCall(
-    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
+    {
+      region: REGION,
+      enforceAppCheck: true,
+      secrets: [ANTHROPIC_API_KEY, NVIDIA_API_KEY],
+    },
     async (request) => {
       requireAuth(request);
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+      await requireNotMinor(uid);
       await checkBereanRateLimit(uid, 'moral_counsel', 10);
+
       const rawPrompt = request.data?.prompt;
-      const maxTokens = Math.min(Number(request.data?.maxTokens) || 600, 2000);
       if (!rawPrompt || typeof rawPrompt !== 'string' || rawPrompt.length > 4000) {
         throw new HttpsError('invalid-argument', 'prompt must be a non-empty string under 4000 characters.');
       }
-      const prompt = rawPrompt;
 
-      const system = `You are Berean, a compassionate pastoral AI for the AMEN faith community.
-Offer thoughtful, biblically-grounded moral guidance with empathy and grace.
-Acknowledge the complexity of real-life moral decisions. Never be harsh or judgmental.
-Suggest prayer and seeking counsel from a pastor when appropriate.
-Cite scripture where relevant. Avoid being preachy — be a friend and guide.`;
+      const systemPrompt = [
+        "You are Berean, a compassionate pastoral AI for the AMEN faith community.",
+        "Offer thoughtful, biblically-grounded moral guidance with empathy and grace.",
+        "Acknowledge the complexity of real-life moral decisions. Never be harsh or judgmental.",
+        "Suggest prayer and seeking counsel from a pastor when appropriate.",
+        "Cite scripture where relevant (e.g. Proverbs 3:5-6). Avoid being preachy — be a friend and guide.",
+        "If the person expresses thoughts of self-harm, respond with care and direct them to appropriate support.",
+      ].join("\n");
 
-      const content = await callOpenAI(OPENAI_API_KEY.value(), system, prompt, maxTokens, 0.6);
-      return makeResponse(content, "openai", "gpt-4o");
+      const result = await callModel({
+        task: "pastoral_reply",
+        input: rawPrompt,
+        systemPrompt,
+        userId: uid,
+      });
+
+      if (result.blocked) {
+        throw new HttpsError("failed-precondition", "Unable to process this request. Please try again.");
+      }
+
+      return makeResponse(result.output ?? "", result.provider ?? "anthropic", "claude-opus-4-7");
     },
 );
 

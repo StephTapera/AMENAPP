@@ -8,6 +8,7 @@
 // Callable proxy: AmenConnectSpacesPhase0BindingService.swift
 
 import Foundation
+import FirebaseFunctions
 
 @MainActor
 final class AmenIntelligenceSeamService: ObservableObject {
@@ -15,16 +16,26 @@ final class AmenIntelligenceSeamService: ObservableObject {
     static let shared = AmenIntelligenceSeamService()
 
     private let proxy = AmenConnectSpacesCallableProxy.shared
+    private let functions = Functions.functions()
 
     private init() {}
 
     // MARK: - Video Title Resolution
 
     /// Returns a human-readable title for the given video ID.
-    /// Production: wire a Cloud Function that resolves the title from the video catalog.
-    // TODO: wire real title-resolution CF
+    /// Calls `resolveSpaceTitle` CF; falls back to a truncated ID on error.
     func resolveVideoTitle(videoId: String) async -> String {
-        "Teaching: \(videoId.prefix(8))"
+        do {
+            let callable = functions.httpsCallable("resolveSpaceTitle")
+            let result = try await callable.call(["videoId": videoId])
+            if let data = result.data as? [String: Any],
+               let title = data["title"] as? String, !title.isEmpty {
+                return title
+            }
+        } catch {
+            // Non-fatal — fall through to default
+        }
+        return "Teaching: \(videoId.prefix(8))"
     }
 
     // MARK: - Study Plan
@@ -59,31 +70,65 @@ final class AmenIntelligenceSeamService: ObservableObject {
 
     // MARK: - Cross-Source Compare
 
-    /// Stub: cross-source compare requires full ministry library indexing.
-    // TODO: wire Algolia/Pinecone cross-source CF
+    /// Calls `searchCrossSources` CF (Algolia/Pinecone) to compare video to a source ref.
+    /// Falls back to a friendly message on error or empty result.
     func compareToSource(videoId: String, sourceRef: String) async -> String {
-        "Cross-source comparison requires the ministry library to be fully indexed. Check back soon."
+        do {
+            let callable = functions.httpsCallable("searchCrossSources")
+            let result = try await callable.call(["videoId": videoId, "sourceRef": sourceRef])
+            if let data = result.data as? [String: Any],
+               let comparison = data["comparison"] as? String, !comparison.isEmpty {
+                return comparison
+            }
+        } catch {
+            // Non-fatal — fall through to default
+        }
+        return "Cross-source comparison requires the ministry library to be fully indexed. Check back soon."
     }
 
     // MARK: - Ask a Question
 
-    /// Calls `fetchConnectVideoContext` to anchor the question, then returns a stub answer.
-    // TODO: wire Berean question CF
+    /// Calls `bereanQuestion` CF with the question and video context; falls back gracefully.
     func askQuestion(question: String, videoId: String, userId: String) async -> String {
+        // Anchor the question to video context first (non-fatal)
         _ = try? await proxy.fetchConnectVideoContext(videoId: videoId)
+        do {
+            let callable = functions.httpsCallable("bereanQuestion")
+            let result = try await callable.call([
+                "question": question,
+                "videoId": videoId,
+                "userId": userId
+            ])
+            if let data = result.data as? [String: Any],
+               let answer = data["answer"] as? String, !answer.isEmpty {
+                return answer
+            }
+        } catch {
+            // Non-fatal — fall through to default
+        }
         return "Question received. Berean is reviewing the teaching context."
     }
 
     // MARK: - Graph Items for Space
 
-    /// Records a knowledge graph event for this space context request, then returns linked video IDs.
-    // TODO: wire Pinecone namespace cross-link
+    /// Records a knowledge graph event and calls `searchKnowledgeGraph` CF (Pinecone namespace).
+    /// Returns linked video IDs, or an empty array on error.
     func graphItemsForSpace(spaceId: String, userId: String) async -> [String] {
         _ = try? await proxy.recordKnowledgeGraphEvent(
             userId: userId,
             event: "spacesContextRequested",
             itemRef: spaceId
         )
+        do {
+            let callable = functions.httpsCallable("searchKnowledgeGraph")
+            let result = try await callable.call(["spaceId": spaceId, "userId": userId])
+            if let data = result.data as? [String: Any],
+               let videoIds = data["videoIds"] as? [String] {
+                return videoIds
+            }
+        } catch {
+            // Non-fatal — return empty array
+        }
         return []
     }
 }

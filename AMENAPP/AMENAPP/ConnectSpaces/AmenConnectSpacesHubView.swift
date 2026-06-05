@@ -2,7 +2,8 @@
 // AMEN Connect + Spaces — Top-level hub
 //
 // Entry point routed from the main tab bar (tab 6 — "Spaces").
-// Lists stubbed Ministry Spaces and Connect Teaching videos.
+// Three-tab layout: My Spaces | Discover | Creator Hub.
+// Custom glass pill tab bar at top; no system TabView tab bar.
 // Glass ONLY on section-header bars and card backgrounds.
 // All scripture / message bodies remain matte.
 
@@ -100,66 +101,49 @@ private func roomTypeIcon(_ type: AmenConnectSpacesRoomType) -> String {
     }
 }
 
+// MARK: - Tab definitions
+
+private let tabLabels = ["My Spaces", "Discover", "Creator Hub"]
+private let tabIcons  = ["person.3", "safari", "sparkles"]
+
 // MARK: - Hub View
 
 struct AmenConnectSpacesHubView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCreateSpace = false
+    @State private var selectedTab: Int = 0
+
+    private var currentUserId: String {
+        Auth.auth().currentUser?.uid ?? ""
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 // Matte background — never glass on the page canvas
-                Color(red: 0.027, green: 0.024, blue: 0.031)
-                    .ignoresSafeArea()
+                Color(hex: "070607").ignoresSafeArea()
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-
-                        // MARK: Ministry Spaces section
-                        sectionHeader(
-                            title: "Ministry Spaces",
-                            foreground: Color(hex: "D9A441")
-                        )
-
-                        VStack(spacing: 12) {
-                            ForEach(previewSpaces) { space in
-                                NavigationLink(destination: AmenMinistryRoomShellView(space: space)) {
-                                    SpaceCardRow(space: space)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("\(space.name), \(space.memberIds.count) members")
-                            }
-                        }
-                        .padding(.horizontal, 16)
-
-                        // MARK: Connect Teaching section
-                        sectionHeader(
-                            title: "Connect — Teaching",
-                            foreground: Color(hex: "6E4BB5")
-                        )
-
-                        VStack(spacing: 12) {
-                            ForEach(previewVideos) { video in
-                                NavigationLink(destination: AmenConnectPlayerView(video: video)) {
-                                    VideoCardRow(video: video)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("Teaching by \(video.teacherId), tap to play")
-                            }
-                        }
-                        .padding(.horizontal, 16)
-
-                        // Bottom breathing room above floating tab bar
-                        Spacer(minLength: 100)
-                    }
-                    .padding(.top, 16)
+                VStack(spacing: 0) {
+                    topTabBar
+                    tabContent
                 }
             }
             .navigationTitle("Spaces & Connect")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                            selectedTab = 2
+                        }
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .accessibilityLabel("Open Creator Hub")
+                }
+
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showCreateSpace = true
@@ -172,7 +156,7 @@ struct AmenConnectSpacesHubView: View {
             }
             .sheet(isPresented: $showCreateSpace) {
                 AmenCreateSpaceEnhancedSheet(
-                    userId: Auth.auth().currentUser?.uid ?? "",
+                    userId: currentUserId,
                     onDismiss: { showCreateSpace = false },
                     onCreated: { _ in showCreateSpace = false }
                 )
@@ -180,6 +164,114 @@ struct AmenConnectSpacesHubView: View {
             .onAppear {
                 Analytics.logEvent("spaces_hub_viewed", parameters: [:])
             }
+        }
+    }
+
+    // MARK: - Custom glass pill tab bar
+
+    private var topTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(tabLabels.indices, id: \.self) { index in
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                        selectedTab = index
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: tabIcons[index])
+                            .font(.system(size: 12, weight: selectedTab == index ? .bold : .medium))
+                        Text(tabLabels[index])
+                            .font(.system(size: 13, weight: selectedTab == index ? .bold : .medium))
+                    }
+                    .foregroundStyle(
+                        selectedTab == index
+                            ? Color(hex: "D9A441")
+                            : Color.white.opacity(0.55)
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tabLabels[index])
+                .accessibilityAddTraits(selectedTab == index ? [.isSelected] : [])
+            }
+        }
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+                }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    // MARK: - Tab content switcher
+
+    @ViewBuilder
+    private var tabContent: some View {
+        ZStack {
+            if selectedTab == 0 {
+                mySpacesTab
+                    .transition(.opacity)
+            } else if selectedTab == 1 {
+                AmenSpaceDiscoveryView()
+                    .transition(.opacity)
+            } else {
+                AmenCreatorHubTabView(userId: currentUserId)
+                    .transition(.opacity)
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: selectedTab)
+    }
+
+    // MARK: - Tab 0: My Spaces (existing content preserved exactly)
+
+    private var mySpacesTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+
+                // MARK: Ministry Spaces section
+                sectionHeader(
+                    title: "Ministry Spaces",
+                    foreground: Color(hex: "D9A441")
+                )
+
+                VStack(spacing: 12) {
+                    ForEach(previewSpaces) { space in
+                        NavigationLink(destination: AmenMinistryRoomShellView(space: space)) {
+                            SpaceCardRow(space: space)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(space.name), \(space.memberIds.count) members")
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                // MARK: Connect Teaching section
+                sectionHeader(
+                    title: "Connect — Teaching",
+                    foreground: Color(hex: "6E4BB5")
+                )
+
+                VStack(spacing: 12) {
+                    ForEach(previewVideos) { video in
+                        NavigationLink(destination: AmenConnectPlayerView(video: video)) {
+                            VideoCardRow(video: video)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Teaching by \(video.teacherId), tap to play")
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                // Bottom breathing room above floating tab bar
+                Spacer(minLength: 100)
+            }
+            .padding(.top, 16)
         }
     }
 

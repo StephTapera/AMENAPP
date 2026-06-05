@@ -2,20 +2,22 @@ import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 
-// MARK: - Mentor Channel Models
+// MARK: - Channel-specific data models
 
 struct MentorChannelProfile: Identifiable {
     let id: String
     let displayName: String
     let tagline: String?
     let avatarURL: String?
-    let coverVideoURL: String?     // intro-video hero
+    let heroImageURL: String?
     let churchAffiliation: String?
     let ministeringFocus: [String]
+    let bio: String?
     let officeHoursAvailable: Bool
     let mentorshipOpenings: Int
     let followerCount: Int
     let teachingCount: Int
+    let discussionCount: Int
     let activeSince: Date?
 }
 
@@ -28,26 +30,67 @@ struct MentorTeachingItem: Identifiable {
     let postedAt: Date?
 }
 
+struct MentorOfficeHourSlot: Identifiable {
+    let id: String
+    let startTime: Date
+    let endTime: Date
+    let isBooked: Bool
+}
+
+struct MentorActiveDiscussion: Identifiable {
+    let id: String
+    let title: String
+    let participantCount: Int
+    let lastActiveAt: Date?
+}
+
 struct MentorEventItem: Identifiable {
     let id: String
     let title: String
-    let dateLabel: String
+    let startAt: Date?
     let locationLabel: String?
     let isOnline: Bool
+    let rsvpCount: Int
 }
 
-// MARK: - Mentor Channel ViewModel
+struct MentorStudySeries: Identifiable {
+    let id: String
+    let title: String
+    let lessonCount: Int
+    let isEnrolled: Bool
+    let progressFraction: Double
+}
+
+struct RelatedMentorItem: Identifiable {
+    let id: String
+    let displayName: String
+    let avatarURL: String?
+    let primarySpecialty: String?
+}
+
+// MARK: - View Model
 
 @MainActor
 final class AmenMentorChannelViewModel: ObservableObject {
     @Published var profile: MentorChannelProfile?
     @Published var recentTeachings: [MentorTeachingItem] = []
-    @Published var currentSeries: [MentorTeachingItem] = []
+    @Published var officeHourSlots: [MentorOfficeHourSlot] = []
+    @Published var activeDiscussions: [MentorActiveDiscussion] = []
     @Published var upcomingEvents: [MentorEventItem] = []
-    @Published var prayerRequestCount: Int = 0
+    @Published var studySeries: [MentorStudySeries] = []
+    @Published var relatedMentors: [RelatedMentorItem] = []
     @Published var affordances: [ObjectAffordance] = []
+    @Published var isFollowing = false
     @Published var isLoading = false
     @Published var error: String?
+
+    // Per-rail loading flags
+    @Published var isLoadingTeachings = true
+    @Published var isLoadingOfficeHours = true
+    @Published var isLoadingDiscussions = true
+    @Published var isLoadingEvents = true
+    @Published var isLoadingStudies = true
+    @Published var isLoadingRelated = true
 
     private let db = Firestore.firestore()
 
@@ -55,71 +98,158 @@ final class AmenMentorChannelViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        async let profileTask = fetchProfile(mentorId: mentorId)
-        async let teachingsTask = fetchRecentTeachings(mentorId: mentorId)
-        async let eventsTask = fetchUpcomingEvents(mentorId: mentorId)
-        async let affordancesTask = AmenObjectDiscussionService.shared.buildAffordances(
+        // Hero profile loads first — unblocks render immediately
+        profile = await fetchProfile(mentorId: mentorId)
+
+        guard let p = profile else { return }
+
+        affordances = await AmenObjectDiscussionService.shared.buildAffordances(
             objectId:    "mentor-\(mentorId)",
-            objectTitle: "Mentor Channel"
+            objectTitle: p.displayName
         )
 
-        let (p, t, e, a) = await (profileTask, teachingsTask, eventsTask, affordancesTask)
-        profile = p
-        recentTeachings = t
-        upcomingEvents = e
-        affordances = a
+        // Rails load concurrently in background
+        async let t  = fetchRecentTeachings(mentorId: mentorId)
+        async let oh = fetchOfficeHours(mentorId: mentorId)
+        async let d  = fetchActiveDiscussions(mentorId: mentorId)
+        async let ev = fetchUpcomingEvents(mentorId: mentorId)
+        async let ss = fetchStudySeries(mentorId: mentorId)
+        async let rm = fetchRelatedMentors(specialties: p.ministeringFocus)
 
-        if let p {
-            let seriesTeachings = t.filter { $0.seriesName != nil }
-            currentSeries = Array(seriesTeachings.prefix(6))
-            // Update affordance label with real display name
-            affordances = await AmenObjectDiscussionService.shared.buildAffordances(
-                objectId:    "mentor-\(mentorId)",
-                objectTitle: p.displayName
-            )
+        recentTeachings   = await t;  isLoadingTeachings   = false
+        officeHourSlots   = await oh; isLoadingOfficeHours = false
+        activeDiscussions = await d;  isLoadingDiscussions = false
+        upcomingEvents    = await ev; isLoadingEvents      = false
+        studySeries       = await ss; isLoadingStudies     = false
+        relatedMentors    = await rm; isLoadingRelated     = false
+    }
+
+    func toggleFollow(mentorId: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isFollowing.toggle()
+        let ref = db.collection("users").document(uid)
+            .collection("following").document(mentorId)
+        if isFollowing {
+            try? await ref.setData(["followedAt": FieldValue.serverTimestamp()])
+        } else {
+            try? await ref.delete()
         }
     }
+
+    func submitMentorshipRequest(mentorId: String, goal: String, availability: String, message: String) async -> Bool {
+        guard let uid = Auth.auth().currentUser?.uid else { return false }
+        let data: [String: Any] = [
+            "mentorId":      mentorId,
+            "menteeId":      uid,
+            "goal":          goal,
+            "availability":  availability,
+            "message":       message,
+            "status":        "pending",
+            "createdAt":     FieldValue.serverTimestamp()
+        ]
+        do {
+            try await db.collection("mentorshipRequests")
+                .document(mentorId)
+                .collection("requests")
+                .addDocument(data: data)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    // MARK: - Firestore fetchers
 
     private func fetchProfile(mentorId: String) async -> MentorChannelProfile? {
         guard let doc = try? await db.collection("users").document(mentorId).getDocument(),
               doc.exists,
               let data = doc.data() else { return nil }
 
-        let name = data["displayName"] as? String ?? "Mentor"
+        let followingSnap = try? await db.collection("users")
+            .document(Auth.auth().currentUser?.uid ?? "")
+            .collection("following")
+            .document(mentorId)
+            .getDocument()
+        isFollowing = followingSnap?.exists ?? false
+
         return MentorChannelProfile(
-            id: mentorId,
-            displayName: name,
-            tagline: data["tagline"] as? String,
-            avatarURL: data["photoURL"] as? String,
-            coverVideoURL: data["coverVideoURL"] as? String,
-            churchAffiliation: data["churchName"] as? String,
-            ministeringFocus: data["ministeringFocus"] as? [String] ?? [],
+            id:                  mentorId,
+            displayName:         data["displayName"] as? String ?? "Mentor",
+            tagline:             data["tagline"] as? String,
+            avatarURL:           data["photoURL"] as? String,
+            heroImageURL:        data["heroImageURL"] as? String ?? data["photoURL"] as? String,
+            churchAffiliation:   data["churchName"] as? String,
+            ministeringFocus:    data["ministeringFocus"] as? [String] ?? [],
+            bio:                 data["bio"] as? String,
             officeHoursAvailable: data["officeHoursEnabled"] as? Bool ?? false,
-            mentorshipOpenings: data["mentorshipOpenings"] as? Int ?? 0,
-            followerCount: data["followerCount"] as? Int ?? 0,
-            teachingCount: data["teachingCount"] as? Int ?? 0,
-            activeSince: (data["createdAt"] as? Timestamp)?.dateValue()
+            mentorshipOpenings:  data["mentorshipOpenings"] as? Int ?? 0,
+            followerCount:       data["followerCount"] as? Int ?? 0,
+            teachingCount:       data["teachingCount"] as? Int ?? 0,
+            discussionCount:     data["discussionCount"] as? Int ?? 0,
+            activeSince:         (data["createdAt"] as? Timestamp)?.dateValue()
         )
     }
 
     private func fetchRecentTeachings(mentorId: String) async -> [MentorTeachingItem] {
         guard let snap = try? await db.collection("posts")
             .whereField("userId", isEqualTo: mentorId)
-            .whereField("type", isEqualTo: "teaching")
+            .whereField("type", in: ["teaching", "sermon"])
             .order(by: "createdAt", descending: true)
-            .limit(to: 10)
+            .limit(to: 8)
             .getDocuments() else { return [] }
 
         return snap.documents.compactMap { doc -> MentorTeachingItem? in
             let d = doc.data()
             guard let title = d["title"] as? String ?? d["body"] as? String else { return nil }
             return MentorTeachingItem(
-                id: doc.documentID,
-                title: title,
-                seriesName: d["seriesName"] as? String,
-                thumbnailURL: d["thumbnailURL"] as? String,
+                id:            doc.documentID,
+                title:         title,
+                seriesName:    d["seriesName"] as? String,
+                thumbnailURL:  d["thumbnailURL"] as? String,
                 durationLabel: d["durationLabel"] as? String,
-                postedAt: (d["createdAt"] as? Timestamp)?.dateValue()
+                postedAt:      (d["createdAt"] as? Timestamp)?.dateValue()
+            )
+        }
+    }
+
+    private func fetchOfficeHours(mentorId: String) async -> [MentorOfficeHourSlot] {
+        guard let snap = try? await db
+            .collection("mentorAvailability")
+            .document(mentorId)
+            .collection("slots")
+            .whereField("startTime", isGreaterThan: Timestamp(date: Date()))
+            .order(by: "startTime")
+            .limit(to: 5)
+            .getDocuments() else { return [] }
+
+        return snap.documents.compactMap { doc -> MentorOfficeHourSlot? in
+            let d = doc.data()
+            guard let start = (d["startTime"] as? Timestamp)?.dateValue(),
+                  let end   = (d["endTime"]   as? Timestamp)?.dateValue() else { return nil }
+            return MentorOfficeHourSlot(
+                id:       doc.documentID,
+                startTime: start,
+                endTime:   end,
+                isBooked:  d["isBooked"] as? Bool ?? false
+            )
+        }
+    }
+
+    private func fetchActiveDiscussions(mentorId: String) async -> [MentorActiveDiscussion] {
+        guard let snap = try? await db.collection("discussions")
+            .whereField("mentorId", isEqualTo: mentorId)
+            .whereField("status", isEqualTo: "active")
+            .limit(to: 6)
+            .getDocuments() else { return [] }
+
+        return snap.documents.compactMap { doc -> MentorActiveDiscussion? in
+            let d = doc.data()
+            guard let title = d["title"] as? String else { return nil }
+            return MentorActiveDiscussion(
+                id:               doc.documentID,
+                title:            title,
+                participantCount: d["participantCount"] as? Int ?? 0,
+                lastActiveAt:     (d["lastActiveAt"] as? Timestamp)?.dateValue()
             )
         }
     }
@@ -127,38 +257,89 @@ final class AmenMentorChannelViewModel: ObservableObject {
     private func fetchUpcomingEvents(mentorId: String) async -> [MentorEventItem] {
         guard let snap = try? await db.collection("events")
             .whereField("hostId", isEqualTo: mentorId)
-            .whereField("startAt", isGreaterThan: Timestamp(date: Date()))
-            .order(by: "startAt")
+            .whereField("startDate", isGreaterThan: Timestamp(date: Date()))
+            .order(by: "startDate")
             .limit(to: 5)
             .getDocuments() else { return [] }
-
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
 
         return snap.documents.compactMap { doc -> MentorEventItem? in
             let d = doc.data()
             guard let title = d["title"] as? String else { return nil }
-            let date = (d["startAt"] as? Timestamp)?.dateValue()
-            let dateLabel = date.map { formatter.string(from: $0) } ?? "TBD"
             return MentorEventItem(
-                id: doc.documentID,
-                title: title,
-                dateLabel: dateLabel,
+                id:            doc.documentID,
+                title:         title,
+                startAt:       (d["startDate"] as? Timestamp)?.dateValue(),
                 locationLabel: d["location"] as? String,
-                isOnline: d["isOnline"] as? Bool ?? false
+                isOnline:      d["isOnline"] as? Bool ?? false,
+                rsvpCount:     d["rsvpCount"] as? Int ?? 0
+            )
+        }
+    }
+
+    private func fetchStudySeries(mentorId: String) async -> [MentorStudySeries] {
+        guard let snap = try? await db.collection("studies")
+            .whereField("creatorId", isEqualTo: mentorId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: 6)
+            .getDocuments() else { return [] }
+
+        let uid = Auth.auth().currentUser?.uid ?? ""
+
+        return await withTaskGroup(of: MentorStudySeries?.self) { group in
+            for doc in snap.documents {
+                group.addTask {
+                    let d = doc.data()
+                    guard let title = d["title"] as? String else { return nil }
+                    let lessonCount = d["lessonCount"] as? Int ?? 0
+                    let enrollSnap = try? await Firestore.firestore()
+                        .collection("studies").document(doc.documentID)
+                        .collection("enrollments").document(uid)
+                        .getDocument()
+                    let isEnrolled = enrollSnap?.exists ?? false
+                    let progress   = enrollSnap?.data()?["progressFraction"] as? Double ?? 0
+                    return MentorStudySeries(
+                        id:               doc.documentID,
+                        title:            title,
+                        lessonCount:      lessonCount,
+                        isEnrolled:       isEnrolled,
+                        progressFraction: progress
+                    )
+                }
+            }
+            var results: [MentorStudySeries] = []
+            for await item in group {
+                if let item { results.append(item) }
+            }
+            return results
+        }
+    }
+
+    private func fetchRelatedMentors(specialties: [String]) async -> [RelatedMentorItem] {
+        guard !specialties.isEmpty,
+              let snap = try? await db.collection("mentors")
+                  .whereField("specialties", arrayContainsAny: Array(specialties.prefix(10)))
+                  .limit(to: 5)
+                  .getDocuments() else { return [] }
+
+        return snap.documents.compactMap { doc -> RelatedMentorItem? in
+            let d = doc.data()
+            guard let name = d["name"] as? String else { return nil }
+            let specs = d["specialties"] as? [String] ?? []
+            return RelatedMentorItem(
+                id:               doc.documentID,
+                displayName:      name,
+                avatarURL:        d["photoURL"] as? String,
+                primarySpecialty: specs.first
             )
         }
     }
 }
 
-// MARK: - Mentor Channel View
+// MARK: - Main View
 
-/// A6: The Mentor Channel surface — a living, relationship-first channel view.
-/// Hero: avatar + cover video (collapses on scroll).
-/// Rails: Recent Teachings · Current Series · Active Discussions · Upcoming Events ·
-///        Prayer Requests · Office Hours · Mentorship Openings.
-/// Above the fold: relationship affordances (Discussion · Prayer Room · Study Group).
+/// Apple Music–style mentor channel: full-bleed hero → horizontal content rails.
+/// Liquid Glass is used ONLY on the back button, share button, and hero action pills.
+/// Rail cards use plain white + shadow, no glass.
 struct AmenMentorChannelView: View {
     let mentorId: String
 
@@ -167,25 +348,65 @@ struct AmenMentorChannelView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    // Feature flags
+    @AppStorage("amen_mentor_channel_hero_enabled")  private var heroEnabled  = true
+    @AppStorage("amen_mentor_channel_rails_enabled") private var railsEnabled = true
+
+    // Nav + sheet state
+    @State private var showRequestSheet    = false
+    @State private var showDiscussionRoom  = false
     @State private var activeRoomType: ObjectDiscussionRoom.ObjectDiscussionRoomType = .discussion
-    @State private var showDiscussionRoom = false
-    @State private var heroCollapsed = false
-    @State private var scrollOffset: CGFloat = 0
+    @State private var showSuccessToast    = false
+
+    // Hero collapse
+    @State private var heroOffset: CGFloat = 0
+    private let heroHeight: CGFloat = 340
 
     var body: some View {
         ZStack(alignment: .top) {
-            if vm.isLoading {
-                loadingState
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+
+            if vm.isLoading && vm.profile == nil {
+                channelLoadingState
             } else if let profile = vm.profile {
-                channelContent(profile: profile)
+                channelScrollBody(profile: profile)
             } else {
-                emptyState
+                channelEmptyState
             }
 
+            // Floating glass nav — always on top
             floatingNav
+
+            // Success toast
+            if showSuccessToast {
+                VStack {
+                    Spacer()
+                    toastBanner
+                        .padding(.bottom, 100)
+                        .transition(
+                            .asymmetric(
+                                insertion:  .move(edge: .bottom).combined(with: .opacity),
+                                removal:    .move(edge: .bottom).combined(with: .opacity)
+                            )
+                        )
+                }
+            }
         }
         .ignoresSafeArea(edges: .top)
         .task { await vm.load(mentorId: mentorId) }
+        .sheet(isPresented: $showRequestSheet) {
+            MentorshipRequestSheet(mentorId: mentorId, vm: vm) {
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                    showSuccessToast = true
+                }
+                Task {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                        showSuccessToast = false
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $showDiscussionRoom) {
             if let profile = vm.profile {
                 AmenObjectDiscussionRoomView(
@@ -198,180 +419,283 @@ struct AmenMentorChannelView: View {
         }
     }
 
-    // MARK: - Channel Content
+    // MARK: - Scroll body
 
-    private func channelContent(profile: MentorChannelProfile) -> some View {
+    private func channelScrollBody(profile: MentorChannelProfile) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                // Hero — collapses on scroll
-                mentorHero(profile: profile)
-
-                VStack(spacing: 28) {
-                    // Affordance chips — above the fold, relationship-first
-                    if !vm.affordances.isEmpty {
-                        AmenAffordanceChipRow(affordances: vm.affordances) { affordance in
-                            handleAffordanceTap(affordance)
-                        }
-                    }
-
-                    // Mentor stats bar
-                    mentorStatsBar(profile: profile)
-                        .padding(.horizontal, 16)
-
-                    // Rail: Recent Teachings
-                    if !vm.recentTeachings.isEmpty {
-                        channelRail(
-                            title: "Recent Teachings",
-                            icon: "play.rectangle.fill"
-                        ) {
-                            ForEach(vm.recentTeachings) { item in
-                                TeachingCard(item: item)
-                            }
-                        }
-                    }
-
-                    // Rail: Current Series
-                    if !vm.currentSeries.isEmpty {
-                        channelRail(
-                            title: "Current Series",
-                            icon: "books.vertical.fill"
-                        ) {
-                            ForEach(vm.currentSeries) { item in
-                                TeachingCard(item: item)
-                            }
-                        }
-                    }
-
-                    // Rail: Upcoming Events
-                    if !vm.upcomingEvents.isEmpty {
-                        channelRail(
-                            title: "Upcoming Events",
-                            icon: "calendar"
-                        ) {
-                            ForEach(vm.upcomingEvents) { event in
-                                MentorEventCard(event: event)
-                            }
-                        }
-                    }
-
-                    // Office Hours CTA
-                    if profile.officeHoursAvailable {
-                        officeHoursCTA(profile: profile)
-                            .padding(.horizontal, 16)
-                    }
-
-                    // Mentorship Openings CTA
-                    if profile.mentorshipOpenings > 0 {
-                        mentorshipOpeningsCTA(profile: profile)
-                            .padding(.horizontal, 16)
-                    }
-
-                    // Focus tags
-                    if !profile.ministeringFocus.isEmpty {
-                        focusTags(profile.ministeringFocus)
-                            .padding(.horizontal, 16)
-                    }
-
-                    Spacer(minLength: 48)
+                // SECTION 1: Hero
+                if heroEnabled {
+                    heroSection(profile: profile)
                 }
-                .padding(.top, 20)
+
+                // SECTION 2: Bio card
+                bioPlusStatsCard(profile: profile)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+
+                if railsEnabled {
+                    VStack(spacing: 32) {
+                        // Affordance chips
+                        if !vm.affordances.isEmpty {
+                            AmenAffordanceChipRow(affordances: vm.affordances) { affordance in
+                                handleAffordanceTap(affordance)
+                            }
+                            .padding(.top, 8)
+                        }
+
+                        // Rail A: Recent Teachings
+                        teachingsRail
+
+                        // Rail B: Office Hours
+                        officeHoursRail(profile: profile)
+
+                        // Rail C: Active Discussions
+                        discussionsRail
+
+                        // Rail D: Upcoming Events
+                        eventsRail
+
+                        // Rail E: Study Series
+                        studySeriesRail
+
+                        // Rail F: Prayer Availability (banner)
+                        prayerAvailabilityBanner(profile: profile)
+                            .padding(.horizontal, 16)
+
+                        // SECTION 4: Related Mentors
+                        relatedMentorsRail
+
+                        Spacer(minLength: 56)
+                    }
+                    .padding(.top, 24)
+                }
             }
         }
+        .coordinateSpace(name: "mentorScroll")
     }
 
-    // MARK: - Hero
+    // MARK: - SECTION 1: Hero
 
-    private func mentorHero(profile: MentorChannelProfile) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            // Cover — gradient fallback if no video
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.purple.opacity(0.7), Color.indigo.opacity(0.9)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(height: heroCollapsed ? 120 : 280)
-                .animation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.8), value: heroCollapsed)
-
-            // Identity
-            HStack(alignment: .bottom, spacing: 14) {
-                // Avatar
-                ZStack {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 72, height: 72)
-
-                    if let avatarURL = profile.avatarURL,
-                       let url = URL(string: avatarURL) {
+    private func heroSection(profile: MentorChannelProfile) -> some View {
+        GeometryReader { geo in
+            let minY = geo.frame(in: .named("mentorScroll")).minY
+            let stretch = max(0, minY)
+            ZStack(alignment: .bottom) {
+                // Hero image (full bleed)
+                Group {
+                    if let urlStr = profile.heroImageURL, let url = URL(string: urlStr) {
                         AsyncImage(url: url) { phase in
-                            if case .success(let img) = phase {
+                            switch phase {
+                            case .success(let img):
                                 img.resizable().scaledToFill()
-                            } else {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 28))
-                                    .foregroundStyle(.white)
+                            default:
+                                heroPurpleGradient
                             }
                         }
-                        .frame(width: 72, height: 72)
-                        .clipShape(Circle())
                     } else {
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.white)
+                        heroPurpleGradient
                     }
                 }
-                .overlay(Circle().stroke(.white.opacity(0.4), lineWidth: 1.5))
+                .frame(width: geo.size.width, height: heroHeight + stretch)
+                .clipped()
+                .offset(y: -stretch / 2)
 
-                VStack(alignment: .leading, spacing: 4) {
+                // Gradient scrim — title readable at bottom
+                LinearGradient(
+                    colors: [Color.clear, Color.black.opacity(0.72)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+                .frame(height: heroHeight + stretch)
+                .offset(y: -stretch / 2)
+
+                // Identity + action pills
+                VStack(alignment: .leading, spacing: 10) {
+                    // Church badge
+                    if let church = profile.churchAffiliation {
+                        Text(church)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(reduceTransparency
+                                          ? AnyShapeStyle(Color.black.opacity(0.55))
+                                          : AnyShapeStyle(Material.ultraThinMaterial))
+                            )
+                            .accessibilityLabel("Church: \(church)")
+                    }
+
+                    // Name
                     Text(profile.displayName)
-                        .font(.title2.weight(.bold))
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+
+                    // Tagline
                     if let tagline = profile.tagline {
                         Text(tagline)
-                            .font(.subheadline)
+                            .font(.system(size: 17))
                             .foregroundStyle(.white.opacity(0.85))
                             .lineLimit(1)
                     }
-                    if let church = profile.churchAffiliation {
-                        Text(church)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
+
+                    // Hero action pills (Liquid Glass)
+                    heroActionPills(profile: profile)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
         }
+        .frame(height: heroHeight)
     }
 
-    // MARK: - Stats Bar
-
-    private func mentorStatsBar(profile: MentorChannelProfile) -> some View {
-        HStack(spacing: 0) {
-            statItem(value: formatCount(profile.followerCount), label: "Followers")
-            Divider().frame(height: 32)
-            statItem(value: "\(profile.teachingCount)", label: "Teachings")
-            Divider().frame(height: 32)
-            statItem(
-                value: profile.officeHoursAvailable ? "Open" : "Closed",
-                label: "Office Hours"
-            )
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(reduceTransparency ? AnyShapeStyle(Color(.systemGray6)) : AnyShapeStyle(.thinMaterial))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-                )
+    private var heroPurpleGradient: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.28, green: 0.12, blue: 0.55),
+                Color(red: 0.12, green: 0.05, blue: 0.30)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
     }
 
-    private func statItem(value: String, label: String) -> some View {
+    private func heroActionPills(profile: MentorChannelProfile) -> some View {
+        HStack(spacing: 10) {
+            // Message
+            heroGlassPill(icon: "message.fill", label: "Message") {
+                activeRoomType = .discussion
+                showDiscussionRoom = true
+            }
+            .accessibilityLabel("Message \(profile.displayName)")
+
+            // Request Session
+            heroGlassPill(icon: "calendar.badge.plus", label: "Request Session") {
+                showRequestSheet = true
+            }
+            .accessibilityLabel("Request a session with \(profile.displayName)")
+
+            // Follow / Following
+            heroFollowPill(profile: profile)
+        }
+    }
+
+    private func heroGlassPill(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(reduceTransparency
+                          ? AnyShapeStyle(Color.black.opacity(0.55))
+                          : AnyShapeStyle(Material.ultraThinMaterial))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
+            )
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: LiquidGlassTokens.motionNormal, dampingFraction: 0.82), value: false)
+    }
+
+    private func heroFollowPill(profile: MentorChannelProfile) -> some View {
+        Button {
+            Task { await vm.toggleFollow(mentorId: mentorId) }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: vm.isFollowing ? "bookmark.fill" : "bookmark")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(vm.isFollowing ? "Following" : "Follow Journey")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(reduceTransparency
+                          ? AnyShapeStyle(vm.isFollowing
+                                          ? Color.amenGold.opacity(0.8)
+                                          : Color.black.opacity(0.55))
+                          : AnyShapeStyle(vm.isFollowing
+                                          ? AnyShapeStyle(Color.amenGold.opacity(0.55))
+                                          : AnyShapeStyle(Material.ultraThinMaterial)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(vm.isFollowing ? "Following \(profile.displayName)" : "Follow \(profile.displayName)")
+        .animation(.spring(response: LiquidGlassTokens.motionFast, dampingFraction: 0.85), value: vm.isFollowing)
+    }
+
+    // MARK: - SECTION 2: Bio + Stats card
+
+    private func bioPlusStatsCard(profile: MentorChannelProfile) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Bio expander
+            if let bio = profile.bio, !bio.isEmpty {
+                BioExpanderView(bio: bio)
+            }
+
+            // Specialty tag chips
+            if !profile.ministeringFocus.isEmpty {
+                MentorFlowLayout(profile.ministeringFocus) { tag in
+                    Text(tag)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.amenGold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(Color.amenGold.opacity(0.12)))
+                }
+            }
+
+            Divider()
+
+            // Stats row
+            HStack(spacing: 0) {
+                statCell(value: formatCount(profile.followerCount), label: "mentees")
+                Divider().frame(height: 28)
+                statCell(value: "\(profile.teachingCount)", label: "studies")
+                Divider().frame(height: 28)
+                statCell(value: "\(profile.discussionCount)", label: "discussions")
+            }
+            .frame(maxWidth: .infinity)
+
+            // Availability indicator
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(profile.officeHoursAvailable ? Color.amenSuccess : Color(.systemGray3))
+                    .frame(width: 8, height: 8)
+                Text(profile.officeHoursAvailable
+                     ? "Available for sessions"
+                     : "Sessions full")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(profile.officeHoursAvailable ? Color.amenSuccess : .secondary)
+            }
+            .accessibilityLabel(profile.officeHoursAvailable ? "Available for sessions" : "Sessions are currently full")
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(uiColor: .systemBackground))
+                .shadow(color: .black.opacity(0.06), radius: 14, y: 6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color(uiColor: .separator).opacity(0.4), lineWidth: 0.5)
+        )
+    }
+
+    private func statCell(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 17, weight: .bold, design: .rounded))
@@ -383,145 +707,326 @@ struct AmenMentorChannelView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Rails
+    // MARK: - Rail header helper
 
-    private func channelRail<Content: View>(
-        title: String,
-        icon: String,
-        @ViewBuilder content: @escaping () -> Content
-    ) -> some View {
+    private func railHeader(title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.primary)
+            Spacer()
+            Button("See All") {}
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Color.amenGold)
+        }
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: - Rail A: Recent Teachings
+
+    private var teachingsRail: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Text(title)
-                    .font(.headline)
+            railHeader(title: "Recent Teachings")
+            if vm.isLoadingTeachings {
+                shimmerRail(cardWidth: 200, cardHeight: 140)
+            } else if vm.recentTeachings.isEmpty {
+                railEmptyLabel("No teachings yet")
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(vm.recentTeachings) { item in
+                            TeachingRailCard(item: item)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 4)
+                }
+            }
+        }
+    }
+
+    // MARK: - Rail B: Office Hours
+
+    private func officeHoursRail(profile: MentorChannelProfile) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            railHeader(title: "Office Hours")
+            if vm.isLoadingOfficeHours {
+                shimmerRail(cardWidth: 160, cardHeight: 100)
+            } else if vm.officeHourSlots.isEmpty {
+                // CTA card when no slots
+                Button { showRequestSheet = true } label: {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle().fill(Color.amenGold.opacity(0.14)).frame(width: 44, height: 44)
+                            Image(systemName: "calendar.badge.plus")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.amenGold)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Request a Session")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Text("No open slots right now — send a request to \(profile.displayName.components(separatedBy: " ").first ?? "them")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color(uiColor: .systemBackground))
+                            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.amenGold.opacity(0.25), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+                .accessibilityLabel("Request a session with \(profile.displayName)")
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(vm.officeHourSlots) { slot in
+                            OfficeHourCard(slot: slot) { showRequestSheet = true }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 4)
+                }
+            }
+        }
+    }
+
+    // MARK: - Rail C: Active Discussions
+
+    private var discussionsRail: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            railHeader(title: "Active Discussions")
+            if vm.isLoadingDiscussions {
+                shimmerRail(cardWidth: 160, cardHeight: 120)
+            } else if vm.activeDiscussions.isEmpty {
+                railEmptyLabel("No active discussions")
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(vm.activeDiscussions) { disc in
+                            DiscussionRailCard(item: disc) {
+                                activeRoomType = .discussion
+                                showDiscussionRoom = true
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 4)
+                }
+            }
+        }
+    }
+
+    // MARK: - Rail D: Upcoming Events
+
+    private var eventsRail: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            railHeader(title: "Upcoming Events")
+            if vm.isLoadingEvents {
+                shimmerRail(cardWidth: 160, cardHeight: 120)
+            } else if vm.upcomingEvents.isEmpty {
+                railEmptyLabel("No upcoming events")
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(vm.upcomingEvents) { event in
+                            EventRailCard(event: event)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 4)
+                }
+            }
+        }
+    }
+
+    // MARK: - Rail E: Study Series
+
+    private var studySeriesRail: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            railHeader(title: "Study Series")
+            if vm.isLoadingStudies {
+                shimmerRail(cardWidth: 160, cardHeight: 120)
+            } else if vm.studySeries.isEmpty {
+                railEmptyLabel("No study series yet")
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(vm.studySeries) { series in
+                            StudySeriesRailCard(series: series)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 4)
+                }
+            }
+        }
+    }
+
+    // MARK: - Rail F: Prayer Availability (banner)
+
+    private func prayerAvailabilityBanner(profile: MentorChannelProfile) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle().fill(Color.amenPrayer.opacity(0.16)).frame(width: 48, height: 48)
+                Image(systemName: "hands.and.sparkles.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color.amenPrayer)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Prayer Availability")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
-                Spacer()
-                Text("See all")
-                    .font(.subheadline)
-                    .foregroundStyle(.purple)
+                Text("\(profile.displayName.components(separatedBy: " ").first ?? "This mentor") receives prayer requests through the app")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+            Button("Request") {
+                activeRoomType = .prayer
+                showDiscussionRoom = true
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color.amenPrayer))
+            .accessibilityLabel("Request prayer from \(profile.displayName)")
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: .systemBackground))
+                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.amenPrayer.opacity(0.25), lineWidth: 1)
+        )
+    }
+
+    // MARK: - SECTION 4: Related Mentors
+
+    private var relatedMentorsRail: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            railHeader(title: "Related Mentors")
+            if vm.isLoadingRelated {
+                shimmerRail(cardWidth: 120, cardHeight: 120)
+            } else if vm.relatedMentors.isEmpty {
+                railEmptyLabel("No related mentors found")
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(vm.relatedMentors) { mentor in
+                            RelatedMentorCard(item: mentor)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 4)
+                }
+            }
+        }
+    }
+
+    // MARK: - Shimmer placeholder rail
+
+    private func shimmerRail(cardWidth: CGFloat, cardHeight: CGFloat) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(0..<3, id: \.self) { _ in
+                    ShimmerRect(width: cardWidth, height: cardHeight, cornerRadius: 12)
+                }
             }
             .padding(.horizontal, 20)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    content()
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 4)
-            }
         }
     }
 
-    // MARK: - Office Hours CTA
-
-    private func officeHoursCTA(profile: MentorChannelProfile) -> some View {
-        Button {
-            activeRoomType = .discussion
-            showDiscussionRoom = true
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(Color.green.opacity(0.15)).frame(width: 44, height: 44)
-                    Image(systemName: "clock.badge.checkmark.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.green)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Office Hours Open")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text("Start a conversation with \(profile.displayName.components(separatedBy: " ").first ?? "them")")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(reduceTransparency ? AnyShapeStyle(Color(.systemGray6)) : AnyShapeStyle(.ultraThinMaterial))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                    )
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Office hours open. Start a conversation with \(profile.displayName).")
+    private func railEmptyLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.subheadline)
+            .foregroundStyle(.tertiary)
+            .padding(.horizontal, 20)
     }
 
-    // MARK: - Mentorship Openings CTA
+    // MARK: - Floating glass nav
 
-    private func mentorshipOpeningsCTA(profile: MentorChannelProfile) -> some View {
-        Button {
-            activeRoomType = .studyGroup
-            showDiscussionRoom = true
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(Color.purple.opacity(0.15)).frame(width: 44, height: 44)
-                    Image(systemName: "person.badge.plus.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.purple)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(profile.mentorshipOpenings) Mentorship \(profile.mentorshipOpenings == 1 ? "Opening" : "Openings")")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text("Request a mentorship with \(profile.displayName.components(separatedBy: " ").first ?? "them")")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.tertiary)
+    private var floatingNav: some View {
+        HStack {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background {
+                        Circle()
+                            .fill(reduceTransparency
+                                  ? AnyShapeStyle(Color.black.opacity(0.6))
+                                  : AnyShapeStyle(Material.ultraThinMaterial))
+                    }
+                    .clipShape(Circle())
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(reduceTransparency ? AnyShapeStyle(Color(.systemGray6)) : AnyShapeStyle(.ultraThinMaterial))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                    )
-            )
+            .accessibilityLabel("Back")
+
+            Spacer()
+
+            // Share (glass pill)
+            Button {
+                shareChannel()
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background {
+                        Circle()
+                            .fill(reduceTransparency
+                                  ? AnyShapeStyle(Color.black.opacity(0.6))
+                                  : AnyShapeStyle(Material.ultraThinMaterial))
+                    }
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("Share mentor channel")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(profile.mentorshipOpenings) mentorship openings. Request a mentorship with \(profile.displayName).")
+        .padding(.horizontal, 16)
+        .padding(.top, 56)
+        .animation(.spring(response: LiquidGlassTokens.motionNormal, dampingFraction: 0.82), value: heroEnabled)
     }
 
-    // MARK: - Focus Tags
+    // MARK: - Toast
 
-    private func focusTags(_ tags: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Ministering Focus")
-                .font(.headline)
+    private var toastBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color.amenSuccess)
+            Text("Request sent!")
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
-
-            MentorFlowLayout(tags) { tag in
-                Text(tag)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(Color.purple.opacity(0.1))
-                    )
-            }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(
+            Capsule()
+                .fill(Color(uiColor: .systemBackground))
+                .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
+        )
     }
 
-    // MARK: - States
+    // MARK: - Loading / Empty
 
-    private var loadingState: some View {
+    private var channelLoadingState: some View {
         VStack(spacing: 20) {
             Spacer()
             ProgressView()
@@ -534,7 +1039,7 @@ struct AmenMentorChannelView: View {
         .background(Color(uiColor: .systemGroupedBackground))
     }
 
-    private var emptyState: some View {
+    private var channelEmptyState: some View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "person.slash")
@@ -549,172 +1054,527 @@ struct AmenMentorChannelView: View {
         .background(Color(uiColor: .systemGroupedBackground))
     }
 
-    // MARK: - Floating Nav
-
-    private var floatingNav: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background {
-                        if reduceTransparency {
-                            Circle().fill(Color.black.opacity(0.6))
-                        } else {
-                            Circle().fill(.ultraThinMaterial)
-                        }
-                    }
-                    .clipShape(Circle())
-            }
-            .accessibilityLabel("Back")
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 56)
-    }
-
     // MARK: - Helpers
 
     private func handleAffordanceTap(_ affordance: ObjectAffordance) {
         switch affordance.kind {
-        case .discussion:     activeRoomType = .discussion
-        case .prayerRoom:     activeRoomType = .prayer
-        case .studyGroup:     activeRoomType = .studyGroup
+        case .discussion:                activeRoomType = .discussion
+        case .prayerRoom:               activeRoomType = .prayer
+        case .studyGroup:               activeRoomType = .studyGroup
         case .membersPresent, .liveNow: activeRoomType = .discussion
         }
         showDiscussionRoom = true
     }
 
+    private func shareChannel() {
+        guard let profile = vm.profile else { return }
+        let text = "Check out \(profile.displayName)'s mentor channel on AMEN."
+        let vc = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        if let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first?.windows.first {
+            window.rootViewController?.present(vc, animated: true)
+        }
+    }
+
     private func formatCount(_ n: Int) -> String {
         if n >= 1_000_000 { return "\(n / 1_000_000)M" }
-        if n >= 1_000 { return "\(n / 1_000)k" }
+        if n >= 1_000     { return "\(n / 1_000)k" }
         return "\(n)"
     }
 }
 
-// MARK: - Teaching Card
+// MARK: - Bio expander
 
-private struct TeachingCard: View {
+private struct BioExpanderView: View {
+    let bio: String
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(bio)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(expanded ? nil : 3)
+                .animation(.spring(response: 0.38, dampingFraction: 0.78), value: expanded)
+
+            if bio.count > 120 {
+                Button(expanded ? "Show less" : "Show more") {
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                        expanded.toggle()
+                    }
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.amenGold)
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+// MARK: - Rail Card: Teaching
+
+private struct TeachingRailCard: View {
     let item: MentorTeachingItem
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.purple.opacity(0.1))
-                    .frame(width: 160, height: 100)
-
-                if let thumbnailURL = item.thumbnailURL,
-                   let url = URL(string: thumbnailURL) {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let img) = phase {
-                            img.resizable().scaledToFill()
-                        } else {
-                            Image(systemName: "play.rectangle.fill")
-                                .font(.system(size: 28))
-                                .foregroundStyle(.purple.opacity(0.4))
+            ZStack(alignment: .bottomTrailing) {
+                Group {
+                    if let urlStr = item.thumbnailURL, let url = URL(string: urlStr) {
+                        AsyncImage(url: url) { phase in
+                            if case .success(let img) = phase {
+                                img.resizable().scaledToFill()
+                            } else {
+                                teachingPlaceholder
+                            }
                         }
+                    } else {
+                        teachingPlaceholder
                     }
-                    .frame(width: 160, height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                } else {
-                    Image(systemName: "play.rectangle.fill")
-                        .font(.system(size: 28))
-                        .foregroundStyle(.purple.opacity(0.4))
                 }
+                .frame(width: 200, height: 140)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                if let duration = item.durationLabel {
-                    Text(duration)
+                if let dur = item.durationLabel {
+                    Text(dur)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.black.opacity(0.6)))
+                        .background(Capsule().fill(Color.black.opacity(0.62)))
                         .padding(8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
             }
-            .frame(width: 160, height: 100)
+            .frame(width: 200, height: 140)
 
             Text(item.title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
-                .frame(width: 160, alignment: .leading)
+                .frame(width: 200, alignment: .leading)
 
             if let series = item.seriesName {
                 Text(series)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .frame(width: 160, alignment: .leading)
+                    .frame(width: 200, alignment: .leading)
             }
         }
+        .shadow(color: .black.opacity(0.07), radius: 8, y: 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(item.title + (item.seriesName.map { " — \($0)" } ?? ""))
+        .accessibilityLabel(item.title + (item.seriesName.map { " – \($0)" } ?? ""))
+    }
+
+    private var teachingPlaceholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(red: 0.28, green: 0.12, blue: 0.55).opacity(0.12))
+            Image(systemName: "play.rectangle.fill")
+                .font(.system(size: 30))
+                .foregroundStyle(Color(red: 0.28, green: 0.12, blue: 0.55).opacity(0.35))
+        }
     }
 }
 
-// MARK: - Event Card
+// MARK: - Rail Card: Office Hours
 
-private struct MentorEventCard: View {
-    let event: MentorEventItem
+private struct OfficeHourCard: View {
+    let slot: MentorOfficeHourSlot
+    let onBook: () -> Void
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE MMM d"
+        return f
+    }()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.orange.opacity(0.2), Color.red.opacity(0.15)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 180, height: 80)
-
-                VStack(spacing: 4) {
-                    Image(systemName: event.isOnline ? "video.fill" : "mappin.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(.orange)
-                    Text(event.isOnline ? "Online" : "In Person")
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.amenGold)
+                Spacer()
+                if slot.isBooked {
+                    Text("Booked")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color(.systemGray5)))
                 }
             }
-            .frame(width: 180, height: 80)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Self.dateFormatter.string(from: slot.startTime))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("\(Self.timeFormatter.string(from: slot.startTime)) – \(Self.timeFormatter.string(from: slot.endTime))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !slot.isBooked {
+                Button("Book", action: onBook)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.amenGold))
+            }
+        }
+        .padding(12)
+        .frame(width: 160)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: .systemBackground))
+                .shadow(color: .black.opacity(0.07), radius: 8, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            slot.isBooked
+            ? "Slot on \(Self.dateFormatter.string(from: slot.startTime)) is booked"
+            : "Available slot on \(Self.dateFormatter.string(from: slot.startTime)). Book button."
+        )
+    }
+}
+
+// MARK: - Rail Card: Discussion
+
+private struct DiscussionRailCard: View {
+    let item: MentorActiveDiscussion
+    let onTap: () -> Void
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f
+    }()
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.amenScripture.opacity(0.12))
+                        .frame(height: 48)
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color.amenScripture)
+                }
+
+                Text(item.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                    Text("\(item.participantCount)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let last = item.lastActiveAt {
+                        Text(Self.relativeFormatter.localizedString(for: last, relativeTo: Date()))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(width: 160)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(uiColor: .systemBackground))
+                    .shadow(color: .black.opacity(0.07), radius: 8, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.title), \(item.participantCount) participants")
+    }
+}
+
+// MARK: - Rail Card: Event
+
+private struct EventRailCard: View {
+    let event: MentorEventItem
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d"
+        return f
+    }()
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM"
+        return f
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                // Calendar date block
+                VStack(spacing: 0) {
+                    if let date = event.startAt {
+                        Text(Self.monthFormatter.string(from: date).uppercased())
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 3)
+                            .background(Color.amenError)
+
+                        Text(Self.dayFormatter.string(from: date))
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                            .background(Color(uiColor: .systemGray6))
+                    }
+                }
+                .frame(width: 40)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color(uiColor: .separator).opacity(0.4), lineWidth: 0.5)
+                )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Image(systemName: event.isOnline ? "video.fill" : "mappin.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(event.isOnline ? Color.amenInfo : Color.amenWarning)
+                    Text(event.isOnline ? "Online" : "In Person")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if event.rsvpCount > 0 {
+                    Text("\(event.rsvpCount) going")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             Text(event.title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
-                .frame(width: 180, alignment: .leading)
+                .multilineTextAlignment(.leading)
 
-            Text(event.dateLabel)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .frame(width: 180, alignment: .leading)
+            if let date = event.startAt {
+                Text(Self.timeFormatter.string(from: date))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .padding(12)
+        .frame(width: 160)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: .systemBackground))
+                .shadow(color: .black.opacity(0.07), radius: 8, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5)
+        )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(event.title), \(event.dateLabel), \(event.isOnline ? "online" : event.locationLabel ?? "in person")")
+        .accessibilityLabel("\(event.title), \(event.isOnline ? "online" : event.locationLabel ?? "in person")")
     }
 }
 
-// MARK: - Flow Layout (wrapping tag row)
+// MARK: - Rail Card: Study Series
 
-private struct MentorFlowLayout<Data: RandomAccessCollection, Content: View>: View where Data.Element: Hashable {
+private struct StudySeriesRailCard: View {
+    let series: MentorStudySeries
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.amenGold.opacity(0.12))
+                    .frame(height: 52)
+                Image(systemName: "books.vertical.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color.amenGold)
+            }
+
+            Text(series.title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            Text("\(series.lessonCount) lessons")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            if series.isEnrolled {
+                VStack(alignment: .leading, spacing: 3) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color(.systemGray5)).frame(height: 4)
+                            Capsule()
+                                .fill(Color.amenGold)
+                                .frame(width: geo.size.width * series.progressFraction, height: 4)
+                        }
+                    }
+                    .frame(height: 4)
+                    Text("\(Int(series.progressFraction * 100))% complete")
+                        .font(.caption2)
+                        .foregroundStyle(Color.amenGold)
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 160)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: .systemBackground))
+                .shadow(color: .black.opacity(0.07), radius: 8, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(series.isEnrolled
+                            ? "\(series.title), \(series.lessonCount) lessons, \(Int(series.progressFraction * 100)) percent complete"
+                            : "\(series.title), \(series.lessonCount) lessons")
+    }
+}
+
+// MARK: - Rail Card: Related Mentor
+
+private struct RelatedMentorCard: View {
+    let item: RelatedMentorItem
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Group {
+                if let urlStr = item.avatarURL, let url = URL(string: urlStr) {
+                    AsyncImage(url: url) { phase in
+                        if case .success(let img) = phase {
+                            img.resizable().scaledToFill()
+                        } else {
+                            initialsCircle
+                        }
+                    }
+                } else {
+                    initialsCircle
+                }
+            }
+            .frame(width: 80, height: 80)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
+
+            Text(item.displayName)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: 100)
+
+            if let spec = item.primarySpecialty {
+                Text(spec)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: 100)
+            }
+        }
+        .frame(width: 110)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(item.displayName + (item.primarySpecialty.map { " – \($0)" } ?? ""))
+    }
+
+    private var initialsCircle: some View {
+        ZStack {
+            Circle().fill(Color(red: 0.28, green: 0.12, blue: 0.55).opacity(0.12))
+            Text(item.displayName
+                .components(separatedBy: " ")
+                .prefix(2)
+                .compactMap { $0.first.map(String.init) }
+                .joined()
+                .uppercased()
+            )
+            .font(.system(size: 24, weight: .semibold))
+            .foregroundStyle(Color(red: 0.28, green: 0.12, blue: 0.55))
+        }
+    }
+}
+
+// MARK: - Shimmer placeholder
+
+private struct ShimmerRect: View {
+    let width: CGFloat
+    let height: CGFloat
+    let cornerRadius: CGFloat
+
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: Color(.systemGray5), location: phase - 0.3),
+                        .init(color: Color(.systemGray4), location: phase),
+                        .init(color: Color(.systemGray5), location: phase + 0.3)
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .frame(width: width, height: height)
+            .onAppear {
+                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                    phase = 1.6
+                }
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Flow layout (wrapping tag row)
+
+private struct MentorFlowLayout<Data: RandomAccessCollection, Content: View>: View
+    where Data.Element: Hashable {
     let data: Data
     let content: (Data.Element) -> Content
 
     init(_ data: Data, @ViewBuilder content: @escaping (Data.Element) -> Content) {
-        self.data = data
+        self.data    = data
         self.content = content
     }
 
     var body: some View {
-        var width: CGFloat = 0
+        var width:  CGFloat = 0
         var height: CGFloat = 0
         return GeometryReader { geo in
             ZStack(alignment: .topLeading) {
@@ -737,5 +1597,90 @@ private struct MentorFlowLayout<Data: RandomAccessCollection, Content: View>: Vi
             }
         }
         .frame(height: 80)
+    }
+}
+
+// MARK: - SECTION 5: Mentorship Request Sheet
+
+private struct MentorshipRequestSheet: View {
+    let mentorId: String
+    @ObservedObject var vm: AmenMentorChannelViewModel
+    let onSuccess: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var goal:         String = ""
+    @State private var message:      String = ""
+    @State private var availability: String = "Morning"
+    @State private var isSubmitting  = false
+    @State private var showError     = false
+
+    private let availabilityOptions = ["Morning", "Afternoon", "Evening", "Flexible"]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Your Goal") {
+                    TextEditor(text: $goal)
+                        .frame(minHeight: 80)
+                        .accessibilityLabel("Describe your mentorship goal")
+                }
+
+                Section("Preferred Availability") {
+                    Picker("Availability", selection: $availability) {
+                        ForEach(availabilityOptions, id: \.self) { Text($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Select preferred availability")
+                }
+
+                Section("Message to Mentor (optional)") {
+                    TextEditor(text: $message)
+                        .frame(minHeight: 80)
+                        .accessibilityLabel("Write an optional message to the mentor")
+                }
+            }
+            .navigationTitle("Request Session")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await submit() }
+                    } label: {
+                        if isSubmitting {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Send")
+                        }
+                    }
+                    .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
+                }
+            }
+            .alert("Could not send request", isPresented: $showError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Please check your connection and try again.")
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func submit() async {
+        isSubmitting = true
+        let success = await vm.submitMentorshipRequest(
+            mentorId:     mentorId,
+            goal:         goal,
+            availability: availability,
+            message:      message
+        )
+        isSubmitting = false
+        if success {
+            dismiss()
+            onSuccess()
+        } else {
+            showError = true
+        }
     }
 }

@@ -28,7 +28,7 @@ struct BereanMentorDashboardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Image(systemName: relationship.mentorUid == nil ? "cpu.fill" : "person.fill")
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accentColor)
                     Text(relationship.mentorUid == nil ? "AI Mentor" : "Human Mentor")
                         .font(.headline)
                 }

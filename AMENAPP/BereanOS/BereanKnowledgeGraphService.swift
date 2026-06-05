@@ -155,9 +155,9 @@ final class BereanKnowledgeGraphService: ObservableObject {
 
         return BereanKnowledgeNode(
             id: id,
-            ownerUid: ownerUid,
             title: title,
             nodeType: nodeType,
+            ownerUid: ownerUid,
             linkedNodeIds: data["linkedNodeIds"] as? [String] ?? [],
             projectIds: data["projectIds"] as? [String] ?? [],
             metadata: data["metadata"] as? [String: String] ?? [:],

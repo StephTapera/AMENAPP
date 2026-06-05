@@ -63,7 +63,7 @@ private struct TagFlowRow: View {
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.35))
                 .tracking(1.5)
-            FlowLayout(spacing: 4) {
+            TagChipFlowLayout(spacing: 4) {
                 ForEach(items.prefix(4), id: \.self) { item in
                     Text(item)
                         .font(.system(size: 11))
@@ -78,7 +78,7 @@ private struct TagFlowRow: View {
     }
 }
 
-struct FlowLayout: Layout {
+private struct TagChipFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

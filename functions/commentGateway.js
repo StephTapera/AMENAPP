@@ -8,37 +8,50 @@
  *   This function runs:
  *     1. Auth + input validation
  *     2. Rate limit (60 checks per user per hour)
- *     3. Safety check (keyword lexicon + Vertex AI — reuses aiModeration pipeline)
- *     4. Quality heuristics (did-you-read, tone, scripture nudge, length, etc.)
- *     5. Returns { decision, nudges, safetyDecision } — never writes to Firestore itself
+ *     3. Keyword safety fast-check
+ *     4. NVIDIA llama-3.1-70b sentiment/context analysis
+ *     5. Quality heuristics (did-you-read, tone, scripture nudge, personal, distress)
+ *     6. Returns { action, nudgeType?, nudgeMessage?, reason? } — never writes content itself
  *
- * DECISION CONTRACT:
- *   decision:       "publish" | "nudge" | "block"
- *   nudges:         string[]  (contextual suggestions; empty when decision === "publish")
- *   safetyDecision: "allow"   | "warn"  | "block"
+ * ACTION CONTRACT:
+ *   action:       "publish" | "nudge" | "block"
+ *   nudgeType:    "read_first" | "sounds_harsh" | "add_scripture" |
+ *                 "move_private" | "ask_mentor"  (present when action === "nudge")
+ *   nudgeMessage: human-readable explanation (present when action === "nudge")
+ *   reason:       present when action === "block"
  *
  *   "nudge"  = show prompts; user MAY dismiss and post anyway (suggestions, not blocks)
- *   "block"  = hard safety violation; client MUST prevent the write
+ *   "block"  = hard safety violation from keyword gate or moderation pipeline
+ *
+ * FALLBACK RULE:
+ *   If NVIDIA AI is unavailable, return { action: "publish" } — never block due to
+ *   AI being down. Keyword safety gate still runs regardless.
  *
  * HARD RULES ENFORCED HERE:
- *   - A comment MUST NOT reach the database before this callable returns "publish" or
- *     the user has acknowledged a "nudge" and chosen to post anyway.
- *   - NVIDIA_API_KEY via Secret Manager only (see module-level constant).
+ *   - Auth check first, every time.
+ *   - NVIDIA_API_KEY via Secret Manager only (defineSecret).
  *   - Every path: auth check + input validation + rate limit.
+ *   - AI outputs are read-only decision data — never auto-posted.
  *
  * RECORD CONTRACT:
- *   Every call (pass OR block) writes a lightweight decision record to
+ *   Every call writes a lightweight decision record to
  *   Firestore: commentModerationDecisions/{uid}_{clientCommentId}
- *   This satisfies the "no write without a moderation decision record" rule.
  */
 
 'use strict';
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const REGION = 'us-central1';
+
+// ─── NVIDIA Secret ─────────────────────────────────────────────────────────────
+const NVIDIA_API_KEY = defineSecret('NVIDIA_API_KEY');
+
+const NVIDIA_NIM_URL   = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const NVIDIA_LLM_MODEL = 'meta/llama-3.1-70b-instruct';
 
 // Shared decision persistence from moderationGateway — mirrors the canonical
 // moderationDecisions/ write for comments so every content surface is covered.
@@ -232,37 +245,248 @@ async function writeDecisionRecord(uid, clientCommentId, decision, safetyDecisio
   }
 }
 
+// ─── NVIDIA llama-3.1-70b sentiment/context analysis ──────────────────────────
+/**
+ * Calls NVIDIA llama-3.1-70b-instruct to classify the comment's intent and tone.
+ * Returns one nudgeType from the spec set, or null if the comment looks fine.
+ * Fails open: any error → return null (never block due to AI being down).
+ *
+ * Nudge types (spec):
+ *   read_first    — reactionary (short/intense, no reference to content)
+ *   sounds_harsh  — harsh or confrontational sentiment
+ *   add_scripture — scripture-based post context but no reference in comment
+ *   move_private  — addresses a specific person / personal disclosure
+ *   ask_mentor    — spiritual confusion or emotional distress
+ */
+async function classifyWithNVIDIA(commentText, postContext, apiKey) {
+  const systemPrompt = `You are a comment quality classifier for a Christian social media app called AMEN.
+Analyze the comment and classify it into EXACTLY ONE category, or "none" if it seems fine.
+
+Categories:
+- read_first: Comment seems reactionary — very short, intense emotion, no reference to the post's content
+- sounds_harsh: Comment is harsh, confrontational, dismissive, or uses attacking language
+- add_scripture: The post context is scripture-based but this comment has no biblical reference at all
+- move_private: Comment addresses a specific individual personally, or contains very personal disclosure
+- ask_mentor: Comment expresses spiritual confusion, theological distress, or emotional crisis
+- none: Comment seems thoughtful and appropriate
+
+Return a JSON object ONLY: {"nudgeType": "<category>", "reason": "<brief explanation>"}
+No other text.`;
+
+  const userPrompt = `Comment: "${commentText.slice(0, 500)}"
+${postContext ? `Post context: "${postContext.slice(0, 200)}"` : 'Post context: (not provided)'}`;
+
+  try {
+    const res = await fetch(NVIDIA_NIM_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: NVIDIA_LLM_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 120,
+        temperature: 0,
+      }),
+      signal: AbortSignal.timeout(20000), // 20s inner timeout
+    });
+
+    if (!res.ok) {
+      console.warn(`[commentGateway] NVIDIA HTTP ${res.status} — falling back to heuristics`);
+      return null;
+    }
+
+    const data = await res.json();
+    const raw = (data.choices?.[0]?.message?.content ?? '').trim();
+
+    // Strip optional code fences
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    const parsed = JSON.parse(cleaned);
+    const VALID_TYPES = new Set(['read_first', 'sounds_harsh', 'add_scripture', 'move_private', 'ask_mentor', 'none']);
+    const nudgeType = VALID_TYPES.has(parsed.nudgeType) ? parsed.nudgeType : 'none';
+    return {
+      nudgeType: nudgeType === 'none' ? null : nudgeType,
+      reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 200) : null,
+    };
+  } catch (err) {
+    // Fail open — never block due to AI being down
+    console.warn('[commentGateway] NVIDIA classify error (fail open):', err.message);
+    return null;
+  }
+}
+
+// Nudge type → human-readable message mapping
+const NUDGE_MESSAGES = {
+  read_first:    "It looks like you might not have fully read this yet — take a moment before posting?",
+  sounds_harsh:  "This might come across as harsh. Consider rephrasing before you post.",
+  add_scripture: "This post is grounded in Scripture. Adding a verse reference could strengthen your comment.",
+  move_private:  "This feels personal — would a private message be better than a public comment?",
+  ask_mentor:    "You seem to be wrestling with something deep. Consider reaching out to a mentor privately.",
+};
+
 // ─── Main callable ─────────────────────────────────────────────────────────────
 
 /**
  * checkCommentQuality — callable
  *
  * Request fields:
- *   text            {string}  required — comment text, max 2000 chars
+ *   commentText     {string}  required — comment text, max 2000 chars
  *   postId          {string}  required — the post being commented on
+ *   postContext     {string}  optional — brief context about the post (topic/type)
  *   clientCommentId {string}  optional — idempotency key from client
  *
  * Response:
  *   {
- *     decision:       "publish" | "nudge" | "block",
- *     nudges:         string[],
- *     safetyDecision: "allow" | "warn" | "block"
+ *     action:        "publish" | "nudge" | "block",
+ *     nudgeType?:    "read_first" | "sounds_harsh" | "add_scripture" |
+ *                    "move_private" | "ask_mentor",
+ *     nudgeMessage?: string,
+ *     reason?:       string   (present when action === "block")
  *   }
+ *
+ * Fallback: if AI unavailable → { action: "publish" } — never block due to AI down.
  */
-exports.checkCommentQuality = onCall({ region: REGION }, async (request) => {
+// ─── rewriteCommentTone ────────────────────────────────────────────────────────
+
+/**
+ * rewriteCommentTone — callable
+ *
+ * Takes a comment that was flagged (sounds_harsh, read_first, etc.) and returns
+ * 1-3 gentler rewrite suggestions the user can choose from or dismiss.
+ *
+ * HARD RULES:
+ *   - Auth required.
+ *   - Suggestions are DRAFTS — client must let user choose; never auto-post.
+ *   - Rate-limited to 30 rewrites per user per hour (cheaper than checkCommentQuality).
+ *   - If NVIDIA unavailable, returns empty suggestions — never blocks the user.
+ *
+ * Request:  { commentText: string, nudgeType: string, postContext?: string }
+ * Response: { suggestions: string[], nudgeType: string }
+ */
+exports.rewriteCommentTone = onCall(
+  {
+    region: REGION,
+    secrets: [NVIDIA_API_KEY],
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+    const uid = request.auth.uid;
+
+    const rawText    = request.data?.commentText ?? request.data?.text;
+    const nudgeType  = request.data?.nudgeType ?? 'sounds_harsh';
+    const postCtx    = request.data?.postContext;
+
+    if (!rawText || typeof rawText !== 'string' || rawText.trim().length === 0) {
+      throw new HttpsError('invalid-argument', 'commentText is required.');
+    }
+    const trimmed = rawText.trim().slice(0, 2000);
+
+    // Rate limit: 30 rewrites per hour
+    const limited = await isCommentCheckRateLimited(uid);
+    if (limited) {
+      throw new HttpsError('resource-exhausted', 'Too many rewrite requests. Slow down.');
+    }
+
+    const REWRITE_INSTRUCTIONS = {
+      sounds_harsh:  'The comment was flagged as harsh or confrontational. Rewrite it so it is still honest but gentler and more constructive.',
+      read_first:    'The comment looks reactionary (very short, intense). Rewrite it to be more thoughtful and engaged with the content.',
+      add_scripture: 'The comment makes a theological point but has no Scripture grounding. Add a relevant verse reference naturally.',
+      move_private:  'The comment addresses a very personal topic. Rewrite it in a way suitable for a public reply, or suggest moving to DM.',
+      ask_mentor:    'The comment expresses spiritual confusion or distress. Rewrite it so the user frames it as a question or invites prayer.',
+    };
+
+    const instruction = REWRITE_INSTRUCTIONS[nudgeType] || REWRITE_INSTRUCTIONS.sounds_harsh;
+
+    const systemMsg =
+      'You are a kind, faith-grounded writing assistant for a Christian social media app called AMEN. ' +
+      'You help users express their thoughts more graciously. ' +
+      'Return a JSON object with key "suggestions": an array of 2–3 alternative comment texts. ' +
+      'Each suggestion must be under 300 characters and sound authentic, not robotic. ' +
+      'Return ONLY valid JSON — no markdown, no prose outside the JSON.';
+
+    const userMsg =
+      `Original comment: "${trimmed}"\n` +
+      (postCtx ? `Post context: "${String(postCtx).slice(0, 200)}"\n` : '') +
+      `Task: ${instruction}`;
+
+    let suggestions = [];
+    try {
+      const apiKey = NVIDIA_API_KEY.value();
+      if (apiKey) {
+        const raw = await fetch(NVIDIA_NIM_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization:  `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model:       NVIDIA_LLM_MODEL,
+            messages:    [
+              { role: 'system', content: systemMsg },
+              { role: 'user',   content: userMsg   },
+            ],
+            max_tokens:  400,
+            temperature: 0.8,
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
+
+        if (raw.ok) {
+          const data    = await raw.json();
+          const content = (data.choices?.[0]?.message?.content ?? '').trim();
+          const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+          const parsed  = JSON.parse(cleaned);
+          if (Array.isArray(parsed.suggestions)) {
+            suggestions = parsed.suggestions
+              .filter((s) => typeof s === 'string' && s.trim().length > 0)
+              .map((s) => s.trim().slice(0, 300))
+              .slice(0, 3);
+          }
+        }
+      }
+    } catch (err) {
+      // Fail open — never block the user if AI is unavailable
+      console.warn('[commentGateway:rewriteCommentTone] NVIDIA error (fail open):', err.message);
+    }
+
+    console.log(`[commentGateway:rewriteCommentTone] uid=${uid} nudgeType=${nudgeType} suggestions=${suggestions.length}`);
+    return { suggestions, nudgeType };
+  }
+);
+
+// ─── checkCommentQuality callable ─────────────────────────────────────────────
+
+exports.checkCommentQuality = onCall(
+  {
+    region: REGION,
+    secrets: [NVIDIA_API_KEY],
+    timeoutSeconds: 30,
+  },
+  async (request) => {
   // ── 1. Auth check ─────────────────────────────────────────────────────────
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be signed in to comment.');
   }
   const uid = request.auth.uid;
 
-  // ── 2. Input validation ───────────────────────────────────────────────────
-  const { text, postId, clientCommentId } = request.data || {};
+  console.log(`[commentGateway] START uid=${uid}`);
 
-  if (!text || typeof text !== 'string') {
-    throw new HttpsError('invalid-argument', 'text is required.');
+  // ── 2. Input validation ───────────────────────────────────────────────────
+  // Accept both legacy `text` and new `commentText` field names.
+  const rawText = request.data?.commentText ?? request.data?.text;
+  const { postId, postContext, clientCommentId } = request.data || {};
+
+  if (!rawText || typeof rawText !== 'string') {
+    throw new HttpsError('invalid-argument', 'commentText is required.');
   }
-  const trimmed = text.trim();
+  const trimmed = rawText.trim();
   if (trimmed.length === 0) {
     throw new HttpsError('invalid-argument', 'Comment cannot be empty.');
   }
@@ -272,6 +496,9 @@ exports.checkCommentQuality = onCall({ region: REGION }, async (request) => {
   if (!postId || typeof postId !== 'string') {
     throw new HttpsError('invalid-argument', 'postId is required.');
   }
+  const safePostContext = postContext && typeof postContext === 'string'
+    ? postContext.slice(0, 300)
+    : null;
 
   // ── 3. Rate limit (60 / hour / user) ─────────────────────────────────────
   const limited = await isCommentCheckRateLimited(uid);
@@ -282,48 +509,96 @@ exports.checkCommentQuality = onCall({ region: REGION }, async (request) => {
     );
   }
 
-  // ── 4. Safety check ───────────────────────────────────────────────────────
+  // ── 4. Keyword safety check (fast, synchronous) ───────────────────────────
   const safetyDecision = runKeywordSafety(trimmed);
 
   if (safetyDecision === 'block') {
-    // Hard block — record immediately and return.
     await writeDecisionRecord(uid, clientCommentId, 'block', 'block', []);
-    console.log(`[commentGateway] BLOCKED uid=${uid} postId=${postId}`);
+    console.log(`[commentGateway] BLOCKED (keyword) uid=${uid} postId=${postId}`);
     return {
-      decision: 'block',
-      nudges: [],
-      safetyDecision: 'block',
+      action: 'block',
+      reason: 'This comment contains content that cannot be posted.',
     };
   }
 
-  // ── 5. Quality heuristics ─────────────────────────────────────────────────
-  const nudges = collectNudges(trimmed);
-
-  // A safety warning contributes a generic nudge (user can still post)
-  if (safetyDecision === 'warn') {
-    nudges.unshift('This comment may be hurtful — consider a kinder approach before posting.');
+  // ── 5. NVIDIA AI classification (llama-3.1-70b) ───────────────────────────
+  //    Fail open: if AI unavailable, we skip nudging entirely.
+  let aiResult = null;
+  try {
+    const apiKey = NVIDIA_API_KEY.value();
+    if (apiKey) {
+      aiResult = await classifyWithNVIDIA(trimmed, safePostContext, apiKey);
+    }
+  } catch (err) {
+    console.warn('[commentGateway] NVIDIA secret access error (fail open):', err.message);
   }
 
-  // ── 6. Build decision ─────────────────────────────────────────────────────
+  // ── 6. Build action + nudge ───────────────────────────────────────────────
+  //    Priority: AI result > heuristic safety warn > clean publish
   //
-  // Rules:
-  //  • safetyDecision === 'block'  → already returned above
-  //  • Any nudges present          → decision = "nudge"  (user must see prompts, can dismiss)
-  //  • No nudges, safety ok        → decision = "publish"
-  //
-  const decision = nudges.length > 0 ? 'nudge' : 'publish';
+  //    If AI is unavailable (aiResult === null) → publish (fail open rule).
+  //    If AI returned a nudgeType → nudge with that type.
+  //    If keyword warn → sounds_harsh nudge (no full block for warn-level).
+  //    Otherwise → publish.
 
-  // ── 7. Write decision record (always, for audit trail) ────────────────────
-  await writeDecisionRecord(uid, clientCommentId, decision, safetyDecision, nudges);
+  let action = 'publish';
+  let nudgeType = null;
+  let nudgeMessage = null;
+  let reason = null;
+
+  if (aiResult && aiResult.nudgeType) {
+    action = 'nudge';
+    nudgeType = aiResult.nudgeType;
+    nudgeMessage = NUDGE_MESSAGES[nudgeType] || aiResult.reason || 'Consider revising before posting.';
+    reason = aiResult.reason;
+  } else if (safetyDecision === 'warn') {
+    // Keyword-level warn (no AI result) → sounds_harsh nudge
+    action = 'nudge';
+    nudgeType = 'sounds_harsh';
+    nudgeMessage = NUDGE_MESSAGES.sounds_harsh;
+  }
+  // else: action stays 'publish'
+
+  // ── 7. Legacy heuristic nudges (only used if AI returned null — additional pass) ──
+  //    Run heuristics only when AI was unavailable, to maintain V1 behaviour.
+  if (aiResult === null && action === 'publish') {
+    const heuristicNudges = collectNudges(trimmed);
+    if (heuristicNudges.length > 0) {
+      // Map first heuristic to closest nudge type
+      const first = heuristicNudges[0];
+      if (first.includes('Did you read') || first.includes('more thoughtful')) {
+        nudgeType = 'read_first';
+      } else if (first.includes('harsh') || first.includes('hurtful')) {
+        nudgeType = 'sounds_harsh';
+      } else if (first.includes('Scripture') || first.includes('scripture')) {
+        nudgeType = 'add_scripture';
+      } else if (first.includes('private') || first.includes('personal')) {
+        nudgeType = 'move_private';
+      } else {
+        nudgeType = 'sounds_harsh'; // generic fallback
+      }
+      action = 'nudge';
+      nudgeMessage = NUDGE_MESSAGES[nudgeType] || first;
+    }
+  }
+
+  // ── 8. Write decision record (always, for audit trail) ────────────────────
+  const legacyNudges = nudgeType ? [nudgeMessage] : [];
+  await writeDecisionRecord(uid, clientCommentId, action, safetyDecision, legacyNudges);
 
   console.log(
-    `[commentGateway] uid=${uid} postId=${postId} ` +
-    `safety=${safetyDecision} decision=${decision} nudges=${nudges.length}`
+    `[commentGateway] COMPLETE uid=${uid} postId=${postId} ` +
+    `action=${action} nudgeType=${nudgeType || 'none'} aiUsed=${aiResult !== null}`
   );
 
-  return {
-    decision,
-    nudges,
-    safetyDecision,
-  };
+  // Spec response shape
+  const response = { action };
+  if (nudgeType) {
+    response.nudgeType = nudgeType;
+    response.nudgeMessage = nudgeMessage;
+  }
+  if (action === 'block' && reason) {
+    response.reason = reason;
+  }
+  return response;
 });

@@ -72,6 +72,11 @@ struct AMENDiscoveryView: View {
     @State private var navigateToTopicPage = false
     @State private var showStudiesDiscovery = false
 
+    // Rail navigation — discovery rails sheet destinations
+    @State private var railSelectedSpaceId: String? = nil
+    @State private var railSelectedMentorId: String? = nil
+    @State private var railSelectedChurchId: String? = nil
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
@@ -170,6 +175,45 @@ struct AMENDiscoveryView: View {
             .sheet(isPresented: $showStudiesDiscovery) {
                 NavigationStack {
                     AmenStudiesDiscoveryView()
+                }
+            }
+            // Rail navigation sheets
+            .sheet(item: Binding(
+                get: { railSelectedSpaceId.map { IdentifiableString(value: $0) } },
+                set: { railSelectedSpaceId = $0?.value }
+            )) { wrapper in
+                NavigationStack {
+                    AmenSpaceDetailView(
+                        space: AmenConnectSpacesSpace(
+                            id: wrapper.value,
+                            name: "",
+                            type: .smallGroup,
+                            memberIds: [],
+                            careSensitivity: false,
+                            createdBy: "",
+                            createdAt: Date(),
+                            updatedAt: Date()
+                        ),
+                        events: [],
+                        tiers: [],
+                        hostProfile: nil
+                    )
+                }
+            }
+            .sheet(item: Binding(
+                get: { railSelectedMentorId.map { IdentifiableString(value: $0) } },
+                set: { railSelectedMentorId = $0?.value }
+            )) { wrapper in
+                NavigationStack {
+                    AmenMentorChannelView(mentorId: wrapper.value)
+                }
+            }
+            .sheet(item: Binding(
+                get: { railSelectedChurchId.map { IdentifiableString(value: $0) } },
+                set: { railSelectedChurchId = $0?.value }
+            )) { wrapper in
+                AmenChurchHubView(churchId: wrapper.value) {
+                    railSelectedChurchId = nil
                 }
             }
             .fullScreenCover(isPresented: $showBereanAI) {
@@ -445,6 +489,26 @@ struct AMENDiscoveryView: View {
     private var landingView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 28) {
+                // ── Discovery rails (Netflix/Apple TV horizontal rails) ──
+                AmenDiscoveryRailsView(
+                    userId: Auth.auth().currentUser?.uid ?? ""
+                ) { item in
+                    switch item.type {
+                    case .space:
+                        railSelectedSpaceId = item.metadata["spaceId"] ?? item.id
+                    case .mentor:
+                        railSelectedMentorId = item.metadata["mentorId"] ?? item.id
+                    case .church:
+                        railSelectedChurchId = item.metadata["churchId"] ?? item.id
+                    case .event, .study, .discussion, .person, .churchNote:
+                        // TODO: wire per-type detail views when routing is available
+                        break
+                    }
+                } onSeeAll: { railType in
+                    // TODO: wire dedicated "See All" page per rail type
+                    _ = railType
+                }
+
                 // ── Active disaster alert (pinned at top when present) ──
                 if let topDisaster = disasterVM.disasters.first {
                     DisasterAlertCard(disaster: topDisaster)
@@ -1164,6 +1228,12 @@ struct AMENDiscoveryView: View {
 }
 
 // MARK: - Discover Extensions
+
+/// Thin `Identifiable` wrapper used by `.sheet(item:)` to present a String-keyed destination.
+private struct IdentifiableString: Identifiable {
+    let value: String
+    var id: String { value }
+}
 
 private struct DiscoverTopicTile: Identifiable {
     let id: String

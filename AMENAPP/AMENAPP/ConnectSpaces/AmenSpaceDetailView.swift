@@ -60,6 +60,7 @@ private func eventTypeIcon(_ type: AmenSpaceEventType) -> String {
 
 private struct UpcomingEventCard: View {
     let event: AmenSpaceEvent
+    var onJoinLive: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -92,6 +93,19 @@ private struct UpcomingEventCard: View {
                 )
                 .font(.system(size: 12))
                 .foregroundStyle(Color.white.opacity(0.55))
+            }
+
+            if event.isLive, let join = onJoinLive {
+                Button(action: join) {
+                    Label("Join Live", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background { Capsule().fill(Color.red.opacity(0.80)) }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Join live stream: \(event.title)")
             }
         }
         .padding(14)
@@ -152,6 +166,7 @@ private struct SpacePostRow: View {
 
 private struct PaywallOverlay: View {
     let onJoin: () -> Void
+    let onGiftCode: () -> Void
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -188,6 +203,16 @@ private struct PaywallOverlay: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Join to unlock this Space")
+
+                Button {
+                    onGiftCode()
+                } label: {
+                    Text("Enter Access Code")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(hex: "D9A441"))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Enter a scholarship or gift access code")
             }
             .padding(.bottom, 48)
         }
@@ -226,6 +251,12 @@ struct AmenSpaceDetailView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var showRoom = false
     @State private var showCommunityInsights = false
+    @State private var showSmartEventComposer = false
+    @State private var showGiftMembership = false
+    @State private var showScholarshipAccess = false
+    @State private var showLegalGate = false
+    @State private var activeLiveRoom: AmenLiveRoom? = nil
+    @StateObject private var livekitProvider = AmenLivekitLiveRoomProvider()
     private var currentUserId: String { Auth.auth().currentUser?.uid ?? "" }
     private var isCreator: Bool { space.createdBy == currentUserId }
 
@@ -292,7 +323,10 @@ struct AmenSpaceDetailView: View {
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 12) {
                                         ForEach(events.sorted(by: { $0.scheduledAt < $1.scheduledAt })) { event in
-                                            UpcomingEventCard(event: event)
+                                            UpcomingEventCard(
+                                                event: event,
+                                                onJoinLive: event.isLive ? { activeLiveRoom = makeRoom(from: event) } : nil
+                                            )
                                         }
                                     }
                                     .padding(.horizontal, 16)
@@ -317,11 +351,14 @@ struct AmenSpaceDetailView: View {
                                 .allowsHitTesting(isSubscribed)
 
                                 if !isSubscribed {
-                                    PaywallOverlay {
-                                        withAnimation(reduceMotion ? .easeInOut(duration: 0.01) : .spring(response: 0.38, dampingFraction: 0.78)) {
-                                            isSubscribed = true
-                                        }
-                                    }
+                                    PaywallOverlay(
+                                        onJoin: {
+                                            withAnimation(reduceMotion ? .easeInOut(duration: 0.01) : .spring(response: 0.38, dampingFraction: 0.78)) {
+                                                isSubscribed = true
+                                            }
+                                        },
+                                        onGiftCode: { showScholarshipAccess = true }
+                                    )
                                 }
                             }
                             .frame(minHeight: 280)
@@ -357,6 +394,36 @@ struct AmenSpaceDetailView: View {
                                 .buttonStyle(.plain)
                                 .padding(.horizontal, 16)
                                 .accessibilityLabel("View Community Insights for \(space.name)")
+
+                                Button {
+                                    showSmartEventComposer = true
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "calendar.badge.plus")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color(hex: "D9A441"))
+                                        Text("Smart Event Composer")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Color.white.opacity(0.4))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 13)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .strokeBorder(Color(hex: "D9A441").opacity(0.35), lineWidth: 0.5)
+                                            }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 16)
+                                .accessibilityLabel("Open Smart Event Composer for \(space.name)")
                             }
 
                             // Bottom padding so content isn't hidden behind floating pill
@@ -403,9 +470,67 @@ struct AmenSpaceDetailView: View {
                 AmenMinistryRoomShellView(space: space)
             }
             .sheet(isPresented: $showCommunityInsights) {
-                AmenCommunityOSView(spaceId: space.id, spaceName: space.name)
+                AmenCommunityAIManagerView(spaceId: space.id, spaceName: space.name)
+            }
+            .sheet(isPresented: $showSmartEventComposer) {
+                AmenSmartEventComposerView(
+                    spaceId: space.id,
+                    spaceName: space.name,
+                    onDismiss: { showSmartEventComposer = false },
+                    onEventCreated: { _ in }
+                )
+            }
+            .sheet(isPresented: $showGiftMembership) {
+                AmenGiftMembershipView(
+                    spaceId: space.id,
+                    spaceName: space.name,
+                    availableTiers: tiers,
+                    onDismiss: { showGiftMembership = false }
+                )
+            }
+            .sheet(isPresented: $showScholarshipAccess) {
+                AmenScholarshipAccessView(
+                    spaceId: space.id,
+                    spaceName: space.name,
+                    onAccessGranted: { _ in
+                        withAnimation { isSubscribed = true }
+                        showScholarshipAccess = false
+                    },
+                    onDismiss: { showScholarshipAccess = false }
+                )
+            }
+            .task {
+                livekitProvider.configure(spaceId: space.id)
+            }
+            .fullScreenCover(item: $activeLiveRoom) { room in
+                AmenLiveRoomShellView(
+                    room: room,
+                    currentUserId: currentUserId,
+                    provider: livekitProvider,
+                    onEnd: { activeLiveRoom = nil }
+                )
             }
         }
+    }
+
+    private func makeRoom(from event: AmenSpaceEvent) -> AmenLiveRoom {
+        AmenLiveRoom(
+            id: event.liveRoomId ?? event.id,
+            spaceId: event.spaceId,
+            eventId: event.id,
+            hostUserId: event.hostUserId,
+            mode: event.type == .livestream ? .video : .audioOnly,
+            state: .live,
+            participants: [],
+            captionsEnabled: false,
+            translationLocale: nil,
+            recordingRef: nil,
+            chapterMarkers: [],
+            viewerCount: 0,
+            startedAt: Date(),
+            endedAt: nil,
+            createdAt: event.createdAt
+        )
     }
 }
 

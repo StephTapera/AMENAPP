@@ -12,7 +12,9 @@ struct ResourcesView: View {
     @ObservedObject private var greetingService = GreetingService.shared
     @ObservedObject private var featureFlags = AMENFeatureFlags.shared
     @ObservedObject private var supportCoordinator = SupportIntelligenceCoordinator.shared
-    @StateObject private var plannerViewModel = AmenLifePlannerViewModel()
+    @State private var plannerViewModel = AmenLifePlannerViewModel()
+    @State private var selectedChurchId: String? = nil
+    @State private var showChurchHub = false
     @State private var searchText = ""
     @State private var selectedCategory: ResourceCategory = .all
     @FocusState private var isSearchFocused: Bool
@@ -417,6 +419,24 @@ struct ResourcesView: View {
             // ── Disaster Alerts — shown for All and Crisis categories ──
             if selectedCategory == .all || selectedCategory == .crisis {
                 DisasterResourcesSection()
+            }
+
+            // ── Community Discovery Rails (gated by AppStorage flag) ──
+            if selectedCategory == .all || selectedCategory == .community {
+                AmenDiscoveryRailsView(
+                    userId: Auth.auth().currentUser?.uid ?? ""
+                ) { item in
+                    if item.type == .church, let churchId = item.metadata["churchId"] {
+                        selectedChurchId = churchId
+                        showChurchHub = true
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .sheet(isPresented: $showChurchHub) {
+                    if let churchId = selectedChurchId {
+                        AmenChurchHubView(churchId: churchId, onDismiss: { showChurchHub = false })
+                    }
+                }
             }
 
             if supportSectionVisible {

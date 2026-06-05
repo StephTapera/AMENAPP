@@ -1,124 +1,155 @@
 // DiscussionDraftIntelligenceView.swift — AMEN App
 import SwiftUI
-import FirebaseRemoteConfig
+import FirebaseFunctions
+
+// MARK: - Service
 
 @MainActor
 final class DraftIntelligenceService {
     static let shared = DraftIntelligenceService()
     private init() {}
+    private let functions = Functions.functions()
 
-    private var isEnabled: Bool {
-        RemoteConfig.remoteConfig().configValue(forKey: "draft_intelligence_enabled").boolValue
+    struct DraftAnalysis: Sendable {
+        let hasConcern: Bool
+        let observation: String
+        let severity: String   // "low" | "medium"
     }
 
-    struct DraftInsight: Sendable {
-        let tone: String
-        let encouragement: String
-    }
-
-    func analyzeDraft(_ body: String) -> DraftInsight? {
-        guard isEnabled, body.count >= 30 else { return nil }
-        let tone = body.contains("?") ? "Curious" : body.contains("!") ? "Passionate" : "Reflective"
-        return DraftInsight(tone: tone, encouragement: "Your perspective adds value to this discussion.")
+    func analyzeDraft(threadId: String, draftBody: String) async -> DraftAnalysis {
+        guard AMENFeatureFlags.shared.draftIntelligenceEnabled else {
+            return DraftAnalysis(hasConcern: false, observation: "", severity: "low")
+        }
+        let callable = functions.httpsCallable("analyzeDraft")
+        guard let result = try? await callable.call(["threadId": threadId, "draftBody": draftBody]),
+              let data = result.data as? [String: Any],
+              let hasConcern = data["hasConcern"] as? Bool, hasConcern else {
+            return DraftAnalysis(hasConcern: false, observation: "", severity: "low")
+        }
+        return DraftAnalysis(
+            hasConcern: true,
+            observation: data["observation"] as? String ?? "",
+            severity: data["severity"] as? String ?? "medium"
+        )
     }
 }
+
+// MARK: - Draft Insight Sheet
 
 struct DraftInsightSheet: View {
-    let insight: DraftIntelligenceService.DraftInsight
-    let onDismiss: () -> Void
+    let analysis: DraftIntelligenceService.DraftAnalysis
+    let onRevise: () -> Void
+    let onPostAnyway: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color.white.opacity(0.2))
+        VStack(spacing: 20) {
+            Capsule()
+                .fill(Color.white.opacity(0.18))
                 .frame(width: 36, height: 4)
-                .padding(.top, 8)
+                .padding(.top, 12)
 
-            HStack(spacing: 8) {
-                Image(systemName: "sparkle")
+            VStack(spacing: 8) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 28))
                     .foregroundStyle(Color(hex: "#C9A84C"))
-                Text("Draft Insight")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                Spacer()
+                    .accessibilityHidden(true)
+                Text("A reflection before you post")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.white)
             }
-            .padding(.horizontal, 20)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Tone: \(insight.tone)", systemImage: "waveform")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.75))
-                Text(insight.encouragement)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.6))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, 20)
-
-            Button("Continue Writing") { onDismiss() }
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color(hex: "#C9A84C"))
-                .padding(.bottom, 20)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .background(Color(hex: "#111118"))
-        .presentationDetents([.height(220)])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(20)
-    }
-}
-
-struct ReflectionFirstSheet: View {
-    let onPost: () -> Void
-    let onReflect: () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color.white.opacity(0.2))
-                .frame(width: 36, height: 4)
-                .padding(.top, 8)
-
-            Image(systemName: "moon.stars")
-                .font(.system(size: 32, weight: .ultraLight))
-                .foregroundStyle(Color(hex: "#C9A84C"))
-
-            Text("Take a moment to reflect?")
-                .font(.custom("Georgia", size: 18))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-
-            Text("This discussion is moving quickly. Would you like to pause before posting?")
-                .font(.system(size: 14))
-                .foregroundStyle(Color.white.opacity(0.6))
+            Text(analysis.observation)
+                .font(.system(size: 15))
+                .foregroundStyle(Color.white.opacity(0.8))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
-            HStack(spacing: 12) {
-                Button("Post Now") { onPost() }
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color.white.opacity(0.7))
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(Color.white.opacity(0.08)))
-
-                Button("Take a Moment") { onReflect() }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(Color(hex: "#C9A84C").opacity(0.12)))
+            VStack(spacing: 10) {
+                Button(action: onRevise) {
+                    Text("Revise my comment")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(hex: "#0A0A0F"))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color(hex: "#C9A84C"), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .accessibilityLabel("Revise my comment")
+                Button(action: onPostAnyway) {
+                    Text("Post anyway")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.white.opacity(0.45))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .accessibilityLabel("Post anyway without changes")
             }
-            .padding(.bottom, 20)
-
+            .padding(.horizontal, 24)
             Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .background(Color(hex: "#0A0A0F"))
-        .presentationDetents([.height(280)])
+        .presentationDetents([.height(320)])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(20)
+        .presentationCornerRadius(24)
+        .background(Color(hex: "#0A0A0F").ignoresSafeArea())
+    }
+}
+
+// MARK: - Reflection First Sheet
+
+struct ReflectionFirstSheet: View {
+    let onComment: () -> Void
+    let onReflect: () -> Void
+    let onPray: () -> Void
+    let onSaveToNotes: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Capsule()
+                .fill(Color.white.opacity(0.18))
+                .frame(width: 36, height: 4)
+                .padding(.top, 12)
+
+            Text("What would you like to do?")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.white)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                reflectionCard(icon: "moon.stars", label: "Reflect Privately", action: onReflect)
+                reflectionCard(icon: "hands.sparkles", label: "Pray", action: onPray)
+                reflectionCard(icon: "book.closed", label: "Save to Notes", action: onSaveToNotes)
+                reflectionCard(icon: "bubble.left", label: "Comment", action: onComment)
+            }
+            .padding(.horizontal, 20)
+            Spacer()
+        }
+        .presentationDetents([.height(300)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(24)
+        .background(Color(hex: "#0A0A0F").ignoresSafeArea())
+    }
+
+    private func reflectionCard(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: { action(); dismiss() }) {
+            VStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .accessibilityHidden(true)
+                Text(label)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }

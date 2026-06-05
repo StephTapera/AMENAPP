@@ -10,25 +10,27 @@ import FirebaseAuth
 // MARK: - Tab Enum
 
 enum AmenMinistryRoomTab: String, CaseIterable, Identifiable {
-    case chat       = "Chat"
-    case prayer     = "Prayer"
-    case tasks      = "Tasks"
-    case decisions  = "Decisions"
-    case care       = "Care"
-    case files      = "Files"
-    case history    = "History"
+    case chat        = "Chat"
+    case discussions = "Discuss"
+    case prayer      = "Prayer"
+    case tasks       = "Tasks"
+    case decisions   = "Decisions"
+    case care        = "Care"
+    case files       = "Files"
+    case history     = "History"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
-        case .chat:      return "bubble.left.and.bubble.right"
-        case .prayer:    return "hands.sparkles"
-        case .tasks:     return "checkmark.circle"
-        case .decisions: return "scale.3d"
-        case .care:      return "heart"
-        case .files:     return "folder"
-        case .history:   return "clock"
+        case .chat:        return "bubble.left.and.bubble.right"
+        case .discussions: return "text.bubble"
+        case .prayer:      return "hands.sparkles"
+        case .tasks:       return "checkmark.circle"
+        case .decisions:   return "scale.3d"
+        case .care:        return "heart"
+        case .files:       return "folder"
+        case .history:     return "clock"
         }
     }
 }
@@ -40,8 +42,12 @@ struct AmenMinistryRoomShellView: View {
 
     @State private var selectedTab: AmenMinistryRoomTab = .chat
     @State private var autoPanelExpanded: Bool = false
+    @State private var showHealthDashboard = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var currentUserId: String { FirebaseAuth.Auth.auth().currentUser?.uid ?? "" }
+    private var isOwner: Bool { space.createdBy == currentUserId }
 
     private var animationStyle: Animation {
         reduceMotion ? .easeInOut(duration: 0.01) : .easeInOut(duration: 0.22)
@@ -80,6 +86,9 @@ struct AmenMinistryRoomShellView: View {
             }
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $showHealthDashboard) {
+            AmenCommunityHealthDashboardView(spaceId: space.id, spaceName: space.name)
+        }
         .onAppear {
             Analytics.logEvent("ministry_room_viewed", parameters: [
                 "space_id": space.id,
@@ -94,6 +103,20 @@ struct AmenMinistryRoomShellView: View {
         HStack(spacing: 12) {
             AmenMinistryRoomHeaderView(space: space)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isOwner {
+                Button {
+                    showHealthDashboard = true
+                } label: {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "D9A441"))
+                        .frame(width: 36, height: 36)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Community health dashboard")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -171,6 +194,8 @@ struct AmenMinistryRoomShellView: View {
         switch selectedTab {
         case .chat:
             AmenMinistryRoomChatView(spaceId: space.id)
+        case .discussions:
+            AmenMinistryRoomDiscussionsTab(spaceId: space.id)
         case .prayer:
             AmenMinistryRoomPrayerTab(spaceId: space.id)
         case .tasks:

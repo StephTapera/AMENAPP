@@ -307,6 +307,8 @@ struct ContentView: View {
                         NotificationService.shared.startListening()
                         if let currentUserId = Auth.auth().currentUser?.uid {
                             ChurchInteractionService.shared.startListening(userId: currentUserId)
+                            // Journey engine — warm up so data is ready when ProfileView appears
+                            Task { await AmenJourneyEngine.shared.initialize(userId: currentUserId) }
                         }
 
                         // Signal the deep-link router that the nav tree is ready.

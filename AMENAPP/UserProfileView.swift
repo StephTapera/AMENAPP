@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseAnalytics
 import Combine
 
 // MARK: - Data Models
@@ -5231,12 +5232,21 @@ extension UserProfileView {
     @MainActor
     private func performNotificationToggle() async {
         notificationsEnabled.toggle()
-        
+
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
-        // TODO: Implement notification service
-        // await NotificationService.shared.toggleUserNotifications(userId: userId, enabled: notificationsEnabled)
+
+        guard let currentUid = Auth.auth().currentUser?.uid else { return }
+        // Persist the per-user post-notification preference under the viewer's document
+        // so the backend fan-out can query which users want new-post push notifications.
+        let db = Firestore.firestore()
+        try? await db
+            .collection("users").document(currentUid)
+            .collection("followNotifications")
+            .document(userId)
+            .setData(["enabled": notificationsEnabled, "updatedAt": FieldValue.serverTimestamp()],
+                     merge: true)
+
         dlog("✅ \(notificationsEnabled ? "Enabled" : "Disabled") notifications for user: \(userId)")
     }
 }
@@ -5388,9 +5398,13 @@ extension UserProfileView {
     private func trackLoadPerformance(startTime: Date) {
         let loadTime = Date().timeIntervalSince(startTime)
         dlog("⏱️ Profile loaded in \(String(format: "%.2f", loadTime))s")
-        
-        // TODO: Send to analytics service
-        // Analytics.track("profile_load_time", properties: ["duration": loadTime, "userId": userId])
+        // Respect user analytics opt-out before firing.
+        guard !AMENAnalyticsService.shared.isUserOptedOut else { return }
+        Analytics.logEvent("user_profile_loaded", parameters: [
+            "load_ms": Int(loadTime * 1000),
+            "viewed_user_id": userId,
+            "session_id": AMENAnalyticsService.shared.sessionId
+        ])
     }
     
     /// Format timestamp to relative time string (e.g., "2h ago")

@@ -14,6 +14,7 @@ import Foundation
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 // MARK: - PostFollowUp
 
@@ -472,18 +473,15 @@ final class PostFollowUpService: ObservableObject {
     /// - Parameter postId: The post to analyze.
     /// - Returns: Tension score where 0.0 = peaceful, 1.0 = high conflict.
     func detectCommentTension(postId: String) async -> Double {
-        // TODO: Replace with server-side NLP analysis:
-        //   POST /api/posts/\(postId)/comment-tension
-        //   Response: { "tensionScore": Double, "flaggedCommentIds": [String] }
-        //
-        // Local heuristic stub:
-        // Would analyze loaded comments for:
-        // - High frequency of question marks or exclamation marks
-        // - Repeated negative sentiment words ("wrong", "disagree", "false")
-        // - Reply depth spikes (argument threads)
-        // - Repeated same-user activity (escalation pattern)
-        print("⚠️ PostFollowUpService: detectCommentTension is a stub — server NLP endpoint not yet implemented. Returning 0.0.")
-        return 0.0   // stub: no tension detected
+        do {
+            let functions = Functions.functions()
+            let callable = functions.httpsCallable("analyzePostTension")
+            let result = try await callable.call(["postId": postId])
+            let data = result.data as? [String: Any] ?? [:]
+            return (data["tensionScore"] as? Double) ?? 0.0
+        } catch {
+            return 0.0
+        }
     }
 
     // MARK: - Summarize Comment Themes
@@ -497,17 +495,15 @@ final class PostFollowUpService: ObservableObject {
     /// - Returns: Array of theme strings (e.g., `["People sharing their own testimonies",
     ///   "Questions about prayer timing", "Gratitude and encouragement"]`).
     func summarizeCommentThemes(postId: String) async -> [String] {
-        // TODO: Replace with server-side AI summary:
-        //   POST /api/posts/\(postId)/comment-themes
-        //   Response: { "themes": [String] }
-        //
-        // Firebase Functions alternative:
-        //   let result = try await Functions.functions()
-        //     .httpsCallable("summarizeCommentThemes")
-        //     .call(["postId": postId])
-        //   return (result.data as? [String: Any])?["themes"] as? [String] ?? []
-        print("⚠️ PostFollowUpService: summarizeCommentThemes is a stub — server AI summary endpoint not yet implemented. Returning empty array.")
-        return []   // stub: no themes available until server endpoint implemented
+        do {
+            let functions = Functions.functions()
+            let callable = functions.httpsCallable("extractPostThemes")
+            let result = try await callable.call(["postId": postId])
+            let data = result.data as? [String: Any] ?? [:]
+            return (data["themes"] as? [String]) ?? []
+        } catch {
+            return []
+        }
     }
 
     // MARK: - Helpers

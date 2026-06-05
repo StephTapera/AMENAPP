@@ -28,7 +28,7 @@ struct BereanOSAIDisclosure: Codable, Equatable {
 
     /// A safe placeholder used when real disclosure data is unavailable.
     static let placeholder = BereanOSAIDisclosure(
-        confidenceLevel: .aiGenerated,
+        confidenceLevel: .uncertain,  // .aiGenerated does not exist; .uncertain is used intentionally as a fallback
         truthWarnings: [],
         isSpeculative: false,
         generatedBy: "Berean OS",

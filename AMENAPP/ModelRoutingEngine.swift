@@ -67,7 +67,7 @@ struct RoutingResult {
     let provider: String
     let modelVersion: String
     let citations: [ScriptureCitation]
-    let safetyFlags: [SafetyFlag]
+    let safetyFlags: [BereanSafetyFlag]
     let rawLatencyMs: Int
     var isEmpty: Bool { content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }
@@ -680,14 +680,14 @@ final class ModelRoutingEngine: ObservableObject {
         }
     }
 
-    private func parseSafetyFlags(from response: [String: Any]) -> [SafetyFlag] {
+    private func parseSafetyFlags(from response: [String: Any]) -> [BereanSafetyFlag] {
         guard let flagsArray = response["safety_flags"] as? [[String: Any]] else { return [] }
         return flagsArray.compactMap { dict in
             guard let category = dict["category"] as? String,
                   let severityRaw = dict["severity"] as? String,
                   let severity = SafetyFlagSeverity(rawValue: severityRaw) else { return nil }
             let actionRaw = dict["action"] as? String ?? "allow"
-            return SafetyFlag(
+            return BereanSafetyFlag(
                 category: category,
                 severity: severity,
                 detail: dict["detail"] as? String ?? "",

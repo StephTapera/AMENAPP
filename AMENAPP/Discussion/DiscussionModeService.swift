@@ -1,25 +1,38 @@
 // DiscussionModeService.swift — AMEN App
 import Foundation
-import FirebaseRemoteConfig
+import FirebaseFirestore
 
 @MainActor
 final class DiscussionModeService {
     static let shared = DiscussionModeService()
     private init() {}
+    private let db = Firestore.firestore()
 
-    private(set) var currentMode: DiscussionMode = .general
+    var isEnabled: Bool { AMENFeatureFlags.shared.discussionModesEnabled }
 
-    private var isEnabled: Bool {
-        RemoteConfig.remoteConfig().configValue(forKey: "discussion_modes_enabled").boolValue
+    func getMode(threadId: String) async throws -> DiscussionMode {
+        let snap = try await db.collection("threads").document(threadId).getDocument()
+        guard let raw = snap.data()?["discussionMode"] as? String,
+              let mode = DiscussionMode(rawValue: raw) else { return .general }
+        return mode
     }
 
-    func availableModes() -> [DiscussionMode] {
-        guard isEnabled else { return [.general] }
-        return DiscussionMode.allCases
+    func setThreadMode(threadId: String, mode: DiscussionMode) async throws {
+        try await db.collection("threads").document(threadId)
+            .updateData(["discussionMode": mode.rawValue, "updatedAt": Timestamp(date: Date())])
     }
 
-    func setMode(_ mode: DiscussionMode) {
-        guard isEnabled else { return }
-        currentMode = mode
+    func listenMode(
+        threadId: String,
+        onChange: @escaping (DiscussionMode) -> Void
+    ) -> ListenerRegistration {
+        db.collection("threads").document(threadId)
+            .addSnapshotListener { snap, _ in
+                Task { @MainActor in
+                    guard let raw = snap?.data()?["discussionMode"] as? String,
+                          let mode = DiscussionMode(rawValue: raw) else { return }
+                    onChange(mode)
+                }
+            }
     }
 }

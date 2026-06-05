@@ -13,12 +13,13 @@
 //                  + shadow black 0.06-0.08 radius 12-18
 //  - Typography: AMENFont
 //
-//  Pure SwiftUI + Foundation — NO Firebase imports.
 //
 
 import SwiftUI
 import Foundation
 import Combine
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Models
 

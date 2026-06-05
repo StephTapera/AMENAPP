@@ -125,7 +125,7 @@ final class BereanResearchService: ObservableObject {
     private func decodeReport(from dict: [String: Any]) throws -> BereanResearchReport {
         let normalised = normaliseDict(dict)
         let jsonData = try JSONSerialization.data(withJSONObject: normalised)
-        return try JSONDecoder.berean.decode(BereanResearchReport.self, from: jsonData)
+        return try JSONDecoder.bereanResearch.decode(BereanResearchReport.self, from: jsonData)
     }
 
     /// Recursively converts Firestore Timestamps to ISO-8601 strings.
@@ -146,7 +146,7 @@ final class BereanResearchService: ObservableObject {
 // MARK: - JSONDecoder with flexible date strategy
 
 private extension JSONDecoder {
-    static let berean: JSONDecoder = {
+    static let bereanResearch: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { dec in
             let container = try dec.singleValueContainer()

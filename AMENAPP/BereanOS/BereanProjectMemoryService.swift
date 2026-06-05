@@ -123,10 +123,10 @@ final class BereanProjectMemoryService: ObservableObject {
 
     private static func sortPriority(_ type: BereanProjectMemoryEntryType) -> Int {
         switch type {
-        case .knownFact:     return 0
-        case .decision:      return 1
-        case .openQuestion:  return 2
-        default:             return 3
+        case .fact:      return 0
+        case .decision:  return 1
+        case .question:  return 2
+        default:         return 3
         }
     }
 
@@ -134,22 +134,17 @@ final class BereanProjectMemoryService: ObservableObject {
         guard let data = doc.data() else { return nil }
 
         let entryType = BereanProjectMemoryEntryType(rawValue: data["entryType"] as? String ?? "")
-            ?? .knownFact
-        let confidence = BereanConfidenceLevel(rawValue: data["confidence"] as? String ?? "")
-            ?? .uncertain
+            ?? .fact
 
         return BereanProjectMemoryEntry(
             id: doc.documentID,
-            projectId: data["projectId"] as? String ?? "",
             entryType: entryType,
             content: data["content"] as? String ?? "",
-            confidence: confidence,
-            sourceIds: data["sourceIds"] as? [String] ?? [],
-            linkedProjectEntryIds: data["linkedProjectEntryIds"] as? [String] ?? [],
-            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
-            lastVerifiedAt: (data["lastVerifiedAt"] as? Timestamp)?.dateValue(),
-            isAutoExtracted: data["isAutoExtracted"] as? Bool ?? false,
-            isResolved: data["isResolved"] as? Bool ?? false
+            projectId: data["projectId"] as? String ?? "",
+            ownerUid: data["ownerUid"] as? String ?? "",
+            sourceLabel: data["sourceLabel"] as? String,
+            isResolved: data["isResolved"] as? Bool ?? false,
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
         )
     }
 }

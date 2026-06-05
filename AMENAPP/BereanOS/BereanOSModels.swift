@@ -248,6 +248,7 @@ struct BereanAIAdvisor: Identifiable, Codable {
     var role: String
     var specialization: String
     var systemPrompt: String
+    var lastResponseAt: Date?
 }
 
 struct BereanAdvisoryBoard: Identifiable, Codable {
@@ -434,6 +435,7 @@ struct BereanProjectContributor: Identifiable, Codable {
 
 enum BereanCommunityActionType: String, CaseIterable, Identifiable, Codable {
     case question, insight, correction, reference, encouragement
+    case addSource, addContext, factCheck, challenge, askQuestion, flagIssue, expand, summarize
 
     var id: String { rawValue }
 
@@ -444,6 +446,14 @@ enum BereanCommunityActionType: String, CaseIterable, Identifiable, Codable {
         case .correction:    return "Correction"
         case .reference:     return "Reference"
         case .encouragement: return "Encouragement"
+        case .addSource:     return "Add Source"
+        case .addContext:    return "Add Context"
+        case .factCheck:     return "Fact Check"
+        case .challenge:     return "Challenge"
+        case .askQuestion:   return "Ask Question"
+        case .flagIssue:     return "Flag Issue"
+        case .expand:        return "Expand"
+        case .summarize:     return "Summarize"
         }
     }
 
@@ -454,6 +464,14 @@ enum BereanCommunityActionType: String, CaseIterable, Identifiable, Codable {
         case .correction:    return "exclamationmark.triangle.fill"
         case .reference:     return "book.fill"
         case .encouragement: return "heart.fill"
+        case .addSource:     return "link.badge.plus"
+        case .addContext:    return "text.badge.plus"
+        case .factCheck:     return "checkmark.seal.fill"
+        case .challenge:     return "bolt.fill"
+        case .askQuestion:   return "bubble.left.and.bubble.right.fill"
+        case .flagIssue:     return "flag.fill"
+        case .expand:        return "arrow.up.left.and.arrow.down.right"
+        case .summarize:     return "doc.text.magnifyingglass"
         }
     }
 }
@@ -483,12 +501,48 @@ enum BereanConfidenceLevel: String, CaseIterable, Codable, Identifiable {
         case .unsupported: return "Unsupported"
         }
     }
+
+    var explanation: String {
+        switch self {
+        case .certain:     return "Strongly supported by multiple reliable sources."
+        case .probable:    return "Likely true based on available evidence."
+        case .uncertain:   return "Evidence is mixed or limited."
+        case .speculative: return "Based on inference; limited direct support."
+        case .unsupported: return "Insufficient evidence to assess this claim."
+        }
+    }
 }
 
 // MARK: - BereanSourceType
 
 enum BereanSourceType: String, Codable, CaseIterable {
     case scripture, peerReviewed, expertCommentary, communityNote, news, video, blog, unknown
+
+    var displayName: String {
+        switch self {
+        case .scripture:        return "Scripture"
+        case .peerReviewed:     return "Peer Reviewed"
+        case .expertCommentary: return "Expert Commentary"
+        case .communityNote:    return "Community Note"
+        case .news:             return "News"
+        case .video:            return "Video"
+        case .blog:             return "Blog"
+        case .unknown:          return "Unknown"
+        }
+    }
+
+    var systemIcon: String {
+        switch self {
+        case .scripture:        return "book.closed.fill"
+        case .peerReviewed:     return "graduationcap.fill"
+        case .expertCommentary: return "person.text.rectangle.fill"
+        case .communityNote:    return "person.3.fill"
+        case .news:             return "newspaper.fill"
+        case .video:            return "play.rectangle.fill"
+        case .blog:             return "doc.richtext.fill"
+        case .unknown:          return "questionmark.circle.fill"
+        }
+    }
 }
 
 // MARK: - BereanSourceEntry

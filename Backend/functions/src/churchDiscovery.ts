@@ -349,8 +349,9 @@ async function rankOneChurch(
         ? `Recent sermons focus on ${[sermonTopic, sermonScripture].filter(Boolean).join(", ")}.`
         : "";
 
-    const topReason = reasons[0] ?? "Balanced fit across distance, service timing, and church profile.";
-    const bestVisit = `Best first-time visit: ${serviceStatus.nextServiceTime ?? normalizeText(church.serviceTime) || "Sunday service"} - ${doc?.hasChildcare === true ? "childcare available" : "childcare details unclear"}, ${doc?.welcomeTeamActive === true ? "welcome team active" : "low-pressure arrival"}, ${normalizeText(doc?.crowdWindowHint) || "usually easier than the earliest service"}.`;
+    const topReason = reasons[0] != null ? reasons[0] : "Balanced fit across distance, service timing, and church profile.";
+    const bestVisitTime = serviceStatus.nextServiceTime != null ? serviceStatus.nextServiceTime : (normalizeText(church.serviceTime) || "Sunday service");
+    const bestVisit = `Best first-time visit: ${bestVisitTime} - ${doc?.hasChildcare === true ? "childcare available" : "childcare details unclear"}, ${doc?.welcomeTeamActive === true ? "welcome team active" : "low-pressure arrival"}, ${normalizeText(doc?.crowdWindowHint) || "usually easier than the earliest service"}.`;
 
     const socialProof: string[] = [];
     if (typeof doc?.savedByNearbyCount === "number" && doc.savedByNearbyCount > 0) {

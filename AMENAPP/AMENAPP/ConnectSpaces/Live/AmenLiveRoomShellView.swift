@@ -19,6 +19,9 @@ struct AmenLiveRoomShellView: View {
     @State private var showQAQueue = false
     @State private var showEndConfirm = false
     @State private var captions: [AmenCaptionLine] = []
+    @State private var showCatchMeUp = false
+    @State private var showAskStream = false
+    @State private var joinedLateMinutes: Int = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -40,6 +43,9 @@ struct AmenLiveRoomShellView: View {
             } else {
                 mainLiveContent
             }
+
+            // Host AI assistant — renders EmptyView when isHost == false
+            AmenAIHostAssistantPanel(streamId: room.id, isHost: isHost)
         }
         .onAppear {
             Analytics.logEvent("live_room_viewed", parameters: [
@@ -56,6 +62,14 @@ struct AmenLiveRoomShellView: View {
                 try? await functions.httpsCallable(AmenSpacesPhase1Callable.joinLiveRoom.rawValue)
                     .call(["roomId": room.id, "userId": currentUserId])
             }
+            // Calculate join latency for catch-me-up
+            if let startedAt = room.startedAt {
+                let elapsed = Int(Date().timeIntervalSince(startedAt) / 60)
+                if elapsed > 2 {
+                    joinedLateMinutes = elapsed
+                    showCatchMeUp = true
+                }
+            }
         }
         .onDisappear {
             Task { await provider.leaveRoom() }
@@ -70,6 +84,18 @@ struct AmenLiveRoomShellView: View {
                 },
                 onDismiss: { showQAQueue = false }
             )
+        }
+        .sheet(isPresented: $showCatchMeUp) {
+            AmenCatchMeUpSheet(
+                streamId: room.id,
+                streamTitle: room.participants.first(where: { $0.id == room.hostUserId })?.displayName ?? "Live Room",
+                minutesElapsed: joinedLateMinutes,
+                onDismiss: { showCatchMeUp = false }
+            )
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showAskStream) {
+            AmenAskTheStreamView(streamId: room.id, streamTitle: "Stream Recap")
         }
         .confirmationDialog(
             isHost ? "End the live room for everyone?" : "Leave the live room?",
@@ -228,6 +254,18 @@ struct AmenLiveRoomShellView: View {
             ) {
                 showQAQueue = true
             }
+
+            Spacer()
+
+            // Ask the stream
+            Button {
+                showAskStream = true
+            } label: {
+                Image(systemName: "magnifyingglass.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color.white.opacity(0.85))
+            }
+            .accessibilityLabel("Ask AI about this stream")
 
             Spacer()
 

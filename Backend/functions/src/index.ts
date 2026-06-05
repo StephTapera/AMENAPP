@@ -61,7 +61,6 @@ export {
     muteObjectHub,
     reportHubContent,
     indexPostIntoHub,
-    attachCommunityHubPreviewToPost,
 } from "./communityHubs";
 
 // Accessibility Intelligence Layer
@@ -525,3 +524,13 @@ export { registerMediaProvenance } from "./media/registerMediaProvenance";
 export * from "./giving/processGivingCharge";
 
 export * from "./giving/analyzePostTrustLogoMatch";
+
+// Creator Spaces OS — Community AI, Events, Livestream AI, Monetization, Discovery, Legal, Mentorship, Discussions
+// Built: 2026-06-04
+export * from "./spaces/communityAI";
+export * from "./spaces/eventBroadcast";
+export * from "./spaces/livestreamAI";
+export * from "./spaces/monetizationExt";
+export * from "./spaces/discoveryAndLegal";
+export * from "./spaces/mentorship";
+export * from "./spaces/discussionAI";

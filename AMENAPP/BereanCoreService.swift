@@ -140,7 +140,7 @@ struct BereanAIResponse {
     let fromCache: Bool
     let citations: [ScriptureCitation]
     let suggestedActions: [AIAction]
-    let safetyFlags: [SafetyFlag]
+    let safetyFlags: [BereanSafetyFlag]
     let topicTags: [String]
     let category: AITaskCategory
     let surface: AMENSurface
@@ -172,7 +172,7 @@ enum AIAction: Codable {
     case viewCrisisResources
 }
 
-struct SafetyFlag: Codable {
+struct BereanSafetyFlag: Codable {
     let category: String
     let severity: SafetyFlagSeverity
     let detail: String
@@ -569,7 +569,7 @@ final class BereanCoreService: ObservableObject {
         return actions
     }
 
-    private func buildDMGentlePrompt(flags: [SafetyFlag]) -> String? {
+    private func buildDMGentlePrompt(flags: [BereanSafetyFlag]) -> String? {
         guard !flags.isEmpty else { return nil }
         let highest = flags.sorted { $0.severity.rawValue > $1.severity.rawValue }.first
         switch highest?.severity {
@@ -622,7 +622,7 @@ final class BereanCoreService: ObservableObject {
     private func makeBlockedResponse(for request: BereanAIRequest, reason: String?) -> BereanAIResponse {
         BereanAIResponse(requestId: request.id, content: "", confidence: 0, provider: "policy",
             modelVersion: "policy", latencyMs: 0, fromCache: false, citations: [], suggestedActions: [],
-            safetyFlags: [SafetyFlag(category: "policy", severity: .high,
+            safetyFlags: [BereanSafetyFlag(category: "policy", severity: .high,
                 detail: reason ?? "Request blocked by policy", actionRequired: .block)],
             topicTags: [], category: request.category, surface: request.surface, createdAt: Date())
     }
@@ -635,13 +635,13 @@ struct PostCreationAssistance {
     var captionHelp: String?
     var suggestedVerses: [ScriptureCitation] = []
     var topicTags: [String] = []
-    var safetyFlags: [SafetyFlag] = []
+    var safetyFlags: [BereanSafetyFlag] = []
     var isClean: Bool { safetyFlags.filter { $0.actionRequired != .allow }.isEmpty }
 }
 
 struct DMScreeningResult {
     let canSend: Bool
-    let flags: [SafetyFlag]
+    let flags: [BereanSafetyFlag]
     let gentlePrompt: String?
     let suggestedRevision: String?
     var requiresUserReview: Bool { !flags.isEmpty }

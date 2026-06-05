@@ -5,9 +5,9 @@
  */
 
 const admin = require("firebase-admin");
-const {onValueCreated} = require("firebase-functions/v2/database");
-const {onDocumentCreated} = require("firebase-functions/v2/firestore");
-const {onSchedule} = require("firebase-functions/v2/scheduler");
+// v2 triggers (onRealtimeCommentCreate, onMessageSent, sendDailyNotificationDigest)
+// are defined in v2functions.js — do NOT import v2 SDKs here, as the Firebase CLI
+// applies v2 CPU/concurrency settings to every function in a file that imports them.
 
 // Initialize Firebase Admin
 // Storage bucket is auto-detected from Firebase project
@@ -70,11 +70,11 @@ const {
   expire2FASessions,
 } = require("./twoFactorAuth");
 
-// Shabbat Mode: server-side enforcement middleware
-const {isSundayForUser} = require("./shabbatMiddleware");
+// Shabbat Mode middleware is used within individual function modules (e.g. pushNotifications.js).
+// v2functions.js imports it directly for the merged comment/reply trigger.
 
-// Server-side rate limiter (Firestore-backed, rolling window)
-const {applyDefaultLimit} = require("./rateLimiter");
+// Server-side rate limiter is used within individual function modules.
+// Direct usage here was removed with the gen-1 duplicate triggers.
 
 // Post + Comment pipeline (publish finalization, atomic counters, reactions, media)
 const {
@@ -188,8 +188,9 @@ exports.onMediaFinalize      = onMediaFinalize;
 exports.onPostCreateValidate = onPostCreateValidate;
 
 // Comment Quality + Safety Gateway
-const { checkCommentQuality } = require('./commentGateway');
+const { checkCommentQuality, rewriteCommentTone } = require('./commentGateway');
 exports.checkCommentQuality  = checkCommentQuality;
+exports.rewriteCommentTone   = rewriteCommentTone;
 
 // ============================================================================
 // TRUST SCORE — E2EE messaging safety layer
@@ -202,6 +203,24 @@ const {
 exports.onTrustScoreRequested      = onTrustScoreRequested;
 exports.onMessageSafetyEvent       = onMessageSafetyEvent;
 exports.scheduledTrustScoreRefresh = scheduledTrustScoreRefresh;
+
+// ============================================================================
+// AMEN AI ROUTER — centralized callModel wrappers (gen2)
+// All provider selection lives in functions/router/amenRouting.config.js.
+// Feature code must NOT hardcode provider names or API URLs.
+// ============================================================================
+const {
+  callModelTest,
+  callModelBerean,
+  callModelCommentCoach,
+  callModelDailyBrief,
+  callModelSearch,
+} = require("./routerCallable");
+exports.callModelTest         = callModelTest;
+exports.callModelBerean       = callModelBerean;
+exports.callModelCommentCoach = callModelCommentCoach;
+exports.callModelDailyBrief   = callModelDailyBrief;
+exports.callModelSearch       = callModelSearch;
 
 // ============================================================================
 // PHASE 2: SAFE MESSAGING — Pre-send safety gateway, trust scores, notification grouping
@@ -239,406 +258,28 @@ exports.updateBadgeCount = updateBadgeCount;
 exports.getGroupedNotifications = getGroupedNotifications;
 exports.markNotificationsRead = markNotificationsRead;
 
-// ============================================================================
-// REALTIME DATABASE: COMMENT NOTIFICATIONS
-// ============================================================================
-
-/**
- * Triggers when a new comment is created in Realtime Database
- * Path: postInteractions/{postId}/comments/{commentId}
- */
-exports.onRealtimeCommentCreate = onValueCreated(
-    {
-      ref: "/postInteractions/{postId}/comments/{commentId}",
-      region: "us-central1",
-    },
-    async (event) => {
-      const postId = event.params.postId;
-      const commentId = event.params.commentId;
-      const commentData = event.data.val();
-
-      console.log(`📝 New comment on post ${postId}: ${commentId}`);
-
-      try {
-        // ── Shabbat guard ────────────────────────────────────────────────
-        const commentAuthorId = commentData.userId;
-        if (await isSundayForUser(commentAuthorId)) {
-          console.log(`🕊️ Shabbat Mode active for ${commentAuthorId} — skipping comment notification`);
-          return null;
-        }
-        // ────────────────────────────────────────────────────────────────
-
-        // Skip if this is a reply (has parentId)
-        if (commentData.parentId) {
-          console.log("⏭️ Skipping - this is a reply, not a top-level comment");
-          return null;
-        }
-
-        // ── #8 First Response Only ────────────────────────────────────────
-        // Only fire this notification for the very first top-level comment so
-        // the author gets a single "first response" moment, not a flood.
-        // Count existing top-level comments (no parentId / parentCommentId) in RTDB.
-        const allCommentsSnap = await admin.database()
-            .ref(`postInteractions/${postId}/comments`)
-            .once("value");
-        let topLevelCount = 0;
-        allCommentsSnap.forEach((child) => {
-          const d = child.val();
-          if (!d.parentId && !d.parentCommentId) topLevelCount++;
-        });
-        if (topLevelCount > 1) {
-          console.log(`⏭️ Skipping first-response notification — ${topLevelCount} top-level comments already`);
-          return null;
-        }
-        // ─────────────────────────────────────────────────────────────────
-
-        // Get post to find the author
-        const postDoc = await admin.firestore()
-            .collection("posts")
-            .doc(postId)
-            .get();
-
-        if (!postDoc.exists) {
-          console.log("⚠️ Post not found");
-          return null;
-        }
-
-        const postData = postDoc.data();
-        const postAuthorId = postData.userId;
-
-        // Don't notify if user comments on their own post
-        if (postAuthorId === commentAuthorId) {
-          console.log("⏭️ Skipping - user commented on their own post");
-          return null;
-        }
-
-        // Get commenter's profile
-        const commenterDoc = await admin.firestore()
-            .collection("users")
-            .doc(commentAuthorId)
-            .get();
-
-        const commenterData = commenterDoc.data();
-        const commenterName = commenterData?.displayName || "Someone";
-
-        // ✅ NEW: Include profile photo for Instagram-speed display
-        const actorProfileImageURL = commenterData?.profileImageURL ||
-                                     commenterData?.profilePictureURL ||
-                                     "";
-
-        // Create notification in Firestore
-        const notification = {
-          type: "comment",
-          actorId: commentAuthorId,
-          actorName: commenterName,
-          actorUsername: commenterData?.username || "",
-          actorProfileImageURL: actorProfileImageURL,  // ✅ NEW
-          postId: postId,
-          commentText: commentData.content || commentData.text || "",
-          userId: postAuthorId,
-          read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-
-        await admin.firestore()
-            .collection("users")
-            .doc(postAuthorId)
-            .collection("notifications")
-            .add(notification);
-
-        console.log(`✅ Comment notification created for user ${postAuthorId}`);
-
-        // Send push notification
-        const userDoc = await admin.firestore()
-            .collection("users")
-            .doc(postAuthorId)
-            .get();
-
-        const fcmToken = userDoc.data()?.fcmToken;
-
-        if (fcmToken) {
-          await admin.messaging().send({
-            notification: {
-              title: "New Comment",
-              body: `${commenterName} commented on your post`,
-            },
-            data: {
-              type: "comment",
-              actorId: commentAuthorId,
-              postId: postId,
-            },
-            token: fcmToken,
-          });
-          console.log(`✅ Push notification sent to ${postAuthorId}`);
-        }
-
-        return {success: true};
-      } catch (error) {
-        console.error("❌ Error in onRealtimeCommentCreate:", error);
-        return null;
-      }
-    },
-);
-
-/**
- * Triggers when a new reply is created in Realtime Database
- * Path: postInteractions/{postId}/comments/{commentId}
- */
-exports.onRealtimeReplyCreate = onValueCreated(
-    {
-      ref: "/postInteractions/{postId}/comments/{commentId}",
-      region: "us-central1",
-    },
-    async (event) => {
-      const postId = event.params.postId;
-      const commentId = event.params.commentId;
-      const commentData = event.data.val();
-
-      console.log(`💬 New reply on post ${postId}: ${commentId}`);
-
-      try {
-        // ── Shabbat guard ────────────────────────────────────────────────
-        const replyAuthorId = commentData.userId;
-        if (await isSundayForUser(replyAuthorId)) {
-          console.log(`🕊️ Shabbat Mode active for ${replyAuthorId} — skipping reply notification`);
-          return null;
-        }
-        // ────────────────────────────────────────────────────────────────
-
-        // Only process if this is a reply (has parentId)
-        if (!commentData.parentId) {
-          console.log("⏭️ Skipping - this is a top-level comment, not a reply");
-          return null;
-        }
-
-        // Get parent comment from RTDB
-        const parentCommentSnapshot = await admin.database()
-            .ref(`postInteractions/${postId}/comments/${commentData.parentId}`)
-            .once("value");
-
-        if (!parentCommentSnapshot.exists()) {
-          console.log("⚠️ Parent comment not found");
-          return null;
-        }
-
-        const parentCommentData = parentCommentSnapshot.val();
-        const parentCommentAuthorId = parentCommentData.userId;
-
-        // Don't notify if user replies to their own comment
-        if (parentCommentAuthorId === replyAuthorId) {
-          console.log("⏭️ Skipping - user replied to their own comment");
-          return null;
-        }
-
-        // Get replier's profile
-        const replierDoc = await admin.firestore()
-            .collection("users")
-            .doc(replyAuthorId)
-            .get();
-
-        const replierData = replierDoc.data();
-        const replierName = replierData?.displayName || "Someone";
-
-        // ✅ Include profile photo for Instagram-speed display
-        const actorProfileImageURL = replierData?.profileImageURL ||
-                                     replierData?.profilePictureURL ||
-                                     "";
-
-        // Create notification in Firestore
-        const notification = {
-          type: "reply",
-          actorId: replyAuthorId,
-          actorName: replierName,
-          actorUsername: replierData?.username || "",
-          actorProfileImageURL: actorProfileImageURL,  // ✅ NEW
-          postId: postId,
-          commentText: commentData.content || commentData.text || "",
-          userId: parentCommentAuthorId,
-          read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-
-        await admin.firestore()
-            .collection("users")
-            .doc(parentCommentAuthorId)
-            .collection("notifications")
-            .add(notification);
-
-        console.log(`✅ Reply notification created for user ${parentCommentAuthorId}`);
-
-        // Send push notification
-        const userDoc = await admin.firestore()
-            .collection("users")
-            .doc(parentCommentAuthorId)
-            .get();
-
-        const fcmToken = userDoc.data()?.fcmToken;
-
-        if (fcmToken) {
-          await admin.messaging().send({
-            notification: {
-              title: "New Reply",
-              body: `${replierName} replied to your comment`,
-            },
-            data: {
-              type: "reply",
-              actorId: replyAuthorId,
-              postId: postId,
-            },
-            token: fcmToken,
-          });
-          console.log(`✅ Push notification sent to ${parentCommentAuthorId}`);
-        }
-
-        return {success: true};
-      } catch (error) {
-        console.error("❌ Error in onRealtimeReplyCreate:", error);
-        return null;
-      }
-    },
-);
+// NOTE: onRealtimeCommentCreate, onRealtimeReplyCreate, onMessageSent, and
+// sendDailyNotificationDigest are defined in v2functions.js (gen-2 triggers).
+// They are intentionally NOT re-exported here to prevent double-invocation.
 
 // ============================================================================
-// FIRESTORE: MESSAGE NOTIFICATIONS
+// AI MODERATION, CRISIS DETECTION & SMART NOTIFICATIONS — starts below.
+// (MESSAGE NOTIFICATIONS block moved to v2functions.js)
 // ============================================================================
 
-/**
- * Triggers when a new message is sent in a conversation
- * Path: conversations/{conversationId}/messages/{messageId}
- */
-exports.onMessageSent = onDocumentCreated(
-    {
-      document: "conversations/{conversationId}/messages/{messageId}",
-      region: "us-central1",
-    },
-    async (event) => {
-      const conversationId = event.params.conversationId;
-      const messageId = event.params.messageId;
-      const messageData = event.data.data();
+// Temporary placeholder to mark removal boundary — see v2functions.js
+// for all three removed gen-1 triggers.
+const _v2TriggersMovedToV2Functions = true; // eslint-disable-line no-unused-vars
 
-      console.log(`💬 New message in conversation ${conversationId}: ${messageId}`);
-
-      try {
-        const senderId = messageData.senderId;
-
-        // ── Shabbat guard ────────────────────────────────────────────────
-        if (await isSundayForUser(senderId)) {
-          console.log(`🕊️ Shabbat Mode active for ${senderId} — skipping message notification`);
-          return null;
-        }
-        // ────────────────────────────────────────────────────────────────
-        const messageText = messageData.text || "";
-
-        // Get conversation to find recipients
-        const conversationDoc = await admin.firestore()
-            .collection("conversations")
-            .doc(conversationId)
-            .get();
-
-        if (!conversationDoc.exists) {
-          console.log("⚠️ Conversation not found");
-          return null;
-        }
-
-        const conversationData = conversationDoc.data();
-        const participantIds = conversationData.participantIds || [];
-        const conversationStatus = conversationData.conversationStatus || "accepted";
-        const isGroup = conversationData.isGroup || false;
-        const groupName = conversationData.groupName;
-
-        // Get sender info
-        const senderDoc = await admin.firestore()
-            .collection("users")
-            .doc(senderId)
-            .get();
-
-        const senderData = senderDoc.data();
-        const senderName = senderData?.displayName || "Someone";
-        const senderIsPrivate = senderData?.isPrivateAccount || false;
-
-        // Send notification to all participants except sender
-        const recipients = participantIds.filter((id) => id !== senderId);
-
-        for (const recipientId of recipients) {
-          // ✅ P0-7 FIX: Get recipient info for privacy checks
-          const recipientDoc = await admin.firestore()
-              .collection("users")
-              .doc(recipientId)
-              .get();
-
-          const recipientData = recipientDoc.data();
-          const recipientIsPrivate = recipientData?.isPrivateAccount || false;
-
-          // ✅ P0-7 FIX: Check if users are blocked
-          const senderBlockedUsers = senderData?.blockedUsers || [];
-          const recipientBlockedUsers = recipientData?.blockedUsers || [];
-          const isBlocked = senderBlockedUsers.includes(recipientId) ||
-                          recipientBlockedUsers.includes(senderId);
-
-          // ✅ P0-7 FIX: Determine if message preview should be hidden
-          // Hide preview if: either user is private, OR users are blocked
-          const shouldHidePreview = senderIsPrivate || recipientIsPrivate || isBlocked;
-
-          // ✅ P0-7 FIX: Use generic message if privacy settings prevent preview
-          const safeMessageText = shouldHidePreview ? "" : messageText.substring(0, 100);
-
-          // Create notification
-          const notification = {
-            type: conversationStatus === "pending" ? "message_request" : "message",
-            actorId: senderId,
-            actorName: senderName,
-            conversationId: conversationId,
-            messageText: safeMessageText, // ✅ P0-7: Privacy-aware message text
-            userId: recipientId,
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          };
-
-          await admin.firestore()
-              .collection("users")
-              .doc(recipientId)
-              .collection("notifications")
-              .add(notification);
-
-          console.log(`✅ Message notification created for user ${recipientId}${shouldHidePreview ? " (preview hidden)" : ""}`);
-
-          // Send push notification
-          const fcmToken = recipientData?.fcmToken;
-
-          if (fcmToken) {
-            const notificationTitle = conversationStatus === "pending" ?
-              "New Message Request" :
-              isGroup ? groupName || "Group Message" : senderName;
-
-            // ✅ P0-7 FIX: Use generic body if preview should be hidden
-            const notificationBody = conversationStatus === "pending" ?
-              `${senderName} wants to message you` :
-              shouldHidePreview ? "New message" : messageText.substring(0, 100);
-
-            await admin.messaging().send({
-              notification: {
-                title: notificationTitle,
-                body: notificationBody,
-              },
-              data: {
-                type: conversationStatus === "pending" ? "message_request" : "message",
-                actorId: senderId,
-                conversationId: conversationId,
-              },
-              token: fcmToken,
-            });
-
-            console.log(`✅ Push notification sent to ${recipientId}${shouldHidePreview ? " (generic message)" : ""}`);
-          }
-        }
-
-        return {success: true};
-      } catch (error) {
-        console.error("❌ Error in onMessageSent:", error);
-        return null;
-      }
-    },
-);
+// ============================================================================
+// REALTIME DATABASE: COMMENT NOTIFICATIONS (REMOVED — see v2functions.js)
+// The following gen-1 triggers caused double notifications when deployed
+// alongside the gen-2 merged handler in v2functions.js:
+//   • onRealtimeCommentCreate (top-level only)
+//   • onRealtimeReplyCreate   (replies only)
+// Both are replaced by the unified gen-2 onRealtimeCommentCreate in v2functions.js
+// which handles both comments and replies in a single trigger.
+// ============================================================================
 
 // ============================================================================
 // AI MODERATION, CRISIS DETECTION & SMART NOTIFICATIONS
@@ -779,148 +420,6 @@ const genkit = require("./genkitFunctions");
 exports.generateVerseReflection = genkit.generateVerseReflection;
 exports.generateNotificationText = genkit.generateNotificationText;
 exports.summarizeNotifications = genkit.summarizeNotifications;
-
-// ============================================================================
-// SCHEDULED: DAILY NOTIFICATION DIGEST PUSH
-// Runs at 8:00 AM UTC daily.
-// Finds users who have digest delivery enabled and undelivered digest docs,
-// bundles their unread notifications, and sends a single FCM push.
-//
-// P1 FIX: Without this function the digest documents written by the iOS client
-// would sit in Firestore indefinitely with no push ever sent.
-// ============================================================================
-
-exports.sendDailyNotificationDigest = onSchedule(
-    {schedule: "0 8 * * *", timeZone: "UTC", region: "us-central1"},
-    async () => {
-      const db = admin.firestore();
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-
-      console.log("⏰ Running daily notification digest delivery...");
-
-      try {
-        // Find all users who have digest mode enabled
-        const usersSnap = await db.collection("users")
-            .where("notificationSettings.digestMode", "==", true)
-            .get();
-
-        if (usersSnap.empty) {
-          console.log("ℹ️ No users with digest mode enabled");
-          return;
-        }
-
-        let deliveredCount = 0;
-
-        for (const userDoc of usersSnap.docs) {
-          const userId = userDoc.id;
-          const userData = userDoc.data();
-
-          // Skip users without a valid FCM token
-          const deviceTokensSnap = await db.collection("users")
-              .doc(userId)
-              .collection("deviceTokens")
-              .where("enabled", "==", true)
-              .limit(1)
-              .get();
-
-          const hasToken = !deviceTokensSnap.empty || !!userData.fcmToken;
-          if (!hasToken) continue;
-
-          // Count unread notifications created since the start of today
-          const unreadSnap = await db.collection("users")
-              .doc(userId)
-              .collection("notifications")
-              .where("read", "==", false)
-              .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(today))
-              .get();
-
-          if (unreadSnap.empty) continue;
-
-          // Group by type for a friendly summary
-          const typeCounts = {};
-          for (const doc of unreadSnap.docs) {
-            const t = doc.data().type || "activity";
-            typeCounts[t] = (typeCounts[t] || 0) + 1;
-          }
-
-          const summaryParts = Object.entries(typeCounts).map(([type, count]) => {
-            const label = {
-              follow: "new follower",
-              amen: "amen",
-              comment: "comment",
-              reply: "reply",
-              mention: "mention",
-              repost: "repost",
-            }[type] || "notification";
-            return `${count} ${label}${count === 1 ? "" : "s"}`;
-          });
-
-          const body = summaryParts.slice(0, 3).join(", ") +
-              (summaryParts.length > 3 ? ` +${summaryParts.length - 3} more` : "");
-
-          // Build the digest document ID for deep-linking
-          const digestId = `${userId}_${today.getTime()}`;
-
-          // Fan-out to all enabled device tokens
-          const tokens = deviceTokensSnap.empty ?
-              (userData.fcmToken ? [userData.fcmToken] : []) :
-              deviceTokensSnap.docs.map((d) => d.data().token).filter(Boolean);
-
-          const staleTokens = [];
-          await Promise.all(tokens.map(async (token) => {
-            try {
-              await admin.messaging().send({
-                notification: {
-                  title: "Your Daily Summary",
-                  body,
-                },
-                data: {
-                  type: "digest",
-                  digestId,
-                  deepLink: `amen://notifications/digest/${digestId}`,
-                  unreadCount: String(unreadSnap.size),
-                },
-                token,
-              });
-            } catch (err) {
-              if (err.code === "messaging/registration-token-not-registered" ||
-                  err.code === "messaging/invalid-registration-token") {
-                staleTokens.push(token);
-              }
-            }
-          }));
-
-          // Clean stale tokens
-          if (staleTokens.length > 0) {
-            const batch = db.batch();
-            deviceTokensSnap.docs.forEach((d) => {
-              if (staleTokens.includes(d.data().token)) batch.delete(d.ref);
-            });
-            await batch.commit();
-          }
-
-          // Write/update the digest document so the iOS client can display history
-          await db.collection("notificationDigests").doc(digestId).set({
-            userId,
-            period: "daily",
-            itemCount: unreadSnap.size,
-            typeCounts,
-            delivered: true,
-            deliveredAt: admin.firestore.FieldValue.serverTimestamp(),
-            opened: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          }, {merge: true});
-
-          deliveredCount++;
-        }
-
-        console.log(`✅ Digest delivery complete — sent to ${deliveredCount} user(s)`);
-      } catch (error) {
-        console.error("❌ Error in sendDailyNotificationDigest:", error);
-      }
-    },
-);
 
 // ============================================================================
 // JOBS PLATFORM
@@ -1249,6 +748,26 @@ exports.moderateDMMessage        = moderateDMMessage;
 // ============================================================================
 const { checkContentSafety } = require("./moderationGateway");
 exports.checkContentSafety = checkContentSafety;
+
+// ============================================================================
+// TTS — Text-to-Speech (Google Cloud TTS, no NVIDIA key needed)
+// ============================================================================
+const { generateSpeech, generatePrayerAudio } = require("./ttsService");
+exports.generateSpeech      = generateSpeech;
+exports.generatePrayerAudio = generatePrayerAudio;
+
+// ============================================================================
+// AI ACTIVITY LOGGING — Unified audit trail for all AI invocations
+// ============================================================================
+const { getAIUsageSummary } = require("./aiActivityLogger");
+exports.getAIUsageSummary = getAIUsageSummary;
+
+// ============================================================================
+// FEATURE FLAGS — Server-side flag management (replaces iOS UserDefaults flags)
+// ============================================================================
+const { getFeatureFlags, updateFeatureFlag } = require("./featureFlagService");
+exports.getFeatureFlags   = getFeatureFlags;
+exports.updateFeatureFlag = updateFeatureFlag;
 
 // ============================================================================
 // AMEN SPACES — Monetization, Events, Live, AI Catch-up, Safety, Stripe
@@ -1715,3 +1234,29 @@ exports.recordDiscussionOutcome = discussionMemoryFunctions.recordDiscussionOutc
 // Discussion OS — Command Center
 const discussionCommandFunctions = require("./discussionCommandFunctions");
 exports.getDiscussionDashboard = discussionCommandFunctions.getDiscussionDashboard;
+
+// ============================================================================
+// BEREAN STUDY ASSISTANT — 6 draft-only study callables
+//   bereanExplainVerse         — plain-language explanation + historical context
+//   bereanStudyPlan            — 7-day study plan from a topic or verse
+//   bereanCompareTranslations  — side-by-side KJV / NIV / ESV / NLT comparison
+//   bereanDiscussionQuestions  — 5 discussion questions from a passage
+//   bereanPrayerFromPassage    — personalised prayer draft from a passage
+//   bereanConvertToChurchNotes — structure passage into a Church Notes entry
+//
+// ALL outputs are DRAFTS (approved:false). User approves before any save/share.
+// Shared rate limit: 20 AI requests per user per hour (pooled across all 6).
+// Secret required: NVIDIA_API_KEY
+// Deploy:
+//   firebase deploy --only functions:bereanExplainVerse,bereanStudyPlan,\
+//     bereanCompareTranslations,bereanDiscussionQuestions,\
+//     bereanPrayerFromPassage,bereanConvertToChurchNotes \
+//     --project amen-5e359
+// ============================================================================
+const bereanStudy = require("./bereanStudyFunctions");
+exports.bereanExplainVerse         = bereanStudy.bereanExplainVerse;
+exports.bereanStudyPlan            = bereanStudy.bereanStudyPlan;
+exports.bereanCompareTranslations  = bereanStudy.bereanCompareTranslations;
+exports.bereanDiscussionQuestions  = bereanStudy.bereanDiscussionQuestions;
+exports.bereanPrayerFromPassage    = bereanStudy.bereanPrayerFromPassage;
+exports.bereanConvertToChurchNotes = bereanStudy.bereanConvertToChurchNotes;

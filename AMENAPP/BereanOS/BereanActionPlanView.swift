@@ -7,7 +7,7 @@ struct BereanActionPlanView: View {
 
     @StateObject private var service = BereanActionPlanService.shared
     @State private var goal = ""
-    @State private var selectedPlanType: BereanActionPlanType = .thirtyDay
+    @State private var selectedPlanType: BereanActionPlanType = .personal
     @State private var generateError: Error?
     @State private var showError = false
     @State private var isLoading = true
@@ -76,7 +76,7 @@ struct BereanActionPlanView: View {
     private var planGeneratorSection: some View {
         Section("New Plan") {
             Picker("Plan Type", selection: $selectedPlanType) {
-                ForEach(BereanActionPlanType.allCases) { type in
+                ForEach(BereanActionPlanType.allCases, id: \.self) { type in
                     Text(type.displayName).tag(type)
                 }
             }
@@ -147,7 +147,7 @@ private struct PlanCard: View {
     let projectId: String
 
     private var completedMilestones: Int {
-        plan.milestones.filter { $0.status == .complete }.count
+        plan.milestones.filter { $0.status == .completed }.count
     }
 
     private var totalMilestones: Int { plan.milestones.count }
@@ -229,7 +229,7 @@ private struct MilestoneRow: View {
     @State private var isExpanded = false
 
     private var completedTasks: Int {
-        milestone.tasks.filter { $0.status == .complete }.count
+        milestone.tasks.filter { $0.status == .completed }.count
     }
     private var totalTasks: Int { milestone.tasks.count }
 
@@ -302,14 +302,13 @@ private struct MilestoneRow: View {
     }
 
     private func statusIcon(for status: BereanTaskStatus) -> some View {
-        Image(systemName: status == .complete ? "checkmark.circle.fill" : "circle")
-            .foregroundStyle(status == .complete ? Color.green : Color.secondary)
+        Image(systemName: status == .completed ? "checkmark.circle.fill" : "circle")
+            .foregroundStyle(status == .completed ? .green : Color.secondary)
     }
 
     private func progressTint(for status: BereanTaskStatus) -> Color {
         switch status {
-        case .complete: return .green
-        case .blocked: return .red
+        case .completed: return .green
         case .inProgress: return .blue
         default: return .accentColor
         }
@@ -325,8 +324,7 @@ private struct StatusBadge: View {
         switch status {
         case .notStarted: return "Not Started"
         case .inProgress: return "In Progress"
-        case .blocked: return "Blocked"
-        case .complete: return "Complete"
+        case .completed: return "Complete"
         case .cancelled: return "Cancelled"
         }
     }
@@ -335,8 +333,7 @@ private struct StatusBadge: View {
         switch status {
         case .notStarted: return .secondary
         case .inProgress: return .blue
-        case .blocked: return .red
-        case .complete: return .green
+        case .completed: return .green
         case .cancelled: return .gray
         }
     }
@@ -364,7 +361,7 @@ private struct TaskRow: View {
     @StateObject private var service = BereanActionPlanService.shared
     @State private var isToggling = false
 
-    private var isComplete: Bool { task.status == .complete }
+    private var isComplete: Bool { task.status == .completed }
 
     var body: some View {
         Button {
@@ -372,7 +369,7 @@ private struct TaskRow: View {
             Task {
                 isToggling = true
                 defer { isToggling = false }
-                let newStatus: BereanTaskStatus = isComplete ? .notStarted : .complete
+                let newStatus: BereanTaskStatus = isComplete ? .notStarted : .completed
                 try? await service.updateTaskStatus(
                     planId: planId,
                     milestoneId: milestoneId,

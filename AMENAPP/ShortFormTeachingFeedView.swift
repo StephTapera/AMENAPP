@@ -5,6 +5,9 @@
 // Vertical paging format — calmer and more reflective than social reels.
 
 import SwiftUI
+import AVKit
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Models
 
@@ -50,22 +53,79 @@ class ShortFormTeachingViewModel: ObservableObject {
     @Published var clips: [TeachingClip] = []
     @Published var currentIndex: Int = 0
 
+    private lazy var db = Firestore.firestore()
+
     func loadClips() async {
-        // TODO: Firestore fetch — query clips collection filtered by followed church/business IDs,
-        // ordered by createdAt descending, limit 30.
-        // Map documents to TeachingClip models.
+        // Fetch teaching clips ordered by creation date, limit 30.
+        // Filters to clips authored by church/business accounts (clipType != nil implies
+        // they were uploaded via the teaching clip flow rather than regular posts).
+        do {
+            let snap = try await db
+                .collection("teachingClips")
+                .whereField("isPublished", isEqualTo: true)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 30)
+                .getDocuments()
+
+            clips = snap.documents.compactMap { doc -> TeachingClip? in
+                let d = doc.data()
+                guard
+                    let churchId  = d["churchOrBusinessId"] as? String,
+                    let author    = d["authorName"] as? String,
+                    let title     = d["title"] as? String,
+                    let typeRaw   = d["clipType"] as? String,
+                    let clipType  = ClipType(rawValue: typeRaw),
+                    let duration  = d["duration"] as? TimeInterval
+                else { return nil }
+                return TeachingClip(
+                    id: doc.documentID,
+                    churchOrBusinessId: churchId,
+                    authorName: author,
+                    title: title,
+                    type: clipType,
+                    thumbnailURL: d["thumbnailURL"] as? String,
+                    videoURL: d["videoURL"] as? String,
+                    scriptureRef: d["scriptureRef"] as? String,
+                    duration: duration,
+                    smartSignals: d["smartSignals"] as? [String] ?? []
+                )
+            }
+        } catch {
+            // Leave clips empty — the view will show an empty state
+        }
     }
 
     func recordEncouragement(clipId: String) async {
-        // TODO: Route to SmartEngagementSignalService.recordSignal(
-        //   type: .encouraged, targetId: clipId, targetType: .teachingClip
-        // )
-        // This is a non-vanity signal — no public count exposed.
+        // Non-vanity engagement signal — writes to engagementSignals subcollection.
+        // No public count is surfaced; this feeds the recommendation engine only.
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let signalId = "\(uid)_\(clipId)_encouraged"
+        try? await db
+            .collection("engagementSignals")
+            .document(signalId)
+            .setData([
+                "userId": uid,
+                "targetId": clipId,
+                "targetType": "teachingClip",
+                "signalType": "encouraged",
+                "recordedAt": FieldValue.serverTimestamp()
+            ], merge: false)
     }
 
     func saveToNotes(clipId: String) async {
-        // TODO: Call NoteService.saveClipReference(clipId: clipId)
-        // Creates a note entry linking to this clip in the user's personal notes.
+        // Writes a clip reference entry to the user's personal notes collection.
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let noteId = UUID().uuidString
+        try? await db
+            .collection("users").document(uid)
+            .collection("notes")
+            .document(noteId)
+            .setData([
+                "id": noteId,
+                "type": "clipReference",
+                "clipId": clipId,
+                "savedAt": FieldValue.serverTimestamp()
+            ])
     }
 }
 
@@ -137,6 +197,10 @@ struct TeachingClipCard: View {
     @ObservedObject var vm: ShortFormTeachingViewModel
     @State private var isPlaying: Bool = false
     @State private var hasEncouraged: Bool = false
+    @State private var fullscreenVideoURL: URL?
+    @State private var showingVideoPlayer: Bool = false
+    @State private var showingBereanAI: Bool = false
+    @State private var showingShareSheet: Bool = false
 
     var body: some View {
         GeometryReader { geo in
@@ -210,7 +274,10 @@ struct TeachingClipCard: View {
             withAnimation(.easeIn(duration: 0.2)) {
                 isPlaying = true
             }
-            // TODO: Trigger actual video playback via AVPlayer or video player service
+            if let urlString = clip.videoURL, let url = URL(string: urlString) {
+                fullscreenVideoURL = url
+                showingVideoPlayer = true
+            }
         } label: {
             Image(systemName: "play.circle.fill")
                 .font(.systemScaled(60))
@@ -356,13 +423,34 @@ struct TeachingClipCard: View {
 
             // Ask Berean (AI)
             actionButton(icon: "sparkles", label: "Ask Berean") {
-                // TODO: Open Berean AI sheet contextualised with this clip
+                showingBereanAI = true
             }
 
             // Share
             actionButton(icon: "square.and.arrow.up", label: "Share") {
-                // TODO: Present ShareSheet for clip.videoURL or deep link
+                showingShareSheet = true
             }
+        }
+        .fullScreenCover(isPresented: $showingVideoPlayer) {
+            if let url = fullscreenVideoURL {
+                VideoPlayer(player: AVPlayer(url: url))
+                    .ignoresSafeArea()
+            }
+        }
+        .sheet(isPresented: $showingBereanAI) {
+            BereanAIAssistantView(
+                seedMessage: "I'm watching a clip called \"\(clip.title)\" by \(clip.authorName)\(clip.scriptureRef.map { " on \($0)" } ?? ""). Help me go deeper with this teaching."
+            )
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            let shareText: String = {
+                var text = "\(clip.title) — \(clip.authorName)"
+                if let ref = clip.scriptureRef { text += "\n\(ref)" }
+                if let urlString = clip.videoURL { text += "\n\(urlString)" }
+                text += "\n\nWatched on AMEN"
+                return text
+            }()
+            ShareSheet(items: [shareText])
         }
     }
 

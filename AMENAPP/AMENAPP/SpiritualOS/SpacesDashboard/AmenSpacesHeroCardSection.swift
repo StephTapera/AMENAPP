@@ -137,7 +137,7 @@ private struct DashboardStatRow: View {
     let memberPreviews: [MemberPreview]
     let totalMemberCount: Int
     let activePrayerCount: Int
-    let nextEvent: SpaceEvent?
+    let nextEvent: SpaceDashboardEvent?
 
     private var nextEventLabel: String {
         guard let event = nextEvent else { return "No events" }
@@ -246,7 +246,7 @@ private struct StudySeriesCard: View {
 
 // MARK: - Quick action button (.bordered style — NOT glass)
 
-private struct QuickActionButton: View {
+private struct SpaceDashboardQuickActionButton: View {
     let label: String
     let icon: String
     let action: () -> Void
@@ -264,7 +264,7 @@ private struct QuickActionButton: View {
 
 // MARK: - Activity row (plain — no glass)
 
-private struct ActivityRow: View {
+private struct SpaceDashboardActivityRow: View {
     let item: ActivityItem
 
     private var iconName: String {
@@ -445,6 +445,9 @@ struct AmenSpacesHeroCardSection: View {
         .sheet(isPresented: $showAskBerean) {
             AskBereanPlaceholderSheet(spaceId: spaceId)
         }
+        .sheet(isPresented: $showDiscussion) {
+            SpaceDiscussionSheet(spaceId: spaceId)
+        }
     }
 
     // MARK: - Hero content
@@ -495,22 +498,22 @@ struct AmenSpacesHeroCardSection: View {
             // ── Quick action buttons (.bordered — NOT glass) ──────────────────
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    QuickActionButton(
+                    SpaceDashboardQuickActionButton(
                         label: "Pray Together",
                         icon: "hands.sparkles"
                     ) { showPrayTogether = true }
 
-                    QuickActionButton(
+                    SpaceDashboardQuickActionButton(
                         label: "Start Discussion",
                         icon: "bubble.left.and.bubble.right"
                     ) { showDiscussion = true }
 
-                    QuickActionButton(
+                    SpaceDashboardQuickActionButton(
                         label: "Open Notes",
                         icon: "doc.text"
                     ) { showNotes = true }
 
-                    QuickActionButton(
+                    SpaceDashboardQuickActionButton(
                         label: "Ask Berean",
                         icon: "sparkles"
                     ) { showAskBerean = true }
@@ -528,7 +531,7 @@ struct AmenSpacesHeroCardSection: View {
 
                 VStack(spacing: 0) {
                     ForEach(viewModel.recentActivity) { item in
-                        ActivityRow(item: item)
+                        SpaceDashboardActivityRow(item: item)
 
                         if item.id != viewModel.recentActivity.last?.id {
                             Divider()
@@ -549,24 +552,55 @@ struct AmenSpacesHeroCardSection: View {
 private struct PrayTogetherPlaceholderSheet: View {
     let spaceId: String
     @Environment(\.dismiss) private var dismiss
+    @State private var prayerText = ""
+    @State private var isSubmitting = false
+    @State private var submitted = false
+    private let db = Firestore.firestore()
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "hands.sparkles")
-                    .font(.largeTitle)
-                    .foregroundStyle(Color.amenGold)
-                Text("Pray Together")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(Color.amenBlack)
-                Text("Group prayer for this space is coming in a future phase.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.amenSlate)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+            VStack(alignment: .leading, spacing: 20) {
+                if submitted {
+                    VStack(spacing: 16) {
+                        Image(systemName: "hands.sparkles.fill")
+                            .font(.system(size: 44))
+                            .foregroundStyle(Color.amenGold)
+                        Text("Prayer Submitted")
+                            .font(.title2.weight(.bold))
+                        Text("Your prayer has been added for this space.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Done") { dismiss() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    Text("Share a prayer for this space community.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+
+                    TextEditor(text: $prayerText)
+                        .frame(minHeight: 120)
+                        .padding(8)
+                        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal)
+
+                    Spacer()
+
+                    Button(action: submitPrayer) {
+                        Group {
+                            if isSubmitting { ProgressView() } else { Text("Submit Prayer") }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(prayerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
+                    .padding()
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.amenCream.ignoresSafeArea())
             .navigationTitle("Pray Together")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -574,6 +608,20 @@ private struct PrayTogetherPlaceholderSheet: View {
                     Button("Close") { dismiss() }
                 }
             }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func submitPrayer() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isSubmitting = true
+        db.collection("spaces").document(spaceId).collection("prayerRequests").addDocument(data: [
+            "uid": uid,
+            "prayerText": prayerText.trimmingCharacters(in: .whitespacesAndNewlines),
+            "createdAt": Timestamp(date: Date())
+        ]) { _ in
+            isSubmitting = false
+            submitted = true
         }
     }
 }

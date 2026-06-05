@@ -36,6 +36,8 @@
 	<false/>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>AMEN uses Apple Music to play worship songs in your Church Notes.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>AMEN uses motion activity to detect when you're driving so it can activate hands-free Berean Voice mode.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>AMEN uses speech recognition to let you compose posts, prayers, and messages by voice.</string>
 	<key>NSUserNotificationsUsageDescription</key>

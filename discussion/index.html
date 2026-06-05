@@ -622,8 +622,9 @@ function restoreThresholdDraft(parentId) {
     const draft = JSON.parse(raw);
     if (draft.parentId !== parentId) return; // different reply context — don't restore
     if (draft.body) {
-      document.getElementById('composer-textarea').value = draft.body;
-      document.getElementById('char-count').textContent = draft.body.length + ' / 2000';
+      const safeBody = String(draft.body).slice(0, 2000);
+      document.getElementById('composer-textarea').value = safeBody;
+      document.getElementById('char-count').textContent = safeBody.length + ' / 2000';
     }
     if (draft.dest) {
       document.querySelectorAll('.dest-card').forEach(c => c.classList.remove('selected'));
@@ -774,7 +775,7 @@ const S = {
     body:       '',
   },
   currentUserId:'me',
-  isOwner: true,
+  get isOwner() { return S.currentUserId === THREAD.postAuthorUID; },
 };
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -841,6 +842,21 @@ function renderContextCard(verseKey, commentId) {
 }
 
 function renderComment(comment, childrenMap) {
+  // Tombstone for soft-deleted comments
+  if (comment.isDeleted) {
+    const children = childrenMap[comment.id] || [];
+    const repliesHTML = children.length ? `
+      <div class="replies" id="replies-${comment.id}">
+        ${children.map(child => renderComment(child, childrenMap)).join('')}
+      </div>` : '';
+    return `<div class="comment-group">
+      <div class="comment-card" data-comment-id="${comment.id}">
+        <div class="comment-inner" style="opacity:0.45">
+          <div class="comment-body" style="color:var(--text3);font-style:italic">[This comment was removed]</div>
+        </div>
+      </div>${repliesHTML}</div>`;
+  }
+
   const user = USERS[comment.authorUID] || {name:comment.authorUID,color:'#888',rep:{total:0,tier:'none'}};
   const isOwner = S.isOwner;
   const isAccepted = S.acceptedId === comment.id;
@@ -850,6 +866,7 @@ function renderComment(comment, childrenMap) {
   const dimmed = S.threadFilter && !comment.verseKeys.includes(S.threadFilter);
   const myId = S.currentUserId;
   const isOwnerComment = comment.authorUID === myId;
+  const isLocked = THREAD.isLocked;
 
   let destBadge = '';
   if (comment.destination === 'reflection') destBadge = '<span class="comment-dest dest-reflection">📔 Reflection</span>';
@@ -867,7 +884,7 @@ function renderComment(comment, childrenMap) {
     <div class="comment-card${isAccepted?' accepted':''}${dimmed?' dimmed':''}" data-comment-id="${comment.id}">
       <div class="comment-inner">
         <div class="comment-top">
-          <div class="avatar" style="background:${user.color}">${initials(user.name)}</div>
+          <div class="avatar" style="background:${/^#[0-9a-fA-F]{3,6}$/.test(user.color)?user.color:'#888'}">${initials(user.name)}</div>
           <div class="comment-meta">
             <div class="comment-author">
               ${user.name} ${badgeHTML(user.rep.tier)}
@@ -888,8 +905,8 @@ function renderComment(comment, childrenMap) {
             ${isMarked?'disabled':''}>
             👍 Helpful (${comment.helpfulCount})
           </button>
-          <button class="action-btn reply-btn" onclick="openThreshold('${comment.id}')">Reply</button>
-          ${isOwner && !isOwnerComment ? `<button class="action-btn accept-btn${isAccepted?' accepted':''}"
+          ${!isLocked ? `<button class="action-btn reply-btn" onclick="openThreshold('${comment.id}')">Reply</button>` : ''}
+          ${isOwner && !isOwnerComment && !isLocked ? `<button class="action-btn accept-btn${isAccepted?' accepted':''}"
             onclick="setAccepted('${comment.id}')">
             ${isAccepted ? '✓ Accepted' : '✓ Accept'}
           </button>` : ''}
@@ -1074,6 +1091,10 @@ function onComposerInput(el) {
 }
 
 function submitPost() {
+  if (THREAD.isLocked) {
+    showToast('This thread is locked and no longer accepting comments.');
+    return;
+  }
   const ta = document.getElementById('composer-textarea');
   const body = ta.value.trim();
   if (!body) {
@@ -1118,11 +1139,14 @@ function submitPost() {
   }).catch(err => {
     const msg = err?.message ?? '';
     if (msg.includes('resource-exhausted')) {
-      console.warn('[postComment] rate limit reached');
-    } else {
-      console.warn('[postComment] failed:', msg);
+      showToast('You\'ve posted a lot recently. Please wait a moment before posting again.');
+    } else if (msg.includes('failed-precondition')) {
+      showToast('This thread is locked and no longer accepting comments.');
+    } else if (msg.includes('unauthenticated')) {
+      showToast('Please sign in to post comments.');
+    } else if (msg) {
+      showToast('Your comment was saved locally but could not be posted right now.');
     }
-    // Local state is preserved — comment visible in demo even if backend is unreachable
   });
 }
 
@@ -1264,6 +1288,50 @@ function scrollToVerse(verseKey) {
 if (THREAD.isLocked) {
   document.getElementById('locked-banner').classList.add('visible');
 }
+
+// ── Toast helper ─────────────────────────────────────────────────────────────
+
+function showToast(message) {
+  let toast = document.getElementById('amen-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'amen-toast';
+    toast.style.cssText = [
+      'position:fixed;bottom:calc(env(safe-area-inset-bottom,24px) + 80px);left:50%;',
+      'transform:translateX(-50%);background:rgba(30,30,36,0.96);color:#F5F0E8;',
+      'font-size:13px;padding:10px 18px;border-radius:20px;',
+      'border:0.5px solid rgba(255,255,255,0.12);z-index:9999;',
+      'max-width:320px;text-align:center;pointer-events:none;',
+      'opacity:0;transition:opacity 0.25s ease;',
+    ].join('');
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
+
+// ── Simulated video progress (prototype) ─────────────────────────────────────
+// In production this would be driven by a real AVPlayer timeupdate event.
+// Here we advance a fake playhead every 5 seconds and call updateWatchProgress
+// so the consume-nudge step reflects genuine engagement.
+
+let _simWatchedSecs = 0;
+const _SIM_DURATION  = 24 * 60 + 18; // 24:18 in seconds (matches post-type badge)
+const _SIM_INTERVAL  = 5000;          // advance every 5 s
+
+setInterval(() => {
+  if (_simWatchedSecs >= _SIM_DURATION) return;
+  _simWatchedSecs = Math.min(_simWatchedSecs + 5, _SIM_DURATION);
+  callBackend('updateWatchProgress', {
+    postId:           THREAD.postId,
+    progressFraction: _simWatchedSecs / _SIM_DURATION,
+    durationSecs:     _SIM_DURATION,
+    watchedSecs:      _simWatchedSecs,
+    transcriptRead:   false,
+  }).catch(() => {}); // fire-and-forget; offline is fine
+}, _SIM_INTERVAL);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderThread();

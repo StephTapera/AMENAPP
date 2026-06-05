@@ -269,7 +269,8 @@ class WellnessGuardianService: ObservableObject {
             
             var totalMinutes = 0
             var breaksTaken = 0
-            
+            var sessionDates: [Date] = []
+
             for doc in snapshot.documents {
                 if let duration = doc.data()["duration"] as? TimeInterval {
                     totalMinutes += Int(duration / 60)
@@ -277,14 +278,17 @@ class WellnessGuardianService: ObservableObject {
                 if let breaks = doc.data()["breaksTaken"] as? Int {
                     breaksTaken += breaks
                 }
+                if let startTimestamp = doc.data()["startTime"] as? Timestamp {
+                    sessionDates.append(startTimestamp.dateValue())
+                }
             }
-            
+
             let avgDaily = totalMinutes / 7
-            
+
             return WellnessStats(
                 todayMinutes: dailyUsageMinutes,
                 weekMinutes: totalMinutes,
-                longestStreak: 0, // TODO: Calculate from daily healthy usage
+                longestStreak: longestStreak(from: sessionDates),
                 breaksTaken: breaksTaken,
                 averageDailyMinutes: avgDaily
             )
@@ -295,8 +299,28 @@ class WellnessGuardianService: ObservableObject {
         }
     }
     
+    // MARK: - Streak Calculation
+
+    /// Computes the longest consecutive-calendar-day streak from a list of session dates.
+    private func longestStreak(from dates: [Date]) -> Int {
+        let calendar = Calendar.current
+        let sorted = Set(dates.map { calendar.startOfDay(for: $0) }).sorted()
+        var best = 0, current = 0
+        var prev: Date?
+        for date in sorted {
+            if let p = prev, calendar.dateComponents([.day], from: p, to: date).day == 1 {
+                current += 1
+            } else {
+                current = 1
+            }
+            best = max(best, current)
+            prev = date
+        }
+        return best
+    }
+
     // MARK: - Firestore Logging
-    
+
     private func saveSessionToFirestore(duration: TimeInterval, scrollCount: Int) {
         guard let db else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }

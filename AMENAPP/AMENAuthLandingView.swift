@@ -17,6 +17,7 @@ struct AMENAuthLandingView: View {
     @State private var logoScale:    CGFloat = 0.9
     @State private var logoOpacity:  Double  = 0
     @State private var wordOpacity:  Double  = 0
+    @State private var taglineOpacity: Double = 0
     @State private var btn1Opacity:  Double  = 0
     @State private var btn1Offset:   CGFloat = 10
     @State private var btn2Opacity:  Double  = 0
@@ -24,17 +25,21 @@ struct AMENAuthLandingView: View {
     @State private var divOpacity:   Double  = 0
     @State private var btn3Opacity:  Double  = 0
     @State private var btn3Offset:   CGFloat = 10
+    @State private var btn4Opacity:  Double  = 0
+    @State private var btn4Offset:   CGFloat = 10
     @State private var linkOpacity:  Double  = 0
 
     // Button press states
     @State private var applePressed = false
     @State private var googlePressed = false
     @State private var emailBg = Color(.secondarySystemBackground)
+    @State private var phoneBg = Color(.secondarySystemBackground)
 
-    // Email flows
+    // Auth flows
     @State private var showEmailSignUp = false
     @State private var showEmailSignIn = false
-    
+    @State private var showPhoneSignUp = false
+
     // Apple Sign In nonce
     @State private var currentNonce: String?
 
@@ -44,10 +49,10 @@ struct AMENAuthLandingView: View {
                 Color(.systemBackground).ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // ── Logo zone ──────────────────────────────────────────
-                    Spacer()
+                    // ── Logo zone: fixed top padding keeps logo in upper third ──
+                    Spacer().frame(height: 96)
 
-                    VStack(spacing: 14) {
+                    VStack(spacing: 10) {
                         Image("amen-logo")
                             .resizable()
                             .renderingMode(.original)
@@ -61,6 +66,11 @@ struct AMENAuthLandingView: View {
                             .tracking(7)
                             .foregroundStyle(.primary)
                             .opacity(wordOpacity)
+
+                        Text("Pray. Worship. Connect.")
+                            .font(.systemScaled(13))
+                            .foregroundStyle(Color(white: 0.55))
+                            .opacity(taglineOpacity)
                     }
 
                     Spacer()
@@ -68,12 +78,12 @@ struct AMENAuthLandingView: View {
                     // ── Button zone ────────────────────────────────────────
                     VStack(spacing: 12) {
 
-                        // Button 1 — Apple
+                        // Apple
                         appleButton
                             .opacity(btn1Opacity)
                             .offset(y: btn1Offset)
 
-                        // Button 2 — Google
+                        // Google
                         googleButton
                             .opacity(btn2Opacity)
                             .offset(y: btn2Offset)
@@ -82,10 +92,15 @@ struct AMENAuthLandingView: View {
                         orDivider
                             .opacity(divOpacity)
 
-                        // Button 3 — Email sign up
-                        emailButton
+                        // Phone — primary alternative for people without Google/Apple
+                        phoneButton
                             .opacity(btn3Opacity)
                             .offset(y: btn3Offset)
+
+                        // Email
+                        emailButton
+                            .opacity(btn4Opacity)
+                            .offset(y: btn4Offset)
 
                         // Sign-in link
                         signInLink
@@ -104,6 +119,10 @@ struct AMENAuthLandingView: View {
             }
             .navigationDestination(isPresented: $showEmailSignIn) {
                 EmailSignInView()
+                    .environmentObject(authViewModel)
+            }
+            .navigationDestination(isPresented: $showPhoneSignUp) {
+                PhoneSignUpView()
                     .environmentObject(authViewModel)
             }
         }
@@ -181,6 +200,32 @@ struct AMENAuthLandingView: View {
         .padding(.vertical, 4)
     }
 
+    // MARK: - Phone button
+
+    private var phoneButton: some View {
+        Button {
+            showPhoneSignUp = true
+        } label: {
+            HStack(spacing: 0) {
+                Image(systemName: "phone.fill")
+                    .font(.systemScaled(15, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .padding(.leading, 18)
+                    .frame(width: 52, alignment: .leading)
+                Spacer()
+                Text("Continue with phone")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Color.clear.frame(width: 52)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(phoneBg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(EmailButtonStyle(bg: $phoneBg))
+    }
+
     // MARK: - Email button
 
     private var emailButton: some View {
@@ -196,7 +241,7 @@ struct AMENAuthLandingView: View {
                 Spacer()
                 Text("Sign up with email")
                     .font(.systemScaled(14, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Color.clear.frame(width: 52)
             }
@@ -275,19 +320,25 @@ struct AMENAuthLandingView: View {
         withAnimation(stagger.delay(0.08)) {
             wordOpacity = 1
         }
-        withAnimation(stagger.delay(0.18)) {
+        withAnimation(stagger.delay(0.14)) {
+            taglineOpacity = 1
+        }
+        withAnimation(stagger.delay(0.22)) {
             btn1Opacity = 1; btn1Offset = 0
         }
-        withAnimation(stagger.delay(0.26)) {
+        withAnimation(stagger.delay(0.30)) {
             btn2Opacity = 1; btn2Offset = 0
         }
-        withAnimation(stagger.delay(0.32)) {
+        withAnimation(stagger.delay(0.36)) {
             divOpacity = 1
         }
-        withAnimation(stagger.delay(0.38)) {
+        withAnimation(stagger.delay(0.42)) {
             btn3Opacity = 1; btn3Offset = 0
         }
-        withAnimation(stagger.delay(0.46)) {
+        withAnimation(stagger.delay(0.48)) {
+            btn4Opacity = 1; btn4Offset = 0
+        }
+        withAnimation(stagger.delay(0.54)) {
             linkOpacity = 1
         }
     }
@@ -417,6 +468,19 @@ struct EmailSignInView: View {
             initialMode: .login,
             showsEmailFormOnAppear: true
         )
+            .navigationBarHidden(true)
+    }
+}
+
+// Routes to SignInView with the phone tab pre-selected.
+// Firebase phone auth creates an account automatically for new numbers,
+// so this works for both sign-up and returning users.
+struct PhoneSignUpView: View {
+    @EnvironmentObject var authViewModel: AuthenticationViewModel
+
+    var body: some View {
+        SignInView(startWithPhone: true)
+            .environmentObject(authViewModel)
             .navigationBarHidden(true)
     }
 }

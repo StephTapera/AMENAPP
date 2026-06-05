@@ -153,11 +153,13 @@ function badgeTier(total) {
 
 // askBerean
 const askBerean = onCall(
-  { region: "us-central1", secrets: [bereanLLMKey] },
+  { region: "us-central1", secrets: [bereanLLMKey], enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+
+    await discussionRateLimit(db, userId, "askBerean", 10);
 
     const threadId = String(request.data?.threadId ?? "").trim();
     if (!threadId) throw new HttpsError("invalid-argument", "threadId is required.");
@@ -213,7 +215,7 @@ Return JSON with exactly these fields:
 
 // detectDuplicate
 const detectDuplicate = onCall(
-  { region: "us-central1", secrets: [embeddingKey] },
+  { region: "us-central1", secrets: [embeddingKey], enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -253,7 +255,7 @@ const detectDuplicate = onCall(
 
 // computeReputation — uid always sourced from request.auth.uid (IDOR fix)
 const computeReputation = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -278,7 +280,7 @@ const computeReputation = onCall(
 
 // postComment
 const postComment = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth?.uid;
@@ -322,7 +324,12 @@ const postComment = onCall(
       parentCommentId: parentCommentId ?? null, depth, body, verseKeys, destination,
       helpfulCount: 0, isAcceptedAnswer: false, isDeleted: false, deletedAt: null,
       createdAt: now, updatedAt: null, reportedAt: null,
-      thresholdPassedAt: thresholdPassedAt ? new Date(thresholdPassedAt) : now,
+      thresholdPassedAt: (() => {
+        if (!thresholdPassedAt) return now;
+        const parsed = new Date(thresholdPassedAt);
+        const ageMs = Date.now() - parsed.getTime();
+        return (!isNaN(parsed.getTime()) && ageMs >= 0 && ageMs < 5 * 60 * 1000) ? parsed : now;
+      })(),
       embedding: null,
     });
 
@@ -347,7 +354,7 @@ const postComment = onCall(
 
 // markHelpful
 const markHelpful = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth?.uid;
@@ -392,7 +399,7 @@ const markHelpful = onCall(
 
 // updateWatchProgress
 const updateWatchProgress = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth?.uid;
@@ -423,7 +430,7 @@ const updateWatchProgress = onCall(
 
 // getWatchProgress
 const getWatchProgress = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth?.uid;
@@ -460,20 +467,26 @@ const processEmbeddingQueue = onDocumentCreated(
     const db = getFirestore();
     const embedding = await embedText(body);
 
-    await db.collection("threads").doc(threadId).collection("comments").doc(commentId)
-      .update({ embedding });
-    await snap.ref.delete();
-    logger.info(`processEmbeddingQueue: processed ${commentId}`);
+    try {
+      await db.collection("threads").doc(threadId).collection("comments").doc(commentId)
+        .update({ embedding });
+      logger.info(`processEmbeddingQueue: processed ${commentId}`);
+    } catch (updateErr) {
+      logger.warn("processEmbeddingQueue: comment update failed (may have been deleted)", { commentId, err: updateErr.message });
+    }
+    try { await snap.ref.delete(); } catch (_) {}
   }
 );
 
 // setAccepted — thread owner accepts a comment as the answer
 const setAccepted = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     const db = getFirestore();
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
+
+    await discussionRateLimit(db, userId, "setAccepted", 30);
 
     const commentId  = String(request.data?.commentId  ?? "").trim();
     const threadId   = String(request.data?.threadId   ?? "").trim();

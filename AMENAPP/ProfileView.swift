@@ -95,6 +95,7 @@ struct ProfileView: View {
     @AppStorage("profileChurchId") private var profileChurchId: String = ""
     @AppStorage("profileChurchName") private var profileChurchName: String = ""
     @AppStorage("profileChurchVisibility") private var profileChurchVisibility: String = "private"
+    @AppStorage("amen_journey_engine_enabled") private var journeyEnabled: Bool = true
     
     // PERFORMANCE: Profile data caching to prevent re-fetches
     @State private var lastProfileLoad: Date?
@@ -138,6 +139,9 @@ struct ProfileView: View {
     
     // NEW: Login History state
     @State private var showLoginHistory = false
+
+    // Journey onboarding — shown first-time when engine has no saved journey
+    @State private var showJourneyOnboarding = false
     
     // NEW: Stats Display
     @State private var followerCount = 0
@@ -232,6 +236,15 @@ struct ProfileView: View {
                 printDataState(context: "task - After Load")
             }
             
+            // Journey engine — initialize (no-op if already loaded for this user)
+            if journeyEnabled, let uid = Auth.auth().currentUser?.uid {
+                await AmenJourneyEngine.shared.initialize(userId: uid)
+                // First-use: show selection picker if no journey has been saved yet
+                if AmenJourneyEngine.shared.currentJourney == nil {
+                    showJourneyOnboarding = true
+                }
+            }
+
             // Start follow service listeners
             followService.startListening()
             dlog("✅ FollowService listeners started")
@@ -329,9 +342,7 @@ struct ProfileView: View {
                         Text("Error: Not signed in").padding()
                     }
                 case .journey:
-                    NavigationStack {
-                        LongitudinalSelfView()
-                    }
+                    AmenJourneyPrivateGrowthView()
                 case .followRequests:
                     FollowRequestsView()
                 case .changePhoto:
@@ -352,6 +363,10 @@ struct ProfileView: View {
             .onChange(of: showLoginHistory) { _, v in if v { activeSheet = .loginHistory; showLoginHistory = false } }
             .onChange(of: showFollowersList) { _, v in if v { activeSheet = .followersList; showFollowersList = false } }
             .onChange(of: showFollowingList) { _, v in if v { activeSheet = .followingList; showFollowingList = false } }
+            // Journey onboarding — first-time picker (separate from the dashboard sheet)
+            .sheet(isPresented: $showJourneyOnboarding) {
+                AmenJourneySelectionView()
+            }
             // P0-1: Surface profile load failures so the user can retry
             .alert("Couldn't Load Profile", isPresented: $showLoadError) {
                 Button("Retry") { Task { await loadProfileData() } }
@@ -506,11 +521,13 @@ struct ProfileView: View {
             }
 
             Menu {
-                Button {
-                    activeSheet = .journey
-                    HapticManager.impact(style: .light)
-                } label: {
-                    Label("My Journey", systemImage: "chart.line.uptrend.xyaxis")
+                if journeyEnabled {
+                    Button {
+                        activeSheet = .journey
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Label("My Journey", systemImage: "chart.line.uptrend.xyaxis")
+                    }
                 }
 
                 Button {

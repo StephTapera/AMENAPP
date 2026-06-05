@@ -13,11 +13,15 @@ struct DiscussionThread: Identifiable, Codable {
     @DocumentID var id: String?
     var postId: String
     var postTitle: String?
-    var postType: String              // "general" | "political" | …
+    var postType: String              // "text" | "video" | "audio" | "image" | "discussion"
     var postAuthorUID: String?        // UID of the original post author (used for host-only features)
+    var transcriptRef: String?        // Storage path to text transcript; enables parity path
     var isLocked: Bool
+    var lockedReason: String?
     var commentCount: Int
     var bereanSummaryRef: String?     // Firestore path to latest BereanThreadSummary
+    var spaceId: String?              // non-nil → space-scoped discussion thread
+    var channelType: String?          // SpaceDiscussionChannelType raw value
     var createdAt: Timestamp
     var updatedAt: Timestamp
 }
@@ -27,18 +31,25 @@ struct DiscussionThread: Identifiable, Codable {
 struct DiscussionComment: Identifiable, Codable {
     @DocumentID var id: String?
     var threadId: String
-    var authorId: String
+    var authorUID: String
     var authorDisplayName: String
     var authorAvatarURL: String?
+    var parentCommentId: String?
+    var depth: Int
     var body: String
+    var verseKeys: [String]
     var helpfulCount: Int
+    var isAcceptedAnswer: Bool
     var isDeleted: Bool
     var destination: String           // "public" | "reflection" | "churchNotes"
     var createdAt: Timestamp
+    var updatedAt: Timestamp?
 
     enum CodingKeys: String, CodingKey {
-        case id, threadId, authorId, authorDisplayName, authorAvatarURL,
-             body, helpfulCount, isDeleted, destination, createdAt
+        case id, threadId, authorUID, authorDisplayName, authorAvatarURL,
+             parentCommentId, depth, body, verseKeys,
+             helpfulCount, isAcceptedAnswer, isDeleted, destination,
+             createdAt, updatedAt
     }
 }
 
@@ -114,6 +125,44 @@ enum DiscussionDestination: String, CaseIterable {
         switch self {
         case .public:     return "bubble.left.fill"
         case .reflection: return "lock.fill"
+        }
+    }
+}
+
+// MARK: - Space Discussion Channel Type
+
+enum SpaceDiscussionChannelType: String, CaseIterable, Codable, Identifiable {
+    case general   = "general"
+    case questions = "questions"
+    case prayer    = "prayer"
+    case wins      = "wins"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .general:   return "General"
+        case .questions: return "Questions"
+        case .prayer:    return "Prayer"
+        case .wins:      return "Wins"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .general:   return "text.bubble"
+        case .questions: return "questionmark.circle"
+        case .prayer:    return "hands.sparkles"
+        case .wins:      return "star.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .general:   return Color.white.opacity(0.7)
+        case .questions: return Color(hex: "#5A9CF8")
+        case .prayer:    return Color(hex: "#C9A84C")
+        case .wins:      return Color(hex: "#4CAF50")
         }
     }
 }

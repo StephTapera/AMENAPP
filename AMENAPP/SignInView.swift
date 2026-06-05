@@ -60,9 +60,14 @@ struct SignInView: View {
     @State private var otpTimerInstance: Timer?
     
     // Sign-up method selection
-    @State private var signUpMethod: SignUpMethod = .email
+    @State private var signUpMethod: SignUpMethod
     // Login method selection
-    @State private var loginMethod: LoginMethod = .email
+    @State private var loginMethod: LoginMethod
+
+    init(startWithPhone: Bool = false) {
+        _signUpMethod = State(initialValue: startWithPhone ? .phone : .email)
+        _loginMethod  = State(initialValue: startWithPhone ? .phone : .email)
+    }
 
     // Remember Me
     @State private var rememberMe = SessionTimeoutManager.shared.isRememberMeEnabled()

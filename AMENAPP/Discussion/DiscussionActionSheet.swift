@@ -3,54 +3,103 @@ import SwiftUI
 
 struct DiscussionActionSheet: View {
     let comment: DiscussionComment
-    let isOwnComment: Bool
-    let isElder: Bool
-    let onAction: (DiscussionAction) -> Void
+    let threadTitle: String?
+    let onShareToSpaces: (DiscussionComment) -> Void
+    @State private var actionStates: [DiscussionAction: ActionState] = [:]
     @Environment(\.dismiss) private var dismiss
 
-    private var actions: [DiscussionAction] {
-        DiscussionActionRouter.shared.availableActions(isOwnComment: isOwnComment, isElder: isElder)
-    }
+    enum ActionState { case idle, loading, done, failed }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                ForEach(actions, id: \.self) { action in
-                    Button {
-                        onAction(action)
-                        dismiss()
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: action.icon)
-                                .font(.system(size: 17))
-                                .frame(width: 24)
-                                .foregroundStyle(action.isDestructive ? .red : Color(hex: "#C9A84C"))
-                            Text(action.label)
-                                .font(.system(size: 16))
-                                .foregroundStyle(action.isDestructive ? Color.red : Color.white.opacity(0.85))
-                            Spacer()
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 14)
-                    }
-                    .buttonStyle(.plain)
-                    if action != actions.last {
-                        Divider().background(Color.white.opacity(0.08))
-                    }
+        VStack(spacing: 20) {
+            Capsule()
+                .fill(Color.white.opacity(0.18))
+                .frame(width: 36, height: 4)
+                .padding(.top, 12)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(comment.authorDisplayName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(hex: "#C9A84C"))
+                Text(comment.body)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.white.opacity(0.75))
+                    .lineLimit(3)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1))
+            )
+            .padding(.horizontal, 20)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(DiscussionAction.allCases, id: \.self) { action in
+                    actionButton(action)
                 }
             }
-            .background(Color(hex: "#111118"))
-            .navigationTitle("Comment Actions")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(Color(hex: "#C9A84C"))
-                }
-            }
+            .padding(.horizontal, 20)
+            Spacer()
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.height(380)])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(20)
+        .presentationCornerRadius(24)
+        .background(Color(hex: "#0A0A0F").ignoresSafeArea())
+    }
+
+    private func actionButton(_ action: DiscussionAction) -> some View {
+        let state = actionStates[action] ?? .idle
+        return Button {
+            guard state == .idle else { return }
+            if action == .shareToSpaces {
+                onShareToSpaces(comment)
+                dismiss()
+                return
+            }
+            Task {
+                actionStates[action] = .loading
+                let ok = (try? await DiscussionActionRouter.shared.perform(action, comment: comment, threadTitle: threadTitle)) ?? false
+                actionStates[action] = ok ? .done : .failed
+                if ok {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    actionStates[action] = .idle
+                }
+            }
+        } label: {
+            VStack(spacing: 8) {
+                ZStack {
+                    if state == .loading {
+                        ProgressView().tint(Color(hex: "#C9A84C")).scaleEffect(0.7)
+                    } else if state == .done {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.green)
+                    } else if state == .failed {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.red)
+                    } else {
+                        Image(systemName: action.icon)
+                            .font(.system(size: 20))
+                            .foregroundStyle(Color(hex: "#C9A84C"))
+                    }
+                }
+                .frame(width: 44, height: 44)
+                .background(Color(hex: "#C9A84C").opacity(0.1), in: Circle())
+                .accessibilityHidden(true)
+
+                Text(action.label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .disabled(state == .loading)
+        .accessibilityLabel(action.label)
     }
 }

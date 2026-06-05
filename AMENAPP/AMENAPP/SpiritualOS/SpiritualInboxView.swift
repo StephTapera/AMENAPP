@@ -25,11 +25,11 @@ struct SpiritualInboxView: View {
                 // MARK: Filter bar (glass only here)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        FilterChip(label: "All", isSelected: selectedFilter == nil) {
+                        FilterChip(title: "All", isSelected: selectedFilter == nil) {
                             selectedFilter = nil
                         }
                         ForEach(AmenHubItemType.allCases, id: \.self) { type in
-                            FilterChip(label: type.label, isSelected: selectedFilter == type) {
+                            FilterChip(title: type.label, isSelected: selectedFilter == type) {
                                 selectedFilter = type
                             }
                         }
@@ -55,7 +55,7 @@ struct SpiritualInboxView: View {
                             HubItemRow(item: item)
                                 .swipeActions(edge: .leading) {
                                     Button {
-                                        // Post prayer notification
+                                        viewModel.prayForItem(itemId: item.id, title: item.title)
                                     } label: {
                                         Label("Pray", systemImage: "heart.fill")
                                     }
@@ -150,28 +150,6 @@ struct HubItemRow: View {
             }
         }
         .padding(.vertical, 4)
-    }
-}
-
-// MARK: - FilterChip
-
-struct FilterChip: View {
-    let label: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .font(.subheadline)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(isSelected ? Color("amenGold") : Color.secondary.opacity(0.15))
-                .foregroundStyle(isSelected ? .white : .primary)
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

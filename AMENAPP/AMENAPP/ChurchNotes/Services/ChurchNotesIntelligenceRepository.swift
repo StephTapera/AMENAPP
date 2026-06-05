@@ -48,9 +48,10 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
             .collection("reflections")
             .order(by: "surfacedAt", descending: true)
             .limit(to: 20)
-            .addSnapshotListener { [weak self] snapshot, _ in
-                guard let self, let docs = snapshot?.documents else { return }
-                reflections = docs.compactMap { try? $0.data(as: ChurchNoteReflection.self) }
+            .addSnapshotListener { [weak self] (snapshot, _) in
+                guard let self = self, let docs = snapshot?.documents else { return }
+                // @Sendable closure implicitly ensured by escaping within addSnapshotListener
+                self.reflections = docs.compactMap { try? $0.data(as: ChurchNoteReflection.self) }
             }
     }
 
@@ -58,6 +59,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
         reflectionsListener?.remove()
         reflectionsListener = nil
         reflections = []
+        activeNoteId = nil // Clear activeNoteId to avoid stale state
     }
 
     /// Save a reflection response to a note.
@@ -67,7 +69,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
         let noteRef = db.collection("churchNotes").document(reflection.noteId)
         let noteSnap = try await noteRef.getDocument()
         guard noteSnap.data()?["userId"] as? String == uid else {
-            throw IntelligenceError.notOwner
+            throw ChurchNotesIntelligenceError.notOwner
         }
         try db
             .collection("churchNotes").document(reflection.noteId)
@@ -88,7 +90,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
         let noteRef = db.collection("churchNotes").document(noteId)
         let noteSnap = try await noteRef.getDocument()
         guard noteSnap.data()?["userId"] as? String == uid else {
-            throw IntelligenceError.notOwner
+            throw ChurchNotesIntelligenceError.notOwner
         }
         try db
             .collection("churchNotes").document(noteId)
@@ -131,9 +133,9 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
         bridgeListener = db
             .collection("churchNotes").document(noteId)
             .collection("bridge").document("main")
-            .addSnapshotListener { [weak self] snapshot, _ in
-                guard let self else { return }
-                bridge = try? snapshot?.data(as: CNSermonBridge.self)
+            .addSnapshotListener { [weak self] (snapshot, _) in
+                guard let self = self else { return }
+                self.bridge = try? snapshot?.data(as: CNSermonBridge.self)
             }
     }
 
@@ -148,7 +150,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
         let noteRef = db.collection("churchNotes").document(bridge.noteId)
         let noteSnap = try await noteRef.getDocument()
         guard noteSnap.data()?["userId"] as? String == uid else {
-            throw IntelligenceError.notOwner
+            throw ChurchNotesIntelligenceError.notOwner
         }
         var updated = bridge
         updated.updatedAt = Date()
@@ -175,10 +177,10 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isLoadingSummary = true
         db.collection("userChurchNotesSummary").document(uid)
-            .addSnapshotListener { [weak self] snapshot, _ in
-                guard let self else { return }
-                isLoadingSummary = false
-                summary = try? snapshot?.data(as: ChurchNotesSummary.self)
+            .addSnapshotListener { [weak self] (snapshot, _) in
+                guard let self = self else { return }
+                self.isLoadingSummary = false
+                self.summary = try? snapshot?.data(as: ChurchNotesSummary.self)
             }
     }
 
@@ -227,27 +229,38 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
 
     // MARK: - Prayer Bridge
 
-    /// Mark a block as linked to a prayer. Writes a lightweight link doc.
+    /// Mark a block as linked to a prayer. Writes a lightweight link doc and increments count atomically.
+    /// Uses Firestore transaction for atomicity and consistency.
     func linkBlockToPrayer(noteId: String, blockId: String, prayerId: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let noteRef = db.collection("churchNotes").document(noteId)
-        let noteSnap = try await noteRef.getDocument()
-        guard noteSnap.data()?["userId"] as? String == uid else {
-            throw IntelligenceError.notOwner
-        }
-        let link: [String: Any] = [
-            "prayerId": prayerId,
-            "blockId": blockId,
-            "createdAt": FieldValue.serverTimestamp(),
-        ]
-        try await db
-            .collection("churchNotes").document(noteId)
-            .collection("linkedPrayers").document(prayerId)
-            .setData(link)
-        // Increment linked prayer count on note
-        try await db.collection("churchNotes").document(noteId)
-            .updateData(["linkedPrayerCount": FieldValue.increment(Int64(1))])
+        // Atomic transaction to write link doc and increment prayer count
+        // Updated to match Firestore runTransaction closure signature with errorPointer for throwing errors
+        try await db.runTransaction({ (transaction, errorPointer) -> Any? in
+            do {
+                let noteSnap = try transaction.getDocument(noteRef)
+                guard noteSnap.data()?["userId"] as? String == uid else {
+                    let nsError = NSError(domain: "ChurchNotesIntelligenceRepository", code: 1, userInfo: [NSLocalizedDescriptionKey: ChurchNotesIntelligenceError.notOwner.errorDescription ?? "Not owner"])
+                    errorPointer?.pointee = nsError
+                    return nil
+                }
+                let linkRef = noteRef.collection("linkedPrayers").document(prayerId)
+                let link: [String: Any] = [
+                    "prayerId": prayerId,
+                    "blockId": blockId,
+                    "createdAt": FieldValue.serverTimestamp(),
+                ]
+                transaction.setData(link, forDocument: linkRef)
+                transaction.updateData(["linkedPrayerCount": FieldValue.increment(Int64(1))], forDocument: noteRef)
+                return nil
+            } catch let error {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+        })
     }
+
+    // MARK: - Private Helpers
 
     private func loadServerSummaryPayloads(userId: String, noteIds: [String]) async throws -> [[String: Any]] {
         var payloads: [[String: Any]] = []
@@ -310,7 +323,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
 
 // MARK: - Errors
 
-enum IntelligenceError: LocalizedError {
+enum ChurchNotesIntelligenceError: LocalizedError {
     case notOwner
     case saveFailed
 
@@ -321,3 +334,4 @@ enum IntelligenceError: LocalizedError {
         }
     }
 }
+

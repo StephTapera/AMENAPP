@@ -109,7 +109,7 @@ struct BereanOSHubView: View {
                         NavigationLink {
                             BereanResearchView(projectId: nil)
                         } label: {
-                            BereanQuickActionChip(icon: "scope", label: "Research")
+                            BereanOSHubQuickActionChip(icon: "scope", label: "Research")
                         }
                         .buttonStyle(.plain)
                     }
@@ -117,7 +117,7 @@ struct BereanOSHubView: View {
                         NavigationLink {
                             BereanWisdomAnalysisView(projectId: nil)
                         } label: {
-                            BereanQuickActionChip(icon: "brain.head.profile", label: "Wisdom")
+                            BereanOSHubQuickActionChip(icon: "brain.head.profile", label: "Wisdom")
                         }
                         .buttonStyle(.plain)
                     }
@@ -125,7 +125,7 @@ struct BereanOSHubView: View {
                         NavigationLink {
                             BereanPerspectiveView(projectId: nil)
                         } label: {
-                            BereanQuickActionChip(icon: "person.3.fill", label: "Perspectives")
+                            BereanOSHubQuickActionChip(icon: "person.3.fill", label: "Perspectives")
                         }
                         .buttonStyle(.plain)
                     }
@@ -133,7 +133,7 @@ struct BereanOSHubView: View {
                         NavigationLink {
                             BereanDebateView(projectId: nil)
                         } label: {
-                            BereanQuickActionChip(icon: "bubble.left.and.bubble.right.fill", label: "Debate")
+                            BereanOSHubQuickActionChip(icon: "bubble.left.and.bubble.right.fill", label: "Debate")
                         }
                         .buttonStyle(.plain)
                     }
@@ -294,9 +294,9 @@ struct BereanOSHubView: View {
     }
 }
 
-// MARK: - BereanQuickActionChip
+// MARK: - BereanOSHubQuickActionChip
 
-private struct BereanQuickActionChip: View {
+private struct BereanOSHubQuickActionChip: View {
     let icon: String
     let label: String
 

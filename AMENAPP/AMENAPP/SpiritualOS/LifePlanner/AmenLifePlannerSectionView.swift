@@ -7,7 +7,7 @@ import Foundation
 
 struct AmenLifePlannerSectionView: View {
 
-    @ObservedObject var viewModel: AmenLifePlannerViewModel
+    var viewModel: AmenLifePlannerViewModel
     var userId: String
 
     @AppStorage("spiritualOS_planner_enabled") private var isEnabled = true
@@ -142,31 +142,24 @@ struct AmenLifePlannerSectionView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(events) { event in
                         TimelineRow(
-                            icon: iconName(for: event.sourceType),
-                            iconTint: iconTint(for: event.sourceType),
+                            icon: iconName(for: event.type),
+                            iconTint: iconTint(for: event.type),
                             title: event.title,
-                            subtitle: event.description,
-                            timestamp: event.isAllDay ? nil : event.startDate,
+                            subtitle: event.subtitle,
+                            timestamp: event.endTime == nil ? nil : event.startTime,
                             badge: badgeForEvent(event),
-                            isCompleted: event.isCompleted,
-                            onTap: {
-                                Task {
-                                    await viewModel.toggleComplete(
-                                        eventId: event.id,
-                                        userId: userId
-                                    )
-                                }
-                            }
+                            isCompleted: false,
+                            onTap: nil
                         )
                         .padding(.horizontal, 16)
                         .accessibilityLabel(accessibilityLabel(for: event))
-                        .accessibilityHint(event.isCompleted ? "Tap to mark incomplete" : "Tap to mark complete")
+                        .accessibilityHint("Tap for event details")
                     }
                 }
             }
 
             // Berean suggestions — only shown in Today section
-            if isToday && !viewModel.bereanSuggestions.isEmpty {
+            if isToday, viewModel.todaySuggestion != nil {
                 bereanSuggestionsSection
             }
         }
@@ -175,8 +168,8 @@ struct AmenLifePlannerSectionView: View {
     // MARK: - Berean Suggestions
 
     private var bereanSuggestionsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(viewModel.bereanSuggestions) { suggestion in
+        Group {
+            if let note = viewModel.todaySuggestion {
                 GlassCard(tint: .amenPurple, elevated: false) {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "sparkles")
@@ -184,46 +177,16 @@ struct AmenLifePlannerSectionView: View {
                             .foregroundStyle(Color.amenPurple)
                             .accessibilityHidden(true)
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(suggestion.bereanNote)
-                                .font(.system(size: 14))
-                                .foregroundStyle(Color.amenSlate)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            HStack(spacing: 8) {
-                                GlassChip(
-                                    label: suggestion.promptLabel,
-                                    tint: .amenPurple,
-                                    size: .compact,
-                                    isActive: true,
-                                    action: nil   // deep-link wired by parent
-                                )
-                                .accessibilityLabel("Berean prompt: \(suggestion.promptLabel)")
-
-                                Spacer()
-
-                                GlassChip(
-                                    label: "Dismiss",
-                                    tint: .amenSlate,
-                                    size: .compact,
-                                    isActive: false
-                                ) {
-                                    Task {
-                                        await viewModel.dismissSuggestion(
-                                            itemId: suggestion.id,
-                                            userId: userId
-                                        )
-                                    }
-                                }
-                                .accessibilityLabel("Dismiss Berean suggestion")
-                            }
-                        }
+                        Text(note)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color.amenSlate)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(12)
                 }
                 .padding(.horizontal, 16)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Berean suggestion: \(suggestion.bereanNote)")
+                .accessibilityLabel("Berean suggestion: \(note)")
             }
         }
         .padding(.bottom, 12)
@@ -257,53 +220,40 @@ struct AmenLifePlannerSectionView: View {
         .accessibilityLabel("Loading planner events")
     }
 
-    // MARK: - Source type helpers
+    // MARK: - Event type helpers
 
-    private func iconName(for sourceType: PlannerSourceType) -> String {
-        switch sourceType {
-        case .spaceEvent:       return "person.3.fill"
-        case .readingPlan:      return "book.fill"
-        case .prayerPlan:       return "hands.sparkles"
-        case .gathering:        return "calendar"
-        case .personalNote:     return "pencil"
-        case .bereanSuggestion: return "sparkles"
+    private func iconName(for type: PlannerEventType) -> String {
+        switch type {
+        case .church:    return "person.3.fill"
+        case .prayer:    return "hands.sparkles"
+        case .birthday:  return "birthday.cake"
+        case .volunteer: return "heart.fill"
+        case .reading:   return "book.fill"
         }
     }
 
-    private func iconTint(for sourceType: PlannerSourceType) -> Color {
-        switch sourceType {
-        case .readingPlan, .prayerPlan, .bereanSuggestion:
-            return .amenPurple
-        case .spaceEvent, .gathering:
-            return .amenBlue
-        case .personalNote:
-            return .amenGold
+    private func iconTint(for type: PlannerEventType) -> Color {
+        switch type {
+        case .church, .volunteer: return .amenBlue
+        case .prayer, .reading:   return .amenPurple
+        case .birthday:           return .amenGold
         }
     }
 
     private func badgeForEvent(_ event: PlannerEvent) -> TimelineRowBadge? {
-        switch event.sourceType {
-        case .spaceEvent:
-            return .dot(Color.amenBlue)
-        case .readingPlan:
-            return .tag("Reading", .amenPurple)
-        case .prayerPlan:
-            return .tag("Prayer", .amenPurple)
-        case .gathering:
-            return .tag("Gathering", .amenBlue)
-        case .personalNote, .bereanSuggestion:
-            return nil
+        switch event.type {
+        case .church:    return .dot(Color.amenBlue)
+        case .reading:   return .tag("Reading", .amenPurple)
+        case .prayer:    return .tag("Prayer", .amenPurple)
+        case .volunteer: return .tag("Volunteer", .amenBlue)
+        case .birthday:  return nil
         }
     }
 
     private func accessibilityLabel(for event: PlannerEvent) -> String {
-        let timeString: String
-        if event.isAllDay {
-            timeString = "all day"
-        } else {
-            timeString = Self.timeFormatter.string(from: event.startDate)
-        }
-        let completedString = event.isCompleted ? ", completed" : ""
-        return "\(event.title), \(timeString)\(completedString)"
+        let timeString = event.endTime == nil
+            ? "all day"
+            : Self.timeFormatter.string(from: event.startTime)
+        return "\(event.title), \(timeString)"
     }
 }

@@ -90,7 +90,7 @@ struct BereanWisdomAnalysisView: View {
                         systemImage: showContextEditor ? "chevron.up" : "plus.circle"
                     )
                     .font(.subheadline)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                 }
                 .accessibilityLabel(showContextEditor ? "Hide context input" : "Add optional context")
 
@@ -266,15 +266,16 @@ struct BereanWisdomAnalysisView: View {
         score: Double?,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        DisclosureGroup {
+        let built = content()
+        return DisclosureGroup {
             VStack(alignment: .leading, spacing: 8) {
-                content()
+                built
             }
             .padding(.top, 6)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: icon)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                     .frame(width: 20)
                 Text(title)
                     .font(.subheadline.weight(.semibold))
@@ -331,7 +332,7 @@ struct BereanWisdomAnalysisView: View {
         } label: {
             HStack {
                 Image(systemName: "person.fill")
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                 Text(perspective.perspectiveType.isEmpty ? "Perspective" : perspective.perspectiveType)
                     .font(.subheadline.weight(.semibold))
             }

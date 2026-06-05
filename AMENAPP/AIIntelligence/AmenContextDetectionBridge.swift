@@ -98,6 +98,28 @@ struct AmenContextDetectionBridge {
         return chips
     }
 
+    // MARK: - DetectedMessageContext conversion (used by BereanCommunicationHubView)
+
+    static func toMessageContextItems(from result: AmenTextContextDetectionResult) -> [DetectedMessageContext] {
+        var items: [DetectedMessageContext] = []
+        for link in result.links {
+            items.append(DetectedMessageContext(id: UUID(), type: .link, displayText: link.displayText, actionLabel: link.url.absoluteString))
+        }
+        for date in result.dates {
+            items.append(DetectedMessageContext(id: UUID(), type: .date, displayText: date.displayText, actionLabel: "\(date.resolvedDate?.timeIntervalSince1970 ?? 0)"))
+        }
+        for music in result.musicMentions {
+            items.append(DetectedMessageContext(id: UUID(), type: .music, displayText: music.mention, actionLabel: "attachMusic"))
+        }
+        for task in result.tasks {
+            items.append(DetectedMessageContext(id: UUID(), type: .task, displayText: task.phrase.localizedCapitalized, actionLabel: "createTask:\(task.phrase)"))
+        }
+        for memory in result.memoryPhrases {
+            items.append(DetectedMessageContext(id: UUID(), type: .memory, displayText: memory.phrase.localizedCapitalized, actionLabel: "saveMemory:\(memory.phrase)"))
+        }
+        return items
+    }
+
     // MARK: - Filtered views
 
     /// Returns only chips of a given actionKey prefix for surfaces that only care
