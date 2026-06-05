@@ -49,15 +49,15 @@ struct BereanMenteeGrowthView: View {
 
     private var findMentorPrompt: some View {
         ZStack {
-            Color(hex: "#0A0A0F").ignoresSafeArea()
+            Color(.systemGroupedBackground).ignoresSafeArea()
             VStack(spacing: 20) {
                 Image(systemName: "person.crop.circle.badge.plus")
                     .font(.system(size: 48, weight: .ultraLight))
-                    .foregroundStyle(Color(hex: "#C9A84C").opacity(0.7))
+                    .foregroundStyle(Color.accentColor.opacity(0.7))
                     .accessibilityHidden(true)
                 Text("Find a Mentor")
                     .font(.custom("Georgia", size: 26))
-                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                    .foregroundStyle(Color.primary)
                 Text("Connect with a mentor in your church community to receive a personalised growth plan.")
                     .font(.system(size: 14))
                     .foregroundStyle(Color.white.opacity(0.5))
@@ -74,7 +74,7 @@ struct BereanMenteeGrowthView: View {
     @ViewBuilder
     private var growthContent: some View {
         ZStack {
-            Color(hex: "#0A0A0F").ignoresSafeArea()
+            Color(.systemGroupedBackground).ignoresSafeArea()
 
             if service.isLoading && service.menteeGrowthPlan == nil {
                 loadingView
@@ -104,7 +104,7 @@ struct BereanMenteeGrowthView: View {
 
     private var loadingView: some View {
         VStack(spacing: 16) {
-            ProgressView().tint(Color(hex: "#C9A84C"))
+            ProgressView().tint(Color.accentColor)
             Text("Loading your growth plan...")
                 .font(.system(size: 14))
                 .foregroundStyle(Color.white.opacity(0.5))
@@ -149,18 +149,18 @@ struct BereanMenteeGrowthView: View {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 18))
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(study)
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Color(hex: "#F5F0E8"))
+                            .foregroundStyle(Color.primary)
                         Button {
                             // Navigation to study view handled by parent coordinator
                         } label: {
                             Text("Continue")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: "#C9A84C"))
+                                .foregroundStyle(Color.accentColor)
                         }
                         .accessibilityLabel("Continue \(study)")
                     }
@@ -181,7 +181,7 @@ struct BereanMenteeGrowthView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(formatSessionDate(date))
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Color(hex: "#F5F0E8"))
+                            .foregroundStyle(Color.primary)
                         Text("Prepare your questions and reflections.")
                             .font(.system(size: 12))
                             .foregroundStyle(Color.white.opacity(0.4))
@@ -190,10 +190,10 @@ struct BereanMenteeGrowthView: View {
                     Button { showMeetingPrep = true } label: {
                         Text("Prepare")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color(hex: "#0A0A0F"))
+                            .foregroundStyle(Color(.systemGroupedBackground))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(Color(hex: "#C9A84C"), in: Capsule())
+                            .background(Color.accentColor, in: Capsule())
                     }
                     .accessibilityLabel("Prepare for your session on \(formatSessionDate(date))")
                 }
@@ -242,11 +242,11 @@ struct BereanMenteeGrowthView: View {
                     HStack(spacing: 12) {
                         Image(systemName: "book.circle")
                             .font(.system(size: 20))
-                            .foregroundStyle(Color(hex: "#C9A84C"))
+                            .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
                         Text(resource)
                             .font(.system(size: 14))
-                            .foregroundStyle(Color(hex: "#F5F0E8"))
+                            .foregroundStyle(Color.primary)
                         Spacer()
                     }
                     .padding(.horizontal, 20)
@@ -271,18 +271,18 @@ struct BereanMenteeGrowthView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "hands.and.sparkles")
                         .font(.system(size: 18))
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                     Text("Pray for my mentor")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                     Spacer()
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color(hex: "#C9A84C").opacity(0.35), lineWidth: 1)
+                        .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
                         .padding(.horizontal, 20)
                 )
             }
@@ -319,11 +319,11 @@ private struct BereanMentorshipSection<Content: View>: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 11))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
                 Text(title)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                     .tracking(2)
                 Spacer()
             }
@@ -355,7 +355,7 @@ private struct ChecklistRow: View {
                     .accessibilityHidden(true)
                 Text(text)
                     .font(.system(size: 14))
-                    .foregroundStyle(isChecked ? Color.white.opacity(0.4) : Color(hex: "#F5F0E8"))
+                    .foregroundStyle(isChecked ? Color.white.opacity(0.4) : Color.primary)
                     .strikethrough(isChecked)
                     .multilineTextAlignment(.leading)
                 Spacer()
@@ -385,11 +385,11 @@ struct MilestoneBadgeView: View {
         VStack(spacing: 8) {
             Image(systemName: badge.iconName)
                 .font(.system(size: 28, weight: .light))
-                .foregroundStyle(Color(hex: "#C9A84C"))
+                .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
             Text(badge.title)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(hex: "#F5F0E8"))
+                .foregroundStyle(Color.primary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
             Text(earnedDateText)
@@ -401,7 +401,7 @@ struct MilestoneBadgeView: View {
         .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(Color(hex: "#C9A84C").opacity(0.3), lineWidth: 1)
+                .strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(badge.title), earned \(earnedDateText)")
@@ -433,7 +433,7 @@ struct MeetingPrepSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: "#0A0A0F").ignoresSafeArea()
+                Color(.systemGroupedBackground).ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
@@ -462,19 +462,19 @@ struct MeetingPrepSheet: View {
                         Button { dismiss() } label: {
                             Text(allChecked ? "Ready for session!" : "Close")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(allChecked ? Color(hex: "#0A0A0F") : Color(hex: "#C9A84C"))
+                                .foregroundStyle(allChecked ? Color(.systemGroupedBackground) : Color.accentColor)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
                                 .background(
                                     allChecked
-                                        ? AnyShapeStyle(Color(hex: "#C9A84C"))
+                                        ? AnyShapeStyle(Color.accentColor)
                                         : AnyShapeStyle(Color.clear),
                                     in: RoundedRectangle(cornerRadius: 14)
                                 )
                                 .overlay(
                                     allChecked ? nil :
                                         AnyView(RoundedRectangle(cornerRadius: 14)
-                                            .strokeBorder(Color(hex: "#C9A84C").opacity(0.5), lineWidth: 1))
+                                            .strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 1))
                                 )
                         }
                         .padding(.horizontal, 24)
@@ -511,7 +511,7 @@ private struct PrepCheckRow: View {
                     .accessibilityHidden(true)
                 Text(text)
                     .font(.system(size: 15))
-                    .foregroundStyle(isChecked ? Color.white.opacity(0.35) : Color(hex: "#F5F0E8"))
+                    .foregroundStyle(isChecked ? Color.white.opacity(0.35) : Color.primary)
                     .strikethrough(isChecked)
                     .multilineTextAlignment(.leading)
                 Spacer()
@@ -538,7 +538,7 @@ private struct PrepCheckRow: View {
 #Preview("Milestone Badge") {
     MilestoneBadgeView(badge: BereanMentorshipMockData.growthPlan.milestones[0])
         .padding()
-        .background(Color(hex: "#0A0A0F"))
+        .background(Color(.systemGroupedBackground))
 }
 
 #Preview("Meeting Prep Sheet") {

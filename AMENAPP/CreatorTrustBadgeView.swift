@@ -29,7 +29,7 @@ struct CreatorTrustBadgeView: View {
     @State private var sparkleOpacity: Double  = 0.0
     @State private var showBadgeInfo           = false
 
-    private let amenGold = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private let Color.accentColor = Color(red: 0.96, green: 0.62, blue: 0.04)
 
     var body: some View {
         switch status {
@@ -52,28 +52,28 @@ struct CreatorTrustBadgeView: View {
                     Image(systemName: "sparkles")
                         .font(.systemScaled(10, weight: .bold))
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .scaleEffect(sparkleScale)
                         .opacity(sparkleOpacity)
 
                     Image(systemName: "checkmark.seal.fill")
                         .font(.systemScaled(showLabel ? 14 : 12, weight: .semibold))
                         .symbolRenderingMode(.multicolor)
-                        .foregroundStyle(amenGold)
+                        .foregroundStyle(Color.accentColor)
                 }
 
                 if showLabel {
                     Text("Verified Creator")
                         .font(AMENFont.semiBold(12))
-                        .foregroundStyle(amenGold)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             .padding(.horizontal, showLabel ? 10 : 7)
             .padding(.vertical, showLabel ? 5 : 4)
             .background(
                 Capsule()
-                    .fill(amenGold.opacity(0.12))
-                    .overlay(Capsule().stroke(amenGold.opacity(0.35), lineWidth: 1))
+                    .fill(Color.accentColor.opacity(0.12))
+                    .overlay(Capsule().stroke(Color.accentColor.opacity(0.35), lineWidth: 1))
             )
         }
         .buttonStyle(CoCreationPressStyle())
@@ -171,7 +171,7 @@ struct CreatorTrustBadgeView: View {
 
     private var badgeColor: Color {
         switch status {
-        case .verified:   return amenGold
+        case .verified:   return Color.accentColor
         case .pending:    return Color(red: 0.02, green: 0.71, blue: 0.83)
         case .unverified: return score >= 0.7 ? Color(red: 0.06, green: 0.73, blue: 0.51) : Color.white.opacity(0.4)
         }
@@ -183,7 +183,7 @@ struct CreatorTrustBadgeView: View {
 struct CreatorSubscriptionBadge: View {
     let isSubscribed: Bool
 
-    private let amenGold = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private let Color.accentColor = Color(red: 0.96, green: 0.62, blue: 0.04)
 
     var body: some View {
         HStack(spacing: 4) {
@@ -192,15 +192,15 @@ struct CreatorSubscriptionBadge: View {
             Text(isSubscribed ? "Subscribed" : "Subscribe")
                 .font(AMENFont.semiBold(11))
         }
-        .foregroundStyle(isSubscribed ? amenGold : .white.opacity(0.6))
+        .foregroundStyle(isSubscribed ? Color.accentColor : .white.opacity(0.6))
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(
             Capsule()
-                .fill(isSubscribed ? amenGold.opacity(0.18) : Color.white.opacity(0.08))
+                .fill(isSubscribed ? Color.accentColor.opacity(0.18) : Color.white.opacity(0.08))
                 .overlay(
                     Capsule().stroke(
-                        isSubscribed ? amenGold.opacity(0.4) : Color.white.opacity(0.12),
+                        isSubscribed ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.12),
                         lineWidth: 0.5
                     )
                 )

@@ -91,12 +91,12 @@ struct BereanPrayerJournalView: View {
             Text(label)
                 .font(.subheadline)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color(hex: "#0A0A0F") : Color.primary)
+                .foregroundStyle(isSelected ? Color(.systemBackground) : Color.primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(
                     isSelected
-                        ? Color(hex: "#C9A84C")
+                        ? Color.accentColor
                         : Color(.secondarySystemFill)
                 )
                 .clipShape(Capsule())
@@ -147,7 +147,7 @@ struct BereanPrayerJournalView: View {
             if entry.status == .answered, let answeredAt = entry.answeredAt {
                 Text("Answered \(answeredRelativeText(answeredAt))")
                     .font(.caption2)
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
             }
         }
         .padding(.vertical, 2)
@@ -165,7 +165,7 @@ struct BereanPrayerJournalView: View {
     private func statusColor(_ status: BereanPrayerEntryStatus) -> Color {
         switch status {
         case .active:   return .green
-        case .answered: return Color(hex: "#C9A84C")
+        case .answered: return Color.accentColor
         case .archived: return .gray
         }
     }
@@ -193,7 +193,7 @@ struct BereanPrayerJournalView: View {
 
             Image(systemName: "hands.clap")
                 .font(.system(size: 44))
-                .foregroundStyle(Color(hex: "#C9A84C").opacity(0.5))
+                .foregroundStyle(Color.accentColor.opacity(0.5))
                 .accessibilityHidden(true)
 
             Text(emptyStateMessage)
@@ -213,10 +213,10 @@ struct BereanPrayerJournalView: View {
                             .fontWeight(.semibold)
                     }
                     .font(.subheadline)
-                    .foregroundStyle(Color(hex: "#0A0A0F"))
+                    .foregroundStyle(Color(.systemBackground))
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color(hex: "#C9A84C"))
+                    .background(Color.accentColor)
                     .clipShape(Capsule())
                 }
                 .accessibilityLabel("Add prayer request")

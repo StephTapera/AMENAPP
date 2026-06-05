@@ -12,34 +12,56 @@ struct AmenDiscoveryHeroCarousel: View {
     var onPrayerPray: () -> Void = {}
     var onSermonWatch: () -> Void = {}
 
+    @State private var scrolledID: Int? = 0
+    private let cardCount = 5
+
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 16) {
-                AmenChurchHeroCard(
-                    church: .sample,
-                    onPlanVisit: onChurchPlanVisit,
-                    onDirections: {},
-                    onSave: {},
-                    onShare: {}
-                )
-                .heroCardFrame()
-
-                AmenSpaceHeroCard(space: .sample, onJoin: onSpaceJoin)
+        VStack(spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 16) {
+                    AmenChurchHeroCard(
+                        church: .sample,
+                        onPlanVisit: onChurchPlanVisit,
+                        onDirections: {},
+                        onSave: {},
+                        onShare: {}
+                    )
                     .heroCardFrame()
+                    .id(0)
 
-                AmenEventHeroCard(event: .sample, onRSVP: onEventRSVP)
-                    .heroCardFrame()
+                    AmenSpaceHeroCard(space: .sample, onJoin: onSpaceJoin)
+                        .heroCardFrame()
+                        .id(1)
 
-                AmenPrayerHeroCard(prayer: .sample, onPray: onPrayerPray)
-                    .heroCardFrame()
+                    AmenEventHeroCard(event: .sample, onRSVP: onEventRSVP)
+                        .heroCardFrame()
+                        .id(2)
 
-                AmenSermonHeroCard(sermon: .sample, onWatch: onSermonWatch)
-                    .heroCardFrame()
+                    AmenPrayerHeroCard(prayer: .sample, onPray: onPrayerPray)
+                        .heroCardFrame()
+                        .id(3)
+
+                    AmenSermonHeroCard(sermon: .sample, onWatch: onSermonWatch)
+                        .heroCardFrame()
+                        .id(4)
+                }
+                .scrollTargetLayout()
             }
-            .scrollTargetLayout()
+            .scrollTargetBehavior(.viewAligned)
+            .contentMargins(.horizontal, 20, for: .scrollContent)
+            .scrollPosition(id: $scrolledID)
+
+            // Page dot indicator
+            HStack(spacing: 6) {
+                ForEach(0..<cardCount, id: \.self) { index in
+                    Capsule()
+                        .fill(scrolledID == index ? Color.primary : Color.secondary.opacity(0.25))
+                        .frame(width: scrolledID == index ? 18 : 6, height: 6)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: scrolledID)
+                }
+            }
+            .accessibilityHidden(true)
         }
-        .scrollTargetBehavior(.viewAligned)
-        .contentMargins(.horizontal, 20, for: .scrollContent)
     }
 }
 
@@ -52,7 +74,7 @@ private extension View {
 
 // MARK: - Space
 
-private struct AmenSpaceData: Identifiable {
+fileprivate struct AmenSpaceData: Identifiable {
     let id: String
     let name: String
     let tagline: String
@@ -159,7 +181,7 @@ struct AmenSpaceHeroCard: View {
 
 // MARK: - Event
 
-private struct AmenEventData: Identifiable {
+fileprivate struct AmenEventData: Identifiable {
     let id: String
     let title: String
     let dateTimeLabel: String
@@ -258,7 +280,7 @@ struct AmenEventHeroCard: View {
 
 // MARK: - Prayer
 
-private struct AmenPrayerData: Identifiable {
+fileprivate struct AmenPrayerData: Identifiable {
     let id: String
     let subject: String
     let context: String
@@ -345,7 +367,7 @@ struct AmenPrayerHeroCard: View {
 
 // MARK: - Sermon
 
-private struct AmenSermonData: Identifiable {
+fileprivate struct AmenSermonData: Identifiable {
     let id: String
     let title: String
     let pastor: String

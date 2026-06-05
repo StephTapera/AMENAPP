@@ -10,8 +10,8 @@ import FirebaseAuth
 
 // MARK: - Constants
 
-private let amenPurple  = Color(red: 0.42, green: 0.28, blue: 1.00)
-private let amenGold    = Color(red: 0.96, green: 0.62, blue: 0.04)
+private let Color.accentColor  = Color(red: 0.42, green: 0.28, blue: 1.00)
+private let Color.accentColor    = Color(red: 0.96, green: 0.62, blue: 0.04)
 private let amenPink    = Color(red: 0.94, green: 0.28, blue: 0.64)
 private let amenDark    = Color(red: 0.06, green: 0.06, blue: 0.09)
 
@@ -99,12 +99,12 @@ struct CoCreationHubView: View {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [amenPurple, amenPink],
+                            colors: [Color.accentColor, amenPink],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .shadow(color: amenPurple.opacity(0.45), radius: 20, y: 8)
+                    .shadow(color: Color.accentColor.opacity(0.45), radius: 20, y: 8)
 
                 VStack(spacing: 16) {
                     // Icon row
@@ -134,7 +134,7 @@ struct CoCreationHubView: View {
                     // CTA button
                     Text("Start a Session")
                         .font(AMENFont.semiBold(16))
-                        .foregroundStyle(amenPurple)
+                        .foregroundStyle(Color.accentColor)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 12)
                         .background(
@@ -157,7 +157,7 @@ struct CoCreationHubView: View {
             Image(systemName: "person.3.fill")
                 .font(.systemScaled(36, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(amenPurple)
+                .foregroundStyle(Color.accentColor)
 
             Text("No live sessions right now")
                 .font(AMENFont.semiBold(16))
@@ -295,7 +295,7 @@ private struct LiveSessionCard: View {
                     Image(systemName: "person.2.fill")
                         .font(.systemScaled(11))
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(amenPurple)
+                        .foregroundStyle(Color.accentColor)
                     Text("\(session.collaboratorIds.count) collaborating")
                         .font(AMENFont.regular(12))
                         .foregroundStyle(.white.opacity(0.5))
@@ -313,8 +313,8 @@ private struct LiveSessionCard: View {
                     .padding(.vertical, 9)
                     .background(
                         Capsule()
-                            .fill(amenPurple)
-                            .shadow(color: amenPurple.opacity(0.4), radius: 8, y: 3)
+                            .fill(Color.accentColor)
+                            .shadow(color: Color.accentColor.opacity(0.4), radius: 8, y: 3)
                     )
             }
             .buttonStyle(CoCreationPressStyle())

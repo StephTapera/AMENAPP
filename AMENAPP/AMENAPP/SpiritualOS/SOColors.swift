@@ -3,6 +3,9 @@ import SwiftUI
 // MARK: - Spiritual OS color additions
 
 extension Color {
-    static let amenCream   = Color(red: 0.973, green: 0.957, blue: 0.925)  // #F8F4EC
-    static let amenSlate   = Color(red: 0.290, green: 0.290, blue: 0.333)  // #4A4A55
+    // PURGED: amenCream (#F8F4EC) → systemGroupedBackground per C3 design contract
+    static let amenCream   = Color(uiColor: .systemGroupedBackground)
+
+    // PURGED: amenSlate (#4A4A55) → secondaryLabel per C3 design contract
+    static let amenSlate   = Color(uiColor: .secondaryLabel)
 }

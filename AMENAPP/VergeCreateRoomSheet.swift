@@ -25,9 +25,9 @@ struct VergeCreateRoomSheet: View {
     @State private var isCreating      = false
     @State private var errorMessage: String?
 
-    private let amenPurple = Color(hex: "6B48FF")
+    private let Color.accentColor = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let amenGold   = Color(hex: "F59E0B")
+    private let Color.accentColor   = Color(hex: "F59E0B")
     private let bg         = Color(hex: "0A0A0F")
     private let vergeGradient = LinearGradient(
         colors: [Color(hex: "06B6D4"), Color(hex: "6B48FF")],
@@ -138,8 +138,8 @@ struct VergeCreateRoomSheet: View {
             .frame(height: 38)
             .background(
                 Capsule()
-                    .fill(selectedType == type ? amenPurple : Color.white.opacity(0.07))
-                    .shadow(color: selectedType == type ? amenPurple.opacity(0.35) : .clear, radius: 8, y: 3)
+                    .fill(selectedType == type ? Color.accentColor : Color.white.opacity(0.07))
+                    .shadow(color: selectedType == type ? Color.accentColor.opacity(0.35) : .clear, radius: 8, y: 3)
             )
         }
         .buttonStyle(CoCreationPressStyle())
@@ -154,7 +154,7 @@ struct VergeCreateRoomSheet: View {
                 Spacer()
                 Toggle("", isOn: $isScheduled.animation(.spring(response: 0.4, dampingFraction: 0.75)))
                     .labelsHidden()
-                    .tint(amenPurple)
+                    .tint(Color.accentColor)
             }
             if isScheduled {
                 DatePicker(
@@ -195,10 +195,10 @@ struct VergeCreateRoomSheet: View {
                         Spacer()
                         Text(String(format: "$%.0f", ticketPrice))
                             .font(AMENFont.bold(15))
-                            .foregroundStyle(amenGold)
+                            .foregroundStyle(Color.accentColor)
                     }
                     Slider(value: $ticketPrice, in: 1...100, step: 1)
-                        .tint(amenGold)
+                        .tint(Color.accentColor)
                 }
                 .padding(14)
                 .background(glassCardBackground)
@@ -258,7 +258,7 @@ struct VergeCreateRoomSheet: View {
             Spacer()
             Toggle("", isOn: binding)
                 .labelsHidden()
-                .tint(amenPurple)
+                .tint(Color.accentColor)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -314,7 +314,7 @@ struct VergeCreateRoomSheet: View {
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(vergeGradient)
-                    .shadow(color: amenPurple.opacity(0.4), radius: 14, y: 5)
+                    .shadow(color: Color.accentColor.opacity(0.4), radius: 14, y: 5)
             )
         }
         .disabled(isCreating)

@@ -4387,5 +4387,32 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+
+    // ONE ephemeral group threads. Only participants can read/update;
+    // creation requires the caller to include themselves in participantUIDs.
+    match /one_threads/{threadId} {
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.participantUIDs;
+      allow create: if isAuthenticated()
+        && request.auth.uid in request.resource.data.participantUIDs
+        && request.resource.data.participantUIDs.size() >= 2
+        && request.resource.data.participantUIDs.size() <= 10
+        && request.resource.data.isEphemeral == true;
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.participantUIDs
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['participantUIDs', 'encryptionVersion', 'isEphemeral', 'createdAt']);
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/one_threads/$(threadId)).data.participantUIDs;
+        allow create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/one_threads/$(threadId)).data.participantUIDs;
+        allow update, delete: if false;
+      }
+    }
+
+    // Berean OS projects per user.
+    match /users/{userId}/bereanProjects/{projectId} {
+      allow read, write: if isOwner(userId);
+    }
   }
 }

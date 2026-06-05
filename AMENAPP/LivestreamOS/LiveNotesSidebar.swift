@@ -70,8 +70,8 @@ struct LiveNotesSidebar: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
-                        .foregroundStyle(mode == m ? Color.amenGold : .secondary)
-                        .background(mode == m ? Color.amenGold.opacity(0.1) : Color.clear)
+                        .foregroundStyle(mode == m ? Color.accentColor : .secondary)
+                        .background(mode == m ? Color.accentColor.opacity(0.1) : Color.clear)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(m.label)
@@ -118,7 +118,7 @@ struct LiveNotesSidebar: View {
             } label: {
                 Label("Save Note", systemImage: "note.text.badge.plus")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
             }
             .buttonStyle(.plain)
             .frame(height: 40)
@@ -166,7 +166,7 @@ struct LiveNotesSidebar: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 38)
-                        .background(Color.amenGold, in: RoundedRectangle(cornerRadius: 10))
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
             }
@@ -194,7 +194,7 @@ struct LiveNotesSidebar: View {
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 28))
-                        .foregroundStyle(questionText.isEmpty ? .secondary : Color.amenGold)
+                        .foregroundStyle(questionText.isEmpty ? .secondary : Color.accentColor)
                 }
                 .buttonStyle(.plain)
                 .disabled(questionText.isEmpty)
@@ -274,7 +274,7 @@ private struct QAItemRow: View {
                     Image(systemName: "arrow.up").font(.caption.weight(.bold))
                     Text("\(item.votes)").font(.caption2)
                 }
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 32)
             }
             .buttonStyle(.plain)

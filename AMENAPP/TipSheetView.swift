@@ -26,9 +26,9 @@ struct TipSheetView: View {
     @State private var heartBurst              = false
     @State private var errorMessage: String?
 
-    private let amenPurple = Color(hex: "6B48FF")
+    private let Color.accentColor = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let amenGold   = Color(hex: "F59E0B")
+    private let Color.accentColor   = Color(hex: "F59E0B")
     private let bg         = Color(hex: "0A0A0F")
     private let presets: [Double] = [1, 3, 5, 10]
 
@@ -162,11 +162,11 @@ struct TipSheetView: View {
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .fill(selectedAmount == amount && customAmountText.isEmpty
-                                      ? amenPurple
+                                      ? Color.accentColor
                                       : Color.white.opacity(0.07))
                                 .shadow(
                                     color: selectedAmount == amount && customAmountText.isEmpty
-                                    ? amenPurple.opacity(0.35) : .clear,
+                                    ? Color.accentColor.opacity(0.35) : .clear,
                                     radius: 10, y: 4
                                 )
                         )
@@ -230,12 +230,12 @@ struct TipSheetView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [amenPurple, Color(hex: "C084FC")],
+                            colors: [Color.accentColor, Color(hex: "C084FC")],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
-                    .shadow(color: amenPurple.opacity(0.4), radius: 14, y: 5)
+                    .shadow(color: Color.accentColor.opacity(0.4), radius: 14, y: 5)
             )
         }
         .disabled(isSending || effectiveAmount <= 0)

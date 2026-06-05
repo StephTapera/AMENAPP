@@ -6,6 +6,28 @@
 //  Handles navigation to posts, comments, threads, profiles, conversations
 //
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NAV-02 KNOWN ISSUE — DUAL-SCHEME ROUTER DIVERGENCE
+//
+// The app currently has TWO independent deep-link parsers running in parallel:
+//   • DeepLinkRouter          — handles the "amen://"    custom URL scheme
+//   • NotificationDeepLinkRouter — handles the "amenapp://" custom URL scheme
+//
+// This creates a maintenance risk: any new route added to one file MUST be
+// mirrored in the other, or the two schemes will silently fall out of sync.
+//
+// ROUTES PRESENT HERE BUT MISSING FROM DeepLinkRouter (amen://):
+//   • amenapp://group/join?token=  — no amen://group counterpart
+//   • amenapp://notifications       — no amen://notifications counterpart
+//   • amenapp://messages            — no amen://messages counterpart (amen://conversation exists)
+//   • amenapp://prayer/{id}         — no amen://prayer counterpart
+//   • amenapp://church-note/{id}    — no amen://church-note counterpart
+//
+// TODO (Phase 1): Merge both parsers into a single UnifiedDeepLinkRouter that
+// accepts both schemes and delegates to one shared destination model, then
+// remove this file and DeepLinkRouter.swift.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import Foundation
 import SwiftUI
 import Combine

@@ -1,5 +1,7 @@
 import SwiftUI
 import FirebaseAnalytics
+import FirebaseFunctions
+import FirebaseAuth
 
 private enum CalendarAddState: Equatable {
     case idle
@@ -17,9 +19,28 @@ struct AmenSpaceEventDetailView: View {
     let onJoinLive: () -> Void
 
     @State private var calendarAddState: CalendarAddState = .idle
+    @State private var localIsRSVPed: Bool
+    @State private var showLiveRoomToast = false
     @Environment(\.dismiss) private var dismiss
 
     private let calendarService = AmenCalendarInviteService()
+
+    init(
+        event: AmenSpaceEvent,
+        spaceName: String,
+        isRSVPed: Bool,
+        onRSVP: @escaping () -> Void,
+        onAddToCalendar: @escaping () -> Void,
+        onJoinLive: @escaping () -> Void
+    ) {
+        self.event = event
+        self.spaceName = spaceName
+        self.isRSVPed = isRSVPed
+        self.onRSVP = onRSVP
+        self.onAddToCalendar = onAddToCalendar
+        self.onJoinLive = onJoinLive
+        self._localIsRSVPed = State(initialValue: isRSVPed)
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -146,28 +167,41 @@ struct AmenSpaceEventDetailView: View {
 
     private var rsvpAndCalendarRow: some View {
         HStack(spacing: 10) {
-            Button(action: onRSVP) {
+            Button {
+                // Optimistic update
+                localIsRSVPed.toggle()
+                onRSVP()
+                Task {
+                    try? await Functions.functions(region: "us-central1")
+                        .httpsCallable("rsvpToSpaceEvent")
+                        .call([
+                            "eventId": event.id,
+                            "spaceId": event.spaceId,
+                            "uid": Auth.auth().currentUser?.uid ?? ""
+                        ])
+                }
+            } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: isRSVPed ? "checkmark.circle.fill" : "person.badge.plus")
-                    Text(isRSVPed ? "Going" : "RSVP")
+                    Image(systemName: localIsRSVPed ? "checkmark.circle.fill" : "person.badge.plus")
+                    Text(localIsRSVPed ? "Going" : "RSVP")
                         .font(.subheadline.weight(.semibold))
                 }
-                .foregroundStyle(isRSVPed ? Color(hex: "070607") : Color(hex: "D9A441"))
+                .foregroundStyle(localIsRSVPed ? Color(hex: "070607") : Color(hex: "D9A441"))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(
-                    isRSVPed
+                    localIsRSVPed
                         ? Color(hex: "D9A441")
                         : Color(hex: "D9A441").opacity(0.12),
                     in: RoundedRectangle(cornerRadius: 12)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color(hex: "D9A441").opacity(isRSVPed ? 0 : 0.4), lineWidth: 1)
+                        .strokeBorder(Color(hex: "D9A441").opacity(localIsRSVPed ? 0 : 0.4), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(isRSVPed ? "Cancel RSVP" : "RSVP to this event")
+            .accessibilityLabel(localIsRSVPed ? "Cancel RSVP" : "RSVP to this event")
 
             Button(action: handleAddToCalendar) {
                 HStack(spacing: 6) {
@@ -227,7 +261,19 @@ struct AmenSpaceEventDetailView: View {
     }
 
     private var joinLiveCTA: some View {
-        Button(action: onJoinLive) {
+        Button {
+            if let roomId = event.liveRoomId,
+               let url = URL(string: "amenapp://liveroom/\(roomId)"),
+               UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+            } else {
+                withAnimation { showLiveRoomToast = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    withAnimation { showLiveRoomToast = false }
+                }
+            }
+            onJoinLive()
+        } label: {
             HStack {
                 Image(systemName: "video.fill")
                 Text("Join Live")
@@ -240,6 +286,18 @@ struct AmenSpaceEventDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Join live event")
+        .overlay(alignment: .top) {
+            if showLiveRoomToast {
+                Text("Live room starting soon")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .offset(y: -40)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
     }
 
     private var replayButton: some View {

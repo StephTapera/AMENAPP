@@ -25,8 +25,8 @@ struct TipView: View {
     @State private var didSend                 = false
     @State private var errorMessage: String?   = nil
 
-    private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let amenGold   = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
+    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
     private let amenDark   = Color(red: 0.06, green: 0.06, blue: 0.09)
 
     private let presets: [Double] = [1, 3, 5, 10]
@@ -80,7 +80,7 @@ struct TipView: View {
                         AmountPresetCard(
                             amount: amount,
                             isSelected: selectedAmount == amount && customAmount.isEmpty,
-                            accentColor: amenPurple
+                            accentColor: Color.accentColor
                         ) {
                             withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                                 selectedAmount = amount
@@ -185,12 +185,12 @@ struct TipView: View {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [amenPurple, Color(red: 0.94, green: 0.28, blue: 0.64)],
+                                    colors: [Color.accentColor, Color(red: 0.94, green: 0.28, blue: 0.64)],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
                             )
-                            .shadow(color: amenPurple.opacity(0.4), radius: 14, y: 5)
+                            .shadow(color: Color.accentColor.opacity(0.4), radius: 14, y: 5)
                     )
                 }
                 .disabled(isSending || effectiveAmount <= 0)

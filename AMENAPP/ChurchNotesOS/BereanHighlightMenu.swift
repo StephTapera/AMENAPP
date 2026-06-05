@@ -89,7 +89,7 @@ struct BereanHighlightMenu: View {
                     .fill(.regularMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Color.amenGold.opacity(0.25), lineWidth: 0.5)
+                            .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 0.5)
                     }
             }
         }
@@ -105,7 +105,7 @@ struct BereanHighlightMenu: View {
             HStack(spacing: 5) {
                 Image(systemName: action.icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
                 Text(action.displayName)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.primary)

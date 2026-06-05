@@ -138,7 +138,7 @@ struct SmartFollowUp: Identifiable {
             switch self {
             case .critical: return .red
             case .high: return .orange
-            case .medium: return Color.amenGold
+            case .medium: return Color.accentColor
             case .low: return .secondary
             }
         }
@@ -206,7 +206,7 @@ struct CommunityWeeklyRecapView: View {
                 .foregroundStyle(.secondary)
             Text(recap.communityName)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -264,7 +264,7 @@ struct CommunityWeeklyRecapView: View {
     private var healthScoreColor: Color {
         switch recap.healthScore {
         case 0.8...: return .green
-        case 0.6..<0.8: return Color.amenGold
+        case 0.6..<0.8: return Color.accentColor
         default: return .orange
         }
     }
@@ -275,7 +275,7 @@ struct CommunityWeeklyRecapView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("AI Community Insight", systemImage: "sparkles")
                 .font(.headline)
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             Text(recap.aiInsight)
                 .font(.subheadline)
                 .foregroundStyle(.primary)
@@ -284,11 +284,11 @@ struct CommunityWeeklyRecapView: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
-        .background(Color.amenGold.opacity(0.08))
+        .background(Color.accentColor.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(Color.amenGold.opacity(0.2), lineWidth: 1)
+                .strokeBorder(Color.accentColor.opacity(0.2), lineWidth: 1)
         )
     }
 
@@ -394,7 +394,7 @@ struct CommunityWeeklyRecapView: View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.title2.weight(.bold))
-                .foregroundStyle(urgent ? .red : (highlight ? Color.amenGold : .primary))
+                .foregroundStyle(urgent ? .red : (highlight ? Color.accentColor : .primary))
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)

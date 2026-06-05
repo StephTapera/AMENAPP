@@ -74,6 +74,9 @@ enum BereanOSFirestore {
     static func document(uid: String, projectId: String, documentId: String) -> String {
         "users/\(uid)/bereanProjects/\(projectId)/documents/\(documentId)"
     }
+    static func document(uid: String, projectId: String, docId: String) -> String {
+        "users/\(uid)/bereanProjects/\(projectId)/documents/\(docId)"
+    }
 
     // Wisdom analyses — uid scoped
     static func wisdomAnalyses(uid: String) -> String {
@@ -567,6 +570,53 @@ struct BereanResearchFinding: Identifiable, Codable {
     var content: String
     var confidence: BereanConfidenceLevel
     var sourceIds: [String]
+}
+
+// MARK: - BereanDocumentType
+
+enum BereanDocumentType: String, CaseIterable, Codable {
+    case essay, outline, sermon, studyGuide, devotional, report, note, other
+
+    var displayName: String {
+        switch self {
+        case .essay:      return "Essay"
+        case .outline:    return "Outline"
+        case .sermon:     return "Sermon"
+        case .studyGuide: return "Study Guide"
+        case .devotional: return "Devotional"
+        case .report:     return "Report"
+        case .note:       return "Note"
+        case .other:      return "Document"
+        }
+    }
+}
+
+// MARK: - BereanDocumentVersion
+
+struct BereanDocumentVersion: Identifiable, Codable {
+    let id: String
+    let versionNumber: Int
+    let body: String
+    let changedBy: String
+    let changedAt: Date
+    let changeNotes: String
+}
+
+// MARK: - BereanLivingDocument
+
+struct BereanLivingDocument: Identifiable, Codable {
+    let id: String
+    let projectId: String
+    let ownerUid: String
+    var title: String
+    var documentType: BereanDocumentType
+    var body: String
+    var version: Int
+    var versionHistory: [BereanDocumentVersion]
+    var sources: [String]
+    var isPublished: Bool
+    let createdAt: Date
+    var updatedAt: Date
 }
 
 // MARK: - JSONDecoder Convenience

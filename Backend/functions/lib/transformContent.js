@@ -25,24 +25,24 @@ exports.transformContent = (0, https_1.onCall)({
     timeoutSeconds: 60,
     memory: "256MiB",
     // 5.1 FIX: Reject calls from clients without a valid App Check token.
-    enforceAppCheck: false,
+    enforceAppCheck: true,
 }, async (request) => {
     if (!request.auth) {
-        throw new Error("User must be authenticated to use Understand features");
+        throw new https_1.HttpsError("unauthenticated", "User must be authenticated to use Understand features");
     }
     const data = request.data;
     const { text, mode, language, contentId } = data;
     if (!text || typeof text !== "string" || text.trim().length === 0) {
-        throw new Error("Text is required and must be a non-empty string");
+        throw new https_1.HttpsError("invalid-argument", "Text is required and must be a non-empty string");
     }
     const validModes = ["simplify", "summarize", "keyTerms", "explain", "expandContext"];
     if (!mode || !validModes.includes(mode)) {
-        throw new Error(`Mode must be one of: ${validModes.join(", ")}`);
+        throw new https_1.HttpsError("invalid-argument", `Mode must be one of: ${validModes.join(", ")}`);
     }
     const apiKey = anthropicApiKey.value();
     if (!apiKey) {
         console.error("ANTHROPIC_API_KEY not configured");
-        throw new Error("Service not configured. Please contact support.");
+        throw new https_1.HttpsError("unavailable", "Service not configured. Please contact support.");
     }
     try {
         const systemPrompt = buildSystemPrompt(mode, language);
@@ -65,14 +65,14 @@ exports.transformContent = (0, https_1.onCall)({
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`Claude API error: ${response.status}`, errorText);
-            throw new Error(`Claude API error: ${response.status}`);
+            throw new https_1.HttpsError("unavailable", `Claude API error: ${response.status}`);
         }
         const result = await response.json();
         const responseText = result.content?.[0]?.text || "";
         // Parse structured response for keyTerms mode
         if (mode === "keyTerms") {
             const parsed = parseKeyTermsResponse(responseText);
-            console.log(`transformContent (${mode}) - User: ${request.auth.uid} - Content: ${contentId} - Tokens: ${result.usage?.output_tokens || 0}`);
+            console.log(`transformContent (${mode}) — content: ${contentId} — tokens: ${result.usage?.output_tokens || 0}`);
             return {
                 transformedText: parsed.summary,
                 keyTerms: parsed.terms,
@@ -81,7 +81,7 @@ exports.transformContent = (0, https_1.onCall)({
                 usage: result.usage,
             };
         }
-        console.log(`transformContent (${mode}) - User: ${request.auth.uid} - Content: ${contentId} - Tokens: ${result.usage?.output_tokens || 0}`);
+        console.log(`transformContent (${mode}) — content: ${contentId} — tokens: ${result.usage?.output_tokens || 0}`);
         return {
             transformedText: responseText,
             mode,
@@ -90,9 +90,11 @@ exports.transformContent = (0, https_1.onCall)({
         };
     }
     catch (error) {
+        if (error instanceof https_1.HttpsError)
+            throw error;
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         console.error("transformContent error:", errorMessage);
-        throw new Error("Failed to transform content");
+        throw new https_1.HttpsError("internal", "Failed to transform content");
     }
 });
 function buildSystemPrompt(mode, language) {

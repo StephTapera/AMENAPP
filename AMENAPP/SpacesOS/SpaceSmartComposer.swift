@@ -102,7 +102,7 @@ struct SpaceSmartComposer: View {
                         .foregroundStyle(selectedType == type ? .white : .primary)
                         .background(
                             selectedType == type
-                                ? Color.amenGold
+                                ? Color.accentColor
                                 : Color(.secondarySystemBackground),
                             in: Capsule()
                         )
@@ -154,7 +154,7 @@ struct SpaceSmartComposer: View {
                 }
                 Button("+ Add Question") { studyQuestions.append("") }
                     .font(.caption)
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
             }
         case .poll:
             composerTextField(placeholder: "Poll question", text: $messageBody, minHeight: 44, isTitle: true)
@@ -168,7 +168,7 @@ struct SpaceSmartComposer: View {
                 }
                 if pollOptions.count < 6 {
                     Button("+ Add Option") { pollOptions.append("") }
-                        .font(.caption).foregroundStyle(Color.amenGold)
+                        .font(.caption).foregroundStyle(Color.accentColor)
                 }
             }
             Toggle("Anonymous responses", isOn: $pollAnonymous).font(.subheadline)
@@ -227,7 +227,7 @@ struct SpaceSmartComposer: View {
                 .padding(.horizontal, 10)
                 .frame(height: 32)
                 .foregroundStyle(audience == value ? .white : .primary)
-                .background(audience == value ? Color.amenGold : Color(.secondarySystemBackground), in: Capsule())
+                .background(audience == value ? Color.accentColor : Color(.secondarySystemBackground), in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -252,7 +252,7 @@ struct SpaceSmartComposer: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
                 .background(
-                    isValid && !isSubmitting ? Color.amenGold : Color.secondary.opacity(0.4),
+                    isValid && !isSubmitting ? Color.accentColor : Color.secondary.opacity(0.4),
                     in: RoundedRectangle(cornerRadius: 12)
                 )
             }

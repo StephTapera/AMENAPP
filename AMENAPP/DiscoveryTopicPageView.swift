@@ -121,23 +121,14 @@ struct DiscoveryTopicPageView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
 
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(topic.title)
-                            .font(.custom("OpenSans-Bold", size: 20))
-                            .foregroundStyle(.primary)
-                        if topic.isTrending {
-                            Text("Trending")
-                                .font(.custom("OpenSans-SemiBold", size: 11))
-                                .foregroundStyle(.orange)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(Color.orange.opacity(0.12)))
-                        }
-                    }
-                    if topic.postCount > 0 {
-                        Text("\(topic.postCount) posts")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                    Text(topic.title)
+                        .font(.custom("OpenSans-Bold", size: 20))
+                        .foregroundStyle(.primary)
+                    if !topic.description.isEmpty {
+                        Text(topic.description)
+                            .font(.custom("OpenSans-Regular", size: 13))
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
             }
@@ -230,12 +221,12 @@ struct DiscoveryTopicPageView: View {
         isLoadingPosts = true
         defer { isLoadingPosts = false }
 
-        // Load top posts by engagement
+        // Load top posts — ordered by recency (no engagement ranking)
         do {
             let topSnapshot = try await Firestore.firestore().collection("posts")
                 .whereField("topicTag", isEqualTo: topic.canonicalSlug)
                 .whereField("visibility", isEqualTo: "everyone")
-                .order(by: "amenCount", descending: true)
+                .order(by: "createdAt", descending: true)
                 .limit(to: 10)
                 .getDocuments()
 

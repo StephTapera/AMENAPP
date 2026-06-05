@@ -146,7 +146,7 @@ struct ONEContextGateView: View {
 
             Button(actionLabel) { action() }
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(actionDisabled ? .secondary : AmenTheme.Colors.amenGold)
+                .foregroundStyle(actionDisabled ? .secondary : Color.accentColor)
                 .disabled(actionDisabled)
         }
         .padding(ONE.Spacing.md)
@@ -178,7 +178,7 @@ struct ONEContextGateView: View {
                         RoundedRectangle(cornerRadius: 2, style: .continuous)
                             .fill(localStatus.watchPassed
                                   ? ONE.Colors.repairGreen
-                                  : AmenTheme.Colors.amenGold)
+                                  : Color.accentColor)
                             .frame(width: geo.size.width * min(watchSimProgress, 1.0))
                             .animation(ONE.Motion.adaptive(reduceMotion: reduceMotion), value: watchSimProgress)
                     }
@@ -195,7 +195,7 @@ struct ONEContextGateView: View {
             } else {
                 Button("Watch →") { startWatchSim() }
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                    .foregroundStyle(Color.accentColor)
                     .disabled(isWatching)
             }
         }
@@ -252,7 +252,7 @@ struct ONEContextGateView: View {
                 Capsule()
                     .fill(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                           ? Color.secondary.opacity(0.3)
-                          : AmenTheme.Colors.amenGold)
+                          : Color.accentColor)
             )
             .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel("Post comment")
@@ -302,7 +302,7 @@ struct ONEContextGateView: View {
                 HStack(spacing: ONE.Spacing.md) {
                     Image(systemName: cls.icon)
                         .font(.system(size: 32))
-                        .foregroundStyle(AmenTheme.Colors.amenGold)
+                        .foregroundStyle(Color.accentColor)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(cls.displayLabel)
                             .font(.system(size: 18, weight: .semibold))
@@ -330,7 +330,7 @@ struct ONEContextGateView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, ONE.Spacing.sm)
-                .background(Capsule().fill(AmenTheme.Colors.amenGold))
+                .background(Capsule().fill(Color.accentColor))
                 .accessibilityLabel("Acknowledge provenance information")
             }
             .padding(ONE.Spacing.lg)
@@ -356,7 +356,7 @@ struct ONEContextGateView: View {
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
                         .fill(Color.primary.opacity(0.1))
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(AmenTheme.Colors.amenGold)
+                        .fill(Color.accentColor)
                         .frame(width: geo.size.width * Double(item.provenance.confidence))
                 }
             }

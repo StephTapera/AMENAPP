@@ -90,7 +90,7 @@ struct ApprovalSheetView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label(card.sourceType.displayName, systemImage: card.sourceType.icon)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             Text(card.title)
                 .font(.headline)
             if !card.body.isEmpty {
@@ -145,7 +145,7 @@ struct ApprovalSheetView: View {
             ForEach(redactionSuggestions) { suggestion in
                 HStack(spacing: 8) {
                     Image(systemName: suggestion.type.icon)
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .frame(width: 20)
                     Text(suggestion.description)
                         .font(.caption)
@@ -154,7 +154,7 @@ struct ApprovalSheetView: View {
             }
         }
         .padding(12)
-        .background(Color.amenGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
 
     @ViewBuilder
@@ -169,7 +169,7 @@ struct ApprovalSheetView: View {
                 } label: {
                     HStack {
                         Image(systemName: selectedOption == opt ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(selectedOption == opt ? Color.amenGold : .secondary)
+                            .foregroundStyle(selectedOption == opt ? Color.accentColor : .secondary)
                         Text(opt.rawValue)
                             .font(.subheadline)
                             .foregroundStyle(.primary)
@@ -204,7 +204,7 @@ struct ApprovalSheetView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.amenGold, in: RoundedRectangle(cornerRadius: 12))
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
             }

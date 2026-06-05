@@ -20,8 +20,8 @@ struct CoCreationSummaryView: View {
     @State private var didPost        = false
     @State private var showSuccessToast = false
 
-    private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let amenGold   = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
+    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
     private let amenDark   = Color(red: 0.06, green: 0.06, blue: 0.09)
 
     private let avatarColors: [Color] = [
@@ -122,7 +122,7 @@ struct CoCreationSummaryView: View {
             Image(systemName: "sparkles")
                 .font(.systemScaled(48, weight: .semibold))
                 .symbolRenderingMode(.multicolor)
-                .foregroundStyle(amenGold)
+                .foregroundStyle(Color.accentColor)
 
             Text("Session Complete")
                 .font(AMENFont.bold(30))
@@ -145,7 +145,7 @@ struct CoCreationSummaryView: View {
                 value: vm.elapsedFormatted,
                 label: "Duration",
                 icon: "clock.fill",
-                color: amenPurple
+                color: Color.accentColor
             )
             statCard(
                 value: "\(session.collaboratorIds.count)",
@@ -157,7 +157,7 @@ struct CoCreationSummaryView: View {
                 value: "\(wordCount)",
                 label: "Words",
                 icon: "text.alignleft",
-                color: amenGold
+                color: Color.accentColor
             )
         }
     }
@@ -197,7 +197,7 @@ struct CoCreationSummaryView: View {
                 Image(systemName: "sparkles")
                     .font(.systemScaled(14, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(amenPurple)
+                    .foregroundStyle(Color.accentColor)
                 Text("Highlight from this session")
                     .font(AMENFont.semiBold(13))
                     .foregroundStyle(.white.opacity(0.65))
@@ -215,7 +215,7 @@ struct CoCreationSummaryView: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(amenPurple.opacity(0.3), lineWidth: 1)
+                        .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
                 )
         )
     }
@@ -329,10 +329,10 @@ struct CoCreationSummaryView: View {
                         .fill(
                             didPost
                                 ? LinearGradient(colors: [Color.green.opacity(0.8), Color.green.opacity(0.6)], startPoint: .leading, endPoint: .trailing)
-                                : LinearGradient(colors: [amenPurple, Color(red: 0.60, green: 0.28, blue: 0.90)], startPoint: .leading, endPoint: .trailing)
+                                : LinearGradient(colors: [Color.accentColor, Color(red: 0.60, green: 0.28, blue: 0.90)], startPoint: .leading, endPoint: .trailing)
                         )
                         .shadow(
-                            color: didPost ? Color.green.opacity(0.3) : amenPurple.opacity(0.4),
+                            color: didPost ? Color.green.opacity(0.3) : Color.accentColor.opacity(0.4),
                             radius: 14, y: 5
                         )
                 )
@@ -380,7 +380,7 @@ struct CoCreationSummaryView: View {
 
 private struct ToastBanner: View {
     let message: String
-    private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
+    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
 
     var body: some View {
         HStack(spacing: 10) {

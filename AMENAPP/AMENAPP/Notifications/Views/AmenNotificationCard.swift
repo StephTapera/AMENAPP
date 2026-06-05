@@ -89,8 +89,9 @@ struct AmenNotificationCard: View {
             .padding(.horizontal, 20)
 
             // Title
+            // PURGED: Font.custom("CormorantGaramond-SemiBold", size: 22) → SF Pro per C3 design contract
             Text(titleText)
-                .font(.custom("CormorantGaramond-SemiBold", size: 22))
+                .font(.system(.title2, design: .default).weight(.semibold))
                 .foregroundStyle(.primary)
                 .padding(.top, 14)
                 .padding(.horizontal, 20)
@@ -150,7 +151,7 @@ struct AmenNotificationCard: View {
     // MARK: Body text with "Learn more" tappable link
 
     private var bodyText: some View {
-        Text("\(bodyLeading) \(Text("Learn more").foregroundStyle(NotifGlassTokens.accentPurple)) about how this works.")
+        Text("\(bodyLeading) \(Text("Learn more").foregroundStyle(Color.accentColor)) about how this works.")
             .foregroundStyle(.primary.opacity(0.75))
             .font(.system(size: 15))
             .lineSpacing(3)
@@ -180,10 +181,10 @@ struct AmenNotificationCard: View {
                     .padding(.vertical, 13)
                     .background(
                         Capsule()
-                            .fill(NotifGlassTokens.primaryButtonGradient)
+                            .fill(Color.accentColor)
                     )
                     .shadow(
-                        color: Color(hex: "#C9A84C").opacity(0.35),
+                        color: Color.accentColor.opacity(0.35),
                         radius: 8, x: 0, y: 3
                     )
             }
@@ -256,7 +257,7 @@ private struct CardButtonStyle: ButtonStyle {
                 AmenNotificationCard(
                     action: action,
                     actorName: "Jordan",
-                    toneColors: (Color(hex: "#7B68EE"), Color(hex: "#C9A84C")),
+                    toneColors: (Color.accentColor, Color.accentColor.opacity(0.7)),
                     onLearnMore: {},
                     onPrimary: {},
                     onUndo: {},
@@ -266,28 +267,28 @@ private struct CardButtonStyle: ButtonStyle {
         }
         .padding()
     }
-    .background(Color(hex: "#0D0D1A").ignoresSafeArea())
+    .background(Color(.systemGroupedBackground).ignoresSafeArea())
 }
 
 #Preview("AmenNotificationCard — reduceMotion") {
     AmenNotificationCard(
         action: .amen,
         actorName: "Jordan",
-        toneColors: (Color(hex: "#C9A84C"), Color(hex: "#FFD97D")),
+        toneColors: (Color.accentColor, Color.accentColor.opacity(0.7)),
         onLearnMore: {},
         onPrimary: {},
         onUndo: {},
         undoWindow: 4.2
     )
     .padding()
-    .background(Color(hex: "#0D0D1A").ignoresSafeArea())
+    .background(Color(.systemGroupedBackground).ignoresSafeArea())
 }
 
 #Preview("AmenNotificationCard — reduceTransparency") {
     AmenNotificationCard(
         action: .give,
         actorName: "Marcus",
-        toneColors: (Color(hex: "#C9A84C"), Color(hex: "#7B68EE")),
+        toneColors: (Color.accentColor, Color.accentColor.opacity(0.6)),
         onLearnMore: {},
         onPrimary: {},
         onUndo: {},

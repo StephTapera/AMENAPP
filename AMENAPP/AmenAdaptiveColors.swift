@@ -129,14 +129,11 @@ extension Color {
     
     // MARK: - Accent Colors (Remain Constant Across Modes)
 
-    /// Gold accent - Premium, elegant (stays the same in both modes).
-    /// NOTE: ~2.8:1 on white — use amenGoldText for any Text foreground on light backgrounds.
-    static let amenGold = Color(red: 0.83, green: 0.69, blue: 0.22)
+    // C3: was gold — mapped to system accent
+    static let amenGold = Color.accentColor
 
-    /// WCAG AA-compliant gold for Text foregrounds on light/system backgrounds.
-    /// #8C6320 — contrast ~5.5:1 against white (passes AA 4.5:1 for normal text).
-    /// Use instead of amenGold whenever the gold color appears as a text foreground.
-    static let amenGoldText = Color(red: 0.549, green: 0.388, blue: 0.125)
+    // C3: was gold — mapped to system accent
+    static let amenGoldText = Color.accentColor
 
     /// Bronze accent - Warm, sophisticated (stays the same)
     static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)

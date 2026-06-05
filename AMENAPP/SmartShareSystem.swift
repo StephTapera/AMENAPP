@@ -50,7 +50,6 @@ enum ShareDestinationType: String, Codable {
     case group
     case church
     case externalApp
-    case story
     case copyLink
     case saved
 }
@@ -75,7 +74,6 @@ enum SharePayloadType: String, Codable {
     case deepLinkWithPreview
     case verseCard
     case churchNotePreview
-    case storyCard
 }
 
 enum ShareSheetState: Equatable {
@@ -178,13 +176,11 @@ struct ShareActivityPayload: Identifiable {
 final class ShareSheetCoordinator: ObservableObject {
     enum Modal: Identifiable {
         case messageComposer
-        case storyCard
         case noteComposer
 
         var id: String {
             switch self {
             case .messageComposer: return "messageComposer"
-            case .storyCard: return "storyCard"
             case .noteComposer: return "noteComposer"
             }
         }
@@ -678,13 +674,12 @@ final class SmartShareSheetViewModel: ObservableObject {
             .init(id: "copy", title: "Copy Link", icon: "link", destination: .copyLink),
             .init(id: "external", title: "Share To…", icon: "square.and.arrow.up", destination: .externalApp),
             .init(id: "message", title: "Send in Message", icon: "paperplane", destination: .directMessage),
-            .init(id: "story", title: "Story Card", icon: "camera", destination: .story),
             .init(id: "save", title: isSaved ? "Saved" : "Save Post", icon: isSaved ? "bookmark.fill" : "bookmark", destination: .saved)
         ]
 
         switch contentType {
         case .versePost:
-            actions.append(.init(id: "verse-card", title: "Verse Card", icon: "book.pages", destination: .story))
+            break
         case .churchNote:
             actions.append(.init(id: "selah", title: "Open in Selah", icon: "sparkles.rectangle.stack", destination: .externalApp))
         case .prayerRequest:

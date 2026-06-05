@@ -69,7 +69,7 @@ struct ONERepairFlowView: View {
                             .frame(width: 10, height: 10)
                         Text(step.stepLabel)
                             .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(step == phase ? AmenTheme.Colors.amenGold : .secondary)
+                            .foregroundStyle(step == phase ? Color.accentColor : .secondary)
                     }
                     .frame(maxWidth: .infinity)
                     if idx < ONERepairPhase.stepCases.count - 1 {
@@ -90,8 +90,8 @@ struct ONERepairFlowView: View {
     private func stepColor(_ step: ONERepairPhase) -> Color {
         let stepIdx = ONERepairPhase.stepCases.firstIndex(of: step) ?? 0
         let curIdx  = ONERepairPhase.stepCases.firstIndex(of: phase) ?? 0
-        if step == phase       { return AmenTheme.Colors.amenGold }
-        if stepIdx < curIdx    { return AmenTheme.Colors.amenGold.opacity(0.4) }
+        if step == phase       { return Color.accentColor }
+        if stepIdx < curIdx    { return Color.accentColor.opacity(0.4) }
         return Color.primary.opacity(0.2)
     }
 
@@ -159,7 +159,7 @@ struct ONERepairFlowView: View {
                         }
                     }
                     .font(.system(size: 12))
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                    .foregroundStyle(Color.accentColor)
                     .accessibilityLabel("Enable AI tone checking for messages")
                 )
             )
@@ -172,7 +172,7 @@ struct ONERepairFlowView: View {
         VStack(spacing: ONE.Spacing.sm) {
             infoRow(
                 icon: "waveform.badge.magnifyingglass",
-                color: AmenTheme.Colors.amenGold,
+                color: Color.accentColor,
                 text: "Tone check is on. Each message is previewed before sending. Sending is always your choice."
             )
             messageThread
@@ -232,7 +232,7 @@ struct ONERepairFlowView: View {
                     showTonePreview = false
                 }
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AmenTheme.Colors.amenGold)
+                .foregroundStyle(Color.accentColor)
             }
         }
         .padding(ONE.Spacing.md)
@@ -293,7 +293,7 @@ struct ONERepairFlowView: View {
                 }
             }
             .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(AmenTheme.Colors.amenGold)
+            .foregroundStyle(Color.accentColor)
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -377,7 +377,7 @@ struct ONERepairFlowView: View {
                         .font(.system(size: 28))
                         .foregroundStyle(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                          ? Color.secondary.opacity(0.4)
-                                         : AmenTheme.Colors.amenGold)
+                                         : Color.accentColor)
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityLabel("Send message")

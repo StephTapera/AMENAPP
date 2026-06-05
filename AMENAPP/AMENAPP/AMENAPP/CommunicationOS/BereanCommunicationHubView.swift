@@ -44,6 +44,10 @@ struct BereanCommunicationHubView: View {
     @State private var ragResults: [RAGSearchResult] = []
     @State private var ragSearchTask: Task<Void, Never>?
 
+    // MARK: - Resume session
+    @AppStorage("bereanActiveSessionId") private var activeSessionId: String = UUID().uuidString
+    @State private var isResumingSession = false
+
     private var filteredThreads: [CommunicationThreadItem] {
         viewModel.threads.filter { thread in
             (selectedScope == .all || thread.scope == selectedScope) &&
@@ -677,13 +681,36 @@ struct BereanCommunicationHubView: View {
 
             Spacer()
 
-            Button("Resume") { }
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Color.primary, in: Capsule())
-                .foregroundStyle(Color(uiColor: .systemBackground))
-                .accessibilityLabel("Resume study session")
+            Button {
+                guard !isResumingSession else { return }
+                isResumingSession = true
+                let sessionId = activeSessionId
+                Task {
+                    try? await Functions.functions(region: "us-central1")
+                        .httpsCallable("resumeBereanSession")
+                        .call([
+                            "sessionId": sessionId,
+                            "uid": Auth.auth().currentUser?.uid ?? ""
+                        ])
+                    await MainActor.run { isResumingSession = false }
+                }
+            } label: {
+                if isResumingSession {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Color(uiColor: .systemBackground))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                } else {
+                    Text("Resume")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                }
+            }
+            .background(Color.primary, in: Capsule())
+            .foregroundStyle(Color(uiColor: .systemBackground))
+            .accessibilityLabel("Resume study session")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)

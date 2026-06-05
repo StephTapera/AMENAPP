@@ -332,7 +332,7 @@ struct GivingOrgDetailView: View {
                 HStack(spacing: 14) {
                     Text("$\(impact.amount)")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(AmenTheme.Colors.amenGoldText)
+                        .foregroundStyle(Color.accentColor)
                         .frame(minWidth: 50, alignment: .trailing)
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -458,7 +458,7 @@ struct GiveConfirmationSheet: View {
             VStack(spacing: 20) {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 40))
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                    .foregroundStyle(Color.accentColor)
 
                 Text("Giving to \(org.name)")
                     .font(.system(size: 20, weight: .semibold))

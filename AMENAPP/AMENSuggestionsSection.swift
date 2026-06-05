@@ -213,38 +213,32 @@ struct AMENSuggestionsSection: View {
                        studyTitle: "Romans",
                        studySubtitle: "The righteousness of God · 16 chapters",
                        studyIcon: "book.closed.fill", studyIconColor: .indigo,
-                       reason: "Popular in your community",
-                       memberCount: 1240),
+                       reason: "In your community"),
         AMENSuggestion(id: "proverbs", category: .studies,
                        studyTitle: "Proverbs",
                        studySubtitle: "Wisdom for daily life · 31 chapters",
                        studyIcon: "lightbulb.fill", studyIconColor: .orange,
-                       reason: "Trending this week",
-                       memberCount: 980),
+                       reason: "Recommended for you"),
         AMENSuggestion(id: "sermon-on-mount", category: .studies,
                        studyTitle: "Sermon on the Mount",
                        studySubtitle: "Matthew 5–7 · 6 week study",
                        studyIcon: "mountain.2.fill", studyIconColor: .teal,
-                       reason: "Recommended for you",
-                       memberCount: 764),
+                       reason: "Recommended for you"),
         AMENSuggestion(id: "psalms", category: .studies,
                        studyTitle: "Psalms",
                        studySubtitle: "Praise, lament, and trust · 150 psalms",
                        studyIcon: "music.note", studyIconColor: .purple,
-                       reason: "Based on your interests",
-                       memberCount: 2100),
+                       reason: "Based on your interests"),
         AMENSuggestion(id: "john", category: .studies,
                        studyTitle: "Gospel of John",
                        studySubtitle: "I am the way · 21 chapters",
                        studyIcon: "cross.fill", studyIconColor: Color(red: 0.88, green: 0.38, blue: 0.28),
-                       reason: "Most studied on AMEN",
-                       memberCount: 3400),
+                       reason: "Recommended for you"),
         AMENSuggestion(id: "ephesians", category: .studies,
                        studyTitle: "Ephesians",
                        studySubtitle: "The armor of God · 6 chapters",
                        studyIcon: "shield.fill", studyIconColor: .blue,
-                       reason: "Recommended for you",
-                       memberCount: 620),
+                       reason: "Recommended for you"),
     ]
 }
 
@@ -486,18 +480,14 @@ struct AMENStudySuggestionCard: View {
 
                 Spacer(minLength: 8)
 
-                // ── Member count + reason ───────────────────────────────
-                if let count = study.memberCount {
-                    HStack(spacing: 4) {
-                        Image(systemName: "person.2")
-                            .font(.systemScaled(10))
-                            .foregroundStyle(.tertiary)
-                        Text("\(count.formatted()) studying")
-                            .font(.systemScaled(11))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
+                // ── Reason (non-count context label) ───────────────────
+                if let reason = study.reason {
+                    Text(reason)
+                        .font(.systemScaled(11))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 14)
                 }
             }
             .frame(width: 170, height: 176)
@@ -549,10 +539,10 @@ struct AMENCommunitySuggestionCard: View {
 
                     if topic.isTrending {
                         HStack(spacing: 3) {
-                            Image(systemName: "flame.fill")
+                            Image(systemName: "sparkles")
                                 .font(.systemScaled(9))
                                 .foregroundStyle(.orange)
-                            Text("Trending")
+                            Text("New")
                                 .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(.orange)
                         }

@@ -20,7 +20,7 @@ struct DiscussionActionSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(comment.authorDisplayName)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                 Text(comment.body)
                     .font(.system(size: 13))
                     .foregroundStyle(Color.white.opacity(0.75))
@@ -47,7 +47,7 @@ struct DiscussionActionSheet: View {
         .presentationDetents([.height(380)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(24)
-        .background(Color(hex: "#0A0A0F").ignoresSafeArea())
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 
     private func actionButton(_ action: DiscussionAction) -> some View {
@@ -72,7 +72,7 @@ struct DiscussionActionSheet: View {
             VStack(spacing: 8) {
                 ZStack {
                     if state == .loading {
-                        ProgressView().tint(Color(hex: "#C9A84C")).scaleEffect(0.7)
+                        ProgressView().tint(Color.accentColor).scaleEffect(0.7)
                     } else if state == .done {
                         Image(systemName: "checkmark")
                             .font(.system(size: 18, weight: .bold))
@@ -84,11 +84,11 @@ struct DiscussionActionSheet: View {
                     } else {
                         Image(systemName: action.icon)
                             .font(.system(size: 20))
-                            .foregroundStyle(Color(hex: "#C9A84C"))
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
                 .frame(width: 44, height: 44)
-                .background(Color(hex: "#C9A84C").opacity(0.1), in: Circle())
+                .background(Color.accentColor.opacity(0.1), in: Circle())
                 .accessibilityHidden(true)
 
                 Text(action.label)

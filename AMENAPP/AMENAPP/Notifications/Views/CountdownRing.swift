@@ -55,7 +55,7 @@ struct CountdownRing: View {
 
 #Preview("CountdownRing — all states") {
     ZStack {
-        Color(hex: "#0D0D1A").ignoresSafeArea()
+        Color(.systemGroupedBackground).ignoresSafeArea()
 
         HStack(spacing: 24) {
             ForEach([1.0, 0.75, 0.50, 0.25, 0.05], id: \.self) { fraction in
@@ -85,7 +85,7 @@ private struct LiveCountdownRingPreview: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "#0D0D1A").ignoresSafeArea()
+            Color(.systemGroupedBackground).ignoresSafeArea()
             CountdownRing(total: total, remaining: remaining)
                 .onReceive(timer) { _ in
                     remaining = max(0, remaining - 0.1)

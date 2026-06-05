@@ -72,8 +72,7 @@ final class AmenCovenantViewModel: ObservableObject {
         case .covenantHub(let cid), .room(let cid, _), .post(let cid, _),
              .event(let cid, _), .digest(let cid), .manage(let cid),
              .analytics(let cid), .moderation(let cid),
-             .memberDirectory(let cid), .contentCalendar(let cid),
-             .story(let cid, _):
+             .memberDirectory(let cid), .contentCalendar(let cid):
             Task {
                 await loadMembership(for: cid)
                 navigate(to: covenantRoute)
@@ -163,8 +162,6 @@ final class AmenCovenantViewModel: ObservableObject {
             AmenCovenantContentCalendarView(covenantId: cid).environmentObject(self)
         case .verification:
             AmenCreatorVerificationView()
-        case .story(let cid, _):
-            AmenCovenantStoryViewer(covenantId: cid)
         }
     }
 

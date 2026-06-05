@@ -71,7 +71,7 @@ struct CommunityMemoryView: View {
 
             if isLoading {
                 ProgressView()
-                    .tint(Color(hex: "#C9A84C"))
+                    .tint(Color.accentColor)
                     .scaleEffect(0.8)
             } else if outcomes.isEmpty {
                 Text("No outcomes recorded yet.")
@@ -82,7 +82,7 @@ struct CommunityMemoryView: View {
                     HStack(spacing: 8) {
                         Image(systemName: outcome.type.icon)
                             .font(.system(size: 12))
-                            .foregroundStyle(Color(hex: "#C9A84C"))
+                            .foregroundStyle(Color.accentColor)
                         Text(outcome.summary)
                             .font(.system(size: 13))
                             .foregroundStyle(Color.white.opacity(0.75))

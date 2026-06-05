@@ -64,7 +64,7 @@ struct MessageLongPressMenu: View {
             HStack(spacing: 14) {
                 Image(systemName: action.icon)
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(action == .pray ? Color.amenGold : Color.primary)
+                    .foregroundStyle(action == .pray ? Color.accentColor : Color.primary)
                     .frame(width: 28)
                 Text(action.displayName)
                     .font(.body)

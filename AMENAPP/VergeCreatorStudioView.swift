@@ -21,9 +21,7 @@ struct VergeCreatorStudioView: View {
     @State private var saveSuccess           = false
 
     private let bg         = Color(hex: "0A0A0F")
-    private let amenPurple = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let amenGold   = Color(hex: "F59E0B")
     private let vergeGradient = LinearGradient(
         colors: [Color(hex: "06B6D4"), Color(hex: "6B48FF")],
         startPoint: .topLeading,
@@ -100,7 +98,7 @@ struct VergeCreatorStudioView: View {
                 .fill(vergeGradient.opacity(0.18))
                 .overlay(
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(amenPurple.opacity(0.3), lineWidth: 0.8)
+                        .stroke(Color.accentColor.opacity(0.3), lineWidth: 0.8)
                 )
         )
     }
@@ -119,7 +117,7 @@ struct VergeCreatorStudioView: View {
                 icon: "gift.fill",
                 label: "Tips Received",
                 value: vm.creatorProfile?.totalTipsReceived.formatted(.currency(code: "USD")) ?? "$0",
-                color: amenGold
+                color: Color.accentColor
             )
             metricCard(
                 icon: "video.fill",
@@ -175,7 +173,7 @@ struct VergeCreatorStudioView: View {
                         .foregroundStyle(.white.opacity(0.45))
                     Text(vm.creatorProfile?.aiRevenueProjection.formatted(.currency(code: "USD")) ?? "–")
                         .font(AMENFont.bold(24))
-                        .foregroundStyle(amenGold)
+                        .foregroundStyle(Color.accentColor)
                 }
                 Spacer()
             }
@@ -246,7 +244,7 @@ struct VergeCreatorStudioView: View {
                         }
                         .padding(.horizontal, 16)
                         .frame(height: 34)
-                        .background(Capsule().fill(amenPurple))
+                        .background(Capsule().fill(Color.accentColor))
                     }
                     .buttonStyle(CoCreationPressStyle())
                     .disabled(isSavingPrice)
@@ -267,14 +265,14 @@ struct VergeCreatorStudioView: View {
                 Image(systemName: "gift.fill")
                     .font(.systemScaled(17, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(amenGold)
+                    .foregroundStyle(Color.accentColor)
                 Text("Tip Jar")
                     .font(AMENFont.regular(15))
                     .foregroundStyle(.white.opacity(0.85))
                 Spacer()
                 Toggle("", isOn: $tipsEnabled)
                     .labelsHidden()
-                    .tint(amenPurple)
+                    .tint(Color.accentColor)
                     .onChange(of: tipsEnabled) { _ in saveTipsEnabled() }
             }
             .padding(.horizontal, 14)
@@ -322,7 +320,7 @@ struct VergeCreatorStudioView: View {
                             Spacer()
                             Text("$0")
                                 .font(AMENFont.bold(15))
-                                .foregroundStyle(amenGold.opacity(0.7))
+                                .foregroundStyle(Color.accentColor.opacity(0.7))
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)

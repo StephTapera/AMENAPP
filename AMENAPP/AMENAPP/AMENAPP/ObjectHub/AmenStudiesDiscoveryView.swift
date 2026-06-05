@@ -62,7 +62,7 @@ final class AmenStudiesDiscoveryViewModel: ObservableObject {
         let snap = try? await db.collection("churchNotes")
             .whereField("sourceType", isEqualTo: filter.rawValue)
             .whereField("isPublic", isEqualTo: true)
-            .order(by: "weeklyEngagement", descending: true)
+            .order(by: "createdAt", descending: true)
             .limit(to: limit)
             .getDocuments()
 
@@ -172,12 +172,12 @@ struct AmenStudiesDiscoveryView: View {
                     Divider().padding(.horizontal, 20)
                 }
 
-                // Trending Studies
+                // Featured Studies
                 if !vm.trendingStudies.isEmpty {
                     studiesRail(
-                        title: "Trending Studies",
-                        subtitle: "Most engaged this week",
-                        icon: "flame.fill",
+                        title: "Featured Studies",
+                        subtitle: "Recently added",
+                        icon: "star.fill",
                         color: .orange,
                         items: vm.trendingStudies,
                         cardStyle: .featured
@@ -416,16 +416,11 @@ private struct FeaturedStudyCard: View {
             }
             .frame(width: 200, alignment: .leading)
 
-            // Engagement
+            // Notes count (non-comparative)
             HStack(spacing: 12) {
                 Label("\(item.noteCount) notes", systemImage: "doc.text")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
-                if item.weeklyEngagement > 0 {
-                    Label("\(item.weeklyEngagement) this week", systemImage: "chart.line.uptrend.xyaxis")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
             }
             .frame(width: 200, alignment: .leading)
         }

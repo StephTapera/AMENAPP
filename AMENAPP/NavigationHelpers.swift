@@ -32,12 +32,18 @@ extension EnvironmentValues {
 struct ProfileNavigationModifier: ViewModifier {
     let userId: String
     @State private var showProfile = false
-    
+
     func body(content: Content) -> some View {
         content
             .onTapGesture {
                 showProfile = true
             }
+            // TODO (NAV-04): UserProfileView is presented as a modal sheet here, but the
+            // C6 navigation contract specifies push navigation for profile views so the
+            // user can swipe-back and maintains a linear nav stack. This sheet presentation
+            // is inconsistent with the push paths used elsewhere (e.g. NavigationLink in
+            // HomeView / PostDetailView). Phase 1 should replace .sheet with a
+            // NavigationLink / navigationDestination push, and then delete this TODO.
             .sheet(isPresented: $showProfile) {
                 UserProfileView(userId: userId)
             }
@@ -90,6 +96,8 @@ struct TappableUserHeader: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        // TODO (NAV-04): Same sheet-vs-push inconsistency as ProfileNavigationModifier above.
+        // Replace with push navigation per C6 contract in Phase 1.
         .sheet(isPresented: $showProfile) {
             UserProfileView(userId: userId)
         }
@@ -125,6 +133,8 @@ struct TappableAvatarName: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        // TODO (NAV-04): Same sheet-vs-push inconsistency as ProfileNavigationModifier above.
+        // Replace with push navigation per C6 contract in Phase 1.
         .sheet(isPresented: $showProfile) {
             UserProfileView(userId: userId)
         }

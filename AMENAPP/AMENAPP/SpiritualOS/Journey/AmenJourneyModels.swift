@@ -131,7 +131,7 @@ enum SpiritualJourneyStage: String, CaseIterable, Codable {
         case .student:          return Color(red: 0.24, green: 0.52, blue: 0.88)  // indigo-blue
         case .careerGrowth:     return Color(red: 0.18, green: 0.68, blue: 0.60)  // jade
         case .prayer:           return Color(red: 0.66, green: 0.48, blue: 0.92)  // soft purple
-        case .bibleStudy:       return Color(red: 0.83, green: 0.69, blue: 0.22)  // amenGold
+        case .bibleStudy:       return Color.accentColor
         case .volunteerism:     return Color(red: 0.28, green: 0.74, blue: 0.56)  // mint
         case .churchLeadership: return Color(red: 0.52, green: 0.32, blue: 0.82)  // royal purple
         case .custom:           return Color(red: 0.60, green: 0.60, blue: 0.62)  // neutral slate

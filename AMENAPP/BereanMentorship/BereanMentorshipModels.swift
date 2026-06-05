@@ -59,11 +59,11 @@ enum BereanMentorSignal: String, CaseIterable {
     var color: Color {
         switch self {
         case .needsAttention:    return Color(hex: "#E05252")
-        case .openQuestion:      return Color(hex: "#C9A84C")
+        case .openQuestion:      return Color.accentColor
         case .prayerRequest:     return Color(hex: "#A78FD4")
         case .upcomingSession:   return Color(hex: "#4C9EC9")
         case .progressUpdate:    return Color(hex: "#4CAF82")
-        case .suggestedResource: return Color(hex: "#C9A84C")
+        case .suggestedResource: return Color.accentColor
         }
     }
 

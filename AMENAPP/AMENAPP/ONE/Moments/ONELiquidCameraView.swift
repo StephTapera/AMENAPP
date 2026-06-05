@@ -324,7 +324,7 @@ struct ONELiquidCameraView: View {
                 Image(systemName: format.provenanceIcon).font(.system(size: 11))
                 Text(format.displayName).font(.system(size: 12, weight: .medium))
             }
-            .foregroundStyle(isSelected ? AmenTheme.Colors.amenGold : .white.opacity(0.8))
+            .foregroundStyle(isSelected ? Color.accentColor : .white.opacity(0.8))
             .padding(.horizontal, ONE.Spacing.sm)
             .padding(.vertical, 6)
             .glassEffect(

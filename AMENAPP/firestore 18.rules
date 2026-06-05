@@ -5155,6 +5155,67 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
+    // Berean OS projects — owner-only subcollection.
+    match /users/{userId}/bereanProjects/{projectId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ============================================================================
+    // INTEGRATION OS — X2 Consent Ledger, Contact Discovery, Broadcast Audit
+    // ============================================================================
+
+    // Consent ledger is owner-readable; writes are server-only (CFs use Admin SDK).
+    match /users/{userId}/consentLedger/{entryId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Contact discovery hashes — no client access; CFs use Admin SDK exclusively.
+    match /contactDiscoveryHashes/{hashId} {
+      allow read, write: if false;
+    }
+
+    // Contact discovery salts — owner-readable only; CF generates on first call.
+    match /contactDiscoverySalts/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Broadcast logs — audit trail, admin-read only.
+    match /broadcastLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Media transform moderation records — owner-readable, server-write.
+    match /mediaTransformModerations/{docId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Org knowledge base — member-read, role-gated write via CF.
+    match /organizations/{orgId}/knowledgeBase/{docId} {
+      allow read: if isAuthenticated()
+        && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+      allow write: if false;
+    }
+
+    match /organizations/{orgId}/members/{memberId} {
+      allow read: if isAuthenticated()
+        && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+      allow write: if isAdmin();
+    }
+
+    // Introduction requests — participants can read their own.
+    match /introRequests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId   == request.auth.uid ||
+        resource.data.viaUserId  == request.auth.uid
+      );
+      allow write: if false;
+    }
+
     // ============================================================================
     // DEFAULT DENY ALL OTHER COLLECTIONS
     // ============================================================================

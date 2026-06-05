@@ -318,8 +318,6 @@ private struct AmenityTag: View {
     }
 }
 
-// ChurchStatCell removed — uses shared HeroStatCell from AmenUniversalHeroCard.swift
-
 // Wrapping tag row using Layout API (iOS 16+)
 private struct ChurchTagFlow: View {
     let tags: [String]
@@ -380,6 +378,45 @@ struct AmenFlowLayout: Layout {
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
         }
+    }
+}
+
+// MARK: - Church Model Bridge
+
+extension AmenChurchHeroData {
+    /// Bridges the lightweight `Church` model from FindChurchView into a hero card.
+    /// Fields absent from `Church` (rating, members, pastor, AI data) default to nil/empty
+    /// and can be enriched with a subsequent Firestore fetch.
+    init(from church: Church) {
+        let parts = church.address.components(separatedBy: ",")
+        let city = parts.count >= 2
+            ? parts[parts.count - 2].trimmingCharacters(in: .whitespaces)
+            : church.address
+        let stateZip = parts.last?.trimmingCharacters(in: .whitespaces) ?? ""
+        let state = stateZip.components(separatedBy: " ").first ?? stateZip
+
+        self.init(
+            id: church.id.uuidString,
+            name: church.name,
+            city: city,
+            state: state,
+            denomination: church.denomination,
+            rating: 0.0,
+            distanceMiles: church.distanceValue / 1609.34,
+            memberCount: nil,
+            sizeRange: nil,
+            serviceLengthMinutes: nil,
+            services: [ChurchHeroService(time: church.serviceTime)],
+            pastor: nil,
+            atmosphere: [],
+            aiSummary: nil,
+            aiMatchReasons: [],
+            badges: church.denomination.isEmpty ? [] : [church.denomination],
+            heroImageURL: nil,
+            hasKids: false,
+            hasYouth: false,
+            hasLivestream: false
+        )
     }
 }
 

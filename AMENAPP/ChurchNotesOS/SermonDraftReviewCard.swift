@@ -45,7 +45,7 @@ struct SermonReviewDraftReviewCard: View {
                     Spacer()
                     Text("Review before saving")
                         .font(.caption)
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                 }
 
                 // Summary
@@ -68,7 +68,7 @@ struct SermonReviewDraftReviewCard: View {
                             HStack(alignment: .top, spacing: 8) {
                                 Text("\(index + 1).")
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Color.amenGold)
+                                    .foregroundStyle(Color.accentColor)
                                     .frame(width: 18, alignment: .leading)
                                 if isEditing {
                                     TextField("Question \(index + 1)", text: $draft.discussionQuestions[index])
@@ -122,7 +122,7 @@ struct SermonReviewDraftReviewCard: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(Color.amenGold, in: RoundedRectangle(cornerRadius: 12))
+                            .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Approve and save sermon notes")
@@ -159,7 +159,7 @@ struct SermonReviewDraftReviewCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Label(title, systemImage: icon)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             content()
         }
         .padding(14)

@@ -247,7 +247,7 @@ extension ONEMomentType {
         switch self {
         case .snap:        return ONE.Colors.ephemeralRed
         case .post:        return ONE.Colors.privateIndigo
-        case .story:       return AmenTheme.Colors.amenGold
+        case .story:       return Color.accentColor
         case .voice:       return ONE.Colors.repairGreen
         case .reflection:  return ONE.Colors.witnessGold
         case .locationShare:    return ONE.Colors.repairGreen

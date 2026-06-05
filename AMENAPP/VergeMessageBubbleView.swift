@@ -16,7 +16,7 @@ struct VergeMessageBubbleView: View {
 
     @State private var showReactionPicker = false
 
-    private let amenGold   = Color(hex: "F59E0B")
+    private let Color.accentColor   = Color(hex: "F59E0B")
     private let cyanAccent = Color(hex: "06B6D4")
 
     // MARK: - Body
@@ -76,10 +76,10 @@ struct VergeMessageBubbleView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "pin.fill")
                         .font(.systemScaled(9, weight: .medium))
-                        .foregroundStyle(amenGold.opacity(0.7))
+                        .foregroundStyle(Color.accentColor.opacity(0.7))
                     Text("Pinned")
                         .font(AMENFont.regular(10))
-                        .foregroundStyle(amenGold.opacity(0.7))
+                        .foregroundStyle(Color.accentColor.opacity(0.7))
                 }
             }
 
@@ -93,7 +93,7 @@ struct VergeMessageBubbleView: View {
                         .cornerRadius(1.5)
                 } else if message.aiFlag == "insightful" {
                     Rectangle()
-                        .fill(amenGold)
+                        .fill(Color.accentColor)
                         .frame(width: 3)
                         .cornerRadius(1.5)
                 }

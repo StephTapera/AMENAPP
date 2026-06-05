@@ -2,6 +2,29 @@ import SwiftUI
 import Foundation
 import Combine
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NAV-02 KNOWN ISSUE — DUAL-SCHEME ROUTER DIVERGENCE
+//
+// The app currently has TWO independent deep-link parsers running in parallel:
+//   • DeepLinkRouter          — handles the "amen://"    custom URL scheme
+//   • NotificationDeepLinkRouter — handles the "amenapp://" custom URL scheme
+//
+// This creates a maintenance risk: any new route added to one file MUST be
+// mirrored in the other, or the two schemes will silently fall out of sync.
+//
+// ROUTES PRESENT HERE BUT MISSING FROM NotificationDeepLinkRouter (amenapp://):
+//   • amen://church/{id}          — no amenapp://church counterpart
+//   • amen://category/{name}      — no amenapp://category counterpart
+//   • amen://search?q={query}     — no amenapp://search counterpart
+//   • amen://settings[/{section}] — no amenapp://settings counterpart
+//   • amen://comment?...          — no amenapp://comment counterpart
+//   • amen://chat?...             — no amenapp://chat counterpart
+//
+// TODO (Phase 1): Merge both parsers into a single UnifiedDeepLinkRouter that
+// accepts both schemes and delegates to one shared destination model, then
+// remove this file and NotificationDeepLinkRouter.swift.
+// ─────────────────────────────────────────────────────────────────────────────
+
 /// Central routing system for deep links and in-app navigation
 /// Handles: Push notifications, Universal Links, in-app navigation
 @MainActor
@@ -148,7 +171,7 @@ class DeepLinkRouter: ObservableObject {
         case .search:
             selectedTab = 1  // Search tab
         case .settings:
-            selectedTab = 4  // Profile/Settings tab
+            selectedTab = 5  // Profile tab (index 5); was incorrectly 4 (Notifications) — NAV-01 fix
         case .comment:
             // Open the post's comment thread (home tab, then push post detail)
             selectedTab = 0

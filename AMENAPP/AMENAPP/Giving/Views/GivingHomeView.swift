@@ -212,9 +212,9 @@ struct GivingHomeView: View {
                             .background(
                                 Capsule()
                                     .fill(vm.selectedTab == tab
-                                          ? AmenTheme.Colors.amenGold
+                                          ? Color.accentColor
                                           : AmenTheme.Colors.backgroundSecondary.opacity(0.80))
-                                    .shadow(color: vm.selectedTab == tab ? AmenTheme.Colors.amenGold.opacity(0.30) : .clear,
+                                    .shadow(color: vm.selectedTab == tab ? Color.accentColor.opacity(0.30) : .clear,
                                             radius: 10, y: 4)
                             )
                     }

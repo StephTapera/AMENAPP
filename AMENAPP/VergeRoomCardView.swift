@@ -12,9 +12,9 @@ struct VergeRoomCardView: View {
     let room: VergeRoom
     let onJoin: () -> Void
 
-    private let amenPurple = Color(hex: "6B48FF")
+    private let Color.accentColor = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let amenGold   = Color(hex: "F59E0B")
+    private let Color.accentColor   = Color(hex: "F59E0B")
     private let vergeGradient = LinearGradient(
         colors: [Color(hex: "06B6D4"), Color(hex: "6B48FF")],
         startPoint: .topLeading,
@@ -86,10 +86,10 @@ struct VergeRoomCardView: View {
         } else if let label = room.startsInLabel {
             Text(label)
                 .font(AMENFont.semiBold(11))
-                .foregroundStyle(amenGold)
+                .foregroundStyle(Color.accentColor)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Capsule().fill(amenGold.opacity(0.15)))
+                .background(Capsule().fill(Color.accentColor.opacity(0.15)))
         } else if room.status == .ended {
             Text("Ended")
                 .font(AMENFont.semiBold(11))
@@ -137,17 +137,17 @@ struct VergeRoomCardView: View {
         if room.subscribersOnly {
             Text("Subscribers only")
                 .font(AMENFont.regular(10))
-                .foregroundStyle(amenPurple)
+                .foregroundStyle(Color.accentColor)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(amenPurple.opacity(0.15)))
+                .background(Capsule().fill(Color.accentColor.opacity(0.15)))
         } else if let price = room.ticketPrice {
             Text(String(format: "$%.0f to join", price))
                 .font(AMENFont.regular(10))
-                .foregroundStyle(amenGold)
+                .foregroundStyle(Color.accentColor)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(amenGold.opacity(0.12)))
+                .background(Capsule().fill(Color.accentColor.opacity(0.12)))
         }
     }
 
@@ -167,11 +167,11 @@ struct VergeRoomCardView: View {
                     .background(
                         Capsule()
                             .fill(room.isLive ? vergeGradient : LinearGradient(
-                                colors: [amenGold.opacity(0.8), amenGold],
+                                colors: [Color.accentColor.opacity(0.8), Color.accentColor],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
-                            .shadow(color: amenPurple.opacity(room.isLive ? 0.4 : 0), radius: 10, y: 4)
+                            .shadow(color: Color.accentColor.opacity(room.isLive ? 0.4 : 0), radius: 10, y: 4)
                     )
             }
             .buttonStyle(CoCreationPressStyle())

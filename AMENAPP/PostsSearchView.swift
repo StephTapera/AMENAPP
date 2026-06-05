@@ -16,7 +16,7 @@ import Combine
 struct PostsSearchView: View {
     @StateObject private var viewModel = PostsSearchViewModel()
     @State private var searchText = ""
-    @State private var selectedCategory: PostCategory = .trending
+    @State private var selectedCategory: PostCategory = .recent
     @Environment(\.dismiss) var dismiss
     
     // ✅ HEY FEED: Keyword trigger
@@ -29,23 +29,23 @@ struct PostsSearchView: View {
     private let maxRecentSearches = 10
     
     enum PostCategory: String, CaseIterable {
-        case trending = "Trending"
         case recent = "Recent"
-        case popular = "Popular"
-        
+        case scripture = "Scripture"
+        case prayer = "Prayer"
+
         var icon: String {
             switch self {
-            case .trending: return "flame.fill"
             case .recent: return "clock.fill"
-            case .popular: return "heart.fill"
+            case .scripture: return "book.fill"
+            case .prayer: return "hands.sparkles.fill"
             }
         }
-        
+
         var highlightColor: Color {
             switch self {
-            case .trending: return Color(red: 0.8, green: 0.1, blue: 0.2) // Maroon/Red
             case .recent: return .blue
-            case .popular: return .pink
+            case .scripture: return .indigo
+            case .prayer: return .purple
             }
         }
     }
@@ -189,23 +189,11 @@ struct PostsSearchView: View {
             .padding(.top, 16)
             .padding(.bottom, 12)
             
-            // Red/Maroon highlight bar (only for trending)
-            if selectedCategory == .trending {
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.9, green: 0.1, blue: 0.2),
-                                Color(red: 0.7, green: 0.05, blue: 0.15)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(height: 4)
-                    .shadow(color: Color(red: 0.9, green: 0.1, blue: 0.2).opacity(0.5), radius: 8, y: 2)
-                    .transition(.scale.combined(with: .opacity))
-            }
+            // Category accent bar
+            Rectangle()
+                .fill(selectedCategory.highlightColor.opacity(0.7))
+                .frame(height: 3)
+                .transition(.scale.combined(with: .opacity))
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedCategory)
     }
@@ -516,32 +504,16 @@ struct PostSearchCard: View {
                     
                     Spacer()
                     
-                    // Trending indicator
-                    if category == .trending {
-                        HStack(spacing: 4) {
-                            Image(systemName: "flame.fill")
-                                .font(.systemScaled(12))
-                            Text("Hot")
-                                .font(.custom("OpenSans-Bold", size: 11))
-                        }
+                    // Category badge
+                    Text(category.rawValue)
+                        .font(.custom("OpenSans-Bold", size: 11))
                         .foregroundColor(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color(red: 0.9, green: 0.1, blue: 0.2),
-                                            Color(red: 0.7, green: 0.05, blue: 0.15)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .shadow(color: Color(red: 0.9, green: 0.1, blue: 0.2).opacity(0.3), radius: 8, y: 2)
+                                .fill(category.highlightColor)
                         )
-                    }
                 }
                 
                 // Post content
@@ -553,18 +525,10 @@ struct PostSearchCard: View {
                         .multilineTextAlignment(.leading)
                 }
                 
-                // Engagement stats
+                // Post timestamp (non-comparative metadata)
                 HStack(spacing: 20) {
-                    Label("\(post.amenCount)", systemImage: "heart.fill")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundColor(.white.opacity(0.6))
-                    
-                    Label("\(post.commentCount)", systemImage: "bubble.right.fill")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundColor(.white.opacity(0.6))
-                    
-                    Label("\(post.repostCount)", systemImage: "arrow.2.squarepath")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                    Text(post.timeAgo)
+                        .font(.custom("OpenSans-Regular", size: 13))
                         .foregroundColor(.white.opacity(0.6))
                 }
             }
@@ -629,24 +593,20 @@ class PostsSearchViewModel: ObservableObject {
             var query: Query = db.collection("posts")
                 .whereField("visibility", isEqualTo: "everyone")
             
-            // Apply category filter with smart algorithms
+            // Apply category filter — all categories ordered by recency (no engagement ranking)
             switch category {
-            case .trending:
-                // 🔥 TRENDING ALGORITHM: High engagement in last 24 hours
-                // Score = (amenCount * 2 + commentCount * 3 + repostCount * 5) / hours_since_post
-                let oneDayAgo = Date().addingTimeInterval(-24 * 60 * 60)
-                query = query
-                    .whereField("createdAt", isGreaterThan: Timestamp(date: oneDayAgo))
-                    .order(by: "createdAt", descending: true)
-                
             case .recent:
-                // 🕐 RECENT ALGORITHM: Simple chronological order
                 query = query.order(by: "createdAt", descending: true)
-                
-            case .popular:
-                // ❤️ POPULAR ALGORITHM: All-time engagement
-                // Score = amenCount + commentCount + repostCount
-                query = query.order(by: "amenCount", descending: true)
+
+            case .scripture:
+                query = query
+                    .whereField("category", isEqualTo: "scripture")
+                    .order(by: "createdAt", descending: true)
+
+            case .prayer:
+                query = query
+                    .whereField("category", isEqualTo: "prayer")
+                    .order(by: "createdAt", descending: true)
             }
             
             query = query.limit(to: pageSize)
@@ -654,15 +614,10 @@ class PostsSearchViewModel: ObservableObject {
             let snapshot = try await query.getDocuments()
             lastDocument = snapshot.documents.last
             
-            var fetchedPosts = snapshot.documents.compactMap { doc -> Post? in
+            let fetchedPosts = snapshot.documents.compactMap { doc -> Post? in
                 try? doc.data(as: Post.self)
             }
-            
-            // Apply trending score algorithm on client side for better ranking
-            if category == .trending {
-                fetchedPosts = rankTrendingPosts(fetchedPosts)
-            }
-            
+
             posts = fetchedPosts
             hasMore = snapshot.documents.count == pageSize
             
@@ -670,37 +625,6 @@ class PostsSearchViewModel: ObservableObject {
             dlog("❌ Error loading posts: \(error)")
             posts = []
         }
-    }
-    
-    // 🔥 TRENDING RANKING ALGORITHM
-    private func rankTrendingPosts(_ posts: [Post]) -> [Post] {
-        return posts.sorted { post1, post2 in
-            let score1 = calculateTrendingScore(post1)
-            let score2 = calculateTrendingScore(post2)
-            return score1 > score2
-        }
-    }
-    
-    private func calculateTrendingScore(_ post: Post) -> Double {
-        let now = Date()
-        let hoursSincePost = now.timeIntervalSince(post.createdAt) / 3600
-        
-        // Prevent division by zero
-        guard hoursSincePost > 0 else { return 0 }
-        
-        // Weighted engagement score
-        let amenWeight = 2.0
-        let commentWeight = 3.0
-        let repostWeight = 5.0
-        
-        let engagementScore = Double(post.amenCount) * amenWeight +
-                             Double(post.commentCount) * commentWeight +
-                             Double(post.repostCount) * repostWeight
-        
-        // Time decay: newer posts get bonus
-        let timeDecay = 1.0 / (1.0 + hoursSincePost / 6.0) // Decay over 6 hours
-        
-        return engagementScore * timeDecay
     }
     
     // 🔍 ENHANCED FIRESTORE SEARCH: Search posts by content, author, verse, keywords, category
@@ -754,10 +678,6 @@ class PostsSearchViewModel: ObservableObject {
                     relevanceScore += 3
                 }
                 
-                // ✨ Engagement boost: Popular posts get priority
-                let engagementBonus = (post.amenCount + post.commentCount + post.repostCount) / 10
-                relevanceScore += min(engagementBonus, 10) // Cap at 10 bonus points
-                
                 // Only include posts with some relevance
                 if relevanceScore > 0 {
                     scoredPosts.append((post: post, score: relevanceScore))
@@ -772,22 +692,18 @@ class PostsSearchViewModel: ObservableObject {
             
             if let category = category {
                 switch category {
-                case .trending:
-                    // Only posts from last 24 hours
-                    let oneDayAgo = Date().addingTimeInterval(-24 * 60 * 60)
-                    searchResults = searchResults.filter { $0.createdAt > oneDayAgo }
-                    searchResults = rankTrendingPosts(searchResults)
-                    
                 case .recent:
                     // Already sorted by creation date in query
                     break
-                    
-                case .popular:
-                    // Re-sort by engagement
-                    searchResults.sort { post1, post2 in
-                        let score1 = post1.amenCount + post1.commentCount + post1.repostCount
-                        let score2 = post2.amenCount + post2.commentCount + post2.repostCount
-                        return score1 > score2
+
+                case .scripture:
+                    searchResults = searchResults.filter {
+                        $0.category.rawValue.lowercased() == "scripture"
+                    }
+
+                case .prayer:
+                    searchResults = searchResults.filter {
+                        $0.category.rawValue.lowercased() == "prayer"
                     }
                 }
             }

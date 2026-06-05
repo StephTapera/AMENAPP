@@ -195,7 +195,7 @@ struct AmenDiscoveryRailSection: View {
             } label: {
                 Text("See All")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color.amenGoldText)
+                    .foregroundStyle(Color.accentColor)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("See all \(rail.type.title)")

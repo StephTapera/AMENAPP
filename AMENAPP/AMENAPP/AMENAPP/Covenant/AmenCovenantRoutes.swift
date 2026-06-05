@@ -18,7 +18,6 @@ enum CovenantRoute: Hashable {
     case memberDirectory(covenantId: String)
     case contentCalendar(covenantId: String)
     case verification
-    case story(covenantId: String, storyId: String)
 }
 
 // MARK: - Deep Link → CovenantRoute

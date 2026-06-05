@@ -16,7 +16,6 @@ struct AmenCovenantManageView: View {
     @StateObject private var manageVM = AmenCovenantManageViewModel()
     @State private var showComposer = false
     @State private var showEventsSheet = false
-    @State private var showStoriesSheet = false
     @State private var showModePickerDialog = false
     @State private var showSettingsAlert = false
 
@@ -68,9 +67,6 @@ struct AmenCovenantManageView: View {
             .sheet(isPresented: $showEventsSheet) {
                 AmenCovenantEventsView(covenantId: covenantId)
                     .environmentObject(vm)
-            }
-            .sheet(isPresented: $showStoriesSheet) {
-                AmenCovenantStoriesComposerView(covenantId: covenantId)
             }
             .confirmationDialog("Change Operating Mode", isPresented: $showModePickerDialog, titleVisibility: .visible) {
                 ForEach(CovenantOperatingMode.allCases, id: \.self) { mode in
@@ -279,8 +275,6 @@ struct AmenCovenantManageView: View {
             vm.navigate(to: .analytics(covenantId: covenantId))
         case .events:
             showEventsSheet = true
-        case .stories:
-            showStoriesSheet = true
         case .settings:
             showSettingsAlert = true
         }
@@ -302,7 +296,7 @@ struct AmenCovenantManageView: View {
 // MARK: - Manage Tool Enum
 
 private enum ManageTool: String, CaseIterable {
-    case posts, rooms, members, moderation, revenue, events, stories, settings
+    case posts, rooms, members, moderation, revenue, events, settings
 
     var title: String {
         switch self {
@@ -312,7 +306,6 @@ private enum ManageTool: String, CaseIterable {
         case .moderation: return "Moderation"
         case .revenue:    return "Revenue"
         case .events:     return "Events"
-        case .stories:    return "Stories"
         case .settings:   return "Settings"
         }
     }
@@ -325,7 +318,6 @@ private enum ManageTool: String, CaseIterable {
         case .moderation: return "Review flagged content"
         case .revenue:    return "MRR, tiers, and member health"
         case .events:     return "Create and manage events"
-        case .stories:    return "Share ephemeral moments"
         case .settings:   return "Community configuration"
         }
     }
@@ -338,7 +330,6 @@ private enum ManageTool: String, CaseIterable {
         case .moderation: return "shield"
         case .revenue:    return "chart.bar.xaxis"
         case .events:     return "calendar"
-        case .stories:    return "circle.hexagongrid"
         case .settings:   return "gearshape"
         }
     }
@@ -351,7 +342,6 @@ private enum ManageTool: String, CaseIterable {
         case .moderation: return .orange
         case .revenue:    return .green
         case .events:     return .pink
-        case .stories:    return .indigo
         case .settings:   return .gray
         }
     }
@@ -361,41 +351,6 @@ private enum ManageTool: String, CaseIterable {
 
 private extension Color {
     static let amber = Color(red: 0.98, green: 0.72, blue: 0.05)
-}
-
-// MARK: - Stub Views
-
-
-/// Scaffolded stories composer. Full implementation lives in a dedicated file.
-struct AmenCovenantStoriesComposerView: View {
-    let covenantId: String
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "circle.hexagongrid.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.secondary)
-                Text("Stories")
-                    .font(.title3.bold())
-                Text("Share ephemeral moments with your community.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("New Story")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Manage ViewModel

@@ -110,7 +110,7 @@ struct HubItemRow: View {
         HStack(alignment: .top, spacing: 12) {
             // Unread dot
             Circle()
-                .fill(item.isRead ? Color.clear : Color("amenGold"))
+                .fill(item.isRead ? Color.clear : Color.accentColor)
                 .frame(width: 8, height: 8)
                 .padding(.top, 6)
 

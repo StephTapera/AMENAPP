@@ -205,15 +205,15 @@ struct EssentialBooksView: View {
     private var trendingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "chart.line.uptrend.xyaxis")
+                Image(systemName: "sparkles")
                     .foregroundStyle(.orange)
-                Text(selectedCategory == .all ? "Trending This Week" : "Trending in \(selectedCategory.rawValue)")
+                Text(selectedCategory == .all ? "New This Week" : "New in \(selectedCategory.rawValue)")
                     .font(AMENFont.bold(22))
-                
+
                 Spacer()
             }
             .padding(.horizontal, 20)
-            
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
                     ForEach(trendingBooks) { book in
@@ -350,11 +350,11 @@ struct TrendingBookCard: View {
                         .foregroundStyle(.white.opacity(0.3))
                 }
                 
-                // Trending badge
+                // "New" badge based on presence in new-this-week rail (no engagement count)
                 HStack(spacing: 4) {
-                    Image(systemName: "flame.fill")
+                    Image(systemName: "sparkles")
                         .font(.systemScaled(10))
-                    Text("Trending")
+                    Text("New")
                         .font(AMENFont.bold(10))
                 }
                 .foregroundStyle(.white)

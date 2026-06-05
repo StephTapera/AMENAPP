@@ -10,7 +10,6 @@ import FirebaseFirestore
 enum SyncPlatform: String, Codable, CaseIterable, Identifiable {
     case amenFeed       = "amen_feed"
     case instagram      = "instagram"
-    case instagramStory = "instagram_story"
     case tiktok         = "tiktok"
     case youtube        = "youtube"
     case youtubeShorts  = "youtube_shorts"
@@ -28,7 +27,6 @@ enum SyncPlatform: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .amenFeed:       return "AMEN Feed"
         case .instagram:      return "Instagram"
-        case .instagramStory: return "Instagram Story"
         case .tiktok:         return "TikTok"
         case .youtube:        return "YouTube"
         case .youtubeShorts:  return "YouTube Shorts"
@@ -46,7 +44,6 @@ enum SyncPlatform: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .amenFeed:       return "a.circle.fill"
         case .instagram:      return "camera.fill"
-        case .instagramStory: return "camera.viewfinder"
         case .tiktok:         return "music.note.tv.fill"
         case .youtube:        return "play.rectangle.fill"
         case .youtubeShorts:  return "play.circle.fill"
@@ -64,7 +61,6 @@ enum SyncPlatform: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .amenFeed:       return .teal
         case .instagram:      return .pink
-        case .instagramStory: return .purple
         case .tiktok:         return .red
         case .youtube:        return .red
         case .youtubeShorts:  return .orange
@@ -107,7 +103,7 @@ enum SyncPlatform: String, Codable, CaseIterable, Identifiable {
     var targetPixelWidth: Int {
         switch self {
         case .amenFeed, .instagram, .threads: return 1080
-        case .instagramStory, .tiktok, .youtubeShorts: return 1080
+        case .tiktok, .youtubeShorts: return 1080
         case .youtube, .twitter, .facebook, .linkedin: return 1920
         case .podcast: return 3000
         case .churchBulletin, .email: return 1200

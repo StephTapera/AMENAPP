@@ -112,7 +112,7 @@ struct ChurchCommunityProfileView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Join") { showJoinFlow = true }
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
                     .fontWeight(.semibold)
             }
         }
@@ -129,7 +129,7 @@ struct ChurchCommunityProfileView: View {
             // Map thumbnail
             Map(position: $position) {
                 Marker(church.name, coordinate: church.coordinate)
-                    .tint(Color.amenGold)
+                    .tint(Color.accentColor)
             }
             .frame(height: 140)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -142,7 +142,7 @@ struct ChurchCommunityProfileView: View {
                 if let denom = church.denomination {
                     Text(denom)
                         .font(.subheadline)
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                 }
                 Text(church.tagline)
                     .font(.subheadline)
@@ -172,7 +172,7 @@ struct ChurchCommunityProfileView: View {
     @ViewBuilder
     private func statCell(value: String, label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.subheadline.weight(.bold)).foregroundStyle(Color.amenGold)
+            Text(value).font(.subheadline.weight(.bold)).foregroundStyle(Color.accentColor)
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -194,7 +194,7 @@ struct ChurchCommunityProfileView: View {
                             .frame(height: 32)
                             .foregroundStyle(selectedSection == section ? .white : .primary)
                             .background(
-                                selectedSection == section ? Color.amenGold : Color(.secondarySystemBackground),
+                                selectedSection == section ? Color.accentColor : Color(.secondarySystemBackground),
                                 in: Capsule()
                             )
                     }
@@ -226,7 +226,7 @@ struct ChurchCommunityProfileView: View {
                     } label: {
                         Label("Add", systemImage: "calendar.badge.plus")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color.amenGold)
+                            .foregroundStyle(Color.accentColor)
                     }
                     .buttonStyle(.plain)
                 }
@@ -278,7 +278,7 @@ struct ChurchCommunityProfileView: View {
                 ForEach(church.ministries, id: \.self) { ministry in
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(Color.amenGold).font(.caption)
+                            .foregroundStyle(Color.accentColor).font(.caption)
                         Text(ministry).font(.caption).lineLimit(2)
                         Spacer()
                     }
@@ -295,8 +295,8 @@ struct ChurchCommunityProfileView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Leadership").font(.headline).padding(.horizontal, 16)
             HStack(spacing: 12) {
-                Circle().fill(Color.amenGold.opacity(0.2)).frame(width: 52, height: 52)
-                    .overlay(Image(systemName: "person.fill").foregroundStyle(Color.amenGold))
+                Circle().fill(Color.accentColor.opacity(0.2)).frame(width: 52, height: 52)
+                    .overlay(Image(systemName: "person.fill").foregroundStyle(Color.accentColor))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(church.leadPastorName).font(.subheadline.weight(.semibold))
                     Text("Lead Pastor").font(.caption).foregroundStyle(.secondary)
@@ -332,7 +332,7 @@ private struct SpacePlaceholderRow: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .frame(height: 30)
-                    .background(Color.amenGold, in: Capsule())
+                    .background(Color.accentColor, in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -374,7 +374,7 @@ struct ChurchJoinFlowView: View {
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.white)
                             .frame(width: 26, height: 26)
-                            .background(Color.amenGold, in: Circle())
+                            .background(Color.accentColor, in: Circle())
                         Text(step)
                             .font(.subheadline)
                     }
@@ -391,7 +391,7 @@ struct ChurchJoinFlowView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.amenGold, in: RoundedRectangle(cornerRadius: 12))
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal)

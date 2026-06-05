@@ -16,7 +16,6 @@ import Foundation
 
 /// The detected or suggested grouping style for a multi-media post.
 enum BundleType: String {
-    case storySequence      = "storySequence"
     case eventRecap         = "eventRecap"
     case worshipHighlights  = "worshipHighlights"
     case sermonHighlights   = "sermonHighlights"
@@ -31,7 +30,6 @@ enum BundleType: String {
     /// Human-readable label shown in the composer bundle suggestion UI.
     var displayLabel: String {
         switch self {
-        case .storySequence:     return "Story Sequence"
         case .eventRecap:        return "Event Recap"
         case .worshipHighlights: return "Worship Highlights"
         case .sermonHighlights:  return "Sermon Highlights"
@@ -48,7 +46,6 @@ enum BundleType: String {
     /// Describes the recommended ordering strategy for items in this bundle.
     var orderHint: String {
         switch self {
-        case .storySequence:     return "Chronological — earliest first"
         case .eventRecap:        return "Chronological — show arrival through peak moment"
         case .worshipHighlights: return "Energy arc — quieter moments first, peak in middle"
         case .sermonHighlights:  return "Narrative — clip order mirrors message flow"
@@ -65,8 +62,6 @@ enum BundleType: String {
     /// A starting-point caption template for this bundle type.
     var captionTemplate: String {
         switch self {
-        case .storySequence:
-            return "Here's the story in order…"
         case .eventRecap:
             return "What a night. Swipe to see how it all came together."
         case .worshipHighlights:
@@ -236,19 +231,7 @@ final class MediaBundleDetector {
             )
         }
 
-        // ── Rule 5: Tight temporal span (<15 min) → story sequence ───────────
-        if spanSeconds > 0 && spanSeconds < 900 && count >= 3 {
-            let ordered = recommendedOrder(for: items, bundleType: .storySequence)
-            return BundleDetectionResult(
-                suggestedType: .storySequence,
-                confidence: 0.75,
-                suggestedOrder: ordered.map(\.id),
-                captionTemplate: BundleType.storySequence.captionTemplate,
-                reorderNeeded: ordered.map(\.id) != items.map(\.id)
-            )
-        }
-
-        // ── Rule 6: Wide temporal span (>2 h) + many items → event recap ──────
+        // ── Rule 5: Wide temporal span (>2 h) + many items → event recap ──────
         if spanSeconds > 7200 || count >= 6 {
             let ordered = recommendedOrder(for: items, bundleType: .eventRecap)
             return BundleDetectionResult(
@@ -325,8 +308,6 @@ final class MediaBundleDetector {
             return "Grateful for every face in these photos. This is community."
         case (.beforeAfter, .testimony):
             return "Swipe to see what God did. Before → After."
-        case (.storySequence, .missionUpdate):
-            return "Follow the thread. Here's how the day unfolded on the ground."
         case (.behindTheScenes, .missionUpdate):
             return "The work behind the scenes. This is what it takes."
         default:
@@ -352,7 +333,7 @@ final class MediaBundleDetector {
     func recommendedOrder(for items: [BundleMediaItem], bundleType: BundleType) -> [BundleMediaItem] {
         switch bundleType {
 
-        case .storySequence, .eventRecap, .beforeAfter:
+        case .eventRecap, .beforeAfter:
             return items.sorted { lhs, rhs in
                 switch (lhs.capturedAt, rhs.capturedAt) {
                 case let (l?, r?): return l < r

@@ -44,7 +44,7 @@ final class AmenDiscoveryRailsViewModel {
         async let spaces       = fetchActiveSpaces()
         async let churches     = fetchChurchesNearYou()
         async let events       = fetchUpcomingEvents()
-        async let studies      = fetchTrendingStudies()
+        async let studies      = fetchFeaturedStudies()
         async let people       = fetchPeopleYouShouldMeet(userId: userId)
         async let prayerSpaces = fetchPrayerCommunities()
         async let newSpaces    = fetchNewCommunities()
@@ -158,7 +158,6 @@ final class AmenDiscoveryRailsViewModel {
                 let data = doc.data()
                 let title = data["name"] as? String ?? ""
                 guard !title.isEmpty else { return nil }
-                let memberCount = data["memberCount"] as? Int ?? 0
                 let imageURLString = data["imageURL"] as? String ?? data["coverImageURL"] as? String
                 return DiscoveryRailItem(
                     id: doc.documentID,
@@ -166,7 +165,7 @@ final class AmenDiscoveryRailsViewModel {
                     title: title,
                     subtitle: data["description"] as? String,
                     imageURL: imageURLString.flatMap { URL(string: $0) },
-                    badgeText: memberCount > 100 ? "\(memberCount) members" : nil,
+                    badgeText: nil,
                     progressFraction: nil,
                     metadata: ["spaceId": doc.documentID]
                 )
@@ -265,11 +264,13 @@ final class AmenDiscoveryRailsViewModel {
         }
     }
 
-    private func fetchTrendingStudies() async -> DiscoveryRail? {
+    private func fetchFeaturedStudies() async -> DiscoveryRail? {
         do {
+            // Queries editor-curated studies only — no engagement counters drive surfacing.
             let snapshot = try await db
                 .collection("studies")
-                .whereField("weeklyEngagement", isGreaterThan: 100)
+                .whereField("featured", isEqualTo: true)
+                .order(by: "featuredAt", descending: true)
                 .limit(to: 8)
                 .getDocuments()
 
@@ -278,22 +279,21 @@ final class AmenDiscoveryRailsViewModel {
                 let title = data["title"] as? String ?? data["name"] as? String ?? ""
                 guard !title.isEmpty else { return nil }
                 let imageURLString = data["imageURL"] as? String ?? data["coverURL"] as? String
-                let engagement = data["weeklyEngagement"] as? Int ?? 0
                 return DiscoveryRailItem(
                     id: doc.documentID,
                     type: .study,
                     title: title,
                     subtitle: data["author"] as? String ?? data["description"] as? String,
                     imageURL: imageURLString.flatMap { URL(string: $0) },
-                    badgeText: engagement > 500 ? "Trending" : nil,
+                    badgeText: nil,
                     progressFraction: nil,
                     metadata: ["studyId": doc.documentID]
                 )
             }
 
             return DiscoveryRail(
-                id: DiscoveryRailType.trendingStudies.rawValue,
-                type: .trendingStudies,
+                id: DiscoveryRailType.featuredStudies.rawValue,
+                type: .featuredStudies,
                 items: items,
                 loadedAt: .now
             )
@@ -314,6 +314,7 @@ final class AmenDiscoveryRailsViewModel {
             let snapshot = try await db
                 .collection("users")
                 .whereField("churchId", isEqualTo: churchId)
+                .whereField("allowDiscovery", isEqualTo: true)
                 .limit(to: 8)
                 .getDocuments()
 
@@ -359,14 +360,13 @@ final class AmenDiscoveryRailsViewModel {
                 let title = data["name"] as? String ?? ""
                 guard !title.isEmpty else { return nil }
                 let imageURLString = data["imageURL"] as? String ?? data["coverImageURL"] as? String
-                let memberCount = data["memberCount"] as? Int ?? 0
                 return DiscoveryRailItem(
                     id: doc.documentID,
                     type: .space,
                     title: title,
                     subtitle: data["description"] as? String,
                     imageURL: imageURLString.flatMap { URL(string: $0) },
-                    badgeText: memberCount > 0 ? "\(memberCount) praying" : nil,
+                    badgeText: nil,
                     progressFraction: nil,
                     metadata: ["spaceId": doc.documentID, "category": "prayer"]
                 )
@@ -424,7 +424,7 @@ final class AmenDiscoveryRailsViewModel {
             let snapshot = try await db
                 .collection("churchNotes")
                 .whereField("public", isEqualTo: true)
-                .order(by: "savedCount", descending: true)
+                .order(by: "sharedAt", descending: true)
                 .limit(to: 8)
                 .getDocuments()
 
@@ -433,14 +433,13 @@ final class AmenDiscoveryRailsViewModel {
                 let title = data["title"] as? String ?? data["sermonTitle"] as? String ?? ""
                 guard !title.isEmpty else { return nil }
                 let imageURLString = data["imageURL"] as? String ?? data["thumbnailURL"] as? String
-                let savedCount = data["savedCount"] as? Int ?? 0
                 return DiscoveryRailItem(
                     id: doc.documentID,
                     type: .churchNote,
                     title: title,
                     subtitle: data["speakerName"] as? String ?? data["churchName"] as? String,
                     imageURL: imageURLString.flatMap { URL(string: $0) },
-                    badgeText: savedCount > 50 ? "\(savedCount) saved" : nil,
+                    badgeText: nil,
                     progressFraction: nil,
                     metadata: ["noteId": doc.documentID]
                 )

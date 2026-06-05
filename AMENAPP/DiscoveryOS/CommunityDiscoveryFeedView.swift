@@ -105,7 +105,7 @@ struct CommunityDiscoveryFeedView: View {
                             .frame(height: 32)
                             .foregroundStyle(selectedFilter == filter ? .white : .primary)
                             .background(
-                                selectedFilter == filter ? Color.amenGold : Color(.secondarySystemBackground),
+                                selectedFilter == filter ? Color.accentColor : Color(.secondarySystemBackground),
                                 in: Capsule()
                             )
                     }
@@ -128,7 +128,7 @@ struct CommunityDiscoveryFeedView: View {
             Spacer()
             Button("See All") {}
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 16)
     }

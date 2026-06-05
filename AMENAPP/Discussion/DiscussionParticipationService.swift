@@ -39,9 +39,9 @@ enum ParticipationTier: String, Codable, CaseIterable {
         case .participant: return Color.white.opacity(0.6)
         case .contributor: return .blue
         case .mentor:      return .green
-        case .expert:      return Color(hex: "#C9A84C")
-        case .leader:      return .purple
-        case .host:        return Color(hex: "#C9A84C")
+        case .expert:      return Color.accentColor
+        case .leader:      return Color.accentColor
+        case .host:        return Color.accentColor
         }
     }
 

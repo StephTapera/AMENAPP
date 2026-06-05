@@ -29,9 +29,7 @@ struct VergeRoomView: View {
     @State private var latestAIInsight    = "Berean is analysing the conversation…"
 
     private let bg         = Color(hex: "0A0A0F")
-    private let amenPurple = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let amenGold   = Color(hex: "F59E0B")
 
     private var currentUID: String? { Auth.auth().currentUser?.uid }
     private var isHost: Bool { room.hostId == currentUID }
@@ -151,7 +149,7 @@ struct VergeRoomView: View {
                     Circle()
                         .stroke(
                             LinearGradient(
-                                colors: [Color(hex: "06B6D4"), amenPurple],
+                                colors: [Color(hex: "06B6D4"), Color.accentColor],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
@@ -162,7 +160,7 @@ struct VergeRoomView: View {
                         .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: room.isLive)
 
                     Circle()
-                        .fill(amenPurple.opacity(0.3))
+                        .fill(Color.accentColor.opacity(0.3))
                         .frame(width: 80, height: 80)
                     Text(hostInitials)
                         .font(AMENFont.bold(26))
@@ -327,7 +325,7 @@ struct VergeRoomView: View {
                     Image(systemName: "gift.fill")
                         .font(.systemScaled(20, weight: .medium))
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(amenGold.opacity(0.8))
+                        .foregroundStyle(Color.accentColor.opacity(0.8))
                 }
 
                 // Send

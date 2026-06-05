@@ -464,12 +464,9 @@ struct SearchPostRow: View {
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.primary.opacity(0.07)))
                     }
-                    Label("\(post.amenCount)", systemImage: "hands.sparkles")
+                    Text(RelativeDateTimeFormatter().localizedString(for: post.createdAt, relativeTo: Date()))
                         .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
-                    Label("\(post.commentCount)", systemImage: "bubble.left")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.tertiary)
                 }
             }
 
@@ -504,28 +501,13 @@ struct DiscoveryTopicRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(topic.title)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(.primary)
-                    if topic.isTrending {
-                        Text("Trending")
-                            .font(.custom("OpenSans-SemiBold", size: 10))
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.orange.opacity(0.1)))
-                    }
-                }
+                Text(topic.title)
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.primary)
                 Text(topic.description)
                     .font(.custom("OpenSans-Regular", size: 12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                if topic.postCount > 0 {
-                    Text("\(topic.postCount) posts")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.tertiary)
-                }
             }
 
             Spacer()

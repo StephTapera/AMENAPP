@@ -3583,7 +3583,7 @@ struct PostCard: View {
         AmenNotifications.fire(NotifContext(
             action: .amen,
             actorName: amenAuthorName,
-            toneColors: (Color(hex: "#7B68EE"), Color(hex: "#C9A84C")),
+            toneColors: (Color.accentColor, Color.accentColor.opacity(0.7)),
             undoWindow: 4.2,
             apply: {
                 HapticManager.notification(type: .success)
@@ -3720,7 +3720,7 @@ struct PostCard: View {
         AmenNotifications.fire(NotifContext(
             action: .repost,
             actorName: repostAuthorName,
-            toneColors: (Color(hex: "#C9A84C"), Color(hex: "#FFD97D")),
+            toneColors: (Color.accentColor, Color.accentColor.opacity(0.7)),
             undoWindow: 4.2,
             apply: {
                 HapticManager.notification(type: .success)

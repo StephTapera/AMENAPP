@@ -25,8 +25,8 @@ struct CreatorSubscriptionGateView: View {
 
     @State private var appear = false
 
-    private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let amenGold   = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
+    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
 
     var body: some View {
         ZStack {
@@ -54,7 +54,7 @@ struct CreatorSubscriptionGateView: View {
             // Gradient header
             ZStack {
                 LinearGradient(
-                    colors: [amenPurple, Color(red: 0.60, green: 0.28, blue: 0.90)],
+                    colors: [Color.accentColor, Color(red: 0.60, green: 0.28, blue: 0.90)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -94,7 +94,7 @@ struct CreatorSubscriptionGateView: View {
                                 Image(systemName: "checkmark.circle.fill")
                                     .font(.systemScaled(16, weight: .semibold))
                                     .symbolRenderingMode(.hierarchical)
-                                    .foregroundStyle(amenPurple)
+                                    .foregroundStyle(Color.accentColor)
                                 Text(benefit)
                                     .font(AMENFont.regular(14))
                                     .foregroundStyle(.white.opacity(0.82))
@@ -116,12 +116,12 @@ struct CreatorSubscriptionGateView: View {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .fill(
                                     LinearGradient(
-                                        colors: [amenPurple, Color(red: 0.60, green: 0.28, blue: 0.90)],
+                                        colors: [Color.accentColor, Color(red: 0.60, green: 0.28, blue: 0.90)],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
                                 )
-                                .shadow(color: amenPurple.opacity(0.4), radius: 14, y: 5)
+                                .shadow(color: Color.accentColor.opacity(0.4), radius: 14, y: 5)
                         )
                 }
                 .buttonStyle(CoCreationPressStyle())
@@ -159,7 +159,7 @@ struct CreatorSubscriptionGateLegacyView: View {
     @State private var showConfirm   = false
     @Environment(\.dismiss) private var dismiss
 
-    private let amenGold = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private let Color.accentColor = Color(red: 0.96, green: 0.62, blue: 0.04)
 
     var body: some View {
         ZStack {
@@ -213,7 +213,7 @@ struct CreatorSubscriptionGateLegacyView: View {
             }
             .overlay(
                 Circle()
-                    .stroke(amenGold, lineWidth: 2)
+                    .stroke(Color.accentColor, lineWidth: 2)
                     .padding(-2)
             )
             VStack(spacing: 4) {
@@ -224,7 +224,7 @@ struct CreatorSubscriptionGateLegacyView: View {
                     if creator.isVerified {
                         Image(systemName: "checkmark.seal.fill")
                             .symbolRenderingMode(.multicolor)
-                            .foregroundStyle(amenGold)
+                            .foregroundStyle(Color.accentColor)
                             .font(.subheadline)
                     }
                 }
@@ -249,7 +249,7 @@ struct CreatorSubscriptionGateLegacyView: View {
                 HStack(spacing: 12) {
                     Image(systemName: icon)
                         .font(.systemScaled(14))
-                        .foregroundStyle(amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .frame(width: 20)
                     Text(text)
                         .font(AMENFont.regular(14))

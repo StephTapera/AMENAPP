@@ -104,6 +104,33 @@ final class ONEThreadStore: ObservableObject {
             .updateData(["lastActivityAt": Timestamp(date: Date())])
     }
 
+    // MARK: - Create Ephemeral Group Thread
+
+    /// Writes an ephemeral thread document to `one_threads/{threadId}`.
+    /// Returns the new thread ID on success.
+    @discardableResult
+    func createEphemeralThread(
+        participantUIDs: [String],
+        settings: ONEEphemeralGroupSettings
+    ) async throws -> String {
+        guard let uid = Auth.auth().currentUser?.uid else { throw ONEThreadStoreError.notAuthenticated }
+        let allParticipants = Array(Set(participantUIDs + [uid]))
+        let threadRef = db.collection("one_threads").document()
+        let now = Timestamp(date: Date())
+        let data: [String: Any] = [
+            "participantUIDs":    allParticipants,
+            "encryptionVersion":  "cr_1.0",
+            "isEphemeral":        true,
+            "expiresAt":          Timestamp(date: settings.expiresAt),
+            "onExpiry":           settings.onExpiry.rawValue,
+            "createdAt":          now,
+            "lastActivityAt":     now,
+            "isArchived":         false
+        ]
+        try await threadRef.setData(data)
+        return threadRef.documentID
+    }
+
     // MARK: - Decrypt Batch (client-side, never uploaded)
 
     private func decryptBatch(_ msgs: [ONEThreadMessage], threadID: String) async {

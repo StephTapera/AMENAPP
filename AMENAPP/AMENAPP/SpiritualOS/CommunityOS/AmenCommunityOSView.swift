@@ -146,7 +146,7 @@ struct AmenCommunityOSView: View {
 
     private var scoreColor: Color {
         switch viewModel.healthScore {
-        case 70...: return .amenGold
+        case 70...: return .accentColor
         case 40..<70: return .amenBlue
         default: return .amenSlate
         }
@@ -178,7 +178,7 @@ struct AmenCommunityOSView: View {
                 value: viewModel.weeklyActiveMembers,
                 label: "Active (7d)",
                 icon: "chart.bar.fill",
-                tint: .amenGold
+                tint: .accentColor
             )
             statTile(
                 value: viewModel.prayerRequestsThisWeek,
@@ -236,7 +236,7 @@ struct AmenCommunityOSView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "lightbulb.min.fill")
                         .font(.caption)
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .padding(.top, 2)
                     Text(insight)
                         .font(.subheadline)
@@ -245,11 +245,11 @@ struct AmenCommunityOSView: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.amenGold.opacity(0.07))
+                .background(Color(.secondarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Color.amenGold.opacity(0.2), lineWidth: 0.5)
+                        .strokeBorder(Color(.separator).opacity(0.4), lineWidth: 0.5)
                 }
                 .accessibilityLabel("Insight: \(insight)")
             }

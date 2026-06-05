@@ -66,10 +66,10 @@ enum DiscussionMode: String, Codable, CaseIterable {
 
     var accentColor: Color {
         switch self {
-        case .prayer:      return Color(hex: "#8B7CC8")
-        case .study:       return Color(hex: "#4A9B8A")
-        case .expert:      return Color(hex: "#C9A84C")
-        default:           return Color(hex: "#C9A84C")
+        case .prayer:      return Color.accentColor
+        case .study:       return Color.accentColor
+        case .expert:      return Color.accentColor
+        default:           return Color.accentColor
         }
     }
 

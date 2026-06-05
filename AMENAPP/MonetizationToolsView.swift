@@ -18,8 +18,8 @@ struct MonetizationToolsView: View {
     @State private var expandedSection: String? = nil
     @State private var showAddGoodSheet        = false
 
-    private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let amenGold   = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
+    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
     private let amenPink   = Color(red: 0.94, green: 0.28, blue: 0.64)
     private let amenGreen  = Color(red: 0.20, green: 0.75, blue: 0.45)
     private let amenDark   = Color(red: 0.06, green: 0.06, blue: 0.09)
@@ -37,7 +37,7 @@ struct MonetizationToolsView: View {
                         title: "Subscriptions",
                         subtitle: "Recurring monthly revenue",
                         icon: "crown.fill",
-                        accentColor: amenGold,
+                        accentColor: Color.accentColor,
                         expandedSection: $expandedSection
                     ) {
                         subscriptionsContent
@@ -98,7 +98,7 @@ struct MonetizationToolsView: View {
                 subscriptionStat(
                     value: "\(vm.profile.subscriberCount)",
                     label: "Subscribers",
-                    color: amenGold
+                    color: Color.accentColor
                 )
                 subscriptionStat(
                     value: mrrFormatted,
@@ -136,8 +136,8 @@ struct MonetizationToolsView: View {
                             .padding(.vertical, 8)
                             .background(
                                 Capsule()
-                                    .fill(amenGold)
-                                    .shadow(color: amenGold.opacity(0.3), radius: 6, y: 3)
+                                    .fill(Color.accentColor)
+                                    .shadow(color: Color.accentColor.opacity(0.3), radius: 6, y: 3)
                             )
                     }
                     .buttonStyle(CoCreationPressStyle())
@@ -168,7 +168,7 @@ struct MonetizationToolsView: View {
                         Image(systemName: "plus.circle.fill")
                             .font(.systemScaled(18))
                             .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(amenGold)
+                            .foregroundStyle(Color.accentColor)
                     }
                     .buttonStyle(CoCreationPressStyle())
                 }
@@ -183,7 +183,7 @@ struct MonetizationToolsView: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.systemScaled(14))
                                 .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(amenGold)
+                                .foregroundStyle(Color.accentColor)
                             Text(benefit)
                                 .font(AMENFont.regular(14))
                                 .foregroundStyle(.white.opacity(0.8))

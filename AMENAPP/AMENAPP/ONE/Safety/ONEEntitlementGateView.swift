@@ -83,14 +83,14 @@ struct ONEEntitlementGateView: View {
             HStack(spacing: 0) {
                 tierHeader("Free", accent: .secondary)
                 Divider()
-                tierHeader("Subscriber ✦", accent: AmenTheme.Colors.amenGold)
+                tierHeader("Subscriber ✦", accent: Color.accentColor)
             }
             .frame(height: 40)
             Divider()
             HStack(alignment: .top, spacing: 0) {
                 tierColumn(items: freeFeatures, accent: .secondary)
                 Divider()
-                tierColumn(items: subscriberFeatures, accent: AmenTheme.Colors.amenGold)
+                tierColumn(items: subscriberFeatures, accent: Color.accentColor)
             }
         }
         .background(
@@ -186,7 +186,7 @@ struct ONEEntitlementGateView: View {
                     if isAnnual {
                         Text("Save ~30% vs monthly")
                             .font(.system(size: 12))
-                            .foregroundStyle(AmenTheme.Colors.amenGold)
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
                 Spacer()
@@ -195,14 +195,14 @@ struct ONEEntitlementGateView: View {
                 } else {
                     Text(product.displayPrice)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(isAnnual ? AmenTheme.Colors.amenGold : .primary)
+                        .foregroundStyle(isAnnual ? Color.accentColor : .primary)
                 }
             }
             .padding(ONE.Spacing.md)
             .background(
                 RoundedRectangle(cornerRadius: ONE.Radius.card, style: .continuous)
                     .fill(isAnnual
-                          ? AmenTheme.Colors.amenGold.opacity(0.10)
+                          ? Color.accentColor.opacity(0.10)
                           : Color.primary.opacity(0.06))
             )
         }
@@ -215,7 +215,7 @@ struct ONEEntitlementGateView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(size: 15, weight: .semibold))
-                if let n = note { Text(n).font(.system(size: 12)).foregroundStyle(AmenTheme.Colors.amenGold) }
+                if let n = note { Text(n).font(.system(size: 12)).foregroundStyle(Color.accentColor) }
             }
             Spacer()
             if isLoading {

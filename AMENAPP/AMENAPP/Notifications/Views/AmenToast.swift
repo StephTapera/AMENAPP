@@ -111,18 +111,18 @@ struct AmenToast: View {
     private var actionIconChip: some View {
         ZStack {
             Circle()
-                .fill(NotifGlassTokens.goldGradient)
+                .fill(Color.accentColor)
                 .frame(width: 28, height: 28)
 
             Image(systemName: action.systemImageName)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(hex: "#0D0D1A"))
+                .foregroundStyle(Color(uiColor: .systemBackground))
         }
         .overlay {
             Circle()
                 .strokeBorder(Color.white.opacity(0.30), lineWidth: 1)
         }
-        .shadow(color: Color(hex: "#C9A84C").opacity(0.30), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.accentColor.opacity(0.30), radius: 4, x: 0, y: 2)
     }
 
     // MARK: Undo button
@@ -173,7 +173,7 @@ struct AmenToast: View {
 
 #Preview("AmenToast — all actions") {
     ZStack(alignment: .bottom) {
-        Color(hex: "#0D0D1A").ignoresSafeArea()
+        Color(.systemGroupedBackground).ignoresSafeArea()
 
         ScrollView {
             VStack(spacing: 16) {
@@ -194,7 +194,7 @@ struct AmenToast: View {
 
 #Preview("AmenToast — reduceMotion") {
     ZStack(alignment: .bottom) {
-        Color(hex: "#0D0D1A").ignoresSafeArea()
+        Color(.systemGroupedBackground).ignoresSafeArea()
         AmenToast(
             action: .amen,
             title: "You said Amen",

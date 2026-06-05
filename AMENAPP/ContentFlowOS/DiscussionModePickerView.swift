@@ -19,7 +19,7 @@ struct DiscussionModePickerView: View {
                     HStack(spacing: 14) {
                         Image(systemName: mode.icon)
                             .font(.system(size: 18))
-                            .foregroundStyle(Color.amenGold)
+                            .foregroundStyle(Color.accentColor)
                             .frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(mode.displayName)
@@ -32,7 +32,7 @@ struct DiscussionModePickerView: View {
                         Spacer()
                         if selectedMode == mode {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.amenGold)
+                                .foregroundStyle(Color.accentColor)
                         }
                     }
                     .padding(.vertical, 4)
@@ -53,7 +53,7 @@ struct DiscussionModePickerView: View {
                         onConfirm(selectedMode)
                         onDismiss()
                     }
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
                     .fontWeight(.semibold)
                 }
             }

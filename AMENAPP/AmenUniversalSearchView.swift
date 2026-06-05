@@ -191,9 +191,12 @@ struct AmenUniversalSearchView: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .lineLimit(1)
-                Text("\(topic.postCount) posts")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                if !topic.description.isEmpty {
+                    Text(topic.description)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 0)

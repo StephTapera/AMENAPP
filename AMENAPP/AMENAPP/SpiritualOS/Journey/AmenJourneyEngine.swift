@@ -259,7 +259,7 @@ final class AmenJourneyEngine {
     private func computeAndSaveGrowthSnapshot(userId: String) async {
         async let studiesCompleted   = countDocuments("users/\(userId)/studyProgress",   field: "completed", equals: true)
         async let studiesInProgress  = countDocuments("users/\(userId)/studyProgress",   field: "completed", equals: false)
-        async let prayerSessions     = countDocuments("prayerSessions/\(userId)/sessions", sinceStartOfMonth: true)
+        async let prayerSessions     = countDocuments("prayerSessions/\(userId)/sessions", field: nil, sinceStartOfMonth: true)
         async let mentorshipSessions = countMentorshipSessions(userId: userId)
         async let communities        = countDocuments("spaceMemberships/\(userId)/spaces",    field: nil, equals: nil)
         async let events             = countDocuments("eventAttendees/\(userId)/attended",    field: nil, equals: nil)
@@ -356,14 +356,14 @@ final class AmenJourneyEngine {
         }
 
         guard let count = try? await query.count.getAggregation(source: .server) else { return 0 }
-        return Int(truncatingIfNeeded: count.count)
+        return count.count.intValue
     }
 
     /// Counts mentorship sessions where menteeId == userId.
     private func countMentorshipSessions(userId: String) async -> Int {
         let query = db.collection("mentorshipSessions").whereField("menteeId", isEqualTo: userId)
         guard let count = try? await query.count.getAggregation(source: .server) else { return 0 }
-        return Int(truncatingIfNeeded: count.count)
+        return count.count.intValue
     }
 
     // MARK: - Private: decode snapshot

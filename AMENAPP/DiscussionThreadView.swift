@@ -192,94 +192,7 @@ struct DiscussionThreadView: View {
                 if vm.isLoadingThread {
                     loadingState
                 } else {
-                    ScrollViewReader { proxy in
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(alignment: .leading, spacing: 0) {
-
-                                // Mode pill
-                                if vm.mode != .general {
-                                    modePill
-                                        .padding(.horizontal, 16)
-                                        .padding(.top, 14)
-                                        .padding(.bottom, 4)
-                                }
-
-                                // Berean summary card
-                                bereanCard
-                                    .padding(.horizontal, 16)
-                                    .padding(.top, 16)
-                                    .padding(.bottom, 8)
-
-                                // Enhanced summary V2 (when available)
-                                if let summary = vm.bereanSummary {
-                                    DiscussionSummaryV2(summary: summary)
-                                        .padding(.horizontal, 16)
-                                        .padding(.bottom, 8)
-                                }
-
-                                // Slow mode nudge
-                                if vm.healthSnapshot?.isSlowModeActive == true, showSlowModeNudge {
-                                    slowModeNudgeBanner
-                                        .padding(.horizontal, 16)
-                                        .padding(.bottom, 6)
-                                        .transition(.opacity.combined(with: .move(edge: .top)))
-                                }
-
-                                // Duplicate hint
-                                if vm.duplicateHint != .clean {
-                                    duplicateHintBanner
-                                        .padding(.horizontal, 16)
-                                        .padding(.bottom, 8)
-                                        .transition(.opacity.combined(with: .move(edge: .top)))
-                                }
-
-                                // Comments
-                                if vm.comments.isEmpty {
-                                    emptyState
-                                        .padding(.top, 40)
-                                } else {
-                                    ForEach(vm.comments) { comment in
-                                        CommentRow(
-                                            comment: comment,
-                                            currentUid: currentUid,
-                                            isHelpfulSent: vm.helpfulSent.contains(comment.id ?? ""),
-                                            onHelpful: { vm.markHelpful(comment: comment) }
-                                        )
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 6)
-                                        .contextMenu {
-                                            Button {
-                                                selectedComment = comment
-                                            } label: {
-                                                Label("Actions…", systemImage: "ellipsis.circle")
-                                            }
-                                            Button {
-                                                UIPasteboard.general.string = comment.body
-                                            } label: {
-                                                Label("Copy Text", systemImage: "doc.on.doc")
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Community memory
-                                CommunityMemoryView(threadId: postId)
-                                    .padding(.horizontal, 16)
-                                    .padding(.top, 12)
-                                    .padding(.bottom, 8)
-
-                                Color.clear
-                                    .frame(height: 100)
-                                    .id("bottom")
-                            }
-                        }
-                        .onChange(of: vm.comments.count) { _, _ in
-                            guard isAtBottom else { return }
-                            withAnimation(reduceMotion ? .none : .easeOut(duration: 0.2)) {
-                                proxy.scrollTo("bottom", anchor: .bottom)
-                            }
-                        }
-                    }
+                    threadScrollView
                 }
 
                 // Composer
@@ -290,7 +203,7 @@ struct DiscussionThreadView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Done") { dismiss() }
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
@@ -315,9 +228,8 @@ struct DiscussionThreadView: View {
             .sheet(item: $selectedComment) { comment in
                 DiscussionActionSheet(
                     comment: comment,
-                    isOwnComment: comment.authorUID == currentUid,
-                    isElder: vm.reputation == .elder,
-                    onAction: { vm.handleAction($0, on: comment) }
+                    threadTitle: vm.thread?.postTitle,
+                    onShareToSpaces: { _ in }
                 )
             }
             .sheet(isPresented: $showReflection) {
@@ -348,13 +260,88 @@ struct DiscussionThreadView: View {
         .animation(.easeInOut(duration: 0.22), value: vm.healthSnapshot?.isSlowModeActive)
     }
 
+    private var threadScrollView: some View {
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                threadStack
+            }
+            .onChange(of: vm.comments.count) { _, _ in
+                guard isAtBottom else { return }
+                withAnimation(reduceMotion ? .none : .easeOut(duration: 0.2)) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var threadStack: some View {
+        LazyVStack(alignment: .leading, spacing: 0) {
+            if vm.mode != .general {
+                modePill
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 4)
+            }
+            bereanCard
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+            if let summary = vm.bereanSummary {
+                DiscussionSummaryV2(summary: summary)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
+            if vm.healthSnapshot?.isSlowModeActive == true, showSlowModeNudge {
+                slowModeNudgeBanner
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            if vm.duplicateHint != .clean {
+                duplicateHintBanner
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            if vm.comments.isEmpty {
+                emptyState.padding(.top, 40)
+            } else {
+                ForEach(vm.comments) { comment in commentCell(comment) }
+            }
+            CommunityMemoryView(threadId: postId)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+            Color.clear.frame(height: 100).id("bottom")
+        }
+    }
+
+    @ViewBuilder
+    private func commentCell(_ comment: DiscussionComment) -> some View {
+        let isHelpful = vm.helpfulSent.contains(comment.id ?? "")
+        CommentRow(
+            comment: comment,
+            currentUid: currentUid,
+            isHelpfulSent: isHelpful,
+            onHelpful: { vm.markHelpful(comment: comment) }
+        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .contextMenu {
+            Button { selectedComment = comment } label: {
+                Label("Actions…", systemImage: "ellipsis.circle")
+            }
+            Button { UIPasteboard.general.string = comment.body } label: {
+                Label("Copy Text", systemImage: "doc.on.doc")
+            }
+        }
+    }
+
     // MARK: - Background
 
     private var background: some View {
-        LinearGradient(
-            colors: [Color(hex: "#0A0A0F"), Color(hex: "#111118")],
-            startPoint: .top, endPoint: .bottom
-        )
+        Color(.systemGroupedBackground)
     }
 
     // MARK: - Loading
@@ -363,7 +350,7 @@ struct DiscussionThreadView: View {
         VStack(spacing: 14) {
             Spacer()
             ProgressView()
-                .tint(Color(hex: "#C9A84C"))
+                .tint(Color.accentColor)
             Text("Opening discussion…")
                 .font(.system(size: 14))
                 .foregroundStyle(Color.white.opacity(0.4))
@@ -397,10 +384,10 @@ struct DiscussionThreadView: View {
             Text(vm.mode.displayName)
                 .font(.system(size: 12, weight: .semibold))
         }
-        .foregroundStyle(Color(hex: "#C9A84C"))
+        .foregroundStyle(Color.accentColor)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(Color(hex: "#C9A84C").opacity(0.12), in: Capsule())
+        .background(Color.accentColor.opacity(0.12), in: Capsule())
         .accessibilityLabel("Discussion mode: \(vm.mode.displayName)")
     }
 
@@ -410,23 +397,23 @@ struct DiscussionThreadView: View {
         HStack(spacing: 8) {
             Image(systemName: "tortoise.fill")
                 .font(.system(size: 12))
-                .foregroundStyle(Color(hex: "#C9A84C"))
+                .foregroundStyle(Color.accentColor)
             Text("Slow mode is on — take a breath before posting.")
                 .font(.system(size: 12))
-                .foregroundStyle(Color.white.opacity(0.7))
+                .foregroundStyle(Color.primary.opacity(0.7))
             Spacer()
             Button("OK") { showSlowModeNudge = false }
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(hex: "#C9A84C"))
+                .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(hex: "#C9A84C").opacity(0.08))
+                .fill(Color.accentColor.opacity(0.08))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color(hex: "#C9A84C").opacity(0.2), lineWidth: 1)
+                        .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
                 )
         )
     }
@@ -437,7 +424,7 @@ struct DiscussionThreadView: View {
     private var bereanCard: some View {
         if vm.isLoadingBerean {
             HStack(spacing: 10) {
-                ProgressView().tint(Color(hex: "#C9A84C")).scaleEffect(0.8)
+                ProgressView().tint(Color.accentColor).scaleEffect(0.8)
                 Text("Berean is reading the discussion…")
                     .font(.system(size: 13))
                     .foregroundStyle(Color.white.opacity(0.45))
@@ -460,7 +447,7 @@ struct DiscussionThreadView: View {
             case .isDuplicate:
                 return ("doc.on.doc", "A very similar comment already exists — consider supporting it instead.", .orange)
             case .addAngle:
-                return ("arrow.triangle.branch", "A related view exists. Try a fresh angle.", Color(hex: "#C9A84C"))
+                return ("arrow.triangle.branch", "A related view exists. Try a fresh angle.", Color.accentColor)
             case .clean:
                 return ("", "", .clear)
             }
@@ -490,7 +477,7 @@ struct DiscussionThreadView: View {
     @ViewBuilder
     private var askBereanButton: some View {
         if vm.isLoadingBerean {
-            ProgressView().tint(Color(hex: "#C9A84C")).scaleEffect(0.8)
+            ProgressView().tint(Color.accentColor).scaleEffect(0.8)
         } else {
             Button {
                 vm.askBerean()
@@ -501,7 +488,7 @@ struct DiscussionThreadView: View {
                     Text("Ask Berean")
                         .font(.system(size: 13, weight: .medium))
                 }
-                .foregroundStyle(Color(hex: "#C9A84C"))
+                .foregroundStyle(Color.accentColor)
             }
             .disabled(vm.isLoadingBerean || vm.comments.isEmpty)
         }
@@ -524,13 +511,13 @@ struct DiscussionThreadView: View {
                                 Text(dest.label)
                                     .font(.system(size: 12, weight: destination == dest ? .semibold : .regular))
                             }
-                            .foregroundStyle(destination == dest ? Color(hex: "#C9A84C") : Color.white.opacity(0.4))
+                            .foregroundStyle(destination == dest ? Color.accentColor : Color.secondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(
                                 Capsule()
                                     .fill(destination == dest
-                                          ? Color(hex: "#C9A84C").opacity(0.12)
+                                          ? Color.accentColor.opacity(0.12)
                                           : Color.clear)
                             )
                         }
@@ -553,13 +540,13 @@ struct DiscussionThreadView: View {
                 if let icon = badgeIcon {
                     Image(systemName: icon)
                         .font(.system(size: 13))
-                        .foregroundStyle(vm.reputation != .none ? vm.reputation.color : Color(hex: "#C9A84C"))
+                        .foregroundStyle(vm.reputation != .none ? vm.reputation.color : Color.accentColor)
                 }
 
                 TextField(vm.mode.composerPlaceholder, text: $draftBody, axis: .vertical)
                     .font(.system(size: 15))
                     .foregroundStyle(Color.white)
-                    .tint(Color(hex: "#C9A84C"))
+                    .tint(Color.accentColor)
                     .lineLimit(1...5)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -635,16 +622,16 @@ struct DiscussionThreadView: View {
                 } else if vm.isSlowModeActive {
                     Text("\(vm.slowModeSecondsLeft)")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                         .frame(width: 36, height: 36)
-                        .background(Color(hex: "#C9A84C").opacity(0.15), in: Circle())
+                        .background(Color.accentColor.opacity(0.15), in: Circle())
                 } else {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 28))
                         .foregroundStyle(
                             draftBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                ? Color.white.opacity(0.25)
-                                : Color(hex: "#C9A84C")
+                                ? Color.secondary.opacity(0.4)
+                                : Color.accentColor
                         )
                 }
             }
@@ -695,7 +682,7 @@ private struct CommentRow: View {
                 HStack(spacing: 6) {
                     Text(comment.authorDisplayName)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(isOwn ? Color(hex: "#C9A84C") : Color.white.opacity(0.75))
+                        .foregroundStyle(isOwn ? Color.accentColor : Color.primary.opacity(0.75))
                     Text(timeLabel)
                         .font(.system(size: 11))
                         .foregroundStyle(Color.white.opacity(0.28))
@@ -725,8 +712,8 @@ private struct CommentRow: View {
                         }
                     }
                     .foregroundStyle(isHelpfulSent
-                                     ? Color(hex: "#C9A84C")
-                                     : Color.white.opacity(0.3))
+                                     ? Color.accentColor
+                                     : Color.secondary.opacity(0.6))
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 2)
@@ -741,8 +728,8 @@ private struct CommentRow: View {
         ZStack {
             Circle()
                 .fill(isOwn
-                      ? Color(hex: "#C9A84C").opacity(0.18)
-                      : Color.white.opacity(0.1))
+                      ? Color.accentColor.opacity(0.18)
+                      : Color.secondary.opacity(0.15))
                 .frame(width: 32, height: 32)
 
             if let urlStr = comment.authorAvatarURL, !urlStr.isEmpty, let url = URL(string: urlStr) {
@@ -764,7 +751,7 @@ private struct CommentRow: View {
     private var initialsLabel: some View {
         Text(initials)
             .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(isOwn ? Color(hex: "#C9A84C") : Color.white.opacity(0.6))
+            .foregroundStyle(isOwn ? Color.accentColor : Color.secondary)
     }
 }
 

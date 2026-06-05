@@ -60,7 +60,7 @@ struct CreatorMonetizationView: View {
                         } label: {
                             Label("Add Tier", systemImage: "plus.circle.fill")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.amenGold)
+                                .foregroundStyle(Color.accentColor)
                         }
                         .buttonStyle(.plain)
                     }
@@ -130,7 +130,7 @@ struct CreatorMonetizationView: View {
                 .foregroundStyle(.secondary)
             Text("$\(String(format: "%.2f", totalMonthlyRevenue))")
                 .font(.largeTitle.weight(.bold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             Text("From \(tiers.filter(\.isActive).reduce(0) { $0 + $1.subscriberCount }) active subscribers")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -197,7 +197,7 @@ private struct TierCard: View {
                     } label: {
                         Text(tier.isActive ? "Deactivate Tier" : "Activate Tier")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(tier.isActive ? .red : Color.amenGold)
+                            .foregroundStyle(tier.isActive ? .red : Color.accentColor)
                     }
                     .buttonStyle(.plain)
                     .padding(.top, 4)

@@ -46,8 +46,13 @@ struct ONEThreadListView: View {
                 }
             }
             .sheet(isPresented: $showEphemeralFlow) {
-                ONEEphemeralGroupFlowView(participantUIDs: []) { _ in
-                    // TODO P2: create ephemeral thread in Firestore
+                ONEEphemeralGroupFlowView(participantUIDs: []) { settings in
+                    Task {
+                        try? await store.createEphemeralThread(
+                            participantUIDs: [],
+                            settings: settings
+                        )
+                    }
                 }
             }
         }

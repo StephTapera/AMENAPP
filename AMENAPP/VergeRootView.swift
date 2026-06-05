@@ -16,9 +16,9 @@ struct VergeRootView: View {
     @State private var showCreatorStudio = false
 
     private let bg         = Color(hex: "0A0A0F")
-    private let amenPurple = Color(hex: "6B48FF")
+    private let Color.accentColor = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let amenGold   = Color(hex: "F59E0B")
+    private let Color.accentColor   = Color(hex: "F59E0B")
     private let vergeGradient = LinearGradient(
         colors: [Color(hex: "06B6D4"), Color(hex: "6B48FF")],
         startPoint: .topLeading,
@@ -165,7 +165,7 @@ struct VergeRootView: View {
                 Image(systemName: "dollarsign.circle.fill")
                     .font(.systemScaled(28, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(amenGold)
+                    .foregroundStyle(Color.accentColor)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("You earned \(profile.monthlyRevenue.formatted(.currency(code: "USD"))) this month")
                         .font(AMENFont.semiBold(14))
@@ -185,7 +185,7 @@ struct VergeRootView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(amenGold.opacity(0.25), lineWidth: 0.8)
+                            .stroke(Color.accentColor.opacity(0.25), lineWidth: 0.8)
                     )
             )
         }
@@ -219,7 +219,7 @@ struct VergeRootView: View {
             .background(
                 Capsule()
                     .fill(vergeGradient)
-                    .shadow(color: amenPurple.opacity(0.5), radius: 16, y: 6)
+                    .shadow(color: Color.accentColor.opacity(0.5), radius: 16, y: 6)
             )
         }
         .buttonStyle(CoCreationPressStyle())
@@ -249,7 +249,7 @@ struct VergeRootView: View {
             Image(systemName: "video.fill")
                 .font(.systemScaled(52, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(amenPurple.opacity(0.6))
+                .foregroundStyle(Color.accentColor.opacity(0.6))
             Text("Start a live discussion")
                 .font(AMENFont.bold(22))
                 .foregroundStyle(.white)

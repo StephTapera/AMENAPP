@@ -145,7 +145,7 @@ struct AmenCommandCenterSection: View {
                     HStack(spacing: 8) {
                         Image(systemName: "book.fill")
                             .font(.system(size: 18))
-                            .foregroundStyle(Color.amenGold)
+                            .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
                         Text(planTitle)
                             .font(.system(size: 15, weight: .semibold))
@@ -155,7 +155,7 @@ struct AmenCommandCenterSection: View {
 
                     ProgressView(value: viewModel.readingPlanProgress)
                         .progressViewStyle(.linear)
-                        .tint(Color.amenGold)
+                        .tint(Color.accentColor)
                         .accessibilityLabel("Reading progress")
                         .accessibilityValue(
                             "\(Int(viewModel.readingPlanProgress * 100)) percent complete"
@@ -180,7 +180,7 @@ struct AmenCommandCenterSection: View {
     private var gentleStreakSection: some View {
         if viewModel.isFormationTrackingOptedIn, let count = viewModel.daysInWordCount {
             VStack(alignment: .leading, spacing: 10) {
-                GlassCard(tint: Color.amenGold.opacity(0.10), elevated: false) {
+                GlassCard(tint: Color.accentColor.opacity(0.10), elevated: false) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Days in the Word")
                             .font(.system(size: 14))
@@ -188,7 +188,7 @@ struct AmenCommandCenterSection: View {
 
                         Text("\(count)")
                             .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(Color.amenGoldText)
+                            .foregroundStyle(Color(.label))
                             .accessibilityLabel("\(count) days in the Word")
 
                         Text("This is your private count — only you can see this.")
@@ -211,7 +211,7 @@ struct AmenCommandCenterSection: View {
                             .font(.system(size: 14))
                             .foregroundStyle(Color.amenBlack)
                     }
-                    .tint(Color.amenGold)
+                    .tint(Color.accentColor)
                 }
 
                 Text("This count is private. It's an invitation, not a score.")
@@ -237,7 +237,7 @@ struct AmenCommandCenterSection: View {
                     GlassChip(
                         label: "Enable gentle tracking",
                         icon: "leaf.fill",
-                        tint: .amenGold,
+                        tint: .accentColor,
                         size: .regular,
                         isActive: false
                     ) {
@@ -263,7 +263,7 @@ private struct StatTile: View {
             VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 24))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
                     .symbolRenderingMode(.hierarchical)
                     .accessibilityHidden(true)
 

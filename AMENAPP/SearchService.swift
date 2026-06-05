@@ -264,13 +264,12 @@ class SearchService: ObservableObject {
         
         let bio = data["bio"] as? String
         let isVerified = data["isVerified"] as? Bool ?? false
-        let followerCount = data["followersCount"] as? Int ?? 0
-        
+
         return AppSearchResult(
             firestoreId: userId,
             title: displayName,
             subtitle: "@\(username)",
-            metadata: "\(followerCount) followers" + (bio.flatMap { $0.isEmpty ? nil : " • \($0.prefix(50))" } ?? ""),
+            metadata: bio.flatMap { $0.isEmpty ? nil : String($0.prefix(50)) } ?? "",
             type: .person,
             isVerified: isVerified
         )
@@ -297,15 +296,14 @@ class SearchService: ObservableObject {
             }
             
             let description = data["description"] as? String ?? ""
-            let memberCount = data["memberCount"] as? Int ?? 0
             let isPrivate = data["isPrivate"] as? Bool ?? false
             let isVerified = data["isVerified"] as? Bool ?? false
-            
+
             results.append(AppSearchResult(
                 firestoreId: nil,  // Groups don't need user ID
                 title: name,
-                subtitle: isPrivate ? "🔒 Private Group" : "Public Group",
-                metadata: "\(memberCount) members" + (!description.isEmpty ? " • \(description.prefix(50))" : ""),
+                subtitle: isPrivate ? "Private Group" : "Public Group",
+                metadata: !description.isEmpty ? String(description.prefix(50)) : "",
                 type: .group,
                 isVerified: isVerified
             ))
@@ -361,55 +359,50 @@ class SearchService: ObservableObject {
                 continue
             }
             
-            let amenCount = data["amenCount"] as? Int ?? 0
-            let commentCount = data["commentCount"] as? Int ?? 0
             let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-            
+
             let timeAgo = SearchService.formatTimeAgo(from: createdAt)
-            
+
             results.append(AppSearchResult(
                 firestoreId: nil,  // Posts don't need this
                 title: content.prefix(80) + (content.count > 80 ? "..." : ""),
                 subtitle: "by \(authorName)",
-                metadata: "\(timeAgo) • \(amenCount) Amens • \(commentCount) comments",
+                metadata: timeAgo,
                 type: .post,
                 isVerified: false
             ))
         }
-        
+
         // Also search by hashtags if query starts with #
         if query.hasPrefix("#") {
             let hashtag = String(query.dropFirst()).lowercased()
-            
+
             let hashtagSnapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
                 .whereField("hashtagsLowercase", arrayContains: hashtag)
                 .limit(to: 20)
                 .getDocuments()
-            
+
             for document in hashtagSnapshot.documents {
                 let data = document.data()
-                
+
                 guard let content = data["content"] as? String,
                       let authorName = data["authorName"] as? String else {
                     continue
                 }
-                
+
                 // Skip duplicates
                 if results.contains(where: { $0.title == content.prefix(80) + (content.count > 80 ? "..." : "") }) {
                     continue
                 }
-                
-                let amenCount = data["amenCount"] as? Int ?? 0
-                let commentCount = data["commentCount"] as? Int ?? 0
+
                 let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-                
                 let timeAgo = SearchService.formatTimeAgo(from: createdAt)
-                
+
                 results.append(AppSearchResult(
                     firestoreId: nil,
                     title: content.prefix(80) + (content.count > 80 ? "..." : ""),
                     subtitle: "by \(authorName)",
-                    metadata: "\(timeAgo) • \(amenCount) Amens • \(commentCount) comments",
+                    metadata: timeAgo,
                     type: .post,
                     isVerified: false
                 ))
@@ -441,18 +434,17 @@ class SearchService: ObservableObject {
             
             let location = data["location"] as? String ?? "Online"
             let date = (data["date"] as? Timestamp)?.dateValue() ?? Date()
-            let attendeeCount = data["attendeeCount"] as? Int ?? 0
             let isVerified = data["isVerified"] as? Bool ?? false
-            
+
             let dateFormatter = DateFormatter()
             dateFormatter.dateStyle = .medium
             dateFormatter.timeStyle = .short
-            
+
             results.append(AppSearchResult(
                 firestoreId: nil,
                 title: title,
                 subtitle: dateFormatter.string(from: date),
-                metadata: "\(location) • \(attendeeCount) attending",
+                metadata: location,
                 type: .event,
                 isVerified: isVerified
             ))

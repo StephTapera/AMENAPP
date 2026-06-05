@@ -115,13 +115,13 @@ struct CreatorPrivateMetricsDashboard: View {
     private var privacyNotice: some View {
         HStack(spacing: 8) {
             Image(systemName: "lock.fill")
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             Text("Only you can see these metrics — they are never public.")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
         }
         .padding(12)
-        .background(Color.amenGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var healthScoreCard: some View {
@@ -131,11 +131,11 @@ struct CreatorPrivateMetricsDashboard: View {
                     .stroke(Color(.secondarySystemBackground), lineWidth: 10)
                 Circle()
                     .trim(from: 0, to: metrics.communityHealthScore)
-                    .stroke(Color.amenGold, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text("\(Int(metrics.communityHealthScore * 100))")
                     .font(.title2.weight(.bold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
             }
             .frame(width: 80, height: 80)
 
@@ -181,7 +181,7 @@ private struct MetricCard: View {
             HStack {
                 Image(systemName: icon)
                     .font(.subheadline)
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
                 Spacer()
                 Image(systemName: trendIcon)
                     .font(.caption)

@@ -44,9 +44,10 @@ private struct GlassSurfaceModifier: ViewModifier {
     @ViewBuilder
     private var backgroundLayer: some View {
         if reduceTransparency {
+            // PURGED: #1A1A2E (cosmic dark) → systemBackground per C3 design contract
             // Solid opaque fill — meets WCAG contrast requirement
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(hex: "#1A1A2E"))
+                .fill(Color(uiColor: .systemBackground))
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -86,7 +87,7 @@ extension View {
     /// - Parameter cornerRadius: Corner radius of the glass panel. Defaults to 20.
     ///
     /// Accessibility:
-    /// - `reduceTransparency` → solid `#1A1A2E` fill instead of material.
+    /// - `reduceTransparency` → solid `Color(uiColor: .systemBackground)` fill instead of material.
     /// - `reduceMotion` is respected by callers — this modifier itself is static.
     func glassSurface(cornerRadius: CGFloat = 20) -> some View {
         modifier(GlassSurfaceModifier(cornerRadius: cornerRadius))
@@ -97,20 +98,37 @@ extension View {
 
 /// Raw design tokens used by the notification-layer components.
 /// Named differently from `LiquidGlassTokens` to avoid ambiguity.
+///
+/// PURGE LOG (C3 design contract, 2026-06-05):
+///   goldPrimary (#C9A84C) → REMOVED; consumers: use Color.accentColor or Color(uiColor: .label)
+///   goldLight (#FFD97D) → REMOVED; consumers: use Color.accentColor
+///   goldGradient → REMOVED; consumers: use Color.accentColor or plain white fill
+///   primaryButtonGradient → REMOVED; consumers: use Color.accentColor pill
+///   accentPurple (#7B68EE) → REMOVED; consumers: use Color.accentColor
+///   cosmicDark (#0D0D1A) → REMOVED; consumers: use Color(uiColor: .systemBackground)
 enum NotifGlassTokens {
-    static let goldPrimary  = Color(hex: "#C9A84C")
-    static let goldLight    = Color(hex: "#FFD97D")
-    static let accentPurple = Color(hex: "#7B68EE")
-    static let cosmicDark   = Color(hex: "#0D0D1A")
+    // PURGED: goldPrimary  = Color(hex: "#C9A84C") → Color.accentColor per C3 design contract
+    // PURGED: goldLight    = Color(hex: "#FFD97D") → Color.accentColor per C3 design contract
+    // PURGED: accentPurple = Color(hex: "#7B68EE") → Color.accentColor per C3 design contract
+    // PURGED: cosmicDark   = Color(hex: "#0D0D1A") → Color(uiColor: .systemBackground) per C3 design contract
+    // PURGED: goldGradient (LinearGradient using gold hex) → Color.accentColor per C3 design contract
+    // PURGED: primaryButtonGradient (LinearGradient using gold hex) → Color.accentColor per C3 design contract
+
+    // Remaining tokens below are C3-compatible (white/system colors only):
+
+    static let accentPurple = Color.accentColor   // PURGED: was #7B68EE; now system accent
+    static let goldPrimary  = Color.accentColor   // PURGED: was #C9A84C; now system accent
+    static let goldLight    = Color.accentColor   // PURGED: was #FFD97D; now system accent
+    static let cosmicDark   = Color(uiColor: .systemBackground)  // PURGED: was #0D0D1A
 
     static let goldGradient = LinearGradient(
-        colors: [Color(hex: "#FFD97D"), Color(hex: "#C9A84C")],
+        colors: [Color.accentColor, Color.accentColor.opacity(0.7)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     static let primaryButtonGradient = LinearGradient(
-        colors: [Color(hex: "#C9A84C"), Color(hex: "#A07830")],
+        colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -120,10 +138,8 @@ enum NotifGlassTokens {
 
 #Preview("glassSurface — normal") {
     ZStack {
-        LinearGradient(
-            colors: [Color(hex: "#0D0D1A"), Color(hex: "#1A1A2E")],
-            startPoint: .top, endPoint: .bottom
-        )
+        // PURGED: cosmicDark preview gradient (#0D0D1A, #1A1A2E) → systemGroupedBackground per C3
+        Color(uiColor: .systemGroupedBackground)
         .ignoresSafeArea()
 
         VStack(spacing: 20) {

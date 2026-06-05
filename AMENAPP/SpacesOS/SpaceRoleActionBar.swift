@@ -64,11 +64,11 @@ private struct ActionBarButton: View {
             VStack(spacing: 4) {
                 Image(systemName: action.icon)
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(action.isEnabled ? Color.amenGold : Color.secondary.opacity(0.5))
+                    .foregroundStyle(action.isEnabled ? Color.accentColor : Color.secondary.opacity(0.5))
                     .frame(width: 44, height: 44)
                     .background(
                         Circle().fill(action.isEnabled
-                                      ? Color.amenGold.opacity(0.12)
+                                      ? Color.accentColor.opacity(0.12)
                                       : Color.secondary.opacity(0.08))
                     )
                 Text(action.label)

@@ -58,7 +58,7 @@ final class AmenGiveActionHandler: ObservableObject {
         AmenNotifications.fire(NotifContext(
             action: .give,
             actorName: ministryName,
-            toneColors: (Color(hex: "#C9A84C"), Color(hex: "#F4D03F")),
+            toneColors: (Color.accentColor, Color.accentColor.opacity(0.7)),
             undoWindow: 6.0,
             apply: {
                 // Optimistic: show pending state immediately — DO NOT charge yet.

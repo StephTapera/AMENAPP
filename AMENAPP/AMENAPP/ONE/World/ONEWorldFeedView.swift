@@ -121,7 +121,7 @@ struct ONEWorldFeedView: View {
                 Image(systemName: modeIcon(mode)).font(.system(size: 11))
                 Text(mode.displayLabel).font(.system(size: 12, weight: .medium))
             }
-            .foregroundStyle(isSelected ? AmenTheme.Colors.amenGold : Color.secondary)
+            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             .padding(.horizontal, ONE.Spacing.md)
             .padding(.vertical, 6)
             .glassEffect(
@@ -148,7 +148,7 @@ struct ONEWorldFeedView: View {
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
                         .fill(service.session.isExhausted
                               ? Color.secondary.opacity(0.4)
-                              : AmenTheme.Colors.amenGold.opacity(0.7))
+                              : Color.accentColor.opacity(0.7))
                         .frame(width: geo.size.width * fraction)
                         .animation(ONE.Motion.adaptive(reduceMotion: reduceMotion), value: fraction)
                 }
@@ -220,12 +220,12 @@ struct ONEWorldFeedView: View {
     private func authorRow(_ item: ONEFeedItemViewModel) -> some View {
         HStack(spacing: ONE.Spacing.sm) {
             Circle()
-                .fill(AmenTheme.Colors.amenGold.opacity(0.18))
+                .fill(Color.accentColor.opacity(0.18))
                 .frame(width: 36, height: 36)
                 .overlay(
                     Text(String(item.authorDisplayName.prefix(1)))
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(AmenTheme.Colors.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                 )
             VStack(alignment: .leading, spacing: 2) {
@@ -353,7 +353,7 @@ struct ONEWorldFeedView: View {
             Color.clear.frame(height: 156)
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(AmenTheme.Colors.amenGold.opacity(0.5))
+                .foregroundStyle(Color.accentColor.opacity(0.5))
             Text("Session complete")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(.primary)
@@ -380,7 +380,7 @@ struct ONEWorldFeedView: View {
             Color.clear.frame(height: 156)
             Image(systemName: modeIcon(service.session.mode))
                 .font(.system(size: 48))
-                .foregroundStyle(AmenTheme.Colors.amenGold.opacity(0.4))
+                .foregroundStyle(Color.accentColor.opacity(0.4))
             Text("Nothing here yet")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.primary)
@@ -402,10 +402,10 @@ struct ONEWorldFeedView: View {
             }
         }
         .font(.system(size: 13, weight: .medium))
-        .foregroundStyle(AmenTheme.Colors.amenGold)
+        .foregroundStyle(Color.accentColor)
         .padding(.horizontal, ONE.Spacing.md)
         .padding(.vertical, ONE.Spacing.sm)
-        .background(Capsule().fill(AmenTheme.Colors.amenGold.opacity(0.10)))
+        .background(Capsule().fill(Color.accentColor.opacity(0.10)))
         .accessibilityLabel("Switch to \(label) mode")
     }
 

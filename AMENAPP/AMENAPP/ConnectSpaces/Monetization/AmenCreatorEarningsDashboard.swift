@@ -238,7 +238,7 @@ struct AmenCreatorEarningsDashboard: View {
         }
         .sheet(isPresented: $vm.showShareSheet) {
             if let csv = vm.reportCSV {
-                ShareSheet(activityItems: [csv])
+                ShareSheet(items: [csv])
                     .ignoresSafeArea()
             }
         }
@@ -739,18 +739,6 @@ private struct SplitRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(split.displayName): \(Int(split.percentage)) percent")
     }
-}
-
-// MARK: - Share Sheet (UIActivityViewController wrapper)
-
-private struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Preview

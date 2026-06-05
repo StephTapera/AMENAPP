@@ -36,13 +36,13 @@ struct ActionBadge: View {
 
             Image(systemName: action.systemImageName)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(hex: "#0D0D1A"))
+                .foregroundStyle(Color(uiColor: .systemBackground))
         }
         .overlay {
             Circle()
                 .strokeBorder(Color.white.opacity(0.40), lineWidth: 1.5)
         }
-        .shadow(color: Color(hex: "#C9A84C").opacity(0.45), radius: 6, x: 0, y: 3)
+        .shadow(color: Color.accentColor.opacity(0.45), radius: 6, x: 0, y: 3)
         .accessibilityLabel(action.accessibilityLabel)
         .accessibilityHidden(true) // decorative — parent supplies the label
     }
@@ -90,7 +90,7 @@ extension AmenAction {
 
 #Preview("ActionBadge — all actions") {
     ZStack {
-        Color(hex: "#0D0D1A").ignoresSafeArea()
+        Color(.systemGroupedBackground).ignoresSafeArea()
 
         HStack(spacing: 20) {
             ForEach(AmenAction.allCases, id: \.rawValue) { action in

@@ -169,8 +169,8 @@ exports.reportPhoneVerificationFailure = reportPhoneVerificationFailure;
 exports.unblockPhoneNumber = unblockPhoneNumber;
 
 // P0: Two-Factor Authentication
-exports.request2FAOTP = request2FAOTP;
-exports.verify2FAOTP = verify2FAOTP;
+// exports.request2FAOTP = request2FAOTP; // DISABLED: TypeScript version in creator codebase
+// exports.verify2FAOTP = verify2FAOTP;   // DISABLED: TypeScript version in creator codebase
 exports.send2FAEmail = send2FAEmail;
 exports.send2FASMS = send2FASMS;
 exports.cleanupExpiredOTPs = cleanupExpiredOTPs;
@@ -290,10 +290,10 @@ const aiModeration = require("./aiModeration");
 exports.moderateContent = aiModeration.moderateContent;
 
 // Crisis Detection
-exports.detectCrisis = aiModeration.detectCrisis;
+// exports.detectCrisis = aiModeration.detectCrisis; // DISABLED: TypeScript version in creator codebase
 
 // Smart Notifications
-exports.deliverBatchedNotifications = aiModeration.deliverBatchedNotifications;
+// exports.deliverBatchedNotifications = aiModeration.deliverBatchedNotifications; // DISABLED: TypeScript version in creator codebase
 
 // ============================================================================
 // AI CHURCH NOTES - SCRIPTURE REFERENCES & SUMMARIZATION
@@ -796,7 +796,7 @@ exports.getPayoutSummary       = spacesMonetization.getPayoutSummary;
 exports.hostKYCOnboarding      = spacesMonetization.hostKYCOnboarding;
 
 const covenantFunctions = require("./covenantFunctions");
-exports.createCovenantCheckoutSession = covenantFunctions.createCovenantCheckoutSession;
+// exports.createCovenantCheckoutSession = covenantFunctions.createCovenantCheckoutSession; // DISABLED: TypeScript version in creator codebase
 exports.verifyCovenantMembership      = covenantFunctions.verifyCovenantMembership;
 
 const spacesEvents = require("./spacesEventsFunctions");
@@ -839,10 +839,10 @@ exports.getLivekitToken = spacesLivekit.getLivekitToken;
 // ============================================================================
 
 const churchNotesMedia = require("./churchNotesMediaPipeline");
-exports.createChurchNoteProcessingJob = churchNotesMedia.createChurchNoteProcessingJob;
-exports.processChurchNoteAudio        = churchNotesMedia.processChurchNoteAudio;
-exports.processChurchNoteImageOCR     = churchNotesMedia.processChurchNoteImageOCR;
-exports.processChurchNoteVideo        = churchNotesMedia.processChurchNoteVideo;
+// exports.createChurchNoteProcessingJob = churchNotesMedia.createChurchNoteProcessingJob; // DISABLED: TypeScript version in creator codebase
+// exports.processChurchNoteAudio        = churchNotesMedia.processChurchNoteAudio;        // DISABLED: TypeScript version in creator codebase
+// exports.processChurchNoteImageOCR     = churchNotesMedia.processChurchNoteImageOCR;     // DISABLED: TypeScript version in creator codebase
+// exports.processChurchNoteVideo        = churchNotesMedia.processChurchNoteVideo;        // DISABLED: TypeScript version in creator codebase
 exports.processChurchNoteDocumentPDF  = churchNotesMedia.processChurchNoteDocumentPDF;
 
 // ============================================================================
@@ -859,18 +859,18 @@ exports.processChurchNoteDocumentPDF  = churchNotesMedia.processChurchNoteDocume
 
 const churchNotesAI = require("./churchNotesAICallables");
 exports.generateChurchNoteDraft           = churchNotesAI.generateChurchNoteDraft;
-exports.generateChurchNoteSummary         = churchNotesAI.generateChurchNoteSummary;
-exports.generateChurchNoteStudyGuide      = churchNotesAI.generateChurchNoteStudyGuide;
-exports.generateChurchNotePrayerPrompts   = churchNotesAI.generateChurchNotePrayerPrompts;
-exports.generateChurchNoteActionItems     = churchNotesAI.generateChurchNoteActionItems;
-exports.detectChurchNoteScriptures        = churchNotesAI.detectChurchNoteScriptures;
-exports.translateChurchNoteContent        = churchNotesAI.translateChurchNoteContent;
-exports.regenerateChurchNoteSection       = churchNotesAI.regenerateChurchNoteSection;
-exports.createChurchNoteClipSuggestions   = churchNotesAI.createChurchNoteClipSuggestions;
-exports.approveChurchNoteAIDraft          = churchNotesAI.approveChurchNoteAIDraft;
-exports.rejectChurchNoteAIDraft           = churchNotesAI.rejectChurchNoteAIDraft;
-exports.shareChurchNoteWithCollaborators  = churchNotesAI.shareChurchNoteWithCollaborators;
-exports.updateChurchNotePermissions       = churchNotesAI.updateChurchNotePermissions;
+// exports.generateChurchNoteSummary         = churchNotesAI.generateChurchNoteSummary;        // DISABLED: TypeScript version in creator codebase
+// exports.generateChurchNoteStudyGuide      = churchNotesAI.generateChurchNoteStudyGuide;     // DISABLED: TypeScript version in creator codebase
+// exports.generateChurchNotePrayerPrompts   = churchNotesAI.generateChurchNotePrayerPrompts;  // DISABLED: TypeScript version in creator codebase
+// exports.generateChurchNoteActionItems     = churchNotesAI.generateChurchNoteActionItems;    // DISABLED: TypeScript version in creator codebase
+// exports.detectChurchNoteScriptures        = churchNotesAI.detectChurchNoteScriptures;       // DISABLED: TypeScript version in creator codebase
+// exports.translateChurchNoteContent        = churchNotesAI.translateChurchNoteContent;       // DISABLED: TypeScript version in creator codebase
+// exports.regenerateChurchNoteSection       = churchNotesAI.regenerateChurchNoteSection;      // DISABLED: TypeScript version in creator codebase
+// exports.createChurchNoteClipSuggestions   = churchNotesAI.createChurchNoteClipSuggestions;  // DISABLED: TypeScript version in creator codebase
+// exports.approveChurchNoteAIDraft          = churchNotesAI.approveChurchNoteAIDraft;         // DISABLED: TypeScript version in creator codebase
+// exports.rejectChurchNoteAIDraft           = churchNotesAI.rejectChurchNoteAIDraft;          // DISABLED: TypeScript version in creator codebase
+// exports.shareChurchNoteWithCollaborators  = churchNotesAI.shareChurchNoteWithCollaborators; // DISABLED: TypeScript version in creator codebase
+// exports.updateChurchNotePermissions       = churchNotesAI.updateChurchNotePermissions;      // DISABLED: TypeScript version in creator codebase
 
 // ============================================================================
 // VOICE PRAYER & TESTIMONY COMMENTS
@@ -881,12 +881,12 @@ exports.updateChurchNotePermissions       = churchNotesAI.updateChurchNotePermis
 // ============================================================================
 
 const voicePrayer = require("./voicePrayer");
-exports.createVoicePrayerUploadSession = voicePrayer.createVoicePrayerUploadSession;
-exports.finalizeVoicePrayerComment     = voicePrayer.finalizeVoicePrayerComment;
-exports.reactToVoicePrayerComment      = voicePrayer.reactToVoicePrayerComment;
-exports.deleteVoicePrayerComment       = voicePrayer.deleteVoicePrayerComment;
-exports.reportVoicePrayerComment       = voicePrayer.reportVoicePrayerComment;
-exports.getVoicePrayerPlaybackURL      = voicePrayer.getVoicePrayerPlaybackURL;
+// exports.createVoicePrayerUploadSession = voicePrayer.createVoicePrayerUploadSession; // DISABLED: TypeScript version in creator codebase
+// exports.finalizeVoicePrayerComment     = voicePrayer.finalizeVoicePrayerComment;     // DISABLED: TypeScript version in creator codebase
+// exports.reactToVoicePrayerComment      = voicePrayer.reactToVoicePrayerComment;      // DISABLED: TypeScript version in creator codebase
+// exports.deleteVoicePrayerComment       = voicePrayer.deleteVoicePrayerComment;       // DISABLED: TypeScript version in creator codebase
+// exports.reportVoicePrayerComment       = voicePrayer.reportVoicePrayerComment;       // DISABLED: TypeScript version in creator codebase
+// exports.getVoicePrayerPlaybackURL      = voicePrayer.getVoicePrayerPlaybackURL;      // DISABLED: TypeScript version in creator codebase
 
 // ============================================================================
 // CONTENT OS (System 33: Content Discussion, Approval & Forwarding)
@@ -945,9 +945,9 @@ exports.one_activateLegacy       = oneFunctions.one_activateLegacy;
 
 const messagingIntelligence = require("./messagingIntelligenceFunctions");
 exports.generateMessageCatchUp           = messagingIntelligence.generateMessageCatchUp;
-exports.generateThreadSummary            = messagingIntelligence.generateThreadSummary;
+// exports.generateThreadSummary            = messagingIntelligence.generateThreadSummary; // DISABLED: TypeScript version in creator codebase
 exports.detectMessagingSmartPills        = messagingIntelligence.detectMessagingSmartPills;
-exports.translateMessage                 = messagingIntelligence.translateMessage;
+// exports.translateMessage                 = messagingIntelligence.translateMessage; // DISABLED: TypeScript version in creator codebase
 exports.detectMessageSafetyNudge         = messagingIntelligence.detectMessageSafetyNudge;
 exports.generateVoiceMessageSummary      = messagingIntelligence.generateVoiceMessageSummary;
 exports.detectMessageCrossSurfaceActions = messagingIntelligence.detectMessageCrossSurfaceActions;
@@ -1007,7 +1007,7 @@ exports.onCSAMDetected = ncmecReporter.onCSAMDetected;
 // Deploy: firebase deploy --only functions:reportUnsafeAIResponse --project amen-5e359
 // ============================================================================
 const { reportUnsafeAIResponse } = require('./reportAIFunctions');
-exports.reportUnsafeAIResponse = reportUnsafeAIResponse;
+// exports.reportUnsafeAIResponse = reportUnsafeAIResponse; // DISABLED: TypeScript version in creator codebase
 
 // ============================================================================
 // MODERATION SWEEP — scheduled every 4h: finds aged moderationQueue items and
@@ -1049,7 +1049,7 @@ exports.auditAdminClaims       = adminClaims.auditAdminClaims;
 //         --project amen-5e359
 // ============================================================================
 const bereanRealtime = require("./bereanRealtimeFunctions");
-exports.createRealtimeSession = bereanRealtime.createRealtimeSession;
+// exports.createRealtimeSession = bereanRealtime.createRealtimeSession; // DISABLED: TypeScript version in creator codebase
 exports.bereanSLOCheck        = bereanRealtime.bereanSLOCheck;
 
 // ============================================================================
@@ -1260,3 +1260,31 @@ exports.bereanCompareTranslations  = bereanStudy.bereanCompareTranslations;
 exports.bereanDiscussionQuestions  = bereanStudy.bereanDiscussionQuestions;
 exports.bereanPrayerFromPassage    = bereanStudy.bereanPrayerFromPassage;
 exports.bereanConvertToChurchNotes = bereanStudy.bereanConvertToChurchNotes;
+
+// ============================================================================
+// INTEGRATION OS — External provider orchestration (X1–X7 contracts)
+//   matchHashedContacts          — privacy-safe contact matching (HMAC hashes)
+//   getContactDiscoverySalt      — per-user HMAC salt for client-side hashing
+//   orgKnowledgeSearch           — full-text search in org knowledge base
+//   orgAssistant                 — AI assistant over org docs (Claude, draft-only)
+//   sendEventFollowUpNotification — FCM follow-up for event attendees
+//   sendBroadcast                — multi-channel broadcast (push / SMS / email)
+//   checkBroadcastChannelStatus  — consent + auth state for a messaging channel
+//   revokeMessagingConsent       — server-authoritative consent revocation
+//   transcribeVoiceNote          — Whisper transcription of a Storage voice note
+//   moderateMediaTransform       — NeMo Guard check on sermon/media text transforms
+// Secrets: ANTHROPIC_API_KEY, NVIDIA_API_KEY, OPENAI_API_KEY,
+//          TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
+// Deploy: firebase deploy --only functions:matchHashedContacts,...
+// ============================================================================
+const integrationOS = require("./integrationOSFunctions");
+exports.matchHashedContacts           = integrationOS.matchHashedContacts;
+exports.getContactDiscoverySalt       = integrationOS.getContactDiscoverySalt;
+exports.orgKnowledgeSearch            = integrationOS.orgKnowledgeSearch;
+exports.orgAssistant                  = integrationOS.orgAssistant;
+exports.sendEventFollowUpNotification = integrationOS.sendEventFollowUpNotification;
+exports.sendBroadcast                 = integrationOS.sendBroadcast;
+exports.checkBroadcastChannelStatus   = integrationOS.checkBroadcastChannelStatus;
+exports.revokeMessagingConsent        = integrationOS.revokeMessagingConsent;
+exports.transcribeVoiceNote           = integrationOS.transcribeVoiceNote;
+exports.moderateMediaTransform        = integrationOS.moderateMediaTransform;

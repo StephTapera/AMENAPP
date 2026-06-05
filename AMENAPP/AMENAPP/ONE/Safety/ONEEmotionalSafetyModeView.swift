@@ -205,7 +205,7 @@ struct ONEEmotionalSafetyModeView: View {
                 Label("Tone preview", systemImage: "waveform.badge.magnifyingglass")
                     .foregroundStyle(.primary)
             }
-            .tint(AmenTheme.Colors.amenGold)
+            .tint(Color.accentColor)
             .accessibilityLabel("Tone preview")
             .accessibilityHint("AI suggests softer phrasing before you send. Sending is always your choice.")
         } footer: {

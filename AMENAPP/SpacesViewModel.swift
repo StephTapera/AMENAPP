@@ -19,7 +19,7 @@ class SpacesViewModel: ObservableObject {
 
     enum SpaceFilter: String, CaseIterable {
         case forYou = "For You"
-        case trending = "Trending"
+        case newest = "Newest"
     }
 
     private lazy var db = Firestore.firestore()
@@ -32,8 +32,8 @@ class SpacesViewModel: ObservableObject {
             $0.aiDetectedTopics.contains { $0.localizedCaseInsensitiveContains(searchText) }
         }
         switch selectedFilter {
-        case .forYou:    return base
-        case .trending:  return base.sorted { $0.weeklyActiveUsers > $1.weeklyActiveUsers }
+        case .forYou:  return base
+        case .newest:  return base.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
         }
     }
 
@@ -41,7 +41,7 @@ class SpacesViewModel: ObservableObject {
         guard listener == nil else { return }
         isLoading = true
         listener = db.collection("spaces")
-            .order(by: "weeklyActiveUsers", descending: true)
+            .order(by: "createdAt", descending: true)
             .limit(to: 50)
             .addSnapshotListener { [weak self] snap, _ in
                 Task { @MainActor [weak self] in

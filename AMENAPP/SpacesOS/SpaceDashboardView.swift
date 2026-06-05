@@ -186,7 +186,7 @@ private struct AnnouncementRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             if announcement.isPinned {
-                Image(systemName: "pin.fill").font(.caption).foregroundStyle(Color.amenGold)
+                Image(systemName: "pin.fill").font(.caption).foregroundStyle(Color.accentColor)
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(announcement.title).font(.subheadline.weight(.semibold))
@@ -204,7 +204,7 @@ private struct PrayerRequestRow: View {
     let request: SpacePrayerRequest
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "hands.sparkles.fill").font(.subheadline).foregroundStyle(Color.purple)
+            Image(systemName: "hands.sparkles.fill").font(.subheadline).foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 3) {
                 Text(request.body).font(.subheadline).lineLimit(3)
                 HStack {
@@ -236,8 +236,8 @@ private struct EventRow: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 12)
                     .frame(height: 30)
-                    .foregroundStyle(event.hasRsvped ? Color.amenGold : .white)
-                    .background(event.hasRsvped ? Color.amenGold.opacity(0.15) : Color.amenGold, in: Capsule())
+                    .foregroundStyle(event.hasRsvped ? Color.accentColor : .white)
+                    .background(event.hasRsvped ? Color.accentColor.opacity(0.15) : Color.accentColor, in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -273,7 +273,7 @@ private struct VolunteerNeedRow: View {
                     .padding(.horizontal, 12)
                     .frame(height: 30)
                     .foregroundStyle(.white)
-                    .background(Color.amenGold, in: Capsule())
+                    .background(Color.accentColor, in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -285,7 +285,7 @@ private struct NoteRow: View {
     let note: SpaceNote
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "note.text").foregroundStyle(Color.amenGold)
+            Image(systemName: "note.text").foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 3) {
                 Text(note.title).font(.subheadline.weight(.semibold))
                 Text(note.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(2)

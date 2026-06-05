@@ -5,7 +5,7 @@
   "firestore": {
     "database": "(default)",
     "location": "nam5",
-    "rules": "AMENAPP/firestore 18.rules",
+    "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "storage": {

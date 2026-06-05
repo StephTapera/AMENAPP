@@ -17,28 +17,30 @@ enum ONE {
     // MARK: Colors
 
     enum Colors {
-        // Warm candlelight glass tint — dock + privacy pill backgrounds
-        static let glassWarm = Color(red: 1.0, green: 0.94, blue: 0.78, opacity: 0.15)
+        // PURGED: glassWarm (amber tint, red:1.0 green:0.94 blue:0.78 opacity:0.15) → neutral glass per C3 design contract
+        // Glass must be white/clear, not gold-tinted.
+        static let glassWarm = Color(uiColor: .secondarySystemBackground).opacity(0.15)
 
         // Cool chrome glass tint — world zone / public surfaces
+        // Acceptable for zone indicators only (not brand decoration), per C3 §11
         static let glassCool = Color(red: 0.78, green: 0.86, blue: 1.0, opacity: 0.12)
 
-        // Decaying / expiring content indicator
-        static let decayAmber = AmenTheme.Colors.amenGold.opacity(0.60)
+        // PURGED: decayAmber previously used AmenTheme.Colors.amenGold (gold #C9A84C) → Color.orange per C3 design contract
+        static let decayAmber = Color.orange.opacity(0.60)
 
-        // Witness relationship badge
-        static let witnessGold = Color(red: 0.831, green: 0.643, blue: 0.263)
+        // PURGED: witnessGold = Color(red:0.831, green:0.643, blue:0.263) → Color.accentColor per C3 design contract
+        static let witnessGold = Color.accentColor
 
-        // Private / E2E indicator
-        static let privateIndigo = Color(red: 0.294, green: 0.369, blue: 0.776)
+        // PURGED: privateIndigo = Color(red:0.294, green:0.369, blue:0.776) → Color.accentColor per C3 design contract
+        static let privateIndigo = Color.accentColor
 
-        // Ephemeral countdown timer
+        // Ephemeral countdown timer — retained (semantic red)
         static let ephemeralRed = Color(red: 0.851, green: 0.357, blue: 0.290)
 
-        // Subscriber entitlement badge
-        static let subscriberGold = Color(red: 0.788, green: 0.635, blue: 0.153)
+        // PURGED: subscriberGold = Color(red:0.788, green:0.635, blue:0.153) → Color.accentColor per C3 design contract
+        static let subscriberGold = Color.accentColor
 
-        // Repair flow — constructive tone
+        // Repair flow — constructive tone; retained (semantic green)
         static let repairGreen = Color(red: 0.259, green: 0.694, blue: 0.451)
     }
 

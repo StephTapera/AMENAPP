@@ -24,7 +24,7 @@ struct CatchMeUpBanner: View {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .symbolEffect(.pulse, isActive: state == .loading && !reduceMotion)
 
                     VStack(alignment: .leading, spacing: 1) {
@@ -90,7 +90,7 @@ struct CatchMeUpBanner: View {
                     .fill(.thinMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(Color.amenGold.opacity(0.3), lineWidth: 0.5)
+                            .strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 0.5)
                     }
             }
         }

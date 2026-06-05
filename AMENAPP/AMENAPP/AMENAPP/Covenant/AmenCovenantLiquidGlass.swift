@@ -136,76 +136,7 @@ struct CovenantCreatorCard: View {
     }
 }
 
-// MARK: - 3. CovenantStoryRing
-
-struct CovenantStoryRing: View {
-    let displayName: String
-    let avatarURL: String?
-    let isUnread: Bool
-    let onTap: () -> Void
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private let ringSize: CGFloat = 56
-    private let strokeWidth: CGFloat = 2.5
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 5) {
-                ZStack {
-                    Circle()
-                        .stroke(
-                            isUnread
-                                ? LinearGradient(colors: [.yellow, .orange], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                : LinearGradient(colors: [Color.secondary.opacity(0.3), Color.secondary.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: strokeWidth
-                        )
-                        .frame(width: ringSize, height: ringSize)
-                        .animation(
-                            reduceMotion ? nil : .spring(response: LiquidGlassTokens.motionNormal, dampingFraction: 0.8),
-                            value: isUnread
-                        )
-
-                    Group {
-                        if let urlString = avatarURL, let url = URL(string: urlString) {
-                            AsyncImage(url: url) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image.resizable().scaledToFill()
-                                default:
-                                    storyFallback
-                                }
-                            }
-                        } else {
-                            storyFallback
-                        }
-                    }
-                    .frame(width: ringSize - strokeWidth * 2 - 4, height: ringSize - strokeWidth * 2 - 4)
-                    .clipShape(Circle())
-                }
-
-                Text(displayName)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .frame(maxWidth: ringSize + 8)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(displayName)\(isUnread ? ", unread story" : ", story")")
-    }
-
-    private var storyFallback: some View {
-        ZStack {
-            Circle().fill(Color.secondary.opacity(0.2))
-            Text(String(displayName.prefix(1)).uppercased())
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
-// MARK: - 4. CovenantRoomRow
+// MARK: - 3. CovenantRoomRow
 
 struct CovenantRoomRow: View {
     let room: CovenantRoom
@@ -268,7 +199,7 @@ struct CovenantRoomRow: View {
     }
 }
 
-// MARK: - 5. CovenantDigestCard
+// MARK: - 4. CovenantDigestCard
 
 struct CovenantDigestCard: View {
     let summaryTitle: String
@@ -335,7 +266,7 @@ struct CovenantDigestCard: View {
     }
 }
 
-// MARK: - 6. CovenantModerationBanner
+// MARK: - 5. CovenantModerationBanner
 
 struct CovenantModerationBanner: View {
     let state: ModerationBannerState
@@ -400,7 +331,7 @@ struct CovenantModerationBanner: View {
     }
 }
 
-// MARK: - 7. CovenantCapsuleButton
+// MARK: - 6. CovenantCapsuleButton
 
 struct CovenantCapsuleButton: View {
     enum Variant { case primary, secondary, destructive, quiet }
@@ -476,7 +407,7 @@ struct CovenantCapsuleButton: View {
     }
 }
 
-// MARK: - 8. CovenantTabRail
+// MARK: - 7. CovenantTabRail
 
 struct CovenantTabRail: View {
     let tabs: [String]

@@ -85,7 +85,7 @@ struct AmenLifePlannerSectionView: View {
             GlassChip(
                 label: "Add",
                 icon: "plus",
-                tint: .amenGold,
+                tint: .accentColor,
                 size: .compact,
                 isActive: false,
                 action: nil   // wired by parent when AddEvent sheet is implemented
@@ -111,7 +111,7 @@ struct AmenLifePlannerSectionView: View {
             HStack(spacing: 8) {
                 GlassChip(
                     label: label,
-                    tint: .amenGold,
+                    tint: .accentColor,
                     size: .compact,
                     isActive: isToday
                 )
@@ -236,7 +236,7 @@ struct AmenLifePlannerSectionView: View {
         switch type {
         case .church, .volunteer: return .amenBlue
         case .prayer, .reading:   return .amenPurple
-        case .birthday:           return .amenGold
+        case .birthday:           return .accentColor
         }
     }
 

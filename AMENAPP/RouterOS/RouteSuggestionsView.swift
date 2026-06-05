@@ -24,7 +24,7 @@ struct RouteSuggestionsView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                     Text("Suggested")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -55,7 +55,7 @@ private struct SuggestionChip: View {
             HStack(spacing: 6) {
                 Image(systemName: suggestion.action.icon)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
                 Text(suggestion.label)
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.primary)
@@ -63,7 +63,7 @@ private struct SuggestionChip: View {
             .padding(.horizontal, 10)
             .frame(height: 32)
             .background(Color(.secondarySystemBackground), in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.amenGold.opacity(0.3), lineWidth: 0.5))
+            .overlay(Capsule().strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(suggestion.label)

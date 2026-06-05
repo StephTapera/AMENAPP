@@ -68,7 +68,7 @@ struct AmenHubSectionView: View {
             if unread > 0 {
                 GlassChip(
                     label: "\(unread) unread",
-                    tint: .amenGold,
+                    tint: .accentColor,
                     size: .compact,
                     isActive: true
                 )
@@ -82,7 +82,7 @@ struct AmenHubSectionView: View {
             } label: {
                 Text("See all")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Color.amenGoldText)
+                    .foregroundStyle(Color(.label))
             }
             .accessibilityLabel("See all hub items")
             .accessibilityHint("Opens the full Amen Hub inbox")
@@ -226,7 +226,7 @@ private struct HubSectionItemRow: View {
             } label: {
                 Label("Pin", systemImage: "pin.fill")
             }
-            .tint(Color.amenGold)
+            .tint(Color.accentColor)
             .accessibilityLabel(item.isPinned ? "Unpin \(item.title)" : "Pin \(item.title)")
         }
     }
@@ -316,7 +316,7 @@ private struct HubSectionItemRow: View {
             Button(action: onPin) {
                 Image(systemName: item.isPinned ? "heart.fill" : "heart")
                     .font(.system(size: 16))
-                    .foregroundStyle(item.isPinned ? Color.amenGold : Color.amenSlate.opacity(0.6))
+                    .foregroundStyle(item.isPinned ? Color.accentColor : Color.amenSlate.opacity(0.6))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(item.isPinned ? "Unpin this item" : "Pin this item")
@@ -324,7 +324,7 @@ private struct HubSectionItemRow: View {
 
             if !item.isRead {
                 Circle()
-                    .fill(Color.amenGold)
+                    .fill(Color.accentColor)
                     .frame(width: 7, height: 7)
                     .accessibilityLabel("Unread")
             }
@@ -339,7 +339,7 @@ private struct HubSectionItemRow: View {
         if lower.contains("berean") { return .amenPurple }
         if lower.contains("testimony") || lower.contains("church") ||
            lower.contains("community") || lower.contains("event") ||
-           lower.contains("mentor") { return .amenGold }
+           lower.contains("mentor") { return .accentColor }
         return .amenSlate
     }
 
@@ -419,9 +419,9 @@ private enum HubFilterOption: CaseIterable, Identifiable {
     var tint: Color {
         switch self {
         case .prayer:    return .amenBlue
-        case .church:    return .amenGold
-        case .events:    return .amenGold
-        case .testimony: return .amenGold
+        case .church:    return .accentColor
+        case .events:    return .accentColor
+        case .testimony: return .accentColor
         }
     }
 }

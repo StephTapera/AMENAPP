@@ -201,7 +201,7 @@ struct StewardshipDashboardView: View {
                 allocationBar(
                     label: "Church",
                     percent: review.churchPercent,
-                    color: AmenTheme.Colors.amenGold,
+                    color: Color.accentColor,
                     value: "$\(review.churchGivingTotal / 100)"
                 )
 
@@ -229,7 +229,7 @@ struct StewardshipDashboardView: View {
             GeometryReader { g in
                 HStack(spacing: 2) {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(AmenTheme.Colors.amenGold)
+                        .fill(Color.accentColor)
                         .frame(width: g.size.width * CGFloat(review.churchPercent) / 100)
                     RoundedRectangle(cornerRadius: 3)
                         .fill(AmenTheme.Colors.statusSuccess)

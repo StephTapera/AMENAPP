@@ -10,6 +10,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Scroll offset preference key
 
@@ -255,6 +256,7 @@ struct AmenSpaceDetailView: View {
     @State private var showGiftMembership = false
     @State private var showScholarshipAccess = false
     @State private var showLegalGate = false
+    @State private var showMentorMatching = false
     @State private var activeLiveRoom: AmenLiveRoom? = nil
     @StateObject private var livekitProvider = AmenLivekitLiveRoomProvider()
     private var currentUserId: String { Auth.auth().currentUser?.uid ?? "" }
@@ -424,6 +426,99 @@ struct AmenSpaceDetailView: View {
                                 .buttonStyle(.plain)
                                 .padding(.horizontal, 16)
                                 .accessibilityLabel("Open Smart Event Composer for \(space.name)")
+
+                                Button {
+                                    showGiftMembership = true
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "giftcard.fill")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color(hex: "6E4BB5"))
+                                        Text("Gift a Membership")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Color.white.opacity(0.4))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 13)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .strokeBorder(Color(hex: "6E4BB5").opacity(0.35), lineWidth: 0.5)
+                                            }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 16)
+                                .accessibilityLabel("Gift a membership to \(space.name)")
+
+                                Button {
+                                    showLegalGate = true
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "doc.text.fill")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color.white.opacity(0.6))
+                                        Text("Legal & Agreements")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Color.white.opacity(0.4))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 13)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
+                                            }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 16)
+                                .accessibilityLabel("View legal documents and agreements for \(space.name)")
+                            }
+
+                            // Find a Mentor — visible to all members once subscribed
+                            if isSubscribed {
+                                Button {
+                                    showMentorMatching = true
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "person.line.dotted.person.fill")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color(hex: "D9A441"))
+                                        Text("Find a Mentor")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Color.white.opacity(0.4))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 13)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .strokeBorder(Color(hex: "D9A441").opacity(0.35), lineWidth: 0.5)
+                                            }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 16)
+                                .accessibilityLabel("Find a mentor in \(space.name)")
                             }
 
                             // Bottom padding so content isn't hidden behind floating pill
@@ -499,8 +594,43 @@ struct AmenSpaceDetailView: View {
                     onDismiss: { showScholarshipAccess = false }
                 )
             }
+            .sheet(isPresented: $showLegalGate) {
+                AmenSpaceLegalGateView(
+                    spaceId: space.id,
+                    spaceName: space.name,
+                    hostDisplayName: hostDisplayName,
+                    tierName: tiers.first?.name ?? "Member",
+                    monthlyPriceCents: tiers.first?.monthlyPriceCents ?? 0,
+                    userId: currentUserId,
+                    onAccepted: {
+                        withAnimation { isSubscribed = true }
+                        showLegalGate = false
+                    },
+                    onDeclined: { showLegalGate = false }
+                )
+            }
+            .sheet(isPresented: $showMentorMatching) {
+                AmenMentorMatchingView(
+                    spaceId: space.id,
+                    currentUserId: currentUserId,
+                    onDismiss: { showMentorMatching = false }
+                )
+            }
             .task {
                 livekitProvider.configure(spaceId: space.id)
+            }
+            .onAppear {
+                Task {
+                    guard let uid = Auth.auth().currentUser?.uid else { return }
+                    let db = Firestore.firestore()
+                    let doc = try? await db
+                        .collection("spaces").document(space.id)
+                        .collection("members").document(uid)
+                        .getDocument()
+                    if let exists = doc?.exists, exists {
+                        await MainActor.run { isSubscribed = true }
+                    }
+                }
             }
             .fullScreenCover(item: $activeLiveRoom) { room in
                 AmenLiveRoomShellView(

@@ -190,7 +190,7 @@ struct LiveSermonModeView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.amenGold, in: RoundedRectangle(cornerRadius: 12))
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Stop recording and process with AI")

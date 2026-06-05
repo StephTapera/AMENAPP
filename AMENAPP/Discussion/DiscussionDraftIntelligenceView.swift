@@ -51,7 +51,7 @@ struct DraftInsightSheet: View {
             VStack(spacing: 8) {
                 Image(systemName: "lightbulb.fill")
                     .font(.system(size: 28))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
                 Text("A reflection before you post")
                     .font(.system(size: 17, weight: .semibold))
@@ -68,10 +68,10 @@ struct DraftInsightSheet: View {
                 Button(action: onRevise) {
                     Text("Revise my comment")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(hex: "#0A0A0F"))
+                        .foregroundStyle(Color(.systemBackground))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color(hex: "#C9A84C"), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .accessibilityLabel("Revise my comment")
                 Button(action: onPostAnyway) {
@@ -89,7 +89,7 @@ struct DraftInsightSheet: View {
         .presentationDetents([.height(320)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(24)
-        .background(Color(hex: "#0A0A0F").ignoresSafeArea())
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 }
 
@@ -114,10 +114,10 @@ struct ReflectionFirstSheet: View {
                 .foregroundStyle(Color.white)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                reflectionCard(icon: "moon.stars", label: "Reflect Privately", action: onReflect)
-                reflectionCard(icon: "hands.sparkles", label: "Pray", action: onPray)
-                reflectionCard(icon: "book.closed", label: "Save to Notes", action: onSaveToNotes)
-                reflectionCard(icon: "bubble.left", label: "Comment", action: onComment)
+                reflectionCard(icon: "moon.stars",    label: "Reflect Privately", action: onReflect)
+                reflectionCard(icon: "hands.sparkles", label: "Pray",             action: onPray)
+                reflectionCard(icon: "book.closed",    label: "Save to Notes",    action: onSaveToNotes)
+                reflectionCard(icon: "bubble.left",    label: "Comment",          action: onComment)
             }
             .padding(.horizontal, 20)
             Spacer()
@@ -125,7 +125,7 @@ struct ReflectionFirstSheet: View {
         .presentationDetents([.height(300)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(24)
-        .background(Color(hex: "#0A0A0F").ignoresSafeArea())
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 
     private func reflectionCard(icon: String, label: String, action: @escaping () -> Void) -> some View {
@@ -133,7 +133,7 @@ struct ReflectionFirstSheet: View {
             VStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 22))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
                 Text(label)
                     .font(.system(size: 13, weight: .medium))

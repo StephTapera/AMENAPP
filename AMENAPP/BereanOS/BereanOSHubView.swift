@@ -278,7 +278,7 @@ struct BereanOSHubView: View {
     private func listRow(icon: String, label: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accentColor)
                 .font(.title3)
                 .frame(width: 28)
             Text(label)

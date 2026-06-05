@@ -135,7 +135,7 @@ struct PostStreamRecapView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if let onDismiss {
                         Button("Done", action: onDismiss)
-                            .foregroundStyle(Color.amenGold)
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
             }
@@ -224,10 +224,10 @@ struct PostStreamRecapView: View {
                 .padding(.vertical, 8)
                 .background(
                     selectedSection == section
-                        ? Color.amenGold.opacity(0.15)
+                        ? Color.accentColor.opacity(0.15)
                         : Color(.secondarySystemFill)
                 )
-                .foregroundStyle(selectedSection == section ? Color.amenGold : .primary)
+                .foregroundStyle(selectedSection == section ? Color.accentColor : .primary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -267,7 +267,7 @@ struct PostStreamRecapView: View {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "circle.fill")
                             .font(.system(size: 6))
-                            .foregroundStyle(Color.amenGold)
+                            .foregroundStyle(Color.accentColor)
                             .padding(.top, 6)
                         Text(point)
                             .font(.body)
@@ -305,7 +305,7 @@ struct PostStreamRecapView: View {
             ForEach(recap.detectedVerses, id: \.self) { verse in
                 HStack {
                     Image(systemName: "book.closed")
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .frame(width: 28)
                     Text(verse)
                         .font(.body)
@@ -335,7 +335,7 @@ struct PostStreamRecapView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "cross.fill")
                         .font(.system(size: 10))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .padding(.top, 4)
                     Text(point)
                         .font(.body)
@@ -362,7 +362,7 @@ struct PostStreamRecapView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
-                        .background(Color.amenGold)
+                        .background(Color.accentColor)
                         .clipShape(Circle())
                     Text(item)
                         .font(.body)
@@ -385,7 +385,7 @@ struct PostStreamRecapView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.amenGold.opacity(0.1))
+                .background(Color.accentColor.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
             ForEach($localHighlights) { $highlight in
@@ -489,7 +489,7 @@ private struct RecapSectionHeader: View {
     var body: some View {
         Label(title, systemImage: icon)
             .font(.headline)
-            .foregroundStyle(Color.amenGold)
+            .foregroundStyle(Color.accentColor)
     }
 }
 
@@ -515,8 +515,8 @@ private struct ChapterRow: View {
                                 .font(.caption2)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.amenGold.opacity(0.15))
-                                .foregroundStyle(Color.amenGold)
+                                .background(Color.accentColor.opacity(0.15))
+                                .foregroundStyle(Color.accentColor)
                                 .clipShape(Capsule())
                         }
                     }
@@ -537,7 +537,7 @@ private struct HighlightRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
                 Image(systemName: "quote.opening")
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
                 Text(highlight.text)
                     .font(.body)
                     .italic()
@@ -562,7 +562,7 @@ private struct HighlightRow: View {
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 5)
-                            .background(Color.amenGold)
+                            .background(Color.accentColor)
                             .foregroundStyle(.white)
                             .clipShape(Capsule())
                     }

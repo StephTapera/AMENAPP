@@ -53,7 +53,7 @@ struct BereanPrayerBriefingView: View {
 
     private var mainContent: some View {
         ZStack {
-            Color(hex: "#0A0A0F")
+            Color(.systemGroupedBackground)
                 .ignoresSafeArea()
 
             ScrollView {
@@ -75,7 +75,7 @@ struct BereanPrayerBriefingView: View {
                     // 4. Today's Focus or loading/empty state
                     if service.isLoading {
                         ProgressView()
-                            .tint(Color(hex: "#C9A84C"))
+                            .tint(Color.accentColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 32)
                     } else if service.entries.isEmpty {
@@ -110,12 +110,12 @@ struct BereanPrayerBriefingView: View {
             Text("Prayer")
                 .font(.largeTitle)
                 .fontWeight(.bold)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .accessibilityAddTraits(.isHeader)
 
             Text(Date(), style: .date)
                 .font(.subheadline)
-                .foregroundStyle(Color.white.opacity(0.5))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -125,23 +125,23 @@ struct BereanPrayerBriefingView: View {
     private func streakIndicator(streak: BereanPrayerStreak) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "flame.fill")
-                .foregroundStyle(Color(hex: "#C9A84C"))
+                .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
 
             if streak.currentStreak > 0 {
                 Text("\(streak.currentStreak) day streak")
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
             } else {
                 Text("Start your prayer streak today")
                     .font(.subheadline)
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Color(hex: "#C9A84C").opacity(0.12))
+        .background(Color.accentColor.opacity(0.12))
         .clipShape(Capsule())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
@@ -158,18 +158,18 @@ struct BereanPrayerBriefingView: View {
             Text("Today's Scripture")
                 .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(Color(hex: "#C9A84C"))
+                .foregroundStyle(Color.accentColor)
                 .textCase(.uppercase)
                 .tracking(0.8)
 
             Text(scripture)
                 .font(.body)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "#111118"))
+        .background(Color(.systemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Today's scripture: \(scripture)")
@@ -182,7 +182,7 @@ struct BereanPrayerBriefingView: View {
             Text("Today's Focus")
                 .font(.title3)
                 .fontWeight(.semibold)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .accessibilityAddTraits(.isHeader)
 
             let focusEntries = service.todaysBriefing?.todaysFocus
@@ -199,11 +199,11 @@ struct BereanPrayerBriefingView: View {
                     Text("See All Prayer Requests")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundStyle(Color(hex: "#C9A84C").opacity(0.7))
+                        .foregroundStyle(Color.secondary)
                         .accessibilityHidden(true)
                 }
                 .padding(.top, 4)
@@ -238,10 +238,10 @@ struct BereanPrayerBriefingView: View {
             Text("Pray Now")
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundStyle(Color(hex: "#0A0A0F"))
+                .foregroundStyle(Color(.systemBackground))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(Color(hex: "#C9A84C"))
+                .background(Color.accentColor)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .accessibilityLabel("Pray now")
@@ -256,19 +256,19 @@ struct BereanPrayerBriefingView: View {
                 ForEach(entries) { entry in
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(Color(hex: "#C9A84C"))
+                            .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.subject)
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundStyle(Color(hex: "#111118"))
+                                .foregroundStyle(Color.primary)
 
                             if !entry.forWhom.isEmpty {
                                 Text("For \(entry.forWhom)")
                                     .font(.caption)
-                                    .foregroundStyle(Color(hex: "#111118").opacity(0.6))
+                                    .foregroundStyle(Color.secondary)
                             }
                         }
                         Spacer()
@@ -283,11 +283,11 @@ struct BereanPrayerBriefingView: View {
             Text("Answered This Week (\(entries.count))")
                 .font(.subheadline)
                 .fontWeight(.semibold)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
         }
-        .tint(.white)
+        .tint(.primary)
         .padding(16)
-        .background(Color(hex: "#111118"))
+        .background(Color(.systemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
@@ -297,17 +297,17 @@ struct BereanPrayerBriefingView: View {
         VStack(spacing: 16) {
             Image(systemName: "hands.clap")
                 .font(.system(size: 40))
-                .foregroundStyle(Color(hex: "#C9A84C").opacity(0.6))
+                .foregroundStyle(Color.accentColor.opacity(0.6))
                 .accessibilityHidden(true)
 
             Text("Add your first prayer request")
                 .font(.title3)
                 .fontWeight(.semibold)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
 
             Text("Your prayer list is private and only visible to you.")
                 .font(.subheadline)
-                .foregroundStyle(Color.white.opacity(0.5))
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             Button {
@@ -320,10 +320,10 @@ struct BereanPrayerBriefingView: View {
                         .fontWeight(.semibold)
                 }
                 .font(.subheadline)
-                .foregroundStyle(Color(hex: "#0A0A0F"))
+                .foregroundStyle(Color(.systemBackground))
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(Color(hex: "#C9A84C"))
+                .background(Color.accentColor)
                 .clipShape(Capsule())
             }
             .accessibilityLabel("Add prayer request")
@@ -336,21 +336,21 @@ struct BereanPrayerBriefingView: View {
 
     private var comingSoonPlaceholder: some View {
         ZStack {
-            Color(hex: "#0A0A0F").ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
             VStack(spacing: 16) {
                 Image(systemName: "hands.clap")
                     .font(.system(size: 48))
-                    .foregroundStyle(Color(hex: "#C9A84C").opacity(0.5))
+                    .foregroundStyle(Color.accentColor.opacity(0.5))
                     .accessibilityHidden(true)
 
                 Text("Prayer")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
 
                 Text("Coming Soon")
                     .font(.subheadline)
-                    .foregroundStyle(Color.white.opacity(0.5))
+                    .foregroundStyle(.secondary)
             }
         }
         .accessibilityElement(children: .combine)
@@ -384,13 +384,13 @@ struct BereanPrayerEntryCard: View {
                 Text(entry.subject)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color(hex: "#111118"))
+                    .foregroundStyle(Color.primary)
                     .lineLimit(2)
 
                 if !entry.forWhom.isEmpty {
                     Text("For \(entry.forWhom)")
                         .font(.caption)
-                        .foregroundStyle(Color(hex: "#111118").opacity(0.55))
+                        .foregroundStyle(Color.secondary)
                 }
             }
 
@@ -409,7 +409,7 @@ struct BereanPrayerEntryCard: View {
             } label: {
                 Label("Answered", systemImage: "checkmark.circle.fill")
             }
-            .tint(Color(hex: "#C9A84C"))
+            .tint(Color.accentColor)
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button {
@@ -435,14 +435,14 @@ struct BereanPrayerEntryCard: View {
 
     private var categoryColor: Color {
         switch entry.category {
-        case .faith:      return Color(hex: "#C9A84C")
+        case .faith:      return Color.accentColor
         case .healing:    return .red
         case .family:     return .orange
         case .career:     return .blue
         case .church:     return Color(hex: "#4A9ECC")
         case .community:  return .purple
         case .world:      return .green
-        case .gratitude:  return Color(hex: "#C9A84C")
+        case .gratitude:  return Color.accentColor
         case .other:      return .gray
         }
     }
@@ -457,7 +457,7 @@ struct BereanPrayerEntryCard: View {
     private var statusDotColor: Color {
         switch entry.status {
         case .active:   return .green
-        case .answered: return Color(hex: "#C9A84C")
+        case .answered: return Color.accentColor
         case .archived: return .gray
         }
     }

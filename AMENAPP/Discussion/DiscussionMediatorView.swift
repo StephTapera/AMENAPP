@@ -44,10 +44,10 @@ struct DiscussionMediatorView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: "#0A0A0F").ignoresSafeArea()
+                Color(.systemGroupedBackground).ignoresSafeArea()
                 if isLoading {
                     VStack(spacing: 14) {
-                        ProgressView().tint(Color(hex: "#C9A84C"))
+                        ProgressView().tint(Color.accentColor)
                         Text("Finding common ground…")
                             .font(.system(size: 14))
                             .foregroundStyle(Color.white.opacity(0.5))
@@ -57,7 +57,7 @@ struct DiscussionMediatorView: View {
                         VStack(alignment: .leading, spacing: 20) {
                             header
                             mediationSection(icon: "hands.sparkles", title: "Areas of Agreement", color: .green, items: r.areasOfAgreement)
-                            mediationSection(icon: "arrow.left.arrow.right", title: "Different Perspectives", color: Color(hex: "#C9A84C"), items: r.differentPerspectives)
+                            mediationSection(icon: "arrow.left.arrow.right", title: "Different Perspectives", color: Color.accentColor, items: r.differentPerspectives)
                             mediationSection(icon: "questionmark.circle", title: "Questions Worth Exploring", color: .blue, items: r.questionsWorthExploring)
                             mediationSection(icon: "exclamationmark.triangle", title: "Potential Misunderstandings", color: .orange, items: r.potentialMisunderstandings)
                             mediationSection(icon: "lightbulb", title: "Suggested Clarifications", color: .purple, items: r.suggestedClarifications)
@@ -71,7 +71,7 @@ struct DiscussionMediatorView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                 }
             }
         }

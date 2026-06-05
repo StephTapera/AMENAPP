@@ -18,8 +18,8 @@ struct CreatorDashboardView: View {
     @StateObject private var vm = CreatorViewModel()
     @State private var showMonetization = false
 
-    private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let amenGold   = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
+    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
     private let amenDark   = Color(red: 0.06, green: 0.06, blue: 0.09)
 
     private var isNewCreator: Bool {
@@ -37,7 +37,7 @@ struct CreatorDashboardView: View {
 
                 if vm.isLoading {
                     ProgressView()
-                        .tint(amenPurple)
+                        .tint(Color.accentColor)
                         .scaleEffect(1.4)
                 } else if isNewCreator {
                     onboardingCard
@@ -83,7 +83,7 @@ struct CreatorDashboardView: View {
                 // Gradient banner
                 ZStack {
                     LinearGradient(
-                        colors: [amenPurple, Color(red: 0.94, green: 0.28, blue: 0.64)],
+                        colors: [Color.accentColor, Color(red: 0.94, green: 0.28, blue: 0.64)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -117,12 +117,12 @@ struct CreatorDashboardView: View {
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .fill(
                                         LinearGradient(
-                                            colors: [amenPurple, Color(red: 0.60, green: 0.28, blue: 0.90)],
+                                            colors: [Color.accentColor, Color(red: 0.60, green: 0.28, blue: 0.90)],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
                                     )
-                                    .shadow(color: amenPurple.opacity(0.4), radius: 14, y: 5)
+                                    .shadow(color: Color.accentColor.opacity(0.4), radius: 14, y: 5)
                             )
                     }
                     .buttonStyle(CoCreationPressStyle())
@@ -180,7 +180,7 @@ struct CreatorDashboardView: View {
                         icon: "pencil.circle.fill",
                         label: "Posts This Month",
                         value: "—",
-                        color: amenPurple
+                        color: Color.accentColor
                     )
                 }
 
@@ -202,12 +202,12 @@ struct CreatorDashboardView: View {
                     HStack(spacing: 14) {
                         ZStack {
                             Circle()
-                                .fill(amenGold.opacity(0.15))
+                                .fill(Color.accentColor.opacity(0.15))
                                 .frame(width: 44, height: 44)
                             Image(systemName: "crown.fill")
                                 .font(.systemScaled(20, weight: .semibold))
                                 .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(amenGold)
+                                .foregroundStyle(Color.accentColor)
                         }
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Monetization Tools")
@@ -228,7 +228,7 @@ struct CreatorDashboardView: View {
                             .fill(.ultraThinMaterial)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(amenGold.opacity(0.25), lineWidth: 1)
+                                    .stroke(Color.accentColor.opacity(0.25), lineWidth: 1)
                             )
                     )
                 }
@@ -279,7 +279,7 @@ struct CreatorDashboardView: View {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(
                             LinearGradient(
-                                colors: [amenPurple.opacity(0.5), Color.clear],
+                                colors: [Color.accentColor.opacity(0.5), Color.clear],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
@@ -304,7 +304,7 @@ struct CreatorDashboardView: View {
                 )
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [amenPurple, Color(red: 0.94, green: 0.28, blue: 0.64)],
+                        colors: [Color.accentColor, Color(red: 0.94, green: 0.28, blue: 0.64)],
                         startPoint: .bottom,
                         endPoint: .top
                     )
@@ -349,7 +349,7 @@ struct CreatorDashboardView: View {
                     Image(systemName: "sparkles")
                         .font(.systemScaled(16, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(amenPurple)
+                        .foregroundStyle(Color.accentColor)
                     Text("AI Forecast")
                         .font(AMENFont.semiBold(15))
                         .foregroundStyle(.white)
@@ -380,7 +380,7 @@ struct CreatorDashboardView: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(amenPurple.opacity(0.25), lineWidth: 1)
+                        .stroke(Color.accentColor.opacity(0.25), lineWidth: 1)
                 )
         )
     }
@@ -392,13 +392,13 @@ struct CreatorDashboardView: View {
             Image(systemName: "star.fill")
                 .font(.systemScaled(18, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(amenGold)
+                .foregroundStyle(Color.accentColor)
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text("Your Next Move")
                     .font(AMENFont.semiBold(13))
-                    .foregroundStyle(amenGold.opacity(0.85))
+                    .foregroundStyle(Color.accentColor.opacity(0.85))
                 Text(vm.profile.aiNextMoveRecommendation)
                     .font(AMENFont.regular(15))
                     .foregroundStyle(.white.opacity(0.88))
@@ -411,7 +411,7 @@ struct CreatorDashboardView: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(amenGold.opacity(0.35), lineWidth: 1)
+                        .stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
                 )
         )
     }

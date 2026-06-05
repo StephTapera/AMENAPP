@@ -32,6 +32,12 @@ struct GroupInfoView: View {
     @State private var isTogglingMute = false
     /// Cancels the real-time conversation listener when the view disappears.
     @State private var conversationListener: ListenerRegistration?
+    /// Whether the member search sheet is presented.
+    @State private var showMemberSearch = false
+    /// Search query text for member lookup.
+    @State private var memberSearchQuery = ""
+    /// Members matching the current search query.
+    @State private var searchedMembers: [GroupMember] = []
     
     var currentUserId: String {
         Auth.auth().currentUser?.uid ?? ""
@@ -80,6 +86,40 @@ struct GroupInfoView: View {
             }
             .sheet(isPresented: $showEditName) {
                 EditGroupNameView(conversationId: conversation.id, currentName: groupName)
+            }
+            .sheet(isPresented: $showMemberSearch) {
+                NavigationStack {
+                    VStack(spacing: 0) {
+                        TextField("Search members", text: $memberSearchQuery)
+                            .textFieldStyle(.roundedBorder)
+                            .padding()
+                            .submitLabel(.search)
+                            .onSubmit { Task { await searchMembers(query: memberSearchQuery) } }
+                            .onChange(of: memberSearchQuery) { _, q in
+                                Task { await searchMembers(query: q) }
+                            }
+
+                        List(searchedMembers) { member in
+                            HStack {
+                                Text(member.name)
+                                Spacer()
+                                if member.isAdmin {
+                                    Image(systemName: "star.fill")
+                                        .foregroundStyle(.yellow)
+                                        .font(.caption)
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Search Members")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showMemberSearch = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium, .large])
             }
             .photosPicker(isPresented: $showPhotosPicker, selection: $selectedPhotoItem, matching: .images)
             .onChange(of: selectedPhotoItem) { _, newItem in
@@ -296,7 +336,9 @@ struct GroupInfoView: View {
                     title: "Search in Conversation",
                     color: .blue
                 ) {
-                    // TODO: Implement search
+                    memberSearchQuery = ""
+                    searchedMembers = []
+                    showMemberSearch = true
                 }
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -337,7 +379,34 @@ struct GroupInfoView: View {
     }
     
     // MARK: - Actions
-    
+
+    private func searchMembers(query: String) async {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            await MainActor.run { searchedMembers = groupMembers }
+            return
+        }
+        let lower = query.lowercased()
+        do {
+            let db = Firestore.firestore()
+            let snapshot = try await db.collection("conversations")
+                .document(conversation.id)
+                .collection("members")
+                .whereField("displayNameLower", isGreaterThanOrEqualTo: lower)
+                .whereField("displayNameLower", isLessThan: lower + "\u{f8ff}")
+                .getDocuments()
+            let results: [GroupMember] = snapshot.documents.compactMap { doc in
+                guard let name = doc.data()["displayName"] as? String else { return nil }
+                let isAdmin = (doc.data()["isAdmin"] as? Bool) ?? false
+                return GroupMember(userId: doc.documentID, name: name, isAdmin: isAdmin, profileImageUrl: nil)
+            }
+            await MainActor.run { searchedMembers = results }
+        } catch {
+            // Fallback: filter already-loaded members locally
+            let filtered = groupMembers.filter { $0.name.lowercased().contains(lower) }
+            await MainActor.run { searchedMembers = filtered }
+        }
+    }
+
     /// Starts a real-time Firestore listener for the group conversation document.
     /// Updates are applied immediately so admin/member changes propagate without
     /// the user needing to dismiss and reopen the sheet.

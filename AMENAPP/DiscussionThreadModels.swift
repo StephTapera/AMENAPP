@@ -92,7 +92,7 @@ enum DiscussionReputationTier: String, Codable, Equatable {
 
     var color: Color {
         switch self {
-        case .elder:  return Color(hex: "#C9A84C")
+        case .elder:  return Color.accentColor
         case .berean: return .blue
         case .seeker: return .green
         case .none:   return .clear
@@ -161,7 +161,7 @@ enum SpaceDiscussionChannelType: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .general:   return Color.white.opacity(0.7)
         case .questions: return Color(hex: "#5A9CF8")
-        case .prayer:    return Color(hex: "#C9A84C")
+        case .prayer:    return Color.accentColor
         case .wins:      return Color(hex: "#4CAF50")
         }
     }

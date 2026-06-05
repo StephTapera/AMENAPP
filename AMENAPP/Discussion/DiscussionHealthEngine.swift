@@ -10,7 +10,7 @@ enum HealthStatus: String, Codable {
     var dotColor: Color {
         switch self {
         case .healthy:     return .green
-        case .active:      return Color(hex: "#C9A84C")
+        case .active:      return Color.accentColor
         case .heated:      return .orange
         case .escalating:  return .red
         case .needsReview: return .purple

@@ -44,7 +44,7 @@ struct NotificationSettingsView: View {
                         HStack {
                             Spacer()
                             Text("Reset What I've Seen")
-                                .foregroundStyle(Color(hex: "#C9A84C"))
+                                .foregroundStyle(Color.accentColor)
                                 .fontWeight(.medium)
                             Spacer()
                         }
@@ -90,7 +90,7 @@ private struct ActionStyleRow: View {
 
                 Image(systemName: action.systemImageName)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#0D0D1A"))
+                    .foregroundStyle(Color(uiColor: .systemBackground))
             }
             .accessibilityHidden(true)
 
@@ -119,7 +119,7 @@ private struct ActionStyleRow: View {
 
     private var iconGradient: LinearGradient {
         LinearGradient(
-            colors: [Color(hex: "#C9A84C"), Color(hex: "#7B68EE")],
+            colors: [Color.accentColor, Color.accentColor.opacity(0.7)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )

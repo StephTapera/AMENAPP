@@ -16,7 +16,8 @@ struct CrisisInterventionView: View {
             VStack(spacing: 12) {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 48))
-                    .foregroundStyle(Color.amenGold)
+                    // PURGED: Color.amenGold → Color.accentColor per C3 design contract
+                    .foregroundStyle(Color.accentColor)
 
                 Text("We care about you")
                     .font(.title2.weight(.bold))
@@ -61,7 +62,8 @@ struct CrisisInterventionView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.amenGold, in: RoundedRectangle(cornerRadius: 12))
+                        // PURGED: Color.amenGold → Color.accentColor per C3 design contract
+                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
 
@@ -103,7 +105,8 @@ private struct CrisisInterventionResourceRow: View {
             HStack(spacing: 14) {
                 Image(systemName: icon)
                     .font(.system(size: 20))
-                    .foregroundStyle(Color.amenGold)
+                    // PURGED: Color.amenGold → Color.accentColor per C3 design contract
+                    .foregroundStyle(Color.accentColor)
                     .frame(width: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.subheadline.weight(.semibold))

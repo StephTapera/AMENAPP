@@ -25,7 +25,7 @@ enum CommunityHealthTrend: String {
 
     var color: Color {
         switch self {
-        case .growing:   return .amenGold
+        case .growing:   return .accentColor
         case .stable:    return .amenBlue
         case .declining: return .amenSlate
         }

@@ -127,7 +127,7 @@ private struct ForwardActionRow: View {
             HStack(spacing: 14) {
                 Image(systemName: action.icon)
                     .font(.system(size: 18))
-                    .foregroundStyle(action.isDestructiveAdjacent ? Color.orange : Color.amenGold)
+                    .foregroundStyle(action.isDestructiveAdjacent ? Color.orange : Color.accentColor)
                     .frame(width: 28)
                 Text(action.displayName)
                     .foregroundStyle(.primary)

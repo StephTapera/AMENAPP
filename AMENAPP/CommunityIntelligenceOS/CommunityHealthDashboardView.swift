@@ -63,9 +63,9 @@ struct EngagementAlert: Identifiable {
 
         var color: Color {
             switch self {
-            case .pastoral: return .purple
+            case .pastoral: return .accentColor
             case .operational: return .orange
-            case .celebratory: return Color.amenGold
+            case .celebratory: return Color.accentColor
             }
         }
 
@@ -179,7 +179,7 @@ struct CommunityHealthDashboardView: View {
                     Circle()
                         .trim(from: 0, to: snapshot.overallScore)
                         .stroke(
-                            LinearGradient(colors: [Color.amenGold, Color.amenGold.opacity(0.6)], startPoint: .leading, endPoint: .trailing),
+                            LinearGradient(colors: [Color.accentColor, Color.accentColor.opacity(0.6)], startPoint: .leading, endPoint: .trailing),
                             style: StrokeStyle(lineWidth: 12, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
@@ -280,10 +280,10 @@ struct CommunityHealthDashboardView: View {
                     VStack(spacing: 3) {
                         VStack(spacing: 2) {
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.amenGold.opacity(0.6))
+                                .fill(Color.accentColor.opacity(0.6))
                                 .frame(height: CGFloat(pulse.responseRatio) * 80)
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.amenGold)
+                                .fill(Color.accentColor)
                                 .frame(height: CGFloat(pulse.requestRatio) * 40)
                         }
                         Text(pulse.dayLabel)
@@ -296,8 +296,8 @@ struct CommunityHealthDashboardView: View {
             .frame(height: 120)
 
             HStack(spacing: 16) {
-                legendDot(color: Color.amenGold, label: "Requests")
-                legendDot(color: Color.amenGold.opacity(0.6), label: "Responses")
+                legendDot(color: Color.accentColor, label: "Requests")
+                legendDot(color: Color.accentColor.opacity(0.6), label: "Responses")
             }
         }
         .padding()
@@ -325,7 +325,7 @@ struct CommunityHealthDashboardView: View {
         HStack {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text(value).font(.title2.weight(.bold))
                 Text(label).font(.caption).foregroundStyle(.secondary)
@@ -342,7 +342,7 @@ struct CommunityHealthDashboardView: View {
     private var privacyNotice: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "lock.shield.fill")
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Leader-Only View")
                     .font(.caption.weight(.semibold))
@@ -408,7 +408,7 @@ private struct DimensionCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: dimension.icon)
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                     Spacer()
                     Image(systemName: dimension.trend.icon)
                         .foregroundStyle(dimension.trend.color)
@@ -444,7 +444,7 @@ private struct DimensionCard: View {
     private func scoreColor(_ score: Double) -> Color {
         switch score {
         case 0.75...: return .green
-        case 0.5..<0.75: return Color.amenGold
+        case 0.5..<0.75: return Color.accentColor
         default: return .orange
         }
     }
@@ -462,7 +462,7 @@ private struct DimensionDetailSheet: View {
                 HStack {
                     Image(systemName: dimension.icon)
                         .font(.largeTitle)
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                     VStack(alignment: .leading) {
                         Text(dimension.name)
                             .font(.title2.weight(.semibold))
@@ -498,7 +498,7 @@ private struct DimensionDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
         }

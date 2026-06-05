@@ -12,6 +12,16 @@ import SwiftUI
 
 // MARK: - Entry Point (host app wraps this in an availability check)
 
+// TODO (NAV-03 / Phase 1 wiring): ONENavigationShell is not yet connected to
+// any tab in ContentView. When Phase 1 lands it should replace the current
+// SpiritualInboxView at selectedTab == 2 (the "Messages" / People tab).
+// Steps required:
+//   1. In ContentView.selectedTabView, replace the keepMountedTab(isActive: viewModel.selectedTab == 2)
+//      block's content with an @available(iOS 26, *) check: show ONENavigationShell on iOS 26+
+//      and fall back to SpiritualInboxView on earlier OS versions.
+//   2. Ensure DeepLinkRouter.navigate(to:) still routes .conversation to selectedTab = 2
+//      so existing deep links land in the right place.
+//   3. Remove this TODO once the wiring is confirmed working in Phase 1 QA.
 @available(iOS 26.0, *)
 struct ONENavigationShell: View {
     @State private var selectedZone: ONE.Zone = .moments
@@ -100,7 +110,7 @@ struct ONEGlassDock: View {
                 Text(zone.label)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
             }
-            .foregroundStyle(isSelected ? AmenTheme.Colors.amenGold : Color.secondary)
+            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
         }
@@ -125,7 +135,7 @@ struct ONEPeopleZonePlaceholder: View {
         VStack(spacing: ONE.Spacing.md) {
             Image(systemName: "person.2.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(AmenTheme.Colors.amenGold.opacity(0.5))
+                .foregroundStyle(Color.accentColor.opacity(0.5))
             Text("People")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
@@ -147,7 +157,7 @@ struct ONEMomentsZonePlaceholder: View {
         VStack(spacing: ONE.Spacing.md) {
             Image(systemName: "camera.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(AmenTheme.Colors.amenGold.opacity(0.5))
+                .foregroundStyle(Color.accentColor.opacity(0.5))
             Text("Moments")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
@@ -169,7 +179,7 @@ struct ONEWorldZonePlaceholder: View {
         VStack(spacing: ONE.Spacing.md) {
             Image(systemName: "globe")
                 .font(.system(size: 48))
-                .foregroundStyle(AmenTheme.Colors.amenGold.opacity(0.5))
+                .foregroundStyle(Color.accentColor.opacity(0.5))
             Text("World")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)

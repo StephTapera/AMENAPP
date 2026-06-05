@@ -40,7 +40,7 @@ struct ContentCardView: View {
         HStack(spacing: 8) {
             Image(systemName: card.sourceType.icon)
                 .font(.subheadline)
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             Text(card.title)
                 .font(.headline)
                 .lineLimit(2)
@@ -107,7 +107,7 @@ private struct CardActionButton: View {
                 Image(systemName: icon).font(.caption)
                 Text(label).font(.caption)
             }
-            .foregroundStyle(Color.amenGold)
+            .foregroundStyle(Color.accentColor)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

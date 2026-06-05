@@ -796,10 +796,10 @@ struct AMENDiscoveryView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Trending in AMEN")
+                    Text("From the Community")
                         .font(AMENFont.semiBold(17))
                         .foregroundStyle(.primary)
-                    Text("Most engaged posts right now")
+                    Text("Recent posts in AMEN")
                         .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
@@ -823,10 +823,10 @@ struct AMENDiscoveryView: View {
                     Image(systemName: "sparkles")
                         .font(.systemScaled(32))
                         .foregroundStyle(.secondary.opacity(0.5))
-                    Text("No trending posts yet")
+                    Text("No posts yet")
                         .font(AMENFont.medium(14))
                         .foregroundStyle(.secondary)
-                    Text("Check back soon for top ideas from the community")
+                    Text("Check back soon for posts from the community")
                         .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary.opacity(0.7))
                         .multilineTextAlignment(.center)
@@ -1634,14 +1634,7 @@ struct DiscoveryTrendCard: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 6) {
-                        if trend.trendScore >= 70 {
-                            Text("Trending")
-                                .font(AMENFont.semiBold(10))
-                                .foregroundStyle(.orange)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(Capsule().fill(Color.orange.opacity(0.1)))
-                        }
+                        // No engagement-count badge shown per product invariant
                     }
 
                     Text(trend.title)
@@ -2813,20 +2806,7 @@ struct AmenPremiumTopicGridCard: View {
                     )
                 }
 
-                // Trending badge top-left
-                if topic.isTrending {
-                    Text("Trending")
-                        .font(.systemScaled(9, weight: .bold))
-                        .foregroundColor(.white)
-                        .tracking(0.5)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule()
-                                .fill(Color.orange.opacity(0.9))
-                        )
-                        .padding(10)
-                }
+                // No engagement badge shown per product invariant
 
                 // Bookmark + heart buttons top-right
                 VStack(alignment: .trailing, spacing: 6) {

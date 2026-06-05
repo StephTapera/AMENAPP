@@ -227,10 +227,10 @@ private enum DigestFilter: String, CaseIterable, Identifiable {
 
     var tint: Color {
         switch self {
-        case .all:      return .amenGold
+        case .all:      return .accentColor
         case .verse:    return .amenPurple
         case .prayer:   return .amenBlue
-        case .events:   return .amenGold
+        case .events:   return .accentColor
         case .mentions: return .amenSlate
         }
     }
@@ -270,7 +270,7 @@ private extension DigestItemType {
         case .prayerReminder:
             return .amenBlue
         case .eventToday, .birthday, .spaceUpdate:
-            return .amenGold
+            return .accentColor
         case .mention:
             return .amenSlate
         }

@@ -195,7 +195,7 @@ struct AmenJourneySelectionView: View {
                     Capsule()
                         .fill(
                             primaryStage != nil
-                                ? (primaryStage?.color ?? Color.amenGold)
+                                ? (primaryStage?.color ?? Color.accentColor)
                                 : Color.amenSlate.opacity(0.35)
                         )
                 )
@@ -450,13 +450,13 @@ struct AmenJourneyPrivateGrowthView: View {
         VStack(spacing: 12) {
             Image(systemName: "map.fill")
                 .font(.system(size: 32))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             Text("You haven't set your journey yet.")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Color.amenBlack)
             Button("Set My Journey") { showJourneyPicker = true }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.amenGoldText)
+                .foregroundStyle(Color(.label))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
@@ -685,7 +685,7 @@ private struct GrowthAreaCard: View {
     }
 
     private var tintColor: Color {
-        isStrength ? Color.amenGold : Color.amenBlue
+        isStrength ? Color.accentColor : Color.amenBlue
     }
 
     var body: some View {

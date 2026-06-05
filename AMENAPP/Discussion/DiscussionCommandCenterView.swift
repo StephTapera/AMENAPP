@@ -66,9 +66,9 @@ struct DiscussionCommandCenterView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: "#0A0A0F").ignoresSafeArea()
+                Color(.systemGroupedBackground).ignoresSafeArea()
                 if vm.isLoading {
-                    ProgressView().tint(Color(hex: "#C9A84C"))
+                    ProgressView().tint(Color.accentColor)
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 20) {
@@ -88,7 +88,7 @@ struct DiscussionCommandCenterView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color(hex: "#C9A84C"))
+                    Button("Done") { dismiss() }.foregroundStyle(Color.accentColor)
                 }
             }
         }
@@ -120,7 +120,7 @@ struct DiscussionCommandCenterView: View {
 
     private func statCell(icon: String, value: Int, label: String) -> some View {
         VStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 20)).foregroundStyle(Color(hex: "#C9A84C"))
+            Image(systemName: icon).font(.system(size: 20)).foregroundStyle(Color.accentColor)
             Text("\(value)").font(.system(size: 22, weight: .bold)).foregroundStyle(Color.white)
             Text(label).font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.5))
         }
@@ -134,9 +134,9 @@ struct DiscussionCommandCenterView: View {
             Text("TOP TOPICS").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.white.opacity(0.35)).kerning(1.2)
             CommandCenterFlowLayout(spacing: 6) {
                 ForEach(keywords, id: \.self) { kw in
-                    Text(kw).font(.system(size: 11, weight: .medium)).foregroundStyle(Color(hex: "#C9A84C"))
+                    Text(kw).font(.system(size: 11, weight: .medium)).foregroundStyle(Color.accentColor)
                         .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(Color(hex: "#C9A84C").opacity(0.12), in: Capsule())
+                        .background(Color.accentColor.opacity(0.12), in: Capsule())
                 }
             }
         }
@@ -167,7 +167,7 @@ struct DiscussionCommandCenterView: View {
                     Spacer()
                 }
                 Slider(value: $vm.slowModeSeconds, in: 10...300, step: 10)
-                    .tint(Color(hex: "#C9A84C"))
+                    .tint(Color.accentColor)
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.ultraThinMaterial))
@@ -180,7 +180,7 @@ struct DiscussionCommandCenterView: View {
                         .font(.system(size: 14, weight: .medium))
                     Spacer()
                 }
-                .foregroundStyle(vm.isLocked ? .red : Color(hex: "#C9A84C"))
+                .foregroundStyle(vm.isLocked ? .red : Color.accentColor)
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.ultraThinMaterial))
             }

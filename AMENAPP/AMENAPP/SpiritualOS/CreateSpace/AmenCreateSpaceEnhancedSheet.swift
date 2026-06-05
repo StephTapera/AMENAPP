@@ -26,7 +26,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Body
 
     var body: some View {
-        GlassSheet(title: "Create Space", tint: .amenGold, showDismissButton: true, onDismiss: onDismiss) {
+        GlassSheet(title: "Create Space", tint: .accentColor, showDismissButton: true, onDismiss: onDismiss) {
             ScrollView {
                 VStack(spacing: 20) {
                     nameDescriptionSection
@@ -60,7 +60,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Section: Name & Description
 
     private var nameDescriptionSection: some View {
-        GlassCard(tint: .amenGold) {
+        GlassCard(tint: .accentColor) {
             VStack(spacing: 0) {
                 TextField("Space name…", text: $viewModel.spaceName)
                     .font(.system(size: 15))
@@ -98,7 +98,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Section: Cover Photo
 
     private var coverPhotoSection: some View {
-        GlassCard(tint: .amenGold) {
+        GlassCard(tint: .accentColor) {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -120,7 +120,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
                 GlassChip(
                     label: "Add cover",
                     icon: "plus",
-                    tint: .amenGold,
+                    tint: .accentColor,
                     size: .compact,
                     isActive: false,
                     action: { showingImagePicker = true }
@@ -134,7 +134,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Section: Members
 
     private var membersSection: some View {
-        GlassCard(tint: .amenGold) {
+        GlassCard(tint: .accentColor) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Members")
                     .font(.subheadline.weight(.semibold))
@@ -148,14 +148,14 @@ struct AmenCreateSpaceEnhancedSheet: View {
                         VStack(spacing: 6) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.amenGold.opacity(0.12))
+                                    .fill(Color.accentColor.opacity(0.12))
                                     .frame(width: 44, height: 44)
                                     .overlay(
-                                        Circle().strokeBorder(Color.amenGold.opacity(0.35), lineWidth: 1.5)
+                                        Circle().strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1.5)
                                     )
                                 Image(systemName: "person.badge.plus")
                                     .font(.system(size: 16))
-                                    .foregroundStyle(Color.amenGold)
+                                    .foregroundStyle(Color.accentColor)
                             }
                             Text("Add")
                                 .font(.system(size: 11))
@@ -212,7 +212,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
             let isLeaderOrPastor = (member.role == .leader || member.role == .pastor)
             GlassChip(
                 label: member.role.displayLabel,
-                tint: isLeaderOrPastor ? .amenGold : .amenSlate,
+                tint: isLeaderOrPastor ? .accentColor : .amenSlate,
                 size: .compact,
                 isActive: true,
                 action: { memberPresentingRolePicker = member.id }
@@ -243,13 +243,13 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Section: Privacy
 
     private var privacySection: some View {
-        GlassCard(tint: .amenGold) {
+        GlassCard(tint: .accentColor) {
             VStack(spacing: 0) {
                 // Private Space toggle
                 HStack(spacing: 12) {
                     Image(systemName: "lock.fill")
                         .font(.body)
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .frame(width: 24)
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -265,7 +265,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
 
                     Toggle("", isOn: $viewModel.isPrivate)
                         .labelsHidden()
-                        .tint(.amenGold)
+                        .tint(.accentColor)
                         .accessibilityLabel("Make this space private")
                 }
                 .padding(16)
@@ -308,7 +308,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Section: Features
 
     private var featuresSection: some View {
-        GlassCard(tint: .amenGold) {
+        GlassCard(tint: .accentColor) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Features")
                     .font(.subheadline.weight(.semibold))
@@ -412,7 +412,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
         GlassChip(
             label: label,
             icon: icon,
-            tint: .amenGold,
+            tint: .accentColor,
             size: .regular,
             isActive: isActive,
             action: action
@@ -444,7 +444,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 50)
-            .background(Color.amenGold)
+            .background(Color.accentColor)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .disabled(!viewModel.isValid || viewModel.isSubmitting)

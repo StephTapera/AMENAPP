@@ -19,9 +19,9 @@ struct VergeRoomSummaryView: View {
     @State private var shareText        = ""
 
     private let bg         = Color(hex: "0A0A0F")
-    private let amenPurple = Color(hex: "6B48FF")
+    private let Color.accentColor = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let amenGold   = Color(hex: "F59E0B")
+    private let Color.accentColor   = Color(hex: "F59E0B")
     private let vergeGradient = LinearGradient(
         colors: [Color(hex: "06B6D4"), Color(hex: "6B48FF")],
         startPoint: .topLeading,
@@ -210,7 +210,7 @@ struct VergeRoomSummaryView: View {
             sectionLabel("Earnings Breakdown")
 
             VStack(spacing: 0) {
-                earningsRow(label: "Ticket Revenue",   value: "$0.00", icon: "ticket.fill",       color: amenGold)
+                earningsRow(label: "Ticket Revenue",   value: "$0.00", icon: "ticket.fill",       color: Color.accentColor)
                 Divider().background(Color.white.opacity(0.06))
                 earningsRow(label: "Tips Received",    value: "$0.00", icon: "gift.fill",         color: amenViolet)
                 Divider().background(Color.white.opacity(0.06))
@@ -235,7 +235,7 @@ struct VergeRoomSummaryView: View {
             Spacer()
             Text(value)
                 .font(bold ? AMENFont.bold(16) : AMENFont.semiBold(14))
-                .foregroundStyle(bold ? amenGold : .white.opacity(0.65))
+                .foregroundStyle(bold ? Color.accentColor : .white.opacity(0.65))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
@@ -262,7 +262,7 @@ struct VergeRoomSummaryView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(vergeGradient)
-                        .shadow(color: amenPurple.opacity(0.35), radius: 12, y: 4)
+                        .shadow(color: Color.accentColor.opacity(0.35), radius: 12, y: 4)
                 )
             }
             .buttonStyle(CoCreationPressStyle())

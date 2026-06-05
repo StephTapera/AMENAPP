@@ -70,7 +70,8 @@ struct PrePublishSafetyGate: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(Color.amenGold, in: RoundedRectangle(cornerRadius: 12))
+                    // PURGED: Color.amenGold → Color.accentColor per C3 design contract
+                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
         }

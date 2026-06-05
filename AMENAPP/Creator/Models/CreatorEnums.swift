@@ -3,7 +3,6 @@ import Foundation
 enum CreatorProjectType: String, Codable, CaseIterable {
     case videoClip
     case flyer
-    case storyPack
     case testimonyPack
     case sermonSnippet
     case eventPromo
@@ -44,12 +43,10 @@ enum CreatorAspectRatio: String, Codable, CaseIterable {
     case square
     case portrait
     case landscape
-    case story
 }
 
 enum CreatorOutputVariant: String, Codable, CaseIterable {
     case feedSquare
-    case storyVertical
     case reelVertical
     case flyerImage
     case quoteCard

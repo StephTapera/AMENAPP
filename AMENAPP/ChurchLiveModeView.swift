@@ -20,6 +20,7 @@ import Foundation
 import Combine
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Models
 
@@ -139,9 +140,17 @@ class ChurchLiveModeViewModel: ObservableObject {
         prayerQueue[index].isAddressed = true
     }
 
-    func flagMessage(id: String) {
-        // TODO: Send flag report to moderation service
+    func flagMessage(id: String, churchId: String) {
         chatMessages.removeAll { $0.id == id }
+        Task {
+            try? await Functions.functions(region: "us-central1")
+                .httpsCallable("flagLiveContent")
+                .call([
+                    "churchId": churchId,
+                    "reason": "live_flag",
+                    "uid": Auth.auth().currentUser?.uid ?? ""
+                ])
+        }
     }
 
     // MARK: Helpers
@@ -486,7 +495,7 @@ struct ChurchLiveModeView: View {
                                 .contextMenu {
                                     if isAdmin {
                                         Button(role: .destructive) {
-                                            vm.flagMessage(id: msg.id)
+                                            vm.flagMessage(id: msg.id, churchId: churchName)
                                         } label: {
                                             Label("Flag & Remove", systemImage: "flag.fill")
                                         }

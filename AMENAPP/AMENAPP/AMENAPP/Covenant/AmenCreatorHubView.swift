@@ -29,12 +29,6 @@ struct AmenCreatorHubView: View {
                         .padding(.top, 12)
                         .padding(.bottom, 8)
 
-                    // 3. Story rings
-                    if !hubVM.stories.isEmpty {
-                        storyRingsSection
-                            .padding(.vertical, 12)
-                    }
-
                     Divider()
                         .padding(.horizontal, 20)
                         .padding(.top, 4)
@@ -324,19 +318,6 @@ struct AmenCreatorHubView: View {
             .background(Capsule().fill(color.opacity(0.12)))
     }
 
-    // MARK: - Story Rings Section
-
-    private var storyRingsSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                ForEach(hubVM.stories.prefix(8)) { story in
-                    HubStoryRing(story: story)
-                }
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-
     // MARK: - Home Tab
 
     private var homeTab: some View {
@@ -517,39 +498,6 @@ private struct CovenantHubTabRail: View {
             }
             .padding(.horizontal, 8)
         }
-    }
-}
-
-// MARK: - Hub Story Ring
-
-private struct HubStoryRing: View {
-    let story: AmenCreatorHubViewModel.HubStoryItem
-
-    var body: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                Circle()
-                    .stroke(
-                        story.isUnread
-                            ? LinearGradient(colors: [.purple, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
-                            : LinearGradient(colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                        lineWidth: 2
-                    )
-                    .frame(width: 56, height: 56)
-
-                Text(story.creatorInitial)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 48, height: 48)
-                    .background(Circle().fill(Color.purple.opacity(story.isUnread ? 0.7 : 0.3)))
-            }
-
-            Text("Story")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .accessibilityLabel("\(story.creatorInitial) story\(story.isUnread ? ", unread" : "")")
     }
 }
 
@@ -865,13 +813,6 @@ final class AmenCreatorHubViewModel: ObservableObject {
     @Published var selectedTab: Int = 0
     @Published var showPaywall: Bool = false
     @Published var showStartHere: Bool = false
-    @Published var stories: [HubStoryItem] = []
-
-    struct HubStoryItem: Identifiable {
-        let id: String
-        let creatorInitial: String
-        let isUnread: Bool
-    }
 
     private let db = Firestore.firestore()
 
@@ -881,12 +822,6 @@ final class AmenCreatorHubViewModel: ObservableObject {
         do {
             let doc = try await db.collection("covenants").document(covenantId).getDocument()
             covenant = try? doc.data(as: Covenant.self)
-
-            // Seed placeholder stories using creator name initial
-            let initial = covenant?.name.first.map(String.init) ?? "C"
-            stories = (0..<6).map { i in
-                HubStoryItem(id: "\(covenantId)-story-\(i)", creatorInitial: initial, isUnread: i < 3)
-            }
         } catch {
             // Non-fatal: covenant stays nil, view shows skeleton
         }

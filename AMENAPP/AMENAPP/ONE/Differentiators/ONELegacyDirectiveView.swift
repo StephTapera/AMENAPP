@@ -70,7 +70,7 @@ struct ONELegacyDirectiveView: View {
                 showAddTrustee = true
             } label: {
                 Label("Add Trustee", systemImage: "person.badge.plus")
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                    .foregroundStyle(Color.accentColor)
             }
             .accessibilityLabel("Add a trustee to your legacy directive")
         } header: {
@@ -122,7 +122,7 @@ struct ONELegacyDirectiveView: View {
                 showAddBequest = true
             } label: {
                 Label("Add Bequest", systemImage: "gift.fill")
-                    .foregroundStyle(AmenTheme.Colors.amenGold)
+                    .foregroundStyle(Color.accentColor)
             }
             .disabled(directive.trustees.isEmpty)
             .accessibilityLabel("Add a vault item bequest")

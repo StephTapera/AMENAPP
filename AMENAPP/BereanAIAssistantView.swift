@@ -10,6 +10,7 @@ import Foundation
 import Combine
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 import UserNotifications
 
 /// Berean AI Assistant - Your intelligent Bible study companion
@@ -171,6 +172,11 @@ struct BereanAIAssistantView: View {
     @State private var showPlusMenu = false
     @State private var showImagePicker = false
     @State private var selectedImage: UIImage?
+
+    // Toolbar action sheets (attach file / camera / verse lookup)
+    @State private var fileAttachmentPickerPresented = false
+    @State private var showCamera = false
+    @State private var showVerseLookup = false
 
     // Sermon Snap
     @State private var snapDraft: ChurchNote?
@@ -726,6 +732,21 @@ struct BereanAIAssistantView: View {
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showProjectsSheet) { BereanProjectsView() }
+        .sheet(isPresented: $fileAttachmentPickerPresented) {
+            Text("Document picker coming soon")
+                .padding()
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showCamera) {
+            Text("Camera capture coming soon")
+                .padding()
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showVerseLookup) {
+            Text("Verse lookup coming soon")
+                .padding()
+                .presentationDetents([.medium])
+        }
         // ✅ CONSOLIDATED MODAL PRESENTATIONS (prevents "only presenting a single sheet" warnings)
         .sheet(item: $activeModal) { modal in
             switch modal {
@@ -2251,32 +2272,35 @@ struct BereanAIAssistantView: View {
         
         switch action {
         case .attachFile:
-            // TODO: Implement file attachment
-            #if DEBUG
-            dlog("📎 Attach file action")
-            #endif
+            fileAttachmentPickerPresented = true
         case .camera:
-            // TODO: Implement camera
-            #if DEBUG
-            dlog("📷 Camera action")
-            #endif
+            showCamera = true
         case .voiceNote:
             handleVoiceButtonTap()
         case .verseLookup:
-            // TODO: Implement verse lookup
-            #if DEBUG
-            dlog("📖 Verse lookup action")
-            #endif
+            showVerseLookup = true
         case .summarize:
-            // TODO: Implement summarize
-            #if DEBUG
-            dlog("✨ Summarize action")
-            #endif
+            let textToSummarize = messageText
+            guard !textToSummarize.isEmpty else { return }
+            Task {
+                let fn = Functions.functions(region: "us-central1").httpsCallable("bereanSummarize")
+                if let result = try? await fn.call(["text": textToSummarize]),
+                   let summary = (result.data as? [String: Any])?["summary"] as? String {
+                    let response = BereanMessage(content: summary, role: .assistant, timestamp: Date())
+                    await MainActor.run { viewModel.appendMessage(response) }
+                }
+            }
         case .searchScripture:
-            // TODO: Implement scripture search
-            #if DEBUG
-            dlog("🔍 Search scripture action")
-            #endif
+            let query = messageText
+            guard !query.isEmpty else { return }
+            Task {
+                let fn = Functions.functions(region: "us-central1").httpsCallable("bereanScriptureSearch")
+                if let result = try? await fn.call(["query": query]),
+                   let answer = (result.data as? [String: Any])?["results"] as? String {
+                    let response = BereanMessage(content: answer, role: .assistant, timestamp: Date())
+                    await MainActor.run { viewModel.appendMessage(response) }
+                }
+            }
         }
     }
     

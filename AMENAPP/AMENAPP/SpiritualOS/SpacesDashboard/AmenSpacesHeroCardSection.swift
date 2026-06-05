@@ -4,7 +4,9 @@
 // Updated 2026-06-03 — migrated to @Observable ViewModel; real Firestore data.
 
 import SwiftUI
+import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import Foundation
 
 // MARK: - Relative date formatter (file-private)
@@ -59,16 +61,8 @@ private struct HeroParallaxImage: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Gradient fallback (always present)
-                LinearGradient(
-                    stops: [
-                        .init(color: Color(hex: "6E4BB5").opacity(0.85), location: 0.0),
-                        .init(color: Color(hex: "245B8F").opacity(0.75), location: 0.45),
-                        .init(color: Color(hex: "070607"),               location: 1.0)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                // Fallback background (always present)
+                Color(.systemGroupedBackground)
 
                 // Banner image with optional parallax offset
                 if let urlString = bannerURL, let url = URL(string: urlString) {
@@ -86,7 +80,7 @@ private struct HeroParallaxImage: View {
 
                 // Bottom scrim for readability
                 LinearGradient(
-                    colors: [Color.clear, Color(hex: "070607").opacity(0.82)],
+                    colors: [Color.clear, Color(.systemBackground).opacity(0.82)],
                     startPoint: .center,
                     endPoint: .bottom
                 )
@@ -564,7 +558,7 @@ private struct PrayTogetherPlaceholderSheet: View {
                     VStack(spacing: 16) {
                         Image(systemName: "hands.sparkles.fill")
                             .font(.system(size: 44))
-                            .foregroundStyle(Color.amenGold)
+                            .foregroundStyle(Color.accentColor)
                         Text("Prayer Submitted")
                             .font(.title2.weight(.bold))
                         Text("Your prayer has been added for this space.")
@@ -629,25 +623,117 @@ private struct PrayTogetherPlaceholderSheet: View {
 private struct SchedulePlaceholderSheet: View {
     let spaceId: String
     @Environment(\.dismiss) private var dismiss
+    @State private var eventTitle = ""
+    @State private var eventDate = Date().addingTimeInterval(86400)
+    @State private var eventNote = ""
+    @State private var isSubmitting = false
+    @State private var submitted = false
+    private let db = Firestore.firestore()
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "calendar.badge.plus")
-                    .font(.largeTitle)
-                    .foregroundStyle(Color.amenBlue)
-                Text("Schedule an Event")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(Color.amenBlack)
-                Text("Space event scheduling is coming in a future phase.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.amenSlate)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+            Form {
+                if submitted {
+                    Section {
+                        Label("Event scheduled!", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                } else {
+                    Section("Event Details") {
+                        TextField("Event title", text: $eventTitle)
+                        DatePicker("Date & Time", selection: $eventDate, displayedComponents: [.date, .hourAndMinute])
+                    }
+                    Section("Notes (optional)") {
+                        TextEditor(text: $eventNote)
+                            .frame(minHeight: 60)
+                    }
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.amenCream.ignoresSafeArea())
-            .navigationTitle("Schedule")
+            .navigationTitle("Schedule Event")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if !submitted {
+                        Button(isSubmitting ? "Saving…" : "Save") { scheduleEvent() }
+                            .disabled(eventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func scheduleEvent() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isSubmitting = true
+        var data: [String: Any] = [
+            "title": eventTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+            "scheduledAt": Timestamp(date: eventDate),
+            "createdBy": uid,
+            "spaceId": spaceId,
+            "createdAt": Timestamp(date: Date())
+        ]
+        if !eventNote.isEmpty { data["note"] = eventNote }
+        db.collection("spaces").document(spaceId).collection("events").addDocument(data: data) { _ in
+            isSubmitting = false
+            submitted = true
+        }
+    }
+}
+
+private struct SpaceNoteEntry: Identifiable {
+    let id: String
+    let text: String
+    let authorUID: String
+    let createdAt: Date
+}
+
+private struct OpenNotesPlaceholderSheet: View {
+    let spaceId: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var notes: [SpaceNoteEntry] = []
+    @State private var newNoteText = ""
+    @State private var isLoading = true
+    @State private var isSaving = false
+    private let db = Firestore.firestore()
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                if isLoading {
+                    ProgressView().padding(.top, 40)
+                    Spacer()
+                } else if notes.isEmpty {
+                    ContentUnavailableView("No notes yet", systemImage: "doc.text", description: Text("Be the first to add a note for this space."))
+                    Spacer()
+                } else {
+                    List(notes) { note in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(note.text)
+                                .font(.subheadline)
+                            Text(note.createdAt.formatted(.relative(presentation: .named)))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+
+                HStack(spacing: 10) {
+                    TextField("Add a note…", text: $newNoteText)
+                        .textFieldStyle(.roundedBorder)
+                    Button(action: saveNote) {
+                        if isSaving { ProgressView() } else { Image(systemName: "arrow.up.circle.fill").font(.title2) }
+                    }
+                    .disabled(newNoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
+                }
+                .padding()
+                .background(.regularMaterial)
+            }
+            .navigationTitle("Space Notes")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -655,37 +741,35 @@ private struct SchedulePlaceholderSheet: View {
                 }
             }
         }
+        .task { await loadNotes() }
+        .presentationDetents([.medium, .large])
     }
-}
 
-private struct OpenNotesPlaceholderSheet: View {
-    let spaceId: String
-    @Environment(\.dismiss) private var dismiss
+    private func loadNotes() async {
+        isLoading = true
+        let snap = try? await db.collection("spaces").document(spaceId).collection("notes")
+            .order(by: "createdAt", descending: true).limit(to: 40).getDocuments()
+        notes = snap?.documents.compactMap { doc -> SpaceNoteEntry? in
+            let d = doc.data()
+            guard let text = d["text"] as? String,
+                  let uid = d["authorUID"] as? String,
+                  let ts = d["createdAt"] as? Timestamp else { return nil }
+            return SpaceNoteEntry(id: doc.documentID, text: text, authorUID: uid, createdAt: ts.dateValue())
+        } ?? []
+        isLoading = false
+    }
 
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "doc.text")
-                    .font(.largeTitle)
-                    .foregroundStyle(Color.amenBlue)
-                Text("Space Notes")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(Color.amenBlack)
-                Text("Shared study notes for this space are coming in a future phase.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.amenSlate)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.amenCream.ignoresSafeArea())
-            .navigationTitle("Open Notes")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
-            }
+    private func saveNote() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let text = newNoteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        isSaving = true
+        db.collection("spaces").document(spaceId).collection("notes").addDocument(data: [
+            "text": text, "authorUID": uid, "createdAt": Timestamp(date: Date())
+        ]) { _ in
+            newNoteText = ""
+            isSaving = false
+            Task { await loadNotes() }
         }
     }
 }
@@ -693,24 +777,52 @@ private struct OpenNotesPlaceholderSheet: View {
 private struct AskBereanPlaceholderSheet: View {
     let spaceId: String
     @Environment(\.dismiss) private var dismiss
+    @State private var question = ""
+    @State private var answer = ""
+    @State private var isAsking = false
+    private let functions = Functions.functions()
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "sparkles")
-                    .font(.largeTitle)
-                    .foregroundStyle(Color.amenPurple)
-                Text("Ask Berean")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(Color.amenBlack)
-                Text("Berean AI study assistance for this space is coming in a future phase.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.amenSlate)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(Color.amenPurple)
+                    Text("Ask a Bible study question about this space's topic.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
+
+                TextField("Your question…", text: $question, axis: .vertical)
+                    .lineLimit(3...5)
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal)
+
+                Button(action: askBerean) {
+                    Group {
+                        if isAsking { ProgressView() } else { Text("Ask Berean") }
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 48)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.amenPurple)
+                .disabled(question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isAsking)
+                .padding(.horizontal)
+
+                if !answer.isEmpty {
+                    ScrollView {
+                        Text(answer)
+                            .font(.subheadline)
+                            .padding()
+                    }
+                    .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                }
+
+                Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.amenCream.ignoresSafeArea())
+            .padding(.top, 16)
             .navigationTitle("Ask Berean")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -718,6 +830,87 @@ private struct AskBereanPlaceholderSheet: View {
                     Button("Close") { dismiss() }
                 }
             }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func askBerean() {
+        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        isAsking = true
+        answer = ""
+        Task {
+            do {
+                let callable = functions.httpsCallable("bereanQuestion")
+                let result = try await callable.call(["question": q, "spaceId": spaceId])
+                let data = result.data as? [String: Any] ?? [:]
+                answer = (data["answer"] as? String) ?? "No answer returned."
+            } catch {
+                answer = "Could not reach Berean AI. Please try again."
+            }
+            isAsking = false
+        }
+    }
+}
+
+private struct SpaceDiscussionSheet: View {
+    let spaceId: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var topic = ""
+    @State private var body_ = ""
+    @State private var isSubmitting = false
+    @State private var submitted = false
+    private let db = Firestore.firestore()
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if submitted {
+                    Section {
+                        Label("Discussion started!", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                } else {
+                    Section("Topic") {
+                        TextField("What would you like to discuss?", text: $topic)
+                    }
+                    Section("Opening post") {
+                        TextEditor(text: $body_)
+                            .frame(minHeight: 80)
+                    }
+                }
+            }
+            .navigationTitle("Start Discussion")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if !submitted {
+                        Button(isSubmitting ? "Posting…" : "Post") { startDiscussion() }
+                            .disabled(topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
+                    } else {
+                        Button("Done") { dismiss() }
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func startDiscussion() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isSubmitting = true
+        db.collection("spaces").document(spaceId).collection("discussions").addDocument(data: [
+            "title": topic.trimmingCharacters(in: .whitespacesAndNewlines),
+            "body": body_.trimmingCharacters(in: .whitespacesAndNewlines),
+            "authorUid": uid,
+            "createdAt": Timestamp(date: Date()),
+            "spaceId": spaceId
+        ]) { _ in
+            isSubmitting = false
+            submitted = true
         }
     }
 }

@@ -14,8 +14,8 @@ import MapKit
 // MARK: - Feature flags
 
 private extension AmenChurchHubView {
-    var hubEnabled: Bool { _hubEnabled.wrappedValue }
-    var liveEnabled: Bool { _liveEnabled.wrappedValue }
+    var hubEnabled: Bool { _hubEnabled }
+    var liveEnabled: Bool { _liveEnabled }
 }
 
 // MARK: - AmenChurchHubView
@@ -118,16 +118,8 @@ struct AmenChurchHubView: View {
             GeometryReader { geo in
                 let parallaxOffset = geo.frame(in: .global).minY
                 ZStack {
-                    // Gradient fallback (always present behind image)
-                    LinearGradient(
-                        stops: [
-                            .init(color: Color(hex: "1A0A2E"), location: 0.0),
-                            .init(color: Color(hex: "0D2540"), location: 0.5),
-                            .init(color: Color(hex: "070607"), location: 1.0)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    // Fallback background (always present behind image)
+                    Color(.systemGroupedBackground)
 
                     if let urlString = viewModel.church?.heroImageURL,
                        let url = URL(string: urlString) {
@@ -143,9 +135,9 @@ struct AmenChurchHubView: View {
                         }
                     }
 
-                    // Bottom gradient scrim
+                    // Bottom scrim for readability
                     LinearGradient(
-                        colors: [Color.clear, Color.black.opacity(0.75)],
+                        colors: [Color.clear, Color(.systemBackground).opacity(0.75)],
                         startPoint: .center,
                         endPoint: .bottom
                     )
@@ -169,7 +161,7 @@ struct AmenChurchHubView: View {
     }
 
     @ViewBuilder
-    private func heroInfoBlock(church: ChurchProfile) -> some View {
+    private func heroInfoBlock(church: ChurchHubProfile) -> some View {
         // Church name + denomination
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
@@ -181,7 +173,7 @@ struct AmenChurchHubView: View {
                 if church.verifiedMinistry {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityLabel("Verified ministry")
                 }
             }
@@ -204,7 +196,7 @@ struct AmenChurchHubView: View {
                 heroPill(
                     label: viewModel.isFollowing ? "Following" : "Follow",
                     icon: viewModel.isFollowing ? "checkmark" : "plus",
-                    tint: viewModel.isFollowing ? Color.amenGold : Color.white
+                    tint: viewModel.isFollowing ? Color.accentColor : Color.white
                 ) {
                     Task { await viewModel.toggleFollow() }
                 }
@@ -252,7 +244,7 @@ struct AmenChurchHubView: View {
 
     private var heroLoadingPlaceholder: some View {
         ProgressView()
-            .tint(Color.amenGold)
+            .tint(Color.accentColor)
             .frame(height: 80)
             .accessibilityHidden(true)
     }
@@ -658,14 +650,14 @@ struct AmenChurchHubView: View {
                             CachedAsyncImage(url: url, size: CGSize(width: 100, height: 100)) { image in
                                 image.resizable().scaledToFill()
                             } placeholder: {
-                                Color(hex: "6E4BB5").opacity(0.15)
+                                Color(.secondarySystemBackground)
                             }
                         } else {
                             ZStack {
-                                Color(hex: "6E4BB5").opacity(0.15)
+                                Color(.secondarySystemBackground)
                                 Image(systemName: "building.columns.fill")
                                     .font(.system(size: 22))
-                                    .foregroundStyle(Color.amenPurple)
+                                    .foregroundStyle(Color(.secondaryLabel))
                             }
                         }
                     }
@@ -847,7 +839,7 @@ private struct SermonFeaturedCard: View {
 
                 // Gradient scrim
                 LinearGradient(
-                    colors: [Color.clear, Color.black.opacity(0.72)],
+                    colors: [Color.clear, Color(.systemBackground).opacity(0.72)],
                     startPoint: .center,
                     endPoint: .bottom
                 )
@@ -857,7 +849,7 @@ private struct SermonFeaturedCard: View {
                         Text(series.uppercased())
                             .font(.system(size: 10, weight: .bold))
                             .kerning(0.8)
-                            .foregroundStyle(Color.amenGold)
+                            .foregroundStyle(Color.accentColor)
                     }
                     Text(sermon.title)
                         .font(.system(size: 15, weight: .bold))
@@ -919,7 +911,7 @@ private struct SermonSmallCard: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.black.opacity(0.60)))
+                        .background(Capsule().fill(Color(.secondarySystemBackground).opacity(0.82)))
                         .padding(6)
                 }
 
@@ -963,18 +955,10 @@ private struct ChurchEventCard: View {
                         CachedAsyncImage(url: url, size: CGSize(width: 320, height: 240)) { image in
                             image.resizable().scaledToFill()
                         } placeholder: {
-                            LinearGradient(
-                                colors: [Color(hex: "245B8F"), Color(hex: "1A3A5C")],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                            Color(.secondarySystemBackground)
                         }
                     } else {
-                        LinearGradient(
-                            colors: [Color(hex: "245B8F"), Color(hex: "1A3A5C")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                        Color(.secondarySystemBackground)
                     }
                 }
                 .frame(width: 160, height: 120)
@@ -984,21 +968,21 @@ private struct ChurchEventCard: View {
                 VStack(spacing: 0) {
                     Text(dayString)
                         .font(.system(size: 14, weight: .black))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(.label))
                     Text(monthString.uppercased())
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.80))
+                        .foregroundStyle(Color(.secondaryLabel))
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(Color.black.opacity(0.60)))
+                .background(Capsule().fill(Color(.systemGroupedBackground).opacity(0.90)))
                 .padding(8)
 
                 // Bottom overlay with title + RSVP count
                 VStack {
                     Spacer()
                     LinearGradient(
-                        colors: [Color.clear, Color.black.opacity(0.68)],
+                        colors: [Color.clear, Color(.systemBackground).opacity(0.68)],
                         startPoint: .center,
                         endPoint: .bottom
                     )
@@ -1049,27 +1033,19 @@ private struct ChurchSmallGroupCard: View {
                     CachedAsyncImage(url: url, size: CGSize(width: 320, height: 180)) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
-                        LinearGradient(
-                            colors: [Color(hex: "6E4BB5").opacity(0.6), Color(hex: "4A2080").opacity(0.8)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                        Color(.secondarySystemBackground)
                         .overlay(
                             Image(systemName: "person.3.fill")
                                 .font(.system(size: 22))
-                                .foregroundStyle(Color.white.opacity(0.5))
+                                .foregroundStyle(Color(.tertiaryLabel))
                         )
                     }
                 } else {
-                    LinearGradient(
-                        colors: [Color(hex: "6E4BB5").opacity(0.6), Color(hex: "4A2080").opacity(0.8)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    Color(.secondarySystemBackground)
                     .overlay(
                         Image(systemName: "person.3.fill")
                             .font(.system(size: 22))
-                            .foregroundStyle(Color.white.opacity(0.5))
+                            .foregroundStyle(Color(.tertiaryLabel))
                     )
                 }
             }
@@ -1122,7 +1098,7 @@ private struct PrayerPreviewCard: View {
                 HStack(spacing: 4) {
                     Image(systemName: "hands.sparkles")
                         .font(.system(size: 11))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                     Text("\(prayer.prayerCount) \(prayer.prayerCount == 1 ? "prayer" : "prayers")")
                         .font(.system(size: 12))
                         .foregroundStyle(Color(.secondaryLabel))
@@ -1185,20 +1161,20 @@ private struct MinisterCircleCard: View {
                         image.resizable().scaledToFill()
                     } placeholder: {
                         Circle()
-                            .fill(Color(hex: "6E4BB5").opacity(0.20))
+                            .fill(Color(.secondarySystemBackground))
                             .overlay(
                                 Image(systemName: "person.fill")
                                     .font(.system(size: 28))
-                                    .foregroundStyle(Color.amenPurple.opacity(0.6))
+                                    .foregroundStyle(Color(.secondaryLabel))
                             )
                     }
                 } else {
                     Circle()
-                        .fill(Color(hex: "6E4BB5").opacity(0.20))
+                        .fill(Color(.secondarySystemBackground))
                         .overlay(
                             Image(systemName: "person.fill")
                                 .font(.system(size: 28))
-                                .foregroundStyle(Color.amenPurple.opacity(0.6))
+                                .foregroundStyle(Color(.secondaryLabel))
                         )
                 }
             }
@@ -1245,7 +1221,7 @@ private struct VolunteerCard: View {
                             .overlay(
                                 Image(systemName: "hands.clap.fill")
                                     .font(.system(size: 24))
-                                    .foregroundStyle(Color.amenGold.opacity(0.6))
+                                    .foregroundStyle(Color.accentColor.opacity(0.6))
                             )
                     }
                 } else {
@@ -1253,7 +1229,7 @@ private struct VolunteerCard: View {
                         .overlay(
                             Image(systemName: "hands.clap.fill")
                                 .font(.system(size: 24))
-                                .foregroundStyle(Color.amenGold.opacity(0.6))
+                                .foregroundStyle(Color.accentColor.opacity(0.6))
                         )
                 }
             }
@@ -1287,7 +1263,7 @@ private struct VolunteerCard: View {
                         .foregroundStyle(Color(.label))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.amenGold.opacity(0.15)))
+                        .background(Capsule().fill(Color.accentColor.opacity(0.15)))
                 } else {
                     Text("Full")
                         .font(.system(size: 10, weight: .semibold))
@@ -1334,7 +1310,7 @@ private struct HighlightCard: View {
             // Caption overlay
             if !highlight.caption.isEmpty {
                 LinearGradient(
-                    colors: [Color.clear, Color.black.opacity(0.65)],
+                    colors: [Color.clear, Color(.systemBackground).opacity(0.65)],
                     startPoint: .center,
                     endPoint: .bottom
                 )

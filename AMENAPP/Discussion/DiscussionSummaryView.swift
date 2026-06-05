@@ -13,10 +13,10 @@ struct DiscussionSummaryV2: View {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkle")
                         .font(.system(size: 10))
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                     Text("Berean Summary")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color(hex: "#C9A84C"))
+                        .foregroundStyle(Color.accentColor)
                         .tracking(1)
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
@@ -47,7 +47,7 @@ struct DiscussionSummaryV2: View {
                 .fill(Color.white.opacity(0.06))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color(hex: "#C9A84C").opacity(0.25), lineWidth: 1)
+                        .stroke(Color.accentColor.opacity(0.25), lineWidth: 1)
                 )
         )
     }
