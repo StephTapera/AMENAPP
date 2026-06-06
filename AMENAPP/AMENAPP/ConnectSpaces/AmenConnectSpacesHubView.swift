@@ -103,16 +103,19 @@ private func roomTypeIcon(_ type: AmenConnectSpacesRoomType) -> String {
 
 // MARK: - Tab definitions
 
-private let tabLabels = ["My Spaces", "Discover", "Creator Hub"]
-private let tabIcons  = ["person.3", "safari", "sparkles"]
+private let tabLabels = ["My Spaces", "Discover", "Creator Hub", "Hub"]
+private let tabIcons  = ["person.3", "safari", "sparkles", "tray.full"]
 
 // MARK: - Hub View
 
 struct AmenConnectSpacesHubView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var flags = AMENFeatureFlags.shared
     @State private var showCreateSpace = false
     @State private var selectedTab: Int = 0
+    @State private var showYouMenu: Bool = false
+    @State private var showPresencePicker: Bool = false
 
     private var currentUserId: String {
         Auth.auth().currentUser?.uid ?? ""
@@ -144,6 +147,24 @@ struct AmenConnectSpacesHubView: View {
                     .accessibilityLabel("Open Creator Hub")
                 }
 
+                if flags.connectYouMenuEnabled {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            showYouMenu = true
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color(hex: "6E4BB5").opacity(0.20))
+                                    .frame(width: 30, height: 30)
+                                Text(Auth.auth().currentUser?.displayName?.prefix(1).uppercased() ?? "U")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Color(hex: "6E4BB5"))
+                            }
+                        }
+                        .accessibilityLabel("Your profile and presence")
+                    }
+                }
+
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showCreateSpace = true
@@ -160,6 +181,12 @@ struct AmenConnectSpacesHubView: View {
                     onDismiss: { showCreateSpace = false },
                     onCreated: { _ in showCreateSpace = false }
                 )
+            }
+            .sheet(isPresented: $showYouMenu) {
+                AmenYouMenuSheet(showPresencePicker: $showPresencePicker)
+            }
+            .sheet(isPresented: $showPresencePicker) {
+                AmenSpiritualPresencePickerView()
             }
             .onAppear {
                 Analytics.logEvent("spaces_hub_viewed", parameters: [:])
@@ -220,8 +247,14 @@ struct AmenConnectSpacesHubView: View {
             } else if selectedTab == 1 {
                 AmenSpaceDiscoveryView()
                     .transition(.opacity)
-            } else {
+            } else if selectedTab == 2 {
                 AmenCreatorHubTabView(userId: currentUserId)
+                    .transition(.opacity)
+            } else if flags.connectHubEnabled {
+                AmenHubFeedView(isEmbedded: true)
+                    .transition(.opacity)
+            } else {
+                mySpacesTab
                     .transition(.opacity)
             }
         }

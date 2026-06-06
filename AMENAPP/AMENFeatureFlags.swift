@@ -490,6 +490,10 @@ final class AMENFeatureFlags: ObservableObject {
     /// Default false — enable via Remote Config once prayer Firestore paths are deployed.
     @Published private(set) var communityOSPrayerOSEnabled: Bool = false
 
+    // MARK: - System 38: Connect Hub
+    @Published private(set) var connectHubEnabled: Bool = true
+    @Published private(set) var connectYouMenuEnabled: Bool = true
+
     // MARK: - Cross-cutting
     @Published private(set) var analyticsEnabled: Bool = true
     @Published private(set) var performanceTelemetryEnabled: Bool = true
@@ -650,6 +654,11 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var communityOSActionPillEnabled: Bool = false
     /// Gates the AmenUniversalComposer bottom sheet creation surface.
     @Published private(set) var communityOSUniversalComposerEnabled: Bool = false
+
+    // MARK: - Aegis OS — Pre-Post Content Safety Gate
+    /// Gates `AmenPrePostReviewSheet` running before every post submission.
+    /// Default true — this is a safety gate; disable only via Remote Config for emergency rollback.
+    @Published private(set) var aegisPrePostReviewEnabled: Bool = true
 
     // MARK: - Community OS — Church OS / Org OS / Opportunity OS (A8–A10)
     /// Church OS: ChurchObjectHub + ChurchCapabilitySection.
@@ -1073,6 +1082,9 @@ final class AMENFeatureFlags: ObservableObject {
             "synthetic_media_detection_enabled": true as NSObject,
             "content_credentials_enabled": true as NSObject,
             "provenance_audit_chain_enabled": true as NSObject,
+
+            // Aegis OS — Pre-Post Content Safety Gate
+            "aegis_pre_post_review_enabled": true as NSObject,
 
             // Berean OS — all default OFF until explicit Remote Config activation
             "berean_os_projects_enabled": false as NSObject,
@@ -1550,6 +1562,9 @@ final class AMENFeatureFlags: ObservableObject {
         contentAIRouterEnabled              = config["content_ai_router_enabled"].boolValue
         contentAuditLogEnabled              = config["content_audit_log_enabled"].boolValue
 
+        // Aegis OS — Pre-Post Content Safety Gate
+        aegisPrePostReviewEnabled            = config["aegis_pre_post_review_enabled"].boolValue
+
         // Berean OS — Wisdom Operating System
         bereanOSProjectsEnabled              = config["berean_os_projects_enabled"].boolValue
         bereanOSResearchEngineEnabled        = config["berean_os_research_engine_enabled"].boolValue
@@ -1583,6 +1598,10 @@ final class AMENFeatureFlags: ObservableObject {
 
         // System 37: Community OS Foundation
         communityOSEnabled = config["community_os_enabled"].boolValue
+
+        // System 38: Connect Hub
+        connectHubEnabled    = config["connect_hub_enabled"].boolValue
+        connectYouMenuEnabled = config["connect_you_menu_enabled"].boolValue
     }
 
     private func applyUITestOverrides() {

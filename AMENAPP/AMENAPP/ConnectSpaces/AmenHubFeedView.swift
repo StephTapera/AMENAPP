@@ -12,6 +12,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Tab model
 
@@ -131,11 +132,59 @@ final class AmenHubFeedViewModel: ObservableObject {
 
     func load() async {
         isLoading = true
-        // Real implementation fetches from Firestore/Cloud Function.
-        // Batched digest for non-CC items; CC items arrive real-time via snapshot listener.
-        try? await Task.sleep(nanoseconds: 400_000_000)
-        items = AmenHubFeedViewModel.mockItems()
-        isLoading = false
+        defer { isLoading = false }
+
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+
+        do {
+            // Fetch user's space IDs
+            let memberDocs = try await db.collection("spaces")
+                .whereField("memberIds", arrayContains: uid)
+                .limit(to: 20)
+                .getDocuments()
+
+            var loaded: [ConnectHubItem] = []
+            for spaceDoc in memberDocs.documents {
+                let spaceId = spaceDoc.documentID
+                let spaceName = spaceDoc["name"] as? String
+                let msgDocs = try await db.collection("spaces")
+                    .document(spaceId)
+                    .collection("messages")
+                    .order(by: "createdAt", descending: true)
+                    .limit(to: 10)
+                    .getDocuments()
+
+                for doc in msgDocs.documents {
+                    let data = doc.data()
+                    let senderId = data["senderId"] as? String ?? ""
+                    let preview = data["text"] as? String ?? ""
+                    let ts = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+                    let careAlert = data["isCareAlert"] as? Bool ?? false
+                    let ccItem   = data["isCovenantCircle"] as? Bool ?? false
+                    let kindRaw  = data["kind"] as? String ?? "spaceMessage"
+                    let kind     = ConnectHubItemKind(rawValue: kindRaw) ?? .spaceMessage
+                    let initials = String(senderId.prefix(2)).uppercased()
+                    loaded.append(ConnectHubItem(
+                        id: doc.documentID,
+                        kind: kind,
+                        actorName: senderId,
+                        actorInitials: initials,
+                        preview: preview,
+                        spaceName: spaceName,
+                        timestamp: ts,
+                        isRead: false,
+                        actions: careAlert ? [.pray, .help, .schedule] : [.pray, .discuss],
+                        isCareAlert: careAlert,
+                        isCovenantCircle: ccItem
+                    ))
+                }
+            }
+            items = loaded.sorted { $0.timestamp > $1.timestamp }
+        } catch {
+            // Firestore unavailable — show empty "caught up" state rather than stale mock data
+            items = []
+        }
     }
 
     func markRead(_ item: ConnectHubItem) {
@@ -223,41 +272,51 @@ final class AmenHubFeedViewModel: ObservableObject {
 // MARK: - Main View
 
 struct AmenHubFeedView: View {
+    var isEmbedded: Bool = false
     @StateObject private var vm = AmenHubFeedViewModel()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showYouMenu: Bool = false
     @State private var showPresencePicker: Bool = false
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Glass tab switcher (chrome)
-                glassTabBar
-                // Berean smart banner (when dense)
-                if vm.shouldShowBereanBanner && !vm.isBereanSummaryExpanded {
-                    bereanSmartBanner
-                }
-                // Main feed
-                if vm.isLoading {
-                    loadingState
-                } else if vm.filteredItems.isEmpty {
-                    emptyState
-                } else {
-                    feedList
-                }
+        if isEmbedded {
+            hubContent
+                .task { await vm.load() }
+        } else {
+            NavigationStack {
+                hubContent
             }
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Amen Hub")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar { toolbarContent }
-            .sheet(isPresented: $showYouMenu) {
-                AmenYouMenuSheet(showPresencePicker: $showPresencePicker)
+            .task { await vm.load() }
+        }
+    }
+
+    private var hubContent: some View {
+        VStack(spacing: 0) {
+            // Glass tab switcher (chrome)
+            glassTabBar
+            // Berean smart banner (when dense)
+            if vm.shouldShowBereanBanner && !vm.isBereanSummaryExpanded {
+                bereanSmartBanner
             }
-            .sheet(isPresented: $showPresencePicker) {
-                AmenSpiritualPresencePickerView()
+            // Main feed
+            if vm.isLoading {
+                loadingState
+            } else if vm.filteredItems.isEmpty {
+                emptyState
+            } else {
+                feedList
             }
         }
-        .task { await vm.load() }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle("Amen Hub")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar { toolbarContent }
+        .sheet(isPresented: $showYouMenu) {
+            AmenYouMenuSheet(showPresencePicker: $showPresencePicker)
+        }
+        .sheet(isPresented: $showPresencePicker) {
+            AmenSpiritualPresencePickerView()
+        }
     }
 
     // MARK: - Glass tab bar
@@ -458,21 +517,23 @@ struct AmenHubFeedView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Button {
-                showYouMenu = true
-            } label: {
-                // Covenant avatar placeholder
-                ZStack {
-                    Circle()
-                        .fill(Color.amenPurple.opacity(0.15))
-                        .frame(width: 34, height: 34)
-                    Text(Auth.auth().currentUser?.displayName?.prefix(1).uppercased() ?? "A")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.amenPurple)
+        if !isEmbedded {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showYouMenu = true
+                } label: {
+                    // Covenant avatar placeholder
+                    ZStack {
+                        Circle()
+                            .fill(Color.amenPurple.opacity(0.15))
+                            .frame(width: 34, height: 34)
+                        Text(Auth.auth().currentUser?.displayName?.prefix(1).uppercased() ?? "A")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.amenPurple)
+                    }
                 }
+                .accessibilityLabel("Your profile and presence")
             }
-            .accessibilityLabel("Your profile and presence")
         }
     }
 }

@@ -273,6 +273,7 @@ enum AmenConnectSpacesCallable: String, Codable, CaseIterable, Hashable {
     case runAegisOutputGate
     case scanUploadForFamilySafety
     case searchMinistryMemory
+    case getConnectHubFeed
 }
 
 struct AmenConnectSpacesMinistryMemoryResult: Identifiable, Codable, Hashable {

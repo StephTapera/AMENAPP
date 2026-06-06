@@ -830,6 +830,9 @@ exports.createStripeConnectAccount = spacesStripe.createStripeConnectAccount;
 const spacesLivekit = require("./spacesLivekitFunctions");
 exports.getLivekitToken = spacesLivekit.getLivekitToken;
 
+const connectHub = require("./connectHubFunctions");
+exports.getConnectHubFeed = connectHub.getConnectHubFeed;
+
 // ============================================================================
 // CHURCH NOTES MEDIA PIPELINE
 //   churchNotesMediaPipeline.js:
@@ -1014,7 +1017,10 @@ exports.onModerationRequiresMandatoryReport = ncmecReporter.onModerationRequires
 // Deploy: firebase deploy --only functions:reportUnsafeAIResponse --project amen-5e359
 // ============================================================================
 const { reportUnsafeAIResponse } = require('./reportAIFunctions');
-// exports.reportUnsafeAIResponse = reportUnsafeAIResponse; // DISABLED: TypeScript version in creator codebase
+// C-04 FIX: Export enabled — the iOS AIUnsafeResponseReporter calls this CF.
+// The "TypeScript version in creator codebase" comment referred to a stale plan;
+// reportAIFunctions.js is the authoritative JS implementation.
+exports.reportUnsafeAIResponse = reportUnsafeAIResponse;
 
 // ============================================================================
 // MODERATION SWEEP — scheduled every 4h: finds aged moderationQueue items and
@@ -1483,35 +1489,6 @@ exports.seedWorldResponseSources = seedWorldResponseSources;
 // DO NOT require("./v2intelligenceFunctions") here — it imports v2/scheduler
 // which would contaminate this Gen-1 file with v2 settings.
 // See functions/v2triggers/ and functions/v2entry.js for the deployment path.
-
-// ============================================================================
-// BIBLICAL ALIGNMENT — Claim-check, AI correction, discernment
-//   checkBiblicalAlignment — callable: score a post/comment against scripture
-//   suggestBiblicalRewrite — callable: draft-only AI rewrite toward alignment
-//   saveAICorrection       — callable: user accepts/rejects an AI suggestion
-//   getDiscernmentPrompt   — callable: contextual prayer/discernment prompt
-// Deploy: firebase deploy --only functions:checkBiblicalAlignment,suggestBiblicalRewrite,saveAICorrection,getDiscernmentPrompt --project amen-5e359
-// ============================================================================
-const biblicalAlignment = require("./biblicalAlignmentFunctions");
-exports.checkBiblicalAlignment = biblicalAlignment.checkBiblicalAlignment;
-exports.suggestBiblicalRewrite = biblicalAlignment.suggestBiblicalRewrite;
-exports.saveAICorrection       = biblicalAlignment.saveAICorrection;
-exports.getDiscernmentPrompt   = biblicalAlignment.getDiscernmentPrompt;
-
-// ============================================================================
-// ALIGNMENT PIPELINE — Shared knowledge integrity + weekly summary
-//   attachSharedKnowledgeIntegrity — callable: attach integrity metadata to post
-//   voteKnowledgeIntegrity         — callable: community vote on shared knowledge
-//   getWeeklyAlignmentSummary      — callable: user's 7-day alignment report
-//   updateAlignmentProfile         — callable: recalculate user alignment profile
-// Note: generateWeeklyAlignmentSummary is an onSchedule trigger — deploy via v2entry.js
-// Deploy: firebase deploy --only functions:attachSharedKnowledgeIntegrity,voteKnowledgeIntegrity,getWeeklyAlignmentSummary,updateAlignmentProfile --project amen-5e359
-// ============================================================================
-const alignmentPipeline = require("./alignmentPipeline");
-exports.attachSharedKnowledgeIntegrity = alignmentPipeline.attachSharedKnowledgeIntegrity;
-exports.voteKnowledgeIntegrity         = alignmentPipeline.voteKnowledgeIntegrity;
-exports.getWeeklyAlignmentSummary      = alignmentPipeline.getWeeklyAlignmentSummary;
-exports.updateAlignmentProfile         = alignmentPipeline.updateAlignmentProfile;
 
 // ============================================================================
 // MEDIA PROVENANCE — Content authenticity trail
