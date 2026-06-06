@@ -30,10 +30,12 @@ struct BereanVoiceSessionView: View {
 
     var body: some View {
         ZStack {
-            // Frosted backdrop
-            Color.black.opacity(reduceTransparency ? 0.85 : 0.50)
-                .background(reduceTransparency ? Color.black.opacity(0.85) : .ultraThinMaterial)
-                .ignoresSafeArea()
+            // Frosted backdrop — solid when reduceTransparency is on (a11y), material otherwise
+            if reduceTransparency {
+                Color.black.opacity(0.85).ignoresSafeArea()
+            } else {
+                Color.black.opacity(0.50).background(.ultraThinMaterial).ignoresSafeArea()
+            }
 
             VStack(spacing: 0) {
                 Spacer()
