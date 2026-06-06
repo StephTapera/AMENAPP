@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - OpportunityPost
 
-struct OpportunityPost: Identifiable {
+struct OpportunityPost: Identifiable, Codable {
     var id: String
     var title: String
     var description: String
@@ -29,7 +29,7 @@ struct OpportunityPost: Identifiable {
 
 // MARK: - CommunityOpportunityType
 
-enum CommunityOpportunityType: String, CaseIterable {
+enum CommunityOpportunityType: String, CaseIterable, Codable {
     case volunteer   = "Volunteer"
     case fullTime    = "Full Time"
     case partTime    = "Part Time"
@@ -49,7 +49,7 @@ enum CommunityOpportunityType: String, CaseIterable {
 
 // MARK: - OpportunityContactMethod
 
-enum OpportunityContactMethod: String {
+enum OpportunityContactMethod: String, Codable {
     case amenInboxOnly  = "amenInboxOnly"
     case emailOnly      = "emailOnly"
     case externalLink   = "externalLink"
@@ -57,8 +57,8 @@ enum OpportunityContactMethod: String {
 
 // MARK: - OpportunityScamRiskLevel
 
-enum OpportunityScamRiskLevel {
-    case low, medium, high
+enum OpportunityScamRiskLevel: String, Codable {
+    case low, medium, high, flagged
 }
 
 // MARK: - ScamFlag

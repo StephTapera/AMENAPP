@@ -237,7 +237,7 @@ struct AmenChurchProfileView: View {
             }
         }
         .sheet(isPresented: $showNewNote) {
-            NavigationStack { ChurchNotesQuickStartView() }
+            ChurchNotesView()
         }
     }
 

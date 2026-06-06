@@ -70,12 +70,12 @@ enum RiskTier: Int, Codable, CaseIterable, Comparable, Sendable {
     }
 }
 
-// MARK: - ContentCategory
+// MARK: - ContentRiskCategory
 
 /// Violation categories that the NeMo Guard / NIM pipeline can return.
 /// The iOS layer maps CF response strings into these typed cases for routing.
 /// CSAM is always `.escalateImmediately` regardless of any other factor.
-enum ContentCategory: String, Codable, CaseIterable, Sendable {
+enum ContentRiskCategory: String, Codable, CaseIterable, Sendable {
     case safe
     case spam
     case harassment
@@ -102,7 +102,7 @@ struct ContentSafetyResult: Codable, Sendable {
     var tier: RiskTier
 
     /// All violation categories detected. May be empty for `.low` results.
-    var categories: [ContentCategory]
+    var categories: [ContentRiskCategory]
 
     /// Classifier confidence in the tier assignment (0.0–1.0).
     /// 0.0 is used for fail-closed fallback results where confidence is unknown.

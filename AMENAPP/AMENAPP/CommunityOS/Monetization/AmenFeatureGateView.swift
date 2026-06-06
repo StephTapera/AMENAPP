@@ -156,17 +156,17 @@ struct AmenUpgradePromptView: View {
 
 // MARK: - AmenSafariView (UIViewControllerRepresentable)
 
-/// Wraps SFAmenSafariViewController for presentation inside a SwiftUI sheet.
+/// Wraps SFSafariViewController for presentation inside a SwiftUI sheet.
 private struct AmenAmenSafariView: UIViewControllerRepresentable {
     let url: URL
 
-    func makeUIViewController(context: Context) -> SFAmenSafariViewController {
-        let config = SFAmenSafariViewController.Configuration()
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        let config = SFSafariViewController.Configuration()
         config.entersReaderIfAvailable = false
-        return SFAmenSafariViewController(url: url, configuration: config)
+        return SFSafariViewController(url: url, configuration: config)
     }
 
-    func updateUIViewController(_ uiViewController: SFAmenSafariViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
 
 // MARK: - Preview

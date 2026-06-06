@@ -45,10 +45,11 @@ final class AmenComposerViewModel: ObservableObject {
     ///   - source: Where the composition is seeded from (or `.standalone` for a new post).
     ///   - intent: Optional pre-selected intent. Falls back to the first allowed intent.
     ///   - repository: The object repository to write to on submit (injectable for tests).
+    @MainActor
     init(
         source: ComposerSource,
         intent: AmenIntent? = nil,
-        repository: AmenObjectRepository = AmenObjectRepository()
+        repository: AmenObjectRepository? = nil
     ) {
         let resolved = ComposerConfig.config(for: source, intent: intent)
 
@@ -68,7 +69,7 @@ final class AmenComposerViewModel: ObservableObject {
 
         self.config     = resolved
         self.draft      = initialDraft
-        self.repository = repository
+        self.repository = repository ?? AmenObjectRepository()
         self.engine     = AmenTransformEngine()
     }
 

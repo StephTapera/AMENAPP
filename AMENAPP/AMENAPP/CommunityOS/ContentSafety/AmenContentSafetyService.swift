@@ -264,7 +264,7 @@ final class AmenContentSafetyService: ObservableObject {
             "authorId": authorId,
             "escalateImmediately": true,
             "escalationSource": "ios_content_safety",
-            "categories": [ContentCategory.csam.rawValue],
+            "categories": [ContentRiskCategory.csam.rawValue],
             "status": "pending_ncmec",
             "createdAt": FieldValue.serverTimestamp()
         ]
@@ -340,8 +340,8 @@ final class AmenContentSafetyService: ObservableObject {
         default:       tier = .high   // unknown → fail closed
         }
 
-        // Map reason hints to ContentCategory list (best-effort; CF doesn't return typed categories).
-        var categories: [ContentCategory] = []
+        // Map reason hints to ContentRiskCategory list (best-effort; CF doesn't return typed categories).
+        var categories: [ContentRiskCategory] = []
         if crisisEscalated || reason?.lowercased().contains("crisis") == true || reason?.lowercased().contains("self") == true {
             categories.append(.crisisLanguage)
         }
@@ -377,7 +377,7 @@ final class AmenContentSafetyService: ObservableObject {
     /// Generates a user-facing suggestion string for a given tier and category set.
     private func suggestionFor(
         tier: RiskTier,
-        categories: [ContentCategory],
+        categories: [ContentRiskCategory],
         reason: String? = nil
     ) -> String {
         if categories.contains(.csam) {

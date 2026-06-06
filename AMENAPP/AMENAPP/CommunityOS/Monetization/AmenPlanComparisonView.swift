@@ -98,7 +98,7 @@ struct AmenPlanComparisonView: View {
             }
         }) {
             if let urlString = checkoutURL, let url = URL(string: urlString) {
-                AmenSafariView(url: url)
+                PlanCompareSafariView(url: url)
                     .ignoresSafeArea()
             }
         }
@@ -298,16 +298,16 @@ struct AmenPlanCard: View {
     }
 }
 
-// MARK: - AmenSafariView (UIViewControllerRepresentable)
+// MARK: - PlanCompareSafariView (UIViewControllerRepresentable)
 
-private struct AmenSafariView: UIViewControllerRepresentable {
+private struct PlanCompareSafariView: UIViewControllerRepresentable {
     let url: URL
 
-    func makeUIViewController(context: Context) -> SFAmenSafariViewController {
-        SFAmenSafariViewController(url: url)
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
     }
 
-    func updateUIViewController(_ uiViewController: SFAmenSafariViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
 
 // MARK: - Preview

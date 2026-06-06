@@ -14,7 +14,7 @@ import SwiftUI
 struct OrgAnnouncementBanner: View {
 
     let title: String
-    let body: String
+    let announcementBody: String
     let authorName: String
     let postedAt: Date
 
@@ -66,7 +66,7 @@ struct OrgAnnouncementBanner: View {
                 }
 
                 // Body (truncated unless expanded)
-                Text(body)
+                Text(announcementBody)
                     .font(.callout)
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
                     .lineLimit(isExpanded ? nil : 3)
@@ -102,12 +102,12 @@ struct OrgAnnouncementBanner: View {
                 .shadow(color: .black.opacity(0.07), radius: 24, x: 0, y: 5)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title). Announcement by \(authorName), \(postedDateString). \(body)")
+        .accessibilityLabel("\(title). Announcement by \(authorName), \(postedDateString). \(announcementBody)")
     }
 
     // Heuristic: only show expand affordance if body is likely >3 lines
     private var needsExpansion: Bool {
-        body.count > 120
+        announcementBody.count > 120
     }
 }
 
@@ -117,7 +117,7 @@ struct OrgAnnouncementBanner: View {
     VStack(spacing: 16) {
         OrgAnnouncementBanner(
             title: "Upcoming Community Day – June 15",
-            body: "Join us on June 15 for our annual Community Day celebration! We'll have food, worship, family activities, and opportunities to connect with others in the congregation. Doors open at 10am. All are welcome. Please bring a dish to share if you're able.",
+            announcementBody: "Join us on June 15 for our annual Community Day celebration! We'll have food, worship, family activities, and opportunities to connect with others in the congregation. Doors open at 10am. All are welcome. Please bring a dish to share if you're able.",
             authorName: "Pastor Thompson",
             postedAt: Date(timeIntervalSinceNow: -3600 * 2),
             onExpand: nil
@@ -125,7 +125,7 @@ struct OrgAnnouncementBanner: View {
 
         OrgAnnouncementBanner(
             title: "Volunteer Sign-Ups Open",
-            body: "Short announcement text.",
+            announcementBody: "Short announcement text.",
             authorName: "Ministry Team",
             postedAt: Date(timeIntervalSinceNow: -3600 * 24),
             onExpand: nil

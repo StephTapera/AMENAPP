@@ -208,7 +208,7 @@ struct OrgProfileView: View {
                 ChurchCapabilitySection(
                     churchId: profile.id,
                     availableCapabilities: [],
-                    onCapabilityTap: onCapabilityTap
+                    onCapabilityTapped: onCapabilityTap
                 )
                 .onAppear {
                     UserDefaults.standard.set(true, forKey: "community_os_church_os_enabled")

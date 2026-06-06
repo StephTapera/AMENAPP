@@ -65,7 +65,7 @@ struct OpportunityCard: View {
                     Task {
                         let db = Firestore.firestore()
                         let uid = Auth.auth().currentUser?.uid ?? "anonymous"
-                        try? await db.collection("opportunityFlags").addDocument(data: [
+                        _ = try? await db.collection("opportunityFlags").addDocument(data: [
                             "opportunityId": post.id,
                             "reportedBy": uid,
                             "flagType": flag.rawValue,

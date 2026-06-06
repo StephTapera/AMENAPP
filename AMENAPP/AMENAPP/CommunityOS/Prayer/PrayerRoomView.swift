@@ -24,7 +24,7 @@ import SwiftUI
 /// Replace with a full Firestore-backed model once PrayerUpdateService is built.
 private struct PrayerUpdateCard: View {
     let updateType: PrayerType
-    let body: String
+    let updateBody: String
     let createdAt: Date
 
     var body: some View {
@@ -43,7 +43,7 @@ private struct PrayerUpdateCard: View {
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             }
 
-            Text(body)
+            Text(updateBody)
                 .font(.callout)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
                 .lineSpacing(2)
@@ -55,7 +55,7 @@ private struct PrayerUpdateCard: View {
                 .fill(Color(uiColor: .secondarySystemGroupedBackground))
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(updateType.displayName): \(body)")
+        .accessibilityLabel("\(updateType.displayName): \(updateBody)")
     }
 
     private var timeLabel: String {
@@ -319,7 +319,7 @@ struct PrayerRoomView: View {
                 ForEach(stubUpdates) { stub in
                     PrayerUpdateCard(
                         updateType: stub.type,
-                        body: stub.body,
+                        updateBody: stub.body,
                         createdAt: stub.createdAt
                     )
                     .padding(.horizontal, 16)

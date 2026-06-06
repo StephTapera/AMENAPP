@@ -464,7 +464,7 @@ struct AmenOrgProfileView: View {
                             ForEach(service.announcements.prefix(3)) { ann in
                                 OrgAnnouncementBanner(
                                     title: ann.title,
-                                    body: ann.body,
+                                    announcementBody: ann.body,
                                     authorName: ann.authorId,
                                     postedAt: ann.createdAt,
                                     onExpand: nil

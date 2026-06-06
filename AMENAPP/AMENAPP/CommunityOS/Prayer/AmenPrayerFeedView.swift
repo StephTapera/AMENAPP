@@ -422,14 +422,14 @@ private struct AmenPrayerComposeStubView: View {
     @Binding var isPresented: Bool
 
     @State private var title = ""
-    @State private var body  = ""
+    @State private var prayerBody  = ""
     @State private var selectedPrivacy: PrayerPrivacyLevel = .private
     @State private var isAnonymous = false
     @State private var isSubmitting = false
 
     private var canSubmit: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !prayerBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var bodyView: some View {
@@ -474,14 +474,14 @@ private struct AmenPrayerComposeStubView: View {
                             .foregroundStyle(Color(uiColor: .secondaryLabel))
 
                         ZStack(alignment: .topLeading) {
-                            if body.isEmpty {
+                            if prayerBody.isEmpty {
                                 Text("Write your prayer request here…")
                                     .font(.body)
                                     .foregroundStyle(Color(uiColor: .placeholderText))
                                     .padding(14)
                                     .allowsHitTesting(false)
                             }
-                            TextEditor(text: $body)
+                            TextEditor(text: $prayerBody)
                                 .font(.body)
                                 .frame(minHeight: 100)
                                 .padding(10)
@@ -583,7 +583,7 @@ private struct AmenPrayerComposeStubView: View {
         do {
             _ = try await service.createPrayerRequest(
                 title:      title.trimmingCharacters(in: .whitespacesAndNewlines),
-                body:       body.trimmingCharacters(in: .whitespacesAndNewlines),
+                body:       prayerBody.trimmingCharacters(in: .whitespacesAndNewlines),
                 privacy:    selectedPrivacy,
                 isAnonymous: isAnonymous,
                 churchRef:  churchRef,

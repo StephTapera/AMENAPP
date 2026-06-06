@@ -175,7 +175,7 @@ struct AmenPrePostReviewSheet: View {
         }
     }
 
-    private func categoryChip(_ category: ContentCategory) -> some View {
+    private func categoryChip(_ category: ContentRiskCategory) -> some View {
         HStack(spacing: 5) {
             Image(systemName: categoryIcon(category))
                 .font(.system(size: 10, weight: .semibold))
@@ -355,7 +355,7 @@ struct AmenPrePostReviewSheet: View {
         }
     }
 
-    private func categoryLabel(_ category: ContentCategory) -> String {
+    private func categoryLabel(_ category: ContentRiskCategory) -> String {
         switch category {
         case .safe:             return "Safe"
         case .spam:             return "Spam"
@@ -372,7 +372,7 @@ struct AmenPrePostReviewSheet: View {
         }
     }
 
-    private func categoryIcon(_ category: ContentCategory) -> String {
+    private func categoryIcon(_ category: ContentRiskCategory) -> String {
         switch category {
         case .safe:             return "checkmark.circle"
         case .spam:             return "envelope.badge"

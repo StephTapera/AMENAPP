@@ -41,7 +41,6 @@ struct OpportunityHubView: View {
     @State private var applyingToPost: OpportunityPost? = nil
     @State private var showContactFlow = false
 
-    private let service = OpportunityService()
     private let db = Firestore.firestore()
 
     private var currentUserId: String { Auth.auth().currentUser?.uid ?? "" }
@@ -56,11 +55,11 @@ struct OpportunityHubView: View {
 
         var id: String { rawValue }
 
-        var opportunityTypes: [OpportunityType]? {
+        var opportunityTypes: [CommunityOpportunityType]? {
             switch self {
             case .all:        return nil
             case .volunteer:  return [.volunteer]
-            case .jobs:       return [.fullTime, .partTime, .internship, .referral]
+            case .jobs:       return [.fullTime, .partTime, .internship]
             case .mentorship: return [.mentorship]
             }
         }
@@ -292,7 +291,9 @@ struct OpportunityHubView: View {
 
     private func submitPost(_ post: OpportunityPost) async {
         do {
-            try await service.postOpportunity(post: post, userId: currentUserId, orgId: post.orgId)
+            let encoder = Firestore.Encoder()
+            let data = try encoder.encode(post)
+            try await db.collection("opportunities").document(post.id).setData(data)
             await loadOpportunities()
         } catch {
             await MainActor.run {
