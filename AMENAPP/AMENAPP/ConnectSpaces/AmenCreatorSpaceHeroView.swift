@@ -334,7 +334,7 @@ struct AmenCreatorSpaceHeroView: View {
                 memberCount: 18_400,
                 isLiveNow: true,
                 isVerified: true,
-                coverImageURL: nil,   // TODO: wire real cover asset URL
+                coverImageURL: nil,
                 onJoin: {},
                 onWatch: {},
                 onPray: {},

@@ -16,7 +16,6 @@ struct VergeMessageBubbleView: View {
 
     @State private var showReactionPicker = false
 
-    private let Color.accentColor   = Color(hex: "F59E0B")
     private let cyanAccent = Color(hex: "06B6D4")
 
     // MARK: - Body
@@ -189,7 +188,7 @@ struct VergeMessageBubbleView: View {
             .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity)
-        .background(Color(hex: "0A0A0F"))
+        .background(Color(.systemGroupedBackground))
     }
 
     // MARK: - Helpers

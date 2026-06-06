@@ -62,19 +62,17 @@ enum AmenType {
     static let caption2:    Font = .caption2
 }
 
-// MARK: — Corner radius
+// MARK: — Corner radius (extends AnimationTokens.AmenRadius)
 
-/// All corner radii use `.continuous` squircle style.
-struct AmenRadius {
-    /// Card / bottom sheet — squircle 28pt.
-    static let card: CGFloat = 28
-    /// Photo hero nested within a card — 22pt.
+/// Additional radii not in AnimationTokens.swift. All radii use `.continuous` squircle style.
+extension AmenRadius {
+    /// Photo hero image nested within a card — 22pt.
     static let photoHero: CGFloat = 22
     /// Input field — 16pt.
     static let input: CGFloat = 16
-    /// Pill / capsule — use Capsule() shape directly; this constant documents intent only.
+    /// Pill / capsule — use Capsule() shape directly.
     static let pill: CGFloat = 999
-    /// Circular single-glyph button — use Circle() shape directly; this constant documents intent only.
+    /// Circular single-glyph button — use Circle() shape directly.
     static let circularButton: CGFloat = 999
 }
 
@@ -166,31 +164,7 @@ enum AmenAccent {
 
 // MARK: — ViewModifiers
 
-/// Applies the canonical card surface: white background + ambient shadow + continuous corner radius.
-/// PURGE reference: Any caller using .background(Color.amenDarkPrimary).cornerRadius(x) → AmenCardModifier
-struct AmenCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = AmenRadius.card
-    var elevation: AmenShadow.Level = .card
-
-    func body(content: Content) -> some View {
-        content
-            .background(AmenSurface.card)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .shadow(
-                color: shadowToken(for: elevation).color.opacity(shadowToken(for: elevation).opacity),
-                radius: shadowToken(for: elevation).radius,
-                x: shadowToken(for: elevation).x,
-                y: shadowToken(for: elevation).y
-            )
-    }
-
-    private func shadowToken(for level: AmenShadow.Level) -> AmenShadow {
-        switch level {
-        case .card:     return .card
-        case .floating: return .floating
-        }
-    }
-}
+// AmenCardModifier is defined in AmenTheme.swift (canonical implementation)
 
 /// Applies the ambient elevation shadow without a background fill.
 /// PURGE reference: shadow(color: amenGold.opacity(x), ...) → AmenElevationModifier(.card)
@@ -212,14 +186,6 @@ struct AmenElevationModifier: ViewModifier {
 // MARK: — View extensions
 
 extension View {
-    /// Applies the canonical AMEN card style: white fill + continuous corner radius + ambient shadow.
-    func amenCard(
-        cornerRadius: CGFloat = AmenRadius.card,
-        elevation: AmenShadow.Level = .card
-    ) -> some View {
-        modifier(AmenCardModifier(cornerRadius: cornerRadius, elevation: elevation))
-    }
-
     /// Applies the ambient elevation shadow without a fill.
     func amenElevation(_ level: AmenShadow.Level = .card) -> some View {
         modifier(AmenElevationModifier(level: level))
@@ -231,27 +197,7 @@ extension View {
     }
 }
 
-// MARK: — Supporting types
-
-/// An action item in an AmenActionPill or AmenToolbar.
-struct AmenPillAction: Identifiable {
-    let id: String
-    let icon: String     // SF Symbol name — monochrome line glyph
-    let label: String    // Accessibility label
-    let action: () -> Void
-
-    init(
-        id: String = UUID().uuidString,
-        icon: String,
-        label: String,
-        action: @escaping () -> Void
-    ) {
-        self.id = id
-        self.icon = icon
-        self.label = label
-        self.action = action
-    }
-}
+// AmenPillAction is defined in CommunityOS/UI/AmenActionPill.swift (canonical implementation)
 
 // MARK: — Stub components (Phase 0 — no production implementations yet)
 

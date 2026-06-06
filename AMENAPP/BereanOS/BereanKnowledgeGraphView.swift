@@ -27,7 +27,7 @@ struct BereanKnowledgeGraphView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Image(systemName: nodeIcon(node.nodeType))
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accentColor)
                     Text(node.title)
                         .font(.headline)
                 }

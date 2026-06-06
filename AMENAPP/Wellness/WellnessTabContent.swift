@@ -84,6 +84,9 @@ struct WellnessTabContent: View {
 // MARK: - Tools Tab
 
 private struct WellnessToolsTabContent: View {
+    @StateObject private var entitlements = AmenAccountEntitlementService.shared
+    @State private var showFamilyPaywall = false
+
     private let cards: [(title: String, text: String, chip: String)] = [
         (
             "Tools that remember the person",
@@ -102,7 +105,100 @@ private struct WellnessToolsTabContent: View {
             ForEach(cards, id: \.title) { card in
                 WellnessSupportCard(title: card.title, bodyText: card.text, chip: card.chip)
             }
+            FamilyGuardianTeaserCard(
+                hasAccess: entitlements.hasAccess(to: .familyGuardianDashboard),
+                onUpgradeTapped: { showFamilyPaywall = true }
+            )
         }
+        .sheet(isPresented: $showFamilyPaywall) {
+            AmenAccountPaywallView(
+                requiredTier: .amenPro,
+                feature: "Family Guardian Dashboard",
+                onDismiss: { showFamilyPaywall = false }
+            )
+        }
+        .task {
+            await entitlements.refreshIfNeeded()
+        }
+    }
+}
+
+// MARK: - Family Guardian Teaser Card
+
+private struct FamilyGuardianTeaserCard: View {
+    let hasAccess: Bool
+    let onUpgradeTapped: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Circle().strokeBorder(Color(hex: "D9A441").opacity(0.50), lineWidth: 1.5)
+                        )
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "house.and.flag.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Color(hex: "D9A441"))
+                }
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("Family Guardian Dashboard")
+                            .font(.custom("OpenSans-Bold", size: 17))
+                            .foregroundStyle(.primary)
+                        Text("PRO")
+                            .font(.custom("OpenSans-SemiBold", size: 10))
+                            .foregroundStyle(Color(hex: "D9A441"))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color(hex: "D9A441").opacity(0.14))
+                            .clipShape(Capsule())
+                    }
+                    Text("Protect your whole family — set screen time limits, bedtime mode, and content filters for family members")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if !hasAccess {
+                Button(action: onUpgradeTapped) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Upgrade to Amen Pro")
+                            .font(.custom("OpenSans-SemiBold", size: 14))
+                    }
+                    .foregroundStyle(Color(hex: "D9A441"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color(hex: "D9A441").opacity(0.12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(Color(hex: "D9A441").opacity(0.40), lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Upgrade to Amen Pro to unlock Family Guardian Dashboard")
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusMedium)
+                .strokeBorder(Color(hex: "D9A441").opacity(0.25), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        .accessibilityElement(children: .combine)
     }
 }
 

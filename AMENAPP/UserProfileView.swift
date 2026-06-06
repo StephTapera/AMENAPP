@@ -5346,11 +5346,9 @@ extension UserProfileView {
 extension UserProfileView {
     /// Fetch profile view analytics (if viewing own profile)
     private func fetchProfileAnalytics() async {
-        // TODO: Implement analytics
-        // - Profile views count
-        // - Most viewed post
-        // - Follower growth
-        dlog("📊 Analytics feature - implement when needed")
+        guard let uid = Auth.auth().currentUser?.uid, uid == userId else { return }
+        AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "profile_view"))
+        dlog("📊 Profile analytics tracked for uid=\(uid)")
     }
 }
 
@@ -5359,18 +5357,40 @@ extension UserProfileView {
 extension UserProfileView {
     /// Save profile to local cache for offline viewing
     private func cacheProfileData() {
-        guard profileData != nil else { return }
-        
-        // TODO: Implement UserDefaults or CoreData caching
-        // UserDefaults.standard.set(encodedProfile, forKey: "cached_profile_\(userId)")
-        dlog("💾 Caching profile data for offline support")
+        guard let p = profileData else { return }
+        let dict: [String: Any] = [
+            "userId": p.userId,
+            "name": p.name,
+            "username": p.username,
+            "bio": p.bio,
+            "profileImageURL": p.profileImageURL ?? "",
+            "followersCount": p.followersCount,
+            "followingCount": p.followingCount,
+            "isPrivateAccount": p.isPrivateAccount
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: dict) {
+            UserDefaults.standard.set(data, forKey: "cached_profile_\(userId)")
+        }
     }
-    
+
     /// Load cached profile data
     private func loadCachedProfile() -> UserProfile? {
-        // TODO: Implement cache retrieval
-        // return try? JSONDecoder().decode(UserProfile.self, from: cachedData)
-        return nil
+        guard let data = UserDefaults.standard.data(forKey: "cached_profile_\(userId)"),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return UserProfile(
+            userId: dict["userId"] as? String ?? userId,
+            name: dict["name"] as? String ?? "",
+            username: dict["username"] as? String ?? "",
+            bio: dict["bio"] as? String ?? "",
+            initials: String(((dict["name"] as? String) ?? "").prefix(2).uppercased()),
+            profileImageURL: dict["profileImageURL"] as? String,
+            interests: [],
+            socialLinks: [],
+            followersCount: dict["followersCount"] as? Int ?? 0,
+            followingCount: dict["followingCount"] as? Int ?? 0,
+            isPrivateAccount: dict["isPrivateAccount"] as? Bool ?? false
+        )
     }
 }
 

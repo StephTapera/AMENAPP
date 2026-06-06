@@ -7,7 +7,7 @@
 // Naming contract:
 //   - AmenChurch (stub) lives in AmenCoreModels.swift — do NOT redeclare here.
 //   - This file adds ChurchOSProfile (the rich presentation object used by Church OS views),
-//     ChurchCampus, ServiceTime, ServiceStyle, ChurchSize, ChurchPassportStamp, ChurchPassport,
+//     ChurchCampus, AmenServiceTime, ServiceStyle, ChurchSize, ChurchPassportStamp, ChurchPassport,
 //     and VisitReadiness.
 //   - followersCount / memberCount / visitCount are private and NEVER shown in any UI.
 //
@@ -65,9 +65,9 @@ enum ServiceStyle: String, Codable, Sendable, CaseIterable {
     }
 }
 
-// MARK: - ServiceTime
+// MARK: - AmenServiceTime
 
-struct ServiceTime: Codable, Identifiable, Sendable {
+struct AmenServiceTime: Codable, Identifiable, Sendable {
     var id: String
     var dayOfWeek: Int           // 0 = Sunday … 6 = Saturday
     var startTime: String        // e.g. "10:00 AM"
@@ -99,7 +99,7 @@ struct ChurchCampus: Codable, Identifiable, Sendable {
     var latitude: Double?
     var longitude: Double?
     var isPrimary: Bool
-    var serviceTimes: [ServiceTime]
+    var serviceTimes: [AmenServiceTime]
     var phoneNumber: String?   // public org contact info
     var websiteUrl: String?
 }
@@ -143,7 +143,7 @@ struct ChurchOSProfile: Identifiable, Codable, Sendable {
     var isActive: Bool
 
     /// Convenience: today's service times across all campuses.
-    var serviceTimesToday: [ServiceTime] {
+    var serviceTimesToday: [AmenServiceTime] {
         let todayWeekday = Calendar.current.component(.weekday, from: Date()) - 1 // Sunday=0
         return campuses.flatMap { $0.serviceTimes.filter { $0.dayOfWeek == todayWeekday } }
     }
@@ -210,7 +210,7 @@ struct ChurchPassport: Codable, Identifiable, Sendable {
 struct VisitReadiness: Sendable {
     let churchId: String
     let firstTimerTips: [String]
-    let serviceTimeToday: ServiceTime?
+    let serviceTimeToday: AmenServiceTime?
     let parkingInfo: String?
     let childcareAvailable: Bool
     let accessibilityInfo: String?

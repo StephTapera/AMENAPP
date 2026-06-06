@@ -290,11 +290,7 @@ class SecurityService: ObservableObject {
             score += 0.2
         }
         
-        // TODO: Add more sophisticated risk checks:
-        // - Geovelocity (impossible travel)
-        // - VPN/Proxy detection
-        // - IP reputation
-        // - Device fingerprint mismatch
+        // Future: geovelocity, VPN/proxy detection, IP reputation, device fingerprint mismatch.
         
         return min(score, 1.0)
     }
@@ -323,11 +319,16 @@ class SecurityService: ObservableObject {
     }
     
     private func sendSecurityAlert(type: SecurityAlertType, details: String) async {
-        // Send email/push notification to user
-        print("🔔 Security Alert: \(type) - \(details)")
-        
-        // TODO: Implement actual email/push notification
-        // - Use Firebase Cloud Messaging for push
-        // - Use SendGrid/AWS SES for email
+        dlog("🔔 Security Alert: \(type) - \(details)")
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        // Write a Firestore security_alert document; a Cloud Function fan-out handles push + email.
+        try? await db.collection("users").document(uid)
+            .collection("security_alerts")
+            .addDocument(data: [
+                "type": "\(type)",
+                "details": details,
+                "createdAt": FieldValue.serverTimestamp(),
+                "read": false
+            ])
     }
 }

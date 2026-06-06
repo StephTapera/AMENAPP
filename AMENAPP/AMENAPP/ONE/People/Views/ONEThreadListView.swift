@@ -155,7 +155,9 @@ struct ONEThreadListView: View {
                     .multilineTextAlignment(.center)
             }
 
-            Button("New Conversation") { /* TODO P2: contact picker */ }
+            Button("New Conversation") {
+                NotificationCenter.default.post(name: Notification.Name("AmenOpenContactPicker"), object: nil)
+            }
                 .buttonStyle(.borderedProminent)
                 .tint(ONE.Colors.privateIndigo)
                 .accessibilityLabel("Start a new end-to-end encrypted conversation")
@@ -168,7 +170,9 @@ struct ONEThreadListView: View {
 
     private var newConversationButton: some View {
         Menu {
-            Button { /* TODO P2: contact picker */ } label: {
+            Button {
+                NotificationCenter.default.post(name: Notification.Name("AmenOpenContactPicker"), object: nil)
+            } label: {
                 Label("New Message", systemImage: "square.and.pencil")
             }
             Button { showEphemeralFlow = true } label: {

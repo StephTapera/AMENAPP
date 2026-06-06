@@ -29,7 +29,6 @@ struct CreatorTrustBadgeView: View {
     @State private var sparkleOpacity: Double  = 0.0
     @State private var showBadgeInfo           = false
 
-    private let Color.accentColor = Color(red: 0.96, green: 0.62, blue: 0.04)
 
     var body: some View {
         switch status {
@@ -183,7 +182,6 @@ struct CreatorTrustBadgeView: View {
 struct CreatorSubscriptionBadge: View {
     let isSubscribed: Bool
 
-    private let Color.accentColor = Color(red: 0.96, green: 0.62, blue: 0.04)
 
     var body: some View {
         HStack(spacing: 4) {

@@ -181,8 +181,8 @@ struct AmenCameraOSHubView: View {
                 intent: intent,
                 attachment: attachment,
                 scanResult: scanResult,
-                onApprove: {
-                    handleSafetyApproved(attachment: attachment, intent: intent)
+                onApprove: { approvedAttachment, _ in
+                    handleSafetyApproved(attachment: approvedAttachment, intent: intent)
                 },
                 onCancel: {
                     // Return to capture for the same intent
@@ -221,7 +221,7 @@ struct AmenCameraOSHubView: View {
     private var intentBadge: some View {
         HStack(spacing: 8) {
             if let intent = selectedIntent {
-                Image(systemName: intent.systemImageName)
+                Image(systemName: intent.systemIcon)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
                 Text(intent.displayName)

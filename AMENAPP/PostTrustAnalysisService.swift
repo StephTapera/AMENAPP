@@ -340,22 +340,7 @@ final class PostTrustAnalysisService: ObservableObject {
         ))
 
         // ── Signal 3: logoAccountMatch (church / business only) ─────────────
-        // STUB — replace with real server call when endpoint is available.
-        //
-        // TODO: POST /api/trust/logo-match
-        //   Body: { "imageData": <base64>, "accountId": accountId }
-        //   Response: { "matchScore": Double, "confident": Bool }
-        //
-        // Example URLSession implementation:
-        //   let url = URL(string: "https://api.amenapp.com/trust/logo-match")!
-        //   var req = URLRequest(url: url)
-        //   req.httpMethod = "POST"
-        //   req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        //   let payload = ["accountId": accountId,
-        //                  "imageData": imageData?.base64EncodedString() ?? ""]
-        //   req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
-        //   let (responseData, _) = try await URLSession.shared.data(for: req)
-        //   // parse matchScore from responseData
+        // Server-side logo-match endpoint not yet deployed; using neutral stub score.
         if accountType == "church" || accountType == "business" {
             signals.append(TrustSignal(
                 type: .logoAccountMatch,
@@ -366,11 +351,7 @@ final class PostTrustAnalysisService: ObservableObject {
         }
 
         // ── Signal 4: imageSyntheticProbability ─────────────────────────────
-        // STUB — server-side GAN/artifact detection model.
-        //
-        // TODO: POST /api/trust/image-check
-        //   Body: { "imageData": <base64>, "accountId": accountId }
-        //   Response: { "syntheticProbability": Double }
+        // Server-side GAN/artifact detection not yet deployed; using neutral stub score.
         signals.append(TrustSignal(
             type: .imageSyntheticProbability,
             score: 0.75,   // neutral stub: assume mostly authentic
@@ -443,11 +424,7 @@ final class PostTrustAnalysisService: ObservableObject {
         ))
 
         // ── Signal 4: videoFrameConsistency ─────────────────────────────────
-        // STUB — server-side frame sampling for spliced / deepfake detection.
-        //
-        // TODO: POST /api/trust/video-check
-        //   Body: { "videoURL": videoURL.absoluteString }
-        //   Response: { "frameConsistencyScore": Double }
+        // Server-side deepfake/frame-consistency endpoint not yet deployed; using neutral stub.
         signals.append(TrustSignal(
             type: .videoFrameConsistency,
             score: 0.7,

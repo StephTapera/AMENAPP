@@ -8,7 +8,7 @@
 import Foundation
 
 // Legacy Post model - being replaced by the one in PostsManager.swift
-// TODO: Migrate all usages to the new Post model and remove this
+// Migration: replace remaining usages with the Post model in PostsManager.swift.
 struct LegacyPost: Identifiable, Codable, Hashable {
     let id: String
     let authorId: String

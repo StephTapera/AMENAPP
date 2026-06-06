@@ -132,7 +132,7 @@ private struct ContactMatchRow: View {
                 .overlay(
                     Text(String(match.displayName.prefix(1)))
                         .font(.headline)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text(match.displayName)
@@ -153,7 +153,7 @@ private struct ContactMatchRow: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(requested ? Color(.systemGray5) : Color.accentColor)
-                        .foregroundStyle(requested ? .secondary : .white)
+                        .foregroundStyle(requested ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.white))
                         .clipShape(Capsule())
                 }
                 .disabled(requested)

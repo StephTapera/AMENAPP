@@ -473,11 +473,11 @@ struct AmenCommentTypeBadgeInfo {
         case .correction:
             return AmenCommentTypeBadgeInfo(icon: "🔵", label: "Respectful Correction", tint: .amenBlue)
         case .experience:
-            return AmenCommentTypeBadgeInfo(icon: "✨", label: "Lived Experience", tint: .amenGold)
+            return AmenCommentTypeBadgeInfo(icon: "✨", label: "Lived Experience", tint: .accentColor)
         case .citation:
             return AmenCommentTypeBadgeInfo(icon: "📖", label: "Citation", tint: .amenPurple)
         case .encouragement:
-            return AmenCommentTypeBadgeInfo(icon: "💛", label: "Encouragement", tint: .amenGold)
+            return AmenCommentTypeBadgeInfo(icon: "💛", label: "Encouragement", tint: .accentColor)
         case .respectfulDisagree:
             return AmenCommentTypeBadgeInfo(icon: "🤝", label: "Respectful Disagreement", tint: .amenPurple)
         }

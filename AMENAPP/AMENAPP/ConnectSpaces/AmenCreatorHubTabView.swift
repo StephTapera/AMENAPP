@@ -83,13 +83,28 @@ struct AmenCreatorHubTabView: View {
         }
         // MARK: Sheets
         .sheet(isPresented: $showEventComposer) {
-            AmenSmartEventComposerView()
+            AmenSmartEventComposerView(
+                spaceId: firstSpaceId,
+                spaceName: stubCreatorSpaces.first?.name ?? "My Space",
+                onDismiss: { showEventComposer = false },
+                onEventCreated: { _ in }
+            )
         }
         .sheet(isPresented: $showBroadcast) {
-            AmenEventBroadcastView()
+            AmenEventBroadcastView(
+                spaceId: firstSpaceId,
+                spaceName: stubCreatorSpaces.first?.name ?? "My Space",
+                event: nil,
+                onDismiss: { showBroadcast = false }
+            )
         }
         .sheet(isPresented: $showGiftMembership) {
-            AmenGiftMembershipView()
+            AmenGiftMembershipView(
+                spaceId: firstSpaceId,
+                spaceName: stubCreatorSpaces.first?.name ?? "My Space",
+                availableTiers: [],
+                onDismiss: { showGiftMembership = false }
+            )
         }
         .sheet(isPresented: $showDiscoverySettings) {
             discoverySettingsPlaceholder
@@ -226,7 +241,7 @@ struct AmenCreatorHubTabView: View {
 
             VStack(spacing: 10) {
                 ForEach(stubCreatorSpaces) { space in
-                    spaceManagementCard(space: space)
+                    spaceManagementCard(space)
                 }
             }
             .padding(.horizontal, 16)
@@ -570,7 +585,6 @@ struct AmenCreatorHubTabView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
 
-                    // TODO: Wire real discovery settings endpoint when available
                     Text("Coming soon")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color(hex: "D9A441").opacity(0.70))

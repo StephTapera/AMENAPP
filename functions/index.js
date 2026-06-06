@@ -1288,3 +1288,43 @@ exports.checkBroadcastChannelStatus   = integrationOS.checkBroadcastChannelStatu
 exports.revokeMessagingConsent        = integrationOS.revokeMessagingConsent;
 exports.transcribeVoiceNote           = integrationOS.transcribeVoiceNote;
 exports.moderateMediaTransform        = integrationOS.moderateMediaTransform;
+
+// ============================================================================
+// ACCOUNT SUBSCRIPTION — StoreKit entitlement processing
+//   processAccountSubscription — callable: records App Store subscription tier
+//     after a successful StoreKit transaction; writes to
+//     users/{uid}/entitlements/platform; rate-limited to 10/min per user.
+// TODO: wire full JWT-based App Store Server API verification before launch.
+// Deploy: firebase deploy --only functions:processAccountSubscription --project amen-5e359
+// ============================================================================
+const { processAccountSubscription } = require("./accountSubscriptionFunctions");
+exports.processAccountSubscription = processAccountSubscription;
+
+// ============================================================================
+// DISCOVERY BY GOALS — Personal Discovery Agent search
+//   discoverByGoals — callable: accepts goals text; returns top-5 communities,
+//     churches, and upcoming events from Firestore.
+// TODO: replace Firestore range queries with Algolia semantic search.
+// Deploy: firebase deploy --only functions:discoverByGoals --project amen-5e359
+// ============================================================================
+const { discoverByGoals } = require("./discoveryByGoalsFunctions");
+exports.discoverByGoals = discoverByGoals;
+
+// ============================================================================
+// CAMERA OS — Vision AI, Berean scripture scan, media safety, CSAM reporting
+//   interpretContextLens — callable: OCR text → structured content type
+//   bereanVisionScan     — callable: text → Biblical scripture analysis
+//   scanMediaForSafety   — callable: image base64 → safety classification
+//   reportCSAMFlag       — callable: CSAM human-review queue (no auto-decisions)
+// Deploy: firebase deploy --only functions:interpretContextLens,bereanVisionScan,scanMediaForSafety,reportCSAMFlag --project amen-5e359
+// ============================================================================
+const {
+  interpretContextLens,
+  bereanVisionScan,
+  scanMediaForSafety,
+  reportCSAMFlag,
+} = require("./cameraOSFunctions");
+exports.interpretContextLens = interpretContextLens;
+exports.bereanVisionScan     = bereanVisionScan;
+exports.scanMediaForSafety   = scanMediaForSafety;
+exports.reportCSAMFlag       = reportCSAMFlag;

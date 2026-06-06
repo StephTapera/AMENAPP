@@ -474,39 +474,6 @@ struct AmenDiscussionRoomListView: View {
     }
 }
 
-// MARK: - SpawnProvenance + sourceTypeDisplayName
-
-// sourceTypeDisplayName is already defined on SpawnProvenance in DiscussionModels.swift
-// (the CommunityOS local copy). CommunityObjectTypes.swift defines the canonical struct
-// without a displayName helper. Extend here to add it if it's not already available from
-// either declaration visible in this compilation unit.
-//
-// Using a fileprivate extension with a guard to avoid duplicate-definition errors:
-// if the property already exists on the type, this extension is dead code.
-
-private extension SpawnProvenance {
-    /// Human-readable display name for the source type.
-    /// Guards against the case where DiscussionModels.swift's version is not visible.
-    var sourceTypeDisplayName: String {
-        switch sourceType {
-        case "post":                    return "Post"
-        case "prayer", "prayer_request": return "Prayer Request"
-        case "berean_insight":          return "Berean Insight"
-        case "church_note":             return "Church Note"
-        case "sermon", "sermon_clip":   return "Sermon"
-        case "event":                   return "Event"
-        case "scripture_reference":     return "Scripture"
-        case "space_object":            return "Space"
-        case "organization_object":     return "Organization"
-        case "media_object":            return "Media"
-        case "message":                 return "Message"
-        case "job":                     return "Job"
-        case "discussion":              return "Discussion"
-        default:                        return sourceType.capitalized
-        }
-    }
-}
-
 // MARK: - Preview
 
 #if DEBUG

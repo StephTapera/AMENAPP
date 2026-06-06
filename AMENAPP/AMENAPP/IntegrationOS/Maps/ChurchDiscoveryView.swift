@@ -42,7 +42,7 @@ struct ChurchDiscoveryView: View {
             ZStack(alignment: .bottom) {
                 Map(coordinateRegion: $viewModel.region, annotationItems: viewModel.churches) { church in
                     MapAnnotation(coordinate: church.coordinate) {
-                        ChurchMapPin(church: church, isSelected: viewModel.selectedChurch?.id == church.id)
+                        IntegrationChurchMapPin(church: church, isSelected: viewModel.selectedChurch?.id == church.id)
                             .onTapGesture {
                                 withAnimation(.spring(response: 0.35)) {
                                     viewModel.selectedChurch = church
@@ -93,7 +93,7 @@ struct ChurchDiscoveryView: View {
     }
 }
 
-private struct ChurchMapPin: View {
+private struct IntegrationChurchMapPin: View {
     let church: ChurchDiscoveryService.ChurchResult
     let isSelected: Bool
 

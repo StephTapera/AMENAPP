@@ -175,8 +175,12 @@ struct AmenAIHostAssistantPanel: View {
                         accentColor: Color(hex: "245B8F"),
                         signals: payload.questions,
                         actionLabel: "Reply",
-                        onAction: { _ in
-                            // TODO: wire reply-to-question action (e.g. surface in chat input or callout)
+                        onAction: { signal in
+                            NotificationCenter.default.post(
+                                name: Notification.Name("AmenLiveChatReply"),
+                                object: nil,
+                                userInfo: ["signalId": signal.id, "authorName": signal.authorName, "text": signal.text]
+                            )
                         }
                     )
 
@@ -186,8 +190,12 @@ struct AmenAIHostAssistantPanel: View {
                         accentColor: Color(hex: "6E4BB5"),
                         signals: payload.prayerRequests,
                         actionLabel: "Acknowledge",
-                        onAction: { _ in
-                            // TODO: wire acknowledgment action
+                        onAction: { signal in
+                            NotificationCenter.default.post(
+                                name: Notification.Name("AmenLiveAcknowledge"),
+                                object: nil,
+                                userInfo: ["signalId": signal.id, "authorName": signal.authorName]
+                            )
                         }
                     )
 

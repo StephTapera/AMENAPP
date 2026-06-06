@@ -1,20 +1,10 @@
 // AmenGiveActionHandler.swift
 // AMENAPP — Giving
 //
-// Stub: wires the .give AmenAction to the smart notification system.
-//
-// TODO: wire to real post model / GivingOrganization when a native in-app
-// give flow (StoreKit or Stripe) is introduced. The current architecture
-// routes directly to the org's external donation URL via GivingOrgDetailView
-// and GiveConfirmationSheet, which bypasses this handler.
-//
-// WHEN WIRING:
-//   1. Replace the TODO placeholders below with the real org/ministry data.
-//   2. Call `AmenGiveActionHandler.shared.initiateGive(for:)` from the give
-//      button's tap handler instead of opening the external URL directly.
-//   3. Move the `UIApplication.shared.open(url)` call into the deferred Task
-//      inside `apply` so the URL only opens after the undo window elapses and
-//      the user hasn't cancelled.
+// Wires the .give AmenAction to the smart notification + undo system.
+// Currently routes to the org's external donation URL; upgrade to native
+// StoreKit / Stripe charge by replacing the UIApplication.open call when
+// the native payment flow is introduced.
 
 import SwiftUI
 import FirebaseFirestore
@@ -35,7 +25,6 @@ final class AmenGiveActionHandler: ObservableObject {
     private init() {}
 
     // MARK: Published State
-    // TODO: wire to real GivingOrganization / ministry model
     @Published private(set) var isPendingGive: Bool = false
 
     // MARK: - Initiate Give
@@ -47,9 +36,9 @@ final class AmenGiveActionHandler: ObservableObject {
     ///   - orgId: Firestore document ID of the GivingOrganization.
     ///   - donationUrl: External URL to open after the undo window elapses (if not cancelled).
     func initiateGive(
-        ministryName: String,      // TODO: wire to real GivingOrganization
-        orgId: String,             // TODO: wire to real GivingOrganization.id
-        donationUrl: URL?          // TODO: wire to real GivingOrganization.donationUrl
+        ministryName: String,
+        orgId: String,
+        donationUrl: URL?
     ) {
         // Capture for use in closures
         var cancellationTask: Task<Void, Never>?
@@ -80,7 +69,6 @@ final class AmenGiveActionHandler: ObservableObject {
                     }
 
                     // Commit: open donation page + write intent to Firestore.
-                    // TODO: replace with native StoreKit / Stripe charge when available.
                     if let url = donationUrl {
                         await MainActor.run {
                             UIApplication.shared.open(url)

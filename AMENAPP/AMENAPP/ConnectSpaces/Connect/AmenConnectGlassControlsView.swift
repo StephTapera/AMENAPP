@@ -190,7 +190,7 @@ struct AmenConnectGlassControlsView: View {
                 Spacer()
             }
 
-            // MARK: Seek bar (amenGold track)
+            // MARK: Seek bar (accentColor track)
             seekBar
 
             // MARK: Main controls row
@@ -199,15 +199,15 @@ struct AmenConnectGlassControlsView: View {
                 controlButton(icon: "backward.end.fill") { vm.seekChapterBack() }
                     .accessibilityLabel("Previous chapter")
 
-                // Play / pause (amenGold circle)
+                // Play / pause (accentColor circle)
                 Button {
                     vm.togglePlayPause()
                 } label: {
                     Image(systemName: vm.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Color(hex: "070607"))
+                        .foregroundStyle(Color(.systemBackground))
                         .frame(width: 44, height: 44)
-                        .background(Circle().fill(Color(hex: "D9A441")))
+                        .background(Circle().fill(Color.accentColor))
                 }
                 .accessibilityLabel(vm.isPlaying ? "Pause" : "Play")
 
@@ -244,7 +244,7 @@ struct AmenConnectGlassControlsView: View {
                     label: "Context",
                     systemImage: "info.circle",
                     isActive: vm.showContextSheet,
-                    color: Color(hex: "6E4BB5")
+                    color: Color.amenPurple
                 ) {
                     vm.toggleContextSheet()
                     onContextSheetToggle?(vm.showContextSheet)
@@ -255,7 +255,6 @@ struct AmenConnectGlassControlsView: View {
         }
         .padding(14)
         .background {
-            // iOS 26 .glassEffect() with amenGold tint border
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay {
@@ -264,14 +263,7 @@ struct AmenConnectGlassControlsView: View {
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color(hex: "D9A441").opacity(0.45), Color.white.opacity(0.18)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                 }
         }
         .shadow(color: .black.opacity(0.45), radius: 20, x: 0, y: 8)
@@ -288,14 +280,14 @@ struct AmenConnectGlassControlsView: View {
                     .fill(Color.white.opacity(0.20))
                     .frame(height: 4)
 
-                // Filled track — amenGold
+                // Filled track — accentColor
                 Capsule()
-                    .fill(Color(hex: "D9A441"))
+                    .fill(Color.accentColor)
                     .frame(width: geo.size.width * vm.seekFraction, height: 4)
 
                 // Thumb
                 Circle()
-                    .fill(Color(hex: "D9A441"))
+                    .fill(Color.accentColor)
                     .frame(width: 14, height: 14)
                     .offset(x: geo.size.width * vm.seekFraction - 7)
             }
@@ -388,7 +380,7 @@ struct AmenConnectGlassControlsView: View {
 #if DEBUG
 #Preview {
     ZStack {
-        Color(hex: "070607").ignoresSafeArea()
+        Color(.systemGroupedBackground).ignoresSafeArea()
 
         AmenConnectGlassControlsView(
             player: AVPlayer(),

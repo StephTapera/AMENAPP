@@ -28,7 +28,6 @@ enum ONEMomentType: String, Codable, Sendable, CaseIterable {
     case directMessage
     case snap
     case post
-    case story
     case voice
     case reflection
     case locationShare

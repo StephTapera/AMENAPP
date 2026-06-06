@@ -116,7 +116,7 @@ struct AmenTeacherOSView: View {
         HStack(spacing: 12) {
             Image(systemName: "play.rectangle.on.rectangle")
                 .font(.title2)
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Teacher Studio")
                     .font(.title3.weight(.semibold))
@@ -135,7 +135,7 @@ struct AmenTeacherOSView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.amenGold.opacity(0.35), lineWidth: 1)
+                .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -187,7 +187,7 @@ struct AmenTeacherOSView: View {
             title: "Community Health",
             description: "Overall tone of structured discussion",
             value: vm.metrics.communityHealth,
-            tint: .amenGold
+            tint: .accentColor
         )
     }
 

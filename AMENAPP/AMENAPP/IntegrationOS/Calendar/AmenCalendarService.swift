@@ -11,7 +11,7 @@ actor AmenCalendarService {
 
     private let adapter = EventKitCalendarAdapter()
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_calendar_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_calendar_enabled").boolValue }
 
     // MARK: - Authorization
 

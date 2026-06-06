@@ -96,6 +96,8 @@ struct SettingsView: View {
                             SDDivider()
                             SDNavRow(icon: "lock", label: "Privacy & Safety", subtitle: "Who can see your content", iconBg: .green) { PrivacySettingsView() }
                             SDDivider()
+                            AmenGenerationalPresetSettingsRow()
+                            SDDivider()
                             SDNavRow(icon: "shield", label: "Security", subtitle: "2FA, active sessions", iconBg: .yellow) { SecurityGroupView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)

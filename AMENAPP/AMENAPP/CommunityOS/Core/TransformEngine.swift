@@ -116,7 +116,7 @@ actor FirebaseTransformEngine: TransformEngine {
         audienceOverride: String?
     ) async throws -> TransformResult {
 
-        guard AMENFeatureFlags.shared.communityOSEnabled else {
+        guard await AMENFeatureFlags.shared.communityOSEnabled else {
             throw TransformError.featureFlagDisabled(flagName: "communityOSEnabled")
         }
 
@@ -255,13 +255,13 @@ enum AmenTransform {
             // Row: OrganizationObject — blocked: mentor
             return [.share, .discuss, .pray, .study, .teach, .ask, .invite, .volunteer, .hire, .announce]
 
-        case .churchNote:
-            // Row: ScriptureReference — blocked: volunteer, hire, invite
-            return [.share, .discuss, .pray, .study, .teach, .ask, .mentor, .announce]
+        case .discussion:
+            // Row: DiscussionRoom as source — limited re-spawn surface
+            return [.discuss, .pray, .ask]
 
-        case .bereanInsight:
-            // Covered above
-            return []
+        case .volunteerOpportunity:
+            // Row: VolunteerOpportunity — blocked: hire, mentor
+            return [.share, .discuss, .pray, .teach, .ask, .invite, .volunteer, .announce]
 
         case .study:
             // Study objects as source — same as BereanInsight shape

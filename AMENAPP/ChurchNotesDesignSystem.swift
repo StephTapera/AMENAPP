@@ -17,11 +17,11 @@ extension Color {
     /// Warm gold — repurposed alias for use in church notes feature layer
     static let cnGold = Color(hex: "D4A843")
 
-    /// Lighter fill for highlights — PURGED: was champagne gold #F0C96E → secondarySystemFill per C3 design contract
+    /// Lighter fill for highlights — maps to secondary system fill per C3 design contract
     static let amenGoldLight = Color(uiColor: .secondarySystemFill)
 
-    /// Rich violet — AI panels, insights, spiritual depth indicators
-    static let amenPurple = Color(hex: "A855F7")
+    /// AI panels, insights, spiritual depth indicators — maps to accent color per C3 design contract
+    static let amenPurple = Color.accentColor
 
     /// Sky blue — radar, community, trust indicators
     static let amenBlue = Color(hex: "4A9EFF")

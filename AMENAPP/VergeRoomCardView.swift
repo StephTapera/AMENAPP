@@ -12,9 +12,7 @@ struct VergeRoomCardView: View {
     let room: VergeRoom
     let onJoin: () -> Void
 
-    private let Color.accentColor = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let Color.accentColor   = Color(hex: "F59E0B")
     private let vergeGradient = LinearGradient(
         colors: [Color(hex: "06B6D4"), Color(hex: "6B48FF")],
         startPoint: .topLeading,

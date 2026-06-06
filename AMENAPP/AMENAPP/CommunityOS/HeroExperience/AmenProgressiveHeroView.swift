@@ -62,8 +62,10 @@ struct AmenProgressiveHeroView: View {
                     .matchedGeometryEffect(id: "hero-photo", in: heroNamespace)
             } else {
                 // Invisible placeholder preserving layout space
+                // Use the literal compact height (200pt) — AmenHeroHeader is generic
+                // and HeroHeight.compact.points cannot be resolved without a concrete ActionPill type.
                 Color.clear
-                    .frame(height: AmenHeroHeader.HeroHeight.compact.points)
+                    .frame(height: 200)
             }
         }
         .overlay {

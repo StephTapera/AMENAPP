@@ -79,10 +79,7 @@ struct BereanFormationOnboardingView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(hex: "#0A0A0F"), Color(hex: "#111118")],
-                startPoint: .top, endPoint: .bottom
-            ).ignoresSafeArea()
+            Color(.systemGroupedBackground).ignoresSafeArea()
 
             Group {
                 switch step {
@@ -130,46 +127,40 @@ struct BereanFormationOnboardingView: View {
                 // Gold emblem
                 ZStack {
                     Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color(hex: "#E8CB7A"), Color(hex: "#8A6F2E")],
-                                center: UnitPoint(x: 0.38, y: 0.38),
-                                startRadius: 0, endRadius: 40
-                            )
-                        )
+                        .fill(Color.accentColor)
                         .frame(width: 80, height: 80)
-                        .shadow(color: Color(hex: "#C9A84C").opacity(0.4), radius: 24)
+                        .shadow(color: Color.accentColor.opacity(0.4), radius: 24)
                     Image(systemName: "sparkle")
                         .font(.system(size: 28, weight: .ultraLight))
-                        .foregroundStyle(Color(hex: "#0A0A0F"))
+                        .foregroundStyle(Color(.systemBackground))
                 }
                 .padding(.bottom, 40)
 
                 Text("Berean")
-                    .font(.custom("Georgia", size: 48).weight(.light))
-                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(Color.primary)
                     .tracking(2)
 
                 Text("EXAMINING THE SCRIPTURES DAILY")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color(hex: "#E8CB7A").opacity(0.85))
+                    .foregroundStyle(Color.accentColor.opacity(0.85))
                     .tracking(3)
                     .padding(.bottom, 40)
 
                 // Acts 17:11 card
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Now these Jews were more noble than those in Thessalonica; they received the word with all eagerness, examining the Scriptures daily to see if these things were so.")
-                        .font(.custom("Georgia", size: 18).italic())
-                        .foregroundStyle(Color(hex: "#F5F0E8"))
+                        .font(.body.italic())
+                        .foregroundStyle(Color.primary)
                         .lineSpacing(4)
                     Text("Acts 17:11 (ESV)")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(NotifGlassTokens.goldPrimary)
+                        .foregroundStyle(Color.accentColor)
                         .tracking(0.5)
                     BereanMockLabel()
                     Text("Berean helps you stay rooted. Every morning, a personal arc of reflection — tied to where you actually are in your walk.")
                         .font(.system(size: 13))
-                        .foregroundStyle(Color.white.opacity(0.55))
+                        .foregroundStyle(Color.secondary)
                         .lineSpacing(3)
                         .padding(.top, 8)
                 }
@@ -188,11 +179,11 @@ struct BereanFormationOnboardingView: View {
                     ], id: \.self) { point in
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "sparkle")
-                                .font(.system(size: 10)).foregroundStyle(NotifGlassTokens.goldPrimary)
+                                .font(.system(size: 10)).foregroundStyle(Color.accentColor)
                                 .padding(.top, 3)
                             Text(point)
                                 .font(.system(size: 13))
-                                .foregroundStyle(Color.white.opacity(0.55))
+                                .foregroundStyle(Color.secondary)
                                 .lineSpacing(2)
                         }
                     }
@@ -217,15 +208,15 @@ struct BereanFormationOnboardingView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
-                        Image(systemName: "sparkle").font(.system(size: 10)).foregroundStyle(NotifGlassTokens.goldPrimary)
-                        Text("Berean").font(.system(size: 11, weight: .semibold)).foregroundStyle(NotifGlassTokens.goldPrimary).tracking(1.5)
+                        Image(systemName: "sparkle").font(.system(size: 10)).foregroundStyle(Color.accentColor)
+                        Text("Berean").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.accentColor).tracking(1.5)
                     }
                     Text("What shapes your morning?")
-                        .font(.custom("Georgia", size: 30).weight(.light))
-                        .foregroundStyle(Color(hex: "#F5F0E8"))
+                        .font(.title2.bold())
+                        .foregroundStyle(Color.primary)
                     Text("Select the kinds of formation you want each day.")
                         .font(.system(size: 13))
-                        .foregroundStyle(Color.white.opacity(0.40))
+                        .foregroundStyle(Color.secondary)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
@@ -241,10 +232,10 @@ struct BereanFormationOnboardingView: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(topic.label)
                                         .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(active ? Color(hex: "#E8CB7A") : Color(hex: "#F5F0E8"))
+                                        .foregroundStyle(active ? Color.accentColor : Color.primary)
                                     Text(topic.desc)
                                         .font(.system(size: 12))
-                                        .foregroundStyle(Color.white.opacity(0.45))
+                                        .foregroundStyle(Color.secondary)
                                         .lineSpacing(2)
                                         .multilineTextAlignment(.leading)
                                 }
@@ -252,17 +243,17 @@ struct BereanFormationOnboardingView: View {
                                 if active {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(NotifGlassTokens.goldPrimary)
+                                        .foregroundStyle(Color.accentColor)
                                 }
                             }
                             .padding(16)
                             .background(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(active ? Color(hex: "#C9A84C").opacity(0.06) : Color.white.opacity(0.04))
+                                    .fill(active ? Color.accentColor.opacity(0.06) : Color(.secondarySystemGroupedBackground))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .strokeBorder(active ? Color(hex: "#C9A84C") : Color.white.opacity(0.10), lineWidth: 0.5)
+                                    .strokeBorder(active ? Color.accentColor : Color.separator, lineWidth: 0.5)
                             )
                         }
                         .buttonStyle(.plain)
@@ -279,7 +270,7 @@ struct BereanFormationOnboardingView: View {
 
                 Text("All integrations default OFF. You'll choose what to share next.")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.25))
+                    .foregroundStyle(Color.secondary.opacity(0.5))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 10)
@@ -302,12 +293,12 @@ struct BereanFormationOnboardingView: View {
                     VStack(spacing: 8) {
                         Text(meta.icon).font(.system(size: 44))
                         Text("Connect \(meta.name)?")
-                            .font(.custom("Georgia", size: 26).weight(.light))
-                            .foregroundStyle(Color(hex: "#F5F0E8"))
+                            .font(.title2.bold())
+                            .foregroundStyle(Color.primary)
                             .multilineTextAlignment(.center)
                         Text("All integrations default OFF. You decide what Berean sees.")
                             .font(.system(size: 11))
-                            .foregroundStyle(Color.white.opacity(0.30))
+                            .foregroundStyle(Color.secondary)
                             .multilineTextAlignment(.center)
                     }
 
@@ -317,19 +308,19 @@ struct BereanFormationOnboardingView: View {
                         HStack(alignment: .top, spacing: 8) {
                             Text("If you decline:")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.white.opacity(0.45))
+                                .foregroundStyle(Color.secondary)
                                 .frame(width: 90, alignment: .leading)
                             Text(meta.ifDeclined)
                                 .font(.system(size: 12))
-                                .foregroundStyle(Color.white.opacity(0.35))
+                                .foregroundStyle(Color.secondary)
                                 .lineSpacing(2)
                         }
                         .padding(14)
-                        .background(Color.white.opacity(0.04))
+                        .background(Color(.secondarySystemGroupedBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color(hex: "#C9A84C").opacity(0.18), lineWidth: 0.5)
+                                .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 0.5)
                         )
                     }
                     .padding(20)
@@ -349,8 +340,8 @@ struct BereanFormationOnboardingView: View {
 
     private func consentRow(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(NotifGlassTokens.goldPrimary).tracking(1.2).textCase(.uppercase)
-            Text(value).font(.system(size: 13)).foregroundStyle(Color.white.opacity(0.55)).lineSpacing(2)
+            Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.accentColor).tracking(1.2).textCase(.uppercase)
+            Text(value).font(.system(size: 13)).foregroundStyle(Color.secondary).lineSpacing(2)
         }
     }
 
@@ -376,16 +367,16 @@ struct BereanFormationOnboardingView: View {
             Spacer()
             Image(systemName: "sparkle")
                 .font(.system(size: 48, weight: .ultraLight))
-                .foregroundStyle(NotifGlassTokens.goldLight)
+                .foregroundStyle(Color.accentColor)
                 .symbolEffect(.breathe, isActive: !reduceMotion)
             Text("Your first Berean is being prepared.")
-                .font(.custom("Georgia", size: 32).weight(.light))
-                .foregroundStyle(NotifGlassTokens.goldLight)
+                .font(.title.bold())
+                .foregroundStyle(Color.accentColor)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
             Text("Overnight, Berean reads where you are in your walk and prepares a personal arc of reflection for morning.\n\nFormation over information. Faithfulness over productivity.")
                 .font(.system(size: 14))
-                .foregroundStyle(Color.white.opacity(0.45))
+                .foregroundStyle(Color.secondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
                 .padding(.horizontal, 40)
@@ -410,10 +401,10 @@ struct BereanFormationPrimaryButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(disabled ? Color.white.opacity(0.35) : Color(hex: "#0A0A0F"))
+                .foregroundStyle(disabled ? Color.secondary : Color(.systemBackground))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(disabled ? AnyShapeStyle(Color.white.opacity(0.08)) : AnyShapeStyle(NotifGlassTokens.primaryButtonGradient))
+                .background(disabled ? AnyShapeStyle(Color(.secondarySystemGroupedBackground)) : AnyShapeStyle(Color.accentColor))
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -434,12 +425,12 @@ struct BereanFormationGhostButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Color(hex: "#F5F0E8"))
+                .foregroundStyle(Color.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.white.opacity(0.06))
+                .background(Color(.secondarySystemGroupedBackground))
                 .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5))
+                .overlay(Capsule().strokeBorder(Color.separator, lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)

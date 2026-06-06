@@ -58,10 +58,10 @@ struct BereanDailyFormationFeedView: View {
                     if !cards.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "sparkle")
-                                .font(.system(size: 10)).foregroundStyle(NotifGlassTokens.goldPrimary)
+                                .font(.system(size: 10)).foregroundStyle(Color.accentColor)
                             Text("YOUR BEREAN TODAY")
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(NotifGlassTokens.goldPrimary).tracking(2)
+                                .foregroundStyle(Color.accentColor).tracking(2)
                         }
                         .padding(.horizontal, 20).padding(.bottom, 16)
                     }
@@ -79,12 +79,7 @@ struct BereanDailyFormationFeedView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(
-                LinearGradient(
-                    colors: [Color(hex: "#0A0A0F"), Color(hex: "#111118")],
-                    startPoint: .top, endPoint: .bottom
-                ).ignoresSafeArea()
-            )
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
 
             // WhySheet overlay
             if let card = whyCard {
@@ -102,32 +97,26 @@ struct BereanDailyFormationFeedView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 10)).foregroundStyle(NotifGlassTokens.goldPrimary)
+                        .font(.system(size: 10)).foregroundStyle(Color.accentColor)
                     Text("Berean")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(NotifGlassTokens.goldPrimary).tracking(1.5)
+                        .foregroundStyle(Color.accentColor).tracking(1.5)
                 }
                 Text("Good morning, \(userName).")
-                    .font(.custom("Georgia", size: 28).weight(.light))
-                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                    .font(.title2.bold())
+                    .foregroundStyle(Color.primary)
                 Text("\(dateLabel) · \(cards.count) card\(cards.count == 1 ? "" : "s") ready")
-                    .font(.system(size: 12)).foregroundStyle(Color.white.opacity(0.35))
+                    .font(.system(size: 12)).foregroundStyle(Color.secondary)
             }
             Spacer()
             // Gold emblem
             ZStack {
                 Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color(hex: "#C9A84C"), Color(hex: "#8A6F2E")],
-                            center: UnitPoint(x: 0.38, y: 0.38),
-                            startRadius: 0, endRadius: 20
-                        )
-                    )
+                    .fill(Color.accentColor)
                     .frame(width: 40, height: 40)
                 Image(systemName: "sparkle")
                     .font(.system(size: 15, weight: .light))
-                    .foregroundStyle(Color(hex: "#0A0A0F"))
+                    .foregroundStyle(Color(.systemBackground))
             }
         }
     }
@@ -140,12 +129,12 @@ private struct BereanEmptyFeedView: View {
         VStack(spacing: 16) {
             Image(systemName: "sparkle")
                 .font(.system(size: 36, weight: .ultraLight))
-                .foregroundStyle(NotifGlassTokens.goldPrimary.opacity(0.6))
+                .foregroundStyle(Color.accentColor.opacity(0.6))
             Text("Your Berean is being prepared overnight.")
-                .font(.custom("Georgia", size: 22))
-                .foregroundStyle(Color(hex: "#F5F0E8")).multilineTextAlignment(.center).lineSpacing(4)
+                .font(.title2.bold())
+                .foregroundStyle(Color.primary).multilineTextAlignment(.center).lineSpacing(4)
             Text("Come back in the morning.")
-                .font(.system(size: 13)).foregroundStyle(Color.white.opacity(0.35))
+                .font(.system(size: 13)).foregroundStyle(Color.secondary)
         }
         .padding(32).glassSurface(cornerRadius: 20).padding(.horizontal, 32)
     }

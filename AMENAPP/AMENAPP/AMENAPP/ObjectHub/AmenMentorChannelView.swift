@@ -624,10 +624,10 @@ struct AmenMentorChannelView: View {
                 Capsule()
                     .fill(reduceTransparency
                           ? AnyShapeStyle(vm.isFollowing
-                                          ? Color.amenGold.opacity(0.8)
+                                          ? Color.accentColor.opacity(0.8)
                                           : Color.black.opacity(0.55))
                           : AnyShapeStyle(vm.isFollowing
-                                          ? AnyShapeStyle(Color.amenGold.opacity(0.55))
+                                          ? AnyShapeStyle(Color.accentColor.opacity(0.55))
                                           : AnyShapeStyle(Material.ultraThinMaterial)))
                     .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
             )
@@ -651,10 +651,10 @@ struct AmenMentorChannelView: View {
                 MentorFlowLayout(profile.ministeringFocus) { tag in
                     Text(tag)
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Capsule().fill(Color.amenGold.opacity(0.12)))
+                        .background(Capsule().fill(Color.accentColor.opacity(0.12)))
                 }
             }
 
@@ -717,7 +717,7 @@ struct AmenMentorChannelView: View {
             Spacer()
             Button("See All") {}
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 20)
     }
@@ -757,10 +757,10 @@ struct AmenMentorChannelView: View {
                 Button { showRequestSheet = true } label: {
                     HStack(spacing: 14) {
                         ZStack {
-                            Circle().fill(Color.amenGold.opacity(0.14)).frame(width: 44, height: 44)
+                            Circle().fill(Color.accentColor.opacity(0.14)).frame(width: 44, height: 44)
                             Image(systemName: "calendar.badge.plus")
                                 .font(.system(size: 20))
-                                .foregroundStyle(Color.amenGold)
+                                .foregroundStyle(Color.accentColor)
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Request a Session")
@@ -783,7 +783,7 @@ struct AmenMentorChannelView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.amenGold.opacity(0.25), lineWidth: 1)
+                            .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -1105,7 +1105,7 @@ private struct BioExpanderView: View {
                     }
                 }
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
                 .buttonStyle(.plain)
             }
         }
@@ -1201,7 +1201,7 @@ private struct OfficeHourCard: View {
             HStack {
                 Image(systemName: "clock.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
                 Spacer()
                 if slot.isBooked {
                     Text("Booked")
@@ -1228,7 +1228,7 @@ private struct OfficeHourCard: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.amenGold))
+                    .background(Capsule().fill(Color.accentColor))
             }
         }
         .padding(12)
@@ -1417,11 +1417,11 @@ private struct StudySeriesRailCard: View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.amenGold.opacity(0.12))
+                    .fill(Color.accentColor.opacity(0.12))
                     .frame(height: 52)
                 Image(systemName: "books.vertical.fill")
                     .font(.system(size: 22))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(Color.accentColor)
             }
 
             Text(series.title)
@@ -1440,14 +1440,14 @@ private struct StudySeriesRailCard: View {
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color(.systemGray5)).frame(height: 4)
                             Capsule()
-                                .fill(Color.amenGold)
+                                .fill(Color.accentColor)
                                 .frame(width: geo.size.width * series.progressFraction, height: 4)
                         }
                     }
                     .frame(height: 4)
                     Text("\(Int(series.progressFraction * 100))% complete")
                         .font(.caption2)
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
         }

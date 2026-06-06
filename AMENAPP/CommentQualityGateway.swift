@@ -24,12 +24,9 @@
 //    The primary compose path (CommentService.addComment → PostDetailView) fully
 //    handles the nudge sheet via CommentNudgeRequired error + CommentNudgeSheet.
 //
-//  TODO — secondary paths that catch CommentNudgeRequired generically and show
-//  a generic error toast (acceptable for now; full nudge sheet could be added later):
-//    - AMENAPP/FollowThroughInteractions.swift  line ~520  (action-thread comment)
-//    - AMENAPP/TestimoniesView.swift            line ~1501, ~2068
-//    - AMENAPP/PostInteractionsViewModel.swift  line ~77
-//    - AMENAPP/PrayerView.swift                 line ~2773
+//  Secondary paths (FollowThroughInteractions, TestimoniesView, PostInteractionsViewModel,
+//  PrayerView) catch CommentNudgeRequired generically and show a generic toast; the full
+//  nudge sheet can be wired in a later pass.
 //
 
 import Foundation

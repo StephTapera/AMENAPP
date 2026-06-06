@@ -34,8 +34,8 @@ struct DiscoveryItem: Identifiable {
     static let previews: [DiscoveryItem] = [
         DiscoveryItem(id: "1", type: .space, title: "Sunday Morning Crew",
                       subtitle: "A warm community for early risers in the faith",
-                      badgeText: "Active", accentColor: .amenGold,
-                      gradientColors: [Color(red: 0.6, green: 0.4, blue: 0.1), Color(red: 0.3, green: 0.15, blue: 0.05)],
+                      badgeText: "Active", accentColor: .accentColor,
+                      gradientColors: [Color(.systemGroupedBackground), Color(.systemGroupedBackground)],
                       memberCount: 84, isJoined: false),
         DiscoveryItem(id: "2", type: .study, title: "Book of James Deep Dive",
                       subtitle: "6-week study on faith and works",
@@ -44,8 +44,8 @@ struct DiscoveryItem: Identifiable {
                       memberCount: 23, isJoined: true),
         DiscoveryItem(id: "3", type: .mentor, title: "Elder Maria Thompson",
                       subtitle: "20 years of women's ministry and pastoral care",
-                      badgeText: "Open", accentColor: Color.purple,
-                      gradientColors: [.purple.opacity(0.7), .pink.opacity(0.4)],
+                      badgeText: "Open", accentColor: Color.accentColor,
+                      gradientColors: [Color(.systemGroupedBackground), Color(.systemGroupedBackground)],
                       memberCount: nil, isJoined: false)
     ]
 }
@@ -117,13 +117,13 @@ struct DiscoveryHeroCard: View {
                         } label: {
                             Text(item.isJoined ? "Joined ✓" : "Join")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(item.isJoined ? Color.amenGold : .white)
+                                .foregroundStyle(item.isJoined ? Color.accentColor : .white)
                                 .padding(.horizontal, 14)
                                 .frame(height: 34)
                                 .background(
                                     item.isJoined
                                         ? Color.white.opacity(0.15)
-                                        : Color.amenGold,
+                                        : Color.accentColor,
                                     in: Capsule()
                                 )
                         }

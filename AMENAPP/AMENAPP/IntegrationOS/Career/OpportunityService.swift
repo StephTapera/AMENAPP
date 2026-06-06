@@ -14,7 +14,7 @@ actor OpportunityService {
     private let db = Firestore.firestore()
     private let ledger = ConsentLedgerService.shared
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_career_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_career_enabled").boolValue }
 
     // MARK: - Fetch
 
@@ -67,15 +67,25 @@ actor OpportunityService {
         guard isEnabled else { return }
         guard let uid = Auth.auth().currentUser?.uid else { throw IntegrationOSError.notAuthenticated }
         let application = JobApplication(
-            opportunityId: opportunityId,
+            jobId: opportunityId,
+            jobTitle: "",
+            employerId: "",
             applicantId: uid,
+            applicantName: "",
+            applyModel: .amenEasyApply,
             coverNote: coverNote,
             portfolioURL: portfolioURL,
+            screeningAnswers: [],
             status: .submitted,
-            appliedAt: Date()
+            isRead: false,
+            consentToShareProfile: true,
+            moderationState: .pending,
+            createdAt: Date(),
+            updatedAt: Date()
         )
+        let appDocId = application.id ?? UUID().uuidString
         try db.collection("opportunities").document(opportunityId)
-            .collection("applications").document(application.id)
+            .collection("applications").document(appDocId)
             .setData(from: application)
     }
 }

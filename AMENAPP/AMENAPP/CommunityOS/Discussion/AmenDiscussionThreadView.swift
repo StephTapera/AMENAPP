@@ -474,7 +474,7 @@ struct AmenDiscussionThreadView: View {
     private var composerBar: some View {
         VStack(spacing: 0) {
             // Replying-to banner
-            if let reply = replyingTo, isComposingReply {
+            if replyingTo != nil, isComposingReply {
                 HStack(spacing: 8) {
                     Image(systemName: "arrowshape.turn.up.left")
                         .font(.system(size: 11))

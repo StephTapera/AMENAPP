@@ -190,7 +190,6 @@ private struct ScheduledContentRow: View {
     private var typeColor: Color {
         switch item.targetType {
         case .post:            return .blue
-        case .story:           return .orange
         case .event:           return .green
         case .devotional:      return .purple
         case .studyDrop:       return .indigo
@@ -201,7 +200,6 @@ private struct ScheduledContentRow: View {
     private var typeIcon: String {
         switch item.targetType {
         case .post:            return "doc.richtext.fill"
-        case .story:           return "play.square.fill"
         case .event:           return "calendar"
         case .devotional:      return "book.fill"
         case .studyDrop:       return "graduationcap.fill"
@@ -279,7 +277,7 @@ private struct ScheduleContentSheet: View {
 
 extension CovenantScheduledContent.TargetType: CaseIterable {
     public static var allCases: [CovenantScheduledContent.TargetType] {
-        [.post, .story, .event, .devotional, .studyDrop, .digestHighlight]
+        [.post, .event, .devotional, .studyDrop, .digestHighlight]
     }
 }
 

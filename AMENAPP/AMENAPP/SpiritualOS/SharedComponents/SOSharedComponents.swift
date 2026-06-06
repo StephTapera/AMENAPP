@@ -134,7 +134,7 @@ struct GlassChip: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var resolvedTint: Color { tint ?? .amenGold }
+    private var resolvedTint: Color { tint ?? .accentColor }
 
     var body: some View {
         Button(action: { action?() }) {
@@ -281,7 +281,7 @@ enum TimelineRowBadge {
 
 struct TimelineRow: View {
     var icon: String
-    var iconTint: Color = .amenGold
+    var iconTint: Color = .accentColor
     var title: String
     var subtitle: String? = nil
     var timestamp: Date? = nil
@@ -296,10 +296,10 @@ struct TimelineRow: View {
                 VStack(spacing: 0) {
                     Image(systemName: isCompleted ? "checkmark.circle.fill" : icon)
                         .font(.body)
-                        .foregroundStyle(isCompleted ? Color.amenGold : iconTint)
+                        .foregroundStyle(isCompleted ? Color.accentColor : iconTint)
                         .frame(width: 24, height: 24)
                     Rectangle()
-                        .fill(Color.amenGold.opacity(0.25))
+                        .fill(Color.accentColor.opacity(0.25))
                         .frame(width: 1.5)
                         .frame(maxHeight: .infinity)
                 }

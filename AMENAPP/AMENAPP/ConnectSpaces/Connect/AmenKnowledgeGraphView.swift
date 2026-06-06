@@ -163,7 +163,7 @@ struct AmenKnowledgeGraphView: View {
                 id: "wrestling",
                 title: "I'm Wrestling With",
                 systemImage: "figure.wrestling",
-                tint: .amenGold,
+                tint: .accentColor,
                 videoIds: vm.graph.wrestlingWith,
                 showMarkUnderstood: false
             ),

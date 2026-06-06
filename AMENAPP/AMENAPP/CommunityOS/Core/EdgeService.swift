@@ -11,12 +11,12 @@
 import Foundation
 import FirebaseFunctions
 
-// MARK: - AmenEdge
+// MARK: - AmenCallableEdge
 
 /// A directed relationship between two canonical objects.
 /// Stored in Firestore `/edges/{edgeId}`.
 /// Source: C1 §4a "Firestore shape".
-struct AmenEdge: Codable, Identifiable, Sendable {
+struct AmenCallableEdge: Codable, Identifiable, Sendable {
     var id: String { "\(fromRef)|\(toRef)|\(edgeType.rawValue)" }
 
     /// Firestore path of the originating object (e.g. `/posts/abc`).
@@ -28,7 +28,7 @@ struct AmenEdge: Codable, Identifiable, Sendable {
     /// Raw object type string of the destination object.
     let toType: String
     /// The semantic relationship type.
-    let edgeType: AmenEdgeType
+    let edgeType: AmenCallableEdgeType
     /// UID of the user who created this edge.
     let createdBy: String
     /// Visibility level: `"public"`, `"members"`, or `"private"`.
@@ -79,7 +79,7 @@ final class EdgeService {
     ///   - toType: Raw `AmenObjectType` string of the destination.
     ///   - edgeType: The semantic relationship type.
     ///   - visibility: One of `"public"`, `"members"`, or `"private"`.
-    /// - Returns: The created `AmenEdge`.
+    /// - Returns: The created `AmenCallableEdge`.
     /// - Throws: Errors forwarded from the `createEdge` Cloud Function.
     @discardableResult
     func createEdge(
@@ -87,9 +87,9 @@ final class EdgeService {
         fromType: String,
         toRef: String,
         toType: String,
-        edgeType: AmenEdgeType,
+        edgeType: AmenCallableEdgeType,
         visibility: String
-    ) async throws -> AmenEdge {
+    ) async throws -> AmenCallableEdge {
 
         guard AMENFeatureFlags.shared.communityOSEnabled else {
             throw EdgeServiceError.featureFlagDisabled
@@ -111,7 +111,7 @@ final class EdgeService {
             throw EdgeServiceError.invalidResponse
         }
 
-        return try AmenEdge(from: data)
+        return try AmenCallableEdge(from: data)
     }
 
     // MARK: - Get Edges
@@ -122,13 +122,13 @@ final class EdgeService {
     ///   - ref: The Firestore document path of the object.
     ///   - direction: Whether to fetch outbound, inbound, or both directions.
     ///   - edgeType: Optional filter by edge type. `nil` returns all types.
-    /// - Returns: An array of `AmenEdge` records.
+    /// - Returns: An array of `AmenCallableEdge` records.
     /// - Throws: Errors forwarded from the `getEdges` Cloud Function.
     func getEdges(
         ref: String,
         direction: EdgeDirection,
-        edgeType: AmenEdgeType? = nil
-    ) async throws -> [AmenEdge] {
+        edgeType: AmenCallableEdgeType? = nil
+    ) async throws -> [AmenCallableEdge] {
 
         guard AMENFeatureFlags.shared.communityOSEnabled else {
             throw EdgeServiceError.featureFlagDisabled
@@ -149,7 +149,7 @@ final class EdgeService {
             return []
         }
 
-        return dataArray.compactMap { try? AmenEdge(from: $0) }
+        return dataArray.compactMap { try? AmenCallableEdge(from: $0) }
     }
 }
 
@@ -161,9 +161,9 @@ enum EdgeServiceError: Error, Sendable {
     case missingField(String)
 }
 
-// MARK: - AmenEdge + Decoding helper
+// MARK: - AmenCallableEdge + Decoding helper
 
-private extension AmenEdge {
+private extension AmenCallableEdge {
     init(from data: [String: Any]) throws {
         guard
             let fromRef   = data["fromRef"]   as? String,
@@ -171,7 +171,7 @@ private extension AmenEdge {
             let toRef     = data["toRef"]     as? String,
             let toType    = data["toType"]    as? String,
             let edgeRaw   = data["edgeType"]  as? String,
-            let edgeType  = AmenEdgeType(rawValue: edgeRaw),
+            let edgeType  = AmenCallableEdgeType(rawValue: edgeRaw),
             let createdBy = data["createdBy"] as? String,
             let visibility = data["visibility"] as? String
         else {

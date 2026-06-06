@@ -67,9 +67,9 @@ struct AmenCareFollowUpCard: View {
     var body: some View {
         // Matte card — care content is never behind glass (C-22, C-34)
         HStack(spacing: 0) {
-            // amenGold left border (3pt)
+            // Accent left border (3pt)
             Rectangle()
-                .fill(Color.amenGold)
+                .fill(Color.accentColor)
                 .frame(width: 3)
                 .accessibilityHidden(true)
 
@@ -118,12 +118,12 @@ struct AmenCareFollowUpCard: View {
                             systemImage: vm.isUpdating ? "hourglass" : "checkmark.circle"
                         )
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .padding(.horizontal, 14)
                         .frame(height: 36)
                         .overlay {
                             Capsule(style: .continuous)
-                                .strokeBorder(Color.amenGold.opacity(0.6), lineWidth: 1)
+                                .strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 1)
                         }
                     }
                     .buttonStyle(.plain)
@@ -150,7 +150,7 @@ struct AmenCareFollowUpCard: View {
             Text(vm.item.kind == .prayer ? "Prayer" : "Care Follow-Up")
                 .font(.caption.weight(.semibold))
         }
-        .foregroundStyle(vm.item.kind == .prayer ? Color.amenPurple : Color.amenGold)
+        .foregroundStyle(vm.item.kind == .prayer ? Color.amenPurple : Color.accentColor)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background {
@@ -161,7 +161,7 @@ struct AmenCareFollowUpCard: View {
                         .fill(
                             vm.item.kind == .prayer
                             ? Color.amenPurple.opacity(0.12)
-                            : Color.amenGold.opacity(0.12)
+                            : Color.accentColor.opacity(0.12)
                         )
                 }
         }
@@ -198,7 +198,7 @@ struct AmenCareFollowUpCard: View {
     private func statusTokens(_ status: AmenConnectSpacesItemStatus) -> (String, Color, Color) {
         switch status {
         case .open:
-            return ("Open", Color.amenGold, Color.amenGold.opacity(0.15))
+            return ("Open", Color.accentColor, Color.accentColor.opacity(0.15))
         case .inProgress:
             return ("In Progress", Color.amenBlue, Color.amenBlue.opacity(0.15))
         case .done:
@@ -216,7 +216,7 @@ struct AmenCareFollowUpCard: View {
         HStack(spacing: 6) {
             Image(systemName: vm.item.owner != nil ? "person.circle" : "person.crop.circle.badge.questionmark")
                 .font(.caption)
-                .foregroundStyle(vm.item.owner != nil ? Color.amenGold : Color(.secondaryLabel))
+                .foregroundStyle(vm.item.owner != nil ? Color.accentColor : Color(.secondaryLabel))
                 .accessibilityHidden(true)
             Text(vm.item.owner ?? "Unassigned — needs a shepherd")
                 .font(.subheadline)

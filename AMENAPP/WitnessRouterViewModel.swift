@@ -13,7 +13,7 @@ final class WitnessRouterViewModel: ObservableObject {
     // MARK: - Published State
 
     @Published var matchedTestimonies: [Testimony] = []
-    @Published var myPrayerRequests: [PrayerRequest] = []
+    @Published var myPrayerRequests: [WitnessPrayerRequest] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -69,7 +69,7 @@ final class WitnessRouterViewModel: ObservableObject {
         guard let uid = currentUserId, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return }
 
-        let request = PrayerRequest(
+        let request = WitnessPrayerRequest(
             userId: uid,
             content: content,
             urgencyLevel: urgency,
@@ -91,7 +91,7 @@ final class WitnessRouterViewModel: ObservableObject {
 
     // MARK: - Helpers
 
-    private func buildContext(from requests: [PrayerRequest]) -> UserPrayerContext {
+    private func buildContext(from requests: [WitnessPrayerRequest]) -> UserPrayerContext {
         let allThemes = requests.flatMap { $0.themes }
         let uniqueThemes = Array(Set(allThemes))
         let latestEmotion = requests.first?.emotionalState ?? ""

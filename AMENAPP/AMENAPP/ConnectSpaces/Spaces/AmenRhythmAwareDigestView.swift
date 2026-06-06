@@ -92,7 +92,7 @@ private struct SabbathRestCard: View {
         HStack(spacing: 12) {
             Image(systemName: "moon.stars")
                 .font(.system(size: 22))
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Digest paused for your Sabbath.")
@@ -173,7 +173,7 @@ private struct ActiveDigestCard: View {
                 icon: "hands.sparkles",
                 label: "Open prayer requests",
                 value: "\(metrics.openPrayerRequests)",
-                tint: Color.amenGold
+                tint: Color.accentColor
             )
 
             Divider().opacity(0.10)
@@ -239,7 +239,7 @@ struct AmenRhythmAwareDigestView: View {
             } else {
                 if viewModel.isLoading {
                     ProgressView()
-                        .tint(Color.amenGold)
+                        .tint(Color.accentColor)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 24)
                 } else {
@@ -249,7 +249,7 @@ struct AmenRhythmAwareDigestView: View {
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.system(size: 11))
-                        .foregroundStyle(Color.amenGold.opacity(0.70))
+                        .foregroundStyle(Color.accentColor.opacity(0.70))
                         .padding(.horizontal, 4)
                 }
             }

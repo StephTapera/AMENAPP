@@ -12,16 +12,8 @@ import SwiftUI
 
 // MARK: - Entry Point (host app wraps this in an availability check)
 
-// TODO (NAV-03 / Phase 1 wiring): ONENavigationShell is not yet connected to
-// any tab in ContentView. When Phase 1 lands it should replace the current
-// SpiritualInboxView at selectedTab == 2 (the "Messages" / People tab).
-// Steps required:
-//   1. In ContentView.selectedTabView, replace the keepMountedTab(isActive: viewModel.selectedTab == 2)
-//      block's content with an @available(iOS 26, *) check: show ONENavigationShell on iOS 26+
-//      and fall back to SpiritualInboxView on earlier OS versions.
-//   2. Ensure DeepLinkRouter.navigate(to:) still routes .conversation to selectedTab = 2
-//      so existing deep links land in the right place.
-//   3. Remove this TODO once the wiring is confirmed working in Phase 1 QA.
+// NAV-03: Phase 1 will wire this into ContentView at selectedTab == 2 (People/Messages),
+// guarded by @available(iOS 26, *) with a SpiritualInboxView fallback.
 @available(iOS 26.0, *)
 struct ONENavigationShell: View {
     @State private var selectedZone: ONE.Zone = .moments

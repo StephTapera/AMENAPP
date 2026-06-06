@@ -11,7 +11,7 @@ actor WellnessIntegrationService {
 
     private let adapter = HealthKitAdapter()
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_health_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_health_enabled").boolValue }
 
     struct WellnessSummary {
         let date: Date

@@ -58,7 +58,6 @@ struct AmenRealtimeVoiceView: View {
 
 struct AmenVoiceCompanionSheet: View {
     var body: some View {
-        // TODO: enable when implemented — BT2 Voice Companion
         if AMENFeatureFlags.shared.amenRealtimeVoiceEnabled {
             AmenLiquidGlassBottomSheet(
                 title: "Voice Companion",

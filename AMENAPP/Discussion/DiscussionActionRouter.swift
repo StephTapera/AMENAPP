@@ -3,29 +3,31 @@ import Foundation
 import FirebaseRemoteConfig
 
 enum DiscussionAction: String, CaseIterable, Sendable {
-    case markHelpful, share, report, reply, copyText, pin, delete
+    case markHelpful, share, shareToSpaces, report, reply, copyText, pin, delete
 
     var label: String {
         switch self {
-        case .markHelpful: return "Mark Helpful"
-        case .share:       return "Share"
-        case .report:      return "Report"
-        case .reply:       return "Reply"
-        case .copyText:    return "Copy Text"
-        case .pin:         return "Pin"
-        case .delete:      return "Delete"
+        case .markHelpful:   return "Mark Helpful"
+        case .share:         return "Share"
+        case .shareToSpaces: return "Share to Spaces"
+        case .report:        return "Report"
+        case .reply:         return "Reply"
+        case .copyText:      return "Copy Text"
+        case .pin:           return "Pin"
+        case .delete:        return "Delete"
         }
     }
 
     var icon: String {
         switch self {
-        case .markHelpful: return "hand.thumbsup"
-        case .share:       return "square.and.arrow.up"
-        case .report:      return "exclamationmark.triangle"
-        case .reply:       return "arrowshape.turn.up.left"
-        case .copyText:    return "doc.on.doc"
-        case .pin:         return "pin"
-        case .delete:      return "trash"
+        case .markHelpful:   return "hand.thumbsup"
+        case .share:         return "square.and.arrow.up"
+        case .shareToSpaces: return "person.3"
+        case .report:        return "exclamationmark.triangle"
+        case .reply:         return "arrowshape.turn.up.left"
+        case .copyText:      return "doc.on.doc"
+        case .pin:           return "pin"
+        case .delete:        return "trash"
         }
     }
 

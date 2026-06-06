@@ -16,7 +16,7 @@ actor ContactDiscoveryService {
     private let functions = Functions.functions()
     private let store = CNContactStore()
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_contacts_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_contacts_enabled").boolValue }
 
     // MARK: - Authorization
 
@@ -60,11 +60,10 @@ actor ContactDiscoveryService {
     // MARK: - Private: Local Hashing
 
     private func hashLocalContacts(salt: String) throws -> [String] {
-        let keysToFetch = [CNContactPhoneNumbersKey] as [CNKeyDescriptor]
-        let request = CNFetchRequest(entityType: CNContact.self)
-        request.keysToFetch = keysToFetch
+        let keysToFetch = [CNContactPhoneNumbersKey as CNKeyDescriptor]
+        let request = CNContactFetchRequest(keysToFetch: keysToFetch)
         var hashes: [String] = []
-        try store.enumerateContacts(with: request as! CNContactFetchRequest) { contact, _ in
+        try store.enumerateContacts(with: request) { contact, _ in
             for phone in contact.phoneNumbers {
                 let normalized = normalizePhone(phone.value.stringValue)
                 guard !normalized.isEmpty else { continue }

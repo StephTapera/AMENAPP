@@ -3,8 +3,9 @@
 // Compositional risk scoring: composes multiple signals into a single risk level.
 // Never single-flags; always reasons over the full detection set.
 
-import Foundation
+import CoreGraphics
 import CoreLocation
+import Foundation
 
 // MARK: - CameraContextRiskEngine
 
@@ -37,11 +38,10 @@ actor CameraContextRiskEngine {
             profile: safetyProfile
         )
 
-        // 2. Determine if location is within a declared safe zone (e.g. a school campus).
+        // 2. Determine if location is within any declared safe zone (e.g. a school campus).
         let isNearSchoolSafeZone = isInSafeZone(
             location: userLocation,
-            safeZones: safeZones,
-            types: [.school, .classroom]
+            safeZones: safeZones
         )
 
         // 3. If all four critical signals align: minor face + school uniform + school sign + school safe zone,
@@ -270,20 +270,18 @@ actor CameraContextRiskEngine {
 
     // MARK: - Safe Zone Helpers
 
-    /// Returns true if `location` is within 200 metres of any safe zone
-    /// whose scene type is in `types`.
+    /// Returns true if `location` is within any active safe zone's boundary.
     private func isInSafeZone(
         location: CLLocation?,
-        safeZones: [CameraSafeZone],
-        types: Set<CameraSceneType>
+        safeZones: [CameraSafeZone]
     ) -> Bool {
         guard let loc = location else { return false }
-        for zone in safeZones where types.contains(zone.sceneType) {
+        for zone in safeZones where zone.isActive {
             let zoneLocation = CLLocation(
-                latitude: zone.coordinate.latitude,
-                longitude: zone.coordinate.longitude
+                latitude: zone.latitude,
+                longitude: zone.longitude
             )
-            if loc.distance(from: zoneLocation) <= zone.radiusMetres {
+            if loc.distance(from: zoneLocation) <= zone.radiusMeters {
                 return true
             }
         }

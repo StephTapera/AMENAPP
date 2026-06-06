@@ -382,26 +382,12 @@ struct BereanWisdomAnalysisView: View {
 
     private var actionPlanPlaceholder: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "list.bullet.clipboard")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
-                Text("Action Plan")
-                    .font(.title2.bold())
-                Text("Action plan generation coming soon.")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                // TODO: Navigate to BereanActionPlanView when built
-            }
-            .padding()
-            .navigationTitle("Action Plan")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { showActionPlanPlaceholder = false }
+            BereanActionPlanView(projectId: projectId ?? "")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showActionPlanPlaceholder = false }
+                    }
                 }
-            }
         }
     }
 

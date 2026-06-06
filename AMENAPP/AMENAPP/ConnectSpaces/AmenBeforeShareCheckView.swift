@@ -32,7 +32,7 @@ private extension AmenConnectSpacesBeforeShareWarning {
                 title: "Is this about someone who isn't here?",
                 detail: "Titus 3:2",
                 systemImage: "person.2.slash",
-                iconColor: Color(red: 0.851, green: 0.643, blue: 0.255) // amenGold
+                iconColor: Color.accentColor
             )
         case .slander:
             return AmenBeforeShareWarningRow(
@@ -48,7 +48,7 @@ private extension AmenConnectSpacesBeforeShareWarning {
                 title: "Could this create division in the body?",
                 detail: "Romans 16:17",
                 systemImage: "arrow.trianglehead.branch",
-                iconColor: Color(red: 0.851, green: 0.643, blue: 0.255) // amenGold
+                iconColor: Color.accentColor
             )
         case .pii:
             return AmenBeforeShareWarningRow(
@@ -102,7 +102,7 @@ struct AmenBeforeShareCheckView: View {
                     // Title
                     Text("Before you share\u{2026}")
                         .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(Color(red: 0.851, green: 0.643, blue: 0.255)) // amenGold
+                        .foregroundStyle(Color(.label))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 20)
                         .padding(.horizontal, 20)

@@ -501,12 +501,9 @@ struct AMENDiscoveryView: View {
                     case .church:
                         railSelectedChurchId = item.metadata["churchId"] ?? item.id
                     case .event, .study, .discussion, .person, .churchNote:
-                        // TODO: wire per-type detail views when routing is available
                         break
                     }
-                } onSeeAll: { railType in
-                    // TODO: wire dedicated "See All" page per rail type
-                    _ = railType
+                } onSeeAll: { _ in
                 }
 
                 // ── Active disaster alert (pinned at top when present) ──
@@ -1995,17 +1992,6 @@ struct VerseHeroCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "bubble.left")
                             .font(.systemScaled(12))
-                            .foregroundStyle(.secondary)
-                        Text("\(verse.discussionCount)")
-                            .font(AMENFont.regular(12))
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 4) {
-                        Image(systemName: "bookmark")
-                            .font(.systemScaled(12))
-                            .foregroundStyle(.secondary)
-                        Text("\(verse.saveCount)")
-                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                     Spacer()

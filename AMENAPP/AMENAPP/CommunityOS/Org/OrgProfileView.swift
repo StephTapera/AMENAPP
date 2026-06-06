@@ -43,6 +43,7 @@ struct OrgProfileView: View {
     @State private var isDescriptionExpanded = false
     @State private var isFollowing = false
     @State private var previewOpportunities: [OpportunityPost] = []
+    @State private var showAllPositions = false
 
     // MARK: Body
 
@@ -57,6 +58,17 @@ struct OrgProfileView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .ignoresSafeArea(edges: .top)
             .task { loadPreviewOpportunities() }
+            .sheet(isPresented: $showAllPositions) {
+                NavigationStack {
+                    OpportunityHubView(orgId: profile.id)
+                        .navigationTitle("Open Positions")
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { showAllPositions = false }
+                            }
+                        }
+                }
+            }
         } else {
             featureGatedFallback
         }
@@ -328,7 +340,7 @@ struct OrgProfileView: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Color(uiColor: .label))
                 Spacer()
-                Button("See All") {}
+                Button("See All") { showAllPositions = true }
                     .font(.subheadline)
                     .foregroundStyle(Color.accentColor)
                     .accessibilityLabel("See all open positions")

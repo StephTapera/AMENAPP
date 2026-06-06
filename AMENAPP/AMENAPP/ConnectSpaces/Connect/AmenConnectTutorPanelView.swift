@@ -220,7 +220,7 @@ struct AmenConnectTutorPanelView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.amenGold.opacity(0.7), lineWidth: 1.5)
+                .strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1.5)
         )
         .shadow(color: .black.opacity(0.18), radius: 24, x: -4, y: 0)
         .frame(maxWidth: 340)
@@ -231,7 +231,7 @@ struct AmenConnectTutorPanelView: View {
     private var panelHeader: some View {
         HStack(spacing: 8) {
             Image(systemName: "brain.head.profile")
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
             Text("AI Tutor")
                 .font(.headline)
                 .foregroundStyle(Color.amenBlack)
@@ -558,11 +558,11 @@ struct AmenConnectTutorPanelView: View {
             .padding(.vertical, 4)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Color.amenGold.opacity(0.15))
+                    .fill(Color.accentColor.opacity(0.15))
             )
             .overlay(
                 Capsule(style: .continuous)
-                    .strokeBorder(Color.amenGold.opacity(0.4), lineWidth: 0.5)
+                    .strokeBorder(Color.accentColor.opacity(0.4), lineWidth: 0.5)
             )
     }
 

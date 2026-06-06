@@ -177,8 +177,6 @@ struct InAppReviewPromptView: View {
                 .fill(Color(.systemGray6))
                 .frame(width: appIconSize, height: appIconSize)
             
-            // App icon or logo
-            // TODO: Replace with actual app icon asset
             Image(systemName: "flame.fill")
                 .font(.systemScaled(32, weight: .semibold))
                 .foregroundStyle(

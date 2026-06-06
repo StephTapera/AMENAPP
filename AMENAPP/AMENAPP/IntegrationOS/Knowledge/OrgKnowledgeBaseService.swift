@@ -15,7 +15,7 @@ actor OrgKnowledgeBaseService {
     private let db = Firestore.firestore()
     private let ledger = ConsentLedgerService.shared
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_knowledge_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_knowledge_enabled").boolValue }
 
     // MARK: - Search
 

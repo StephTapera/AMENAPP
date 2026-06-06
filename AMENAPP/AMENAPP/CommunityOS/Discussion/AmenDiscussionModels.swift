@@ -26,7 +26,7 @@ import FirebaseFirestore
 /// Distinct from `DiscussionRoomType` (AmenCoreModels.swift, 3 cases) and
 /// `DiscussionRoom.DiscussionRoomType` in DiscussionModels.swift — this is the
 /// authoritative Phase 2 taxonomy mapping to C2 §4.2.
-enum AmenDiscussionRoomType: String, Codable, CaseIterable, Sendable {
+enum AmenDiscussionRoomType: String, Codable, CaseIterable, Hashable, Sendable {
     case general         = "general"
     case bibleStudy      = "bible_study"
     case prayer          = "prayer"
@@ -108,7 +108,7 @@ enum AmenDiscussionRoomType: String, Codable, CaseIterable, Sendable {
 /// Who can read and participate in an AmenDiscussionRoom.
 /// Enforced server-side by Firestore security rules (C5).
 /// `trustedCircle` — membership list enforced server-side only; never computed client-side.
-enum AmenDiscussionPrivacyLevel: String, Codable, CaseIterable, Sendable {
+enum AmenDiscussionPrivacyLevel: String, Codable, CaseIterable, Hashable, Sendable {
     /// Visible and joinable by all authenticated users.
     case `public`      = "public"
     /// Visible and joinable by verified members of the linked church.
@@ -145,7 +145,7 @@ enum AmenDiscussionPrivacyLevel: String, Codable, CaseIterable, Sendable {
 // MARK: - AmenDiscussionParticipationControl
 
 /// How new messages enter the room.
-enum AmenDiscussionParticipationControl: String, Codable, Sendable {
+enum AmenDiscussionParticipationControl: String, Codable, Hashable, Sendable {
     /// Anyone who can read the room can post immediately.
     case open       = "open"
     /// New messages are held pending moderator approval before becoming visible.
@@ -232,7 +232,7 @@ struct DiscussionMessage: Codable, Identifiable, Sendable {
 ///
 /// Conforms to `SpawnableObject` (AmenCoreModels.swift) — provenance is required and
 /// immutable after creation.
-struct AmenDiscussionRoom: Codable, Identifiable, Sendable {
+struct AmenDiscussionRoom: AmenObject, SpawnableObject, Hashable {
     /// Firestore document ID
     var id: String
     /// Human-readable title set by the creator
@@ -295,10 +295,4 @@ struct AmenDiscussionRoom: Codable, Identifiable, Sendable {
     }
 }
 
-// MARK: - AmenDiscussionRoom + SpawnableObject
-
-// AmenDiscussionRoom already declares `var provenance: SpawnProvenance?` which directly
-// satisfies SpawnableObject's `var provenance: SpawnProvenance? { get }` requirement.
-// AmenObject requirements (id, createdAt, updatedAt, createdBy, isDeleted) are all
-// stored properties on the struct, so they satisfy the protocol automatically.
-extension AmenDiscussionRoom: SpawnableObject {}
+// AmenDiscussionRoom conforms to AmenObject + SpawnableObject in its primary declaration.

@@ -157,7 +157,8 @@ struct PostCard: View {
         case quoteComposer(context: QuoteComposerContext)
         case commentsWithQuote(post: Post, prefill: String)
         case shareExcerpt(text: String, attribution: String)
-        
+        case transformPost(postId: String, postText: String, authorName: String)
+
         var id: String {
             switch self {
             case .options:
@@ -192,6 +193,8 @@ struct PostCard: View {
                 return "comments-quote-\(Self.stablePostId(post))"
             case .shareExcerpt(let text, let attribution):
                 return "share-excerpt-\(text.hashValue)-\(attribution.hashValue)"
+            case .transformPost(let postId, _, _):
+                return "transform-\(postId)"
             }
         }
         
@@ -1222,6 +1225,26 @@ struct PostCard: View {
                 ]
                 sections.append(AmenOptionsSectionModel(title: "Your Feed", actions: heyFeedActions))
             }
+        }
+
+        // Action Layer: every post can become a reminder, event, prayer item, task, discussion, or volunteer opportunity
+        if let post = post {
+            let actionLayerActions: [AmenOptionAction] = [
+                AmenOptionAction(
+                    title: "Turn into action →",
+                    subtitle: "Reminder, event, prayer, task, discussion, or volunteer",
+                    systemImage: "arrow.right.circle.fill"
+                ) {
+                    performOption {
+                        presentSheet(.transformPost(
+                            postId: post.firestoreId.isEmpty ? post.id.uuidString : post.firestoreId,
+                            postText: post.content,
+                            authorName: authorName
+                        ))
+                    }
+                }
+            ]
+            sections.append(AmenOptionsSectionModel(title: "Take Action", actions: actionLayerActions))
         }
 
         return sections
@@ -4848,7 +4871,26 @@ private struct PostCardSheetsModifier: ViewModifier {
             QuoteComposerView(context: context)
         case .shareExcerpt(let text, let attribution):
             ShareSheet(items: ["\(text)\n\n\(attribution)"])
+        case .transformPost(let postId, let postText, let authorName):
+            AmenPostActionTransformSheet(
+                postId: postId,
+                postText: postText,
+                authorName: authorName,
+                isPresented: transformBinding()
+            )
         }
+    }
+
+    private func transformBinding() -> Binding<Bool> {
+        Binding(
+            get: {
+                if case .transformPost = activeSheet { return true }
+                return false
+            },
+            set: { newValue in
+                if !newValue { activeSheet = nil }
+            }
+        )
     }
 
     private func optionsBinding() -> Binding<Bool> {

@@ -141,7 +141,7 @@ struct AmenKnowledgeGraphSpacesLinkView: View {
             HStack(spacing: 10) {
                 Image(systemName: "book.closed")
                     .font(.title2)
-                    .foregroundStyle(Color.amenGold.opacity(0.5))
+                    .foregroundStyle(Color.accentColor.opacity(0.5))
                     .accessibilityHidden(true)
                 Text("No teachings linked yet. Study content will appear here as your team learns together.")
                     .font(.subheadline)
@@ -209,9 +209,13 @@ private struct AmenLinkedTeachingRowView: View {
 
             Spacer()
 
-            // "Open in Connect" — stub navigation
+            // "Open in Connect" — opens the video player in the Connect tab
             Button {
-                // TODO: wire NavigationLink to AmenConnectVideoPlayerView(videoId:)
+                NotificationCenter.default.post(
+                    name: Notification.Name("AmenOpenVideoPlayer"),
+                    object: nil,
+                    userInfo: ["videoId": videoId]
+                )
             } label: {
                 Text("Open in Connect")
                     .font(.caption.weight(.semibold))

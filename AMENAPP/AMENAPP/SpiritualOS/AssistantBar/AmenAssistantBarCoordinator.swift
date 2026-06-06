@@ -315,7 +315,7 @@ struct AmenAssistantBarOverlay: View {
                                 GlassChip(
                                     label: source.title,
                                     icon: source.type == "scripture" ? "book.closed" : "person.2",
-                                    tint: .amenGold,
+                                    tint: .accentColor,
                                     size: .compact,
                                     isActive: true
                                 )

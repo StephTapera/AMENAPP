@@ -68,7 +68,7 @@ struct AmenBestReachRecommendationView: View {
                     emoji: "🔴",
                     headline: "Available for urgent prayer — reach out now",
                     detail: nil,
-                    accentColor: .amenGold
+                    accentColor: .accentColor
                 )
             } else {
                 // C-14: flag off, respect setting
@@ -126,7 +126,7 @@ struct AmenBestReachRecommendationView: View {
                 emoji: "📖",
                 headline: "In the Word — available after their reading time.",
                 detail: nil,
-                accentColor: .amenGold
+                accentColor: .accentColor
             )
 
         case .availableForUrgentPrayer:

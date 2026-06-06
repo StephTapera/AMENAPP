@@ -121,6 +121,14 @@ struct BereanModelPickerMenu: View {
     let onPaywall: () -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @ObservedObject private var entitlements = AmenAccountEntitlementService.shared
+
+    // A user can access deep/adaptive modes when they are a pro user OR when
+    // their platform tier is Amen+ or above (which includes the AI Writing Coach
+    // feature set and unlocks Berean deep/adaptive as part of that bundle).
+    private var hasDeepAccess: Bool {
+        isProUser || entitlements.currentTier >= .amenPlus
+    }
 
     private var visibleModes: [BereanModelMode] {
         var modes: [BereanModelMode] = [.core, .deep]
@@ -136,9 +144,9 @@ struct BereanModelPickerMenu: View {
                 BereanModelMenuRow(
                     mode: mode,
                     isSelected: selectedMode == mode,
-                    isLocked: mode.requiresPro && !isProUser,
+                    isLocked: mode.requiresPro && !hasDeepAccess,
                     onTap: {
-                        if mode.requiresPro && !isProUser {
+                        if mode.requiresPro && !hasDeepAccess {
                             onPaywall()
                         } else {
                             let feedback = UIImpactFeedbackGenerator(style: .light)

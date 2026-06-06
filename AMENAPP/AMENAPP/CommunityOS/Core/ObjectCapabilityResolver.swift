@@ -204,7 +204,7 @@ final class ObjectCapabilityResolver {
     /// Whether the role is at least `member` (i.e., an authenticated, enrolled user).
     private func isMemberOrAbove(_ role: AmenRole) -> Bool {
         switch role {
-        case .visitor:
+        case .visitor, .minor:
             return false
         case .member, .volunteerLead, .contentManager, .eventManager,
              .moderator, .leader, .pastor, .owner, .executiveAdmin:

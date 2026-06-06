@@ -13,6 +13,7 @@
 // Written: 2026-06-05
 
 import SwiftUI
+import UIKit
 
 // MARK: - AmenAccountPaywallView
 
@@ -20,6 +21,10 @@ struct AmenAccountPaywallView: View {
     let requiredTier: AmenAccountTier
     let feature: String
     let onDismiss: () -> Void
+
+    @StateObject private var storeKit = AmenPlatformStoreKitService.shared
+    @State private var isPurchasing = false
+    @State private var purchaseError: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -43,6 +48,7 @@ struct AmenAccountPaywallView: View {
         }
         .presentationDragIndicator(.visible)
         .presentationDetents([.large])
+        .task { await AmenPlatformStoreKitService.shared.loadProducts() }
     }
 
     // MARK: - Background
@@ -183,12 +189,41 @@ struct AmenAccountPaywallView: View {
 
     private var ctaSection: some View {
         VStack(spacing: 12) {
-            Button(action: onUpgrade) {
-                Text("Upgrade to \(requiredTier.displayName)")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Color(hex: "070607"))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+            if requiredTier == .enterprise {
+                // Enterprise subscriptions are handled manually — open contact URL.
+                Button(action: openContactUs) {
+                    Text("Contact Us")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Color(hex: "070607"))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color(hex: "D9A441"))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(Color(hex: "D9A441"), lineWidth: 1)
+                                )
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Contact us to set up an Enterprise plan")
+            } else {
+                Button(action: onUpgrade) {
+                    Group {
+                        if isPurchasing {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "070607")))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        } else {
+                            Text("Upgrade to \(requiredTier.displayName)")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(Color(hex: "070607"))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                    }
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(Color(hex: "D9A441"))
@@ -197,9 +232,24 @@ struct AmenAccountPaywallView: View {
                                     .strokeBorder(Color(hex: "D9A441"), lineWidth: 1)
                             )
                     )
+                }
+                .buttonStyle(.plain)
+                .disabled(isPurchasing)
+                .accessibilityLabel(
+                    isPurchasing
+                        ? "Processing purchase…"
+                        : "Upgrade to \(requiredTier.displayName), \(requiredTier.monthlyPrice)"
+                )
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Upgrade to \(requiredTier.displayName), \(requiredTier.monthlyPrice)")
+
+            if let purchaseError {
+                Text(purchaseError)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.red.opacity(0.85))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+                    .accessibilityLabel("Purchase error: \(purchaseError)")
+            }
 
             Button(action: onDismiss) {
                 Text("Maybe later")
@@ -216,8 +266,29 @@ struct AmenAccountPaywallView: View {
     // MARK: - Actions
 
     private func onUpgrade() {
-        // TODO: Wire to AmenAccountEntitlementService upgrade flow / StoreKit sheet
-        onDismiss()
+        guard !isPurchasing else { return }
+        isPurchasing = true
+        purchaseError = nil
+        Task {
+            do {
+                try await storeKit.purchase(requiredTier)
+                isPurchasing = false
+                onDismiss()
+            } catch {
+                isPurchasing = false
+                purchaseError = error.localizedDescription
+            }
+        }
+    }
+
+    private func openContactUs() {
+        let mailto = URL(string: "mailto:enterprise@amenapp.com?subject=Enterprise%20Plan%20Inquiry")
+        let fallback = URL(string: "https://amenapp.com/enterprise")
+        if let url = mailto, UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+        } else if let url = fallback {
+            UIApplication.shared.open(url)
+        }
     }
 }
 

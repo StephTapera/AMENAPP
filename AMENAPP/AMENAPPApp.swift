@@ -16,7 +16,7 @@ import FirebaseCrashlytics   // P0 FIX: Crash reporting for production diagnosti
 import GoogleSignIn
 import StoreKit  // ✅ Added for In-App Purchases
 import BackgroundTasks  // ✅ BGAppRefreshTask for background feed refresh
-// import FirebaseVertexAI  // TODO: Add Firebase VertexAI package later to enable AI features
+// import FirebaseVertexAI  // Requires Firebase VertexAI package — add when available
 
 @main
 struct AMENAPPApp: App {
@@ -26,6 +26,8 @@ struct AMENAPPApp: App {
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
     @State private var hasCompletedOnboarding = true  // ✅ FIX: Default to true to prevent showing onboarding on every launch
     @State private var showNotifOnboarding = false
+    /// GenerationalOS: shown once after first login when the preset has not yet been chosen.
+    @State private var showGenerationalPresetPicker = false
     // COPPA: Age gate shown once before accessing the app. Stored in AppStorage so it
     // persists across launches and cannot be bypassed by clearing session state.
     @AppStorage("hasCompletedAgeVerification") private var hasCompletedAgeVerification = false
@@ -215,6 +217,12 @@ struct AMENAPPApp: App {
                     .handleChurchDeepLinks()  // ✅ Handle church deep links
                     .notificationOnboarding(isPresented: $showNotifOnboarding)
                     .networkStatusBanner()    // OFFLINE FIX: global offline indicator across all views
+                    // GenerationalOS: first-run preset picker, shown once after login.
+                    .sheet(isPresented: $showGenerationalPresetPicker) {
+                        AmenGenerationalPresetPickerView()
+                            .presentationDetents([.large])
+                            .presentationDragIndicator(.visible)
+                    }
             }
             // Forced upgrade alert — shown when Remote Config minimum_app_version
             // is higher than the installed binary. Users must update before continuing.
@@ -252,6 +260,17 @@ struct AMENAPPApp: App {
                        hasCompletedOnboarding {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             showNotifOnboarding = true
+                        }
+                    }
+
+                    // GenerationalOS: show the preset picker once after the user is signed in
+                    // and has completed main onboarding, but has not yet chosen a preset.
+                    // Offset by 2.0 s to avoid stacking sheets with the notif onboarding.
+                    if Auth.auth().currentUser != nil,
+                       hasCompletedOnboarding,
+                       !AmenGenerationalPresetService.shared.hasCompletedPresetOnboarding {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            showGenerationalPresetPicker = true
                         }
                     }
 
@@ -374,6 +393,15 @@ struct AMENAPPApp: App {
                 // This prevents OnboardingFlowView from showing on every app open for authenticated users
                 if let userId = Auth.auth().currentUser?.uid {
                     await loadOnboardingStatusSync(userId: userId)
+                }
+
+                // Load entitlement tier for users already signed in at launch.
+                // The auth state listener in AmenAccountEntitlementService also fires, but
+                // calling this explicitly here ensures the tier is ready before the first
+                // frame renders — the listener fires asynchronously and may arrive slightly
+                // later during a cold start.
+                if Auth.auth().currentUser != nil {
+                    await AmenAccountEntitlementService.shared.loadTier()
                 }
                 
                 // Restore any Live Activities that survived an app relaunch
@@ -662,6 +690,8 @@ struct AMENAPPApp: App {
                     await UnusualLoginDetector.shared.checkLoginDevice(userId: user.uid)
                     // Age assurance — load tier so feature gates are ready
                     await AgeAssuranceService.shared.loadTier(for: user.uid)
+                    // Entitlement tier — load so platform feature gates are ready immediately
+                    await AmenAccountEntitlementService.shared.loadTier()
                     // E2EE — publish device key bundle so others can initiate encrypted sessions.
                     // Safe to call on every login: overwrites with fresh SPK, replenishes OPKs.
                     Task.detached(priority: .background) {
@@ -693,6 +723,10 @@ struct AMENAPPApp: App {
                     dlog("👋 User logged out, unregistering device token")
                     await DeviceTokenManager.shared.unregisterDeviceToken()
                     AgeAssuranceService.shared.clearCache()
+                    // Reset entitlement tier to free on sign-out
+                    await MainActor.run {
+                        AmenAccountEntitlementService.shared.currentTier = .free
+                    }
                     // Stop FollowService listeners so stale following data from the
                     // previous user doesn't leak into the next sign-in session.
                     FollowService.shared.stopListening()

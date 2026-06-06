@@ -164,7 +164,7 @@ struct SafeContactFlow: View {
                         .font(.headline)
                         .foregroundStyle(Color(uiColor: .label))
 
-                    Text("Tell \(orgName) why you're interested in "\(opportunityTitle)".")
+                    Text("Tell \(orgName) why you're interested in \"\(opportunityTitle)\".")
                         .font(.subheadline)
                         .foregroundStyle(Color(uiColor: .secondaryLabel))
 

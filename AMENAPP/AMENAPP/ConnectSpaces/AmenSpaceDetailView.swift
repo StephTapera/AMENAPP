@@ -248,6 +248,8 @@ struct AmenSpaceDetailView: View {
     let tiers: [AmenSpaceSubscriptionTier]
     let hostProfile: AmenVerifiedHostProfile?
 
+    @StateObject private var entitlements = AmenAccountEntitlementService.shared
+    @State private var showLivePaywall = false
     @State private var isSubscribed = false
     @State private var scrollOffset: CGFloat = 0
     @State private var showRoom = false
@@ -327,7 +329,14 @@ struct AmenSpaceDetailView: View {
                                         ForEach(events.sorted(by: { $0.scheduledAt < $1.scheduledAt })) { event in
                                             UpcomingEventCard(
                                                 event: event,
-                                                onJoinLive: event.isLive ? { activeLiveRoom = makeRoom(from: event) } : nil
+                                                onJoinLive: event.isLive ? {
+                                                    let isEventHost = event.hostUserId == currentUserId
+                                                    if isEventHost && !entitlements.currentTier.canGoLive {
+                                                        showLivePaywall = true
+                                                    } else {
+                                                        activeLiveRoom = makeRoom(from: event)
+                                                    }
+                                                } : nil
                                             )
                                         }
                                     }
@@ -615,6 +624,14 @@ struct AmenSpaceDetailView: View {
                     currentUserId: currentUserId,
                     onDismiss: { showMentorMatching = false }
                 )
+            }
+            .sheet(isPresented: $showLivePaywall) {
+                AmenAccountPaywallView(
+                    requiredTier: .creatorPro,
+                    feature: "Live Streaming"
+                ) {
+                    showLivePaywall = false
+                }
             }
             .task {
                 livekitProvider.configure(spaceId: space.id)

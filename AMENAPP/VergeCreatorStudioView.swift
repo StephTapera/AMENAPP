@@ -20,7 +20,7 @@ struct VergeCreatorStudioView: View {
     @State private var isRefreshingAI        = false
     @State private var saveSuccess           = false
 
-    private let bg         = Color(hex: "0A0A0F")
+    private let bg         = Color(.systemGroupedBackground)
     private let amenViolet = Color(hex: "C084FC")
     private let vergeGradient = LinearGradient(
         colors: [Color(hex: "06B6D4"), Color(hex: "6B48FF")],

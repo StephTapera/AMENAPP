@@ -675,7 +675,6 @@ struct AmenSpaceDiscoveryView: View {
         ]
 
         do {
-            // TODO: wire real "discoverSpaces" Cloud Function endpoint when deployed
             let callable = Functions.functions().httpsCallable("discoverSpaces")
             let result = try await callable.call(payload)
 

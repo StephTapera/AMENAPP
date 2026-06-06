@@ -12,7 +12,7 @@ actor SafeIntroductionService {
 
     private let db = Firestore.firestore()
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_contacts_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_contacts_enabled").boolValue }
 
     // MARK: - Request Introduction
 

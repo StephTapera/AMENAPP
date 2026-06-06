@@ -67,6 +67,20 @@ struct AmenPostActionTransformSheet: View {
                 assignedTo = currentUser
             }
         }
+        // Surface Settings deep-link if user denied notification permission.
+        .alert("Enable Notifications", isPresented: .init(
+            get: { service.notificationPermissionDenied },
+            set: { _ in }
+        )) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Not Now", role: .cancel) {}
+        } message: {
+            Text("To receive reminders for this post, allow AMEN to send notifications in Settings.")
+        }
     }
 
     // MARK: - Scroll content

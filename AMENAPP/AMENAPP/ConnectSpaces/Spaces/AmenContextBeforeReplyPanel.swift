@@ -2,7 +2,7 @@
 // AMEN Spaces — Agent 4: Spaces Intelligence
 //
 // Glass drawer surfaced before the user composes a reply.
-// Glass card with amenGold top border.
+// Glass card with accent top border.
 // Reduce-motion: no spring animations when reduced.
 
 import SwiftUI
@@ -141,8 +141,8 @@ private struct DerivedItemRow: View {
         switch kind {
         case .decision:    return .amenBlue
         case .task:        return .amenBlue
-        case .risk:        return .amenGold
-        case .prayer:      return .amenGold
+        case .risk:        return .accentColor
+        case .prayer:      return .accentColor
         case .careFollowUp: return Color(hex: "#5DD178")
         case .serveSlot:   return .amenPurple
         }
@@ -176,7 +176,7 @@ private struct StatusBadge: View {
 
     private var tint: Color {
         switch status {
-        case .open:       return .amenGold
+        case .open:       return .accentColor
         case .inProgress: return .amenBlue
         case .waiting:    return .amenPurple
         case .done:       return Color(hex: "#5DD178")
@@ -207,11 +207,11 @@ struct AmenContextBeforeReplyPanel: View {
                 .padding(.bottom, 14)
                 .accessibilityHidden(true)
 
-            // Glass card with amenGold top border
+            // Glass card with accent top border
             VStack(spacing: 0) {
-                // Gold top border line
+                // Accent top border line
                 Rectangle()
-                    .fill(Color.amenGold)
+                    .fill(Color.accentColor)
                     .frame(height: 2)
 
                 VStack(spacing: 16) {
@@ -233,7 +233,7 @@ struct AmenContextBeforeReplyPanel: View {
 
                     if viewModel.isLoading {
                         ProgressView()
-                            .tint(Color.amenGold)
+                            .tint(Color.accentColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 20)
                     } else {
@@ -243,7 +243,7 @@ struct AmenContextBeforeReplyPanel: View {
                     if let error = viewModel.errorMessage {
                         Text(error)
                             .font(.system(size: 12))
-                            .foregroundStyle(Color.amenGold.opacity(0.80))
+                            .foregroundStyle(Color.accentColor.opacity(0.80))
                             .padding(.horizontal, 4)
                     }
 
@@ -315,7 +315,7 @@ struct AmenContextBeforeReplyPanel: View {
             ContextSectionRow(
                 label: "Related owner",
                 content: viewModel.relatedOwner ?? "Unassigned",
-                tint: Color.amenGold
+                tint: Color.accentColor
             )
 
             // Section 4: Prior pastoral guidance (stub)

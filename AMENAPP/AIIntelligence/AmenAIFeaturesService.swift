@@ -77,10 +77,16 @@ final class AmenAIFeaturesService: ObservableObject {
         guard UserDefaults.standard.bool(forKey: "consentCreatorAI") else {
             throw AmenAIFeaturesError.consentRequired
         }
-        let draftDayKey = "amenAI_creatorDraft_\(Self.utcDayKey)"
-        let draftCount = UserDefaults.standard.integer(forKey: draftDayKey)
-        guard draftCount < 10 else { throw AmenAIFeaturesError.rateLimitExceeded }
-        UserDefaults.standard.set(draftCount + 1, forKey: draftDayKey)
+
+        // Tier-aware rate limit: Amen+ and above have no per-day cap.
+        // Free users are limited to 5 drafts/day.
+        let isAmenPlus = AmenAccountEntitlementService.shared.currentTier >= .amenPlus
+        if !isAmenPlus {
+            let draftDayKey = "amenAI_creatorDraft_\(Self.utcDayKey)"
+            let draftCount = UserDefaults.standard.integer(forKey: draftDayKey)
+            guard draftCount < 5 else { throw AmenAIFeaturesError.writingCoachUpgradeRequired }
+            UserDefaults.standard.set(draftCount + 1, forKey: draftDayKey)
+        }
         let payload: [String: Any] = [
             "type": type,
             "topic": topic,
@@ -180,6 +186,8 @@ enum AmenAIFeaturesError: LocalizedError {
     case invalidInput
     case consentRequired
     case rateLimitExceeded
+    /// Free-tier daily cap (5 drafts/day) reached — upgrade to Amen+ for unlimited drafts.
+    case writingCoachUpgradeRequired
 
     var errorDescription: String? {
         switch self {
@@ -191,6 +199,8 @@ enum AmenAIFeaturesError: LocalizedError {
             return "Please enable AI features in your privacy settings to use this feature."
         case .rateLimitExceeded:
             return "You've reached the usage limit for this feature. Please try again later."
+        case .writingCoachUpgradeRequired:
+            return "Upgrade to Amen+ for unlimited AI writing. Free accounts can generate up to 5 drafts per day."
         }
     }
 }

@@ -112,7 +112,7 @@ final class RBACService {
             case .owner, .executiveAdmin, .pastor, .leader, .moderator,
                  .volunteerLead, .contentManager, .eventManager, .member:
                 return true
-            case .visitor:
+            case .visitor, .minor:
                 return false
             }
 
@@ -126,7 +126,7 @@ final class RBACService {
             case .owner, .executiveAdmin, .pastor, .leader, .moderator,
                  .volunteerLead, .contentManager, .eventManager, .member:
                 return true
-            case .visitor:
+            case .visitor, .minor:
                 return false
             }
 
@@ -136,7 +136,7 @@ final class RBACService {
             case .owner, .executiveAdmin, .pastor, .leader, .moderator,
                  .volunteerLead, .contentManager, .eventManager, .member:
                 return true
-            case .visitor:
+            case .visitor, .minor:
                 return false
             }
 
@@ -145,7 +145,7 @@ final class RBACService {
             switch role {
             case .owner, .executiveAdmin, .pastor, .leader, .moderator:
                 return true
-            case .volunteerLead, .contentManager, .eventManager, .member, .visitor:
+            case .volunteerLead, .contentManager, .eventManager, .member, .visitor, .minor:
                 return false
             }
 
@@ -154,7 +154,7 @@ final class RBACService {
             switch role {
             case .owner, .executiveAdmin, .pastor, .leader, .moderator, .contentManager:
                 return true
-            case .volunteerLead, .eventManager, .member, .visitor:
+            case .volunteerLead, .eventManager, .member, .visitor, .minor:
                 return false
             }
 
@@ -163,7 +163,7 @@ final class RBACService {
             switch role {
             case .owner, .executiveAdmin, .pastor, .leader:
                 return true
-            case .moderator, .volunteerLead, .contentManager, .eventManager, .member, .visitor:
+            case .moderator, .volunteerLead, .contentManager, .eventManager, .member, .visitor, .minor:
                 return false
             }
 
@@ -174,7 +174,7 @@ final class RBACService {
             case .owner, .executiveAdmin, .pastor, .leader, .moderator,
                  .volunteerLead, .contentManager, .eventManager, .member:
                 return true
-            case .visitor:
+            case .visitor, .minor:
                 return false
             }
 
@@ -184,7 +184,7 @@ final class RBACService {
             case .owner, .executiveAdmin:
                 return true
             case .pastor, .leader, .moderator, .volunteerLead,
-                 .contentManager, .eventManager, .member, .visitor:
+                 .contentManager, .eventManager, .member, .visitor, .minor:
                 return false
             }
         }

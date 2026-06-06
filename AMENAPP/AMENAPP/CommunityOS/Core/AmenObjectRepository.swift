@@ -2,7 +2,11 @@
 // AMEN App — CommunityOS / Core
 //
 // Phase 1 — Agent A1 (Core Platform Architecture)
-// Firestore-backed repository for reading and writing core AmenObjects.
+// Firestore-direct repository for reading and writing core AmenObjects.
+//
+// DISTINCT FROM:
+//   FirebaseTransformEngine (TransformEngine.swift) — CF-backed transform actor.
+//   EdgeService (EdgeService.swift)                 — CF-backed edge service.
 //
 // Rules:
 //   - async/await only — no Combine.
@@ -10,10 +14,27 @@
 //   - Soft-delete only: never calls .delete(); sets { isDeleted: true }.
 //   - All writes use FieldValue.serverTimestamp() for timestamps.
 //   - No force-unwraps; guard let or throws everywhere.
+//
+// SHARED TYPES USED (do NOT redefine):
+//   AmenObjectType, SpawnProvenance, AmenIntent  →  CommunityObjectTypes.swift
+//   TransformError                               →  TransformEngine.swift
+//   AmenPost, AmenPrayer, etc.                  →  AmenCoreModels.swift
 
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+
+// MARK: - RepositoryError
+
+/// Errors thrown by AmenObjectRepository not covered by TransformError.
+enum RepositoryError: Error {
+    /// Firestore document not found in the given collection.
+    case documentNotFound(collection: String, id: String)
+    /// Firebase Auth user is nil or UID is empty.
+    case unauthenticated
+    /// Firestore document failed to decode to the expected type.
+    case decodingFailed(collection: String, id: String)
+}
 
 // MARK: - AmenObjectRepository
 
@@ -28,22 +49,21 @@ final class AmenObjectRepository: ObservableObject {
     // MARK: - Collection Name Constants
 
     private enum Collection {
-        static let posts                    = "posts"
-        static let prayers                  = "prayers"
-        static let discussions              = "objectDiscussionRooms"
-        static let studies                  = "studies"
-        static let events                   = "events"
-        static let volunteerOpportunities   = "volunteerOpportunities"
-        static let mentorships              = "mentorships"
-        static let jobs                     = "jobs"
-        static let mediaObjects             = "mediaObjects"
-        // User-owned sub-collections: /users/{uid}/churchNotes, /users/{uid}/bereanInsights
+        static let posts                  = "posts"
+        static let prayers                = "prayers"
+        static let discussions            = "objectDiscussionRooms"
+        static let studies                = "studies"
+        static let events                 = "events"
+        static let volunteerOpportunities = "volunteerOpportunities"
+        static let mentorships            = "mentorships"
+        static let jobs                   = "jobs"
+        static let mediaObjects           = "mediaObjects"
+        // User-owned sub-collections accessed via userSubCollection(uid:name:)
     }
 
     // MARK: - Fetch: AmenPost
 
     /// Fetches a single AmenPost by document ID from /posts/{id}.
-    /// - Throws: Firestore decode error or a generic error if the document doesn't exist.
     func fetchPost(id: String) async throws -> AmenPost {
         try await fetch(collection: Collection.posts, id: id)
     }
@@ -57,18 +77,16 @@ final class AmenObjectRepository: ObservableObject {
 
     // MARK: - Fetch: AmenDiscussion
 
-    /// Fetches an AmenDiscussion from the root rooms collection.
+    /// Fetches an AmenDiscussion from the nested path:
+    /// /objectDiscussionRooms/{parentId}/rooms/{roomId}.
     ///
-    /// NOTE: The canonical path is /objectDiscussionRooms/{canonicalObjectId}/rooms/{roomId}.
-    /// This helper fetches from the top-level alias. Use `fetchDiscussionInRoom(_:parentId:)`
-    /// for the nested path.
+    /// OPEN (OQ-4): parentId should be namespaced as "{objectType}_{canonicalObjectId}"
+    ///              to prevent ID collision; confirm before all agents adopt this path.
     func fetchDiscussion(id: String) async throws -> AmenDiscussion {
         try await fetch(collection: Collection.discussions, id: id)
     }
 
-    /// Fetches an AmenDiscussion from the nested /objectDiscussionRooms/{parentId}/rooms/{roomId}.
-    /// OPEN (OQ-4): parentId should be namespaced as "{objectType}_{canonicalObjectId}"
-    ///              to avoid ID collision; confirm before all feature agents adopt this path.
+    /// Fetches a discussion from the nested /objectDiscussionRooms/{parentId}/rooms/{roomId} path.
     func fetchDiscussionInRoom(_ roomId: String, parentId: String) async throws -> AmenDiscussion {
         let docRef = db
             .collection(Collection.discussions)
@@ -77,9 +95,19 @@ final class AmenObjectRepository: ObservableObject {
             .document(roomId)
         let snap = try await docRef.getDocument()
         guard snap.exists else {
-            throw RepositoryError.documentNotFound(collection: "objectDiscussionRooms/\(parentId)/rooms", id: roomId)
+            throw RepositoryError.documentNotFound(
+                collection: "objectDiscussionRooms/\(parentId)/rooms",
+                id: roomId
+            )
         }
-        return try snap.data(as: AmenDiscussion.self)
+        do {
+            return try snap.data(as: AmenDiscussion.self)
+        } catch {
+            throw RepositoryError.decodingFailed(
+                collection: "objectDiscussionRooms/\(parentId)/rooms",
+                id: roomId
+            )
+        }
     }
 
     // MARK: - Fetch: AmenJob
@@ -91,8 +119,8 @@ final class AmenObjectRepository: ObservableObject {
 
     // MARK: - Generic Fetch Helper
 
-    /// Fetches any AmenObject-conforming Codable type from a top-level collection by ID.
-    /// - Throws: `RepositoryError.documentNotFound` if the document does not exist.
+    /// Fetches any AmenObject-conforming Codable from a top-level collection by document ID.
+    /// Throws `RepositoryError.documentNotFound` if the document does not exist.
     private func fetch<T: AmenObject & Decodable>(
         collection: String,
         id: String
@@ -102,7 +130,11 @@ final class AmenObjectRepository: ObservableObject {
         guard snap.exists else {
             throw RepositoryError.documentNotFound(collection: collection, id: id)
         }
-        return try snap.data(as: T.self)
+        do {
+            return try snap.data(as: T.self)
+        } catch {
+            throw RepositoryError.decodingFailed(collection: collection, id: id)
+        }
     }
 
     // MARK: - createSpawnedObject
@@ -110,57 +142,43 @@ final class AmenObjectRepository: ObservableObject {
     /// Runs the transform engine, writes a new derived object to Firestore,
     /// and returns the new document ID.
     ///
-    /// The provenance block is included in the write. `createdAt` and `updatedAt`
-    /// are always set via `FieldValue.serverTimestamp()`.
+    /// Provenance is included in the write; `createdAt` and `updatedAt` use
+    /// `FieldValue.serverTimestamp()`.
+    ///
+    /// C1 §3c: if the source was itself spawned (hop > 1), sourceRef is set to
+    /// the hop-1 ancestor — not the intermediate — preserving the canonical chain.
     ///
     /// - Parameters:
     ///   - source: The originating spawnable object.
-    ///   - intent: The C2 intent driving this transform.
+    ///   - sourceObjectType: Explicit AmenObjectType for the source (avoids inference).
+    ///   - intent: The C2 AmenIntent driving this transform.
     ///   - actorId: Firebase Auth UID of the user initiating the transform.
-    ///   - collection: Firestore collection name for the new object.
-    ///   - provenanceFields: Additional Firestore-safe fields to merge into the
-    ///                       provenance sub-document (e.g., eventDate, orgId).
+    ///   - targetCollection: Firestore collection name for the new object.
+    ///   - additionalFields: Extra Firestore fields to merge into the document payload.
+    ///   - additionalProvenanceFields: Extra fields to merge into the provenance sub-doc.
     /// - Returns: The Firestore document ID of the newly created object.
     /// - Throws: `TransformError` on unsupported combinations or missing provenance.
-    ///           Firestore errors on write failures.
     func createSpawnedObject<S: SpawnableObject>(
         from source: S,
-        intent: Intent,
+        sourceObjectType: AmenObjectType,
+        intent: AmenIntent,
         actorId: String,
-        collection: String,
+        targetCollection: String,
+        additionalFields: [String: Any] = [:],
         additionalProvenanceFields: [String: Any] = [:]
     ) async throws -> String {
+        // Verify the actor is authenticated.
         guard let currentUser = Auth.auth().currentUser, !currentUser.uid.isEmpty else {
-            throw TransformError.actorNotAuthorized(requiredRole: "authenticated")
+            throw TransformError.actorNotAuthorized(requiredRole: .visitor)
         }
 
-        // Resolve the ObjectType from the source's provenance chain or default.
-        // SpawnableObject does not directly carry objectType; infer from the source's
-        // existing provenance or use the collection name as a fallback.
-        // OPEN: Once all AmenObject types carry a typed objectType property, replace
-        //       this inference with a protocol requirement.
-        let sourceTypeRaw: String
-        if let existingProvenance = source.provenance {
-            // If the source was itself spawned, record the hop-1 ancestor as the source.
-            // C1 §3c: sourceRef = original (hop 1), not the intermediate.
-            sourceTypeRaw = existingProvenance.sourceType
-        } else {
-            // Root object — use collection name as a type hint. Caller should pass
-            // an accurate collection that maps to an ObjectType raw value.
-            sourceTypeRaw = String(collection.dropLast(collection.hasSuffix("s") ? 1 : 0))
-        }
-
-        guard let sourceObjectType = ObjectType(rawValue: sourceTypeRaw) else {
-            throw TransformError.missingRequiredProvenance(field: "sourceObjectType")
-        }
-
-        // Determine the Firestore document path for provenance.sourceRef.
-        // Use hop-1 sourceRef if source was itself spawned (preserves the original).
+        // Determine the canonical sourceRef (hop-1 per C1 §3c).
         let sourceRef: String
         if let hop1Ref = source.provenance?.sourceRef {
+            // Source was itself spawned — point to its ancestor, not the source.
             sourceRef = hop1Ref
         } else {
-            sourceRef = "/\(collection)/\(source.id)"
+            sourceRef = "/\(targetCollection)/\(source.id)"
         }
 
         let (_, provenance) = try engine.transform(
@@ -174,9 +192,9 @@ final class AmenObjectRepository: ObservableObject {
 
         // Build the Firestore provenance sub-document.
         var provenanceData: [String: Any] = [
-            "sourceType":    provenance.sourceType,
-            "intent":        provenance.intent,
-            "createdAt":     FieldValue.serverTimestamp()
+            "sourceType":  provenance.sourceType,
+            "intent":      provenance.intent,
+            "createdAt":   FieldValue.serverTimestamp()
         ]
         if let ref = provenance.sourceRef {
             provenanceData["sourceRef"] = ref
@@ -184,66 +202,59 @@ final class AmenObjectRepository: ObservableObject {
         if let ownerId = provenance.sourceOwnerId {
             provenanceData["sourceOwnerId"] = ownerId
         }
-        // Merge any caller-supplied additional fields (eventDate, orgId, etc.).
         for (k, v) in additionalProvenanceFields {
             provenanceData[k] = v
         }
 
         // Write the new derived object document.
-        let newDocRef = db.collection(collection).document()
-        let payload: [String: Any] = [
-            "id":               newDocRef.documentID,
-            "_type":            collection,   // OPEN: use proper ObjectType raw value
-            "createdBy":        actorId,
-            "createdAt":        FieldValue.serverTimestamp(),
-            "updatedAt":        FieldValue.serverTimestamp(),
-            "isDeleted":        false,
-            "provenance":       provenanceData
+        let newDocRef = db.collection(targetCollection).document()
+        var payload: [String: Any] = [
+            "id":         newDocRef.documentID,
+            "_type":      targetCollection,
+            "createdBy":  actorId,
+            "createdAt":  FieldValue.serverTimestamp(),
+            "updatedAt":  FieldValue.serverTimestamp(),
+            "isDeleted":  false,
+            "provenance": provenanceData
         ]
+        for (k, v) in additionalFields {
+            payload[k] = v
+        }
+
         try await newDocRef.setData(payload)
         return newDocRef.documentID
     }
 
     // MARK: - softDelete
 
-    /// Marks a document as deleted by setting `{ isDeleted: true, updatedAt: serverTimestamp }`.
+    /// Soft-deletes a document: sets `{ isDeleted: true, updatedAt: serverTimestamp }`.
     /// Never calls `.delete()`. Safe to call on already-deleted documents.
-    ///
-    /// - Parameters:
-    ///   - collection: Top-level Firestore collection name.
-    ///   - id: Document ID.
     func softDelete(collection: String, id: String) async throws {
-        let docRef = db.collection(collection).document(id)
-        try await docRef.updateData([
+        try await db.collection(collection).document(id).updateData([
             "isDeleted": true,
             "updatedAt": FieldValue.serverTimestamp()
         ])
     }
 
-    // MARK: - softDelete (nested room)
+    // MARK: - softDeleteRoom (nested)
 
-    /// Soft-deletes a nested room document, e.g., inside objectDiscussionRooms.
+    /// Soft-deletes a nested discussion room document.
     func softDeleteRoom(parentId: String, roomId: String) async throws {
-        let docRef = db
+        try await db
             .collection(Collection.discussions)
             .document(parentId)
             .collection("rooms")
             .document(roomId)
-        try await docRef.updateData([
-            "isDeleted": true,
-            "updatedAt": FieldValue.serverTimestamp()
-        ])
+            .updateData([
+                "isDeleted": true,
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
     }
-}
 
-// MARK: - RepositoryError
+    // MARK: - Private helpers
 
-/// Errors thrown by AmenObjectRepository that are not covered by TransformError.
-enum RepositoryError: Error {
-    /// The Firestore document was not found in the given collection.
-    case documentNotFound(collection: String, id: String)
-    /// The current Firebase Auth user is nil or their UID is empty.
-    case unauthenticated
-    /// A required field was missing from the Firestore document on decode.
-    case decodingFailed(field: String)
+    /// Returns a Firestore reference for a user-owned sub-collection.
+    private func userSubCollection(uid: String, name: String) -> CollectionReference {
+        db.collection("users").document(uid).collection(name)
+    }
 }

@@ -11,7 +11,7 @@ actor ChurchDiscoveryService {
     private init() {}
 
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_maps_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_maps_enabled").boolValue }
 
     struct ChurchResult: Identifiable {
         let id: String

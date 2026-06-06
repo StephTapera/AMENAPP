@@ -13,10 +13,10 @@ private struct FormationSectionLabel: View {
     let text: String
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 10)).foregroundStyle(NotifGlassTokens.goldPrimary)
+            Image(systemName: icon).font(.system(size: 10)).foregroundStyle(Color.accentColor)
             Text(text.uppercased())
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(NotifGlassTokens.goldPrimary)
+                .foregroundStyle(Color.accentColor)
                 .tracking(1.5)
         }
     }
@@ -34,12 +34,12 @@ private struct FormationVerseBlock: View {
     var body: some View {
         HStack(spacing: 0) {
             Rectangle()
-                .fill(NotifGlassTokens.goldPrimary)
+                .fill(Color.accentColor)
                 .frame(width: 3)
                 .clipShape(Capsule())
             Text(displayText)
-                .font(.custom("Georgia", size: 20).italic())
-                .foregroundStyle(Color(hex: "#F5F0E8"))
+                .font(.body.italic())
+                .foregroundStyle(Color.primary)
                 .lineSpacing(4)
                 .padding(.leading, 14)
         }
@@ -55,18 +55,15 @@ private struct FormationStrengthBar: View {
     var body: some View {
         VStack(spacing: 6) {
             HStack {
-                Text(label).font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.30))
+                Text(label).font(.system(size: 11)).foregroundStyle(Color.secondary)
                 Spacer()
-                Text("\(pct)%").font(.system(size: 11)).foregroundStyle(NotifGlassTokens.goldPrimary)
+                Text("\(pct)%").font(.system(size: 11)).foregroundStyle(Color.accentColor)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 4)
+                    Capsule().fill(Color.separator).frame(height: 4)
                     Capsule()
-                        .fill(
-                            LinearGradient(colors: [Color(hex: "#8A6F2E"), Color(hex: "#C9A84C")],
-                                           startPoint: .leading, endPoint: .trailing)
-                        )
+                        .fill(Color.accentColor)
                         .frame(width: geo.size.width * CGFloat(pct) / 100, height: 4)
                 }
             }
@@ -90,7 +87,7 @@ struct BereanVerseReflectionCard: View {
             FormationSectionLabel(icon: "sparkle", text: "Daily Verse")
 
             Text(passageRange)
-                .font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.25)).tracking(1)
+                .font(.system(size: 11)).foregroundStyle(Color.secondary).tracking(1)
 
             FormationVerseBlock(text: verse.text)
 
@@ -104,20 +101,20 @@ struct BereanVerseReflectionCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 FormationSectionLabel(icon: "quote.bubble", text: "A moment to consider")
                 Text("What does it look like to seek first — before the list, the inbox, the plans? Not as a task, but as an orientation. Where does your attention go first today?")
-                    .font(.custom("Georgia", size: 15))
-                    .foregroundStyle(Color.white.opacity(0.50))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.secondary)
                     .lineSpacing(3)
                 Text("This reflection is an invitation, not instruction. It does not represent any doctrinal position.")
                     .font(.system(size: 10))
-                    .foregroundStyle(Color.white.opacity(0.22))
+                    .foregroundStyle(Color.secondary.opacity(0.6))
                     .lineSpacing(2)
             }
             .padding(14)
-            .background(Color.white.opacity(0.04))
+            .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color(hex: "#C9A84C").opacity(0.18), lineWidth: 0.5)
+                    .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 0.5)
             )
         }
         .padding(20)
@@ -143,19 +140,19 @@ struct BereanReadingPlanCard: View {
             FormationSectionLabel(icon: "book", text: "Reading Plan")
 
             Text(plan.name)
-                .font(.custom("Georgia", size: 22))
-                .foregroundStyle(Color(hex: "#F5F0E8"))
+                .font(.title2.bold())
+                .foregroundStyle(Color.primary)
 
             Text("Day \(plan.currentDay) of \(plan.totalDays) — today's passage")
                 .font(.system(size: 13))
-                .foregroundStyle(Color.white.opacity(0.45))
+                .foregroundStyle(Color.secondary)
 
             FormationStrengthBar(pct: pct, label: "\(pct)% complete · \(remaining) days remaining")
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Today's reading")
-                        .font(.system(size: 10)).foregroundStyle(Color.white.opacity(0.25))
+                        .font(.system(size: 10)).foregroundStyle(Color.secondary)
                     BereanVerseChip(reference: plan.todayPassageRange)
                 }
                 Spacer()
@@ -164,20 +161,20 @@ struct BereanReadingPlanCard: View {
                 } label: {
                     Text("Read now")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color(hex: "#F5F0E8"))
+                        .foregroundStyle(Color.primary)
                         .padding(.horizontal, 14).padding(.vertical, 7)
-                        .background(Color.white.opacity(0.08))
+                        .background(Color(.secondarySystemGroupedBackground))
                         .clipShape(Capsule())
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5))
+                        .overlay(Capsule().strokeBorder(Color.separator, lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
             .padding(14)
-            .background(Color.white.opacity(0.04))
+            .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color(hex: "#C9A84C").opacity(0.18), lineWidth: 0.5)
+                    .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 0.5)
             )
         }
         .padding(20)
@@ -212,12 +209,12 @@ struct BereanPrayerCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(prayer.subject)
-                    .font(.custom("Georgia", size: 20))
-                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                    .font(.title3.bold())
+                    .foregroundStyle(Color.primary)
                     .lineSpacing(2)
                 Text("For \(prayer.forWhom) · \(daysSince == 0 ? "today" : "\(daysSince) day\(daysSince == 1 ? "" : "s") ago")")
                     .font(.system(size: 13))
-                    .foregroundStyle(Color.white.opacity(0.40))
+                    .foregroundStyle(Color.secondary)
             }
 
             if prayer.sensitivity == .tender {
@@ -254,11 +251,11 @@ struct BereanPrayerCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(prayer.sensitivity == .tender ? Color(hex: "#4A9ECC").opacity(0.05) : Color.white.opacity(0.04))
+                .fill(prayer.sensitivity == .tender ? Color(hex: "#4A9ECC").opacity(0.05) : Color(.secondarySystemGroupedBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(prayer.sensitivity == .tender ? Color(hex: "#4A9ECC").opacity(0.30) : Color.white.opacity(0.10), lineWidth: 0.5)
+                .strokeBorder(prayer.sensitivity == .tender ? Color(hex: "#4A9ECC").opacity(0.30) : Color.separator, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -267,9 +264,9 @@ struct BereanPrayerCard: View {
         Button { action = id } label: {
             Text(label)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(primary ? Color(hex: "#0A0A0F") : Color(hex: "#F5F0E8"))
+                .foregroundStyle(primary ? Color(.systemBackground) : Color.primary)
                 .padding(.horizontal, 12).padding(.vertical, 7)
-                .background(primary ? AnyShapeStyle(NotifGlassTokens.primaryButtonGradient) : AnyShapeStyle(Color.white.opacity(0.08)))
+                .background(primary ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color(.secondarySystemGroupedBackground)))
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -291,12 +288,12 @@ struct BereanSanctuaryCard: View {
             FormationSectionLabel(icon: "building.columns", text: "Sanctuary")
 
             Text(s.name)
-                .font(.custom("Georgia", size: 22))
-                .foregroundStyle(Color(hex: "#F5F0E8"))
+                .font(.title2.bold())
+                .foregroundStyle(Color.primary)
 
             Text(verbatim: "\u{201C}" + s.recentActivity + "\u{201D}")
-                .font(.custom("Georgia", size: 14).italic())
-                .foregroundStyle(Color.white.opacity(0.45))
+                .font(.subheadline.italic())
+                .foregroundStyle(Color.secondary)
                 .lineSpacing(2)
 
             HStack(spacing: 12) {
@@ -309,12 +306,12 @@ struct BereanSanctuaryCard: View {
             } label: {
                 Text("Visit Sanctuary")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                    .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.06))
+                    .background(Color(.secondarySystemGroupedBackground))
                     .clipShape(Capsule())
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5))
+                    .overlay(Capsule().strokeBorder(Color.separator, lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }
@@ -325,20 +322,20 @@ struct BereanSanctuaryCard: View {
     private func sanctuaryStatBox(label: String, value: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.custom("Georgia", size: 30).weight(.medium))
-                .foregroundStyle(NotifGlassTokens.goldLight)
+                .font(.title.bold())
+                .foregroundStyle(Color.accentColor)
             Text(label)
                 .font(.system(size: 10))
-                .foregroundStyle(Color.white.opacity(0.30))
+                .foregroundStyle(Color.secondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(14)
-        .background(Color.white.opacity(0.04))
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color(hex: "#C9A84C").opacity(0.18), lineWidth: 0.5)
+                .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 0.5)
         )
     }
 }

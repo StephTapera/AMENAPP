@@ -49,18 +49,18 @@ struct BereanMenteeGrowthView: View {
 
     private var findMentorPrompt: some View {
         ZStack {
-            Color(.systemGroupedBackground).ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
             VStack(spacing: 20) {
                 Image(systemName: "person.crop.circle.badge.plus")
                     .font(.system(size: 48, weight: .ultraLight))
                     .foregroundStyle(Color.accentColor.opacity(0.7))
                     .accessibilityHidden(true)
                 Text("Find a Mentor")
-                    .font(.custom("Georgia", size: 26))
+                    .font(.title2).bold()
                     .foregroundStyle(Color.primary)
                 Text("Connect with a mentor in your church community to receive a personalised growth plan.")
                     .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.5))
+                    .foregroundStyle(Color.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -74,7 +74,7 @@ struct BereanMenteeGrowthView: View {
     @ViewBuilder
     private var growthContent: some View {
         ZStack {
-            Color(.systemGroupedBackground).ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
 
             if service.isLoading && service.menteeGrowthPlan == nil {
                 loadingView
@@ -107,7 +107,7 @@ struct BereanMenteeGrowthView: View {
             ProgressView().tint(Color.accentColor)
             Text("Loading your growth plan...")
                 .font(.system(size: 14))
-                .foregroundStyle(Color.white.opacity(0.5))
+                .foregroundStyle(Color.secondary)
         }
         .accessibilityLabel("Loading your growth plan")
     }
@@ -119,7 +119,7 @@ struct BereanMenteeGrowthView: View {
             if plan.goals.isEmpty {
                 Text("No goals set yet. Talk with your mentor.")
                     .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
             } else {
@@ -133,7 +133,7 @@ struct BereanMenteeGrowthView: View {
                 }
                 Text("These checkmarks are for meeting prep only — not saved.")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.25))
+                    .foregroundStyle(Color.secondary.opacity(0.5))
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
             }
@@ -184,13 +184,13 @@ struct BereanMenteeGrowthView: View {
                             .foregroundStyle(Color.primary)
                         Text("Prepare your questions and reflections.")
                             .font(.system(size: 12))
-                            .foregroundStyle(Color.white.opacity(0.4))
+                            .foregroundStyle(Color.secondary)
                     }
                     Spacer()
                     Button { showMeetingPrep = true } label: {
                         Text("Prepare")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color(.systemGroupedBackground))
+                            .foregroundStyle(Color(.systemBackground))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                             .background(Color.accentColor, in: Capsule())
@@ -210,7 +210,7 @@ struct BereanMenteeGrowthView: View {
             if plan.milestones.isEmpty {
                 Text("Complete sessions to earn milestones.")
                     .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
             } else {
@@ -234,7 +234,7 @@ struct BereanMenteeGrowthView: View {
             if plan.suggestedResources.isEmpty {
                 Text("No resources suggested yet.")
                     .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
             } else {
@@ -254,7 +254,7 @@ struct BereanMenteeGrowthView: View {
                     .accessibilityLabel("Suggested resource: \(resource)")
 
                     Divider()
-                        .background(Color.white.opacity(0.07))
+                        .background(Color.separator)
                         .padding(.horizontal, 20)
                 }
             }
@@ -333,7 +333,7 @@ private struct BereanMentorshipSection<Content: View>: View {
 
             content()
         }
-        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
     }
@@ -351,11 +351,11 @@ private struct ChecklistRow: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20))
-                    .foregroundStyle(isChecked ? Color(hex: "#4CAF82") : Color.white.opacity(0.3))
+                    .foregroundStyle(isChecked ? Color(hex: "#4CAF82") : Color.secondary.opacity(0.5))
                     .accessibilityHidden(true)
                 Text(text)
                     .font(.system(size: 14))
-                    .foregroundStyle(isChecked ? Color.white.opacity(0.4) : Color.primary)
+                    .foregroundStyle(isChecked ? Color.secondary : Color.primary)
                     .strikethrough(isChecked)
                     .multilineTextAlignment(.leading)
                 Spacer()
@@ -394,11 +394,11 @@ struct MilestoneBadgeView: View {
                 .lineLimit(2)
             Text(earnedDateText)
                 .font(.system(size: 9))
-                .foregroundStyle(Color.white.opacity(0.35))
+                .foregroundStyle(Color.secondary)
         }
         .frame(width: 80, height: 100)
         .padding(8)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 1)
@@ -433,13 +433,13 @@ struct MeetingPrepSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemGroupedBackground).ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Work through this checklist before your session.")
                             .font(.system(size: 13))
-                            .foregroundStyle(Color.white.opacity(0.4))
+                            .foregroundStyle(Color.secondary)
                             .padding(.horizontal, 24)
                             .padding(.top, 8)
                             .padding(.bottom, 16)
@@ -453,7 +453,7 @@ struct MeetingPrepSheet: View {
                             .padding(.vertical, 6)
 
                             Divider()
-                                .background(Color.white.opacity(0.07))
+                                .background(Color.separator)
                                 .padding(.horizontal, 24)
                         }
 
@@ -462,7 +462,7 @@ struct MeetingPrepSheet: View {
                         Button { dismiss() } label: {
                             Text(allChecked ? "Ready for session!" : "Close")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(allChecked ? Color(.systemGroupedBackground) : Color.accentColor)
+                                .foregroundStyle(allChecked ? Color(.systemBackground) : Color.accentColor)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
                                 .background(
@@ -487,7 +487,7 @@ struct MeetingPrepSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
-                        .foregroundStyle(Color.white.opacity(0.6))
+                        .foregroundStyle(Color.secondary)
                         .accessibilityLabel("Close session prep")
                 }
             }
@@ -507,11 +507,11 @@ private struct PrepCheckRow: View {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
-                    .foregroundStyle(isChecked ? Color(hex: "#4CAF82") : Color.white.opacity(0.25))
+                    .foregroundStyle(isChecked ? Color(hex: "#4CAF82") : Color.secondary.opacity(0.5))
                     .accessibilityHidden(true)
                 Text(text)
                     .font(.system(size: 15))
-                    .foregroundStyle(isChecked ? Color.white.opacity(0.35) : Color.primary)
+                    .foregroundStyle(isChecked ? Color.secondary : Color.primary)
                     .strikethrough(isChecked)
                     .multilineTextAlignment(.leading)
                 Spacer()
@@ -538,7 +538,7 @@ private struct PrepCheckRow: View {
 #Preview("Milestone Badge") {
     MilestoneBadgeView(badge: BereanMentorshipMockData.growthPlan.milestones[0])
         .padding()
-        .background(Color(.systemGroupedBackground))
+        .background(Color(.systemBackground))
 }
 
 #Preview("Meeting Prep Sheet") {

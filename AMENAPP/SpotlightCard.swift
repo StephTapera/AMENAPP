@@ -131,7 +131,7 @@ struct SpotlightCard: View {
         Circle()
             .fill(
                 LinearGradient(
-                    colors: [Color.amenGold.opacity(0.5), Color.amenBronze.opacity(0.5)],
+                    colors: [Color.accentColor.opacity(0.5), Color.accentColor.opacity(0.3)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -266,7 +266,7 @@ struct SpotlightCard: View {
             InteractionButton(
                 icon: hasReacted ? "lightbulb.fill" : "lightbulb",
                 count: post.lightbulbCount,
-                color: hasReacted ? .amenGold : .white.opacity(0.6),
+                color: hasReacted ? .accentColor : .white.opacity(0.6),
                 action: {
                     withAnimation(LiquidSpring.elastic) {
                         hasReacted.toggle()
@@ -303,7 +303,7 @@ struct SpotlightCard: View {
             } label: {
                 Image(systemName: hasBookmarked ? "bookmark.fill" : "bookmark")
                     .font(.systemScaled(16, weight: .medium))
-                    .foregroundColor(hasBookmarked ? .amenGold : .white.opacity(0.6))
+                    .foregroundColor(hasBookmarked ? .accentColor : .white.opacity(0.6))
             }
         }
         .padding(.top, 4)

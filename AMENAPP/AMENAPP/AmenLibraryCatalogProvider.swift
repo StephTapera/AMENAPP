@@ -77,9 +77,7 @@ final class FirestoreAmenCatalogProvider: AmenLibraryCatalogProvider {
 
     private let db = Firestore.firestore()
 
-    // TODO: Wire to `amenLibrary/{bookId}` collection once publisher feed ingestion is built
-    // TODO: Add Apple Books affiliate link resolution
-    // TODO: Add church sermon library source (church-specific curated list)
+    // Reads from amenLibrary collection; Apple Books affiliate links + church sermon sources planned.
 
     func fetchFeatured() async throws -> [WLBook] {
         let snap = try await db.collection("amenLibrary")
@@ -98,8 +96,7 @@ final class FirestoreAmenCatalogProvider: AmenLibraryCatalogProvider {
     }
 
     func search(query: String, maxResults: Int) async throws -> [WLBook] {
-        // Full-text search not available in Firestore natively —
-        // TODO: Route through Algolia `amenLibrary` index once indexed
+        // Full-text search requires Algolia amenLibrary index (not yet indexed).
         return []
     }
 

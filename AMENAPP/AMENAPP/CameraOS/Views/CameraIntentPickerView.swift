@@ -85,19 +85,12 @@ struct CameraIntentPickerView: View {
     private var intentGrid: some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVGrid(columns: gridColumns, spacing: tileSpacing) {
-                ForEach(CameraIntent.allCases) { intent in
+                ForEach(CameraIntent.allCases) { (intent: CameraIntent) in
                     CameraIntentTile(
                         intent: intent,
-                        isSelected: selectedIntent == intent
-                    ) {
-                        withAnimation(
-                            reduceMotion
-                                ? .easeOut(duration: 0.15)
-                                : .spring(response: 0.25, dampingFraction: 0.78)
-                        ) {
-                            selectedIntent = (selectedIntent == intent) ? nil : intent
-                        }
-                    }
+                        isSelected: selectedIntent == intent,
+                        onTap: { selectIntent(intent) }
+                    )
                     .frame(width: tileSize, height: tileSize)
                 }
             }
@@ -160,6 +153,17 @@ struct CameraIntentPickerView: View {
                 Circle()
                     .strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
             }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func selectIntent(_ intent: CameraIntent) {
+        let animation: Animation = reduceMotion
+            ? .easeOut(duration: 0.15)
+            : .spring(response: 0.25, dampingFraction: 0.78)
+        withAnimation(animation) {
+            selectedIntent = (selectedIntent == intent) ? nil : intent
         }
     }
 }

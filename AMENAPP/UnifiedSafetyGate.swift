@@ -765,7 +765,7 @@ final class UnifiedSafetyGate {
         }
     }
 
-    private func mapSurfaceToContentCategory(_ surface: SafetySurface) -> ContentCategory {
+    private func mapSurfaceToContentCategory(_ surface: SafetySurface) -> ContentModerationClass {
         switch surface {
         case .post, .testimony, .prayerRequest, .churchNote, .eventDescription: return .post
         case .comment:                   return .comment

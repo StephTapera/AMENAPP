@@ -654,7 +654,7 @@ final class JobService: ObservableObject {
     /// whose geohash prefix matches the caller's 4-char prefix (~40 km bounding box),
     /// then filter the smaller result set for exact radius.
     ///
-    /// TODO: Deploy Firestore composite index: jobs(geohash ASC, isActive ASC)
+    /// Deploy: Requires Firestore composite index jobs(geohash ASC, isActive ASC).
     func fetchJobsNear(lat: Double, lon: Double, radiusKm: Double = 50) async throws -> [JobListing] {
         let prefix = String(JobService.geohash(lat: lat, lon: lon, precision: 4).prefix(4))
         let snapshot = try await db.collection(JobCollections.jobListings)

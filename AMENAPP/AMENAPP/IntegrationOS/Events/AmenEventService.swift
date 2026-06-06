@@ -1,4 +1,4 @@
-// AmenEventService.swift — AMEN IntegrationOS
+// AmenIntegrationEventService.swift — AMEN IntegrationOS
 // Actor for event RSVP and follow-up. Calls `sendEventFollowUpNotification` CF.
 
 import Foundation
@@ -7,18 +7,18 @@ import FirebaseFunctions
 import FirebaseAuth
 import FirebaseRemoteConfig
 
-actor AmenEventService {
-    static let shared = AmenEventService()
+actor AmenIntegrationEventService {
+    static let shared = AmenIntegrationEventService()
     private init() {}
 
     private let db = Firestore.firestore()
     private let functions = Functions.functions()
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_events_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_events_enabled").boolValue }
 
     // MARK: - Fetch
 
-    func fetchEvents(spaceId: String? = nil, limit: Int = 25) async throws -> [AmenEvent] {
+    func fetchEvents(spaceId: String? = nil, limit: Int = 25) async throws -> [AmenIntegrationEvent] {
         guard isEnabled else { return [] }
         var query: Query = db.collection("amenEvents")
             .whereField("isPublic", isEqualTo: true)
@@ -35,12 +35,12 @@ actor AmenEventService {
         }
 
         let snap = try await query.getDocuments()
-        return snap.documents.compactMap { try? $0.data(as: AmenEvent.self) }
+        return snap.documents.compactMap { try? $0.data(as: AmenIntegrationEvent.self) }
     }
 
     // MARK: - RSVP
 
-    func rsvp(eventId: String, status: RSVPStatus, notes: String? = nil) async throws {
+    func rsvp(eventId: String, status: EventRSVPStatus, notes: String? = nil) async throws {
         guard isEnabled else { return }
         guard let uid = Auth.auth().currentUser?.uid else { throw IntegrationOSError.notAuthenticated }
 
@@ -81,7 +81,7 @@ actor AmenEventService {
         guard isEnabled else { return [] }
         let snap = try await db.collection("amenEvents").document(eventId)
             .collection("rsvps")
-            .whereField("status", isEqualTo: RSVPStatus.going.rawValue)
+            .whereField("status", isEqualTo: EventRSVPStatus.going.rawValue)
             .limit(to: 50)
             .getDocuments()
         return snap.documents.compactMap { try? $0.data(as: EventAttendee.self) }

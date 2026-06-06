@@ -6,15 +6,15 @@ import MapKit
 
 @MainActor
 final class EventDetailViewModel: ObservableObject {
-    @Published var event: AmenEvent
+    @Published var event: AmenIntegrationEvent
     @Published var myRSVP: EventRSVP?
     @Published var attendees: [EventAttendee] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    private let service = AmenEventService.shared
+    private let service = AmenIntegrationEventService.shared
 
-    init(event: AmenEvent) {
+    init(event: AmenIntegrationEvent) {
         self.event = event
     }
 
@@ -28,7 +28,7 @@ final class EventDetailViewModel: ObservableObject {
         isLoading = false
     }
 
-    func rsvp(status: RSVPStatus) async {
+    func rsvp(status: EventRSVPStatus) async {
         do {
             try await service.rsvp(eventId: event.id, status: status)
             myRSVP = EventRSVP(eventId: event.id, userId: "", status: status, respondedAt: Date(), notes: nil)
@@ -42,7 +42,7 @@ struct EventDetailView: View {
     @StateObject private var viewModel: EventDetailViewModel
     @Environment(\.colorScheme) private var colorScheme
 
-    init(event: AmenEvent) {
+    init(event: AmenIntegrationEvent) {
         _viewModel = StateObject(wrappedValue: EventDetailViewModel(event: event))
     }
 
@@ -65,7 +65,7 @@ struct EventDetailView: View {
                         .font(.title2.weight(.bold))
 
                     Label(
-                        "\(viewModel.event.startDate.formatted(date: .abbreviated, time: .shortened)) – \(viewModel.event.endDate.formatted(time: .shortened))",
+                        "\(viewModel.event.startDate.formatted(date: .abbreviated, time: .shortened)) – \(viewModel.event.endDate.formatted(date: .omitted, time: .shortened))",
                         systemImage: "calendar"
                     )
                     .font(.subheadline)
@@ -117,7 +117,7 @@ struct EventDetailView: View {
             }
 
             HStack(spacing: 12) {
-                ForEach([RSVPStatus.going, .interested, .notGoing], id: \.self) { status in
+                ForEach([EventRSVPStatus.going, .interested, .notGoing], id: \.self) { status in
                     Button {
                         Task { await viewModel.rsvp(status: status) }
                     } label: {
@@ -150,7 +150,7 @@ struct EventDetailView: View {
                                 .overlay(
                                     Text(String(attendee.displayName.prefix(1)))
                                         .font(.headline)
-                                        .foregroundStyle(.accentColor)
+                                        .foregroundStyle(Color.accentColor)
                                 )
                             Text(attendee.displayName.components(separatedBy: " ").first ?? "")
                                 .font(.caption2)

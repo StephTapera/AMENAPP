@@ -100,7 +100,7 @@ struct AmenCareQueueView: View {
     private var glassHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: "heart.fill")
-                .foregroundStyle(Color.amenGold)
+                .foregroundStyle(Color.accentColor)
                 .font(.title3.weight(.semibold))
                 .accessibilityHidden(true)
             Text("Care Queue")
@@ -110,10 +110,10 @@ struct AmenCareQueueView: View {
             if !vm.items.isEmpty {
                 Text("\(vm.items.count)")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(Color.amenGoldText)
+                    .foregroundStyle(Color(.label))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color.amenGold.opacity(0.15))
+                    .background(Color.accentColor.opacity(0.15))
                     .clipShape(Capsule(style: .continuous))
                     .accessibilityLabel("\(vm.items.count) care items")
             }
@@ -148,11 +148,11 @@ struct AmenCareQueueView: View {
         VStack(spacing: 14) {
             Text("✦")
                 .font(.largeTitle)
-                .foregroundStyle(Color.amenGoldText)
+                .foregroundStyle(Color(.label))
                 .accessibilityHidden(true)
             Text("No care requests right now. The flock is at peace. ✦")
                 .font(.body)
-                .foregroundStyle(Color.amenGoldText)
+                .foregroundStyle(Color(.label))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
         }

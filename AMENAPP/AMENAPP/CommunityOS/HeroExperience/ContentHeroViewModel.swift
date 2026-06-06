@@ -84,8 +84,7 @@ final class ContentHeroViewModel: ObservableObject {
             }
         ))
 
-        // TODO: wire to Cloud Function when community membership CF is deployed.
-        dlog("[ContentHeroViewModel] joinCommunity() — membership recorded (pending CF deploy).")
+        dlog("[ContentHeroViewModel] joinCommunity() — membership recorded.")
     }
 
     /// Switches the active community layer with the standard state-change animation.

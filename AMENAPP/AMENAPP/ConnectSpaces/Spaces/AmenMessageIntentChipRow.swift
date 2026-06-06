@@ -20,18 +20,18 @@ private struct IntentStyle {
 
 private func style(for intent: AmenConnectSpacesMessageIntent) -> IntentStyle {
     switch intent {
-    case .prayerRequest: return IntentStyle(emoji: "🙏", label: "Prayer",        tint: .amenGold)
-    case .struggling:    return IntentStyle(emoji: "💛", label: "Struggling",    tint: .amenGold)
+    case .prayerRequest: return IntentStyle(emoji: "🙏", label: "Prayer",        tint: .accentColor)
+    case .struggling:    return IntentStyle(emoji: "💛", label: "Struggling",    tint: .accentColor)
     case .leadSunday:    return IntentStyle(emoji: "📋", label: "Lead Sunday",   tint: .amenBlue)
     case .volunteerNeed: return IntentStyle(emoji: "🤝", label: "Volunteer",     tint: .amenPurple)
-    case .testimony:     return IntentStyle(emoji: "✨", label: "Testimony",     tint: .amenGold)
+    case .testimony:     return IntentStyle(emoji: "✨", label: "Testimony",     tint: .accentColor)
     case .confession:    return IntentStyle(emoji: "💙", label: "Confession",    tint: .amenBlue)
     case .grief:         return IntentStyle(emoji: "💙", label: "Grief",         tint: .amenBlue)
     case .decision:      return IntentStyle(emoji: "⚡", label: "Decision",      tint: .amenBlue)
     case .task:          return IntentStyle(emoji: "⚡", label: "Task",          tint: .amenBlue)
-    case .risk:          return IntentStyle(emoji: "⚠️", label: "Risk",          tint: .amenGold)
+    case .risk:          return IntentStyle(emoji: "⚠️", label: "Risk",          tint: .accentColor)
     case .question:      return IntentStyle(emoji: "❓", label: "Question",      tint: .amenPurple)
-    case .careFollowUp:  return IntentStyle(emoji: "💚", label: "Care",          tint: .amenGold)
+    case .careFollowUp:  return IntentStyle(emoji: "💚", label: "Care",          tint: .accentColor)
     }
 }
 
@@ -41,7 +41,7 @@ private let careSensitiveIntents: Set<AmenConnectSpacesMessageIntent> = [
 
 // MARK: - Single Intent Chip
 
-private struct IntentChip: View {
+private struct SpaceIntentChip: View {
     let intent: AmenConnectSpacesMessageIntent
     let onTap: () -> Void
 
@@ -143,7 +143,7 @@ struct AmenMessageIntentChipRow: View {
                 if routedIntents.contains(intent) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 10))
-                        .foregroundStyle(Color.amenGold)
+                        .foregroundStyle(Color.accentColor)
                         .padding(2)
                 }
             }

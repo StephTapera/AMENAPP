@@ -20,13 +20,13 @@ private struct SpiritualStateRow: Identifiable {
 }
 
 private let kStateRows: [SpiritualStateRow] = [
-    .init(id: .inTheWord,               emoji: "📖", label: "In the Word",             accentColor: .amenGold),
+    .init(id: .inTheWord,               emoji: "📖", label: "In the Word",             accentColor: .accentColor),
     .init(id: .inPrayer,                emoji: "🙏", label: "In Prayer",               accentColor: .amenPurple),
-    .init(id: .fasting,                 emoji: "✨", label: "Fasting",                  accentColor: .amenGold),
+    .init(id: .fasting,                 emoji: "✨", label: "Fasting",                  accentColor: .accentColor),
     .init(id: .sabbathRest,             emoji: "🌙", label: "Sabbath Rest",             accentColor: .amenBlue),
     .init(id: .grieving,                emoji: "💙", label: "Grieving",                 accentColor: .amenBlue),
     .init(id: .discerning,              emoji: "🕊️", label: "Discerning",               accentColor: .amenPurple),
-    .init(id: .availableForUrgentPrayer, emoji: "🔴", label: "Available for Urgent Prayer", accentColor: .amenGold),
+    .init(id: .availableForUrgentPrayer, emoji: "🔴", label: "Available for Urgent Prayer", accentColor: .accentColor),
 ]
 
 // MARK: - ViewModel
@@ -200,10 +200,10 @@ struct AmenSpiritualPresencePickerView: View {
             } label: {
                 Label(vm.isSaving ? "Saving…" : "Save Presence", systemImage: "checkmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(Color.amenGold)
+                    .background(Color.accentColor)
                     .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
@@ -324,7 +324,7 @@ private struct SpiritualStateRowView: View {
                     }
                 }
                 .toggleStyle(.switch)
-                .tint(Color.amenGold)
+                .tint(Color.accentColor)
                 .accessibilityLabel("Allow urgent prayer reach-out. Explicit opt-in. Default off.")
             }
             .padding(.top, 4)

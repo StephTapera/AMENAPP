@@ -26,7 +26,6 @@ struct BereanAlignmentSettingsView: View {
     var body: some View {
         Form {
             Section("Mode") {
-                // TODO: enable when implemented — BT3 Simple Mode
                 if AMENFeatureFlags.shared.simpleModeFeatureEnabled {
                     Toggle("Simple Mode", isOn: $simpleModeEnabled)
                 }

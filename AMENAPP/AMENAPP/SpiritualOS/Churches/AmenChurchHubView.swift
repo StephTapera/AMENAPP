@@ -342,6 +342,12 @@ struct AmenChurchHubView: View {
             // 10. Stats row
             statsRow
 
+            // 11. Church Object Hub (Community OS — gated by communityOSChurchOSEnabled, default OFF)
+            if AMENFeatureFlags.shared.communityOSChurchOSEnabled {
+                ChurchObjectHub(churchId: churchId, churchName: viewModel.church?.name ?? "")
+                    .padding(.top, 8)
+            }
+
             // Bottom breathing room
             Spacer().frame(height: 48)
         }

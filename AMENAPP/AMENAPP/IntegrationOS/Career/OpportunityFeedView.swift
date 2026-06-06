@@ -98,7 +98,7 @@ private struct OpportunityRow: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Color.accentColor.opacity(0.15))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                     .clipShape(Capsule())
             }
             Text(opportunity.orgName)

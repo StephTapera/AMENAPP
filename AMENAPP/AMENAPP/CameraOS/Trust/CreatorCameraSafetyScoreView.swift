@@ -301,15 +301,18 @@ struct CreatorCameraSafetyScoreView: View {
 
 #Preview("compute(from:) — scan with minors + PII") {
     let scan = CameraPrePublishScanResult(
-        detectedItems: ["badge", "phoneNumber", "childFace"],
-        containsMinor: true,
-        hasHomeAddress: false,
-        hasScreenContent: true,
-        hasPhoneNumber: true,
-        hasBadge: true,
-        recommendedAudience: .privateOnly
+        riskLevel: .high,
+        detectedItems: [.badge, .phoneNumber, .minorFace],
+        redactionSuggestions: [],
+        safetyProfile: .standard,
+        requiresHumanReview: false,
+        blocksPublish: false,
+        nudgeMessage: "Some sensitive details were detected.",
+        recommendedAudience: .privateOnly,
+        sceneType: .church,
+        containsMinor: true
     )
     let computed = CreatorCameraSafetyScore.compute(from: scan)
-    return CreatorCameraSafetyScoreView(score: computed, onDismiss: {})
+    CreatorCameraSafetyScoreView(score: computed, onDismiss: {})
 }
 #endif

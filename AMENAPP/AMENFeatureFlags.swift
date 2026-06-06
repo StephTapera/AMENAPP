@@ -475,6 +475,21 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var participationTiersEnabled: Bool = false
     @Published private(set) var discussionCommandCenterEnabled: Bool = false
 
+    // MARK: - System 37: Community OS Foundation
+    /// Master switch for the Community OS Core Spine (Phase 1).
+    /// Gates TransformEngine, EdgeService, RBACService, and AuditLogService.
+    /// Default OFF until Phase 1 is validated and deployed.
+    @Published private(set) var communityOSEnabled: Bool = false
+    /// Master switch for Community OS Discussion rooms (A6).
+    /// Gates DiscussionRoomView, DiscussionProvenanceBanner, DiscussionFollowUpPrompt,
+    /// and the provenance banner injection in DiscussionThreadView.
+    /// Default false — enable via Remote Config once Phase 1 Firestore paths are deployed.
+    @Published private(set) var communityOSDiscussionEnabled: Bool = false
+    /// Master switch for Community OS Prayer OS (A7).
+    /// Gates PrayerRoomView, PrayerPrivacySelector, PrayerPartnerRow, PrayerUpdateSheet.
+    /// Default false — enable via Remote Config once prayer Firestore paths are deployed.
+    @Published private(set) var communityOSPrayerOSEnabled: Bool = false
+
     // MARK: - Cross-cutting
     @Published private(set) var analyticsEnabled: Bool = true
     @Published private(set) var performanceTelemetryEnabled: Bool = true
@@ -628,6 +643,24 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var bereanOSCommunityIntelligenceEnabled: Bool = false
     /// Living Documents: AI-collaborative document writing.
     @Published private(set) var bereanOSLivingDocumentsEnabled: Bool = false
+
+    // MARK: - Community OS (A18 Action Pill + A3 Universal Composer)
+    /// Gates the universal AmenActionPill on all object views.
+    /// Default OFF — enable via Remote Config when Community OS is ready for users.
+    @Published private(set) var communityOSActionPillEnabled: Bool = false
+    /// Gates the AmenUniversalComposer bottom sheet creation surface.
+    @Published private(set) var communityOSUniversalComposerEnabled: Bool = false
+
+    // MARK: - Community OS — Church OS / Org OS / Opportunity OS (A8–A10)
+    /// Church OS: ChurchObjectHub + ChurchCapabilitySection.
+    /// Default false — enable via Remote Config "community_os_church_os_enabled".
+    @Published private(set) var communityOSChurchOSEnabled: Bool = false
+    /// Org OS: OrgProfileView + OrgAnnouncementBanner + OrgMemberCountBadge.
+    /// Default false — enable via Remote Config "community_os_org_os_enabled".
+    @Published private(set) var communityOSOrgOSEnabled: Bool = false
+    /// Opportunity OS: OpportunityCard + OpportunityHubView + SafeContactFlow.
+    /// Default false — enable via Remote Config "community_os_opportunity_enabled".
+    @Published private(set) var communityOSOpportunityEnabled: Bool = false
 
     private init() {
         applyUITestOverrides()
@@ -1547,6 +1580,9 @@ final class AMENFeatureFlags: ObservableObject {
         discussionActionsEnabled        = config["discussion_actions_enabled"].boolValue
         participationTiersEnabled       = config["participation_tiers_enabled"].boolValue
         discussionCommandCenterEnabled  = config["discussion_command_center_enabled"].boolValue
+
+        // System 37: Community OS Foundation
+        communityOSEnabled = config["community_os_enabled"].boolValue
     }
 
     private func applyUITestOverrides() {

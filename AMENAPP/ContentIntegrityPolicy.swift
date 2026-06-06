@@ -12,7 +12,7 @@ import FirebaseAuth
 
 // MARK: - Content Categories
 
-enum ContentCategory: String, Codable {
+enum ContentModerationClass: String, Codable {
     case post = "post"
     case comment = "comment"
     case reply = "reply"
@@ -173,7 +173,7 @@ enum ReviewState: String, Codable {
 struct ReviewQueueItem: Codable {
     let id: String
     let contentId: String
-    let contentType: ContentCategory
+    let contentType: ContentModerationClass
     let userId: String
     let contentText: String?
     let contentMediaURLs: [String]?
@@ -192,7 +192,7 @@ class EnforcementLadder {
     /// Determine enforcement action based on moderation scores and user history
     static func determineAction(
         scores: ModerationScores,
-        category: ContentCategory,
+        category: ContentModerationClass,
         userViolationCount: Int,
         recentSimilarContentCount: Int
     ) -> ModerationDecision {

@@ -14,6 +14,8 @@ struct AmenLiveRoomShellView: View {
     let provider: any AmenLiveRoomProvider
     let onEnd: () -> Void
 
+    @StateObject private var entitlements = AmenAccountEntitlementService.shared
+    @State private var showPaywall = false
     @State private var isMicMuted = false
     @State private var isCameraOff = false
     @State private var showQAQueue = false
@@ -22,6 +24,7 @@ struct AmenLiveRoomShellView: View {
     @State private var showCatchMeUp = false
     @State private var showAskStream = false
     @State private var joinedLateMinutes: Int = 0
+    @State private var handRaised: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -48,6 +51,11 @@ struct AmenLiveRoomShellView: View {
             AmenAIHostAssistantPanel(streamId: room.id, isHost: isHost)
         }
         .onAppear {
+            // Gate: hosts must have a live-eligible tier
+            if isHost && !entitlements.currentTier.canGoLive {
+                showPaywall = true
+                return
+            }
             Analytics.logEvent("live_room_viewed", parameters: [
                 "room_id": room.id,
                 "mode": room.mode == .video ? "video" : "audio"
@@ -96,6 +104,15 @@ struct AmenLiveRoomShellView: View {
         }
         .sheet(isPresented: $showAskStream) {
             AmenAskTheStreamView(streamId: room.id, streamTitle: "Stream Recap")
+        }
+        .sheet(isPresented: $showPaywall) {
+            AmenAccountPaywallView(
+                requiredTier: .creatorPro,
+                feature: "Live Streaming"
+            ) {
+                showPaywall = false
+                onEnd()
+            }
         }
         .confirmationDialog(
             isHost ? "End the live room for everyone?" : "Leave the live room?",
@@ -237,11 +254,20 @@ struct AmenLiveRoomShellView: View {
 
             // Raise hand
             controlButton(
-                icon: "hand.raised.fill",
-                tint: .white,
-                label: "Raise hand"
+                icon: handRaised ? "hand.raised.fill" : "hand.raised",
+                tint: handRaised ? Color(hex: "D9A441") : .white,
+                label: handRaised ? "Lower hand" : "Raise hand"
             ) {
-                // Raise hand CF called externally by parent if needed
+                handRaised.toggle()
+                // Call raiseHand CF to broadcast state to host
+                Task {
+                    let functions = Functions.functions()
+                    try? await functions.httpsCallable("raiseHandInLiveRoom").call([
+                        "roomId": room.id,
+                        "userId": currentUserId,
+                        "raised": handRaised
+                    ])
+                }
             }
 
             Spacer()

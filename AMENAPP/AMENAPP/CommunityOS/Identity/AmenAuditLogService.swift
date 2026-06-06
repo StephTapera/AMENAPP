@@ -47,11 +47,12 @@ enum AuditEventType: String, Codable, CaseIterable {
     }
 }
 
-// MARK: - AuditLogEntry
+// MARK: - AmenAuditLogEntry
 
 /// A single immutable audit record. Stored at /auditLog/{eventId}.
 /// Matches the schema in C5 §7 exactly.
-struct AuditLogEntry: Codable, Identifiable {
+/// Prefixed `Amen` to avoid conflict with Core/AuditLogService.swift's `AuditLogEntry`.
+struct AmenAuditLogEntry: Codable, Identifiable {
     /// Firestore document ID — auto-generated on write.
     var id: String
 
@@ -231,7 +232,7 @@ class AmenAuditLogService: ObservableObject {
 
     /// Returns up to `limit` audit entries for a given resource, ordered by timestamp descending.
     /// Requires ExecutiveAdmin or Owner role — enforce this check before calling.
-    func fetchLog(resourceId: String, limit: Int = 50) async throws -> [AuditLogEntry] {
+    func fetchLog(resourceId: String, limit: Int = 50) async throws -> [AmenAuditLogEntry] {
         let snap = try await db.collection(collectionPath)
             .whereField("resourceId", isEqualTo: resourceId)
             .order(by: "timestamp", descending: true)
@@ -240,8 +241,8 @@ class AmenAuditLogService: ObservableObject {
         return snap.documents.compactMap { parseEntry(from: $0) }
     }
 
-    /// Returns up to `limit` audit entries for a given actor, ordered by timestamp descending.
-    func fetchActorLog(actorId: String, limit: Int = 50) async throws -> [AuditLogEntry] {
+    /// Returns up to `limit` entries for a given actor, ordered by timestamp descending.
+    func fetchActorLog(actorId: String, limit: Int = 50) async throws -> [AmenAuditLogEntry] {
         let snap = try await db.collection(collectionPath)
             .whereField("actorUid", isEqualTo: actorId)
             .order(by: "timestamp", descending: true)
@@ -284,7 +285,7 @@ class AmenAuditLogService: ObservableObject {
         return payload
     }
 
-    private func parseEntry(from doc: QueryDocumentSnapshot) -> AuditLogEntry? {
+    private func parseEntry(from doc: QueryDocumentSnapshot) -> AmenAuditLogEntry? {
         let data = doc.data()
         guard
             let actorId      = data["actorUid"] as? String,
@@ -299,7 +300,7 @@ class AmenAuditLogService: ObservableObject {
             return nil
         }
 
-        return AuditLogEntry(
+        return AmenAuditLogEntry(
             id:            doc.documentID,
             actorId:       actorId,
             actorRole:     data["actorRole"] as? String ?? "",

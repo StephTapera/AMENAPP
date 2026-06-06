@@ -37,6 +37,7 @@ struct AmenChurchProfileView: View {
     @State private var isTogglingFollow = false
     @State private var isFollowing = false
     @State private var showGivingConfirmation = false
+    @State private var showNewNote = false
 
     private let tabs = ["Today", "Community", "Notes", "Events", "Volunteer"]
 
@@ -235,6 +236,9 @@ struct AmenChurchProfileView: View {
                 ChurchVisitReadinessSheet(readiness: vr)
             }
         }
+        .sheet(isPresented: $showNewNote) {
+            NavigationStack { ChurchNotesQuickStartView() }
+        }
     }
 
     private func actionPill(label: String, icon: String, tint: Color,
@@ -302,7 +306,7 @@ struct AmenChurchProfileView: View {
                               message: "Check back for upcoming service times.")
             } else {
                 ForEach(services) { time in
-                    ChurchServiceTimeCard(serviceTime: time)
+                    ChurchAmenServiceTimeCard(serviceTime: time)
                 }
             }
         }
@@ -335,7 +339,7 @@ struct AmenChurchProfileView: View {
                         .font(.headline)
                         .foregroundStyle(Color(uiColor: .label))
                     Spacer()
-                    Button("New Note") {}
+                    Button("New Note") { showNewNote = true }
                         .font(.subheadline)
                         .foregroundStyle(Color.accentColor)
                         .accessibilityLabel("Create new sermon note")
@@ -443,10 +447,10 @@ struct AmenChurchProfileView: View {
     }
 }
 
-// MARK: - ChurchServiceTimeCard
+// MARK: - ChurchAmenServiceTimeCard
 
-private struct ChurchServiceTimeCard: View {
-    let serviceTime: ServiceTime
+private struct ChurchAmenServiceTimeCard: View {
+    let serviceTime: AmenServiceTime
 
     var body: some View {
         HStack(spacing: 14) {

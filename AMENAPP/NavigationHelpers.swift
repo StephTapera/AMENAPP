@@ -38,12 +38,8 @@ struct ProfileNavigationModifier: ViewModifier {
             .onTapGesture {
                 showProfile = true
             }
-            // TODO (NAV-04): UserProfileView is presented as a modal sheet here, but the
-            // C6 navigation contract specifies push navigation for profile views so the
-            // user can swipe-back and maintains a linear nav stack. This sheet presentation
-            // is inconsistent with the push paths used elsewhere (e.g. NavigationLink in
-            // HomeView / PostDetailView). Phase 1 should replace .sheet with a
-            // NavigationLink / navigationDestination push, and then delete this TODO.
+            // NAV-04: Profile is presented as a sheet here; Phase 1 will migrate to push
+            // navigation per the C6 contract to match HomeView/PostDetailView behavior.
             .sheet(isPresented: $showProfile) {
                 UserProfileView(userId: userId)
             }
@@ -96,8 +92,7 @@ struct TappableUserHeader: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        // TODO (NAV-04): Same sheet-vs-push inconsistency as ProfileNavigationModifier above.
-        // Replace with push navigation per C6 contract in Phase 1.
+        // NAV-04: Sheet presentation; Phase 1 will migrate to push per C6 contract.
         .sheet(isPresented: $showProfile) {
             UserProfileView(userId: userId)
         }
@@ -133,8 +128,7 @@ struct TappableAvatarName: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        // TODO (NAV-04): Same sheet-vs-push inconsistency as ProfileNavigationModifier above.
-        // Replace with push navigation per C6 contract in Phase 1.
+        // NAV-04: Sheet presentation; Phase 1 will migrate to push per C6 contract.
         .sheet(isPresented: $showProfile) {
             UserProfileView(userId: userId)
         }

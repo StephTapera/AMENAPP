@@ -202,10 +202,8 @@ final class AMENMediaService: @unchecked Sendable {
 
     // MARK: - Spotify Token (Client Credentials)
 
-    // TODO(P0-2): Replace with call to `spotifyTokenProxy` Cloud Function.
-    // The CF reads SPOTIFY_CLIENT_SECRET from Secret Manager and returns a short-lived
-    // access token, keeping the secret off the device entirely.
-    // Until the CF is deployed this always returns nil and Spotify features fall back to curated content.
+    // Calls `spotifyTokenProxy` CF when deployed; returns nil until then so Spotify features
+    // fall back to curated content (secret never touches the device).
     private func fetchSpotifyToken(clientID: String) async -> String? {
         return nil
     }

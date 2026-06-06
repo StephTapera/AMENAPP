@@ -3630,7 +3630,7 @@ struct CreatePostView: View {
                 // ─────────────────────────────────────────────────────────
 
                 // P1-1 FIX: PARALLEL MODERATION - Run all safety checks in parallel
-                let contentCategory: ContentCategory = .post
+                let contentCategory: ContentModerationClass = .post
                 dlog("🛡️ Starting parallel moderation checks...")
                 
                 // TRUST & SAFETY: Export real authenticity signals from tracking

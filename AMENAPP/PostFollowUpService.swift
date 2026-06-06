@@ -7,7 +7,7 @@
 //  no vanity metrics, no public engagement counts.
 //
 //  Design system: white background, black text (AmenColorScheme)
-//  Dependencies: Foundation + Combine only. Network stubs marked with TODO comments.
+//  Dependencies: Foundation + FirebaseFunctions for NLP Cloud Function calls.
 //
 
 import Foundation

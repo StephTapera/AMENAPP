@@ -113,7 +113,7 @@ enum ContentSurface: String {
 
 // MARK: - Audience
 
-enum ContentAudience: String, CaseIterable {
+enum ContentAudience: String, CaseIterable, Codable {
     case `private`      = "private"
     case trustedCircle  = "trusted_circle"
     case smallGroup     = "small_group"

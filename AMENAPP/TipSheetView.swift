@@ -26,10 +26,8 @@ struct TipSheetView: View {
     @State private var heartBurst              = false
     @State private var errorMessage: String?
 
-    private let Color.accentColor = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let Color.accentColor   = Color(hex: "F59E0B")
-    private let bg         = Color(hex: "0A0A0F")
+    private let bg         = Color(.systemGroupedBackground)
     private let presets: [Double] = [1, 3, 5, 10]
 
     private var effectiveAmount: Double {

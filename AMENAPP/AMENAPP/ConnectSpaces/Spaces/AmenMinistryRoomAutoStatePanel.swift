@@ -81,12 +81,9 @@ struct AmenMinistryRoomAutoStatePanel: View {
         reduceMotion ? .easeInOut(duration: 0.01) : .easeInOut(duration: 0.25)
     }
 
-    // amenGold color
-    private let gold = Color(red: 0.851, green: 0.643, blue: 0.255)
-
     var body: some View {
         VStack(spacing: 0) {
-            // Glass card header with amenGold border
+            // Glass card header
             panelHeader
 
             if isExpanded {
@@ -99,9 +96,9 @@ struct AmenMinistryRoomAutoStatePanel: View {
                 .fill(.ultraThinMaterial)
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(gold.opacity(0.35), lineWidth: 1)
+                        .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
                 }
-                .shadow(color: gold.opacity(0.12), radius: 12, y: 4)
+                .shadow(color: Color.accentColor.opacity(0.12), radius: 12, y: 4)
         }
         .task {
             viewModel.startListening()
@@ -122,24 +119,24 @@ struct AmenMinistryRoomAutoStatePanel: View {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(gold)
+                    .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
 
                 Text("Room State")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(gold)
+                    .foregroundStyle(Color.accentColor)
 
                 Spacer()
 
                 if viewModel.isLoading {
                     ProgressView()
                         .scaleEffect(0.7)
-                        .tint(gold)
+                        .tint(Color.accentColor)
                 }
 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(gold.opacity(0.7))
+                    .foregroundStyle(Color.accentColor.opacity(0.7))
                     .animation(animationStyle, value: isExpanded)
             }
             .padding(.horizontal, 14)
@@ -232,7 +229,7 @@ struct AmenMinistryRoomAutoStatePanel: View {
     private func derivedItemRow(_ item: AmenConnectSpacesDerivedItem) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Circle()
-                .fill(gold.opacity(0.6))
+                .fill(Color.accentColor.opacity(0.6))
                 .frame(width: 5, height: 5)
                 .padding(.top, 5)
                 .accessibilityHidden(true)
@@ -333,7 +330,7 @@ struct AmenMinistryRoomAutoStatePanel: View {
             HStack(spacing: 6) {
                 Image(systemName: "clock")
                     .font(.system(size: 12))
-                    .foregroundStyle(gold)
+                    .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
                 Text("Sunday 9:00 AM")
                     .font(.system(size: 13, weight: .medium))

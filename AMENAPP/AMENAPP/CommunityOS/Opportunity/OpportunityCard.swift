@@ -10,6 +10,8 @@
 //   - No amenGold / amenPurple / hex colors
 
 import SwiftUI
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - OpportunityCard
 
@@ -60,7 +62,16 @@ struct OpportunityCard: View {
         ) {
             ForEach(ScamFlag.allCases, id: \.rawValue) { flag in
                 Button(flag.displayLabel, role: .destructive) {
-                    // Flag reporting routes through OpportunityService
+                    Task {
+                        let db = Firestore.firestore()
+                        let uid = Auth.auth().currentUser?.uid ?? "anonymous"
+                        try? await db.collection("opportunityFlags").addDocument(data: [
+                            "opportunityId": post.id,
+                            "reportedBy": uid,
+                            "flagType": flag.rawValue,
+                            "createdAt": Timestamp(date: Date())
+                        ])
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}

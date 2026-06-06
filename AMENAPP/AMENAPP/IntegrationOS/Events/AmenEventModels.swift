@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct AmenEvent: Codable, Identifiable {
+struct AmenIntegrationEvent: Codable, Identifiable {
     var id: String = UUID().uuidString
     let title: String
     let description: String?
@@ -33,12 +33,12 @@ struct EventRSVP: Codable, Identifiable {
     var id: String = UUID().uuidString
     let eventId: String
     let userId: String
-    let status: RSVPStatus
+    let status: EventRSVPStatus
     let respondedAt: Date
     let notes: String?
 }
 
-enum RSVPStatus: String, Codable, CaseIterable {
+enum EventRSVPStatus: String, Codable, CaseIterable {
     case going, interested, notGoing, waitlist
 }
 
@@ -47,5 +47,5 @@ struct EventAttendee: Codable, Identifiable {
     let userId: String
     let displayName: String
     let avatarURL: String?
-    let rsvpStatus: RSVPStatus
+    let rsvpStatus: EventRSVPStatus
 }

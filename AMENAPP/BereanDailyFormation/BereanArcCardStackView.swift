@@ -34,9 +34,9 @@ struct BereanArcCardStackView: View {
                         }
                     } label: {
                         Capsule()
-                            .fill(isActive ? NotifGlassTokens.goldPrimary : Color.white.opacity(0.25))
+                            .fill(isActive ? Color.accentColor : Color.white.opacity(0.25))
                             .frame(width: isActive ? 20 : 6, height: 6)
-                            .shadow(color: isActive ? NotifGlassTokens.goldPrimary.opacity(0.5) : .clear, radius: 4)
+                            .shadow(color: isActive ? Color.accentColor.opacity(0.5) : .clear, radius: 4)
                     }
                     .buttonStyle(.plain)
                     .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8), value: activeIndex)
@@ -61,17 +61,17 @@ private struct BereanArcMiniCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: card.icon)
                         .font(.system(size: 10))
-                        .foregroundStyle(NotifGlassTokens.goldPrimary)
+                        .foregroundStyle(Color.accentColor)
                     Text(card.typeLabel.uppercased())
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(NotifGlassTokens.goldPrimary)
+                        .foregroundStyle(Color.accentColor)
                         .tracking(1.5)
                     Spacer()
                 }
 
                 // Preview text
                 Text(card.previewText)
-                    .font(.custom("Georgia", size: 14).italic())
+                    .font(.subheadline.italic())
                     .foregroundStyle(Color(hex: "#F5F0E8"))
                     .lineSpacing(2)
                     .lineLimit(3)
@@ -113,14 +113,14 @@ struct BereanVerseChip: View {
         HStack(spacing: 4) {
             Image(systemName: "book.closed")
                 .font(.system(size: 9))
-                .foregroundStyle(NotifGlassTokens.goldPrimary)
+                .foregroundStyle(Color.accentColor)
             Text("\(reference) · \(translation)")
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(NotifGlassTokens.goldPrimary)
+                .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 8).padding(.vertical, 3)
-        .background(NotifGlassTokens.goldPrimary.opacity(0.08))
+        .background(Color.accentColor.opacity(0.08))
         .clipShape(Capsule())
-        .overlay(Capsule().strokeBorder(NotifGlassTokens.goldPrimary.opacity(0.25), lineWidth: 0.5))
+        .overlay(Capsule().strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 0.5))
     }
 }

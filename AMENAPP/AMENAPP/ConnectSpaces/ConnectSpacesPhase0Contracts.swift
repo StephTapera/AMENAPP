@@ -14,7 +14,7 @@ let AmenConnectSpacesContractsVersion = "2026-06-01-v1"
 /// Frozen color tokens for the Liquid Intelligence Layer.
 /// SwiftUI implementations should map these hex values into Color assets or local Color helpers.
 enum AmenConnectSpacesDesignToken: String, Codable, CaseIterable, Hashable {
-    case amenGold = "#D9A441"
+    case amenAccent = "accentColor"
     case amenPurple = "#6E4BB5"
     case amenBlue = "#245B8F"
     case amenBlack = "#070607"

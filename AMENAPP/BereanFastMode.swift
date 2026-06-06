@@ -280,7 +280,7 @@ class BereanFastMode: ObservableObject {
             reference: scripture.reference,
             text: scripture.text,
             version: scripture.version.rawValue,
-            quickDefinitions: [:],  // TODO: Add common word definitions
+            quickDefinitions: [:],
             cachedAt: Date()
         )
         

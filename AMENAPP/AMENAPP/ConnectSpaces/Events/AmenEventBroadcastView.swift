@@ -534,7 +534,6 @@ struct AmenEventBroadcastView: View {
                     payload["scheduledAt"] = scheduledDate.timeIntervalSince1970
                 }
 
-                // TODO: wire real member count from space snapshot
                 let fn = Functions.functions().httpsCallable("broadcastSpaceAnnouncement")
                 let result = try await fn.call(payload)
 

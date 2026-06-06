@@ -73,7 +73,7 @@ actor AuditLogService {
         actorId: String,
         metadata: [String: String] = [:]
     ) async {
-        guard AMENFeatureFlags.shared.communityOSEnabled else { return }
+        guard await AMENFeatureFlags.shared.communityOSEnabled else { return }
 
         // Derive a stable resourceId from the path by replacing slashes
         let resourceId = resourceRef

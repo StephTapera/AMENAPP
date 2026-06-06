@@ -180,9 +180,15 @@ struct ChurchLiveModeView: View {
     let churchName: String
     let isAdmin: Bool
 
+    // MARK: Environment
+
+    @Environment(\.dismiss) private var dismiss
+
     // MARK: State
 
     @StateObject private var vm = ChurchLiveModeViewModel()
+    @StateObject private var entitlements = AmenAccountEntitlementService.shared
+    @State private var showLivePaywall: Bool = false
     @State private var showPrayerQueue: Bool = false
     @State private var showEndConfirm: Bool = false
     @State private var messageText: String = ""
@@ -227,7 +233,24 @@ struct ChurchLiveModeView: View {
         .ignoresSafeArea(edges: .bottom)
         .preferredColorScheme(.dark)
         .onAppear {
-            vm.startLive()
+            if isAdmin {
+                if entitlements.currentTier.canGoLive {
+                    vm.startLive()
+                } else {
+                    showLivePaywall = true
+                }
+            } else {
+                vm.startLive()
+            }
+        }
+        .sheet(isPresented: $showLivePaywall) {
+            AmenAccountPaywallView(
+                requiredTier: .creatorPro,
+                feature: "Live Streaming"
+            ) {
+                showLivePaywall = false
+                dismiss()
+            }
         }
         // Chapter marker input alert
         .alert("Add Chapter Marker", isPresented: $showChapterInput) {

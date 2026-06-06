@@ -48,6 +48,10 @@ struct ContentView: View {
     @State private var postCardFrame: CGRect? = nil
     @State private var bereanButtonFrame: CGRect? = nil
     @State private var selectedPostCategory: CreatePostView.PostCategory = .openTable
+    // Audience-First Composer Gate
+    @State private var showAudiencePicker = false
+    @State private var selectedAudience: AmenPostAudience? = nil
+    @State private var selectedAudienceMetadata: AmenAudienceMetadata? = nil
     @State private var showBereanQuickActions = false
     @State private var showBereanAssistantFromMenu = false
     @State private var showBereanDailyFormation = false
@@ -244,6 +248,15 @@ struct ContentView: View {
                         dlog("🚦 [LAUNCH] ContentView → EmailVerificationGateView appeared")
                         AppReadyStateManager.shared.signalReady()
                     }
+            } else if AmenSimpleModeService.shared.isSimpleModeActive {
+                // Simple Mode: full-screen accessibility home — bypasses feed, tab bar, and rails.
+                AmenSimpleModeView()
+                    .environment(AmenSimpleModeService.shared)
+                    .transition(.opacity.animation(.easeOut(duration: 0.2)))
+                    .onAppear {
+                        dlog("🚦 [LAUNCH] Simple Mode active — showing AmenSimpleModeView")
+                        AppReadyStateManager.shared.signalReady()
+                    }
             } else {
                 // P0 C-3: Account status gate — blocks suspended accounts before main app loads
                 AccountStatusGateView {
@@ -331,6 +344,7 @@ struct ContentView: View {
                     }
             }
         }
+        .animation(.easeOut(duration: 0.2), value: AmenSimpleModeService.shared.isSimpleModeActive)
         .animation(.easeOut(duration: 0.2), value: authViewModel.needs2FAVerification)
         .animation(.easeOut(duration: 0.2), value: authViewModel.isAuthenticated)
         .animation(.easeOut(duration: 0.2), value: authViewModel.isDeactivated)
@@ -656,8 +670,12 @@ struct ContentView: View {
                 badges: $tabBarBadges,
                 onCompose: {
                     tabScrollBridge.expand()
-                    selectedPostCategory = .openTable
-                    showCreatePost = true
+                    // Audience-First: show the audience picker before opening the composer.
+                    // The picker's callback sets selectedAudience + selectedPostCategory,
+                    // then sets showCreatePost = true so the glass sheet opens.
+                    withAnimation(.amenSpringStandard) {
+                        showAudiencePicker = true
+                    }
                 },
                 profilePhotoURL: currentUserProfileImageURL.isEmpty ? nil : currentUserProfileImageURL,
                 isMinimized: tabScrollBridge.isMinimized
@@ -729,7 +747,23 @@ struct ContentView: View {
                 }
             }
         }
-        // Contextual glass sheet — emerges from the compose button with staged content reveal
+        // Audience-First picker — shown before the compose editor opens via the compose button.
+        // After selection the picker closes itself and fires the callback below.
+        // Space audience: the picker handles the sub-Space selection internally and passes
+        // AmenAudienceMetadata (spaceId, spaceName, spaceType) back here.
+        .sheet(isPresented: $showAudiencePicker) {
+            AmenAudienceFirstPickerView(isPresented: $showAudiencePicker) { audience, metadata in
+                selectedAudience = audience
+                selectedAudienceMetadata = metadata
+                selectedPostCategory = audience.suggestedPostCategory ?? .openTable
+                withAnimation(.amenSpringStandard) {
+                    showCreatePost = true
+                }
+            }
+        }
+        // Contextual glass sheet — emerges from the compose button with staged content reveal.
+        // CreatePostView receives the audience-informed category. selectedAudience + metadata
+        // are stored on ContentView for downstream wiring into the Firestore post document.
         .glassContextualSheet(
             isPresented: $showCreatePost,
             sourceId: "composeButton",

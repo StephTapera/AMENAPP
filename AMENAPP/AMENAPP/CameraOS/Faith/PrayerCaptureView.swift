@@ -573,7 +573,7 @@ private struct PrayerTypeOptionRow: View {
             .frame(height: 56)
             .background {
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(isSelected ? amber : .ultraThinMaterial)
+                    .fill(isSelected ? AnyShapeStyle(amber) : AnyShapeStyle(.ultraThinMaterial))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .strokeBorder(

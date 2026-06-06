@@ -11,6 +11,8 @@ struct VergeCreateRoomSheet: View {
 
     @ObservedObject var vm: VergeViewModel
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var entitlements = AmenAccountEntitlementService.shared
+    @State private var showLivePaywall    = false
 
     // Form state
     @State private var title           = ""
@@ -25,10 +27,8 @@ struct VergeCreateRoomSheet: View {
     @State private var isCreating      = false
     @State private var errorMessage: String?
 
-    private let Color.accentColor = Color(hex: "6B48FF")
     private let amenViolet = Color(hex: "C084FC")
-    private let Color.accentColor   = Color(hex: "F59E0B")
-    private let bg         = Color(hex: "0A0A0F")
+    private let bg         = Color(.systemGroupedBackground)
     private let vergeGradient = LinearGradient(
         colors: [Color(hex: "06B6D4"), Color(hex: "6B48FF")],
         startPoint: .topLeading,
@@ -90,6 +90,14 @@ struct VergeCreateRoomSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showLivePaywall) {
+            AmenAccountPaywallView(
+                requiredTier: .creatorPro,
+                feature: "Live Streaming"
+            ) {
+                showLivePaywall = false
+            }
+        }
     }
 
     // MARK: - Title Section
@@ -270,6 +278,10 @@ struct VergeCreateRoomSheet: View {
         Button {
             guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
                 withAnimation { errorMessage = "Please enter a room title." }
+                return
+            }
+            guard entitlements.currentTier.canGoLive else {
+                showLivePaywall = true
                 return
             }
             errorMessage = nil

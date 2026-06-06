@@ -31,12 +31,66 @@ let allAssistActions: [AIAssistAction] = [
     AIAssistAction(icon: "lightbulb",                            label: "Add reflection prompt",    appliesWhen: ["teaching", "sermonClip", "testimony"]),
 ]
 
-// MARK: - Stub AI Transform
+// MARK: - AI Transform
 
 func applyAssist(action: AIAssistAction, to text: String) async -> String {
-    // In production: call BereanCoreService with system prompt for the specific action
-    try? await Task.sleep(for: .milliseconds(800))
-    return text + "\n\n[AI assist: \(action.label) applied]"
+    // Build a system prompt and tone based on the action label.
+    let systemPrompt: String
+    let tone: String
+
+    switch action.label.lowercased() {
+    case let l where l.contains("professional") || l.contains("clearer"):
+        systemPrompt = "Rewrite the following text in a professional, polished tone. Return only the rewritten text:"
+        tone = "formal"
+    case let l where l.contains("kinder") || l.contains("friendly"):
+        systemPrompt = "Rewrite the following text in a warm, friendly, conversational tone. Return only the rewritten text:"
+        tone = "warm"
+    case let l where l.contains("shorten") || l.contains("concise"):
+        systemPrompt = "Condense the following text to be more concise while keeping the key message. Return only the rewritten text:"
+        tone = "warm"
+    case let l where l.contains("grammar"):
+        systemPrompt = "Fix any grammar and spelling errors in the following text. Return only the corrected text:"
+        tone = "warm"
+    case let l where l.contains("scripture"):
+        systemPrompt = "Add a relevant scripture reference that complements the following text. Return only the updated text with the scripture included:"
+        tone = "teaching"
+    case let l where l.contains("prayer"):
+        systemPrompt = "Rewrite the following text as a heartfelt prayer. Return only the prayer text:"
+        tone = "encouraging"
+    case let l where l.contains("testimony"):
+        systemPrompt = "Rewrite the following text as a personal testimony of faith. Return only the rewritten text:"
+        tone = "encouraging"
+    case let l where l.contains("summarize") || l.contains("key points"):
+        systemPrompt = "Summarize the following text into the key points. Return only the summary:"
+        tone = "formal"
+    case let l where l.contains("accusatory"):
+        systemPrompt = "Remove any accusatory or judgmental tone from the following text while preserving the core message. Return only the rewritten text:"
+        tone = "warm"
+    case let l where l.contains("reflection"):
+        systemPrompt = "Add a thought-provoking reflection prompt at the end of the following text. Return only the updated text:"
+        tone = "encouraging"
+    default:
+        systemPrompt = "Improve the following text. Return only the improved text:"
+        tone = "warm"
+    }
+
+    // Combine the system prompt with the post text as the topic string.
+    // Clamp to 300 chars to satisfy AmenAIFeaturesService's input validation.
+    let combined = "\(systemPrompt)\n\n\(text)"
+    let topic = String(combined.prefix(300))
+
+    do {
+        let response = try await AmenAIFeaturesService.shared.generateCreatorDraft(
+            type: "post_rewrite",
+            topic: topic,
+            audience: "faith community",
+            tone: tone
+        )
+        return response.draft
+    } catch {
+        // Return original text unchanged on any error.
+        return text
+    }
 }
 
 // MARK: - AI Assist Chip
@@ -164,6 +218,9 @@ struct PrePublishAIAssistView: View {
     @Binding var postText: String
     let detectedIntent: String
     let onApply: (String) -> Void
+
+    @StateObject private var entitlements = AmenAccountEntitlementService.shared
+    @State private var showWritingCoachPaywall = false
 
     @State private var isExpanded: Bool = false
     @State private var isProcessing: Bool = false
@@ -297,12 +354,22 @@ struct PrePublishAIAssistView: View {
                                 isProcessing: isProcessing && activeActionId == action.id
                             ) {
                                 guard !isProcessing else { return }
-                                runAssist(action: action)
+                                if entitlements.hasAccess(to: .aiWritingCoach) {
+                                    runAssist(action: action)
+                                } else {
+                                    showWritingCoachPaywall = true
+                                }
                             }
                         }
                     }
                     .padding(.horizontal, 2)
                     .padding(.vertical, 2)
+                }
+                .sheet(isPresented: $showWritingCoachPaywall) {
+                    AmenAccountPaywallView(
+                        requiredTier: .amenPlus,
+                        feature: "AI Writing Coach"
+                    ) { showWritingCoachPaywall = false }
                 }
             }
         }

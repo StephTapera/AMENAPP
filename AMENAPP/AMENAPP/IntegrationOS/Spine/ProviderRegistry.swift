@@ -16,7 +16,7 @@ final class ProviderRegistry: ObservableObject {
     private let flagKey = "integration_os_enabled"
 
     var isEnabled: Bool {
-        remoteConfig.configValue(forKey: flagKey).booleanValue
+        remoteConfig.configValue(forKey: flagKey).boolValue
     }
 
     // MARK: - Registration

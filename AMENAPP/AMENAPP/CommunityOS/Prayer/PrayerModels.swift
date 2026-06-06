@@ -120,9 +120,11 @@ enum PrayerType: String, Codable, CaseIterable {
 // MARK: - PrayerStatus
 
 /// Lifecycle status of a prayer request.
-enum PrayerStatus: String, Codable, CaseIterable {
+enum PrayerStatus: String, Codable, CaseIterable, Sendable {
     /// Prayer is active and awaiting or receiving intercession
     case active = "active"
+    /// Prayer has an update from the author
+    case updated = "updated"
     /// Prayer has been answered — the author has confirmed
     case answered = "answered"
     /// Prayer has been closed (no longer active; not necessarily answered)
@@ -131,6 +133,7 @@ enum PrayerStatus: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .active:   return "Active"
+        case .updated:  return "Updated"
         case .answered: return "Answered"
         case .closed:   return "Closed"
         }
@@ -139,6 +142,7 @@ enum PrayerStatus: String, Codable, CaseIterable {
     var systemImage: String {
         switch self {
         case .active:   return "circle"
+        case .updated:  return "arrow.clockwise"
         case .answered: return "checkmark.circle.fill"
         case .closed:   return "xmark.circle"
         }

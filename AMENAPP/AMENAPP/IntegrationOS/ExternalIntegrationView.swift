@@ -13,7 +13,7 @@ final class ExternalIntegrationViewModel: ObservableObject {
     private let remoteConfig = RemoteConfig.remoteConfig()
 
     var isEnabled: Bool {
-        remoteConfig.configValue(forKey: "integration_os_enabled").booleanValue
+        remoteConfig.configValue(forKey: "integration_os_enabled").boolValue
     }
 
     func refreshCount() {

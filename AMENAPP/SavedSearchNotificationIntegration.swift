@@ -145,9 +145,11 @@ struct SavedSearchNotificationHelper {
             }
             
             dlog("📍 Navigating to saved search: \(query)")
-            
-            // TODO: Present SavedSearchesView and highlight this search
-            // You can use a coordinator or navigation helper here
+            NotificationCenter.default.post(
+                name: Notification.Name("AmenNavigateTo"),
+                object: "discover",
+                userInfo: ["query": query]
+            )
         }
     }
 }

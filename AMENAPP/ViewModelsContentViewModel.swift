@@ -41,9 +41,7 @@ class ContentViewModel: ObservableObject {
     }
     
     func checkAuthenticationStatus() {
-        // TODO: Check if user is logged in
-        // For now, assume authenticated
-        isAuthenticated = true
+        isAuthenticated = Auth.auth().currentUser != nil
     }
     
     func signOut() {

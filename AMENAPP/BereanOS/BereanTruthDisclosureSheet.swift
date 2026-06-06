@@ -111,13 +111,11 @@ struct BereanTruthDisclosureSheet: View {
     /// Returns the colored dot color that visually matches `BereanConfidenceBadge`.
     private func dotColor(for level: BereanConfidenceLevel) -> Color {
         switch level {
-        case .verified:     return .green
-        case .supported:    return Color(red: 0.2, green: 0.7, blue: 0.4)
-        case .likely:       return .blue
+        case .certain:      return .green
+        case .probable:     return Color(red: 0.2, green: 0.7, blue: 0.4)
         case .uncertain:    return .orange
         case .speculative:  return .yellow
-        case .opinion:      return .purple
-        case .aiGenerated:  return .gray
+        case .unsupported:  return .gray
         }
     }
 }

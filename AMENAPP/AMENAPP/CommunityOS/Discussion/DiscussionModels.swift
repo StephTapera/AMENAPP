@@ -12,62 +12,50 @@
 
 import Foundation
 
-// MARK: - SpawnProvenance
+// MARK: - SpawnProvenance display helpers
 
-/// Immutable record of which canonical object a spawnable object was created from.
-/// Written at creation time by the server and never updated.
-/// Named SpawnProvenance (not Provenance) to avoid collision with ONEProvenanceLabel.
-/// Mirrors the C1 §3a Provenance struct definition.
-struct SpawnProvenance: Codable, Equatable, Hashable {
-    /// ObjectType raw value of the source, e.g. "post", "bereanInsight", "direct"
-    let sourceType: String
-    /// Firestore document path of the source object, e.g. "/posts/abc123"; nil for root objects
-    let sourceRef: String?
-    /// UID of the original object's owner; nil when source type does not have an owner
-    let sourceOwnerId: String?
-    /// C2 Intent raw value that triggered the spawn, e.g. "discuss", "pray", "direct"
-    let intent: String
-    /// Server-assigned creation timestamp — never set by the iOS client
-    let createdAt: Date
+/// Display helpers for provenance banners. The canonical SpawnProvenance struct
+/// is defined in CommunityObjectTypes.swift.
+extension SpawnProvenance {
 
     /// Human-readable display name for the source type, used in the provenance banner.
     var sourceTypeDisplayName: String {
         switch sourceType {
-        case "post":                 return "Post"
-        case "prayer", "prayer_request": return "Prayer Request"
-        case "berean_insight":       return "Berean Insight"
-        case "church_note":          return "Church Note"
-        case "sermon", "sermon_clip": return "Sermon"
-        case "event":                return "Event"
-        case "scripture_reference":  return "Scripture"
-        case "space_object":         return "Space"
-        case "organization_object":  return "Organization"
-        case "media_object":         return "Media"
-        case "message":              return "Message"
-        case "job":                  return "Job"
-        case "mentorship_request":   return "Mentorship"
-        case "direct":               return "Direct"
-        default:                     return sourceType.capitalized
+        case "post":                      return "Post"
+        case "prayer", "prayer_request":  return "Prayer Request"
+        case "berean_insight":            return "Berean Insight"
+        case "church_note":               return "Church Note"
+        case "sermon", "sermon_clip":     return "Sermon"
+        case "event":                     return "Event"
+        case "scripture_reference":       return "Scripture"
+        case "space_object":              return "Space"
+        case "organization_object":       return "Organization"
+        case "media_object":              return "Media"
+        case "message":                   return "Message"
+        case "job":                       return "Job"
+        case "mentorship_request":        return "Mentorship"
+        case "direct":                    return "Direct"
+        default:                          return sourceType.capitalized
         }
     }
 
     /// SF Symbol name for the source type icon shown in the provenance banner.
     var sourceTypeSystemImage: String {
         switch sourceType {
-        case "post":                 return "doc.richtext"
-        case "prayer", "prayer_request": return "hands.sparkles"
-        case "berean_insight":       return "sparkle"
-        case "church_note":          return "note.text"
-        case "sermon", "sermon_clip": return "film.stack"
-        case "event":                return "calendar"
-        case "scripture_reference":  return "book.closed"
-        case "space_object":         return "square.stack.3d.up"
-        case "organization_object":  return "building.columns"
-        case "media_object":         return "photo.on.rectangle"
-        case "message":              return "bubble.left"
-        case "job":                  return "briefcase"
-        case "mentorship_request":   return "person.badge.key"
-        default:                     return "link"
+        case "post":                      return "doc.richtext"
+        case "prayer", "prayer_request":  return "hands.sparkles"
+        case "berean_insight":            return "sparkle"
+        case "church_note":              return "note.text"
+        case "sermon", "sermon_clip":    return "film.stack"
+        case "event":                    return "calendar"
+        case "scripture_reference":      return "book.closed"
+        case "space_object":             return "square.stack.3d.up"
+        case "organization_object":      return "building.columns"
+        case "media_object":             return "photo.on.rectangle"
+        case "message":                  return "bubble.left"
+        case "job":                      return "briefcase"
+        case "mentorship_request":       return "person.badge.key"
+        default:                         return "link"
         }
     }
 }
@@ -76,7 +64,7 @@ struct SpawnProvenance: Codable, Equatable, Hashable {
 
 /// The functional type of a discussion room.
 /// Maps to C2 §4.2 room type mapping and C1 ObjectDiscussionRoom.roomType.
-enum DiscussionRoomType: String, Codable, CaseIterable {
+enum DiscussionRoomType: String, Codable, CaseIterable, Sendable {
     case general        = "discussion"
     case bibleStudy     = "study_group"
     case prayer         = "prayer"

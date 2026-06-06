@@ -2,6 +2,7 @@
 // EventKit adapter + Eventbrite deep-link adapter.
 
 import Foundation
+import UIKit
 import EventKit
 
 final class EventKitEventsAdapter: ProviderAdapter {

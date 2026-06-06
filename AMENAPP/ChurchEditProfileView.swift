@@ -581,7 +581,34 @@ struct ChurchEditProfileView: View {
     }
 
     private func handleSave() {
-        // TODO: Persist changes to service layer
+        var updates: [String: Any] = [:]
+        if accountType == .church {
+            updates["displayName"] = churchDisplayName
+            updates["bio"] = churchBio
+            updates["websiteURL"] = churchWebsiteURL
+            updates["livestreamURL"] = churchLivestreamURL
+            updates["givingURL"] = churchGivingURL
+            updates["phone"] = churchPhone
+            updates["email"] = churchEmail
+            updates["denomination"] = churchDenomination
+            updates["address.street"] = addressStreet
+            updates["address.city"] = addressCity
+            updates["address.state"] = addressState
+            updates["address.zip"] = addressZip
+        } else {
+            updates["displayName"] = businessDisplayName
+            updates["bio"] = businessBio
+            updates["websiteURL"] = businessWebsiteURL
+            updates["contactEmail"] = businessContactEmail
+            updates["category"] = businessCategory
+            updates["missionStatement"] = businessMissionStatement
+        }
+        updates["username"] = username
+        NotificationCenter.default.post(
+            name: Notification.Name("AmenSaveAccountProfile"),
+            object: nil,
+            userInfo: ["updates": updates, "accountType": accountType.rawValue]
+        )
         dismiss()
     }
 }

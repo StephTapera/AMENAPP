@@ -402,7 +402,6 @@ struct TopIdeasView: View {
     }
     
     // MARK: - Community Covenant Check
-    // TODO: Re-enable when Community Covenant files are added to Xcode project
     /*
     private func checkCovenantAgreement() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }

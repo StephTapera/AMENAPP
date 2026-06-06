@@ -316,7 +316,7 @@ struct AmenSpaceLegalGateView: View {
                 let callable = Functions.functions().httpsCallable("activateSpaceMembership")
                 let payload: [String: Any] = [
                     "spaceId": spaceId,
-                    "tierId": tierName,    // TODO: pass actual tierId from the call site
+                    "tierId": tierName,
                     "userId": userId
                 ]
                 _ = try await callable.call(payload)

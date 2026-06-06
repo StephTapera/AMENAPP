@@ -18,9 +18,7 @@ struct CreatorDashboardView: View {
     @StateObject private var vm = CreatorViewModel()
     @State private var showMonetization = false
 
-    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
-    private let amenDark   = Color(red: 0.06, green: 0.06, blue: 0.09)
+    private let amenDark   = Color(.systemGroupedBackground)
 
     private var isNewCreator: Bool {
         vm.profile.lifetimeEarnings == 0

@@ -25,9 +25,7 @@ struct TipView: View {
     @State private var didSend                 = false
     @State private var errorMessage: String?   = nil
 
-    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
-    private let amenDark   = Color(red: 0.06, green: 0.06, blue: 0.09)
+    private let amenDark   = Color(.systemGroupedBackground)
 
     private let presets: [Double] = [1, 3, 5, 10]
     private let amountColumns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 2)

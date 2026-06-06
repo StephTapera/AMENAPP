@@ -20,14 +20,12 @@ struct CoCreationSummaryView: View {
     @State private var didPost        = false
     @State private var showSuccessToast = false
 
-    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
-    private let amenDark   = Color(red: 0.06, green: 0.06, blue: 0.09)
+    private let amenDark   = Color(.systemGroupedBackground)
 
     private let avatarColors: [Color] = [
         Color(red: 0.42, green: 0.28, blue: 1.00),
         Color(red: 0.94, green: 0.28, blue: 0.64),
-        Color(red: 0.96, green: 0.62, blue: 0.04),
+        Color.accentColor,
         Color(red: 0.20, green: 0.70, blue: 0.50),
         Color(red: 0.20, green: 0.55, blue: 0.95),
         Color(red: 0.90, green: 0.40, blue: 0.20),
@@ -380,7 +378,6 @@ struct CoCreationSummaryView: View {
 
 private struct ToastBanner: View {
     let message: String
-    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
 
     var body: some View {
         HStack(spacing: 10) {

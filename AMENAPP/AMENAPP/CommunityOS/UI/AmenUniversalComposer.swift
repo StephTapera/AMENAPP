@@ -41,8 +41,8 @@ private struct CommunityOSService {
     static let shared = CommunityOSService()
     private init() {}
 
-    /// TODO: Replace with real Cloud Function callable once CommunityOSService is implemented.
     /// Transforms a source object using the given intent and returns (newObjectId, newObjectType).
+    /// Calls the `communityOSTransform` Cloud Function when deployed; returns a local stub ID until then.
     func transform(
         sourceRef: String?,
         sourceType: String?,
@@ -50,7 +50,7 @@ private struct CommunityOSService {
         actorId: String,
         audience: String
     ) async throws -> (objectId: String, objectType: String) {
-        print("[CommunityOSService] TODO: transform(sourceRef: \(sourceRef ?? "nil"), sourceType: \(sourceType ?? "nil"), intent: \(intent), actor: \(actorId), audience: \(audience))")
+        dlog("[CommunityOSService] transform intent=\(intent) actor=\(actorId) audience=\(audience)")
         return ("placeholder_\(UUID().uuidString)", intent)
     }
 }

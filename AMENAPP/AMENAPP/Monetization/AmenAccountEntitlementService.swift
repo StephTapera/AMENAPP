@@ -56,7 +56,19 @@ final class AmenAccountEntitlementService: ObservableObject {
 
     // MARK: - Init
 
-    private init() {}
+    private init() {
+        auth.addStateDidChangeListener { [weak self] _, user in
+            guard let self else { return }
+            Task { @MainActor in
+                if user != nil {
+                    await self.loadTier()
+                } else {
+                    self.currentTier = .free
+                    self.cachedAt = nil
+                }
+            }
+        }
+    }
 
     // MARK: - Public API
 

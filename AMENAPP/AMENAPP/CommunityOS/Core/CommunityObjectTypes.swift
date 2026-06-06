@@ -63,7 +63,7 @@ enum AmenIntent: String, Codable, CaseIterable, Sendable {
 ///
 /// IMPORTANT: `createdAt` is always set server-side via Cloud Function or
 /// Firestore FieldValue.serverTimestamp(). The iOS client NEVER writes this field.
-struct SpawnProvenance: Codable, Equatable, Sendable {
+struct SpawnProvenance: Codable, Equatable, Hashable, Sendable {
     /// `AmenObjectType.rawValue` of the parent, or `"direct"` for root objects.
     let sourceType: String
     /// Firestore document path of the parent (e.g. `/posts/abc123`).
@@ -111,19 +111,7 @@ enum AmenEdgeType: String, Codable, CaseIterable, Sendable {
     case praysFor    = "praysFor"
 }
 
-// MARK: - AmenRole
+/// Alias used by EdgeService / AmenEdgeService callable payloads.
+typealias AmenCallableEdgeType = AmenEdgeType
 
-/// RBAC roles as defined in C5 §1 "Role Definitions".
-/// Raw values match the Firestore `role` field values from C5.
-enum AmenRole: String, Codable, CaseIterable, Sendable {
-    case owner          = "owner"
-    case executiveAdmin = "executive_admin"
-    case pastor         = "pastor"
-    case leader         = "leader"
-    case moderator      = "moderator"
-    case volunteerLead  = "volunteer_lead"
-    case contentManager = "content_manager"
-    case eventManager   = "event_manager"
-    case member         = "member"
-    case visitor        = "visitor"
-}
+// AmenRole is defined in CommunityOS/Identity/AmenRBACService.swift (canonical, with display helpers)

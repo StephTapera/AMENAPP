@@ -29,7 +29,6 @@ struct AMENCreatorHomeView: View {
                         HStack(spacing: 10) {
                             CreatorToggleChip(title: "Sermon Clip", isSelected: false, action: { openNewProject(type: .sermonSnippet) })
                             CreatorToggleChip(title: "Flyer", isSelected: false, action: { openNewProject(type: .flyer) })
-                            CreatorToggleChip(title: "Story Pack", isSelected: false, action: { openNewProject(type: .storyPack) })
                         }
                     }
                 }

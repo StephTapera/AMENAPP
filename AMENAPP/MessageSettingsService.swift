@@ -292,8 +292,7 @@ class MessageSettingsService: ObservableObject {
             return true
         }
         
-        // Could also check church membership, verification status, etc.
-        // TODO: Integrate with TrustByDesignService when available
+        // Could also check church membership or verification status via TrustByDesignService.
         
         return false
     }
@@ -312,8 +311,6 @@ class MessageSettingsService: ObservableObject {
     // MARK: - Analytics
     
     func trackSettingChange(_ settingName: String, newValue: Any) {
-        // Analytics tracking (non-content, privacy-safe)
-        // TODO: Integrate with AnalyticsService when available
         dlog("📊 [Analytics] message_setting_changed: \(settingName)")
     }
     

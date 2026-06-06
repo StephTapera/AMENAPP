@@ -39,8 +39,8 @@ enum NoteBlockType: String, CaseIterable, Identifiable {
 
     var accent: Color {
         switch self {
-        case .scripture:   return .amenGold
-        case .prayer:      return Color.purple
+        case .scripture:   return .accentColor
+        case .prayer:      return .accentColor
         case .reflection:  return Color.blue
         case .question:    return Color.orange
         case .action:      return Color.green

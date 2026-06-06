@@ -4,7 +4,7 @@
 // Priority & Peace inbox for a space.
 // Glass shell with amenPurple header.
 // 7 collapsible sections. Each section may derive from DerivedItem or Message arrays.
-// Empty state: matte "All clear ✦" in amenGold.
+// Empty state: matte "All clear ✦" in accentColor.
 
 import SwiftUI
 import FirebaseAnalytics
@@ -318,7 +318,7 @@ struct AmenPriorityPeaceInboxView: View {
             if let error = viewModel.errorMessage {
                 Text(error)
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.amenGold.opacity(0.80))
+                    .foregroundStyle(Color.accentColor.opacity(0.80))
                     .padding()
             }
 
@@ -365,13 +365,13 @@ struct AmenPriorityPeaceInboxView: View {
                     InboxSection(
                         title: "Prayer for me",
                         count: viewModel.prayerForMe.count,
-                        tint: Color.amenGold,
+                        tint: Color.accentColor,
                         isExpanded: $s3Expanded,
                         isEmpty: viewModel.prayerForMe.isEmpty
                     ) {
                         VStack(spacing: 6) {
                             ForEach(viewModel.prayerForMe) { item in
-                                InboxDerivedItemRow(item: item, tint: Color.amenGold)
+                                InboxDerivedItemRow(item: item, tint: Color.accentColor)
                             }
                         }
                     }
@@ -382,13 +382,13 @@ struct AmenPriorityPeaceInboxView: View {
                     InboxSection(
                         title: "My ministries at risk",
                         count: viewModel.ministriesAtRisk.count,
-                        tint: Color.amenGold,
+                        tint: Color.accentColor,
                         isExpanded: $s4Expanded,
                         isEmpty: viewModel.ministriesAtRisk.isEmpty
                     ) {
                         VStack(spacing: 6) {
                             ForEach(viewModel.ministriesAtRisk) { item in
-                                InboxDerivedItemRow(item: item, tint: Color.amenGold)
+                                InboxDerivedItemRow(item: item, tint: Color.accentColor)
                             }
                         }
                     }

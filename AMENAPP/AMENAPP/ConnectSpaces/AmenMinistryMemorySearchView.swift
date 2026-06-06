@@ -118,7 +118,7 @@ struct AmenMinistryMemorySearchView: View {
     private var glassSearchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(searchFocused ? Color.amenGold : Color.amenBlack.opacity(0.4))
+                .foregroundStyle(searchFocused ? Color.accentColor : Color.amenBlack.opacity(0.4))
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: searchFocused)
 
             TextField("Search ministry memory…", text: $vm.query)
@@ -150,7 +150,7 @@ struct AmenMinistryMemorySearchView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(
-                            searchFocused ? Color.amenGold : Color.white.opacity(0.28),
+                            searchFocused ? Color.accentColor : Color.white.opacity(0.28),
                             lineWidth: searchFocused ? 1.5 : 0.5
                         )
                 )
@@ -314,11 +314,11 @@ struct AmenMinistryMemorySearchView: View {
 
             // Bottom row: action item badge + confidence dots
             HStack(spacing: 8) {
-                // Action item badge (glass pill, amenGold)
+                // Action item badge (glass pill)
                 if result.actionItemId != nil {
                     Text("Action item")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.amenGoldText)
+                        .foregroundStyle(Color(.label))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(
@@ -326,7 +326,7 @@ struct AmenMinistryMemorySearchView: View {
                                 .fill(.ultraThinMaterial)
                                 .overlay(
                                     Capsule(style: .continuous)
-                                        .strokeBorder(Color.amenGold.opacity(0.5), lineWidth: 0.5)
+                                        .strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 0.5)
                                 )
                         )
                         .accessibilityLabel("Has linked action item")
@@ -369,7 +369,7 @@ struct AmenMinistryMemorySearchView: View {
         VStack(spacing: 16) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 40, weight: .light))
-                .foregroundStyle(Color.amenGold.opacity(0.6))
+                .foregroundStyle(Color.accentColor.opacity(0.6))
             Text("Nothing found. Try a different phrasing.")
                 .font(.subheadline)
                 .foregroundStyle(Color.amenBlack.opacity(0.55))

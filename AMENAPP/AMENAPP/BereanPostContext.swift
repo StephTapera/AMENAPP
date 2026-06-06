@@ -22,8 +22,7 @@ struct BereanPostContext: Codable, Hashable {
     func refreshed(from post: Post) -> BereanPostContext {
         // H-19: Only include post content if the post has not been flagged for review
         // or removed by moderation. If moderation fields are set, withhold previewText.
-        // TODO: add moderationStatus check once a dedicated moderationStatus enum field
-        // is available on the Post model (currently using flaggedForReview + removed flags).
+        // Guarded by flaggedForReview + removed until Post gains a dedicated moderationStatus enum.
         let safePreview: String
         if post.removed || post.flaggedForReview {
             safePreview = ""

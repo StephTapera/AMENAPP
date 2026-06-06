@@ -159,7 +159,7 @@ struct AmenUniversalSearchView: View {
 
     private var trendingSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("Trending", trailingAction: nil)
+            sectionHeader("Explore Topics", trailingAction: nil)
 
             if vm.isTrendingLoading {
                 trendingShimmer

@@ -93,7 +93,9 @@ struct UnifiedChatView: View {
     @ObservedObject private var chatMemoryService = ChatMemoryService.shared
     @ObservedObject private var chatExtractionEngine = ChatMemoryExtractionEngine.shared
     @ObservedObject private var chatCalendarBridge = ChatCalendarBridge.shared
+    @ObservedObject private var entitlements = AmenAccountEntitlementService.shared
     @State private var showMemorySheet = false
+    @State private var showMemoryPaywall = false
 
     let conversation: ChatConversation
     
@@ -293,11 +295,17 @@ struct UnifiedChatView: View {
             liquidGlassHeader
                 .modifier(SoftStickyHeaderModifier(isActive: headerSofteningProgress > 0.01, intensity: headerSofteningProgress))
 
-            // Chat memory capsule
+            // Chat memory capsule — gated behind Amen Pro (aiMemoryOS)
             ChatMemoryCapsuleView(
                 memoryService: chatMemoryService,
                 extractionEngine: chatExtractionEngine,
-                onTap: { showMemorySheet = true }
+                onTap: {
+                    if entitlements.hasAccess(to: .aiMemoryOS) {
+                        showMemorySheet = true
+                    } else {
+                        showMemoryPaywall = true
+                    }
+                }
             )
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
@@ -933,13 +941,20 @@ struct UnifiedChatView: View {
                 scheduleReply(at: confirmedDate)
             }
         }
-        // Chat memory sheet
+        // Chat memory sheet — only reachable when aiMemoryOS entitlement is held
         .sheet(isPresented: $showMemorySheet) {
             ChatMemorySheetView(
                 memoryService: chatMemoryService,
                 extractionEngine: chatExtractionEngine,
                 calendarBridge: chatCalendarBridge
             )
+        }
+        // AI Memory OS paywall — shown when free/Plus user taps the memory capsule
+        .sheet(isPresented: $showMemoryPaywall) {
+            AmenAccountPaywallView(
+                requiredTier: .amenPro,
+                feature: "AI Memory"
+            ) { showMemoryPaywall = false }
         }
         // System 32: Conversation Memory Search sheet
         .sheet(isPresented: $showConversationMemorySearch) {
@@ -1321,7 +1336,47 @@ struct UnifiedChatView: View {
             }
             
             Spacer()
-            
+
+            // System 32: Search conversation memory (gated behind smart context flag)
+            if AMENFeatureFlags.shared.messagesSmartContextEnabled {
+                Button { showConversationMemorySearch = true } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white, lineWidth: 1)
+                                        .opacity(0.25)
+                                )
+                        )
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .accessibilityLabel("Search conversation")
+            }
+
+            // System 32: Set your presence status
+            Button { showPresencePicker = true } label: {
+                Image(systemName: "person.circle")
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 1)
+                                    .opacity(0.25)
+                            )
+                    )
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel("Set your status")
+
             // Info button - blends with background
             Button {
                 if conversation.isGroup {

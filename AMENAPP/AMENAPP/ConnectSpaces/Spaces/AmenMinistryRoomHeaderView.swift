@@ -31,16 +31,16 @@ private extension AmenConnectSpacesRoomType {
         }
     }
 
-    /// Badge tint — each type gets a distinct amenGold/amenPurple/amenBlue tint
+    /// Badge tint — each type gets a distinct accentColor/amenPurple/amenBlue tint
     var badgeColor: Color {
         switch self {
-        case .smallGroup:     return Color(red: 0.431, green: 0.294, blue: 0.710) // amenPurple
-        case .prayer:         return Color(red: 0.851, green: 0.643, blue: 0.255) // amenGold
-        case .worship:        return Color(red: 0.851, green: 0.643, blue: 0.255) // amenGold (warm)
-        case .missions:       return Color(red: 0.141, green: 0.357, blue: 0.561) // amenBlue
-        case .staff:          return Color(red: 0.141, green: 0.357, blue: 0.561) // amenBlue
-        case .cohort:         return Color(red: 0.431, green: 0.294, blue: 0.710) // amenPurple
-        case .accountability: return Color(red: 0.851, green: 0.643, blue: 0.255) // amenGold
+        case .smallGroup:     return Color.amenPurple
+        case .prayer:         return Color.accentColor
+        case .worship:        return Color.accentColor
+        case .missions:       return Color.amenBlue
+        case .staff:          return Color.amenBlue
+        case .cohort:         return Color.amenPurple
+        case .accountability: return Color.accentColor
         }
     }
 }
@@ -151,7 +151,7 @@ struct AmenMinistryRoomHeaderView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 11))
-                        .foregroundStyle(Color(red: 0.851, green: 0.643, blue: 0.255))
+                        .foregroundStyle(Color.accentColor)
                     Text("Care-sensitive space")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)

@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - OrgType
 
-enum OrgType: String, Codable, CaseIterable {
+enum OrgType: String, Codable, CaseIterable, Sendable {
     case church     = "church"
     case school     = "school"
     case university = "university"
@@ -50,7 +50,7 @@ enum OrgType: String, Codable, CaseIterable {
 
 // MARK: - VerificationState
 
-enum VerificationState: String, Codable, CaseIterable {
+enum VerificationState: String, Codable, CaseIterable, Sendable {
     case none     = "none"
     case pending  = "pending"
     case verified = "verified"

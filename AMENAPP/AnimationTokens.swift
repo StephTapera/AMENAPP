@@ -35,7 +35,7 @@ enum AmenRadius {
     static let bubble: CGFloat   = 18    // message bubbles
     static let button: CGFloat   = 100   // circular quick-action buttons
     static let modePill: CGFloat = 100   // mode/context pill
-    static let card: CGFloat     = 20    // glass card surfaces
+    static let card: CGFloat     = 28    // glass card surfaces (updated to match AmenDesignSystem)
 }
 
 enum AmenOpacity {

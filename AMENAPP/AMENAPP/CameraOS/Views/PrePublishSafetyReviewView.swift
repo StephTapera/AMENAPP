@@ -28,6 +28,7 @@ struct PrePublishSafetyReviewView: View {
     @State private var localScanResult: CameraPrePublishScanResult
     @State private var isRedacting = false
     @State private var showLocationDelayPicker = false
+    @State private var locationDelay: CameraLocationDelayOption = .none
     @State private var selectedAudience: CameraAudiencePreset
     @State private var showAudienceSelector = false
     @State private var showRedactedConfirmation = false
@@ -90,8 +91,10 @@ struct PrePublishSafetyReviewView: View {
         }
         .sheet(isPresented: $showAudienceSelector) {
             AudienceSafetySimulatorView(
-                selectedAudience: $selectedAudience,
-                scanResult: localScanResult
+                detectedItems: localScanResult.detectedItems,
+                currentAudience: selectedAudience,
+                onAudienceSelected: { selectedAudience = $0 },
+                onDismiss: { showAudienceSelector = false }
             )
         }
         .overlay(alignment: .top) {
@@ -427,7 +430,7 @@ struct PrePublishSafetyReviewView: View {
             }
 
             if showLocationDelayPicker {
-                LocationDelayPickerView()
+                LocationDelayPickerView(selectedDelay: $locationDelay)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -684,180 +687,18 @@ struct PrePublishSafetyReviewView: View {
     }
 }
 
-// MARK: - AudienceSafetySimulatorView (stub — wired from audience selector)
-
-struct AudienceSafetySimulatorView: View {
-    @Binding var selectedAudience: CameraAudiencePreset
-    let scanResult: CameraPrePublishScanResult
-    @Environment(\.dismiss) private var dismiss
-
-    private let amberGold = Color(red: 1.0, green: 0.84, blue: 0.0)
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.opacity(0.92).ignoresSafeArea()
-                VStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Who can see this?")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.white)
-                        Text("Choose the audience that feels right for this content.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    .padding(.bottom, 16)
-
-                    ScrollView {
-                        VStack(spacing: 8) {
-                            ForEach(CameraAudiencePreset.allCases) { preset in
-                                audienceRow(preset)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(amberGold)
-                }
-            }
-            .toolbarBackground(Color.black.opacity(0.92), for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-        }
-        .presentationDetents([.medium, .large])
-        .presentationBackground(Color.black.opacity(0.88))
-    }
-
-    private func audienceRow(_ preset: CameraAudiencePreset) -> some View {
-        Button {
-            selectedAudience = preset
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: preset.systemIcon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(selectedAudience == preset ? .black : .white)
-                    .frame(width: 28)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(preset.displayName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(selectedAudience == preset ? .black : .white)
-                    Text(preset.audienceDescription)
-                        .font(.system(size: 12))
-                        .foregroundStyle(selectedAudience == preset ? .black.opacity(0.7) : .white.opacity(0.6))
-                }
-
-                Spacer()
-
-                if selectedAudience == preset {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.black)
-                }
-            }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(selectedAudience == preset ? Color(red: 1.0, green: 0.84, blue: 0.0) : Color.white.opacity(0.07))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(
-                                selectedAudience == preset
-                                    ? Color.clear
-                                    : Color.white.opacity(0.22),
-                                lineWidth: 0.8
-                            )
-                    )
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(preset.displayName)
-        .accessibilityHint(preset.audienceDescription)
-        .accessibilityAddTraits(selectedAudience == preset ? [.isSelected] : [])
-    }
-}
-
-// MARK: - LocationDelayPickerView (inline)
-
-struct LocationDelayPickerView: View {
-    @State private var selectedDelay: LocationDelayOption = .thirtyMinutes
-
-    private let amberGold = Color(red: 1.0, green: 0.84, blue: 0.0)
-
-    enum LocationDelayOption: String, CaseIterable, Identifiable {
-        case thirtyMinutes = "30 min"
-        case oneHour = "1 hr"
-
-        var id: String { rawValue }
-        var seconds: TimeInterval {
-            switch self {
-            case .thirtyMinutes: return 30 * 60
-            case .oneHour:       return 60 * 60
-            }
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text("Delay:")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
-
-            ForEach(LocationDelayOption.allCases) { option in
-                Button {
-                    selectedDelay = option
-                } label: {
-                    Text(option.rawValue)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(selectedDelay == option ? .black : .white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(
-                            Capsule().fill(selectedDelay == option ? amberGold : Color.white.opacity(0.12))
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Delay \(option.rawValue)")
-                .accessibilityAddTraits(selectedDelay == option ? [.isSelected] : [])
-            }
-        }
-    }
-}
-
-// MARK: - CameraAudiencePreset convenience extensions (compilation stubs if not in models)
+// MARK: - CameraAudiencePreset convenience description
 
 private extension CameraAudiencePreset {
-    var systemIcon: String {
-        switch self {
-        case .onlyMe:     return "person.fill"
-        case .friends:    return "person.2.fill"
-        case .community:  return "person.3.fill"
-        case .everyone:   return "globe"
-        }
-    }
-
-    var displayName: String {
-        switch self {
-        case .onlyMe:    return "Only Me"
-        case .friends:   return "Friends"
-        case .community: return "Community"
-        case .everyone:  return "Everyone"
-        }
-    }
-
     var audienceDescription: String {
         switch self {
-        case .onlyMe:    return "Only visible to you — perfect for drafts"
-        case .friends:   return "Visible to your confirmed connections"
-        case .community: return "Visible to your church and faith community"
-        case .everyone:  return "Publicly visible to all AMEN users"
+        case .public:     return "Publicly visible to all AMEN users"
+        case .friends:    return "Visible to your confirmed connections"
+        case .family:     return "Visible to your linked family members"
+        case .church:     return "Visible to your church community"
+        case .smallGroup: return "Visible to your small group only"
+        case .orgMembers: return "Visible to your organization members"
+        case .privateOnly: return "Only visible to you — not shared"
         }
     }
 }

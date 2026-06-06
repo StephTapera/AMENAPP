@@ -20,9 +20,8 @@ import Combine
 //   • amen://comment?...          — no amenapp://comment counterpart
 //   • amen://chat?...             — no amenapp://chat counterpart
 //
-// TODO (Phase 1): Merge both parsers into a single UnifiedDeepLinkRouter that
-// accepts both schemes and delegates to one shared destination model, then
-// remove this file and NotificationDeepLinkRouter.swift.
+// Phase 1: Merge both parsers into a single UnifiedDeepLinkRouter that
+// accepts both schemes and delegates to one shared destination model.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Central routing system for deep links and in-app navigation

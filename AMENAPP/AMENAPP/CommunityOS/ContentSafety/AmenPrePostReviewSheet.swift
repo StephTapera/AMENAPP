@@ -619,7 +619,7 @@ struct AmenCrisisInterventionView: View {
         action: .showSuggestion("This post may contain personal contact information."),
         safetyResult: result
     )
-    return AmenPrePostReviewSheet(
+    AmenPrePostReviewSheet(
         decision: decision,
         draftContent: "Call me at 555-867-5309 for prayer!",
         onProceed: {},
@@ -643,7 +643,7 @@ struct AmenCrisisInterventionView: View {
         action: .blockWithMessage("This post cannot be published."),
         safetyResult: result
     )
-    return AmenPrePostReviewSheet(
+    AmenPrePostReviewSheet(
         decision: decision,
         draftContent: "Flagged content here",
         onProceed: {},

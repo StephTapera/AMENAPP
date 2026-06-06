@@ -160,7 +160,7 @@ private extension AmenConnectSpacesMessageIntent {
     var pillColor: Color {
         switch self {
         case .prayerRequest, .struggling, .grief:
-            return Color(red: 0.851, green: 0.643, blue: 0.255) // amenGold
+            return Color.accentColor
         case .decision, .task:
             return Color(red: 0.141, green: 0.357, blue: 0.561) // amenBlue
         case .careFollowUp, .confession:
@@ -325,7 +325,7 @@ struct AmenMinistryRoomChatView: View {
         VStack(spacing: 20) {
             Image(systemName: "pause.circle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(Color(red: 0.851, green: 0.643, blue: 0.255))
+                .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
 
             Text("Pause and reflect?")
@@ -454,19 +454,19 @@ struct AmenMinistryRoomMessageRow: View {
         HStack(spacing: 6) {
             Image(systemName: "heart.fill")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(red: 0.851, green: 0.643, blue: 0.255))
+                .foregroundStyle(Color.accentColor)
             Text("Routed to Care Team")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(red: 0.851, green: 0.643, blue: 0.255))
+                .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background {
             Capsule()
-                .fill(Color(red: 0.851, green: 0.643, blue: 0.255).opacity(0.12))
+                .fill(Color.accentColor.opacity(0.12))
                 .overlay {
                     Capsule()
-                        .strokeBorder(Color(red: 0.851, green: 0.643, blue: 0.255).opacity(0.35), lineWidth: 1)
+                        .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
                 }
         }
         .accessibilityLabel("Routed to Care Team")

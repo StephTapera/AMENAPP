@@ -55,19 +55,19 @@ final class WitnessService {
     // MARK: - Prayer Requests
 
     /// Submits a prayer request. Returns the new document ID.
-    func submitPrayerRequest(_ request: PrayerRequest) async throws -> String {
+    func submitPrayerRequest(_ request: WitnessPrayerRequest) async throws -> String {
         let ref = try db.collection("prayerRequests").addDocument(from: request)
         return ref.documentID
     }
 
     /// Fetches the current user's prayer requests.
-    func fetchMyPrayerRequests(userId: String) async throws -> [PrayerRequest] {
+    func fetchMyPrayerRequests(userId: String) async throws -> [WitnessPrayerRequest] {
         let snap = try await db.collection("prayerRequests")
             .whereField("userId", isEqualTo: userId)
             .order(by: "createdAt", descending: true)
             .limit(to: 20)
             .getDocuments()
-        return snap.documents.compactMap { try? $0.data(as: PrayerRequest.self) }
+        return snap.documents.compactMap { try? $0.data(as: WitnessPrayerRequest.self) }
     }
 
     // MARK: - AI Matching

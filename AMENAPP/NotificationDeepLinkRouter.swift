@@ -23,9 +23,8 @@
 //   • amenapp://prayer/{id}         — no amen://prayer counterpart
 //   • amenapp://church-note/{id}    — no amen://church-note counterpart
 //
-// TODO (Phase 1): Merge both parsers into a single UnifiedDeepLinkRouter that
-// accepts both schemes and delegates to one shared destination model, then
-// remove this file and DeepLinkRouter.swift.
+// Phase 1: Merge both parsers into a single UnifiedDeepLinkRouter that
+// accepts both schemes and delegates to one shared destination model.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Foundation

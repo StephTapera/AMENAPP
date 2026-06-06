@@ -1833,6 +1833,70 @@ struct ChurchNotesSettingsViewNew: View {
     }
 }
 
+// MARK: - Simple Mode Inline Settings (used by AccessibilitySettingsViewNew)
+//
+// Renders the Simple Mode controls as STGroup / SettingsToggleRow rows so they
+// sit naturally inside the STDetailScaffold VStack without a nested List.
+
+private struct SimpleModeInlineSettings: View {
+
+    // @Observable binding via @Bindable — no property wrapper on the service itself.
+    @State private var service = AmenSimpleModeService.shared
+
+    var body: some View {
+        @Bindable var svc = service
+
+        SettingsSectionHeader(title: "Simple Mode")
+        STGroup {
+            SettingsToggleRow(
+                icon: "hand.tap",
+                title: "Simple Mode",
+                subtitle: "Large buttons and text for easy navigation",
+                isOn: $svc.isSimpleModeActive
+            )
+
+            if service.isSimpleModeActive {
+                STDivider()
+
+                // Font scale picker row
+                HStack(spacing: 14) {
+                    Image(systemName: "textformat.size")
+                        .font(.systemScaled(15, weight: .medium))
+                        .foregroundStyle(ST.secondary)
+                        .frame(width: 22, alignment: .center)
+
+                    Text("Text Size")
+                        .font(AMENFont.regular(15))
+                        .foregroundStyle(ST.primary)
+
+                    Spacer()
+
+                    Picker("", selection: $svc.fontScale) {
+                        ForEach(AmenSimpleModeService.SimpleFontScale.allCases, id: \.self) { scale in
+                            Text(scale.displayName).tag(scale)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .foregroundStyle(ST.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+                .accessibilityLabel("Text size for Simple Mode")
+                .accessibilityHint("Choose Large or Extra Large text for the Simple Mode home screen.")
+
+                STDivider()
+
+                SettingsToggleRow(
+                    icon: "circle.lefthalf.filled",
+                    title: "High Contrast",
+                    subtitle: "Stronger backgrounds for better readability",
+                    isOn: $svc.useHighContrast
+                )
+            }
+        }
+    }
+}
+
 // MARK: - 10. Accessibility
 
 struct AccessibilitySettingsViewNew: View {
@@ -1844,6 +1908,11 @@ struct AccessibilitySettingsViewNew: View {
 
     var body: some View {
         STDetailScaffold(title: "Accessibility") {
+            // Simple Mode — large-button home for elderly / low-tech-literacy users.
+            // Rendered as inline STGroup rows so it lives in the VStack without a
+            // nested List (nested List inside ScrollView causes SwiftUI layout conflicts).
+            SimpleModeInlineSettings()
+
             SettingsSectionHeader(title: "Motion & Display")
             STGroup {
                 SettingsToggleRow(icon: "figure.walk.motion", title: "Reduce Motion", subtitle: "Reduces spring and morph animations", isOn: $reduceMotion)

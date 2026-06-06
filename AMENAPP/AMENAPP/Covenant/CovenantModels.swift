@@ -450,11 +450,10 @@ struct CovenantScheduledContent: Identifiable, Codable {
     var createdAt: Timestamp
 
     enum TargetType: String, Codable {
-        case post, story, event, devotional, studyDrop = "study_drop", digestHighlight = "digest_highlight"
+        case post, event, devotional, studyDrop = "study_drop", digestHighlight = "digest_highlight"
         var displayName: String {
             switch self {
             case .post:            return "Post"
-            case .story:           return "Story"
             case .event:           return "Event"
             case .devotional:      return "Devotional"
             case .studyDrop:       return "Study Drop"

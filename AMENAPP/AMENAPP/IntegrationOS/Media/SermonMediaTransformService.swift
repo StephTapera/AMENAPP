@@ -11,7 +11,7 @@ actor SermonMediaTransformService {
 
     private let functions = Functions.functions()
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_media_transform_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_media_transform_enabled").boolValue }
 
     func transform(sermonId: String, mediaURL: String, title: String) async throws -> SermonStudyPacket {
         guard isEnabled else { throw IntegrationOSError.providerUnavailable("moderateMediaTransform") }

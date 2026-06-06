@@ -327,7 +327,7 @@ struct AmenChurchCard: View {
     let church: ChurchOSProfile
     let distanceMiles: Double?
 
-    private var todayService: ServiceTime? { church.serviceTimesToday.first }
+    private var todayService: AmenServiceTime? { church.serviceTimesToday.first }
 
     private var distanceLabel: String? {
         guard let d = distanceMiles, d >= 0 else { return nil }

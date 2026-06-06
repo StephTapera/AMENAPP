@@ -19,7 +19,7 @@ class ContentModerationService {
     /// Moderate content before posting
     static func moderateContent(
         text: String,
-        category: ContentCategory,
+        category: ContentModerationClass,
         signals: AuthenticitySignals,
         parentContentId: String? = nil
     ) async throws -> ModerationDecision {

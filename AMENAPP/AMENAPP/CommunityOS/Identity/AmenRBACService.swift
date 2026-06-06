@@ -46,7 +46,7 @@ import FirebaseFirestore
 
 /// Canonical unified role enum. Maps from all five existing role systems.
 /// Firestore `role` field values match C5 §1 "Firestore `role` field value" column.
-enum AmenRole: String, Codable, CaseIterable {
+enum AmenRole: String, Codable, CaseIterable, Sendable {
     case owner              = "owner"
     case executiveAdmin     = "executive_admin"
     case pastor             = "pastor"
@@ -121,10 +121,10 @@ enum AmenResource: String, Codable, CaseIterable {
     case bereanInsight
 }
 
-// MARK: - AmenAction
+// MARK: - AmenRBACAction
 
 /// All actions that can be performed on a resource.
-enum AmenAction: String, Codable, CaseIterable {
+enum AmenRBACAction: String, Codable, CaseIterable {
     case create
     case read
     case update
@@ -188,7 +188,7 @@ class AmenRBACService: ObservableObject {
     func check(
         role: AmenRole,
         resource: AmenResource,
-        action: AmenAction,
+        action: AmenRBACAction,
         context: PermissionContext? = nil
     ) -> PermissionResult {
 
@@ -314,7 +314,7 @@ class AmenRBACService: ObservableObject {
         }
     }
 
-    private func matrixKey(role: AmenRole, resource: AmenResource, action: AmenAction) -> String {
+    private func matrixKey(role: AmenRole, resource: AmenResource, action: AmenRBACAction) -> String {
         "\(role.rawValue)_\(resource.rawValue)_\(action.rawValue)"
     }
 
@@ -332,10 +332,10 @@ class AmenRBACService: ObservableObject {
         var m: [String: Bool] = [:]
 
         // Helper
-        func allow(_ role: AmenRole, _ res: AmenResource, _ act: AmenAction) {
+        func allow(_ role: AmenRole, _ res: AmenResource, _ act: AmenRBACAction) {
             m["\(role.rawValue)_\(res.rawValue)_\(act.rawValue)"] = true
         }
-        func deny(_ role: AmenRole, _ res: AmenResource, _ act: AmenAction) {
+        func deny(_ role: AmenRole, _ res: AmenResource, _ act: AmenRBACAction) {
             m["\(role.rawValue)_\(res.rawValue)_\(act.rawValue)"] = false
         }
 

@@ -42,7 +42,6 @@ enum ShareIntent: String, Codable, CaseIterable, Identifiable {
     case saveForLater = "save_for_later"
     case sendInMessage = "send_in_message"
     case createPrayerShare = "create_prayer_share"
-    case storyCard = "story_card"
     case copyLink = "copy_link"
     case createDiscussion = "create_discussion"
 
@@ -60,7 +59,6 @@ enum ShareIntent: String, Codable, CaseIterable, Identifiable {
         case .saveForLater: return "Save Later"
         case .sendInMessage: return "Message"
         case .createPrayerShare: return "Prayer Share"
-        case .storyCard: return "Story Card"
         case .copyLink: return "Copy Link"
         case .createDiscussion: return "Discussion"
         }
@@ -78,7 +76,6 @@ enum ShareIntent: String, Codable, CaseIterable, Identifiable {
         case .saveForLater: return "bookmark.fill"
         case .sendInMessage: return "paperplane.fill"
         case .createPrayerShare: return "hands.sparkles.fill"
-        case .storyCard: return "rectangle.stack.fill"
         case .copyLink: return "link"
         case .createDiscussion: return "bubble.left.and.bubble.right.fill"
         }
@@ -88,7 +85,6 @@ enum ShareIntent: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .shareWithGroup: return .group
         case .shareWithChurch: return .church
-        case .storyCard: return .story
         case .copyLink: return .copyLink
         case .saveForLater, .addToNotes, .reflectPrivately: return .saved
         case .encourageSomeone, .startConversation, .sendInMessage, .createPrayerShare, .createDiscussion:

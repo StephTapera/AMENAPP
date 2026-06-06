@@ -75,7 +75,7 @@ actor CameraMetadataStripService {
         let hadExif = sourceProperties[kCGImagePropertyExifDictionary] != nil
 
         // Determine UTI for re-encoding (preserve original format).
-        let uti = CGImageSourceGetType(source) ?? kUTTypeJPEG as CFString
+        let uti = CGImageSourceGetType(source) ?? ("public.jpeg" as CFString)
 
         let outputData = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(outputData, uti, 1, nil) else {

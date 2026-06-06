@@ -25,8 +25,6 @@ struct CreatorSubscriptionGateView: View {
 
     @State private var appear = false
 
-    private let Color.accentColor = Color(red: 0.42, green: 0.28, blue: 1.00)
-    private let Color.accentColor   = Color(red: 0.96, green: 0.62, blue: 0.04)
 
     var body: some View {
         ZStack {
@@ -159,7 +157,6 @@ struct CreatorSubscriptionGateLegacyView: View {
     @State private var showConfirm   = false
     @Environment(\.dismiss) private var dismiss
 
-    private let Color.accentColor = Color(red: 0.96, green: 0.62, blue: 0.04)
 
     var body: some View {
         ZStack {
@@ -292,13 +289,7 @@ struct CreatorSubscriptionGateLegacyView: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
-            .background(
-                LinearGradient(
-                    colors: [Color(red: 0.96, green: 0.62, blue: 0.04), Color(red: 0.94, green: 0.27, blue: 0.27)],
-                    startPoint: .leading, endPoint: .trailing
-                ),
-                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-            )
+            .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .disabled(isSubscribing)
         .buttonStyle(CoCreationPressStyle())

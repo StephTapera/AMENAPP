@@ -310,10 +310,9 @@ struct PrivateCommunitiesView: View {
                     
                     Divider()
                     
-                    // TODO: enable when implemented
                     // Event Calendar, Moderation Dashboard, Donation Center,
-                    // Volunteer Hub, Community Insights, Language Settings
-                    // are hidden until their screens are built.
+                    // Volunteer Hub, Community Insights, and Language Settings
+                    // will appear here when those screens are built.
 
                     Divider()
 

@@ -76,7 +76,7 @@ struct TestimonyMatchResult {
 
 // MARK: - Prayer Request
 
-struct PrayerRequest: Identifiable, Codable {
+struct WitnessPrayerRequest: Identifiable, Codable {
     @DocumentID var id: String?
     var userId: String
     var content: String
@@ -115,7 +115,7 @@ struct PrayerRequest: Identifiable, Codable {
 struct UserPrayerContext {
     var prayerThemes: [String]
     var emotionalState: String
-    var recentRequests: [PrayerRequest]
+    var recentRequests: [WitnessPrayerRequest]
 
     func toPromptString() -> String {
         let themes = prayerThemes.joined(separator: ", ")

@@ -42,7 +42,7 @@ private struct MemberAvatarStack: View {
                 }
                 .frame(width: size, height: size)
                 .clipShape(Circle())
-                .overlay(Circle().strokeBorder(Color(hex: "070607"), lineWidth: 1.5))
+                .overlay(Circle().strokeBorder(Color(.systemBackground), lineWidth: 1.5))
                 .zIndex(Double(5 - index))
             }
         }
@@ -161,7 +161,7 @@ private struct DashboardStatRow: View {
             HStack(spacing: 5) {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 13))
-                    .foregroundStyle(Color(hex: "D9A441"))
+                    .foregroundStyle(Color.accentColor)
                 Text("\(activePrayerCount) Prayer\(activePrayerCount == 1 ? "" : "s")")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.85))
@@ -203,26 +203,26 @@ private struct StudySeriesCard: View {
     let series: StudySeries
 
     var body: some View {
-        LiquidGlassCard(contextTint: Color(hex: "6E4BB5"), elevated: false) {
+        LiquidGlassCard(contextTint: Color.amenPurple, elevated: false) {
             HStack(spacing: 14) {
                 Image(systemName: "book.fill")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Color(hex: "D9A441"))
+                    .foregroundStyle(Color.accentColor)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(series.seriesTitle)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(.label))
                         .lineLimit(1)
 
                     Text("Week \(series.currentWeek) of \(series.totalWeeks)")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.65))
+                        .foregroundStyle(Color(.secondaryLabel))
 
                     if let reading = series.suggestedReading, !reading.isEmpty {
                         Text(reading)
                             .font(.system(size: 12))
-                            .foregroundStyle(Color(hex: "D9A441").opacity(0.90))
+                            .foregroundStyle(Color.accentColor.opacity(0.90))
                             .lineLimit(1)
                     }
                 }
@@ -251,7 +251,7 @@ private struct SpaceDashboardQuickActionButton: View {
                 .font(.system(size: 13, weight: .semibold))
         }
         .buttonStyle(.bordered)
-        .tint(Color(hex: "D9A441"))
+        .tint(Color.accentColor)
         .accessibilityLabel(label)
     }
 }
@@ -272,10 +272,10 @@ private struct SpaceDashboardActivityRow: View {
 
     private var iconTint: Color {
         switch item.actionType {
-        case "prayer": return Color(hex: "D9A441")
-        case "note":   return Color(hex: "245B8F")
-        case "event":  return Color(hex: "D9A441")
-        default:       return Color(hex: "6E4BB5")
+        case "prayer": return Color.accentColor
+        case "note":   return Color.amenBlue
+        case "event":  return Color.accentColor
+        default:       return Color.amenPurple
         }
     }
 
@@ -338,12 +338,12 @@ private struct HeroLoadingPlaceholder: View {
         VStack {
             Spacer()
             ProgressView()
-                .tint(Color(hex: "D9A441"))
+                .tint(Color.accentColor)
             Spacer()
         }
         .frame(maxWidth: .infinity)
         .frame(height: 260)
-        .background(Color(hex: "070607").opacity(0.6))
+        .background(Color(.secondarySystemBackground).opacity(0.6))
         .accessibilityHidden(true)
     }
 }
@@ -479,7 +479,7 @@ struct AmenSpacesHeroCardSection: View {
                 activePrayerCount: viewModel.activePrayerCount,
                 nextEvent: viewModel.nextEvent
             )
-            .background(Color(hex: "070607"))
+            .background(Color(.systemGroupedBackground))
 
             // ── Current study card (single LiquidGlassCard callout — per glass rules) ──
             if let series = viewModel.currentStudySeries {
@@ -515,7 +515,7 @@ struct AmenSpacesHeroCardSection: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(Color(hex: "070607"))
+            .background(Color(.systemGroupedBackground))
 
             // ── Recent activity (plain rows — no glass) ──────────────────────
             if !viewModel.recentActivity.isEmpty {
@@ -534,7 +534,7 @@ struct AmenSpacesHeroCardSection: View {
                         }
                     }
                 }
-                .background(Color(hex: "070607"))
+                .background(Color(.systemGroupedBackground))
                 .padding(.bottom, 8)
             }
         }

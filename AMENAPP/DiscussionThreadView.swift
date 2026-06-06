@@ -27,6 +27,13 @@ final class DiscussionThreadViewModel: ObservableObject {
     @Published var isSlowModeActive: Bool = false
     @Published var slowModeSecondsLeft: Int = 0
 
+    // Community OS A6 — Discussion provenance
+    /// Optional spawn provenance. Set by callers that opened this thread from another object.
+    /// Nil by default so all existing callers are unaffected.
+    /// When non-nil and communityOSDiscussionEnabled is true, a DiscussionProvenanceBanner
+    /// is rendered at the top of the thread scroll view.
+    var provenance: SpawnProvenance? = nil
+
     private let service = DiscussionThreadService.shared
     private var commentListener: (any Sendable)?
     private var threadListener:  (any Sendable)?
@@ -182,7 +189,53 @@ struct DiscussionThreadView: View {
     @State private var draftInsight: DraftIntelligenceService.DraftAnalysis?
     @State private var showDraftInsight = false
 
+    // Community OS — Action Pill (A18) + Universal Composer (A3)
+    @State private var showUniversalComposer = false
+    @State private var composerInitialIntent: String? = nil
+
     private var currentUid: String { Auth.auth().currentUser?.uid ?? "" }
+
+    // MARK: - Discussion Action Pill actions
+
+    private var discussionPillActions: [AmenPillAction] {
+        [
+            AmenPillAction(
+                intent: "discuss",
+                systemImage: "bubble.left.and.bubble.right",
+                label: "Discuss"
+            ) {
+                composerInitialIntent = "discuss"
+                showUniversalComposer = true
+            },
+            AmenPillAction(
+                intent: "pray",
+                systemImage: "hands.and.sparkles",
+                label: "Pray"
+            ) {
+                composerInitialIntent = "pray"
+                showUniversalComposer = true
+            },
+            AmenPillAction(
+                intent: "share",
+                systemImage: "square.and.arrow.up",
+                label: "Share"
+            ) {
+                composerInitialIntent = "share"
+                showUniversalComposer = true
+            }
+        ]
+    }
+
+    private var discussionPillPrimary: AmenPillAction {
+        AmenPillAction(
+            intent: "study",
+            systemImage: "book.pages",
+            label: "Study"
+        ) {
+            composerInitialIntent = "study"
+            showUniversalComposer = true
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -197,6 +250,26 @@ struct DiscussionThreadView: View {
 
                 // Composer
                 composerBar
+
+                // Community OS: Universal Action Pill (A18)
+                // Floats above the composer bar so it doesn't obstruct typing.
+                if AMENFeatureFlags.shared.communityOSActionPillEnabled {
+                    VStack {
+                        Spacer()
+                        AmenActionPill(
+                            actions: discussionPillActions,
+                            primaryAction: discussionPillPrimary
+                        )
+                        .padding(.bottom, 80) // clears the composer bar height
+                        .padding(.horizontal, 16)
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.92).combined(with: .opacity),
+                                removal: .scale(scale: 0.92).combined(with: .opacity)
+                            )
+                        )
+                    }
+                }
             }
             .navigationTitle("Discussion")
             .navigationBarTitleDisplayMode(.inline)
@@ -254,6 +327,18 @@ struct DiscussionThreadView: View {
                     )
                 }
             }
+            // Community OS: Universal Composer (A3) — gated by communityOSUniversalComposerEnabled
+            .sheet(isPresented: $showUniversalComposer) {
+                if AMENFeatureFlags.shared.communityOSUniversalComposerEnabled,
+                   let threadId = vm.thread?.id {
+                    AmenUniversalComposer(
+                        sourceRef: "discussions/\(threadId)",
+                        sourceType: "post",
+                        initialIntent: composerInitialIntent,
+                        isPresented: $showUniversalComposer
+                    )
+                }
+            }
         }
         .task { await vm.start(postId: postId, postTitle: postTitle) }
         .animation(.easeInOut(duration: 0.22), value: vm.duplicateHint)
@@ -277,6 +362,14 @@ struct DiscussionThreadView: View {
     @ViewBuilder
     private var threadStack: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
+            // Community OS A6 — Provenance banner (injected when discussion was spawned from another object)
+            if AMENFeatureFlags.shared.communityOSDiscussionEnabled,
+               let prov = vm.provenance {
+                DiscussionProvenanceBanner(provenance: prov)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 4)
+            }
             if vm.mode != .general {
                 modePill
                     .padding(.horizontal, 16)

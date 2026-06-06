@@ -183,14 +183,14 @@ actor ContextLensService {
                     title: eventDict["title"] as? String ?? "Event",
                     date: eventDict["date"] as? String,
                     location: eventDict["location"] as? String,
-                    notes: eventDict["notes"] as? String
+                    notes: eventDict["notes"] as? String ?? ""
                 )
             }
             return .bulletinEvents(events: events)
 
         case "sermon_notes":
             let title = payload["title"] as? String ?? "Sermon Notes"
-            let scripture = payload["scripture"] as? String ?? ""
+            let scripture = payload["scripture"] as? [String] ?? []
             let summary = payload["summary"] as? String ?? ""
             let discussionQuestions = payload["discussionQuestions"] as? [String] ?? []
             return .sermonNotes(

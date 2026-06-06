@@ -53,7 +53,7 @@ struct OrgAssistantView: View {
                                 .id(msg.id)
                         }
                         if viewModel.isSending {
-                            TypingIndicator()
+                            OrgTypingIndicator()
                         }
                     }
                     .padding()
@@ -103,7 +103,7 @@ struct OrgAssistantView: View {
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(viewModel.input.isEmpty ? .secondary : .accentColor)
+                    .foregroundStyle(viewModel.input.isEmpty ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor))
             }
             .disabled(viewModel.input.isEmpty || viewModel.isSending)
         }
@@ -142,7 +142,7 @@ private struct AssistantMessageBubble: View {
     }
 }
 
-private struct TypingIndicator: View {
+private struct OrgTypingIndicator: View {
     @State private var phase = 0
     var body: some View {
         HStack(spacing: 4) {

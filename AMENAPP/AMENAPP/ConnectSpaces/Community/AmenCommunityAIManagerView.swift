@@ -663,7 +663,11 @@ struct AmenCommunityAIManagerView: View {
                     QuestionRow(
                         question: question,
                         onReply: {
-                            // TODO: Navigate to DiscussionThreadView or DM composer for this question
+                            NotificationCenter.default.post(
+                                name: Notification.Name("AmenOpenDMComposer"),
+                                object: nil,
+                                userInfo: ["questionId": question.id, "prefillText": question.text]
+                            )
                         }
                     )
                     if index < questions.count - 1 {
@@ -696,10 +700,25 @@ struct AmenCommunityAIManagerView: View {
                     PrayerRequestRow(
                         request: request,
                         onPray: {
-                            // TODO: Record prayer action via CF or Firestore prayer log
+                            Task {
+                                let db = Firestore.firestore()
+                                let uid = Auth.auth().currentUser?.uid ?? ""
+                                guard !uid.isEmpty else { return }
+                                try? await db
+                                    .collection("spaces").document(spaceId)
+                                    .collection("prayerLog").document(request.id)
+                                    .setData(["prayedBy": FieldValue.arrayUnion([uid]),
+                                              "updatedAt": FieldValue.serverTimestamp()],
+                                             merge: true)
+                            }
                         },
                         onRespond: {
-                            // TODO: Navigate to DM composer pre-filled with request context
+                            NotificationCenter.default.post(
+                                name: Notification.Name("AmenOpenDMComposer"),
+                                object: nil,
+                                userInfo: ["requestId": request.id,
+                                           "prefillText": "Praying for you regarding: \(request.text)"]
+                            )
                         }
                     )
                     if index < requests.count - 1 {

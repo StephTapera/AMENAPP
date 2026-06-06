@@ -6,7 +6,7 @@
 //
 // Usage:
 //   AmenComposerLaunchButton(
-//       source: ComposerSource(type: .newPost, …),
+//       source: ComposerSource(type: .newPost, ...),
 //       label: "New Discussion",
 //       systemImage: "bubble.left.and.bubble.right"
 //   )

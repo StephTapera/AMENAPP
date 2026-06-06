@@ -66,8 +66,7 @@ struct AmenUploadScanGateView: View {
             VStack(spacing: 16) {
                 ProgressView()
                     .scaleEffect(1.3)
-                    .tint(Color(red: 0.851, green: 0.643, blue: 0.255)) // amenGold
-                    .accessibilityLabel("Scanning in progress")
+                    .tint(Color.accentColor)                    .accessibilityLabel("Scanning in progress")
 
                 Text("Checking upload for family safety\u{2026}")
                     .font(.system(size: 16, weight: .medium))
@@ -170,8 +169,7 @@ struct AmenUploadScanGateView: View {
                             .padding(.vertical, 14)
                             .background(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(Color(red: 0.851, green: 0.643, blue: 0.255)) // amenGold
-                            )
+                                    .fill(Color.accentColor)                            )
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Remove this content")
@@ -227,8 +225,7 @@ struct AmenUploadScanGateView: View {
                             .padding(.vertical, 14)
                             .background(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(Color(red: 0.851, green: 0.643, blue: 0.255)) // amenGold
-                            )
+                                    .fill(Color.accentColor)                            )
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Remove this content")

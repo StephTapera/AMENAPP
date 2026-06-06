@@ -28,7 +28,7 @@ struct VergeRoomView: View {
     @State private var elapsedSeconds     = 0
     @State private var latestAIInsight    = "Berean is analysing the conversation…"
 
-    private let bg         = Color(hex: "0A0A0F")
+    private let bg         = Color(.systemGroupedBackground)
     private let amenViolet = Color(hex: "C084FC")
 
     private var currentUID: String? { Auth.auth().currentUser?.uid }
@@ -47,11 +47,7 @@ struct VergeRoomView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             // Background gradient
-            LinearGradient(
-                colors: [Color(hex: "0A0A1A"), Color(hex: "0A0A0F")],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            Color(.systemGroupedBackground)
             .ignoresSafeArea()
 
             VStack(spacing: 0) {

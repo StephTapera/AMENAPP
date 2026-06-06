@@ -15,7 +15,7 @@ actor VoiceNoteService {
     private let functions = Functions.functions()
     private let storage = Storage.storage()
     private let remoteConfig = RemoteConfig.remoteConfig()
-    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_messaging_enabled").booleanValue }
+    private var isEnabled: Bool { remoteConfig.configValue(forKey: "integration_messaging_enabled").boolValue }
 
     struct TranscriptionResult {
         let storagePath: String

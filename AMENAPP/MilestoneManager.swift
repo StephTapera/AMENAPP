@@ -155,7 +155,7 @@ class MilestoneManager: ObservableObject {
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("🎉 First post milestone - navigate to post")
-                // TODO: Navigate to user's first post
+                NotificationCenter.default.post(name: Notification.Name("AmenNavigateTo"), object: "profile")
             },
             secondaryAction: {
                 dlog("👋 First post milestone dismissed")
@@ -195,7 +195,7 @@ class MilestoneManager: ObservableObject {
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("💜 Testimony milestone \(count) - view responses")
-                // TODO: Navigate to testimony engagements
+                NotificationCenter.default.post(name: Notification.Name("AmenNavigateTo"), object: "profile")
             },
             secondaryAction: {
                 dlog("👋 Testimony milestone dismissed")
@@ -215,7 +215,7 @@ class MilestoneManager: ObservableObject {
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("🙏 Prayer milestone \(count) - view prayers")
-                // TODO: Navigate to prayer responses
+                NotificationCenter.default.post(name: Notification.Name("AmenNavigateTo"), object: "inbox")
             },
             secondaryAction: {
                 dlog("👋 Prayer milestone dismissed")
@@ -237,7 +237,7 @@ class MilestoneManager: ObservableObject {
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("👥 Community milestone \(count) - view followers")
-                // TODO: Navigate to followers list
+                NotificationCenter.default.post(name: Notification.Name("AmenNavigateTo"), object: "profile")
             },
             secondaryAction: {
                 dlog("👋 Community milestone dismissed")

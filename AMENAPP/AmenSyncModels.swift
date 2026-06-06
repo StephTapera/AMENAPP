@@ -86,7 +86,6 @@ enum SyncPlatform: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .amenFeed:       return 1.0          // 1:1
         case .instagram:      return 1.0          // 1:1
-        case .instagramStory: return 9.0 / 16.0   // 9:16
         case .tiktok:         return 9.0 / 16.0   // 9:16
         case .youtube:        return 16.0 / 9.0   // 16:9
         case .youtubeShorts:  return 9.0 / 16.0   // 9:16
@@ -114,7 +113,6 @@ enum SyncPlatform: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .amenFeed:       return 2200
         case .instagram:      return 2200
-        case .instagramStory: return 300
         case .tiktok:         return 2200
         case .youtube:        return 5000
         case .youtubeShorts:  return 2200

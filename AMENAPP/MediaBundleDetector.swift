@@ -320,7 +320,7 @@ final class MediaBundleDetector {
     /// Returns items in the recommended display order for a given bundle type.
     ///
     /// Ordering strategies:
-    /// - `storySequence` / `eventRecap`: Chronological by `capturedAt`.
+    /// - `eventRecap`: Chronological by `capturedAt`.
     /// - `beforeAfter`: Earlier timestamp first.
     /// - `sermonHighlights`: Videos before photos; within videos, shortest first
     ///   (allows a quick hook clip to lead).

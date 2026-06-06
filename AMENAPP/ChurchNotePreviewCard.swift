@@ -574,7 +574,6 @@ struct ChurchNoteShareOptionsSheet: View {
     let note: ChurchNote
     @Environment(\.dismiss) var dismiss
     @State private var isSharingToOpenTable = false
-    @State private var showInstagramStory = false
 
     var body: some View {
         AmenOptionsSheet(
@@ -589,12 +588,6 @@ struct ChurchNoteShareOptionsSheet: View {
                 AmenQuickAction(title: "Share Text", systemImage: "doc.text") {
                     ChurchNotesShareHelper.shareNote(note, from: nil)
                     dismiss()
-                },
-                AmenQuickAction(title: "Instagram", systemImage: "camera.fill") {
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        showInstagramStory = true
-                    }
                 }
             ],
             sections: [
@@ -628,9 +621,6 @@ struct ChurchNoteShareOptionsSheet: View {
                 ])
             ]
         )
-        .fullScreenCover(isPresented: $showInstagramStory) {
-            AmenStoryShareView(content: .from(churchNote: note))
-        }
     }
 
     private func shareToOpenTable() {
@@ -661,7 +651,6 @@ struct FindChurchShareOptionsSheet: View {
     let church: Church
     @Environment(\.dismiss) var dismiss
     @State private var isSharingToOpenTable = false
-    @State private var showInstagramStory = false
 
     var body: some View {
         AmenOptionsSheet(
@@ -677,12 +666,6 @@ struct FindChurchShareOptionsSheet: View {
                 AmenQuickAction(title: "Directions", systemImage: "map") {
                     openDirections()
                     dismiss()
-                },
-                AmenQuickAction(title: "Instagram", systemImage: "camera.fill") {
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        showInstagramStory = true
-                    }
                 }
             ],
             sections: [
@@ -709,14 +692,6 @@ struct FindChurchShareOptionsSheet: View {
                 ])
             ]
         )
-        .fullScreenCover(isPresented: $showInstagramStory) {
-            AmenStoryShareView(content: .init(
-                label: church.denomination.isEmpty ? "Find a Church" : church.denomination,
-                bodyText: church.name,
-                metadata: church.shortServiceTime.isEmpty ? "" : "Service: \(church.shortServiceTime)",
-                showLogo: true
-            ))
-        }
     }
 
     private func shareChurchToOpenTable() {

@@ -8,7 +8,7 @@ struct BereanDocumentEditorView: View {
     let projectId: String
 
     @StateObject private var service = BereanLivingDocumentService.shared
-    @State private var body: String
+    @State private var documentBody: String
     @State private var isDirty = false
     @State private var isSaving = false
     @State private var showVersionHistory = false
@@ -21,15 +21,15 @@ struct BereanDocumentEditorView: View {
     init(document: BereanLivingDocument, projectId: String) {
         self.document = document
         self.projectId = projectId
-        _body = State(initialValue: document.body)
+        _documentBody = State(initialValue: document.body)
     }
 
     var body: some View {
-        TextEditor(text: $body)
+        TextEditor(text: $documentBody)
             .font(.body)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .onChange(of: body) { _ in isDirty = true }
+            .onChange(of: documentBody) { _ in isDirty = true }
             .onReceive(autoSaveTimer) { _ in
                 guard isDirty else { return }
                 Task { await performAutoSave() }
@@ -41,13 +41,13 @@ struct BereanDocumentEditorView: View {
                 VersionHistorySheet(
                     document: document,
                     projectId: projectId,
-                    currentBody: $body
+                    currentBody: $documentBody
                 )
             }
             .sheet(isPresented: $showAIRefine) {
                 AIRefineSheet(
                     document: document,
-                    currentBody: $body
+                    currentBody: $documentBody
                 )
             }
             .alert("Save Error", isPresented: $showSaveError, presenting: saveError) { _ in
@@ -118,7 +118,7 @@ struct BereanDocumentEditorView: View {
         do {
             try await service.updateDocument(
                 id: document.id,
-                body: body,
+                body: documentBody,
                 projectId: projectId,
                 changeNotes: "Auto-saved"
             )

@@ -342,13 +342,13 @@ final class AmenChurchService: ObservableObject {
             guard let campusId   = cd["id"] as? String,
                   let campusName = cd["name"] as? String else { return nil }
             let stData = cd["serviceTimes"] as? [[String: Any]] ?? []
-            let times: [ServiceTime] = stData.compactMap { st in
+            let times: [AmenServiceTime] = stData.compactMap { st in
                 guard let stId      = st["id"] as? String,
                       let dow       = st["dayOfWeek"] as? Int,
                       let start     = st["startTime"] as? String,
                       let styleRaw  = st["serviceStyle"] as? String,
                       let style     = ServiceStyle(rawValue: styleRaw) else { return nil }
-                return ServiceTime(
+                return AmenServiceTime(
                     id:           stId,
                     dayOfWeek:    dow,
                     startTime:    start,

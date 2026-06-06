@@ -75,11 +75,11 @@ struct BereanMentorPulseView: View {
 
     private var pulseContent: some View {
         ZStack {
-            Color(hex: "#0A0A0F").ignoresSafeArea()
+            Color(.systemGroupedBackground).ignoresSafeArea()
 
             if service.isLoading && service.myMentorships.isEmpty {
                 ProgressView("Loading mentee pulse...")
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(Color.secondary)
             } else {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -113,18 +113,18 @@ struct BereanMentorPulseView: View {
             HStack(spacing: 8) {
                 Image(systemName: "person.2.fill")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                 Text("YOUR MENTEES")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                     .tracking(2)
                 if menteeCount > 0 {
                     Text("\(menteeCount)")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color(hex: "#0A0A0F"))
+                        .foregroundStyle(Color(.systemGroupedBackground))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color(hex: "#C9A84C"), in: Capsule())
+                        .background(Color.accentColor, in: Capsule())
                         .accessibilityLabel("\(menteeCount) active mentees")
                 }
                 Spacer()
@@ -155,12 +155,12 @@ struct BereanMentorPulseView: View {
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: items.count)
 
                     Divider()
-                        .background(Color.white.opacity(0.08))
+                        .background(Color.separator)
                         .padding(.horizontal, 20)
                 }
             }
         }
-        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 16)
         .padding(.bottom, 20)
     }
@@ -178,10 +178,10 @@ struct BereanMentorPulseView: View {
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                 Text("UPCOMING SESSIONS")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                     .tracking(2)
                 Spacer()
             }
@@ -192,7 +192,7 @@ struct BereanMentorPulseView: View {
             if upcoming.isEmpty {
                 Text("No sessions in the next 7 days.")
                     .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.35))
+                    .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 16)
             } else {
@@ -204,12 +204,12 @@ struct BereanMentorPulseView: View {
                     .padding(.vertical, 10)
 
                     Divider()
-                        .background(Color.white.opacity(0.08))
+                        .background(Color.separator)
                         .padding(.horizontal, 20)
                 }
             }
         }
-        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 16)
     }
 }
@@ -238,11 +238,11 @@ struct MentorPulseItemRow: View {
         HStack(alignment: .center, spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color(hex: "#C9A84C").opacity(0.15))
+                    .fill(Color.accentColor.opacity(0.15))
                     .frame(width: 40, height: 40)
                 Text(initialsText)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
             }
             .accessibilityHidden(true)
 
@@ -250,9 +250,9 @@ struct MentorPulseItemRow: View {
                 HStack(spacing: 6) {
                     Text(item.menteeName)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: "#F5F0E8"))
+                        .foregroundStyle(Color.primary)
                     Text("·")
-                        .foregroundStyle(Color.white.opacity(0.25))
+                        .foregroundStyle(Color.secondary.opacity(0.5))
                     Text(item.signal.displayName)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(item.signal.color)
@@ -263,7 +263,7 @@ struct MentorPulseItemRow: View {
                     .lineLimit(2)
                 Text(relativeDateText)
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.35))
+                    .foregroundStyle(Color.secondary)
             }
 
             Spacer()
@@ -297,7 +297,7 @@ private struct UpcomingSessionRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(mentorship.menteeDisplayName)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                    .foregroundStyle(Color.primary)
                 Text(formattedDate)
                     .font(.system(size: 12))
                     .foregroundStyle(Color.white.opacity(0.5))
@@ -306,10 +306,10 @@ private struct UpcomingSessionRow: View {
             Button(action: onLogTap) {
                 Text("Log Session")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(hex: "#C9A84C"))
+                    .foregroundStyle(Color.accentColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .overlay(Capsule().strokeBorder(Color(hex: "#C9A84C").opacity(0.5), lineWidth: 1))
+                    .overlay(Capsule().strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 1))
             }
             .accessibilityLabel("Log session with \(mentorship.menteeDisplayName)")
         }
@@ -323,14 +323,14 @@ private struct BereanMentorEmptyPulseView: View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 32, weight: .ultraLight))
-                .foregroundStyle(Color(hex: "#C9A84C").opacity(0.6))
+                .foregroundStyle(Color.accentColor.opacity(0.6))
             Text("Your mentees are doing great!")
-                .font(.custom("Georgia", size: 18))
-                .foregroundStyle(Color(hex: "#F5F0E8"))
+                .font(.title3).bold()
+                .foregroundStyle(Color.primary)
                 .multilineTextAlignment(.center)
             Text("No items need your attention right now.")
                 .font(.system(size: 13))
-                .foregroundStyle(Color.white.opacity(0.35))
+                .foregroundStyle(Color.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(24)
@@ -346,19 +346,19 @@ struct BereanMentorshipFeaturePlaceholder: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "#0A0A0F").ignoresSafeArea()
+            Color(.systemGroupedBackground).ignoresSafeArea()
             VStack(spacing: 16) {
                 Image(systemName: icon)
                     .font(.system(size: 40, weight: .ultraLight))
-                    .foregroundStyle(Color(hex: "#C9A84C").opacity(0.6))
+                    .foregroundStyle(Color.accentColor.opacity(0.6))
                     .accessibilityHidden(true)
                 Text(message)
-                    .font(.custom("Georgia", size: 20))
-                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                    .font(.title2).bold()
+                    .foregroundStyle(Color.primary)
                     .multilineTextAlignment(.center)
                 Text(detail)
                     .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(Color.secondary)
                     .multilineTextAlignment(.center)
             }
             .padding(32)
@@ -387,44 +387,44 @@ struct LogSessionSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: "#0A0A0F").ignoresSafeArea()
+                Color(.systemGroupedBackground).ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Session with")
                                 .font(.system(size: 12))
-                                .foregroundStyle(Color.white.opacity(0.4))
+                                .foregroundStyle(Color.secondary)
                             Text(mentorship.menteeDisplayName)
-                                .font(.custom("Georgia", size: 22))
-                                .foregroundStyle(Color(hex: "#F5F0E8"))
+                                .font(.title2).bold()
+                                .foregroundStyle(Color.primary)
                             Text(mentorship.focus)
                                 .font(.system(size: 13))
-                                .foregroundStyle(Color(hex: "#C9A84C"))
+                                .foregroundStyle(Color.accentColor)
                         }
                         .padding(.horizontal, 24)
                         .padding(.top, 8)
 
                         Divider()
-                            .background(Color.white.opacity(0.08))
+                            .background(Color.separator)
                             .padding(.horizontal, 24)
 
                         // Notes field
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Session Notes")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color.white.opacity(0.7))
+                                .foregroundStyle(Color.secondary)
                                 .accessibilityAddTraits(.isHeader)
 
                             ZStack(alignment: .topLeading) {
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.white.opacity(0.05))
+                                    .fill(Color(.secondarySystemGroupedBackground))
                                     .frame(minHeight: 120)
 
                                 TextEditor(text: $notes)
                                     .scrollContentBackground(.hidden)
                                     .background(Color.clear)
-                                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                                    .foregroundStyle(Color.primary)
                                     .font(.system(size: 14))
                                     .padding(12)
                                     .frame(minHeight: 120)
@@ -432,7 +432,7 @@ struct LogSessionSheet: View {
                                 if notes.isEmpty {
                                     Text("What did you discuss? Key scripture, takeaways, follow-ups...")
                                         .font(.system(size: 14))
-                                        .foregroundStyle(Color.white.opacity(0.25))
+                                        .foregroundStyle(Color.secondary.opacity(0.5))
                                         .padding(16)
                                         .allowsHitTesting(false)
                                 }
@@ -446,19 +446,19 @@ struct LogSessionSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Duration")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color.white.opacity(0.7))
+                                .foregroundStyle(Color.secondary)
                                 .accessibilityAddTraits(.isHeader)
 
                             HStack {
                                 Text("\(durationMinutes) minutes")
                                     .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(Color(hex: "#F5F0E8"))
+                                    .foregroundStyle(Color.primary)
                                 Spacer()
                                 Stepper(value: $durationMinutes, in: durationMin...durationMax, step: durationStep) {
                                     EmptyView()
                                 }
                                 .labelsHidden()
-                                .tint(Color(hex: "#C9A84C"))
+                                .tint(Color.accentColor)
                                 .accessibilityLabel("Session duration, \(durationMinutes) minutes")
                                 .accessibilityAdjustableAction { direction in
                                     switch direction {
@@ -469,7 +469,7 @@ struct LogSessionSheet: View {
                                 }
                             }
                             .padding(16)
-                            .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                         }
                         .padding(.horizontal, 24)
 
@@ -479,16 +479,16 @@ struct LogSessionSheet: View {
                         } label: {
                             ZStack {
                                 if isLogging {
-                                    ProgressView().tint(Color(hex: "#0A0A0F"))
+                                    ProgressView().tint(Color(.systemGroupedBackground))
                                 } else {
                                     Text(didLog ? "Logged!" : "Log Session")
                                         .font(.system(size: 16, weight: .semibold))
-                                        .foregroundStyle(Color(hex: "#0A0A0F"))
+                                        .foregroundStyle(Color(.systemGroupedBackground))
                                 }
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
-                            .background(Color(hex: "#C9A84C"), in: RoundedRectangle(cornerRadius: 14))
+                            .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
                         }
                         .disabled(isLogging || notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .padding(.horizontal, 24)
@@ -504,7 +504,7 @@ struct LogSessionSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.white.opacity(0.6))
+                        .foregroundStyle(Color.secondary)
                         .accessibilityLabel("Cancel logging session")
                 }
             }

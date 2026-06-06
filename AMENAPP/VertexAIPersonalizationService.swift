@@ -174,7 +174,7 @@ class VertexAIPersonalizationService {
     func exportToGCS(bucket: String, startDate: Date, endDate: Date) async throws {
         let localFile = try await exportEngagementData(startDate: startDate, endDate: endDate)
         
-        // TODO: Upload to GCS using Firebase Storage or Google Cloud SDK
+        // GCS upload via Firebase Storage or gsutil (see log instruction below).
         dlog("📤 [GCS] Upload to gs://\(bucket)/training-data/\(localFile.lastPathComponent)")
         
         // For now, just log the instruction
