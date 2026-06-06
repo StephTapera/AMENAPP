@@ -37,7 +37,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.updateChurchLiveSignals = exports.syncYouTubeChurchStreams = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = void 0;
-exports.registerMediaProvenance = void 0;
+exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.registerMediaProvenance = void 0;
 const admin = __importStar(require("firebase-admin"));
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -492,4 +492,49 @@ __exportStar(require("./spaces/monetizationExt"), exports);
 __exportStar(require("./spaces/discoveryAndLegal"), exports);
 __exportStar(require("./spaces/mentorship"), exports);
 __exportStar(require("./spaces/discussionAI"), exports);
+// Living Intelligence — GLOBAL Tier (Agent 5: World Events as Christian Response)
+// Callables: getGlobalIntelligenceCards, submitWorldEvent
+// Utilities: generateWorldResponse (worldResponseEngine), buildGlobalCard (globalCardBuilder)
+// Rules enforced: source required, DEVELOPING never top, lament frame for disaster/conflict/persecution,
+//   actions restricted to PRAY | GIVE | SHOW_UP | DISCUSS, fail-closed on AI unavailability.
+var worldEventsFunctions_1 = require("./intelligence/worldEventsFunctions");
+Object.defineProperty(exports, "getGlobalIntelligenceCards", { enumerable: true, get: function () { return worldEventsFunctions_1.getGlobalIntelligenceCards; } });
+Object.defineProperty(exports, "submitWorldEvent", { enumerable: true, get: function () { return worldEventsFunctions_1.submitWorldEvent; } });
+var worldResponseEngine_1 = require("./intelligence/worldResponseEngine");
+Object.defineProperty(exports, "generateWorldResponse", { enumerable: true, get: function () { return worldResponseEngine_1.generateWorldResponse; } });
+var globalCardBuilder_1 = require("./intelligence/globalCardBuilder");
+Object.defineProperty(exports, "buildGlobalCard", { enumerable: true, get: function () { return globalCardBuilder_1.buildGlobalCard; } });
+// Living Intelligence — Church Pulse Subsystem
+// Scheduled: refreshChurchPulses (every 6 hours, verified churches only)
+// Callable: getChurchPulseForUser — auth required, returns ChurchPulseData
+// Callable: buildChurchPulseCard — auth required, returns IntelligenceCard shape
+// Writes: church_pulse/{churchId} — server-write-only, no fabricated scores
+// Built: 2026-06-05
+__exportStar(require("./intelligence/churchPulseFunctions"), exports);
+// Living Intelligence — Core Engine (Agent 1)
+// amenRouting.ts:       callModel abstraction + moderateContent (fail-closed)
+// formationGovernor.ts: enforces all FORMATION_INVARIANTS synchronously
+// rankingEngine.ts:     Ranking Brain — computes rankScore + rankReasons per card
+// opportunityGraph.ts:  OpportunityNode store + supply↔demand matcher
+// digestBuilder.ts:     Scheduled 2x/day digest builder + admin manual trigger
+//
+// Scheduled: buildIntelligenceBriefs (every 12 hours)
+// Callable:  triggerIntelligenceBriefForUser (admin-only, testing/manual trigger)
+// Writes:    intelligence_cards/{cardId}, users/{uid}/intelligence_brief/current
+// Built: 2026-06-05
+var digestBuilder_1 = require("./intelligence/digestBuilder");
+Object.defineProperty(exports, "buildIntelligenceBriefs", { enumerable: true, get: function () { return digestBuilder_1.buildIntelligenceBriefs; } });
+Object.defineProperty(exports, "triggerIntelligenceBriefForUser", { enumerable: true, get: function () { return digestBuilder_1.triggerIntelligenceBriefForUser; } });
+// Living Intelligence — Agent 3: Event Matching + Prayer Graph + Need Detection
+// Built: 2026-06-05
+// Callables: matchEventsForUser, matchPrayerSupport, classifyPostNeed, matchNeedsToVolunteers
+// Triggers: onPrayerCreated (classifies prayerNeedType on new prayers)
+var eventMatcher_1 = require("./intelligence/eventMatcher");
+Object.defineProperty(exports, "matchEventsForUser", { enumerable: true, get: function () { return eventMatcher_1.matchEventsForUser; } });
+var prayerGraphService_1 = require("./intelligence/prayerGraphService");
+Object.defineProperty(exports, "matchPrayerSupport", { enumerable: true, get: function () { return prayerGraphService_1.matchPrayerSupport; } });
+Object.defineProperty(exports, "onPrayerCreated", { enumerable: true, get: function () { return prayerGraphService_1.onPrayerCreated; } });
+var needDetector_1 = require("./intelligence/needDetector");
+Object.defineProperty(exports, "classifyPostNeed", { enumerable: true, get: function () { return needDetector_1.classifyPostNeed; } });
+Object.defineProperty(exports, "matchNeedsToVolunteers", { enumerable: true, get: function () { return needDetector_1.matchNeedsToVolunteers; } });
 //# sourceMappingURL=index.js.map

@@ -755,7 +755,11 @@ struct ContentView: View {
         }
         // Camera OS — full-screen camera capture, intent selection, and safety review flow.
         .fullScreenCover(isPresented: $showCameraOS) {
-            AmenCameraOSHubView()
+            AmenCameraOSHubView(
+                onMediaCaptured: { _, _ in showCameraOS = false },
+                onPrayerCaptured: { _ in showCameraOS = false },
+                onDismiss: { showCameraOS = false }
+            )
         }
         // Berean Conversion Menu — convert a Berean AI capture into a post, prayer, study, etc.
         .sheet(isPresented: $showBereanConversionMenu) {

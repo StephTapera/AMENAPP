@@ -1378,27 +1378,13 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // /intelligence_cards/{cardId}
-    // Living Intelligence — card feed governance
-    // Server-write-only (CF Admin SDK). Clients may only read.
-    // Formation governor enforces: finite brief, no spectacle counters,
-    // DEVELOPING never top-ranked, every card has verified backing entity.
+    // /worldResponseSources/{sourceId}
+    // Trusted source registry for GLOBAL intelligence cards — read by CF only.
+    // Seeded once via seedWorldResponseSources callable (admin only).
     // Added 2026-06-06 — Living Intelligence build
     // =========================================================================
 
-    match /intelligence_cards/{cardId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if false; // CF Admin SDK only
-    }
-
-    // =========================================================================
-    // /opportunity_graph/{opportunityId}
-    // Community opportunity graph — computed server-side from church/event/need data
-    // Server-write-only. Clients read only.
-    // Added 2026-06-06 — Living Intelligence build
-    // =========================================================================
-
-    match /opportunity_graph/{opportunityId} {
+    match /worldResponseSources/{sourceId} {
       allow read: if isSignedIn();
       allow create, update, delete: if false; // CF Admin SDK only
     }

@@ -155,7 +155,7 @@ struct AMENAPPApp: App {
         settings.minimumFetchInterval = 3600 // Fetch at most once per hour
         remoteConfig.configSettings = settings
         
-        remoteConfig.fetch { status, error in
+        remoteConfig.fetch(completionHandler: { status, error in
             if status == .success {
                 remoteConfig.activate { _, _ in
                     dlog("✅ Remote Config activated - AI features enabled")
@@ -167,14 +167,15 @@ struct AMENAPPApp: App {
                     dlog("⚠️ Remote Config fetch failed: status=\(status.rawValue)")
                 }
                 // Retry once after 60 s; app runs on cached defaults in the meantime.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
-                    remoteConfig.fetch { retryStatus, _ in
+                let retryItem = DispatchWorkItem {
+                    remoteConfig.fetch(completionHandler: { retryStatus, _ in
                         guard retryStatus == .success else { return }
                         remoteConfig.activate(completionHandler: nil)
-                    }
+                    })
                 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: retryItem)
             }
-        }
+        })
     }
     
     /// Automatically migrate users to add search keywords (runs once)

@@ -335,7 +335,7 @@ struct BereanProfileSheet: View {
 
     private var glassCircle: some View {
         Circle()
-            .fill(reduceTransparency ? Color(.systemBackground) : .ultraThinMaterial)
+            .fill(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(.ultraThinMaterial))
             .overlay(Circle().fill(Color.white.opacity(0.52)))
             .overlay(Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 2)

@@ -105,7 +105,7 @@ struct BereanMenuSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(reduceTransparency ? bgColor : .ultraThinMaterial)
+        .presentationBackground(reduceTransparency ? AnyShapeStyle(bgColor) : AnyShapeStyle(.ultraThinMaterial))
     }
 
     // MARK: - Toolbar
@@ -292,7 +292,7 @@ struct BereanMenuSheet: View {
             .frame(width: 36, height: 36)
             .background(
                 Circle()
-                    .fill(reduceTransparency ? Color(.systemBackground) : .ultraThinMaterial)
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(.ultraThinMaterial))
                     .overlay(Circle().fill(Color.white.opacity(0.52)))
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
