@@ -25,7 +25,7 @@ final class EventKitCalendarAdapter: ProviderAdapter {
 
     func refresh() async throws {
         let status = EKEventStore.authorizationStatus(for: .event)
-        authorized = (status == .fullAccess || status == .authorized)
+        authorized = (status == .fullAccess)
     }
 
     func revoke() async throws {
@@ -57,7 +57,7 @@ final class EventKitCalendarAdapter: ProviderAdapter {
     func health() async -> ProviderHealthStatus {
         let status = EKEventStore.authorizationStatus(for: .event)
         switch status {
-        case .fullAccess, .authorized: return .healthy
+        case .fullAccess:               return .healthy
         case .denied, .restricted:     return .unauthorized
         default:                        return .unavailable
         }

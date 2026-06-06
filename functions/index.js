@@ -994,11 +994,18 @@ exports.reviewAppeal = reviewAppeal;
 // NCMEC CYBERTIPLINE — mandatory CSAM reporting pipeline (18 U.S.C. § 2258A)
 //   onCSAMDetected: Firestore trigger on ncmecSubmissionQueue/{entryId}
 //     -> FCM alert to all admin users + moderatorAlerts write
+//   flagForNCMECReview: callable (trust_safety_admin/admin): manually flag content;
+//     deletes Storage media + writes mandatory_reports + alerts trust_safety_admin users
+//   onModerationRequiresMandatoryReport: Firestore trigger on moderationResults/{docId};
+//     fires when requiresMandatoryReport transitions to true:
+//     deletes Storage media + writes mandatory_reports + alerts trust_safety_admin users
 //   fileNCMECReport: internal helper called by imageModeration.js on confirmed blocks
-// Deploy: firebase deploy --only functions:onCSAMDetected --project amen-5e359
+// Deploy: firebase deploy --only functions:onCSAMDetected,flagForNCMECReview,onModerationRequiresMandatoryReport --project amen-5e359
 // ============================================================================
 const ncmecReporter = require("./ncmecReporter");
 exports.onCSAMDetected = ncmecReporter.onCSAMDetected;
+exports.flagForNCMECReview = ncmecReporter.flagForNCMECReview;
+exports.onModerationRequiresMandatoryReport = ncmecReporter.onModerationRequiresMandatoryReport;
 
 // ============================================================================
 // AI SAFETY REPORTS — User-facing report pipeline for unsafe AI responses (C-04)
@@ -1476,3 +1483,100 @@ exports.seedWorldResponseSources = seedWorldResponseSources;
 // DO NOT require("./v2intelligenceFunctions") here — it imports v2/scheduler
 // which would contaminate this Gen-1 file with v2 settings.
 // See functions/v2triggers/ and functions/v2entry.js for the deployment path.
+
+// ============================================================================
+// BIBLICAL ALIGNMENT — Claim-check, AI correction, discernment
+//   checkBiblicalAlignment — callable: score a post/comment against scripture
+//   suggestBiblicalRewrite — callable: draft-only AI rewrite toward alignment
+//   saveAICorrection       — callable: user accepts/rejects an AI suggestion
+//   getDiscernmentPrompt   — callable: contextual prayer/discernment prompt
+// Deploy: firebase deploy --only functions:checkBiblicalAlignment,suggestBiblicalRewrite,saveAICorrection,getDiscernmentPrompt --project amen-5e359
+// ============================================================================
+const biblicalAlignment = require("./biblicalAlignmentFunctions");
+exports.checkBiblicalAlignment = biblicalAlignment.checkBiblicalAlignment;
+exports.suggestBiblicalRewrite = biblicalAlignment.suggestBiblicalRewrite;
+exports.saveAICorrection       = biblicalAlignment.saveAICorrection;
+exports.getDiscernmentPrompt   = biblicalAlignment.getDiscernmentPrompt;
+
+// ============================================================================
+// ALIGNMENT PIPELINE — Shared knowledge integrity + weekly summary
+//   attachSharedKnowledgeIntegrity — callable: attach integrity metadata to post
+//   voteKnowledgeIntegrity         — callable: community vote on shared knowledge
+//   getWeeklyAlignmentSummary      — callable: user's 7-day alignment report
+//   updateAlignmentProfile         — callable: recalculate user alignment profile
+// Note: generateWeeklyAlignmentSummary is an onSchedule trigger — deploy via v2entry.js
+// Deploy: firebase deploy --only functions:attachSharedKnowledgeIntegrity,voteKnowledgeIntegrity,getWeeklyAlignmentSummary,updateAlignmentProfile --project amen-5e359
+// ============================================================================
+const alignmentPipeline = require("./alignmentPipeline");
+exports.attachSharedKnowledgeIntegrity = alignmentPipeline.attachSharedKnowledgeIntegrity;
+exports.voteKnowledgeIntegrity         = alignmentPipeline.voteKnowledgeIntegrity;
+exports.getWeeklyAlignmentSummary      = alignmentPipeline.getWeeklyAlignmentSummary;
+exports.updateAlignmentProfile         = alignmentPipeline.updateAlignmentProfile;
+
+// ============================================================================
+// MEDIA PROVENANCE — Content authenticity trail
+//   registerMediaProvenance — callable: register provenance for uploaded media
+//   getPostProvenance       — callable: fetch provenance chain for a post
+// Deploy: firebase deploy --only functions:registerMediaProvenance,getPostProvenance --project amen-5e359
+// ============================================================================
+const provenanceFunctions = require("./provenanceFunctions");
+exports.registerMediaProvenance = provenanceFunctions.registerMediaProvenance;
+exports.getPostProvenance       = provenanceFunctions.getPostProvenance;
+
+// ============================================================================
+// AI DISCLOSURE — Transparency labels for AI-generated content
+//   registerAIDisclosure   — callable: record AI disclosure for generated content
+//   getAIDisclosureDetails — callable: fetch disclosure metadata for a post/comment
+// Deploy: firebase deploy --only functions:registerAIDisclosure,getAIDisclosureDetails --project amen-5e359
+// ============================================================================
+const aiDisclosureFunctions = require("./aiDisclosureFunctions");
+exports.registerAIDisclosure   = aiDisclosureFunctions.registerAIDisclosure;
+exports.getAIDisclosureDetails = aiDisclosureFunctions.getAIDisclosureDetails;
+
+// ============================================================================
+// CONTENT REPORTING — User-initiated content reports
+//   reportContent — callable: submit a report for a post, comment, or profile
+// Deploy: firebase deploy --only functions:reportContent --project amen-5e359
+// ============================================================================
+const reportFunctions = require("./reportFunctions");
+exports.reportContent = reportFunctions.reportContent;
+
+// ============================================================================
+// PUBLISH PIPELINE — Trust-gated post publishing
+//   publishPostWithTrustGates — callable: run trust checks before finalizing publish
+// Deploy: firebase deploy --only functions:publishPostWithTrustGates --project amen-5e359
+// ============================================================================
+const publishPipelineFunctions = require("./publishPipelineFunctions");
+exports.publishPostWithTrustGates = publishPipelineFunctions.publishPostWithTrustGates;
+
+// ============================================================================
+// DISCOVERY TRANSPARENCY — Why Seeing This
+//   getDiscoveryReasons — callable: returns ranked reasons a post appeared in feed
+// Deploy: firebase deploy --only functions:getDiscoveryReasons --project amen-5e359
+// ============================================================================
+const discoveryTransparencyFunctions = require("./discoveryTransparencyFunctions");
+exports.getDiscoveryReasons = discoveryTransparencyFunctions.getDiscoveryReasons;
+
+// ============================================================================
+// SPATIAL MESSAGES — Shared viewing rooms + anchored replies
+//   createSharedViewingRoom — callable: create a co-viewing session for a media item
+//   joinSharedViewingRoom   — callable: join an active shared viewing room
+//   leaveSharedViewingRoom  — callable: leave / clean up a shared viewing room
+//   postAnchoredReply       — callable: post a reply anchored to a media timestamp
+// Deploy: firebase deploy --only functions:createSharedViewingRoom,joinSharedViewingRoom,leaveSharedViewingRoom,postAnchoredReply --project amen-5e359
+// ============================================================================
+const spatialMessagesFunctions = require("./spatialMessagesFunctions");
+exports.createSharedViewingRoom = spatialMessagesFunctions.createSharedViewingRoom;
+exports.joinSharedViewingRoom   = spatialMessagesFunctions.joinSharedViewingRoom;
+exports.leaveSharedViewingRoom  = spatialMessagesFunctions.leaveSharedViewingRoom;
+exports.postAnchoredReply       = spatialMessagesFunctions.postAnchoredReply;
+
+// ============================================================================
+// 242 HUB — Covenant application review + Kingdom Commerce matching
+//   reviewCovenantApp  — callable (pastor/admin): review a covenant membership application
+//   matchKingdomCommerce — callable: match user's spiritual gifts to commerce opportunities
+// Deploy: firebase deploy --only functions:reviewCovenantApp,matchKingdomCommerce --project amen-5e359
+// ============================================================================
+const hub242 = require("./242hub");
+exports.reviewCovenantApp    = hub242.reviewCovenantApp;
+exports.matchKingdomCommerce = hub242.matchKingdomCommerce;

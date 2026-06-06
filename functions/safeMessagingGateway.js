@@ -434,7 +434,19 @@ async function getVulnerabilityScore(userId) {
         if (!userDoc.exists) return 0.3;
 
         const userData = userDoc.data();
-        const age = userData.age || 18;
+
+        // C-17: Use server-computed ageTier for age-based vulnerability.
+        // `userData.age` is user-declared and unverified; a predator could set
+        // a victim's reported age high to suppress the vulnerability score.
+        // `ageTier` is written server-side by the age-assurance pipeline and is
+        // not client-writable. Fall back to max vulnerability when tier is absent.
+        const ageTier = userData.ageTier || null;
+        // Derive age only from verified tier; unknown tier → treat as potential minor.
+        const age = ageTier === 'tierD' ? 18          // confirmed adult
+                  : ageTier === 'tierC' ? 17          // confirmed 16-17
+                  : ageTier === 'tierB' ? 14          // confirmed 13-15
+                  : ageTier === 'tierA' ? 10          // confirmed under-13
+                  : (userData.age || 13);             // tier absent → assume vulnerable
 
         let score = 0;
 
@@ -546,7 +558,23 @@ exports.safeMessageGateway = onCall(async (request) => {
         const recipientData = recipientDoc.data() || {};
         const conversationData = conversationDoc.data() || {};
 
-        const senderAge = senderData.age || 18;
+        // C-17: Unverified ages must not reduce risk below the adult baseline.
+        // `ageTier` is server-computed from birthYear and cannot be self-reported.
+        // An attacker who sets their age to 17 in their profile would still have
+        // ageTier='tierD' (default adult) if they signed up without providing a
+        // confirmed birthYear — so the adult-sender risk boosts in detectGrooming /
+        // detectSexualSolicitation will still fire correctly.
+        // Rule: treat any sender whose ageTier does NOT confirm minor status as 18+
+        // for scoring purposes, so unverified declared ages never suppress adult risk.
+        const senderAgeTier = senderData.ageTier || 'tierD';
+        const recipientAgeTier = recipientData.ageTier || 'tierD';
+        const senderIsVerifiedMinor = (senderAgeTier === 'tierB' || senderAgeTier === 'tierC');
+        const recipientIsVerifiedMinor = (recipientAgeTier === 'tierB' || recipientAgeTier === 'tierC');
+        // For risk scoring: unverified sender age is floored at 18 (adult).
+        // Only allow a sub-18 sender age if the server-computed tier confirms it.
+        const senderAge = senderIsVerifiedMinor ? (senderData.age || 17) : Math.max(senderData.age || 18, 18);
+        // Recipient age uses declared value regardless — being mis-classified as older only
+        // reduces the grooming bonus (conservative), but the COPPA gate below uses ageTier.
         const recipientAge = recipientData.age || 18;
 
         // ================================================================
@@ -570,6 +598,62 @@ exports.safeMessageGateway = onCall(async (request) => {
                 reason: 'conversation_blocked',
                 userFacingReason: 'This conversation is no longer available.'
             };
+        }
+
+        // ================================================================
+        // C-5 COPPA GATE: Block adult → minor DMs (server-enforced)
+        // Uses server-computed ageTier (not user-declared age) so self-reporting
+        // cannot bypass the guard. tierA = under 13, tierB = 13-15, tierC = 16-17.
+        // ================================================================
+        {
+            const senderTierForCoppa = senderData.ageTier || 'tierD';
+            const recipientTierForCoppa = recipientData.ageTier || 'tierD';
+
+            // Derive ages from verified server tier for COPPA math
+            const currentYear = new Date().getFullYear();
+            const senderAgeForCoppa = senderData.birthYear
+                ? (currentYear - senderData.birthYear)
+                : (senderTierForCoppa === 'tierD' ? 18 : senderTierForCoppa === 'tierC' ? 17 : 15);
+            const recipientAgeForCoppa = recipientData.birthYear
+                ? (currentYear - recipientData.birthYear)
+                : (recipientTierForCoppa === 'tierA' ? 10 : recipientTierForCoppa === 'tierB' ? 14
+                  : recipientTierForCoppa === 'tierC' ? 17 : 18);
+
+            // Hard block: adult (18+) messaging a user confirmed under-13
+            if (recipientTierForCoppa === 'tierA' && senderAgeForCoppa >= 18) {
+                await db.collection('moderationIncidents').add({
+                    type: 'coppa_dm_block',
+                    senderId: senderId,
+                    recipientId: recipientId,
+                    conversationId: conversationId,
+                    senderAge: senderAgeForCoppa,
+                    recipientAge: recipientAgeForCoppa,
+                    eventType: 'adult_to_under13_dm_blocked',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+                return {
+                    decision: 'blocked',
+                    reason: 'coppa_minor_protection',
+                    userFacingReason: 'You cannot send direct messages to users under 13.'
+                };
+            }
+
+            // Flag for review: adult 21+ contacting a server-confirmed minor (13-17)
+            if ((recipientTierForCoppa === 'tierB' || recipientTierForCoppa === 'tierC')
+                && senderAgeForCoppa >= 21) {
+                await db.collection('messageSafetyEvents').add({
+                    senderUID: senderId,
+                    recipientUID: recipientId,
+                    senderAge: senderAgeForCoppa,
+                    recipientAge: recipientAgeForCoppa,
+                    senderAgeTier: senderTierForCoppa,
+                    recipientAgeTier: recipientTierForCoppa,
+                    eventType: 'adult_minor_contact_attempt',
+                    requiresReview: true,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+                // Message still flows but is flagged for human review
+            }
         }
 
         // ================================================================

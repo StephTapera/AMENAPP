@@ -80,7 +80,7 @@ struct CreatorCoverFrameScrubber: View {
 
     private func generatePreviewImage() async -> Image? {
         await withCheckedContinuation { continuation in
-            let asset = AVAsset(url: videoURL)
+            let asset = AVURLAsset(url: videoURL)
             let generator = AVAssetImageGenerator(asset: asset)
             generator.appliesPreferredTrackTransform = true
             let time = CMTime(seconds: Double(frameTimeMs) / 1000, preferredTimescale: 600)

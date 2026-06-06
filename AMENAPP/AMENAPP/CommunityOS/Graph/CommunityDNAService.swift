@@ -107,7 +107,9 @@ actor CommunityDNAService {
         // Update in-memory cache
         cache[userId] = (profile: profile, fetchedAt: Date())
 
-        dlog("[CommunityDNAService] DNA refreshed for \(userId) — primary: \(profile.primaryAffinity?.displayName ?? "none")")
+        let primaryTopic = profile.primaryAffinity
+        let primaryName = primaryTopic?.displayName ?? "none"
+        dlog("[CommunityDNAService] DNA refreshed for \(userId) — primary: \(primaryName)")
         return profile
     }
 
@@ -149,7 +151,7 @@ actor CommunityDNAService {
 
     /// Returns the average of up to three optional Double values,
     /// ignoring nil entries. Returns 0 if all are nil.
-    private func averaged(_ values: Double?...) -> Double {
+    nonisolated private func averaged(_ values: Double?...) -> Double {
         let present = values.compactMap { $0 }
         guard !present.isEmpty else { return 0.0 }
         return present.reduce(0, +) / Double(present.count)

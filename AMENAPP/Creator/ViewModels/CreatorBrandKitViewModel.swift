@@ -7,7 +7,7 @@ final class CreatorBrandKitViewModel: ObservableObject {
 
     private let brandKitService: CreatorBrandKitServicing
 
-    init(brandKitService: CreatorBrandKitServicing = CreatorBrandKitService()) {
+    @MainActor init(brandKitService: CreatorBrandKitServicing = CreatorBrandKitService()) {
         self.brandKitService = brandKitService
     }
 

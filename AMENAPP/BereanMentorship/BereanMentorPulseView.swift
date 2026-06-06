@@ -4,6 +4,7 @@
 // Swift 6, iOS 18+, SwiftUI.
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Root view
 
@@ -522,6 +523,12 @@ struct LogSessionSheet: View {
                 durationMinutes: durationMinutes
             )
             didLog = true
+            if let uid = Auth.auth().currentUser?.uid {
+                await MentorshipIntelligenceService.shared.sessionCompleted(
+                    mentorshipId: mentorship.id,
+                    uid: uid
+                )
+            }
             try? await Task.sleep(for: .milliseconds(800))
             dismiss()
         } catch {

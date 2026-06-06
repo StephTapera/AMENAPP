@@ -1028,8 +1028,21 @@ public class FirebaseMessagingService: ObservableObject {
             
             // Check recipient's privacy settings from Firestore
             let userDoc = try await db.collection("users").document(userId).getDocument()
-            let allowMessages = userDoc.data()?["allowMessagesFromEveryone"] as? Bool ?? true
-            
+            let recipientData = userDoc.data() ?? [:]
+            let allowMessages = recipientData["allowMessagesFromEveryone"] as? Bool ?? true
+
+            // COPPA: block DMs to recipients flagged as under-13
+            if recipientData["isMinor"] as? Bool == true {
+                throw FirebaseMessagingError.permissionDenied
+            }
+            // Secondary COPPA check via birthYear when isMinor flag is absent
+            if let birthYear = recipientData["birthYear"] as? Int {
+                let currentYear = Calendar.current.component(.year, from: Date())
+                if currentYear - birthYear < 13 {
+                    throw FirebaseMessagingError.permissionDenied
+                }
+            }
+
             // Determine conversation status — anyone can message anyone by default;
             // only block if recipient has explicitly disabled messages from everyone.
             let conversationStatus: String

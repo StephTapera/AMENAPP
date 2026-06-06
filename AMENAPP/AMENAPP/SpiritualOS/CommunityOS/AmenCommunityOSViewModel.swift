@@ -1,11 +1,13 @@
 // AmenCommunityOSViewModel.swift — AMEN App / Spiritual OS
 // Community OS — production surface for space leaders.
 // Gated by AppStorage flag `spiritualOS_community_os_enabled` (default OFF).
-// Calls `computeCommunityHealth` Cloud Function for AI-driven pastoral insights.
+// Health score is derived locally from space engagement stats.
+// Deep AI pastoral insights are written by the scheduled Cloud Function
+// `generateCongregationHealthReport` to communities/{id}/insights/weekly_{weekId}
+// and can be surfaced here once the communityId↔spaceId mapping is confirmed.
 
 import Foundation
 import FirebaseFirestore
-import FirebaseFunctions
 import SwiftUI
 
 // MARK: - CommunityHealthTrend
@@ -58,7 +60,6 @@ final class AmenCommunityOSViewModel: ObservableObject {
 
     private let spaceId: String
     private let db = Firestore.firestore()
-    private let functions = Functions.functions()
 
     // MARK: Init
 
@@ -73,10 +74,9 @@ final class AmenCommunityOSViewModel: ObservableObject {
         isLoading = true
         loadError = nil
 
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.loadSpaceStats() }
-            group.addTask { await self.loadHealthFromCF() }
-        }
+        // loadSpaceStats must complete first — loadHealthFromCF reads its results.
+        await loadSpaceStats()
+        await loadHealthFromCF()
 
         isLoading = false
     }
@@ -104,30 +104,23 @@ final class AmenCommunityOSViewModel: ObservableObject {
     }
 
     private func loadHealthFromCF() async {
-        let payload: [String: Any] = ["spaceId": spaceId]
-        do {
-            let result = try await functions
-                .httpsCallable("computeCommunityHealth")
-                .call(payload)
+        // Derive health score from local engagement stats.
+        // `generateCongregationHealthReport` is a scheduled Cloud Function (not a
+        // callable) that writes results to communities/{communityId}/insights/.
+        // Until the communityId↔spaceId mapping is wired, compute the score here.
+        let engagementRate = totalMembers > 0
+            ? Double(weeklyActiveMembers) / Double(totalMembers)
+            : 0.0
+        healthScore = min(100, Int(engagementRate * 100))
 
-            guard let data = result.data as? [String: Any] else { return }
-
-            healthScore = data["healthScore"] as? Int ?? 0
-
-            if let trendRaw = data["trend"] as? String,
-               let trend = CommunityHealthTrend(rawValue: trendRaw) {
-                healthTrend = trend
-            }
-
-            if let insights = data["insights"] as? [String] {
-                bereanInsights = Array(insights.prefix(4))
-            }
-        } catch {
-            // CF not yet deployed — fall back to local heuristic score
-            let engagementRate = totalMembers > 0
-                ? Double(weeklyActiveMembers) / Double(totalMembers)
-                : 0.0
-            healthScore = min(100, Int(engagementRate * 100))
+        // Derive a simple trend heuristic from the engagement rate.
+        // The scheduled CF writes a richer trend to Firestore; this is a local proxy.
+        if engagementRate > 0.5 {
+            healthTrend = .growing
+        } else if engagementRate < 0.2 {
+            healthTrend = .declining
+        } else {
+            healthTrend = .stable
         }
     }
 }

@@ -1083,6 +1083,106 @@ exports.deleteAccount = onCall(
         console.warn("Storage cleanup partial:", e);
       }
 
+      // C-13 FIX: Cancel future events owned by this user and notify attendees.
+      try {
+        const now = admin.firestore.Timestamp.now();
+        const ownedEventsSnap = await db
+            .collection("faithEvents")
+            .where("organizerId", "==", uid)
+            .where("startDate", ">", now)
+            .get();
+
+        await Promise.all(
+            ownedEventsSnap.docs.map(async (eventDoc) => {
+              const eventId = eventDoc.id;
+              const eventData = eventDoc.data();
+
+              // Soft-delete the event
+              await eventDoc.ref.update({
+                isDeleted: true,
+                cancellationReason: "Organizer account deleted",
+                cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+
+              // Notify all RSVPs for this event
+              const rsvpsSnap = await db
+                  .collection("eventRSVPs")
+                  .where("eventId", "==", eventId)
+                  .get();
+
+              await Promise.all(
+                  rsvpsSnap.docs.map(async (rsvpDoc) => {
+                    const attendeeUid = rsvpDoc.data().userId;
+                    if (!attendeeUid || attendeeUid === uid) return;
+                    await db
+                        .collection("users")
+                        .doc(attendeeUid)
+                        .collection("notifications")
+                        .add({
+                          type: "event_cancelled",
+                          eventId,
+                          eventTitle: eventData.title || "",
+                          reason: "Organizer account deleted",
+                          read: false,
+                          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+                  }),
+              );
+            }),
+        );
+      } catch (evtErr) {
+        // Log but do not abort account deletion — event cancellation is best-effort.
+        console.error(`[deleteAccount] Event cancellation error for uid=${uid}:`, evtErr.message);
+      }
+
+      // C-14 FIX: Handle church ownership when the pastor/owner deletes their account.
+      try {
+        const ownedChurchesSnap = await db
+            .collection("churches")
+            .where("ownerUid", "==", uid)
+            .get();
+
+        await Promise.all(
+            ownedChurchesSnap.docs.map(async (churchDoc) => {
+              const churchId = churchDoc.id;
+
+              // Look for other admins or pastors in the church_admins collection
+              const adminsSnap = await db
+                  .collection("church_admins")
+                  .where("churchId", "==", churchId)
+                  .where("role", "in", ["admin", "pastor"])
+                  .get();
+
+              // Filter out the departing owner
+              const otherAdmins = adminsSnap.docs.filter(
+                  (d) => d.data().uid !== uid,
+              );
+
+              if (otherAdmins.length > 0) {
+                // Promote the first available admin to owner
+                const newOwnerUid = otherAdmins[0].data().uid;
+                await churchDoc.ref.update({ownerUid: newOwnerUid});
+                console.log(
+                    `[deleteAccount] Church ${churchId} ownership transferred to ${newOwnerUid}`,
+                );
+              } else {
+                // No successor — flag for admin review queue
+                await churchDoc.ref.update({
+                  requiresSuccessor: true,
+                  ownerDeleted: true,
+                  ownerDeletedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+                console.warn(
+                    `[deleteAccount] Church ${churchId} has no successor — flagged for review`,
+                );
+              }
+            }),
+        );
+      } catch (churchErr) {
+        // Log but do not abort account deletion — church cleanup is best-effort.
+        console.error(`[deleteAccount] Church ownership cleanup error for uid=${uid}:`, churchErr.message);
+      }
+
       // 7. Delete Auth user (must be last)
       await admin.auth().deleteUser(uid);
       return {success: true};
@@ -1180,6 +1280,15 @@ exports.bereanSpiritualGraphAnalysis = onCall(
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+
+      // Check consent — user must explicitly opt in before struggle data is sent to OpenAI.
+      const db = admin.firestore();
+      const consentDoc = await db.doc(`users/${uid}/consents/spiritualAnalysisAI`).get();
+      if (!consentDoc.exists || consentDoc.data().granted !== true) {
+        throw new HttpsError('failed-precondition',
+          'Explicit consent required. Berean will analyze your spiritual growth patterns using AI processed by OpenAI. Enable this in Berean Settings > Privacy.');
+      }
+
       await checkBereanRateLimit(uid, 'spiritual_graph', 5);
 
       const {patterns, rhythms} = request.data;
@@ -1194,7 +1303,7 @@ exports.bereanSpiritualGraphAnalysis = onCall(
           .slice(0, 20)
           .map(r => ({ ...r, rhythm: String(r.rhythm ?? '').slice(0, 100) }));
 
-      const systemPrompt = `You are a pastoral AI assistant analyzing anonymized spiritual growth patterns.
+      const systemPrompt = `You are a pastoral AI assistant analyzing a user's spiritual growth patterns.
 Given a user's struggle patterns and spiritual rhythm data, provide a brief, personalized insight.
 
 Return ONLY valid JSON:

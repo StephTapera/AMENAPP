@@ -22,6 +22,8 @@
 
 import Foundation
 import Combine
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Spiritual State Mode
 
@@ -205,6 +207,17 @@ final class SpiritualStateModeService: ObservableObject {
            let mode = SpiritualStateMode(rawValue: saved) {
             currentMode = mode
         }
+        // Restore server-side crisis flag in case UserDefaults was cleared (reinstall/device switch)
+        Task { await restoreCrisisStateIfNeeded() }
+    }
+
+    private func restoreCrisisStateIfNeeded() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let doc = try? await Firestore.firestore().collection("users").document(uid).getDocument(),
+              doc.data()?["crisisStateActive"] as? Bool == true else { return }
+        currentMode = .crisis
+        isAutoDetected = true
+        UserDefaults.standard.set(SpiritualStateMode.crisis.rawValue, forKey: storageKey)
     }
 
     // MARK: - Manual Mode Switch
@@ -351,6 +364,14 @@ final class SpiritualStateModeService: ObservableObject {
             reason: reason,
             timestamp: Date()
         ))
+
+        // Persist crisis flag server-side — survives app reinstall and device changes
+        if let uid = Auth.auth().currentUser?.uid {
+            Firestore.firestore().collection("users").document(uid).setData(
+                ["crisisStateActive": true, "crisisEscalatedAt": Timestamp(date: Date())],
+                merge: true
+            )
+        }
     }
 
     // MARK: - System Prompt
@@ -380,5 +401,13 @@ final class SpiritualStateModeService: ObservableObject {
         recentSignals.removeAll()
         transitions.removeAll()
         UserDefaults.standard.removeObject(forKey: storageKey)
+
+        // Clear server-side crisis flag so restored sessions don't re-enter crisis
+        if let uid = Auth.auth().currentUser?.uid {
+            Firestore.firestore().collection("users").document(uid).setData(
+                ["crisisStateActive": false],
+                merge: true
+            )
+        }
     }
 }

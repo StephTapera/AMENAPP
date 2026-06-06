@@ -90,6 +90,7 @@ final class BereanChatViewModel: ObservableObject {
         let userMsg = BereanChatMsg(role: .user, content: text, timestamp: .now)
         messages.append(userMsg)
         messageCount += 1
+        persistMessageCount()
 
         // Placeholder for streaming assistant message
         let assistantMsg = BereanChatMsg(
@@ -226,11 +227,25 @@ final class BereanChatViewModel: ObservableObject {
             ])
     }
 
+    // Atomically increment the server-side counter after each message — enforces
+    // the free quota even if the client is patched or replayed.
+    private func persistMessageCount() {
+        guard userId != "demo_user" else { return }
+        db.collection("users").document(userId)
+            .updateData(["chatMessageCount": FieldValue.increment(Int64(1))]) { _ in }
+    }
+
     private func loadMessageCount() {
+        guard userId != "demo_user" else { return }
         db.collection("users").document(userId)
             .getDocument { [weak self] doc, _ in
+                guard let data = doc?.data() else { return }
                 DispatchQueue.main.async {
-                    self?.messageCount = doc?.data()?["chatMessageCount"] as? Int ?? 0
+                    // Authoritative count comes from server, not local state
+                    self?.messageCount = data["chatMessageCount"] as? Int ?? 0
+                    // Subscription entitlement check from server field, not client flag
+                    let tier = data["subscriptionTier"] as? String ?? "free"
+                    self?.isProUser = (tier == "amenPlus" || tier == "amenPro" || tier == "creatorPro" || tier == "churchPro")
                 }
             }
     }

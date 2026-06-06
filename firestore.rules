@@ -333,6 +333,18 @@ service cloud.firestore {
         allow create, update: if false;
         allow delete: if isOwner(userId);
       }
+
+      // ── Action Layer — post-to-action transforms (AmenPostActionTransformService) ──
+      // Writes come from the iOS client after the user taps "Save" in the Action Sheet.
+      // Local push notifications are scheduled client-side; Firestore is the source of truth.
+      match /actions/{actionId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          request.resource.data.get('type', '') in
+            ['reminder','event','prayerItem','task','discussion','volunteerOpportunity'];
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
     }
 
     // =========================================================================
@@ -1423,6 +1435,43 @@ service cloud.firestore {
     match /users/{userId}/intelligence_brief/{briefId} {
       allow read: if isSignedIn() && request.auth.uid == userId;
       allow create, update, delete: if false; // CF Admin SDK only (buildIntelligenceBriefs)
+    }
+
+    // =========================================================================
+    // Trust OS + Berean OS — new subcollections added 2026-06-06
+    // All owner-only: read/write gated to request.auth.uid == userId.
+    // memoryGraph and trustLedger are written by iOS SDK directly.
+    // =========================================================================
+
+    match /users/{userId}/memoryGraph/{nodeId} {
+      allow read, create, delete: if isSignedIn() && request.auth.uid == userId;
+      allow update: if false; // nodes are immutable once written
+    }
+
+    match /users/{userId}/trustLedger/{entryId} {
+      allow read, create: if isSignedIn() && request.auth.uid == userId;
+      allow update, delete: if false; // audit trail is append-only
+    }
+
+    match /users/{userId}/trustPassport/{docId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/bereanWorkspaces/{workspaceId} {
+      allow read, create, update, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/bereanArtifacts/{artifactId} {
+      allow read, create, update, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // mentorships/{id}/signals — written by iOS SDK via MentorshipIntelligenceService
+    // Read allowed to the owner (uid stored in the node) and the mentor of the relationship.
+    match /mentorships/{mentorshipId}/signals/{signalId} {
+      allow read, create: if isSignedIn() &&
+        (request.auth.uid == resource.data.uid ||
+         get(/databases/$(database)/documents/mentorships/$(mentorshipId)).data.mentorId == request.auth.uid);
+      allow update, delete: if false;
     }
 
     // =========================================================================

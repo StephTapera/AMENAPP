@@ -92,7 +92,7 @@ final class UserIntelligenceOrchestrator: ObservableObject {
             let ref = db.collection("users").document(userId)
                 .collection("intelligence").document("recommendations")
                 .collection("items").document(rec.id)
-            try? batch.setData(from: rec, forDocument: ref)
+            _ = try? batch.setData(from: rec, forDocument: ref)
         }
         try? await batch.commit()
     }

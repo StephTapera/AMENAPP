@@ -127,18 +127,3 @@ final class BereanWorkspaceService: ObservableObject {
     }
 }
 
-// MARK: - BereanWorkspaceModel memberwise init extension
-// The synthesised Codable init is internal; this private extension exposes
-// a restore-from-Firestore path that preserves the stored id and createdAt.
-
-private extension BereanWorkspaceModel {
-    init(id: String, ownerUid: String, kind: Kind, title: String,
-         items: [String], createdAt: TimeInterval) {
-        self.id        = id
-        self.ownerUid  = ownerUid
-        self.kind      = kind
-        self.title     = title
-        self.items     = items
-        self.createdAt = createdAt
-    }
-}

@@ -53,11 +53,12 @@ final class AmenAccountEntitlementService: ObservableObject {
 
     private var db = Firestore.firestore()
     private var auth = Auth.auth()
+    private var authStateListener: AuthStateDidChangeListenerHandle?
 
     // MARK: - Init
 
     private init() {
-        auth.addStateDidChangeListener { [weak self] _, user in
+        authStateListener = auth.addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
             Task { @MainActor in
                 if user != nil {

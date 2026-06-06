@@ -31,6 +31,43 @@ struct ReadingPlan: Identifiable, Codable {
     var communityId: String?
     var createdByUserId: String
     var createdAt: Date
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, contentObjectId, totalDays, dailyPageTarget, communityId, createdByUserId, createdAt
+    }
+
+    init(id: String, title: String, contentObjectId: String, totalDays: Int,
+         dailyPageTarget: Int? = nil, communityId: String? = nil,
+         createdByUserId: String, createdAt: Date) {
+        self.id = id; self.title = title; self.contentObjectId = contentObjectId
+        self.totalDays = totalDays; self.dailyPageTarget = dailyPageTarget
+        self.communityId = communityId; self.createdByUserId = createdByUserId
+        self.createdAt = createdAt
+    }
+
+    nonisolated init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        contentObjectId = try c.decode(String.self, forKey: .contentObjectId)
+        totalDays = try c.decode(Int.self, forKey: .totalDays)
+        dailyPageTarget = try c.decodeIfPresent(Int.self, forKey: .dailyPageTarget)
+        communityId = try c.decodeIfPresent(String.self, forKey: .communityId)
+        createdByUserId = try c.decode(String.self, forKey: .createdByUserId)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+    }
+
+    nonisolated func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encode(contentObjectId, forKey: .contentObjectId)
+        try c.encode(totalDays, forKey: .totalDays)
+        try c.encodeIfPresent(dailyPageTarget, forKey: .dailyPageTarget)
+        try c.encodeIfPresent(communityId, forKey: .communityId)
+        try c.encode(createdByUserId, forKey: .createdByUserId)
+        try c.encode(createdAt, forKey: .createdAt)
+    }
 }
 
 // MARK: - BookCommunityService

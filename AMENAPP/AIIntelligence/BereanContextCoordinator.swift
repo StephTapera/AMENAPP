@@ -31,12 +31,35 @@ struct BereanContextCoordinator {
         surroundingText: String? = nil
     ) -> BereanContextPayload {
         BereanContextPayload(
-            selectedText: text,
-            surroundingText: surroundingText,
+            selectedText: sanitizeCommunityContent(text),
+            surroundingText: surroundingText.map { sanitizeCommunityContent($0) },
             sourceSurface: sourceSurface,
             sourceId: sourceId,
             contentType: contentType
         )
+    }
+
+    /// Strips prompt-injection patterns from untrusted community content (post text,
+    /// captions, comments, transcripts) before embedding in Berean prompts.
+    /// Wraps the sanitized value in XML delimiters so the backend can treat it as
+    /// opaque data rather than instructions.
+    static func sanitizeCommunityContent(_ raw: String) -> String {
+        // Step 1: strip known injection sequences
+        var cleaned = raw
+        let injectionPatterns = [
+            "\n\nIgnore previous instructions",
+            "\n\nIgnore all previous",
+            "<SYSTEM>",
+            "</SYSTEM>",
+            "</s>"
+        ]
+        for pattern in injectionPatterns {
+            cleaned = cleaned.replacingOccurrences(of: pattern, with: "", options: .caseInsensitive)
+        }
+
+        // Step 2: wrap in XML delimiters so the backend parser treats it as
+        // community content, not as a system instruction.
+        return "<community_content>\(cleaned)</community_content>"
     }
 }
 
@@ -83,11 +106,13 @@ final class BereanOSBridgeObserver {
     // MARK: - Weekly brief context
     // Called by Cross-App Context / Chief-of-Staff agent (Berean OS Agent 7).
     // Returns a lightweight summary — no model calls here, purely from local/cached data.
+    @MainActor
     func weeklyBriefContext(uid: String) async -> [String: String] {
-        // Delegates to FormationOSIntegrationService and local Firestore cache.
-        // Returns keys: formationStreak, lastStudyTopic, mentorshipStatus
+        let streakDay = await FormationOSIntegrationService.shared.currentStreakDay(uid: uid)
+        let weeklySummary = await FormationOSIntegrationService.shared.weeklyFormationSummary(uid: uid)
         return [
-            "formationStreak": "0",  // FormationOSIntegrationService.shared.currentStreakDay fills this
+            "formationStreak": "\(streakDay)",
+            "weeklyFormationSummary": weeklySummary,
             "uid": uid
         ]
     }

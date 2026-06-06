@@ -235,7 +235,7 @@ struct AmenConnectPreferencesView: View {
     private var safetyCenterSection: some View {
         Section {
             NavigationLink {
-                AmenConnectSafetyCenterView()
+                ConnectPreferencesSafetyCenterView()
             } label: {
                 Label("Safety Center", systemImage: "shield.lefthalf.filled")
                     .foregroundStyle(.primary)
@@ -414,7 +414,7 @@ private struct AmenCovenantCirclePreferencesView: View {
 
 // MARK: - Safety Center view (stub)
 
-private struct AmenConnectSafetyCenterView: View {
+private struct ConnectPreferencesSafetyCenterView: View {
     var body: some View {
         Form {
             Section("Active Protections") {

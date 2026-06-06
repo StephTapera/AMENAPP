@@ -129,18 +129,3 @@ final class BereanArtifactService: ObservableObject {
     }
 }
 
-// MARK: - BereanArtifactModel memberwise init extension
-// The synthesised Codable init is internal; this private extension exposes
-// a restore-from-Firestore path that preserves the stored id and createdAt.
-
-private extension BereanArtifactModel {
-    init(id: String, kind: Kind, title: String, shareScope: String,
-         ownerUid: String, createdAt: TimeInterval) {
-        self.id         = id
-        self.kind       = kind
-        self.title      = title
-        self.shareScope = shareScope
-        self.ownerUid   = ownerUid
-        self.createdAt  = createdAt
-    }
-}

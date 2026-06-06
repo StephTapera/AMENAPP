@@ -332,7 +332,10 @@ private struct DiscoveryFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? UIScreen.main.bounds.width
+        let screenWidth = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds.width ?? 390
+        let maxWidth = proposal.width ?? screenWidth
         var x: CGFloat = 0
         var y: CGFloat = 0
         var rowHeight: CGFloat = 0

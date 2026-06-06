@@ -59,6 +59,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
         case job(jobId: String)
         case event(eventId: String)
         case studioProfile(creatorId: String)
+        case intelligence(cardId: String? = nil)
 
         static func == (lhs: NavigationDestination, rhs: NavigationDestination) -> Bool {
             switch (lhs, rhs) {
@@ -81,6 +82,8 @@ final class NotificationDeepLinkRouter: ObservableObject {
             case (.event(let id1), .event(let id2)):
                 return id1 == id2
             case (.studioProfile(let id1), .studioProfile(let id2)):
+                return id1 == id2
+            case (.intelligence(let id1), .intelligence(let id2)):
                 return id1 == id2
             default:
                 return false
@@ -198,7 +201,11 @@ final class NotificationDeepLinkRouter: ObservableObject {
             } else {
                 destination = .notifications
             }
-            
+
+        case "intelligenceBrief", "intelligenceCard":
+            let cardId = userInfo["cardId"] as? String
+            destination = .intelligence(cardId: cardId)
+
         default:
             destination = .notifications
         }
@@ -486,7 +493,14 @@ final class NotificationDeepLinkRouter: ObservableObject {
             } else {
                 destination = .notifications
             }
-            
+
+        case "intelligence":
+            // amenapp://intelligence or amenapp://intelligence/card/{cardId}
+            let cardId = pathComponents.count >= 2 && pathComponents[0] == "card"
+                ? pathComponents[1]
+                : pathComponents.first
+            destination = .intelligence(cardId: cardId)
+
         default:
             dlog("⚠️ Unknown deep link host: \(host)")
             destination = .notifications
@@ -597,6 +611,10 @@ struct NotificationNavigationHandler: ViewModifier {
                             userInfo: ["token": token]
                         )
                     }
+
+                case .intelligence:
+                    selectedTab = 7  // Switch to Intelligence Brief tab
+                    pendingAction = nil
                 }
 
                 // Clear destination after handling

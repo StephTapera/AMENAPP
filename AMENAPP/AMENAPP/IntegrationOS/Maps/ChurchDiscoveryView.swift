@@ -40,14 +40,11 @@ struct ChurchDiscoveryView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                Map(coordinateRegion: $viewModel.region, annotationItems: viewModel.churches) { church in
-                    MapAnnotation(coordinate: church.coordinate) {
-                        IntegrationChurchMapPin(church: church, isSelected: viewModel.selectedChurch?.id == church.id)
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.35)) {
-                                    viewModel.selectedChurch = church
-                                }
-                            }
+                Map(initialPosition: .region(viewModel.region)) {
+                    ForEach(viewModel.churches) { church in
+                        Annotation(church.name, coordinate: church.coordinate) {
+                            churchPin(for: church)
+                        }
                     }
                 }
                 .ignoresSafeArea(edges: .top)
@@ -90,6 +87,16 @@ struct ChurchDiscoveryView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
+    }
+
+    @ViewBuilder
+    private func churchPin(for church: ChurchDiscoveryService.ChurchResult) -> some View {
+        IntegrationChurchMapPin(church: church, isSelected: viewModel.selectedChurch?.id == church.id)
+            .onTapGesture {
+                withAnimation(.spring(response: 0.35)) {
+                    viewModel.selectedChurch = church
+                }
+            }
     }
 }
 

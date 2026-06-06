@@ -394,6 +394,10 @@ struct ContentView: View {
                 // when mainContent first appears
                 AppReadyStateManager.shared.signalSignIn()
 
+                // Context engine ran at scene-active before auth was established;
+                // now that auth is confirmed, let it re-attempt location setup.
+                AmenContextOrchestrator.shared.resumeAfterAuth()
+
                 FTUEManager.shared.checkAndShowFTUE()
 
                 // Start session timeout monitoring (respects Remember Me setting)
@@ -568,6 +572,14 @@ struct ContentView: View {
                                 NotificationAggregationService.shared.updateCurrentScreen(.none)
                             }
                     }
+
+                    keepMountedTab(isActive: viewModel.selectedTab == 7) {
+                        WhatNeedsAttentionView()
+                            .id("intelligence")
+                            .task {
+                                NotificationAggregationService.shared.updateCurrentScreen(.none)
+                            }
+                    }
                 }
                 .animation(nil, value: viewModel.selectedTab)
             }
@@ -585,8 +597,9 @@ struct ContentView: View {
     private func isAllowedDuringChurchFocus(_ tab: Int) -> Bool {
         // Tab 3 = Resources (contains Church Notes and Find Church)
         // Tab 5 = Profile (contains Settings)
-        // All other tabs (Home, People, Messages, Notifications) are restricted
-        return tab == 3 || tab == 5
+        // Tab 7 = Intelligence Brief (spiritual discernment — appropriate during church focus)
+        // All other tabs are restricted
+        return tab == 3 || tab == 5 || tab == 7
     }
     
     private var mainContentBody: some View {

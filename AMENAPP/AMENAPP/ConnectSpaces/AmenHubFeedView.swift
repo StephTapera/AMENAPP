@@ -41,7 +41,7 @@ enum AmenHubTab: String, CaseIterable, Identifiable {
 
 // MARK: - Living object model
 
-enum AmenHubItemKind: String, Codable {
+enum ConnectHubItemKind: String, Codable {
     case dm
     case spaceMessage
     case prayerRequest
@@ -54,7 +54,7 @@ enum AmenHubItemKind: String, Codable {
 }
 
 /// Inline actions a user can take directly from the hub — the "living object" mechanic.
-enum AmenHubItemAction: String, Identifiable {
+enum ConnectHubItemAction: String, Identifiable {
     case pray     = "Pray"
     case discuss  = "Discuss"
     case schedule = "Schedule"
@@ -79,16 +79,16 @@ enum AmenHubItemAction: String, Identifiable {
     }
 }
 
-struct AmenHubItem: Identifiable {
+struct ConnectHubItem: Identifiable {
     let id: String
-    let kind: AmenHubItemKind
+    let kind: ConnectHubItemKind
     let actorName: String
     let actorInitials: String
     let preview: String
     let spaceName: String?
     let timestamp: Date
     var isRead: Bool
-    let actions: [AmenHubItemAction]
+    let actions: [ConnectHubItemAction]
     let isCareAlert: Bool   // routes to human, never auto-resolved by AI
     let isCovenantCircle: Bool  // bypasses digest batching
 }
@@ -98,12 +98,12 @@ struct AmenHubItem: Identifiable {
 @MainActor
 final class AmenHubFeedViewModel: ObservableObject {
     @Published var selectedTab: AmenHubTab = .all
-    @Published var items: [AmenHubItem] = []
+    @Published var items: [ConnectHubItem] = []
     @Published var isBereanSummaryExpanded: Bool = false
     @Published var isLoading: Bool = false
 
     /// When density is high, Berean surfaces the 3 items that actually need the user.
-    var bereanPriorityItems: [AmenHubItem] {
+    var bereanPriorityItems: [ConnectHubItem] {
         let urgent = items.filter { !$0.isRead && ($0.isCareAlert || $0.isCovenantCircle) }
         let unread  = items.filter { !$0.isRead && !$0.isCareAlert && !$0.isCovenantCircle }
         return Array((urgent + unread).prefix(3))
@@ -117,7 +117,7 @@ final class AmenHubFeedViewModel: ObservableObject {
         filteredItems.allSatisfy { $0.isRead }
     }
 
-    var filteredItems: [AmenHubItem] {
+    var filteredItems: [ConnectHubItem] {
         switch selectedTab {
         case .all:      return items
         case .dms:      return items.filter { $0.kind == .dm }
@@ -138,7 +138,7 @@ final class AmenHubFeedViewModel: ObservableObject {
         isLoading = false
     }
 
-    func markRead(_ item: AmenHubItem) {
+    func markRead(_ item: ConnectHubItem) {
         guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[idx].isRead = true
     }
@@ -149,9 +149,9 @@ final class AmenHubFeedViewModel: ObservableObject {
 
     // MARK: - Mock data (preview / first-run)
 
-    private static func mockItems() -> [AmenHubItem] {
+    private static func mockItems() -> [ConnectHubItem] {
         [
-            AmenHubItem(
+            ConnectHubItem(
                 id: "h1",
                 kind: .prayerRequest,
                 actorName: "Marcus Williams",
@@ -164,7 +164,7 @@ final class AmenHubFeedViewModel: ObservableObject {
                 isCareAlert: false,
                 isCovenantCircle: false
             ),
-            AmenHubItem(
+            ConnectHubItem(
                 id: "h2",
                 kind: .careAlert,
                 actorName: "Jordan Chen",
@@ -177,7 +177,7 @@ final class AmenHubFeedViewModel: ObservableObject {
                 isCareAlert: true,
                 isCovenantCircle: true
             ),
-            AmenHubItem(
+            ConnectHubItem(
                 id: "h3",
                 kind: .dm,
                 actorName: "Pastor Sarah",
@@ -190,7 +190,7 @@ final class AmenHubFeedViewModel: ObservableObject {
                 isCareAlert: false,
                 isCovenantCircle: true
             ),
-            AmenHubItem(
+            ConnectHubItem(
                 id: "h4",
                 kind: .event,
                 actorName: "Worship Team",
@@ -203,7 +203,7 @@ final class AmenHubFeedViewModel: ObservableObject {
                 isCareAlert: false,
                 isCovenantCircle: false
             ),
-            AmenHubItem(
+            ConnectHubItem(
                 id: "h5",
                 kind: .testimony,
                 actorName: "Aisha Okonkwo",
@@ -351,7 +351,7 @@ struct AmenHubFeedView: View {
                     ? vm.bereanPriorityItems
                     : vm.filteredItems
                 ForEach(displayItems) { item in
-                    HubItemRow(item: item) {
+                    ConnectHubItemRow(item: item) {
                         vm.markRead(item)
                     }
                     Divider()
@@ -479,8 +479,8 @@ struct AmenHubFeedView: View {
 
 // MARK: - Hub item row
 
-private struct HubItemRow: View {
-    let item: AmenHubItem
+private struct ConnectHubItemRow: View {
+    let item: ConnectHubItem
     let onRead: () -> Void
 
     @State private var didTakeAction: Bool = false

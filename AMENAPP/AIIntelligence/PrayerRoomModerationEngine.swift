@@ -11,7 +11,30 @@ final class PrayerRoomModerationEngine {
     }
 
     func validatePrayerCaption(_ text: String, sessionId: String) async throws -> Bool {
-        try await moderationService.validateTranscript(text, sessionId: sessionId)
+        let passed = try await moderationService.validateTranscript(text, sessionId: sessionId)
+        guard passed else { return false }
+
+        // SECURITY FIX C-07: prayer room transcripts must also pass crisis detection.
+        // Profanity/tone checks do not catch suicidal speech — assess here before
+        // allowing the transcript to be persisted or broadcast.
+        let riskService = WellnessRiskService.shared
+        let assessments = riskService.assessLanguageRisk(
+            text: text,
+            isQuoted: false,
+            isPublicPost: false,
+            context: "prayer_room_transcript"
+        )
+        if !assessments.isEmpty {
+            riskService.processLanguageRisk(assessments)
+        }
+        let riskLevel = riskService.currentRiskState.compositeRiskLevel
+        if riskLevel == .imminentDanger || riskLevel == .highConcern {
+            // Surface crisis intervention (already on MainActor); block the transcript.
+            riskService.evaluateAndIntervene()
+            return false
+        }
+
+        return true
     }
 
     func persistApprovedPrayerCaption(

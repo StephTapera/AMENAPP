@@ -77,6 +77,17 @@ final class AmenContextOrchestrator: NSObject {
         startEventCheckTimer()
     }
 
+    /// Called after the user authenticates while the app is already in the foreground.
+    /// `start()` ran before auth was established (isStarted == true) so location was
+    /// skipped by the auth guard; this re-runs just the location step now that auth is confirmed.
+    func resumeAfterAuth() {
+        guard isStarted else {
+            start()
+            return
+        }
+        startLocationIfPermitted()
+    }
+
     /// Stop all detectors and invalidate timers.
     func stop() {
         isStarted = false

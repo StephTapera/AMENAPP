@@ -30,6 +30,30 @@ struct EpisodeNote: Identifiable, Codable {
     /// Playhead position in the episode when the note was captured.
     var timestampSeconds: Int?
     var createdAt: Date
+
+    private enum CodingKeys: String, CodingKey {
+        case id, userId, contentObjectId, text, timestampSeconds, createdAt
+    }
+
+    nonisolated init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        userId = try c.decode(String.self, forKey: .userId)
+        contentObjectId = try c.decode(String.self, forKey: .contentObjectId)
+        text = try c.decode(String.self, forKey: .text)
+        timestampSeconds = try c.decodeIfPresent(Int.self, forKey: .timestampSeconds)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+    }
+
+    nonisolated func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(userId, forKey: .userId)
+        try c.encode(contentObjectId, forKey: .contentObjectId)
+        try c.encode(text, forKey: .text)
+        try c.encodeIfPresent(timestampSeconds, forKey: .timestampSeconds)
+        try c.encode(createdAt, forKey: .createdAt)
+    }
 }
 
 // MARK: - PodcastCommunityService
@@ -50,7 +74,7 @@ actor PodcastCommunityService {
             .getDocuments()
 
         let decoder = Firestore.Decoder()
-        return try snaps.documents.compactMap { doc in
+        return snaps.documents.compactMap { doc in
             var data = doc.data()
             data["id"] = doc.documentID
             return try? decoder.decode(EpisodeNote.self, from: data)

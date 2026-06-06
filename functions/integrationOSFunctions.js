@@ -74,6 +74,48 @@ async function checkConsent(userId, scope) {
   return state === "granted";
 }
 
+/**
+ * sendFcmInChunks — rate-limited bulk FCM sender.
+ *
+ * FCM's sendEachForMulticast supports up to 500 tokens per call, but AMEN caps
+ * bulk sends at 100 tokens/chunk to stay well under FCM quota limits and prevent
+ * notification storms.  A 1-second pause between chunks ensures we never exceed
+ * ~100 FCM messages/second from a single Cloud Function invocation.
+ *
+ * @param {object}   messaging   - admin.messaging() instance
+ * @param {string[]} tokens      - FCM registration tokens
+ * @param {object}   notification - { title, body }
+ * @param {object}   data        - arbitrary string-keyed payload
+ * @returns {{ successCount: number, failureCount: number }}
+ */
+async function sendFcmInChunks(messaging, tokens, notification, data) {
+  const CHUNK_SIZE = 100;
+  let successCount = 0;
+  let failureCount = 0;
+
+  const chunks = [];
+  for (let i = 0; i < tokens.length; i += CHUNK_SIZE) {
+    chunks.push(tokens.slice(i, i + CHUNK_SIZE));
+  }
+
+  for (let idx = 0; idx < chunks.length; idx++) {
+    const result = await messaging.sendEachForMulticast({
+      tokens: chunks[idx],
+      notification,
+      data,
+    });
+    successCount += result.successCount;
+    failureCount += result.failureCount;
+
+    // Pause between chunks to respect FCM rate limits (skip after the last chunk).
+    if (idx < chunks.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
+  return { successCount, failureCount };
+}
+
 // ─── matchHashedContacts ──────────────────────────────────────────────────────
 
 exports.matchHashedContacts = onCall(
@@ -370,19 +412,12 @@ exports.sendEventFollowUpNotification = onCall(
       return { sent: 0 };
     }
 
-    const message = {
-      notification: {
-        title: event.title ?? "Event Follow-Up",
-        body: "Thanks for attending! Share how it went.",
-      },
-      data: {
-        type: "event_followup",
-        eventId,
-      },
+    const result = await sendFcmInChunks(
+      fcm(),
       tokens,
-    };
-
-    const result = await fcm().sendEachForMulticast(message);
+      { title: event.title ?? "Event Follow-Up", body: "Thanks for attending! Share how it went." },
+      { type: "event_followup", eventId },
+    );
     logger.info("sendEventFollowUpNotification", {
       uid, eventId, sent: result.successCount, failed: result.failureCount,
     });
@@ -449,12 +484,12 @@ exports.sendBroadcast = onCall(
         .map(d => d.data().fcmToken);
 
       if (tokens.length > 0) {
-        const msg = {
-          notification: { title: subject ?? "Message from community", body },
-          data: { type: "broadcast", senderId: uid },
+        const result = await sendFcmInChunks(
+          fcm(),
           tokens,
-        };
-        const result = await fcm().sendEachForMulticast(msg);
+          { title: subject ?? "Message from community", body },
+          { type: "broadcast", senderId: uid },
+        );
         sent = result.successCount;
       }
     } else if (channel === "sms") {

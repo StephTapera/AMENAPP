@@ -692,6 +692,24 @@ struct PrivacySettingsView: View {
                         .padding(.vertical, 14)
                     }
                     .buttonStyle(PlainButtonStyle())
+
+                    Divider().padding(.leading, 52)
+
+                    NavigationLink(destination: TrustLedgerSettingsView()) {
+                        HStack {
+                            Image(systemName: "shield.badge.clock")
+                                .foregroundStyle(.blue)
+                            Text("Your Safety History")
+                                .font(AMENFont.semiBold(15))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))

@@ -12,7 +12,7 @@ final class CreatorHomeViewModel: ObservableObject {
     private let templateService: CreatorTemplateServicing
     private let entitlementService: CreatorEntitlementServicing
 
-    init(
+    @MainActor init(
         projectService: CreatorProjectServicing = CreatorProjectService(),
         templateService: CreatorTemplateServicing = CreatorTemplateService(),
         entitlementService: CreatorEntitlementServicing = CreatorEntitlementService()

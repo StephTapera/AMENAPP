@@ -301,7 +301,8 @@ struct BereanMenuSheet: View {
 
     private func glassCard(radius: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(reduceTransparency ? Color(.systemBackground) : .ultraThinMaterial)
+            .fill(reduceTransparency ? Color(.systemBackground) : Color.clear)
+            .background(.ultraThinMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .fill(Color.white.opacity(0.60))

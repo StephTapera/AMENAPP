@@ -115,8 +115,9 @@ class CloudStorageService {
                           userInfo: [NSLocalizedDescriptionKey: "Failed to compress image"])
         }
 
+        let strippedData = EXIFStrippingService.strip(from: imageData)
         return try await uploadMedia(
-            data: imageData,
+            data: strippedData,
             type: .image,
             userId: userId,
             progressHandler: progressHandler

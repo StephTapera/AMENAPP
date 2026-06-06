@@ -489,7 +489,8 @@ struct MinimalAuthenticationView: View {
                                         label: "Email or Username",
                                         placeholder: "you@example.com or @username",
                                         text: $email,
-                                        keyboardType: .default
+                                        keyboardType: .emailAddress,
+                                        submitLabel: .next
                                     )
                                     .accessibilityHint("Accepts email address or @username")
                                     Text("You can sign in with your username or email address")
@@ -1156,6 +1157,8 @@ private struct EditorialInputField: View {
     var keyboardType: UIKeyboardType = .default
     var showPasswordToggle: Bool = false
     @Binding var showPassword: Bool
+    var submitLabel: SubmitLabel = .done
+    var onSubmit: (() -> Void)? = nil
 
     @FocusState private var isFocused: Bool
 
@@ -1166,7 +1169,9 @@ private struct EditorialInputField: View {
         isSecure: Bool = false,
         keyboardType: UIKeyboardType = .default,
         showPasswordToggle: Bool = false,
-        showPassword: Binding<Bool> = .constant(false)
+        showPassword: Binding<Bool> = .constant(false),
+        submitLabel: SubmitLabel = .done,
+        onSubmit: (() -> Void)? = nil
     ) {
         self.label = label
         self.placeholder = placeholder
@@ -1175,6 +1180,8 @@ private struct EditorialInputField: View {
         self.keyboardType = keyboardType
         self.showPasswordToggle = showPasswordToggle
         self._showPassword = showPassword
+        self.submitLabel = submitLabel
+        self.onSubmit = onSubmit
     }
 
     var body: some View {
@@ -1191,11 +1198,15 @@ private struct EditorialInputField: View {
                     if isSecure {
                         SecureField(placeholder, text: $text)
                             .focused($isFocused)
+                            .submitLabel(submitLabel)
+                            .onSubmit { onSubmit?() }
                     } else {
                         TextField(placeholder, text: $text)
                             .keyboardType(keyboardType)
                             .textInputAutocapitalization(keyboardType == .emailAddress ? .never : .words)
                             .focused($isFocused)
+                            .submitLabel(submitLabel)
+                            .onSubmit { onSubmit?() }
                     }
                 }
                 .font(.systemScaled(16, weight: .regular))
@@ -1209,6 +1220,7 @@ private struct EditorialInputField: View {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
                             .font(.systemScaled(15, weight: .light))
                             .foregroundStyle(Color(white: 0.50))
+                            .accessibilityHidden(true)
                     }
                     .accessibilityLabel(showPassword ? "Hide password" : "Show password")
                     .padding(.leading, 8)
@@ -1515,13 +1527,15 @@ private struct SignUpStepperCard: View {
                 EditorialInputField(
                     label: "Full Name",
                     placeholder: "Your name",
-                    text: $fullName
+                    text: $fullName,
+                    submitLabel: .next
                 )
                 EditorialInputField(
                     label: "Email",
                     placeholder: "you@example.com",
                     text: $email,
-                    keyboardType: .emailAddress
+                    keyboardType: .emailAddress,
+                    submitLabel: .continue
                 )
             }
         case 1:
@@ -1532,7 +1546,8 @@ private struct SignUpStepperCard: View {
                     text: $password,
                     isSecure: !showPassword,
                     showPasswordToggle: true,
-                    showPassword: $showPassword
+                    showPassword: $showPassword,
+                    submitLabel: .next
                 )
                 EditorialInputField(
                     label: "Confirm Password",
@@ -1540,7 +1555,8 @@ private struct SignUpStepperCard: View {
                     text: $confirmPassword,
                     isSecure: !showPassword,
                     showPasswordToggle: true,
-                    showPassword: $showPassword
+                    showPassword: $showPassword,
+                    submitLabel: .done
                 )
                 // Inline password match indicator
                 if !password.isEmpty && !confirmPassword.isEmpty {

@@ -36,7 +36,8 @@ actor EventCommunityService {
             .limit(to: 1)
             .getDocuments()
         guard let doc = snaps.documents.first else { return nil }
-        return CommunityNode(from: doc.data())
+        let decoder = Firestore.Decoder()
+        return try? decoder.decode(CommunityNode.self, from: doc.data())
     }
 
     // MARK: Interest Registration

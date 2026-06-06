@@ -96,9 +96,22 @@ exports.generateSpiritualTimeline = onCall(
     {region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 90},
     async (request) => {
       requireAuth(request);
-      const {context} = request.data;
+      const uid = request.auth.uid;
 
-      if (!context?.trim()) {
+      // Retrieve safe, non-identifying context server-side.
+      // The client-supplied context field is intentionally ignored to prevent
+      // intimate prayer text from being forwarded to Claude untrusted.
+      const firestore = admin.firestore();
+      const [churchNotesSnap, prayerThemesSnap] = await Promise.all([
+        firestore.collection('churchNotes').where('userId', '==', uid).orderBy('updatedAt', 'desc').limit(5).get(),
+        firestore.collection('prayers').where('authorUID', '==', uid).where('isAnswered', '==', true).orderBy('createdAt', 'desc').limit(5).get(),
+      ]);
+      const safeContext = [
+        ...churchNotesSnap.docs.map(d => `Sermon: ${d.data().title || 'Untitled'}`),
+        ...prayerThemesSnap.docs.map(d => `Answered prayer: ${d.data().title || 'Prayer'}`),
+      ].join('\n');
+
+      if (!safeContext.trim()) {
         return {milestones: []};
       }
 
@@ -108,7 +121,7 @@ Return a JSON array of 5-8 milestones representing key moments in their spiritua
 Each milestone: { "id": "uuid-string", "date": "approximate period e.g. Early 2026", "title": "short title", "description": "1-2 sentences", "category": "answered_prayer|spiritual_growth|challenge|breakthrough|service|community", "sourceType": "prayer|note|testimony" }
 Return ONLY valid JSON: { "milestones": [...] }`;
 
-      const raw    = await callClaude(ANTHROPIC_API_KEY.value(), system, context.slice(0, 4000), 1000, 0.5);
+      const raw    = await callClaude(ANTHROPIC_API_KEY.value(), system, safeContext, 1000, 0.5);
       const clean  = raw.replace(/```json|```/g, "").trim();
 
       let result = {milestones: []};

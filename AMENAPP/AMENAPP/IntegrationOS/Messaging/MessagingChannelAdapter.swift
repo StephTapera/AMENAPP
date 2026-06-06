@@ -47,7 +47,7 @@ final class MessagingChannelAdapter {
 
     func revokeConsent(channel: BroadcastChannel) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw IntegrationOSError.notAuthenticated }
-        try await functions.httpsCallable("revokeMessagingConsent").call([
+        _ = try await functions.httpsCallable("revokeMessagingConsent").call([
             "uid": uid,
             "channel": channel.rawValue
         ])
