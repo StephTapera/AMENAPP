@@ -141,7 +141,7 @@ struct MinimalAuthenticationView: View {
 
     var body: some View {
         ZStack {
-            Color(red: 0.976, green: 0.973, blue: 0.969).ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
 
             if showEmailForm {
                 emailFormContent

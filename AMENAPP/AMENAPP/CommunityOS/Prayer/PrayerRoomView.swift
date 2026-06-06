@@ -82,6 +82,7 @@ struct PrayerRoomView: View {
     @State private var isExpanded = false
     @State private var showUpdateSheet = false
     @State private var showMarkAnsweredConfirm = false
+    @State private var showInviteSheet = false
     @State private var updateSheetType: PrayerType = .update
     @State private var stubUpdates: [PrayerUpdateStub] = []
     @Environment(\.dismiss) private var dismiss
@@ -111,7 +112,7 @@ struct PrayerRoomView: View {
                             PrayerPartnerRow(
                                 partnerIds: prayer.partnerIds,
                                 maxVisible: 5,
-                                onInvitePartner: { }
+                                onInvitePartner: { showInviteSheet = true }
                             )
                             .padding(.horizontal, 16)
 
@@ -165,6 +166,41 @@ struct PrayerRoomView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This will mark the prayer as answered and notify your prayer partners.")
+        }
+        .sheet(isPresented: $showInviteSheet) {
+            if let prayer = prayer {
+                let url = URL(string: "https://amenapp.com/prayer/\(prayer.id)") ?? URL(string: "https://amenapp.com")!
+                VStack(spacing: 20) {
+                    Text("Invite a Prayer Partner")
+                        .font(.headline)
+                        .padding(.top, 20)
+                    Text("Share this prayer so others can join you in intercession.")
+                        .font(.callout)
+                        .foregroundStyle(Color(uiColor: .secondaryLabel))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                    ShareLink(
+                        item: url,
+                        subject: Text("Join me in prayer"),
+                        message: Text("I'd love for you to pray with me: \(prayer.title)")
+                    ) {
+                        Label("Share prayer invite", systemImage: "square.and.arrow.up")
+                            .font(.callout)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(Capsule().fill(Color.accentColor))
+                            .padding(.horizontal, 24)
+                    }
+                    Button("Close") { showInviteSheet = false }
+                        .font(.callout)
+                        .foregroundStyle(Color(uiColor: .secondaryLabel))
+                        .padding(.bottom, 20)
+                }
+                .presentationDetents([.height(260)])
+                .accessibilityElement(children: .contain)
+            }
         }
         .task { await loadPrayer() }
     }

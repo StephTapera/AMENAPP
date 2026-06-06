@@ -476,11 +476,8 @@ struct EmailSignInView: View {
 // Firebase phone auth creates an account automatically for new numbers,
 // so this works for both sign-up and returning users.
 struct PhoneSignUpView: View {
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
-
     var body: some View {
-        SignInView(startWithPhone: true)
-            .environmentObject(authViewModel)
+        AmenPhoneAuthView()
             .navigationBarHidden(true)
     }
 }
