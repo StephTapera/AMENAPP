@@ -157,7 +157,9 @@ struct ContentCheckRequest: Sendable {
 /// The decision produced by `AmenContentSafetyService.checkBeforePost`.
 /// Combines the quick local scan and CF full-check into a single action signal
 /// that drives the post-compose UI.
-struct PrePostDecision: Sendable {
+struct PrePostDecision: Sendable, Identifiable {
+
+    let id = UUID()
 
     // MARK: - Action
 

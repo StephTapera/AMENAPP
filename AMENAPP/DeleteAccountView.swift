@@ -26,6 +26,7 @@ struct DeleteAccountView: View {
 
     // Deletion state
     @State private var isDeleting = false
+    @State private var isSoftDelete = false
     @State private var deletionError: String?
     @State private var showError = false
     @State private var deletionSucceeded = false
@@ -102,6 +103,30 @@ struct DeleteAccountView: View {
 
                 // Action buttons
                 VStack(spacing: 12) {
+                    // OS-20: Soft-delete option — 30-day recovery window.
+                    Button {
+                        confirmFieldFocused = false
+                        triggerSoftDelete()
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text("Schedule Deletion (Recommended)")
+                                .font(.body.weight(.semibold))
+                            Text("30-day recovery window before permanent delete")
+                                .font(.caption)
+                                .opacity(0.85)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .foregroundStyle(.white)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(isConfirmed ? Color.orange : Color.orange.opacity(0.3))
+                        )
+                    }
+                    .disabled(!isConfirmed || isDeleting)
+                    .padding(.horizontal, 20)
+
+                    // Hard-delete: immediate, permanent, no recovery.
                     Button {
                         confirmFieldFocused = false
                         triggerDeletion()
@@ -113,7 +138,7 @@ struct DeleteAccountView: View {
                                     Text("Deleting…")
                                 }
                             } else {
-                                Text("Delete My Account")
+                                Text("Delete Immediately (No Recovery)")
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -162,8 +187,13 @@ struct DeleteAccountView: View {
 
     // MARK: - Helpers
 
+    private func triggerSoftDelete() {
+        isSoftDelete = true
+        showReauthSheet = true
+    }
+
     private func triggerDeletion() {
-        // Firebase requires re-auth before account deletion
+        isSoftDelete = false
         showReauthSheet = true
     }
 
@@ -171,8 +201,13 @@ struct DeleteAccountView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isDeleting = true
         do {
-            try await AccountDeletionService.shared.deleteAccount(userId: uid)
-            // Show confirmation screen before signing out
+            if isSoftDelete {
+                // OS-20: Soft delete — 30-day recovery window, Auth account preserved.
+                try await AccountRecoveryService.shared.scheduleAccountDeletion(userId: uid)
+            } else {
+                // Hard delete — immediate, permanent, no recovery.
+                try await AccountDeletionService.shared.deleteAccount(userId: uid)
+            }
             deletionSucceeded = true
         } catch {
             deletionError = error.localizedDescription

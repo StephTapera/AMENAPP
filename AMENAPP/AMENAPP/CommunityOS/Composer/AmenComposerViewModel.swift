@@ -27,6 +27,9 @@ final class AmenComposerViewModel: ObservableObject {
     @Published var isSubmitting: Bool = false
     @Published var submitError: String? = nil
     @Published var didSubmit: Bool = false
+    /// Non-nil when the safety check intercepts a post before publishing.
+    /// Drives the AmenPrePostReviewSheet / AmenCrisisInterventionView presentation.
+    @Published var pendingSafetyDecision: PrePostDecision? = nil
 
     // MARK: Resolved Config
 
@@ -138,11 +141,20 @@ final class AmenComposerViewModel: ObservableObject {
     ///
     /// Sets `isSubmitting = true` during the async operation and toggles it off
     /// regardless of success or failure. On success `didSubmit` becomes `true`.
-    func submit() async {
+    ///
+    /// - Parameter skipSafetyCheck: Pass `true` when the user has already reviewed
+    ///   and approved a safety decision (e.g. tapped "Post anyway" in the review sheet).
+    func submit(skipSafetyCheck: Bool = false) async {
         guard isValid, !isSubmitting else { return }
 
         guard let currentUser = Auth.auth().currentUser, !currentUser.uid.isEmpty else {
             submitError = "You must be signed in to create content."
+            return
+        }
+
+        // C-2: Enforce email verification before allowing any post creation.
+        guard currentUser.isEmailVerified else {
+            submitError = "Please verify your email address before posting. Check your inbox for a verification link."
             return
         }
 
@@ -154,6 +166,28 @@ final class AmenComposerViewModel: ObservableObject {
         do {
             let actorId = currentUser.uid
             let intent  = draft.selectedIntent
+
+            // C-1: Pre-post safety check — run before any Firestore write.
+            // Skipped only when the user has explicitly reviewed and approved the content.
+            if !skipSafetyCheck {
+                let safetyRequest = ContentCheckRequest(
+                    text: draft.body.trimmingCharacters(in: .whitespacesAndNewlines),
+                    mediaUrls: [],
+                    authorId: actorId,
+                    objectType: "post",
+                    contextRef: nil,
+                    isMinorAuthor: false
+                )
+                if let decision = try? await AmenContentSafetyService.shared.checkBeforePost(safetyRequest) {
+                    if case .allow = decision.action {
+                        // Safe — continue to publish.
+                    } else {
+                        // Intercept: show review sheet and halt publish.
+                        pendingSafetyDecision = decision
+                        return
+                    }
+                }
+            }
 
             // Resolve AmenObjectType for the source (nil falls back to .post).
             let sourceObjectType = AmenObjectType(rawValue: config.source.type.amenObjectTypeRaw)

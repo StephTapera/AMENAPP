@@ -170,7 +170,7 @@ struct AMENAPPApp: App {
                 let retryItem = DispatchWorkItem {
                     remoteConfig.fetch(completionHandler: { retryStatus, _ in
                         guard retryStatus == .success else { return }
-                        remoteConfig.activate(completionHandler: nil)
+                        remoteConfig.activate(completion: nil)
                     })
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: retryItem)
@@ -225,16 +225,19 @@ struct AMENAPPApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                ContentView()
-                    .handleChurchDeepLinks()  // ✅ Handle church deep links
-                    .notificationOnboarding(isPresented: $showNotifOnboarding)
-                    .networkStatusBanner()    // OFFLINE FIX: global offline indicator across all views
-                    // GenerationalOS: first-run preset picker, shown once after login.
-                    .sheet(isPresented: $showGenerationalPresetPicker) {
-                        AmenGenerationalPresetPickerView()
-                            .presentationDetents([.large])
-                            .presentationDragIndicator(.visible)
-                    }
+                // C-3: AccountStatusGate enforces banned/frozen account walls at the root.
+                AccountStatusGate {
+                    ContentView()
+                        .handleChurchDeepLinks()  // ✅ Handle church deep links
+                        .notificationOnboarding(isPresented: $showNotifOnboarding)
+                        .networkStatusBanner()    // OFFLINE FIX: global offline indicator across all views
+                        // GenerationalOS: first-run preset picker, shown once after login.
+                        .sheet(isPresented: $showGenerationalPresetPicker) {
+                            AmenGenerationalPresetPickerView()
+                                .presentationDetents([.large])
+                                .presentationDragIndicator(.visible)
+                        }
+                }
             }
             // Forced upgrade alert — shown when Remote Config minimum_app_version
             // is higher than the installed binary. Users must update before continuing.
@@ -442,6 +445,7 @@ struct AMENAPPApp: App {
                 switch newPhase {
                 case .active:
                     BehavioralAwarenessEngine.shared.beginSession()
+                    HealthyUsageNudgeService.shared.beginSession()
                     // Start context-mode detection (driving, church, travel, event)
                     AmenContextOrchestrator.shared.start()
                     Task { @MainActor in
@@ -457,6 +461,7 @@ struct AMENAPPApp: App {
                     checkAuthTokenValidity()
                 case .background:
                     BehavioralAwarenessEngine.shared.endSession()
+                    HealthyUsageNudgeService.shared.endSession()
                     Self.scheduleBackgroundFeedRefresh()
                     PostsManager.shared.stopListeningForProfileUpdates()
                     // MIC/WS LEAK FIX: Explicitly stop voice and realtime sessions when
@@ -913,6 +918,7 @@ struct AMENAPPApp: App {
             // Notification services
             group.addTask { @MainActor in _ = SmartNotificationService.shared }
             group.addTask { @MainActor in _ = NotificationAggregationService.shared }
+            group.addTask { @MainActor in _ = BereanOSBridgeObserver.shared }
         }
         dlog("✅ Safety and notification services warmed up")
     }

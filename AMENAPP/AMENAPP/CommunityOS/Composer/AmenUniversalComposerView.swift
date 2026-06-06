@@ -151,6 +151,25 @@ struct AmenUniversalComposerView: View {
             } message: {
                 Text(vm.submitError ?? "Please try again.")
             }
+            // C-1: Safety review sheet — presented when checkBeforePost returns non-allow.
+            .sheet(item: $vm.pendingSafetyDecision) { decision in
+                if case .crisisIntervene = decision.action {
+                    AmenCrisisInterventionView {
+                        vm.pendingSafetyDecision = nil
+                    }
+                } else {
+                    AmenPrePostReviewSheet(
+                        decision: decision,
+                        draftContent: vm.draft.body,
+                        onProceed: {
+                            vm.pendingSafetyDecision = nil
+                            Task { await vm.submit(skipSafetyCheck: true) }
+                        },
+                        onEdit: { vm.pendingSafetyDecision = nil },
+                        onCancel: { vm.pendingSafetyDecision = nil }
+                    )
+                }
+            }
             .onChange(of: vm.didSubmit) { submitted in
                 if submitted { onDismiss() }
             }

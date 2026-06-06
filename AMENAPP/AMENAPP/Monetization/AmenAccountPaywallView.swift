@@ -251,6 +251,9 @@ struct AmenAccountPaywallView: View {
                     .accessibilityLabel("Purchase error: \(purchaseError)")
             }
 
+            // C-7: Apple App Store required auto-renewal disclosure (Guideline 3.1.2).
+            iapDisclosureText
+
             Button(action: onDismiss) {
                 Text("Maybe later")
                     .font(.system(size: 15, weight: .medium))
@@ -261,6 +264,16 @@ struct AmenAccountPaywallView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Dismiss — maybe later")
         }
+    }
+
+    private var iapDisclosureText: some View {
+        Text("Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Manage or cancel subscriptions in your Apple ID Account Settings.")
+            .font(.system(size: 11))
+            .foregroundStyle(Color.white.opacity(0.35))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 4)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Subscription auto-renewal and billing disclosure")
     }
 
     // MARK: - Actions
