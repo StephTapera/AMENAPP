@@ -5,6 +5,8 @@
 // CrisisCard: NEVER contains AI reflection. Real crisis resources only.
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Shared: Section label
 
@@ -403,6 +405,7 @@ struct BereanStudyCard: View {
 struct BereanMemoryCard: View {
     let card: BereanFormationCard
     @State private var revealed = false
+    @State private var memorized = false
 
     var body: some View {
         guard case .memory(let mv, let verse) = card.data else { return AnyView(EmptyView()) }
@@ -449,14 +452,38 @@ struct BereanMemoryCard: View {
                         BereanMockLabel()
                     }
                     HStack(spacing: 10) {
-                        Button {} label: {
-                            Text("✓ I remembered it")
+                        Button {
+                            guard !memorized else { return }
+                            withAnimation(.amenSnappy) { memorized = true }
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            Task {
+                                guard let uid = Auth.auth().currentUser?.uid else { return }
+                                let db = Firestore.firestore()
+                                let docRef = db
+                                    .collection("users")
+                                    .document(uid)
+                                    .collection("memoryProgress")
+                                    .document(mv.verseRef)
+                                try? await docRef.setData([
+                                    "verseRef":    mv.verseRef,
+                                    "memorizedAt": FieldValue.serverTimestamp(),
+                                    "count":       FieldValue.increment(Int64(1))
+                                ], merge: true)
+                            }
+                        } label: {
+                            Text(memorized ? "Memorized!" : "✓ I remembered it")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(Color(hex: "#0A0A0F"))
                                 .frame(maxWidth: .infinity).padding(.vertical, 10)
-                                .background(NotifGlassTokens.primaryButtonGradient)
+                                .background(
+                                    memorized
+                                        ? AnyShapeStyle(Color(hex: "#3DAA6E"))
+                                        : AnyShapeStyle(NotifGlassTokens.primaryButtonGradient)
+                                )
                                 .clipShape(Capsule())
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(memorized)
                         Button { withAnimation { revealed = false } } label: {
                             Text("Practice again")
                                 .font(.system(size: 13, weight: .medium))
@@ -667,5 +694,15 @@ struct BereanWhySheet: View {
             .padding(.bottom, 24)
         }
         .ignoresSafeArea()
+    }
+}
+
+// MARK: - Local Animation Tokens
+// .amenSnappy is not globally exported from the kit; redeclare privately
+// following the pattern in AmenActionTray.swift and AmenMinistryRoomPrayerTab.swift.
+
+private extension Animation {
+    static var amenSnappy: Animation {
+        .spring(response: 0.22, dampingFraction: 0.70)
     }
 }

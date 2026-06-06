@@ -148,7 +148,7 @@ actor FirebaseTransformEngine: TransformEngine {
 // MARK: - TransformResult + Decoding helper
 
 private extension TransformResult {
-    init(from data: [String: Any]) throws {
+    nonisolated init(from data: [String: Any]) throws {
         guard
             let newObjectId   = data["newObjectId"]   as? String,
             let newObjectTypeRaw = data["newObjectType"] as? String,
