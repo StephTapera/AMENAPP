@@ -29,7 +29,7 @@ struct AmenPrayerFollowUpCard: View {
                 )
         )
         .sheet(isPresented: $showUpdateSheet) {
-            PrayerUpdateSheet(request: request)
+            PrayerFollowUpUpdateSheet(request: request)
         }
     }
 
@@ -141,7 +141,7 @@ struct AmenPrayerFollowUpCard: View {
 
 // MARK: - Prayer Update Sheet
 
-private struct PrayerUpdateSheet: View {
+private struct PrayerFollowUpUpdateSheet: View {
     let request: CovenantPrayerRequest
     @Environment(\.dismiss) private var dismiss
     @State private var updateText = ""

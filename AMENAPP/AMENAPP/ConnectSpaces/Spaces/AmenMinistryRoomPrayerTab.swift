@@ -45,7 +45,7 @@ final class AmenMinistryRoomPrayerViewModel: ObservableObject {
 
 // MARK: - Prayer Card
 
-private struct AmenPrayerCard: View {
+private struct MinistryRoomPrayerCard: View {
     let item: AmenConnectSpacesDerivedItem
     let onMarkAnswered: () -> Void
 
@@ -251,7 +251,7 @@ struct AmenMinistryRoomPrayerTab: View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 ForEach(vm.items) { item in
-                    AmenPrayerCard(item: item) {
+                    MinistryRoomPrayerCard(item: item) {
                         vm.markAnswered(item: item)
                     }
                 }

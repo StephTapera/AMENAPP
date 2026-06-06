@@ -140,7 +140,7 @@ struct AmenPersonalDiscoveryAgentSheet: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            FlowLayout(spacing: 8) {
+            DiscoveryFlowLayout(spacing: 8) {
                 ForEach(DiscoverySuggestion.examplePrompts, id: \.self) { prompt in
                     Button {
                         query = prompt
@@ -326,9 +326,9 @@ private struct DiscoverySuggestionRow: View {
     }
 }
 
-// MARK: - FlowLayout (simple horizontal-wrapping layout)
+// MARK: - DiscoveryFlowLayout (simple horizontal-wrapping layout)
 
-private struct FlowLayout: Layout {
+private struct DiscoveryFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

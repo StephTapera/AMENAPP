@@ -56,18 +56,18 @@ struct VisitCompanionChurch: Identifiable, Codable, Hashable {
     }
 }
 
-struct VisitCompanionChurchAddress: Codable, Hashable {
+struct VisitCompanionChurchAddress: Codable {
     let street: String
     let city: String
     let state: String
     let zipCode: String
     let country: String
     let coordinates: GeoPoint?
-    
+
     var fullAddress: String {
         "\(street), \(city), \(state) \(zipCode)"
     }
-    
+
     enum CodingKeys: String, CodingKey {
         case street
         case city
@@ -75,6 +75,18 @@ struct VisitCompanionChurchAddress: Codable, Hashable {
         case zipCode = "zip_code"
         case country
         case coordinates
+    }
+}
+
+extension VisitCompanionChurchAddress: Hashable, Equatable {
+    static func == (lhs: VisitCompanionChurchAddress, rhs: VisitCompanionChurchAddress) -> Bool {
+        lhs.street == rhs.street && lhs.city == rhs.city &&
+        lhs.state == rhs.state && lhs.zipCode == rhs.zipCode &&
+        lhs.country == rhs.country
+    }
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(street); hasher.combine(city)
+        hasher.combine(state); hasher.combine(zipCode); hasher.combine(country)
     }
 }
 

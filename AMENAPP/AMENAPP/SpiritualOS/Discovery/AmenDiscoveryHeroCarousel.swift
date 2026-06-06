@@ -74,7 +74,7 @@ private extension View {
 
 // MARK: - Space
 
-fileprivate struct AmenSpaceData: Identifiable {
+struct AmenSpaceData: Identifiable {
     let id: String
     let name: String
     let tagline: String
@@ -102,7 +102,7 @@ fileprivate struct AmenSpaceData: Identifiable {
     )
 }
 
-struct AmenSpaceHeroCard: View {
+fileprivate struct AmenSpaceHeroCard: View {
     let space: AmenSpaceData
     var onJoin: () -> Void = {}
     var onCatchUp: () -> Void = {}
@@ -181,7 +181,7 @@ struct AmenSpaceHeroCard: View {
 
 // MARK: - Event
 
-fileprivate struct AmenEventData: Identifiable {
+struct AmenEventData: Identifiable {
     let id: String
     let title: String
     let dateTimeLabel: String
@@ -205,7 +205,7 @@ fileprivate struct AmenEventData: Identifiable {
     )
 }
 
-struct AmenEventHeroCard: View {
+fileprivate struct AmenEventHeroCard: View {
     let event: AmenEventData
     var onRSVP: () -> Void = {}
     var onDirections: () -> Void = {}
@@ -280,7 +280,7 @@ struct AmenEventHeroCard: View {
 
 // MARK: - Prayer
 
-fileprivate struct AmenPrayerData: Identifiable {
+struct AmenPrayerData: Identifiable {
     let id: String
     let subject: String
     let context: String
@@ -304,7 +304,7 @@ fileprivate struct AmenPrayerData: Identifiable {
     )
 }
 
-struct AmenPrayerHeroCard: View {
+fileprivate struct AmenPrayerHeroCard: View {
     let prayer: AmenPrayerData
     var onPray: () -> Void = {}
 
@@ -367,7 +367,7 @@ struct AmenPrayerHeroCard: View {
 
 // MARK: - Sermon
 
-fileprivate struct AmenSermonData: Identifiable {
+struct AmenSermonData: Identifiable {
     let id: String
     let title: String
     let pastor: String
@@ -395,7 +395,7 @@ fileprivate struct AmenSermonData: Identifiable {
     )
 }
 
-struct AmenSermonHeroCard: View {
+fileprivate struct AmenSermonHeroCard: View {
     let sermon: AmenSermonData
     var onWatch: () -> Void = {}
     var onTakeNotes: () -> Void = {}

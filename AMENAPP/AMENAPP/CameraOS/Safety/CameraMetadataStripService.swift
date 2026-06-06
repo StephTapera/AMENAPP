@@ -184,38 +184,29 @@ actor CameraMetadataStripService {
             throw CameraMetadataStripError.exportSessionCreationFailed
         }
 
-        exportSession.outputURL = tempURL
-        exportSession.outputFileType = .mov
         exportSession.shouldOptimizeForNetworkUse = true
 
-        // Remove location metadata by providing an empty metadata array.
-        // AVAssetExportSession will propagate only what we provide here.
-        exportSession.metadata = strippedVideoMetadata(from: asset)
+        // Remove location metadata by providing only the filtered items.
+        exportSession.metadata = try await strippedVideoMetadata(from: asset)
 
-        await exportSession.export()
-
-        switch exportSession.status {
-        case .completed:
-            return tempURL
-        case .failed:
-            throw exportSession.error ?? CameraMetadataStripError.exportFailed
-        case .cancelled:
-            throw CameraMetadataStripError.exportCancelled
-        default:
+        do {
+            try await exportSession.export(to: tempURL, as: .mov)
+        } catch {
             throw CameraMetadataStripError.exportFailed
         }
+        return tempURL
     }
 
-    /// Returns the asset's metadata with location items removed.
-    private func strippedVideoMetadata(from asset: AVURLAsset) -> [AVMetadataItem] {
+    /// Returns the asset's metadata with location items removed, loaded asynchronously.
+    private func strippedVideoMetadata(from asset: AVURLAsset) async throws -> [AVMetadataItem] {
         let locationIdentifiers: Set<AVMetadataIdentifier> = [
             .commonIdentifierLocation,
             .quickTimeMetadataLocationISO6709
         ]
 
-        return asset.metadata.filter { item in
+        let allMetadata = try await asset.load(.metadata)
+        return allMetadata.filter { item in
             guard let identifier = item.identifier else {
-                // If we cannot identify the item, exclude it to be safe.
                 return false
             }
             return !locationIdentifiers.contains(identifier)

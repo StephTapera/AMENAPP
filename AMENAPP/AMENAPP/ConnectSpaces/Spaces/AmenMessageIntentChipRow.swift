@@ -129,7 +129,7 @@ struct AmenMessageIntentChipRow: View {
     @ViewBuilder
     private var chips: some View {
         ForEach(intents, id: \.self) { intent in
-            IntentChip(intent: intent) {
+            SpaceIntentChip(intent: intent) {
                 handleTap(intent)
             }
             .overlay(alignment: .topTrailing) {
