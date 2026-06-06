@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-struct BereanMemoryNode: Identifiable {
+struct BereanMemoryStripNode: Identifiable {
     let id: UUID
     let emoji: String
     let label: String
@@ -15,8 +15,8 @@ struct BereanMemoryNode: Identifiable {
 }
 
 struct BereanMemoryStripView: View {
-    let nodes: [BereanMemoryNode]
-    let onNodeTap: (BereanMemoryNode) -> Void
+    let nodes: [BereanMemoryStripNode]
+    let onNodeTap: (BereanMemoryStripNode) -> Void
     @State private var isExpanded = true
 
     var body: some View {

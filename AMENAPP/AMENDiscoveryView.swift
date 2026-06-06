@@ -76,6 +76,7 @@ struct AMENDiscoveryView: View {
     @State private var railSelectedSpaceId: String? = nil
     @State private var railSelectedMentorId: String? = nil
     @State private var railSelectedChurchId: String? = nil
+    @State private var showBereanPulse = false
 
     var body: some View {
         NavigationStack {
@@ -105,6 +106,16 @@ struct AMENDiscoveryView: View {
                                     .foregroundColor(Color(white: 0.45))
                                     .tracking(1.4)
                                 Spacer()
+                                Button {
+                                    HapticManager.impact(style: .light)
+                                    showBereanPulse = true
+                                } label: {
+                                    Image(systemName: "waveform.path.ecg")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                                .accessibilityLabel("Berean Pulse")
+                                .accessibilityHint("Open spiritual intelligence dashboard")
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 10)
@@ -234,6 +245,9 @@ struct AMENDiscoveryView: View {
                 withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                     isSearchDimmed = focused
                 }
+            }
+            .sheet(isPresented: $showBereanPulse) {
+                BereanPulseView()
             }
         }
     }

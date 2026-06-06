@@ -137,12 +137,12 @@ class ContentSafetyShieldService: ObservableObject {
 
         // Map ContentRiskAnalyzer categories to the legacy shield result format.
         // Score scale: ContentRiskAnalyzer is 0.0–1.0; ThreatLevel expects 0–100.
-        let categoryScores: [ContentRiskCategory: Double] = riskResult.categoryScores
+        let categoryScores: [LocalRiskCategory: Double] = riskResult.categoryScores
 
         if detectHarassment {
             let score = max(
-                categoryScores[ContentRiskCategory.harassmentExploitation] ?? 0,
-                categoryScores[ContentRiskCategory.profanityHate] ?? 0
+                categoryScores[LocalRiskCategory.harassmentExploitation] ?? 0,
+                categoryScores[LocalRiskCategory.profanityHate] ?? 0
             )
             if score >= 0.25 {
                 let points = Int(score * 80)
@@ -153,8 +153,8 @@ class ContentSafetyShieldService: ObservableObject {
 
         if detectSexualContent {
             let score = max(
-                categoryScores[ContentRiskCategory.explicitSexual] ?? 0,
-                categoryScores[ContentRiskCategory.groomingTrafficking] ?? 0
+                categoryScores[LocalRiskCategory.explicitSexual] ?? 0,
+                categoryScores[LocalRiskCategory.groomingTrafficking] ?? 0
             )
             if score >= 0.20 {
                 let points = Int(score * 100)
@@ -164,7 +164,7 @@ class ContentSafetyShieldService: ObservableObject {
         }
 
         if detectViolence {
-            let score = categoryScores[ContentRiskCategory.violenceThreat] ?? 0
+            let score = categoryScores[LocalRiskCategory.violenceThreat] ?? 0
             if score >= 0.25 {
                 let points = Int(score * 80)
                 threatScore += points
@@ -174,7 +174,7 @@ class ContentSafetyShieldService: ObservableObject {
 
         if detectBullying {
             // Bullying overlaps with harassment; also pick up direct-attack signals
-            let score = categoryScores[ContentRiskCategory.harassmentExploitation] ?? 0
+            let score = categoryScores[LocalRiskCategory.harassmentExploitation] ?? 0
             if score >= 0.30 {
                 let points = Int(score * 60)
                 threatScore = max(threatScore, points) // don't double-count with harassment

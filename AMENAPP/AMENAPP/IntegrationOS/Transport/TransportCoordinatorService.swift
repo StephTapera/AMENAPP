@@ -17,25 +17,26 @@ actor TransportCoordinatorService {
 
     // MARK: - Deep Link to Rideshare
 
-    @MainActor
     func openRideshare(provider: TransportProvider, destination: MKMapItem) async {
         guard isEnabled else { return }
-        let coord = destination.placemark.coordinate
-        var urlString: String
-        switch provider {
-        case .uber:
-            urlString = "uber://?action=setPickup&dropoff[latitude]=\(coord.latitude)&dropoff[longitude]=\(coord.longitude)&dropoff[nickname]=\(destination.name?.urlEncoded ?? "Destination")"
-        case .lyft:
-            urlString = "lyft://ridetype?id=lyft&destination[latitude]=\(coord.latitude)&destination[longitude]=\(coord.longitude)"
-        case .appleMaps:
-            destination.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault])
-            return
-        }
-        guard let url = URL(string: urlString) else { return }
-        if UIApplication.shared.canOpenURL(url) {
-            UIApplication.shared.open(url)
-        } else {
-            UIApplication.shared.open(provider.appStoreURL)
+        await MainActor.run {
+            let coord = destination.placemark.coordinate
+            var urlString: String
+            switch provider {
+            case .uber:
+                urlString = "uber://?action=setPickup&dropoff[latitude]=\(coord.latitude)&dropoff[longitude]=\(coord.longitude)&dropoff[nickname]=\(destination.name?.urlEncoded ?? "Destination")"
+            case .lyft:
+                urlString = "lyft://ridetype?id=lyft&destination[latitude]=\(coord.latitude)&destination[longitude]=\(coord.longitude)"
+            case .appleMaps:
+                destination.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault])
+                return
+            }
+            guard let url = URL(string: urlString) else { return }
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+            } else {
+                UIApplication.shared.open(provider.appStoreURL)
+            }
         }
     }
 

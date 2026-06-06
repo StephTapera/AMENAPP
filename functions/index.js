@@ -1328,3 +1328,89 @@ exports.interpretContextLens = interpretContextLens;
 exports.bereanVisionScan     = bereanVisionScan;
 exports.scanMediaForSafety   = scanMediaForSafety;
 exports.reportCSAMFlag       = reportCSAMFlag;
+
+// ============================================================================
+// CHURCH PULSE — Computed church-health view derived from real Firestore data
+//   getChurchPulse — callable: returns a cached or freshly-computed ChurchPulse
+//     for the given churchId.
+//     - Verifies caller is authenticated and a church member
+//     - Applies 6-hour server-side cache in church_pulse/{churchId}
+//     - Score is always derived from real events/prayers/volunteer data
+//     - Never fabricates pulse data; returns UNKNOWN/0 when no data exists
+// Auth:   required (uid must be member of the church)
+// Reads:  events, prayers, volunteerOpportunities, churches/{id}/members
+// Writes: church_pulse/{churchId} (cache write, fails silently)
+// Deploy: firebase deploy --only functions:getChurchPulse --project amen-5e359
+// ============================================================================
+const { getChurchPulse } = require("./intelligence/churchPulseCallable");
+exports.getChurchPulse = getChurchPulse;
+
+// ============================================================================
+// AMEN LIVE — Real-time in-app live session banner (prayer events, sermon streams,
+//   community moments, volunteer mobilizations, crisis responses)
+//
+//   startAmenLiveSession — callable: pastor/admin only; creates an active session
+//     - Requires pastor or admin custom claim
+//     - Verifies backingEntity exists before writing
+//     - Writes to amen_live_sessions/{sessionId} via Admin SDK
+//   endAmenLiveSession   — callable: pastor/admin only; marks session isActive=false
+//     - Requires pastor or admin custom claim
+//   recordLiveAction     — callable: any authenticated user
+//     - Writes to intelligence_actions/{userId}/actions/{actionId}
+//     - NO counts or metrics stored — action type + sessionId only
+//
+// Firestore rules needed (add to firestore.rules):
+//   match /amen_live_sessions/{sessionId} {
+//     allow read: if isSignedIn();
+//     allow write: if false; // CF Admin SDK only
+//   }
+//
+// Auth:   startAmenLiveSession/endAmenLiveSession require pastor or admin claim
+//         recordLiveAction requires authenticated user (any)
+// Writes: amen_live_sessions/{sessionId}, intelligence_actions/{uid}/actions/{id}
+// Deploy: firebase deploy --only functions:startAmenLiveSession,endAmenLiveSession,recordLiveAction --project amen-5e359
+// ============================================================================
+const {
+    startAmenLiveSession,
+    endAmenLiveSession,
+    recordLiveAction,
+} = require("./intelligence/amenLiveCallable");
+exports.startAmenLiveSession = startAmenLiveSession;
+exports.endAmenLiveSession   = endAmenLiveSession;
+exports.recordLiveAction     = recordLiveAction;
+
+// ============================================================================
+// AGENT 3 — Event Intelligence, Prayer Graph, Need Detection Callables
+//
+// Callable functions: getEventIntelligence, getPrayerMatchCards, getNeedDetectionCards
+// Privacy: no counts, no PII, fail-closed
+// Firestore indexes required (see composite index notes at bottom of this block):
+//   events: (organizerChurchId ASC, startDate ASC, isDeleted ASC)
+//   events: (location.lat ASC, startDate ASC, isDeleted ASC)
+//   prayers: (authorUID ASC, isAnswered ASC, isPublic ASC, createdAt DESC)
+//   prayers: (authorUID ASC, isAnswered ASC, expiresAt ASC)
+//   posts:   (authorUID ASC, isPublic ASC, createdAt DESC, isDeleted ASC)
+//
+// Auth:   all three callables require Firebase Auth
+// Deploy: firebase deploy --only functions:getEventIntelligence,getPrayerMatchCards,getNeedDetectionCards --project amen-5e359
+// ============================================================================
+const {
+    getEventIntelligence,
+    getPrayerMatchCards,
+    getNeedDetectionCards,
+} = require("./intelligence/eventPrayerNeedCallables");
+exports.getEventIntelligence  = getEventIntelligence;
+exports.getPrayerMatchCards   = getPrayerMatchCards;
+exports.getNeedDetectionCards = getNeedDetectionCards;
+
+// ============================================================================
+// WORLD RESPONSE — GLOBAL tier intelligence cards (Agent 5)
+//   getWorldResponseCards — callable: returns GLOBAL IntelligenceCard[] for
+//     current events; fail-closed (returns [] on error); never fabricates.
+// Auth:   requires Firebase Auth
+// Reads:  world_response_queue/{eventId} (populated by scheduled CF or admin)
+// Writes: intelligence_cards/{cardId} (cache, CF Admin SDK)
+// Deploy: firebase deploy --only functions:getWorldResponseCards --project amen-5e359
+// ============================================================================
+const { getWorldResponseCards } = require("./intelligence/worldResponseCallable");
+exports.getWorldResponseCards = getWorldResponseCards;

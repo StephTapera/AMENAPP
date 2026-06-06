@@ -215,7 +215,7 @@ private struct IntegrationCategoryTile: View {
 // MARK: - Events List Stub (full view in EventDetailView.swift)
 
 private struct EventsListView: View {
-    @State private var events: [AmenEvent] = []
+    @State private var events: [AmenIntegrationEvent] = []
     @State private var isLoading = false
     @Environment(\.colorScheme) private var colorScheme
 
@@ -240,7 +240,7 @@ private struct EventsListView: View {
         .navigationTitle("Events")
         .task {
             isLoading = true
-            events = (try? await AmenEventService.shared.fetchEvents()) ?? []
+            events = (try? await AmenIntegrationEventService.shared.fetchEvents()) ?? []
             isLoading = false
         }
     }

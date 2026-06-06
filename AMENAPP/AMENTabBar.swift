@@ -88,6 +88,7 @@ struct AMENTabBar: View {
     @Binding var selectedTab: Int
     @Binding var badges: AMENBadgeCounts
     var onCompose: () -> Void
+    var onCameraOS: (() -> Void)? = nil
     var profilePhotoURL: String? = nil
     var isMinimized: Bool = false
 
@@ -104,6 +105,12 @@ struct AMENTabBar: View {
                 .fill(AmenTheme.Colors.separatorSubtle)
                 .frame(width: 0.5, height: 20)
                 .padding(.horizontal, 6)
+
+            // Camera OS button
+            if let onCameraOS {
+                cameraButton(action: onCameraOS)
+                    .padding(.leading, 2)
+            }
 
             // Compose button at end
             composeButton
@@ -308,6 +315,26 @@ struct AMENTabBar: View {
 
     // MARK: - Compose button (Ink Motion Tile aesthetic — compact monochrome)
     
+    private func cameraButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(.regularMaterial)
+                        .overlay(
+                            Circle()
+                                .stroke(AmenTheme.Colors.separatorSubtle, lineWidth: 0.5)
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Camera")
+        .accessibilityHint("Opens Camera OS for photo and video capture")
+    }
+
     private var composeButton: some View {
         Button(action: onCompose) {
             ZStack {

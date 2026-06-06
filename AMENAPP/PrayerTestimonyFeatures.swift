@@ -307,7 +307,7 @@ struct TestimonyArcView: View {
 
 // MARK: - Feature 4: Church Pulse
 
-class ChurchPulseService: ObservableObject {
+class ChurchPrayerActivityService: ObservableObject {
     @Published var activePrayerCount = 0
     @Published var recentTestimonies: [Post] = []
     @Published var isLoading = false
@@ -344,7 +344,7 @@ class ChurchPulseService: ObservableObject {
 
 struct ChurchPulseSection: View {
     let churchId: String
-    @StateObject private var service = ChurchPulseService()
+    @StateObject private var service = ChurchPrayerActivityService()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

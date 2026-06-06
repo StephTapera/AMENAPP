@@ -61,7 +61,7 @@ private struct FormationStrengthBar: View {
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.separator).frame(height: 4)
+                    Capsule().fill(Color(UIColor.separator)).frame(height: 4)
                     Capsule()
                         .fill(Color.accentColor)
                         .frame(width: geo.size.width * CGFloat(pct) / 100, height: 4)
@@ -165,7 +165,7 @@ struct BereanReadingPlanCard: View {
                         .padding(.horizontal, 14).padding(.vertical, 7)
                         .background(Color(.secondarySystemGroupedBackground))
                         .clipShape(Capsule())
-                        .overlay(Capsule().strokeBorder(Color.separator, lineWidth: 0.5))
+                        .overlay(Capsule().strokeBorder(Color(UIColor.separator), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
@@ -255,7 +255,7 @@ struct BereanPrayerCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(prayer.sensitivity == .tender ? Color(hex: "#4A9ECC").opacity(0.30) : Color.separator, lineWidth: 0.5)
+                .strokeBorder(prayer.sensitivity == .tender ? Color(hex: "#4A9ECC").opacity(0.30) : Color(UIColor.separator), lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -311,7 +311,7 @@ struct BereanSanctuaryCard: View {
                     .padding(.vertical, 12)
                     .background(Color(.secondarySystemGroupedBackground))
                     .clipShape(Capsule())
-                    .overlay(Capsule().strokeBorder(Color.separator, lineWidth: 0.5))
+                    .overlay(Capsule().strokeBorder(Color(UIColor.separator), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }

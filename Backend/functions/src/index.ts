@@ -534,3 +534,50 @@ export * from "./spaces/monetizationExt";
 export * from "./spaces/discoveryAndLegal";
 export * from "./spaces/mentorship";
 export * from "./spaces/discussionAI";
+
+// Living Intelligence — GLOBAL Tier (Agent 5: World Events as Christian Response)
+// Callables: getGlobalIntelligenceCards, submitWorldEvent
+// Utilities: generateWorldResponse (worldResponseEngine), buildGlobalCard (globalCardBuilder)
+// Rules enforced: source required, DEVELOPING never top, lament frame for disaster/conflict/persecution,
+//   actions restricted to PRAY | GIVE | SHOW_UP | DISCUSS, fail-closed on AI unavailability.
+export { getGlobalIntelligenceCards, submitWorldEvent } from "./intelligence/worldEventsFunctions";
+export { generateWorldResponse } from "./intelligence/worldResponseEngine";
+export { buildGlobalCard } from "./intelligence/globalCardBuilder";
+
+// Living Intelligence — Church Pulse Subsystem
+// Scheduled: refreshChurchPulses (every 6 hours, verified churches only)
+// Callable: getChurchPulseForUser — auth required, returns ChurchPulseData
+// Callable: buildChurchPulseCard — auth required, returns IntelligenceCard shape
+// Writes: church_pulse/{churchId} — server-write-only, no fabricated scores
+// Built: 2026-06-05
+export * from "./intelligence/churchPulseFunctions";
+
+// Living Intelligence — Core Engine (Agent 1)
+// amenRouting.ts:       callModel abstraction + moderateContent (fail-closed)
+// formationGovernor.ts: enforces all FORMATION_INVARIANTS synchronously
+// rankingEngine.ts:     Ranking Brain — computes rankScore + rankReasons per card
+// opportunityGraph.ts:  OpportunityNode store + supply↔demand matcher
+// digestBuilder.ts:     Scheduled 2x/day digest builder + admin manual trigger
+//
+// Scheduled: buildIntelligenceBriefs (every 12 hours)
+// Callable:  triggerIntelligenceBriefForUser (admin-only, testing/manual trigger)
+// Writes:    intelligence_cards/{cardId}, users/{uid}/intelligence_brief/current
+// Built: 2026-06-05
+export {
+  buildIntelligenceBriefs,
+  triggerIntelligenceBriefForUser,
+} from "./intelligence/digestBuilder";
+
+// Living Intelligence — Agent 3: Event Matching + Prayer Graph + Need Detection
+// Built: 2026-06-05
+// Callables: matchEventsForUser, matchPrayerSupport, classifyPostNeed, matchNeedsToVolunteers
+// Triggers: onPrayerCreated (classifies prayerNeedType on new prayers)
+export { matchEventsForUser } from "./intelligence/eventMatcher";
+export {
+  matchPrayerSupport,
+  onPrayerCreated,
+} from "./intelligence/prayerGraphService";
+export {
+  classifyPostNeed,
+  matchNeedsToVolunteers,
+} from "./intelligence/needDetector";

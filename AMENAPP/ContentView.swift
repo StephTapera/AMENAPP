@@ -52,6 +52,8 @@ struct ContentView: View {
     @State private var showAudiencePicker = false
     @State private var selectedAudience: AmenPostAudience? = nil
     @State private var selectedAudienceMetadata: AmenAudienceMetadata? = nil
+    // Camera OS
+    @State private var showCameraOS = false
     @State private var showBereanQuickActions = false
     @State private var showBereanAssistantFromMenu = false
     @State private var showBereanDailyFormation = false
@@ -677,6 +679,9 @@ struct ContentView: View {
                         showAudiencePicker = true
                     }
                 },
+                onCameraOS: {
+                    showCameraOS = true
+                },
                 profilePhotoURL: currentUserProfileImageURL.isEmpty ? nil : currentUserProfileImageURL,
                 isMinimized: tabScrollBridge.isMinimized
             )
@@ -746,6 +751,10 @@ struct ContentView: View {
                     bereanButtonFrame = frame.rect
                 }
             }
+        }
+        // Camera OS — full-screen camera capture, intent selection, and safety review flow.
+        .fullScreenCover(isPresented: $showCameraOS) {
+            AmenCameraOSHubView()
         }
         // Audience-First picker — shown before the compose editor opens via the compose button.
         // After selection the picker closes itself and fires the callback below.

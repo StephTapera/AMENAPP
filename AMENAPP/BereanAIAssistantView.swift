@@ -192,7 +192,7 @@ struct BereanAIAssistantView: View {
     @State private var speechRecognizer: SpeechRecognitionService?
 
     // MARK: - Smart Feature state (PROMPT 1–5)
-    @State private var memoryNodes: [BereanMemoryNode] = []
+    @State private var memoryNodes: [BereanMemoryStripNode] = []
     @State private var followUpSuggestions: [BereanFollowUp] = []
     @State private var showFollowUps = false
     @State private var messageClaims: [UUID: [FactClaim]] = [:]
@@ -361,7 +361,7 @@ struct BereanAIAssistantView: View {
         let aiMessages = viewModel.messages.filter { !$0.isFromUser }
         memoryNodes = aiMessages.enumerated().map { index, msg in
             let meta = bereanTopicMeta(for: msg.content)
-            return BereanMemoryNode(
+            return BereanMemoryStripNode(
                 id: msg.id, emoji: meta.emoji, label: meta.label,
                 messageIndex: index, color: meta.color, borderColor: meta.border
             )

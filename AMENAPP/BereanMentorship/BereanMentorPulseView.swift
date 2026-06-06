@@ -155,7 +155,7 @@ struct BereanMentorPulseView: View {
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: items.count)
 
                     Divider()
-                        .background(Color.separator)
+                        .background(Color(UIColor.separator))
                         .padding(.horizontal, 20)
                 }
             }
@@ -204,7 +204,7 @@ struct BereanMentorPulseView: View {
                     .padding(.vertical, 10)
 
                     Divider()
-                        .background(Color.separator)
+                        .background(Color(UIColor.separator))
                         .padding(.horizontal, 20)
                 }
             }
@@ -406,7 +406,7 @@ struct LogSessionSheet: View {
                         .padding(.top, 8)
 
                         Divider()
-                            .background(Color.separator)
+                            .background(Color(UIColor.separator))
                             .padding(.horizontal, 24)
 
                         // Notes field

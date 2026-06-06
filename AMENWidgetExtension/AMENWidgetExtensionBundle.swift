@@ -30,5 +30,9 @@ struct AMENWidgetExtensionBundle: WidgetBundle {
         BereanLiveActivityWidget()
         // Dynamic Island — Prayer Chain Live Activity
         PrayerChainLiveActivityWidget()
+        // Dynamic Island — Living Intelligence Cards
+        if #available(iOSApplicationExtension 16.2, *) {
+            AmenLiveActivityWidget()
+        }
     }
 }

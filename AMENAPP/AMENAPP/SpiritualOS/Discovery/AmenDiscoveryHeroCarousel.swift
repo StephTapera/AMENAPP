@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Discovery Hero Carousel
 // Horizontally paging carousel of expandable hero cards at the top of Discovery.
@@ -14,6 +15,10 @@ struct AmenDiscoveryHeroCarousel: View {
 
     @State private var scrolledID: Int? = 0
     private let cardCount = 5
+    @State private var isChurchSaved = false
+    @State private var showShareSheet = false
+    @State private var showCatchUpSheet = false
+    @State private var showNotesSheet = false
 
     var body: some View {
         VStack(spacing: 10) {

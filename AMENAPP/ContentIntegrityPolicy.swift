@@ -12,6 +12,8 @@ import FirebaseAuth
 
 // MARK: - Content Categories
 
+typealias ContentCategory = ContentModerationClass
+
 enum ContentModerationClass: String, Codable {
     case post = "post"
     case comment = "comment"

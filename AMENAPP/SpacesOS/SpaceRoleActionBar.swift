@@ -73,7 +73,7 @@ private struct ActionBarButton: View {
                     )
                 Text(action.label)
                     .font(.caption2)
-                    .foregroundStyle(action.isEnabled ? .primary : .secondary.opacity(0.5))
+                    .foregroundStyle(action.isEnabled ? Color.primary : Color.secondary.opacity(0.5))
             }
         }
         .buttonStyle(.plain)

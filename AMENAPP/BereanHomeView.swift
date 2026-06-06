@@ -19,6 +19,7 @@ import SwiftUI
 import Foundation
 import FirebaseAuth
 import Combine
+import Network
 
 // MARK: - BereanAuraMode
 
@@ -156,11 +157,23 @@ private struct BereanScrollOffsetKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
+// MARK: - BereanViewState
+
+private enum BereanViewState {
+    case empty
+    case loading
+    case populated
+    case error(String)
+    case emptyResult
+    case offline
+}
+
 // MARK: - BereanHomeView
 
 struct BereanHomeView: View {
-    @StateObject private var viewModel = BereanHomeViewModel()
-    @StateObject private var resolver  = BereanContextResolver()
+    @StateObject private var viewModel          = BereanHomeViewModel()
+    @StateObject private var resolver           = BereanContextResolver()
+    @StateObject private var intelligenceEngine = BereanIntelligenceEngine()
 
     @State private var composerText    = ""
     @State private var scrollOffset: CGFloat = 0
@@ -169,6 +182,21 @@ struct BereanHomeView: View {
     @State private var showSettings    = false
     @State private var composerFocused = false
     @State private var showDailyFormation = false
+
+    // Chrome & container state
+    @State private var showMenu = false
+    @State private var showAvatarSheet = false
+    @State private var showSafeShareSheet = false
+    @State private var pendingShareDraft: BereanShareDraft? = nil
+    @State private var showReflectionSheet = false
+    @State private var pendingReflectionDraft: ReflectionDraft? = nil
+    @State private var showActionTray = false
+    @State private var composerState = ComposerState()
+
+    // View state & offline
+    @State private var viewState: BereanViewState = .empty
+    @State private var isOffline = false
+    private let networkMonitor = NWPathMonitor()
 
     @Environment(\.dismiss) private var dismiss
 
@@ -196,98 +224,86 @@ struct BereanHomeView: View {
                     // Bottom fade gradient — lets content read through
                     bottomFadeGradient
 
+                    // Action tray — slides up above composer when open
+                    if showActionTray {
+                        AmenActionTray(isPresented: $showActionTray, onSelect: { action in
+                            showActionTray = false
+                            handleTrayAction(action)
+                        })
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 80 + proxy.safeAreaInsets.bottom)
+                    }
+
+                    // Smart action pills — shown when intelligence engine detects relevant context
+                    SmartActionPills(
+                        actions: intelligenceEngine.suggestedActions,
+                        onSelect: handleSmartAction
+                    )
+                    .padding(.bottom, 88 + proxy.safeAreaInsets.bottom)
+                    .padding(.horizontal, 16)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.78), value: intelligenceEngine.suggestedActions.map(\.id))
+
                     // Pinned composer — always above everything
                     premiumComposer(safeBottom: proxy.safeAreaInsets.bottom)
+
+                    // Floating header — pinned to the top of the ZStack
+                    VStack(spacing: 0) {
+                        BereanLiquidGlassHeader(
+                            onMenu: { showMenu = true },
+                            onAvatar: { showAvatarSheet = true },
+                            onPulse: { showDailyFormation = true },
+                            showPulsePill: true
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        Spacer()
+                    }
                 }
                 .ignoresSafeArea(.keyboard)
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.black)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(Circle().fill(Color.white.opacity(0.58)))
-                                    .overlay(Circle().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.5))
-                                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Back")
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showDailyFormation = true } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "sparkle")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.black.opacity(0.72))
-                            Text("Formation")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.black.opacity(0.72))
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-                                .overlay(Capsule().fill(Color.white.opacity(0.52)))
-                                .overlay(Capsule().strokeBorder(Color.white.opacity(0.48), lineWidth: 0.5))
-                                .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Daily Formation")
-                }
-                ToolbarItem(placement: .principal) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "graduationcap")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.black.opacity(0.64))
-                        Text("Study")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.black.opacity(0.76))
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                            .overlay(Capsule().fill(Color.white.opacity(0.48)))
-                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.60), lineWidth: 0.5))
-                            .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-                    )
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(.black)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(Circle().fill(Color.white.opacity(0.58)))
-                                    .overlay(Circle().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.5))
-                                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Options")
-                }
-            }
+            .navigationBarBackButtonHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Berean assistant")
         .task {
             resolver.resolve(
                 mode: viewModel.selectedMode,
                 lastSession: BereanChatSessionManager.shared.sessions.first
             )
         }
-        .onAppear { viewModel.refreshSessions() }
+        .onAppear {
+            viewModel.refreshSessions()
+            viewState = viewModel.recentSessions.isEmpty ? .empty : .populated
+
+            networkMonitor.pathUpdateHandler = { path in
+                DispatchQueue.main.async {
+                    isOffline = path.status != .satisfied
+                    if isOffline {
+                        viewState = .offline
+                    } else {
+                        viewState = viewModel.recentSessions.isEmpty ? .empty : .populated
+                    }
+                }
+            }
+            networkMonitor.start(queue: DispatchQueue(label: "BereanNetworkMonitor"))
+        }
+        .onDisappear {
+            networkMonitor.cancel()
+        }
+        .onChange(of: viewModel.recentSessions.count) { _, count in
+            guard !isOffline else { return }
+            viewState = count == 0 ? .empty : .populated
+        }
+        .onChange(of: intelligenceEngine.isProcessing) { _, processing in
+            guard !isOffline else { return }
+            if processing {
+                viewState = .loading
+            } else {
+                viewState = viewModel.recentSessions.isEmpty ? .empty : .populated
+            }
+        }
         .onChange(of: viewModel.selectedMode) { _, mode in
             withAnimation(.easeInOut(duration: 0.35)) {
                 resolver.resolve(mode: mode, lastSession: viewModel.recentSessions.first)
@@ -295,6 +311,7 @@ struct BereanHomeView: View {
         }
         .onChange(of: composerText) { _, text in
             resolver.updateFromInput(text)
+            intelligenceEngine.analyze(text: text)
         }
         .sheet(isPresented: $showNewChat) {
             if let q = pendingQuery, !q.isEmpty {
@@ -309,6 +326,36 @@ struct BereanHomeView: View {
         }
         .sheet(isPresented: $showDailyFormation) {
             BereanDailyFormationView()
+        }
+        .sheet(isPresented: $showMenu) {
+            BereanAISettingsView()
+        }
+        .sheet(isPresented: $showAvatarSheet) {
+            BereanAISettingsView()
+        }
+        .sheet(isPresented: $showSafeShareSheet) {
+            if let draft = pendingShareDraft {
+                SafeSharePrompt(
+                    payload: draft,
+                    onApprove: { showSafeShareSheet = false },
+                    onCancel: {
+                        showSafeShareSheet = false
+                        pendingShareDraft = nil
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showReflectionSheet) {
+            if let draft = pendingReflectionDraft {
+                ReflectionSaveSheet(
+                    draft: draft,
+                    onSave: { showReflectionSheet = false },
+                    onCancel: {
+                        showReflectionSheet = false
+                        pendingReflectionDraft = nil
+                    }
+                )
+            }
         }
     }
 
@@ -431,14 +478,62 @@ struct BereanHomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            if viewModel.recentSessions.isEmpty {
-                ForEach(0..<4, id: \.self) { i in
-                    placeholderCard(index: i)
+            switch viewState {
+            case .empty, .emptyResult:
+                BereanAssistantEmptyState(onOpenPulse: { showNewChat = true })
+                    .frame(minHeight: 200)
+
+            case .loading:
+                VStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.regular)
+                    Text("Berean is thinking…")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
                 }
-            } else {
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+
+            case .populated:
                 ForEach(Array(viewModel.recentSessions.prefix(5))) { session in
                     recentSessionCard(session)
                 }
+
+            case .error(let msg):
+                VStack(spacing: 14) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundColor(Color(red: 1.0, green: 0.72, blue: 0.10))
+                    Text(msg)
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("Try again") {
+                        viewState = .empty
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(glassCardBackground)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(20)
+                .background(glassCardBackground)
+
+            case .offline:
+                VStack(spacing: 14) {
+                    Image(systemName: "wifi.slash")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Text("You're offline. Berean will reconnect automatically.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(20)
+                .background(glassCardBackground)
             }
         }
     }
@@ -556,7 +651,11 @@ struct BereanHomeView: View {
             collapseProgress: collapseProgress,
             isFocused: $composerFocused,
             onSend: submitComposer,
-            onAttach: { /* future: attachment sheet */ }
+            onAttach: {
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+                    showActionTray = true
+                }
+            }
         )
         .padding(.bottom, max(safeBottom, 16))
     }
@@ -574,6 +673,79 @@ struct BereanHomeView: View {
     private func openResume(_ item: BereanResumeItem) {
         pendingQuery = nil
         showNewChat = true
+    }
+
+    // MARK: - Tray Action Handler
+
+    private func handleTrayAction(_ action: TrayAction) {
+        switch action {
+        case .addBibleVerse:
+            composerText = "Verse: "
+            composerFocused = true
+        case .addPrayerRequest:
+            composerText = "Prayer: "
+            composerFocused = true
+        case .addChurchNotes:
+            showNewChat = true
+        case .addPhotoSafely:
+            // Moderation gated — tray handles the gate
+            break
+        case .addVoiceNote:
+            composerText = ""
+            composerFocused = true
+            // Voice recording is initiated via the BereanComposerBar mic button
+        case .addSermonClip:
+            showNewChat = true
+        case .addReminder:
+            composerText = "Remind me to "
+            composerFocused = true
+        case .shareToSpace:
+            // Moderation gated — tray handles the gate
+            break
+        }
+    }
+
+    // MARK: - Smart Action Handler
+
+    private func handleSmartAction(_ action: SmartAction) {
+        switch action {
+        case .explainVerse:
+            let prefix = "Explain this verse: "
+            if composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                composerText = prefix
+            } else {
+                composerText = composerText + " " + prefix
+            }
+            composerFocused = true
+
+        case .createPrayer:
+            if composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                composerText = "Write a prayer: "
+            } else {
+                composerText = "Write a prayer about: " + composerText
+            }
+            showNewChat = true
+
+        case .summarizeNotes:
+            composerText = "Summarize my notes: "
+            showNewChat = true
+
+        case .compareTranslations:
+            composerText = "Compare translations: "
+            composerFocused = true
+
+        case .saveReflection:
+            pendingReflectionDraft = ReflectionDraft(text: composerText)
+            showReflectionSheet = true
+
+        case .startDiscussion:
+            showNewChat = true
+
+        case .shareSafely:
+            guard !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            pendingShareDraft = BereanShareDraft(text: composerText)
+            showSafeShareSheet = true
+        }
     }
 }
 

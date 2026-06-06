@@ -253,7 +253,7 @@ struct BereanFormationOnboardingView: View {
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .strokeBorder(active ? Color.accentColor : Color.separator, lineWidth: 0.5)
+                                    .strokeBorder(active ? Color.accentColor : Color(UIColor.separator), lineWidth: 0.5)
                             )
                         }
                         .buttonStyle(.plain)
@@ -430,7 +430,7 @@ struct BereanFormationGhostButton: View {
                 .padding(.vertical, 14)
                 .background(Color(.secondarySystemGroupedBackground))
                 .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(Color.separator, lineWidth: 0.5))
+                .overlay(Capsule().strokeBorder(Color(UIColor.separator), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)

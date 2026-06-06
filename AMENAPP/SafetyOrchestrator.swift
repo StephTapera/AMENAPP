@@ -63,7 +63,7 @@ struct SafetyContentDecision {
     }
 
     let action: Action
-    let riskCategory: ContentRiskCategory
+    let riskCategory: LocalRiskCategory
     let riskScore: Double          // 0.0 – 1.0
     let authorSupportState: SafetySupportState
     let moderatorReason: String    // internal, not user-facing

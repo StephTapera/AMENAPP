@@ -17,6 +17,7 @@ import FirebaseAuth
 struct SpiritualInboxView: View {
     @StateObject var viewModel = AmenHubRealtimeViewModel()
     @State private var selectedFilter: AmenHubItemType? = nil
+    @State private var showCommHub = false
 
     var body: some View {
         NavigationStack {
@@ -81,6 +82,16 @@ struct SpiritualInboxView: View {
             }
             .navigationTitle("Hub")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showCommHub = true
+                    } label: {
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                            .font(.system(size: 18, weight: .medium))
+                    }
+                    .accessibilityLabel("Communication Hub")
+                    .accessibilityHint("Open the AI-enhanced messaging hub")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     if viewModel.unreadCount > 0 {
                         Text("\(viewModel.unreadCount) unread")
@@ -88,6 +99,9 @@ struct SpiritualInboxView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+            }
+            .sheet(isPresented: $showCommHub) {
+                BereanCommunicationHubView()
             }
         }
         .task {

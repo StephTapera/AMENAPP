@@ -1321,6 +1321,124 @@ service cloud.firestore {
       allow create, update, delete: if false; // CF churchNotesProcessingJobs
     }
 
+    // ── Intelligence Collections ──────────────────────────────────────────────
+    // Added 2026-06-05 by Living Intelligence Agent 1
+
+    match /intelligence_cards/{cardId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow write: if false; // CF Admin SDK only
+    }
+
+    match /intelligence_briefs/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // CF Admin SDK only
+    }
+
+    match /intelligence_actions/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // CF Admin SDK only
+      match /actions/{actionId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+    }
+
+    match /opportunity_graph/{nodeId} {
+      allow read, write: if false; // CF internal only
+    }
+
+    match /church_pulse/{churchId} {
+      allow read: if isSignedIn() && (
+        exists(/databases/$(database)/documents/churches/$(churchId)/members/$(request.auth.uid)) ||
+        request.auth.token.get('role', '') == 'pastor' ||
+        request.auth.token.get('admin', false) == true
+      );
+      allow write: if false; // CF Admin SDK only
+    }
+
+    // =========================================================================
+    // AMEN LIVE SESSIONS — CF writes only (startAmenLiveSession / endAmenLiveSession)
+    // Any authenticated user may read; only Admin SDK (pastor/admin CF) may write.
+    // Added 2026-06-05 by Living Intelligence Agent 6 + Verifier
+    // =========================================================================
+
+    match /amen_live_sessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF Admin SDK only (startAmenLiveSession / endAmenLiveSession)
+    }
+
+    // =========================================================================
+    // WORLD RESPONSE QUEUE — admin-populated event queue for GLOBAL cards
+    // Readable by CF Admin SDK only; no client reads or writes.
+    // Added 2026-06-05 by Living Intelligence Agent 5 + Verifier
+    // =========================================================================
+
+    match /world_response_queue/{eventId} {
+      allow read, write: if false; // CF internal only
+    }
+
+    // =========================================================================
+    // /intelligence_cards/{cardId}
+    // Living Intelligence — card feed governance
+    // Server-write-only (CF Admin SDK). Clients may only read.
+    // Formation governor enforces: finite brief, no spectacle counters,
+    // DEVELOPING never top-ranked, every card has verified backing entity.
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /intelligence_cards/{cardId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF Admin SDK only
+    }
+
+    // =========================================================================
+    // /opportunity_graph/{opportunityId}
+    // Community opportunity graph — computed server-side from church/event/need data
+    // Server-write-only. Clients read only.
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /opportunity_graph/{opportunityId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF Admin SDK only
+    }
+
+    // =========================================================================
+    // /needs/{needId}
+    // Community-reported needs (material, prayer, volunteer, donation, community)
+    // Clients submit via CF callable (classifyPostNeed) — never direct create.
+    // Soft-delete only (isDeleted: false → true).
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /needs/{needId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF callable only (classifyPostNeed)
+    }
+
+    // =========================================================================
+    // /church_pulse/{churchId}
+    // Computed church health metrics — CF Admin SDK writes only (refreshChurchPulses).
+    // Derived from real Firestore data only — never fabricated.
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /church_pulse/{churchId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF Admin SDK only (refreshChurchPulses)
+    }
+
+    // =========================================================================
+    // /users/{userId}/intelligence_brief/{briefId}
+    // Per-user intelligence brief — written by digestBuilder CF, read by owner only.
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /users/{userId}/intelligence_brief/{briefId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create, update, delete: if false; // CF Admin SDK only (buildIntelligenceBriefs)
+    }
+
     // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.

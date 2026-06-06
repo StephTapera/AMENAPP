@@ -37,7 +37,7 @@ struct BereanMenteeGrowthView: View {
         .onAppear {
             Task {
                 await service.loadMentorships()
-                if let mentorship = service.myMentorships.first(where: { !service.isMentor })
+                if let mentorship = service.myMentorships.first(where: { _ in !service.isMentor })
                                     ?? service.myMentorships.first {
                     try? await service.fetchGrowthPlan(mentorshipId: mentorship.id)
                 }
@@ -238,7 +238,8 @@ struct BereanMenteeGrowthView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
             } else {
-                ForEach(Array(plan.suggestedResources.enumerated()), id: \.offset) { _, resource in
+                ForEach(plan.suggestedResources.indices, id: \.self) { index in
+                    let resource = plan.suggestedResources[index]
                     HStack(spacing: 12) {
                         Image(systemName: "book.circle")
                             .font(.system(size: 20))
@@ -254,7 +255,7 @@ struct BereanMenteeGrowthView: View {
                     .accessibilityLabel("Suggested resource: \(resource)")
 
                     Divider()
-                        .background(Color.separator)
+                        .background(Color(UIColor.separator))
                         .padding(.horizontal, 20)
                 }
             }
@@ -453,7 +454,7 @@ struct MeetingPrepSheet: View {
                             .padding(.vertical, 6)
 
                             Divider()
-                                .background(Color.separator)
+                                .background(Color(UIColor.separator))
                                 .padding(.horizontal, 24)
                         }
 
