@@ -138,7 +138,8 @@ const DEFAULT_LIMITS = {
   comment_create:                     { maxCount: 60,  windowSecs: 3600  },  // 60 per hour
   dm_send:                            { maxCount: 100, windowSecs: 3600  },  // 100 per hour
   report_submit:                      { maxCount: 10,  windowSecs: 3600  },  // 10 per hour
-  push_send:                          { maxCount: 50,  windowSecs: 3600  },  // 50 per hour
+  push_send:                          { maxCount: 50,  windowSecs: 3600  },  // 50 per hour (individual)
+  push_bulk:                          { maxCount: 100, windowSecs: 60    },  // 100 per minute (bulk send, C-10)
   invite_send:                        { maxCount: 30,  windowSecs: 86400 },  // 30 invites per day (H-04)
   account_create:                     { maxCount: 2,   windowSecs: 86400 },  // 2 username reservations per day (H-04)
   // Church Notes AI pipeline (expensive external API calls)

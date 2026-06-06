@@ -329,6 +329,69 @@ final class AmenChildSafetyService: ObservableObject {
     }
 
     // =========================================================================
+    // MARK: - Grooming Auto-Removal (C-11)
+    // =========================================================================
+
+    /// Immediately soft-deletes content flagged for grooming patterns and queues it
+    /// for staff review. Unlike CSAM, grooming auto-removal does NOT require NCMEC
+    /// human authorization — content is removed immediately, review happens afterward.
+    ///
+    /// - Parameters:
+    ///   - contentRef:      Firestore path of the flagged content (e.g. "posts/abc123")
+    ///   - authorId:        UID of the content author
+    ///   - detectionSource: What triggered the flag: "ios_pattern_match" | "cf_ml_scan"
+    func reportGroomingContent(
+        contentRef: String,
+        authorId: String,
+        detectionSource: String
+    ) async {
+        dlog("[AmenChildSafetyService] Grooming auto-removal — contentRef=\(contentRef), source=\(detectionSource)")
+
+        // Step 1: Immediately soft-delete the content.
+        let pathComponents = contentRef.split(separator: "/").map(String.init)
+        if pathComponents.count == 2 {
+            let collection = pathComponents[0]
+            let documentId = pathComponents[1]
+            try? await db.collection(collection).document(documentId).updateData([
+                "isDeleted": true,
+                "deletedAt": FieldValue.serverTimestamp(),
+                "deletionReason": "grooming_auto_removal"
+            ])
+        }
+
+        // Step 2: Queue for staff review (no NCMEC pipeline required for grooming).
+        let queueRecord: [String: Any] = [
+            "contentRef": contentRef,
+            "authorId": authorId,
+            "contentType": pathComponents.first ?? "unknown",
+            "type": "grooming",
+            "detectionSource": detectionSource,
+            "status": "pending",
+            "autoRemoved": true,
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+        try? await db.collection("moderationQueue").addDocument(data: queueRecord)
+
+        // Step 3: Increment grooming flag count on user_trust record.
+        // The EnforcementLadderService CF monitors this and escalates if threshold exceeded.
+        try? await db.collection("user_trust").document(authorId).updateData([
+            "groomingFlagCount": FieldValue.increment(Int64(1)),
+            "lastGroomingFlagAt": FieldValue.serverTimestamp()
+        ])
+
+        // Step 4: Write to safety audit log.
+        let auditRecord: [String: Any] = [
+            "event": "grooming_auto_removal",
+            "contentRef": contentRef,
+            "authorId": authorId,
+            "detectionSource": detectionSource,
+            "clientTimestamp": Date().timeIntervalSince1970,
+            "source": "AmenChildSafetyService"
+        ]
+        try? await db.collection("safetyAuditLog").addDocument(data: auditRecord)
+    }
+
+    // =========================================================================
     // MARK: - Private Helpers
     // =========================================================================
 

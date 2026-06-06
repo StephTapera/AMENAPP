@@ -22,7 +22,7 @@ actor AmenCalendarService {
 
     var isAuthorized: Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
-        return status == .fullAccess || status == .authorized
+        return status == .fullAccess
     }
 
     // MARK: - Add Event
@@ -30,7 +30,7 @@ actor AmenCalendarService {
     func addEvent(title: String, startDate: Date, endDate: Date, notes: String? = nil, calendarId: String? = nil) async throws {
         guard isEnabled else { return }
         if !isAuthorized { try await requestAccess() }
-        let store = adapter.eventStore
+        let store = await MainActor.run { adapter.eventStore }
         let event = EKEvent(eventStore: store)
         event.title = title
         event.startDate = startDate
@@ -49,7 +49,7 @@ actor AmenCalendarService {
     func fetchEvents(from start: Date, to end: Date) async throws -> [EKEvent] {
         guard isEnabled else { return [] }
         if !isAuthorized { try await requestAccess() }
-        let store = adapter.eventStore
+        let store = await MainActor.run { adapter.eventStore }
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
         return store.events(matching: predicate)
             .sorted { $0.startDate < $1.startDate }
@@ -60,7 +60,7 @@ actor AmenCalendarService {
     func removeEvent(eventId: String) async throws {
         guard isEnabled else { return }
         if !isAuthorized { try await requestAccess() }
-        let store = adapter.eventStore
+        let store = await MainActor.run { adapter.eventStore }
         guard let event = store.event(withIdentifier: eventId) else { return }
         try store.remove(event, span: .thisEvent)
     }
@@ -69,6 +69,6 @@ actor AmenCalendarService {
 
     func availableCalendars() async -> [EKCalendar] {
         guard isEnabled, isAuthorized else { return [] }
-        return adapter.eventStore.calendars(for: .event)
+        return await MainActor.run { adapter.eventStore.calendars(for: .event) }
     }
 }

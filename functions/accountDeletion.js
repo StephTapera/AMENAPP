@@ -154,6 +154,73 @@ exports.processAccountDeletion = onDocumentCreated(
       // 3f. Algolia sync queue entries
       await deleteDocsWhere('algoliaSync', 'userId', uid);
 
+      // 3g. C-13: Events and RSVPs — delete events the user created, plus their own RSVPs.
+      // Events hosted by the user are deleted; their RSVPs subcollections are removed too.
+      const hostedEventsSnap = await db.collection('events')
+        .where('hostUserId', '==', uid)
+        .get();
+      for (const eventDoc of hostedEventsSnap.docs) {
+        await deleteCollection(eventDoc.ref.collection('rsvps'));
+        await eventDoc.ref.delete();
+      }
+      // RSVPs the user made to other events
+      const rsvpSnap = await db.collectionGroup('rsvps')
+        .where('userId', '==', uid)
+        .get();
+      await batchDelete(rsvpSnap.docs);
+
+      // 3h. C-14: Church succession — transfer or archive churches where user is primary pastor.
+      const ownedChurchesSnap = await db.collection('churches')
+        .where('pastorUserId', '==', uid)
+        .get();
+      for (const churchDoc of ownedChurchesSnap.docs) {
+        const churchData = churchDoc.data();
+        const coPastors = churchData.coPastorIds || [];
+        const remainingCoPastors = coPastors.filter(id => id !== uid);
+        if (remainingCoPastors.length > 0) {
+          // Transfer ownership to the first co-pastor
+          await churchDoc.ref.update({
+            pastorUserId: remainingCoPastors[0],
+            coPastorIds: remainingCoPastors.slice(1),
+            ownershipTransferredAt: admin.firestore.FieldValue.serverTimestamp(),
+            previousPastorId: uid,
+          });
+        } else {
+          // No co-pastors — archive the church
+          await churchDoc.ref.update({
+            status: 'pastor_departed',
+            pastorUserId: admin.firestore.FieldValue.delete(),
+            archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+            previousPastorId: uid,
+          });
+        }
+      }
+      // Remove user from any church where they are a co-pastor (not primary)
+      const coPastorChurchesSnap = await db.collection('churches')
+        .where('coPastorIds', 'array-contains', uid)
+        .get();
+      for (const churchDoc of coPastorChurchesSnap.docs) {
+        await churchDoc.ref.update({
+          coPastorIds: admin.firestore.FieldValue.arrayRemove(uid),
+        });
+      }
+
+      // 3i. Space memberships — remove user from spaces they joined
+      const spaceMemberSnap = await db.collectionGroup('members')
+        .where('userId', '==', uid)
+        .get();
+      await batchDelete(spaceMemberSnap.docs);
+      // Spaces the user owned — archive them
+      const ownedSpacesSnap = await db.collection('spaces')
+        .where('ownerId', '==', uid)
+        .get();
+      for (const spaceDoc of ownedSpacesSnap.docs) {
+        await spaceDoc.ref.update({
+          status: 'owner_deleted',
+          archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
       console.log(`[accountDeletion] Firestore cleared for uid=${uid}`);
     } catch (e) {
       errors.push(`firestore: ${e.message}`);

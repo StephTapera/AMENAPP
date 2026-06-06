@@ -179,6 +179,13 @@ struct CreatePostView: View {
     @State private var showThinkFirstPrompt = false
     @State private var thinkFirstCheckResult: ThinkFirstGuardrailsService.ContentCheckResult?
     @State private var pendingPostContent = ""  // Store content during guardrail check
+
+    // MARK: - Aegis Pre-Post Review Gate
+    @State private var showAegisReview = false
+    @State private var aegisDecision: PrePostDecision? = nil
+
+    // MARK: - Email Verification Gate
+    @State private var showEmailVerificationAlert = false
     
     // Berean AI tone assist
     @State private var bereanToneSuggestion: String?
@@ -411,6 +418,9 @@ struct CreatePostView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(selectedTopicTag.isEmpty
+                    ? "Select topic tag\(selectedCategory != .testimonies ? " (required)" : "")"
+                    : "Topic tag: \(topicTagButtonText). Double-tap to change.")
                 .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
             }
 
@@ -599,6 +609,7 @@ struct CreatePostView: View {
                                                 .foregroundStyle(.secondary)
                                             }
                                             .buttonStyle(.plain)
+                                            .accessibilityLabel("Remove thread post \(index + 1)")
                                         }
                                     }
                                 }
@@ -606,7 +617,7 @@ struct CreatePostView: View {
                                 .padding(.vertical, 8)
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                             }
-                            
+
                             // Add another thread post button
                             if threadPosts.count < 10 {
                                 HStack(spacing: 12) {
@@ -742,6 +753,7 @@ struct CreatePostView: View {
                     .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(.primary)
             }
+            .accessibilityLabel("View saved drafts")
         }
 
         // Liquid Glass Post Button
@@ -1022,6 +1034,46 @@ struct CreatePostView: View {
                     onContinue: continuePostAfterSupportPrompt
                 )
             }
+        }
+        // MARK: - Aegis Pre-Post Review Sheet
+        .sheet(isPresented: $showAegisReview) {
+            if let decision = aegisDecision {
+                if case .crisisIntervene = decision.action {
+                    AmenCrisisInterventionView {
+                        showAegisReview = false
+                        aegisDecision = nil
+                    }
+                } else {
+                    AmenPrePostReviewSheet(
+                        decision: decision,
+                        draftContent: postText,
+                        onProceed: {
+                            showAegisReview = false
+                            aegisDecision = nil
+                            startPublishPipeline()
+                        },
+                        onEdit: {
+                            showAegisReview = false
+                            aegisDecision = nil
+                        },
+                        onCancel: {
+                            showAegisReview = false
+                            aegisDecision = nil
+                            postText = ""
+                            dismiss()
+                        }
+                    )
+                }
+            }
+        }
+        // MARK: - Email Verification Alert
+        .alert("Verify Your Email", isPresented: $showEmailVerificationAlert) {
+            Button("Resend Email") {
+                Auth.auth().currentUser?.sendEmailVerification(completion: nil)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Please verify your email address before posting. Check your inbox for a verification link.")
         }
         .alert(errorTitle, isPresented: $showingErrorAlert) {
             // P1-6 FIX: Show retry button for network/upload errors
@@ -3243,6 +3295,12 @@ struct CreatePostView: View {
         dlog("   isPublishing: \(isPublishing)")
         dlog("   canPost: \(canPost)")
 
+        // P0 GATE: Email must be verified before any post can be submitted.
+        guard Auth.auth().currentUser?.isEmailVerified == true else {
+            showEmailVerificationAlert = true
+            return
+        }
+
         // Smart community guidelines gate — checks first post, session, 30-day inactivity
         if CommunityGuidelinesEligibilityService.shared.shouldShowGuidelines {
             showGuidelinesGate = true
@@ -3390,7 +3448,76 @@ struct CreatePostView: View {
         }
         
         dlog("✅ All validations passed!")
-        
+
+        // ============================================================================
+        // ✅ P0 GATE: Aegis Pre-Post Content Safety Review
+        // ============================================================================
+        // Run AmenContentSafetyService.checkBeforePost before entering the publish pipeline.
+        // If the decision is anything other than .allow, show AmenPrePostReviewSheet.
+        // The sheet's onProceed callback skips back to proceedWithPublish() directly.
+        let aegisSanitizedContent = sanitizeContent(postText)
+        Task {
+            guard let aegisAuthorId = Auth.auth().currentUser?.uid else {
+                await MainActor.run {
+                    inFlightPostId = nil
+                    showError(title: "Not Signed In", message: "Please sign in again to post.")
+                }
+                return
+            }
+            let aegisRequest = ContentCheckRequest(
+                text: aegisSanitizedContent,
+                mediaUrls: [],
+                authorId: aegisAuthorId,
+                objectType: "post",
+                contextRef: nil,
+                isMinorAuthor: false
+            )
+            let decision: PrePostDecision
+            do {
+                decision = try await AmenContentSafetyService.shared.checkBeforePost(aegisRequest)
+            } catch {
+                dlog("[Aegis] checkBeforePost error — failing closed: \(error)")
+                let failResult = ContentSafetyResult(
+                    tier: .high,
+                    categories: [],
+                    confidence: 0.0,
+                    suggestion: "We couldn't verify this post right now. You may edit or post anyway.",
+                    hardBlocked: false,
+                    requiresModerationReview: true,
+                    escalateImmediately: false,
+                    checkedAt: Date()
+                )
+                decision = PrePostDecision(
+                    action: .showSuggestion("We couldn't verify this post right now. You may edit or post anyway."),
+                    safetyResult: failResult
+                )
+            }
+            await MainActor.run {
+                switch decision.action {
+                case .allow:
+                    // Safe — fall through to existing publish pipeline
+                    aegisDecision = nil
+                    startPublishPipeline()
+                case .showSuggestion, .blockWithMessage, .crisisIntervene:
+                    // Show the review sheet; publish pipeline is held until user responds
+                    aegisDecision = decision
+                    inFlightPostId = nil  // Allow re-entry after sheet is resolved
+                    showAegisReview = true
+                }
+            }
+        }
+        return  // All publish paths now flow through startPublishPipeline() or the Aegis sheet
+    }
+
+    /// Starts the full publish pipeline after all pre-flight gates have passed.
+    /// Called either directly from Aegis (.allow path) or from AmenPrePostReviewSheet.onProceed.
+    private func startPublishPipeline() {
+        // Re-acquire idempotency token (may have been cleared by Aegis sheet flow)
+        if inFlightPostId == nil { inFlightPostId = UUID().uuidString }
+
+        // Compute sanitized content here (was computed in publishPost() before the refactor)
+        let sanitizedContent = sanitizeContent(postText)
+
         // ============================================================================
         // ✅ HEY FEED: Think First Guardrails + MODERATION CONSTITUTION Stage 1
         // ============================================================================
