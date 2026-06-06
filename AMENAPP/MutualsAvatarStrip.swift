@@ -10,6 +10,14 @@
 
 import SwiftUI
 
+// MARK: - Safe subscript
+
+private extension Array {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
 // MARK: - Main Strip
 
 struct MutualsAvatarStrip: View {
@@ -100,14 +108,15 @@ struct MutualsAvatarStrip: View {
         case 0:
             return ""
         case 1:
-            return "Followed by \(mutuals[0].displayName.components(separatedBy: " ").first ?? mutuals[0].displayName)"
+            let name = mutuals[safe: 0]?.displayName ?? ""
+            return "Followed by \(name.components(separatedBy: " ").first ?? name)"
         case 2:
-            let n1 = firstName(mutuals[0])
-            let n2 = firstName(mutuals[1])
+            let n1 = mutuals[safe: 0].map(firstName) ?? ""
+            let n2 = mutuals[safe: 1].map(firstName) ?? ""
             return "Followed by \(n1) and \(n2)"
         default:
-            let n1 = firstName(mutuals[0])
-            let n2 = firstName(mutuals[1])
+            let n1 = mutuals[safe: 0].map(firstName) ?? ""
+            let n2 = mutuals[safe: 1].map(firstName) ?? ""
             let rest = mutuals.count - 2
             return "Followed by \(n1), \(n2) and \(rest) others you follow"
         }

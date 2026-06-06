@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Covenant Start Here View
 // Member onboarding surface shown on first join. Guides the user through
@@ -12,6 +14,7 @@ struct AmenCovenantStartHereView: View {
     @State private var currentStep = 0
     @State private var notificationPrefs: NotificationPrefs = .init()
     @State private var sundayModeEnabled = false
+    @State private var showIntroWriter = false
 
     struct NotificationPrefs {
         var announcements = true
@@ -55,6 +58,9 @@ struct AmenCovenantStartHereView: View {
                 }
             }
             .task { await loadOnboarding() }
+            .sheet(isPresented: $showIntroWriter) {
+                CovenantIntroWriterSheet(covenant: covenant)
+            }
         }
     }
 
@@ -179,9 +185,11 @@ struct AmenCovenantStartHereView: View {
                         Text(intro)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Button("Write Introduction") {}
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.purple)
+                        Button("Write Introduction") {
+                            showIntroWriter = true
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.purple)
                     }
                     .padding(16)
                     .background(
@@ -338,5 +346,91 @@ struct AmenCovenantStartHereView: View {
         loading = true
         onboarding = try? await CovenantService.shared.loadOnboarding(covenantId: covenant.id ?? "")
         loading = false
+    }
+}
+
+// MARK: - Intro Writer Sheet
+
+struct CovenantIntroWriterSheet: View {
+    let covenant: Covenant
+    @Environment(\.dismiss) private var dismiss
+    @State private var introText = ""
+    @State private var isSaving = false
+    private let characterLimit = 500
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Introduce yourself to \(covenant.name)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+
+                    TextEditor(text: $introText)
+                        .font(.body)
+                        .padding(12)
+                        .frame(minHeight: 160)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                        )
+                        .padding(.horizontal, 16)
+                        .onChange(of: introText) { _, new in
+                            if new.count > characterLimit {
+                                introText = String(new.prefix(characterLimit))
+                            }
+                        }
+
+                    HStack {
+                        Spacer()
+                        Text("\(introText.count)/\(characterLimit)")
+                            .font(.caption)
+                            .foregroundStyle(introText.count >= characterLimit ? .red : .secondary)
+                    }
+                    .padding(.horizontal, 20)
+                }
+
+                Spacer()
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Write Introduction")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Post") {
+                        saveIntroduction()
+                    }
+                    .disabled(introText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private func saveIntroduction() {
+        guard let uid = FirebaseAuth.Auth.auth().currentUser?.uid,
+              let covenantId = covenant.id else { return }
+        let trimmed = introText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isSaving = true
+        let db = Firestore.firestore()
+        db.collection("covenants")
+            .document(covenantId)
+            .collection("introductions")
+            .addDocument(data: [
+                "authorId": uid,
+                "body": trimmed,
+                "createdAt": FieldValue.serverTimestamp()
+            ]) { _ in
+                DispatchQueue.main.async {
+                    isSaving = false
+                    dismiss()
+                }
+            }
     }
 }

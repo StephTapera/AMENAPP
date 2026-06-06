@@ -1,4 +1,5 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 
@@ -46,9 +47,6 @@ async function isBlocked(userId: string, targetId: string): Promise<boolean> {
 
 // ─── Dynamic Link Helpers ────────────────────────────────────────────
 
-/**
- * Record a join event for velocity tracking.
- */
 async function recordJoinEvent(
     conversationId: string,
     linkId: string,
@@ -67,9 +65,6 @@ async function recordJoinEvent(
         });
 }
 
-/**
- * Check join velocity — returns the number of joins in the last VELOCITY_WINDOW_MS.
- */
 async function getRecentJoinCount(
     conversationId: string,
     linkId: string
@@ -86,10 +81,6 @@ async function getRecentJoinCount(
     return snap.size;
 }
 
-/**
- * Auto-throttle: if joinCount >= threshold and link is open, switch to approval mode.
- * Returns true if the link was throttled.
- */
 async function maybeAutoThrottle(
     conversationId: string,
     linkId: string,
@@ -114,10 +105,6 @@ async function maybeAutoThrottle(
     return true;
 }
 
-/**
- * Anti-raid: detect velocity spike and auto-pause the link.
- * Returns true if the link was paused due to a spike.
- */
 async function maybeAntiRaidPause(
     conversationId: string,
     linkId: string
@@ -137,7 +124,6 @@ async function maybeAntiRaidPause(
         pauseReason: `Anti-raid: ${recentCount} joins in ${VELOCITY_WINDOW_MS / 60000}min window`,
     });
 
-    // Notify admins about the anti-raid pause
     const convoSnap = await db.collection("conversations").doc(conversationId).get();
     if (convoSnap.exists) {
         const convo = convoSnap.data()!;
@@ -163,20 +149,20 @@ async function maybeAntiRaidPause(
 
 // ─── 1. createGroupWithLink ──────────────────────────────────────────
 
-export const createGroupWithLink = functions.https.onCall(async (data: CreateGroupLinkData, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+export const createGroupWithLink = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Auth required");
     }
-    // 5.1 FIX: App Check enforcement.
-    if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    if (!request.app) {
+        throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 
-    const uid = context.auth.uid;
+    const data = request.data as CreateGroupLinkData;
+    const uid = request.auth.uid;
     const groupName = String(data.groupName || "").trim();
 
     if (!groupName || groupName.length > 100) {
-        throw new functions.https.HttpsError("invalid-argument", "Group name is required (max 100 chars)");
+        throw new HttpsError("invalid-argument", "Group name is required (max 100 chars)");
     }
 
     const purpose = data.purpose || "general";
@@ -186,7 +172,6 @@ export const createGroupWithLink = functions.https.onCall(async (data: CreateGro
     const expirationDays = data.expirationDays ?? null;
     const expirationHours = data.expirationHours ?? null;
 
-    // Create the conversation document
     const conversationRef = db.collection("conversations").doc();
     const now = admin.firestore.FieldValue.serverTimestamp();
 
@@ -212,7 +197,6 @@ export const createGroupWithLink = functions.https.onCall(async (data: CreateGro
         purpose: purpose,
     });
 
-    // Generate the invite link
     const token = generateSecureToken();
     let expiresAt: admin.firestore.Timestamp | null = null;
     if (expirationHours && expirationHours > 0 && expirationHours < 24) {
@@ -239,7 +223,6 @@ export const createGroupWithLink = functions.https.onCall(async (data: CreateGro
         safetyTier,
     };
 
-    // Write link and token index atomically
     const batch = db.batch();
     batch.set(linkRef, linkData);
     batch.set(db.collection("groupLinkTokens").doc(token), {
@@ -260,24 +243,23 @@ export const createGroupWithLink = functions.https.onCall(async (data: CreateGro
 
 // ─── 2. fetchGroupLinkPreview ────────────────────────────────────────
 
-export const fetchGroupLinkPreview = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+export const fetchGroupLinkPreview = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Auth required");
     }
-    // 5.1 FIX: App Check enforcement.
-    if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    if (!request.app) {
+        throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 
+    const data = request.data as { token?: string };
     const token = String(data?.token || "").trim();
     if (!token) {
-        throw new functions.https.HttpsError("invalid-argument", "Token required");
+        throw new HttpsError("invalid-argument", "Token required");
     }
 
-    // Resolve token
     const tokenDoc = await db.collection("groupLinkTokens").doc(token).get();
     if (!tokenDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Invalid or expired link");
+        throw new HttpsError("not-found", "Invalid or expired link");
     }
 
     const { conversationId, linkId } = tokenDoc.data()!;
@@ -289,7 +271,7 @@ export const fetchGroupLinkPreview = functions.https.onCall(async (data, context
         .get();
 
     if (!linkSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Link not found");
+        throw new HttpsError("not-found", "Link not found");
     }
 
     const link = linkSnap.data()!;
@@ -305,27 +287,27 @@ export const fetchGroupLinkPreview = functions.https.onCall(async (data, context
             joinMode: link.joinMode || "open",
             safetyTier: link.safetyTier || "standard",
             status: link.status || "active",
-            createdByName: null, // Privacy: don't expose creator name in preview
+            createdByName: null,
         },
     };
 });
 
 // ─── 3. evaluateJoinViaLink ──────────────────────────────────────────
 
-export const evaluateJoinViaLink = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+export const evaluateJoinViaLink = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Auth required");
     }
-    // 5.1 FIX: App Check enforcement.
-    if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    if (!request.app) {
+        throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 
-    const uid = context.auth.uid;
+    const data = request.data as { token?: string };
+    const uid = request.auth.uid;
     const token = String(data?.token || "").trim();
 
     if (!token) {
-        throw new functions.https.HttpsError("invalid-argument", "Token required");
+        throw new HttpsError("invalid-argument", "Token required");
     }
 
     const tokenDoc = await db.collection("groupLinkTokens").doc(token).get();
@@ -347,28 +329,23 @@ export const evaluateJoinViaLink = functions.https.onCall(async (data, context) 
     const link = linkSnap.data()!;
     const convo = convoSnap.data()!;
 
-    // Check link status
     if (link.status === "disabled") return { outcome: "disabled", reason: "Link disabled by admin" };
     if (link.status === "paused") return { outcome: "paused", reason: "Link temporarily paused" };
 
-    // Check expiry
     if (link.expiresAt) {
         const expiry = link.expiresAt.toDate ? link.expiresAt.toDate() : new Date(link.expiresAt);
         if (expiry < new Date()) return { outcome: "expired", reason: "Link has expired" };
     }
 
-    // Check member limit
     const currentMembers = (convo.participantIds || []).length;
     if (link.memberLimit && currentMembers >= link.memberLimit) {
         return { outcome: "full", reason: "Group is at capacity" };
     }
 
-    // Already a member?
     if ((convo.participantIds || []).includes(uid)) {
         return { outcome: "already_member", conversationId, reason: "You are already in this group" };
     }
 
-    // Block check
     const adminIds: string[] = convo.adminIds || [];
     for (const adminId of adminIds) {
         if (await isBlocked(uid, adminId)) {
@@ -376,13 +353,11 @@ export const evaluateJoinViaLink = functions.https.onCall(async (data, context) 
         }
     }
 
-    // Check if previously removed
     const removedMembers: string[] = convo.removedMembers || [];
     if (removedMembers.includes(uid)) {
         return { outcome: "blocked", reason: "You were previously removed from this group" };
     }
 
-    // Account age check for strict safety tier
     if (link.safetyTier === "strict") {
         const userDoc = await db.collection("users").doc(uid).get();
         if (userDoc.exists) {
@@ -397,7 +372,6 @@ export const evaluateJoinViaLink = functions.https.onCall(async (data, context) 
         }
     }
 
-    // Determine outcome based on join mode (including auto-throttled links)
     if (link.joinMode === "approval_required" || link.joinMode === "restricted") {
         const wasAutoThrottled = !!link.autoThrottledAt;
         return {
@@ -414,44 +388,43 @@ export const evaluateJoinViaLink = functions.https.onCall(async (data, context) 
 
 // ─── 4. joinGroupViaLink ─────────────────────────────────────────────
 
-export const joinGroupViaLink = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+export const joinGroupViaLink = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Auth required");
     }
-    // 5.1 FIX: App Check enforcement.
-    if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    if (!request.app) {
+        throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 
-    const uid = context.auth.uid;
+    const data = request.data as { token?: string };
+    const uid = request.auth.uid;
     const token = String(data?.token || "").trim();
 
     if (!token) {
-        throw new functions.https.HttpsError("invalid-argument", "Token required");
+        throw new HttpsError("invalid-argument", "Token required");
     }
 
     const tokenDoc = await db.collection("groupLinkTokens").doc(token).get();
     if (!tokenDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Invalid or expired link");
+        throw new HttpsError("not-found", "Invalid or expired link");
     }
 
     const { conversationId, linkId } = tokenDoc.data()!;
 
-    // Re-validate before joining (defense in depth)
     const [linkSnap, convoSnap] = await Promise.all([
         db.collection("conversations").doc(conversationId).collection("groupLinks").doc(linkId).get(),
         db.collection("conversations").doc(conversationId).get(),
     ]);
 
     if (!linkSnap.exists || !convoSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Group or link no longer exists");
+        throw new HttpsError("not-found", "Group or link no longer exists");
     }
 
     const link = linkSnap.data()!;
     const convo = convoSnap.data()!;
 
     if (link.status !== "active") {
-        throw new functions.https.HttpsError("failed-precondition", "Link is not active");
+        throw new HttpsError("failed-precondition", "Link is not active");
     }
 
     if ((convo.participantIds || []).includes(uid)) {
@@ -461,18 +434,15 @@ export const joinGroupViaLink = functions.https.onCall(async (data, context) => 
     if (link.memberLimit) {
         const currentCount = (convo.participantIds || []).length;
         if (currentCount >= link.memberLimit) {
-            throw new functions.https.HttpsError("resource-exhausted", "Group is at capacity");
+            throw new HttpsError("resource-exhausted", "Group is at capacity");
         }
     }
 
-    // Fetch user display name
     const userDoc = await db.collection("users").doc(uid).get();
     const displayName = userDoc.data()?.username || userDoc.data()?.displayName || "Someone";
 
-    // Add member atomically
     const batch = db.batch();
 
-    // Add to participants
     batch.update(db.collection("conversations").doc(conversationId), {
         participantIds: admin.firestore.FieldValue.arrayUnion(uid),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -481,7 +451,6 @@ export const joinGroupViaLink = functions.https.onCall(async (data, context) => 
         lastSenderId: uid,
     });
 
-    // Increment join count + record last join time for inactivity tracking
     batch.update(
         db.collection("conversations").doc(conversationId).collection("groupLinks").doc(linkId),
         {
@@ -490,7 +459,6 @@ export const joinGroupViaLink = functions.https.onCall(async (data, context) => 
         }
     );
 
-    // System message
     const messageRef = db.collection("conversations").doc(conversationId).collection("messages").doc();
     batch.set(messageRef, {
         text: `${displayName} joined via invite link`,
@@ -502,10 +470,8 @@ export const joinGroupViaLink = functions.https.onCall(async (data, context) => 
 
     await batch.commit();
 
-    // Record join event for velocity tracking (non-blocking)
     await recordJoinEvent(conversationId, linkId, uid);
 
-    // Dynamic link behavior: auto-throttle after threshold
     const newJoinCount = (link.joinCount || 0) + 1;
     const throttled = await maybeAutoThrottle(
         conversationId,
@@ -514,10 +480,8 @@ export const joinGroupViaLink = functions.https.onCall(async (data, context) => 
         link.joinMode || "open"
     );
 
-    // Dynamic link behavior: anti-raid velocity detection
     const raidPaused = await maybeAntiRaidPause(conversationId, linkId);
 
-    // Notify admins
     const adminIds: string[] = convo.adminIds || [];
     const notifBatch = db.batch();
     for (const adminId of adminIds) {
@@ -546,35 +510,34 @@ export const joinGroupViaLink = functions.https.onCall(async (data, context) => 
 
 // ─── 5. requestJoinViaLink ───────────────────────────────────────────
 
-export const requestJoinViaLink = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+export const requestJoinViaLink = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Auth required");
     }
-    // 5.1 FIX: App Check enforcement.
-    if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    if (!request.app) {
+        throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 
-    const uid = context.auth.uid;
+    const data = request.data as { token?: string };
+    const uid = request.auth.uid;
     const token = String(data?.token || "").trim();
 
     if (!token) {
-        throw new functions.https.HttpsError("invalid-argument", "Token required");
+        throw new HttpsError("invalid-argument", "Token required");
     }
 
     const tokenDoc = await db.collection("groupLinkTokens").doc(token).get();
     if (!tokenDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Invalid or expired link");
+        throw new HttpsError("not-found", "Invalid or expired link");
     }
 
     const { conversationId } = tokenDoc.data()!;
     const convoSnap = await db.collection("conversations").doc(conversationId).get();
 
     if (!convoSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Group not found");
+        throw new HttpsError("not-found", "Group not found");
     }
 
-    // Prevent duplicate requests
     const existingReq = await db
         .collection("conversations")
         .doc(conversationId)
@@ -604,7 +567,6 @@ export const requestJoinViaLink = functions.https.onCall(async (data, context) =
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Notify admins
     const convo = convoSnap.data()!;
     const adminIds: string[] = convo.adminIds || [];
     const notifBatch = db.batch();
@@ -628,38 +590,41 @@ export const requestJoinViaLink = functions.https.onCall(async (data, context) =
 
 // ─── 6. adminRespondToJoinRequest ────────────────────────────────────
 
-export const adminRespondToJoinRequest = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+export const adminRespondToJoinRequest = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Auth required");
     }
-    // 5.1 FIX: App Check enforcement.
-    if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    if (!request.app) {
+        throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 
-    const uid = context.auth.uid;
+    const data = request.data as {
+        conversationId?: string;
+        requestId?: string;
+        approve?: boolean;
+        reason?: string;
+    };
+    const uid = request.auth.uid;
     const conversationId = String(data?.conversationId || "").trim();
     const requestId = String(data?.requestId || "").trim();
     const approve = data?.approve === true;
     const reason = String(data?.reason || "").trim();
 
     if (!conversationId || !requestId) {
-        throw new functions.https.HttpsError("invalid-argument", "conversationId and requestId required");
+        throw new HttpsError("invalid-argument", "conversationId and requestId required");
     }
 
-    // Verify caller is admin
     const convoSnap = await db.collection("conversations").doc(conversationId).get();
     if (!convoSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Conversation not found");
+        throw new HttpsError("not-found", "Conversation not found");
     }
 
     const convo = convoSnap.data()!;
     const adminIds: string[] = convo.adminIds || [];
     if (!adminIds.includes(uid)) {
-        throw new functions.https.HttpsError("permission-denied", "Only admins can respond to join requests");
+        throw new HttpsError("permission-denied", "Only admins can respond to join requests");
     }
 
-    // Fetch request
     const requestRef = db
         .collection("conversations")
         .doc(conversationId)
@@ -668,19 +633,18 @@ export const adminRespondToJoinRequest = functions.https.onCall(async (data, con
     const requestSnap = await requestRef.get();
 
     if (!requestSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Request not found");
+        throw new HttpsError("not-found", "Request not found");
     }
 
-    const request = requestSnap.data()!;
-    if (request.status !== "pending") {
+    const joinRequest = requestSnap.data()!;
+    if (joinRequest.status !== "pending") {
         return { ok: true, alreadyHandled: true };
     }
 
-    const requesterId = request.requesterId;
-    const requesterName = request.requesterName || "Someone";
+    const requesterId = joinRequest.requesterId;
+    const requesterName = joinRequest.requesterName || "Someone";
 
     if (approve) {
-        // Add member + update request status atomically
         const batch = db.batch();
 
         batch.update(requestRef, {
@@ -706,7 +670,6 @@ export const adminRespondToJoinRequest = functions.https.onCall(async (data, con
             type: "system",
         });
 
-        // Notify requester
         const notifRef = db.collection("notifications").doc();
         batch.set(notifRef, {
             recipientId: requesterId,
@@ -720,7 +683,6 @@ export const adminRespondToJoinRequest = functions.https.onCall(async (data, con
 
         await batch.commit();
     } else {
-        // Deny
         const batch = db.batch();
 
         batch.update(requestRef, {
@@ -749,33 +711,36 @@ export const adminRespondToJoinRequest = functions.https.onCall(async (data, con
 
 // ─── 7. manageGroupLink ──────────────────────────────────────────────
 
-export const manageGroupLink = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+export const manageGroupLink = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Auth required");
     }
-    // 5.1 FIX: App Check enforcement.
-    if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    if (!request.app) {
+        throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 
-    const uid = context.auth.uid;
+    const data = request.data as {
+        conversationId?: string;
+        linkId?: string;
+        action?: string;
+    };
+    const uid = request.auth.uid;
     const conversationId = String(data?.conversationId || "").trim();
     const linkId = String(data?.linkId || "").trim();
-    const action = String(data?.action || "").trim(); // pause, resume, disable, regenerate
+    const action = String(data?.action || "").trim();
 
     if (!conversationId || !linkId || !action) {
-        throw new functions.https.HttpsError("invalid-argument", "conversationId, linkId, and action required");
+        throw new HttpsError("invalid-argument", "conversationId, linkId, and action required");
     }
 
-    // Verify admin
     const convoSnap = await db.collection("conversations").doc(conversationId).get();
     if (!convoSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Conversation not found");
+        throw new HttpsError("not-found", "Conversation not found");
     }
 
     const convo = convoSnap.data()!;
     if (!(convo.adminIds || []).includes(uid)) {
-        throw new functions.https.HttpsError("permission-denied", "Only admins can manage group links");
+        throw new HttpsError("permission-denied", "Only admins can manage group links");
     }
 
     const linkRef = db
@@ -786,7 +751,7 @@ export const manageGroupLink = functions.https.onCall(async (data, context) => {
     const linkSnap = await linkRef.get();
 
     if (!linkSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Link not found");
+        throw new HttpsError("not-found", "Link not found");
     }
 
     const link = linkSnap.data()!;
@@ -803,7 +768,6 @@ export const manageGroupLink = functions.https.onCall(async (data, context) => {
         case "disable": {
             const batch = db.batch();
             batch.update(linkRef, { status: "disabled" });
-            // Remove token lookup
             if (link.token) {
                 batch.delete(db.collection("groupLinkTokens").doc(link.token));
             }
@@ -820,13 +784,11 @@ export const manageGroupLink = functions.https.onCall(async (data, context) => {
                 .doc();
 
             const batch = db.batch();
-            // Disable old link
             batch.update(linkRef, { status: "disabled" });
             if (link.token) {
                 batch.delete(db.collection("groupLinkTokens").doc(link.token));
             }
 
-            // Create new link
             const now = admin.firestore.FieldValue.serverTimestamp();
             batch.set(newLinkRef, {
                 conversationId,
@@ -858,23 +820,18 @@ export const manageGroupLink = functions.https.onCall(async (data, context) => {
         }
 
         default:
-            throw new functions.https.HttpsError("invalid-argument", `Unknown action: ${action}`);
+            throw new HttpsError("invalid-argument", `Unknown action: ${action}`);
     }
 });
 
 // ─── 8. monitorGroupLinkHealth (Scheduled) ──────────────────────────
-//
-// Runs every hour. Auto-disables links that have been inactive for
-// INACTIVITY_HOURS and have no expiry set (links with expiry are
-// handled by the evaluate step). Also cleans up expired links.
 
-export const monitorGroupLinkHealth = functions.pubsub
-    .schedule("every 60 minutes")
-    .onRun(async () => {
+export const monitorGroupLinkHealth = onSchedule(
+    { schedule: "every 60 minutes" },
+    async () => {
         const now = Date.now();
         const inactivityCutoff = new Date(now - INACTIVITY_HOURS * 60 * 60 * 1000);
 
-        // Query all active link tokens
         const tokenSnaps = await db.collection("groupLinkTokens").get();
 
         let disabledCount = 0;
@@ -892,17 +849,14 @@ export const monitorGroupLinkHealth = functions.pubsub
             const linkSnap = await linkRef.get();
 
             if (!linkSnap.exists) {
-                // Orphaned token — clean up
                 await tokenDoc.ref.delete();
                 continue;
             }
 
             const link = linkSnap.data()!;
 
-            // Skip already disabled/paused links
             if (link.status === "disabled") continue;
 
-            // Check expiry
             if (link.expiresAt) {
                 const expiry = link.expiresAt.toDate
                     ? link.expiresAt.toDate()
@@ -915,7 +869,6 @@ export const monitorGroupLinkHealth = functions.pubsub
                 }
             }
 
-            // Check inactivity (only for active links without expiry)
             if (link.status === "active" && !link.expiresAt) {
                 const lastActivity = link.lastJoinAt
                     ? (link.lastJoinAt.toDate ? link.lastJoinAt.toDate() : new Date(link.lastJoinAt))
@@ -929,7 +882,6 @@ export const monitorGroupLinkHealth = functions.pubsub
                     });
                     await tokenDoc.ref.delete();
 
-                    // Notify creator
                     if (link.createdBy) {
                         await db.collection("notifications").add({
                             recipientId: link.createdBy,
@@ -950,5 +902,5 @@ export const monitorGroupLinkHealth = functions.pubsub
         console.log(
             `monitorGroupLinkHealth: disabled ${disabledCount} inactive, ${expiredCount} expired links`
         );
-        return null;
-    });
+    }
+);

@@ -270,6 +270,7 @@ struct BereanChatView: View {
     @State private var showWallpaperPicker = false
     @State private var sendSweep = false
     @State private var pendingUserSend = false
+    @State private var showUpgradeAlert = false
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -404,6 +405,11 @@ struct BereanChatView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: showSavedToNotesToast)
+            .alert("Amen+ Required", isPresented: $showUpgradeAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Upgrade to Amen+ to unlock unlimited Berean conversations.")
+            }
             .onAppear {
                 if let query = initialQuery, !query.isEmpty {
                     vm.inputText = query
@@ -1575,7 +1581,7 @@ struct BereanChatView: View {
                     .foregroundColor(BereanColor.textSecondary)
             }
             Spacer()
-            Button("Upgrade") { }
+            Button("Upgrade") { showUpgradeAlert = true }
                 .font(AMENFont.semiBold(12))
                 .foregroundColor(.white)
                 .padding(.horizontal, 14)

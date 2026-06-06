@@ -15,6 +15,8 @@ struct ReasoningThreadView: View {
     @State private var steelForExpanded = false
     @State private var steelAgainstExpanded = false
     @State private var headerCompressed = false
+    @State private var showReportDialog = false
+    @State private var reportSubmitted = false
     @Environment(\.dismiss) private var dismiss
 
     init(postId: String, postText: String, postAuthorName: String, entrySource: String? = nil) {
@@ -63,9 +65,39 @@ struct ReasoningThreadView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .confirmationDialog("Report Thread", isPresented: $showReportDialog, titleVisibility: .visible) {
+            Button("Misinformation") { submitReport(reason: "misinformation") }
+            Button("Harmful Content") { submitReport(reason: "harmful_content") }
+            Button("Spam") { submitReport(reason: "spam") }
+            Button("Off-Topic") { submitReport(reason: "off_topic") }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Why are you reporting this thread?")
+        }
+        .alert("Report Submitted", isPresented: $reportSubmitted) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Thank you. Our team will review this thread.")
+        }
         .task {
             vm.threadOpenEntrySource = entrySource
             await vm.loadOrCreate()
+        }
+    }
+
+    private func submitReport(reason: String) {
+        Task {
+            guard let uid = Auth.auth().currentUser?.uid else { return }
+            let db = Firestore.firestore()
+            try? await db.collection("reportedContent").addDocument(data: [
+                "contentType": "discussionThread",
+                "contentId": postId,
+                "reportedBy": uid,
+                "reason": reason,
+                "postText": String(postText.prefix(300)),
+                "createdAt": FieldValue.serverTimestamp()
+            ])
+            await MainActor.run { reportSubmitted = true }
         }
     }
 
@@ -100,8 +132,14 @@ struct ReasoningThreadView: View {
             onClose: { dismiss() },
             trailing: AnyView(
                 Menu {
-                    Button("Share Thread") { }
-                    Button("Report Thread") { }
+                    ShareLink(item: postText, subject: Text("Discussion Thread"), message: Text("Check out this discussion on AMEN.")) {
+                        Label("Share Thread", systemImage: "square.and.arrow.up")
+                    }
+                    Button(role: .destructive) {
+                        showReportDialog = true
+                    } label: {
+                        Label("Report Thread", systemImage: "flag")
+                    }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 15, weight: .semibold))

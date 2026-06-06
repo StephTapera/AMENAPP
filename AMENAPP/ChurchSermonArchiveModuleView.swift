@@ -23,6 +23,7 @@ struct ChurchSermonArchiveModuleView: View {
     let onSermonTap: (ChurchSermonEntry) -> Void
 
     @State private var selectedSermon: ChurchSermonEntry?
+    @State private var showAllSermons = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -49,6 +50,13 @@ struct ChurchSermonArchiveModuleView: View {
         .sheet(item: $selectedSermon) { sermon in
             SermonDetailSheet(sermon: sermon)
         }
+        .sheet(isPresented: $showAllSermons) {
+            SermonArchiveListSheet(sermons: sermons, onSermonTap: { sermon in
+                showAllSermons = false
+                selectedSermon = sermon
+                onSermonTap(sermon)
+            })
+        }
     }
 
     private var sectionHeader: some View {
@@ -60,7 +68,7 @@ struct ChurchSermonArchiveModuleView: View {
             Spacer()
 
             if sermons.count > 3 {
-                Button("See All") { }
+                Button("See All") { showAllSermons = true }
                     .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -315,6 +323,59 @@ private struct SermonDetailSheet: View {
                 .padding(.top, 16)
             }
             .navigationTitle("Sermon")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.medium)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - SermonArchiveListSheet
+
+private struct SermonArchiveListSheet: View {
+    let sermons: [ChurchSermonEntry]
+    let onSermonTap: (ChurchSermonEntry) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(sermons) { sermon in
+                Button {
+                    onSermonTap(sermon)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(sermon.title)
+                            .font(.systemScaled(15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                        HStack(spacing: 8) {
+                            Text(sermon.preacherName)
+                                .font(.systemScaled(13))
+                                .foregroundStyle(.secondary)
+                            Text("·")
+                                .foregroundStyle(.tertiary)
+                            Text(sermon.preachedAt, style: .date)
+                                .font(.systemScaled(12))
+                                .foregroundStyle(.tertiary)
+                        }
+                        if !sermon.scriptureReferences.isEmpty {
+                            Text(sermon.scriptureReferences.prefix(2).joined(separator: " · "))
+                                .font(.systemScaled(11, weight: .medium))
+                                .foregroundStyle(Color(.systemGray))
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("All Sermons")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

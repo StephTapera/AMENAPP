@@ -3,11 +3,13 @@ import SwiftUI
 struct FaithWrappedView: View {
     @StateObject private var viewModel = SpiritualJourneyViewModel()
     @GestureState private var isPressing = false
+    @Environment(\.dismiss) private var dismiss
 
     let period: JourneyPeriod
     @State private var selectedPeriod: JourneyPeriod
     @State private var showShareSheet = false
     @State private var shareText: String = ""
+    @State private var showDeeperInsights = false
 
     init(period: JourneyPeriod) {
         self.period = period
@@ -127,19 +129,26 @@ struct FaithWrappedView: View {
 
     private var bottomActions: some View {
         HStack(spacing: 12) {
-            Button("Close") {}
-                .buttonStyle(.plain)
+            Button("Close") {
+                dismiss()
+            }
+            .buttonStyle(.plain)
             Button("Share Summary") {
                 shareText = makeShareText()
                 showShareSheet = true
             }
             .buttonStyle(.plain)
-            Button("Deeper Insights") {}
-                .buttonStyle(.plain)
+            Button("Deeper Insights") {
+                showDeeperInsights = true
+            }
+            .buttonStyle(.plain)
         }
         .font(AMENFont.semiBold(12))
         .foregroundStyle(.black.opacity(0.7))
         .padding(.bottom, 24)
+        .sheet(isPresented: $showDeeperInsights) {
+            FaithWrappedInsightsSheet(story: viewModel.story, period: selectedPeriod)
+        }
     }
 
     private func makeShareText() -> String {
@@ -158,6 +167,93 @@ struct FaithWrappedView: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
+    }
+}
+
+// MARK: - Deeper Insights Sheet
+
+struct FaithWrappedInsightsSheet: View {
+    let story: SpiritualJourneyStory?
+    let period: JourneyPeriod
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let story {
+                        // Summary card
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Journey Summary", systemImage: "chart.bar.fill")
+                                .font(.headline)
+                            Text(story.safeShareCard?.subtitle ?? "A season of faith")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                        )
+
+                        // Highlights
+                        if let highlights = story.safeShareCard?.highlights, !highlights.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Highlights")
+                                    .font(.headline)
+                                ForEach(highlights, id: \.self) { highlight in
+                                    Label(highlight, systemImage: "star.fill")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                            )
+                        }
+
+                        // Slide themes
+                        let themes = story.slides.compactMap { $0.subtitle }.filter { !$0.isEmpty }
+                        if !themes.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Themes This \(period.rawValue.capitalized)")
+                                    .font(.headline)
+                                ForEach(themes.prefix(6), id: \.self) { theme in
+                                    Text("• \(theme)")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                            )
+                        }
+                    } else {
+                        Text("No insights available for this period.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 40)
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Deeper Insights")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

@@ -7,6 +7,14 @@
 
 import SwiftUI
 
+// MARK: - Safe subscript
+
+private extension Array {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
 // MARK: - Main Component
 
 struct MutualFollowersView: View {
@@ -21,7 +29,7 @@ struct MutualFollowersView: View {
         result.foregroundColor = Color(.secondaryLabel)
         result.font = .system(size: 12.5)
 
-        var name1 = AttributedString(mutuals[0].username)
+        var name1 = AttributedString(mutuals[safe: 0]?.username ?? "")
         name1.font = .system(size: 12.5, weight: .semibold)
         name1.foregroundColor = Color(.label)
         result += name1
@@ -34,7 +42,7 @@ struct MutualFollowersView: View {
             sep.font = .system(size: 12.5)
             result += sep
 
-            var name2 = AttributedString(mutuals[1].username)
+            var name2 = AttributedString(mutuals[safe: 1]?.username ?? "")
             name2.font = .system(size: 12.5, weight: .semibold)
             name2.foregroundColor = Color(.label)
             result += name2
@@ -47,7 +55,7 @@ struct MutualFollowersView: View {
         comma.font = .system(size: 12.5)
         result += comma
 
-        var name2 = AttributedString(mutuals[1].username)
+        var name2 = AttributedString(mutuals[safe: 1]?.username ?? "")
         name2.font = .system(size: 12.5, weight: .semibold)
         name2.foregroundColor = Color(.label)
         result += name2

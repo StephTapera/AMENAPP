@@ -357,6 +357,8 @@ struct AmenMentorChannelView: View {
     @State private var showDiscussionRoom  = false
     @State private var activeRoomType: ObjectDiscussionRoom.ObjectDiscussionRoomType = .discussion
     @State private var showSuccessToast    = false
+    @State private var showAllTeachings    = false
+    @State private var showAllStudySeries  = false
 
     // Hero collapse
     @State private var heroOffset: CGFloat = 0
@@ -415,6 +417,68 @@ struct AmenMentorChannelView: View {
                     roomType:     activeRoomType,
                     existingRoom: nil
                 )
+            }
+        }
+        .sheet(isPresented: $showAllTeachings) {
+            NavigationStack {
+                List(vm.recentTeachings) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                        if let series = item.seriesName {
+                            Text(series)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let date = item.postedAt {
+                            Text(date, style: .date)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listStyle(.insetGrouped)
+                .navigationTitle("All Teachings")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { showAllTeachings = false }
+                            .fontWeight(.medium)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showAllStudySeries) {
+            NavigationStack {
+                List(vm.studySeries) { series in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(series.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                        Text("\(series.lessonCount) lessons")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if series.isEnrolled {
+                            Text("\(Int(series.progressFraction * 100))% complete")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listStyle(.insetGrouped)
+                .navigationTitle("All Study Series")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { showAllStudySeries = false }
+                            .fontWeight(.medium)
+                    }
+                }
             }
         }
     }
@@ -709,15 +773,17 @@ struct AmenMentorChannelView: View {
 
     // MARK: - Rail header helper
 
-    private func railHeader(title: String) -> some View {
+    private func railHeader(title: String, seeAllAction: (() -> Void)? = nil) -> some View {
         HStack {
             Text(title)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.primary)
             Spacer()
-            Button("See All") {}
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color.accentColor)
+            if let seeAllAction {
+                Button("See All", action: seeAllAction)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.accentColor)
+            }
         }
         .padding(.horizontal, 20)
     }
@@ -726,7 +792,7 @@ struct AmenMentorChannelView: View {
 
     private var teachingsRail: some View {
         VStack(alignment: .leading, spacing: 12) {
-            railHeader(title: "Recent Teachings")
+            railHeader(title: "Recent Teachings", seeAllAction: vm.recentTeachings.count > 4 ? { showAllTeachings = true } : nil)
             if vm.isLoadingTeachings {
                 shimmerRail(cardWidth: 200, cardHeight: 140)
             } else if vm.recentTeachings.isEmpty {
@@ -856,7 +922,7 @@ struct AmenMentorChannelView: View {
 
     private var studySeriesRail: some View {
         VStack(alignment: .leading, spacing: 12) {
-            railHeader(title: "Study Series")
+            railHeader(title: "Study Series", seeAllAction: vm.studySeries.count > 4 ? { showAllStudySeries = true } : nil)
             if vm.isLoadingStudies {
                 shimmerRail(cardWidth: 160, cardHeight: 120)
             } else if vm.studySeries.isEmpty {

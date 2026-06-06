@@ -8,6 +8,9 @@ struct CommunityDiscoveryFeedView: View {
     @State private var items: [DiscoveryItem] = DiscoveryItem.previews
     @State private var searchText = ""
     @State private var selectedFilter: DiscoveryFilter = .all
+    @State private var seeAllTitle: String = ""
+    @State private var seeAllItems: [DiscoveryItem] = []
+    @State private var showSeeAll = false
 
     enum DiscoveryFilter: String, CaseIterable {
         case all, spaces, mentors, churches, studies, events
@@ -46,7 +49,7 @@ struct CommunityDiscoveryFeedView: View {
                 // Featured hero
                 if let featured = filtered.first {
                     VStack(alignment: .leading, spacing: 8) {
-                        sectionHeader(title: "Featured", subtitle: "Handpicked for you")
+                        sectionHeader(title: "Featured", subtitle: "Handpicked for you", items: filtered)
                         DiscoveryHeroCard(item: featured, onJoin: { _ in }, onTap: { _ in })
                             .padding(.horizontal, 16)
                     }
@@ -73,7 +76,7 @@ struct CommunityDiscoveryFeedView: View {
                 // All
                 if !filtered.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        sectionHeader(title: "All Results", subtitle: "\(filtered.count) found")
+                        sectionHeader(title: "All Results", subtitle: "\(filtered.count) found", items: filtered)
                         LazyVStack(spacing: 12) {
                             ForEach(filtered) { item in
                                 DiscoveryHeroCard(item: item, onJoin: { _ in }, onTap: { _ in })
@@ -88,6 +91,9 @@ struct CommunityDiscoveryFeedView: View {
         }
         .navigationTitle("Discover")
         .searchable(text: $searchText, prompt: "Spaces, studies, mentors…")
+        .sheet(isPresented: $showSeeAll) {
+            DiscoverySeeAllSheet(title: seeAllTitle, items: seeAllItems)
+        }
     }
 
     // MARK: - Sub-views
@@ -119,16 +125,20 @@ struct CommunityDiscoveryFeedView: View {
     }
 
     @ViewBuilder
-    private func sectionHeader(title: String, subtitle: String) -> some View {
+    private func sectionHeader(title: String, subtitle: String, items: [DiscoveryItem] = []) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Button("See All") {}
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
+            Button("See All") {
+                seeAllTitle = title
+                seeAllItems = items.isEmpty ? filtered : items
+                showSeeAll = true
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 16)
     }
@@ -136,7 +146,7 @@ struct CommunityDiscoveryFeedView: View {
     @ViewBuilder
     private func horizontalSection(title: String, items: [DiscoveryItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: title, subtitle: "\(items.count) available")
+            sectionHeader(title: title, subtitle: "\(items.count) available", items: items)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(items) { item in
@@ -145,6 +155,39 @@ struct CommunityDiscoveryFeedView: View {
                     }
                 }
                 .padding(.horizontal, 16)
+            }
+        }
+    }
+}
+
+// MARK: - See All Sheet
+
+private struct DiscoverySeeAllSheet: View {
+    let title: String
+    let items: [DiscoveryItem]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(items) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(item.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .listStyle(.plain)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
             }
         }
     }

@@ -71,8 +71,8 @@ struct AmenMentorMatchingView: View {
 
     @State private var selectedTab = 0
     @State private var selectedInterests: Set<String> = []
-    @State private var selectedType = mentorTypeOptions[0]
-    @State private var selectedCommitment = commitmentOptions[3]
+    @State private var selectedType = mentorTypeOptions.first ?? "1-on-1 Mentorship"
+    @State private var selectedCommitment = commitmentOptions.last ?? "Flexible"
     @State private var isSearching = false
     @State private var matches: [MentorMatch] = []
     @State private var searchError: String?
@@ -116,10 +116,12 @@ struct AmenMentorMatchingView: View {
 
     // MARK: - Tab Bar
 
+    private let tabLabels = ["Find a Mentor", "My Mentorships"]
+
     private var tabBar: some View {
         HStack(spacing: 0) {
-            ForEach(["Find a Mentor", "My Mentorships"].indices, id: \.self) { idx in
-                let label = ["Find a Mentor", "My Mentorships"][idx]
+            ForEach(tabLabels.indices, id: \.self) { idx in
+                let label = tabLabels[idx]
                 Button {
                     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                         selectedTab = idx

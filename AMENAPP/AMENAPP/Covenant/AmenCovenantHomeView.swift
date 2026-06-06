@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Covenant Home View
 // Command center for a user's paid community membership.
@@ -14,6 +15,7 @@ struct AmenCovenantHomeView: View {
     @State private var showActivityCenter = false
     @State private var showComposer = false
     @State private var scrollOffset: CGFloat = 0
+    @State private var showDigestSheet = false
 
     var body: some View {
         NavigationStack {
@@ -82,6 +84,13 @@ struct AmenCovenantHomeView: View {
             }
             .sheet(isPresented: $showActivityCenter) {
                 AmenCovenantActivityCenterView()
+            }
+            .sheet(isPresented: $showDigestSheet) {
+                CovenantDailyDigestSheet(
+                    postCount: 4,
+                    prayerUpdateCount: 2,
+                    eventCount: 1
+                )
             }
         }
     }
@@ -255,9 +264,11 @@ struct AmenCovenantHomeView: View {
                 Text("Your daily spiritual digest is ready.")
                     .font(.subheadline)
                 Spacer()
-                Button("Read") {}
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.purple)
+                Button("Read") {
+                    showDigestSheet = true
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.purple)
             }
             Text("4 new posts · 2 prayer updates · 1 event")
                 .font(.caption)
@@ -573,6 +584,8 @@ struct SuggestedCreatorItem: Identifiable {
 
 private struct SuggestedCreatorCard: View {
     let creator: SuggestedCreatorItem
+    @State private var isFollowed = false
+    @State private var isWritingFollow = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -599,12 +612,26 @@ private struct SuggestedCreatorCard: View {
                 }
             }
 
-            Button("Follow") {}
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 7)
-                .background(Capsule().fill(Color.purple))
+            Button {
+                guard !isFollowed, !isWritingFollow else { return }
+                withAnimation(.spring(response: 0.3)) { isFollowed = true }
+                persistFollow()
+            } label: {
+                Text(isFollowed ? "Following" : "Follow")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(isFollowed ? Color(uiColor: .label) : .white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 7)
+                    .background {
+                        if isFollowed {
+                            Capsule().stroke(Color(uiColor: .separator), lineWidth: 1.5)
+                        } else {
+                            Capsule().fill(Color.purple)
+                        }
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isFollowed ? "Following \(creator.displayName)" : "Follow \(creator.displayName)")
         }
         .padding(16)
         .frame(width: 160)
@@ -612,6 +639,64 @@ private struct SuggestedCreatorCard: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemGroupedBackground))
         )
+    }
+
+    private func persistFollow() {
+        guard let uid = FirebaseAuth.Auth.auth().currentUser?.uid else { return }
+        isWritingFollow = true
+        let db = Firestore.firestore()
+        let docId = "\(uid)_\(creator.id)"
+        db.collection("covenantFollows").document(docId).setData([
+            "followerId": uid,
+            "creatorId": creator.id,
+            "creatorDisplayName": creator.displayName,
+            "createdAt": FieldValue.serverTimestamp()
+        ]) { _ in
+            DispatchQueue.main.async { isWritingFollow = false }
+        }
+    }
+}
+
+// MARK: - Daily Digest Sheet
+
+struct CovenantDailyDigestSheet: View {
+    let postCount: Int
+    let prayerUpdateCount: Int
+    let eventCount: Int
+    @Environment(\.dismiss) private var dismiss
+
+    private let sections: [(icon: String, label: String, value: Int)] = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Label("\(postCount) new posts from your communities", systemImage: "doc.richtext.fill")
+                        .font(.subheadline)
+                    Label("\(prayerUpdateCount) prayer request updates", systemImage: "hands.sparkles.fill")
+                        .font(.subheadline)
+                    Label("\(eventCount) upcoming event", systemImage: "calendar")
+                        .font(.subheadline)
+                } header: {
+                    Text("Today's Activity")
+                }
+
+                Section {
+                    Text("Open your pinned communities to see the latest posts and join ongoing conversations.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Catch Up")
+                }
+            }
+            .navigationTitle("Daily Digest")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

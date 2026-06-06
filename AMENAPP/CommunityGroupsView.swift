@@ -76,6 +76,10 @@ struct CommunityGroupsView: View {
     @State private var searchText = ""
     @State private var isLoading = true
     @State private var showCreateSheet = false
+    @State private var joiningGroupId: String?
+    @State private var joinedGroupIds: Set<String> = []
+    @State private var groupPendingJoin: CommunityGroup?
+    @State private var showJoinConfirmation = false
 
     private var db: Firestore { Firestore.firestore() }
 
@@ -186,8 +190,54 @@ struct CommunityGroupsView: View {
         .sheet(isPresented: $showCreateSheet) {
             CreateCommunityGroupSheet()
         }
+        .confirmationDialog(
+            "Join \(groupPendingJoin?.name ?? "this group")?",
+            isPresented: $showJoinConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Join Group") {
+                if let group = groupPendingJoin {
+                    joinGroup(group)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                groupPendingJoin = nil
+            }
+        } message: {
+            if let group = groupPendingJoin {
+                Text("You'll be added to \(group.name) (\(group.memberCount) members).")
+            }
+        }
         .navigationTitle("Community Groups")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func joinGroup(_ group: CommunityGroup) {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        joiningGroupId = group.id
+        let groupRef = db.collection("communityGroups").document(group.id)
+        let membershipRef = db.collection("groupMemberships").document("\(uid)_\(group.id)")
+
+        let batch = db.batch()
+        batch.updateData(["memberIds": FieldValue.arrayUnion([uid]), "memberCount": FieldValue.increment(Int64(1))], forDocument: groupRef)
+        batch.setData([
+            "userId": uid,
+            "groupId": group.id,
+            "groupName": group.name,
+            "joinedAt": FieldValue.serverTimestamp()
+        ], forDocument: membershipRef)
+
+        batch.commit { error in
+            DispatchQueue.main.async {
+                joiningGroupId = nil
+                if error == nil {
+                    joinedGroupIds.insert(group.id)
+                    if !myGroups.contains(where: { $0.id == group.id }) {
+                        myGroups.append(group)
+                    }
+                }
+            }
+        }
     }
 
     private func categoryPill(_ category: CommunityGroup.GroupCategory?, label: String) -> some View {
@@ -262,12 +312,22 @@ struct CommunityGroupsView: View {
 
             Spacer()
 
-            Button("Join") {}
-                .font(.systemScaled(13, weight: .semibold))
-                .foregroundStyle(.blue)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(Capsule().stroke(Color.blue, lineWidth: 1.5))
+            Button(joinedGroupIds.contains(group.id) ? "Joined" : "Join") {
+                if !joinedGroupIds.contains(group.id) {
+                    groupPendingJoin = group
+                    showJoinConfirmation = true
+                }
+            }
+            .font(.systemScaled(13, weight: .semibold))
+            .foregroundStyle(joinedGroupIds.contains(group.id) ? Color(uiColor: .secondaryLabel) : .blue)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(
+                joinedGroupIds.contains(group.id)
+                    ? Capsule().stroke(Color(uiColor: .separator), lineWidth: 1.5)
+                    : Capsule().stroke(Color.blue, lineWidth: 1.5)
+            )
+            .disabled(joiningGroupId == group.id)
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.systemGray6)))

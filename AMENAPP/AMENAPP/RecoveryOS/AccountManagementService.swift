@@ -1,4 +1,4 @@
-// AccountRecoveryService.swift — AMEN RecoveryOS
+// AccountManagementService.swift — AMEN RecoveryOS
 // Ban appeals, data export, soft-delete → hard delete pipeline.
 // GDPR Art. 17 (right to erasure) + App Store §5.1.1 (account deletion ≤3 taps).
 import Foundation
@@ -7,8 +7,8 @@ import FirebaseFirestore
 import FirebaseFunctions
 
 @MainActor
-final class AccountRecoveryService: ObservableObject {
-    static let shared = AccountRecoveryService()
+final class AccountManagementService: ObservableObject {
+    static let shared = AccountManagementService()
     private init() {}
 
     @Published var isExportPending: Bool = false

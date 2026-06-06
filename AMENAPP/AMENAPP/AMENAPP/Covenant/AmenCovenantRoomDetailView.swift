@@ -165,6 +165,7 @@ struct AmenCovenantRoomDetailView: View {
     @State private var messageText: String = ""
     @State private var isAtBottom: Bool = true
     @State private var sendError: String?
+    @State private var showUpgradeAlert = false
 
     private var canPost: Bool {
         guard let room = detailVM.room else { return false }
@@ -417,13 +418,24 @@ struct AmenCovenantRoomDetailView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
-            Button("Upgrade") {}
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.purple)
+            Button("Upgrade") {
+                showUpgradeAlert = true
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.purple)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
         .padding(.bottom, 4)
+        .alert("Unlock This Room", isPresented: $showUpgradeAlert) {
+            Button("Learn More", role: .none) {
+                // Upgrade flow is managed by the Covenant paywall system.
+                // Navigate to AmenCovenantPaywallView when a Covenant object is available.
+            }
+            Button("Not Now", role: .cancel) {}
+        } message: {
+            Text("Posting in this room requires a higher membership tier. Upgrade your community membership to unlock posting access and all premium rooms.")
+        }
     }
 }
 

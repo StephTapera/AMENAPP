@@ -50,7 +50,12 @@ extension BereanModeOption {
                    chipColor: Color(red: 0.80, green: 0.35, blue: 0.25)),
     ]
 
-    static var standard: BereanModeOption { catalog[0] }
+    static var standard: BereanModeOption {
+        // Use first to avoid a crash if catalog is ever empty during a refactor.
+        catalog.first ?? BereanModeOption(id: "standard", name: "Standard", icon: "sparkles",
+                                          description: "Balanced, clear, helpful answers",
+                                          chipColor: Color(white: 0.22))
+    }
 }
 
 // MARK: - Mode Store
@@ -58,13 +63,14 @@ extension BereanModeOption {
 final class BereanModeStore: ObservableObject {
     static let shared = BereanModeStore()
 
-    @Published var selectedMode: BereanModeOption = BereanModeOption.catalog[0] {
+    @Published var selectedMode: BereanModeOption = BereanModeOption.standard {
         didSet { UserDefaults.standard.set(selectedMode.id, forKey: "berean_active_mode_id") }
     }
 
     private init() {
         let saved = UserDefaults.standard.string(forKey: "berean_active_mode_id") ?? "standard"
-        selectedMode = BereanModeOption.catalog.first { $0.id == saved } ?? BereanModeOption.catalog[0]
+        // Fall back to .standard (which itself has a nil-safe fallback) if catalog is empty.
+        selectedMode = BereanModeOption.catalog.first { $0.id == saved } ?? BereanModeOption.standard
     }
 }
 

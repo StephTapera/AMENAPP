@@ -237,7 +237,7 @@ struct GetVerifiedView: View {
                     VStack(spacing: 8) {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 48))
-                            .foregroundStyle(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
 
                         Text("Get Verified on Amen")
@@ -269,7 +269,7 @@ struct GetVerifiedView: View {
                             .foregroundStyle(viewModel.feedbackIsError ? .red : .green)
                             .padding(.horizontal)
                             .multilineTextAlignment(.center)
-                            .accessibilityLiveRegion(.polite)
+                            .accessibilityAddTraits(.updatesFrequently)
                     }
 
                     Spacer(minLength: 32)
@@ -336,7 +336,7 @@ private struct VerificationMethodCard: View {
                     .frame(width: 44, height: 44)
                 Image(systemName: method.icon)
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
             .accessibilityHidden(true)
 
