@@ -1,0 +1,15 @@
+{
+  "name": "amen-functions-v2triggers",
+  "version": "1.0.0",
+  "description": "Gen-2 Firebase Functions trigger codebase for AMEN app (scheduled triggers + event triggers)",
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
+    "firebase-admin": "^13.6.1",
+    "firebase-functions": "^7.2.5"
+  },
+  "private": true
+}

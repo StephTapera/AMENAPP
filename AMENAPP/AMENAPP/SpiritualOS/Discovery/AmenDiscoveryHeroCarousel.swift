@@ -27,28 +27,48 @@ struct AmenDiscoveryHeroCarousel: View {
                     AmenChurchHeroCard(
                         church: .sample,
                         onPlanVisit: onChurchPlanVisit,
-                        onDirections: {},
-                        onSave: {},
-                        onShare: {}
+                        onDirections: {
+                            if let url = URL(string: "maps://?q=Crosspoint+Church+Phoenix+AZ") {
+                                UIApplication.shared.open(url)
+                            }
+                        },
+                        onSave: { isChurchSaved.toggle() },
+                        onShare: { showShareSheet = true }
                     )
                     .heroCardFrame()
                     .id(0)
 
-                    AmenSpaceHeroCard(space: .sample, onJoin: onSpaceJoin)
-                        .heroCardFrame()
-                        .id(1)
+                    AmenSpaceHeroCard(
+                        space: .sample,
+                        onJoin: onSpaceJoin,
+                        onCatchUp: { showCatchUpSheet = true }
+                    )
+                    .heroCardFrame()
+                    .id(1)
 
-                    AmenEventHeroCard(event: .sample, onRSVP: onEventRSVP)
-                        .heroCardFrame()
-                        .id(2)
+                    AmenEventHeroCard(
+                        event: .sample,
+                        onRSVP: onEventRSVP,
+                        onDirections: {
+                            if let url = URL(string: "maps://?q=Main+Campus+Bldg+C+Phoenix+AZ") {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                    )
+                    .heroCardFrame()
+                    .id(2)
 
                     AmenPrayerHeroCard(prayer: .sample, onPray: onPrayerPray)
                         .heroCardFrame()
                         .id(3)
 
-                    AmenSermonHeroCard(sermon: .sample, onWatch: onSermonWatch)
-                        .heroCardFrame()
-                        .id(4)
+                    AmenSermonHeroCard(
+                        sermon: .sample,
+                        onWatch: onSermonWatch,
+                        onTakeNotes: { showNotesSheet = true }
+                    )
+                    .heroCardFrame()
+                    .id(4)
                 }
                 .scrollTargetLayout()
             }
@@ -67,7 +87,34 @@ struct AmenDiscoveryHeroCarousel: View {
             }
             .accessibilityHidden(true)
         }
+        .sheet(isPresented: $showShareSheet) {
+            AmenHeroShareSheet(items: ["Check out Crosspoint Church in Phoenix, AZ — found on AMEN!"])
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showCatchUpSheet) {
+            AmenCatchMeUpSheet(
+                streamId: "space-mens-bible",
+                streamTitle: "Men's Bible Study",
+                minutesElapsed: 30,
+                onDismiss: { showCatchUpSheet = false }
+            )
+        }
+        .sheet(isPresented: $showNotesSheet) {
+            NavigationStack { ChurchNotesView() }
+        }
     }
+}
+
+// MARK: - Share sheet helper
+
+private struct AmenHeroShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // Sizes each card to fill the screen width minus the peek margin.

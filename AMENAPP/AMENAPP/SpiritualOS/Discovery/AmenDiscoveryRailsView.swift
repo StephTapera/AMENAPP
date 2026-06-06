@@ -41,6 +41,11 @@ struct AmenDiscoveryRailsView: View {
     @StateObject private var entitlements = AmenAccountEntitlementService.shared
     @State private var showDiscoveryAgent = false
     @State private var showAgentPaywall = false
+    @State private var showChurchSheet = false
+    @State private var showSpaceSheet = false
+    @State private var showEventSheet = false
+    @State private var showPrayerSheet = false
+    @State private var showSermonSheet = false
 
     // MARK: Body
 
@@ -54,7 +59,13 @@ struct AmenDiscoveryRailsView: View {
                             .font(.title3.bold())
                             .foregroundStyle(Color.amenBlack)
                             .padding(.horizontal, 18)
-                        AmenDiscoveryHeroCarousel()
+                        AmenDiscoveryHeroCarousel(
+                            onChurchPlanVisit: { showChurchSheet = true },
+                            onSpaceJoin:       { showSpaceSheet = true },
+                            onEventRSVP:       { showEventSheet = true },
+                            onPrayerPray:      { showPrayerSheet = true },
+                            onSermonWatch:     { showSermonSheet = true }
+                        )
                     }
                 }
 
@@ -94,6 +105,21 @@ struct AmenDiscoveryRailsView: View {
         }
         .sheet(isPresented: $showDiscoveryAgent) {
             AmenPersonalDiscoveryAgentSheet(isPresented: $showDiscoveryAgent)
+        }
+        .sheet(isPresented: $showChurchSheet) {
+            NavigationStack { FindChurchView() }
+        }
+        .sheet(isPresented: $showSpaceSheet) {
+            NavigationStack { AmenConnectSpacesHubView() }
+        }
+        .sheet(isPresented: $showEventSheet) {
+            NavigationStack { AmenConnectSpacesHubView() }
+        }
+        .sheet(isPresented: $showPrayerSheet) {
+            NavigationStack { PrayerView() }
+        }
+        .sheet(isPresented: $showSermonSheet) {
+            NavigationStack { LivingSermonView() }
         }
         .amenPaywall(
             isPresented: $showAgentPaywall,

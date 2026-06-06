@@ -1414,3 +1414,65 @@ exports.getNeedDetectionCards = getNeedDetectionCards;
 // ============================================================================
 const { getWorldResponseCards } = require("./intelligence/worldResponseCallable");
 exports.getWorldResponseCards = getWorldResponseCards;
+
+// ============================================================================
+// WORLD RESPONSE ADMIN — Admin/pastor management of world_response_queue
+//   addWorldResponseEvent   — callable (pastor/admin): add a new world event
+//     to world_response_queue; feeds the GLOBAL intelligence pipeline.
+//   closeWorldResponseEvent — callable (pastor/admin): mark an event inactive
+//     so it no longer appears in intelligence card generation.
+//   listWorldResponseEvents — callable (pastor/admin): list active events for
+//     admin review UI; returns up to 20 events ordered by createdAt desc.
+//
+// Auth:   pastor or admin custom claim required for all three
+// Reads:  world_response_queue (listWorldResponseEvents, closeWorldResponseEvent)
+// Writes: world_response_queue/{eventId} (addWorldResponseEvent, closeWorldResponseEvent)
+// Deploy: firebase deploy --only \
+//   functions:addWorldResponseEvent,closeWorldResponseEvent,listWorldResponseEvents \
+//   --project amen-5e359
+// ============================================================================
+const {
+    addWorldResponseEvent,
+    closeWorldResponseEvent,
+    listWorldResponseEvents,
+} = require("./intelligence/worldResponseAdmin");
+exports.addWorldResponseEvent    = addWorldResponseEvent;
+exports.closeWorldResponseEvent  = closeWorldResponseEvent;
+exports.listWorldResponseEvents  = listWorldResponseEvents;
+
+// ============================================================================
+// WORLD RESPONSE SOURCES SEEDER — One-time seed of trusted news sources
+//   seedWorldResponseSources — callable (admin only): populates
+//     worldResponseSources/{id} with DEFAULT_SOURCES list (merge: true —
+//     never overwrites existing entries).
+//     Run once after first deploy:
+//       firebase functions:call seedWorldResponseSources --data '{}' --project amen-5e359
+//
+// Auth:   admin custom claim required
+// Writes: worldResponseSources/{source.id} (merge: true)
+// Deploy: firebase deploy --only functions:seedWorldResponseSources --project amen-5e359
+// ============================================================================
+const { seedWorldResponseSources } = require("./intelligence/seedWorldResponseSources");
+exports.seedWorldResponseSources = seedWorldResponseSources;
+
+// ============================================================================
+// LIVING INTELLIGENCE CALLABLES — getIntelligenceBrief, recordIntelligenceAction
+//
+// NOTE: These callables are defined in v2intelligenceFunctions.js alongside the
+// buildDailyIntelligenceBriefs scheduled trigger. Because that file imports
+// firebase-functions/v2/scheduler at the top level, requiring it here would
+// cause the Firebase CLI to apply v2 CPU/concurrency settings to ALL Gen-1
+// functions in this file — violating the Gen-1/Gen-2 separation constraint.
+//
+// THEREFORE: Both callables are deployed exclusively via the "v2triggers"
+// Firebase codebase (functions/v2triggers/). iOS clients call them as normal
+// Gen-2 callables — the codebase distinction is transparent to the iOS SDK.
+//
+// Deploy commands:
+//   firebase deploy --only "functions:v2triggers:getIntelligenceBrief,functions:v2triggers:recordIntelligenceAction" --project amen-5e359
+//   firebase deploy --only "functions:v2triggers:buildDailyIntelligenceBriefs" --project amen-5e359
+//   firebase deploy --only functions:v2triggers --project amen-5e359  (deploys all v2 triggers)
+// ============================================================================
+// DO NOT require("./v2intelligenceFunctions") here — it imports v2/scheduler
+// which would contaminate this Gen-1 file with v2 settings.
+// See functions/v2triggers/ and functions/v2entry.js for the deployment path.

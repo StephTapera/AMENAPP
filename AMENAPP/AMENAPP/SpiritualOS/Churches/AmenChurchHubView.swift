@@ -348,6 +348,42 @@ struct AmenChurchHubView: View {
                     .padding(.top, 8)
             }
 
+            // MARK: - CommunityOS: Discussion Rooms
+            if AMENFeatureFlags.shared.communityOSDiscussionEnabled {
+                Divider().padding(.horizontal)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Discussions")
+                        .font(AmenType.headline)
+                        .foregroundStyle(Color(uiColor: .label))
+                        .padding(.horizontal)
+                    AmenDiscussionRoomListView(contextRef: churchId)
+                }
+            }
+
+            // MARK: - CommunityOS: Prayer Feed
+            if AMENFeatureFlags.shared.communityOSPrayerOSEnabled {
+                Divider().padding(.horizontal)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Prayer Wall")
+                        .font(AmenType.headline)
+                        .foregroundStyle(Color(uiColor: .label))
+                        .padding(.horizontal)
+                    AmenPrayerFeedView(context: .church(churchId))
+                }
+            }
+
+            // MARK: - CommunityOS: Opportunities
+            if AMENFeatureFlags.shared.communityOSOpportunityEnabled {
+                Divider().padding(.horizontal)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Opportunities")
+                        .font(AmenType.headline)
+                        .foregroundStyle(Color(uiColor: .label))
+                        .padding(.horizontal)
+                    OpportunityHubView(orgId: nil)
+                }
+            }
+
             // Bottom breathing room
             Spacer().frame(height: 48)
         }

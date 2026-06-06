@@ -7,6 +7,7 @@ import SwiftUI
 struct SpaceRoleActionBar: View {
     let role: SpaceMemberRole
     let spaceName: String
+    var spaceId: String = ""
     let onPost: () -> Void
     let onAnnouncement: () -> Void
     let onEvent: () -> Void
@@ -15,6 +16,15 @@ struct SpaceRoleActionBar: View {
     let onAnalytics: () -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @State private var healthStatus: CommunityHealthStatus? = nil
+
+    private var isLeaderRole: Bool {
+        role == .pastor || role == .admin || role == .leader
+    }
+
+    private var communityKey: String {
+        spaceId.isEmpty ? spaceName : spaceId
+    }
 
     private var actions: [SpaceQuickAction] {
         SpaceQuickAction.actions(
@@ -48,6 +58,64 @@ struct SpaceRoleActionBar: View {
         .overlay(alignment: .top) {
             Divider().opacity(0.25)
         }
+        .overlay(alignment: .topTrailing) {
+            if isLeaderRole, let status = healthStatus {
+                HealthBadgeView(status: status, reduceTransparency: reduceTransparency)
+                    .padding(.top, -28)
+                    .padding(.trailing, 12)
+            }
+        }
+        .onAppear {
+            guard isLeaderRole else { return }
+            Task {
+                let signals = try? await CommunityHealthService.shared.fetchHealthSignals(for: communityKey)
+                guard let signals else { return }
+                let score = signals.overallHealthScore
+                let computed: CommunityHealthStatus
+                if signals.prayerActivityScore < 0.3
+                    || signals.discussionQualityScore < 0.3
+                    || signals.responseRateScore < 0.3
+                    || signals.mentorshipEngagementScore < 0.3
+                    || signals.eventAttendanceScore < 0.3
+                    || signals.studyCompletionScore < 0.3 {
+                    computed = .inactive
+                } else if score >= 0.6 {
+                    computed = .healthy
+                } else {
+                    computed = .atRisk
+                }
+                await MainActor.run { healthStatus = computed }
+            }
+        }
+    }
+}
+
+// MARK: - Health Badge
+
+private struct HealthBadgeView: View {
+    let status: CommunityHealthStatus
+    let reduceTransparency: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: status.systemImage)
+                .font(.caption2)
+            Text(status.displayName)
+                .font(.caption)
+                .fontWeight(.medium)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background {
+            if reduceTransparency {
+                Capsule().fill(Color(.systemBackground))
+            } else {
+                Capsule().fill(.ultraThinMaterial)
+            }
+        }
+        .foregroundStyle(.primary)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Community health: \(status.displayName)")
     }
 }
 

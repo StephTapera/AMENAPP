@@ -161,7 +161,18 @@ struct AMENAPPApp: App {
                     dlog("✅ Remote Config activated - AI features enabled")
                 }
             } else {
-                dlog("⚠️ Remote Config fetch failed: \(error?.localizedDescription ?? "unknown")")
+                if let nsError = error as NSError? {
+                    dlog("⚠️ Remote Config fetch failed: domain=\(nsError.domain) code=\(nsError.code) — \(nsError.localizedDescription)")
+                } else {
+                    dlog("⚠️ Remote Config fetch failed: status=\(status.rawValue)")
+                }
+                // Retry once after 60 s; app runs on cached defaults in the meantime.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+                    remoteConfig.fetch { retryStatus, _ in
+                        guard retryStatus == .success else { return }
+                        remoteConfig.activate(completionHandler: nil)
+                    }
+                }
             }
         }
     }

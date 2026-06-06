@@ -191,6 +191,7 @@ struct BereanHomeView: View {
     @State private var showReflectionSheet = false
     @State private var pendingReflectionDraft: ReflectionDraft? = nil
     @State private var showActionTray = false
+    @State private var showVoiceSession = false
     @State private var composerState = ComposerState()
 
     // View state & offline
@@ -328,10 +329,14 @@ struct BereanHomeView: View {
             BereanDailyFormationView()
         }
         .sheet(isPresented: $showMenu) {
-            BereanAISettingsView()
+            BereanMenuSheet(
+                isPresented: $showMenu,
+                onNewChat: { showNewChat = true },
+                onSelectSession: { _ in showNewChat = true }
+            )
         }
         .sheet(isPresented: $showAvatarSheet) {
-            BereanAISettingsView()
+            BereanProfileSheet(isPresented: $showAvatarSheet)
         }
         .sheet(isPresented: $showSafeShareSheet) {
             if let draft = pendingShareDraft {
@@ -355,6 +360,11 @@ struct BereanHomeView: View {
                         pendingReflectionDraft = nil
                     }
                 )
+            }
+        }
+        .fullScreenCover(isPresented: $showVoiceSession) {
+            BereanVoiceSessionView(isPresented: $showVoiceSession) { text in
+                composerText = text
             }
         }
     }
@@ -655,7 +665,8 @@ struct BereanHomeView: View {
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
                     showActionTray = true
                 }
-            }
+            },
+            onMic: { showVoiceSession = true }
         )
         .padding(.bottom, max(safeBottom, 16))
     }
@@ -984,6 +995,7 @@ struct BereanPremiumComposerBar: View {
     @Binding var isFocused: Bool
     let onSend: () -> Void
     let onAttach: () -> Void
+    let onMic: () -> Void
 
     @FocusState private var fieldFocused: Bool
 
@@ -1001,11 +1013,12 @@ struct BereanPremiumComposerBar: View {
             ComposerInputField(
                 text: $text,
                 auraMode: auraMode,
-                fieldFocused: $fieldFocused
+                fieldFocused: $fieldFocused,
+                onMic: onMic
             )
 
             ComposerPrimaryActionButton(hasText: hasText) {
-                if hasText { onSend() }
+                if hasText { onSend() } else { onMic() }
             }
         }
         .padding(.horizontal, 14)
@@ -1054,6 +1067,7 @@ struct ComposerInputField: View {
     @Binding var text: String
     let auraMode: BereanAuraMode
     @FocusState.Binding var fieldFocused: Bool
+    let onMic: () -> Void
 
     private var hasText: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1095,13 +1109,17 @@ struct ComposerInputField: View {
                         .frame(maxWidth: .infinity)
                 }
 
-                // Inline mic — visible only when empty
+                // Inline mic — tappable, visible only when empty
                 if !hasText {
-                    Image(systemName: "mic")
-                        .font(.system(size: 18, weight: .regular))
-                        .foregroundColor(.black.opacity(0.36))
-                        .transition(.opacity.combined(with: .scale(scale: 0.82)))
-                        .padding(.leading, 6)
+                    Button(action: onMic) {
+                        Image(systemName: "mic")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundColor(.black.opacity(0.36))
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity.combined(with: .scale(scale: 0.82)))
+                    .padding(.leading, 6)
+                    .accessibilityLabel("Voice input")
                 }
             }
             .padding(.horizontal, 16)

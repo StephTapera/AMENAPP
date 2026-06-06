@@ -259,6 +259,7 @@ struct AmenSpaceDetailView: View {
     @State private var showScholarshipAccess = false
     @State private var showLegalGate = false
     @State private var showMentorMatching = false
+    @State private var showModeration = false
     @State private var activeLiveRoom: AmenLiveRoom? = nil
     @StateObject private var livekitProvider = AmenLivekitLiveRoomProvider()
     private var currentUserId: String { Auth.auth().currentUser?.uid ?? "" }
@@ -437,6 +438,36 @@ struct AmenSpaceDetailView: View {
                                 .accessibilityLabel("Open Smart Event Composer for \(space.name)")
 
                                 Button {
+                                    showModeration = true
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "shield.checkerboard")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color(hex: "E05A5A"))
+                                        Text("Moderation Dashboard")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Color.white.opacity(0.4))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 13)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .strokeBorder(Color(hex: "E05A5A").opacity(0.35), lineWidth: 0.5)
+                                            }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 16)
+                                .accessibilityLabel("Open Moderation Dashboard for \(space.name)")
+
+                                Button {
                                     showGiftMembership = true
                                 } label: {
                                     HStack(spacing: 10) {
@@ -528,6 +559,18 @@ struct AmenSpaceDetailView: View {
                                 .buttonStyle(.plain)
                                 .padding(.horizontal, 16)
                                 .accessibilityLabel("Find a mentor in \(space.name)")
+                            }
+
+                            // MARK: - CommunityOS: Discussion Rooms
+                            if AMENFeatureFlags.shared.communityOSDiscussionEnabled {
+                                Divider().padding(.horizontal)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Discussions")
+                                        .font(AmenType.headline)
+                                        .foregroundStyle(Color(uiColor: .label))
+                                        .padding(.horizontal)
+                                    AmenDiscussionRoomListView(contextRef: space.id)
+                                }
                             }
 
                             // Bottom padding so content isn't hidden behind floating pill
@@ -632,6 +675,9 @@ struct AmenSpaceDetailView: View {
                 ) {
                     showLivePaywall = false
                 }
+            }
+            .sheet(isPresented: $showModeration) {
+                AmenSpaceModerationDashboardView(spaceId: space.id, isHost: isCreator)
             }
             .task {
                 livekitProvider.configure(spaceId: space.id)

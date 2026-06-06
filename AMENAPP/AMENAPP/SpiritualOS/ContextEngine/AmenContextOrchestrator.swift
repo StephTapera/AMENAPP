@@ -104,6 +104,8 @@ final class AmenContextOrchestrator: NSObject {
     private func startLocationIfPermitted() {
         switch locationManager.authorizationStatus {
         case .notDetermined:
+            // Don't prompt before the user has authenticated — would show on landing screen.
+            guard Auth.auth().currentUser != nil else { return }
             locationManager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse, .authorizedAlways:
             locationManager.startUpdatingLocation()

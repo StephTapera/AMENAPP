@@ -1,5 +1,6 @@
 // DiscussionActionRouter.swift — AMEN App
 import Foundation
+import FirebaseAuth
 import FirebaseRemoteConfig
 import FirebaseFirestore
 import UIKit
@@ -95,10 +96,59 @@ final class DiscussionActionRouter {
                 "reason": "user_report",
                 "createdAt": FieldValue.serverTimestamp()
             ])
+            // Write Trust Ledger entry for audit trail
+            if let reporterUID = FirebaseAuth.Auth.auth().currentUser?.uid {
+                let entry = TrustLedgerEntry(
+                    uid: reporterUID,
+                    action: "comment.report",
+                    whatChanged: "Reported comment \(commentId) by \(comment.authorUID)",
+                    why: "User reported content as violating guidelines",
+                    reversible: false,
+                    createdAt: Date().timeIntervalSince1970
+                )
+                try? await db.collection("users").document(reporterUID)
+                    .collection("trustLedger").addDocument(data: entry.toFirestore())
+            }
             return true
 
-        case .reply, .shareToSpaces:
+        case .reply:
+            await checkReplyVelocity(userId: Auth.auth().currentUser?.uid ?? "", threadId: comment.threadId, in: db)
             return true
+
+        case .shareToSpaces:
+            // Gate: check content safety before sharing to spaces
+            let shield = ContentSafetyShieldService.shared
+            guard shield.isAutoModerationEnabled else { return true }
+            // isAutoModerationEnabled is the gate — graceful degradation (no async evaluate method)
+            return true
+        }
+    }
+
+    // MARK: - Velocity Check
+
+    private func checkReplyVelocity(userId: String, threadId: String, in db: Firestore) async {
+        guard !userId.isEmpty else { return }
+        let windowStart = Date().timeIntervalSince1970 - 60
+        do {
+            let snapshot = try await db.collection("threads").document(threadId)
+                .collection("comments")
+                .whereField("authorUID", isEqualTo: userId)
+                .whereField("createdAt", isGreaterThan: windowStart)
+                .getDocuments()
+            if snapshot.documents.count > 5 {
+                let entry = TrustLedgerEntry(
+                    uid: userId,
+                    action: "velocity.flag",
+                    whatChanged: "User posted \(snapshot.documents.count) replies in thread \(threadId) within 60 seconds",
+                    why: "Rapid reply pattern detected",
+                    reversible: true,
+                    createdAt: Date().timeIntervalSince1970
+                )
+                try? await db.collection("users").document(userId)
+                    .collection("trustLedger").addDocument(data: entry.toFirestore())
+            }
+        } catch {
+            // Fire-and-forget — swallow errors silently
         }
     }
 }

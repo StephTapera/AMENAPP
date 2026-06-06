@@ -1440,6 +1440,17 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // /systemStatus/{docId}
+    // System-wide kill-switch flags written by Cloud Functions (Admin SDK only).
+    // Clients need read access so RemoteKillSwitch can react to SLO breaches.
+    // =========================================================================
+
+    match /systemStatus/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // Cloud Functions Admin SDK only
+    }
+
+    // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.
     // Fail closed — add new collections explicitly, never rely on this to permit.

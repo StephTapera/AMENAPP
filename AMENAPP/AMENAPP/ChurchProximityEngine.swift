@@ -25,6 +25,7 @@ import Foundation
 import CoreLocation
 import CoreMotion
 import EventKit
+import FirebaseAuth
 
 // MARK: - Attendance State
 
@@ -227,6 +228,8 @@ final class ChurchProximityEngine: NSObject, ObservableObject {
 
         switch manager.authorizationStatus {
         case .notDetermined:
+            // Guard: only prompt if user is authenticated; monitoring starts post-login anyway.
+            guard Auth.auth().currentUser != nil else { return }
             manager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse:
             manager.requestAlwaysAuthorization()

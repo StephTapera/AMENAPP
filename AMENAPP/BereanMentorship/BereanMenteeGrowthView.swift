@@ -12,8 +12,10 @@ struct BereanMenteeGrowthView: View {
     @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @AppStorage("berean_plus_enabled") private var isPlusEnabled: Bool = false
     @State private var showMeetingPrep: Bool = false
     @State private var checkedGoals: Set<String> = []
+    @State private var aiInsightText: String = ""
 
     var body: some View {
         Group {
@@ -87,8 +89,13 @@ struct BereanMenteeGrowthView: View {
                         milestonesSection(plan: plan)
                         suggestedResourcesSection(plan: plan)
                         prayerForMentorSection
+                        aiInsightPanel
                     }
                     .padding(.bottom, 48)
+                }
+                .task {
+                    // Wire to MentorshipIntelligenceService.shared when available
+                    // aiInsightText = await service.growthInsight(...)
                 }
                 .refreshable {
                     await service.loadMentorships()
@@ -291,6 +298,58 @@ struct BereanMenteeGrowthView: View {
             .accessibilityHint("Logs a prayer note for your mentor")
             .padding(.bottom, 12)
         }
+    }
+
+    // MARK: - AI Insight Panel (PLUS+ tier only)
+    // Shows Berean growth observations from Memory Graph.
+    // Non-comparative, non-streak-shaming. Private to this user.
+
+    private var aiInsightPanel: some View {
+        Group {
+            if isPlusEnabled {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(Color.accentColor)
+                            .accessibilityHidden(true)
+                        Text("Berean Insights")
+                            .font(.headline)
+                        Spacer()
+                        Text("Private to you")
+                            .font(.caption)
+                            .foregroundStyle(Color.secondary)
+                    }
+
+                    if aiInsightText.isEmpty {
+                        Text("Complete a few more sessions for Berean to notice growth patterns.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.secondary)
+                    } else {
+                        Text(aiInsightText)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.primary)
+                            .lineSpacing(4)
+                    }
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal)
+            } else {
+                // FREE tier upgrade CTA
+                VStack(spacing: 8) {
+                    Text("Upgrade to Amen+ for AI growth insights")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+                .background(Color(.tertiarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal)
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Helpers

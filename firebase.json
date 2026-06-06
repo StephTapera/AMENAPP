@@ -27,6 +27,18 @@
       "source": "functions"
     },
     {
+      "codebase": "v2triggers",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [],
+      "source": "functions/v2triggers"
+    },
+    {
       "codebase": "creator",
       "ignore": [
         "node_modules",

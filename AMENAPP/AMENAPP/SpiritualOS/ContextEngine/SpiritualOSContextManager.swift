@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import CoreLocation
 import FirebaseFunctions
+import FirebaseAuth
 
 // MARK: - SpiritualOSContextManager
 // @MainActor ObservableObject that owns the Context Engine lifecycle.
@@ -95,6 +96,7 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
 
         switch manager.authorizationStatus {
         case .notDetermined:
+            guard Auth.auth().currentUser != nil else { return }
             manager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse, .authorizedAlways:
             contextState.userPermissions.locationEnabled = true

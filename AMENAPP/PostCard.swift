@@ -2196,8 +2196,31 @@ struct PostCard: View {
         AnyView(cardWithSheets)
     }
 
+    // CommunityOS Action Pill (A18) — conditionally overlays AmenActionPillContainer.
+    // Follows the existing cardWith* chain pattern. Gated by communityOSActionPillEnabled.
+    @ViewBuilder
+    private var cardWithActionPill: some View {
+        if AMENFeatureFlags.shared.communityOSActionPillEnabled {
+            cardWithAlerts
+                .amenActionPill(
+                    model: AmenActionPillModel(
+                        objectType: .post,
+                        objectRef: "posts/\(stablePostId)",
+                        objectOwnerId: post?.authorId ?? "",
+                        currentUserId: Auth.auth().currentUser?.uid ?? "",
+                        isSaved: isSaved,
+                        isFollowedUp: false
+                    ),
+                    placement: .bottomTrailing,
+                    onSave: { saved in isSaved = saved }
+                )
+        } else {
+            cardWithAlerts
+        }
+    }
+
     var body: some View {
-        cardWithAlerts
+        cardWithActionPill
             .opacity(isDeletingPost ? 0 : 1)
             .scaleEffect(isDeletingPost ? 0.96 : 1)
             .zIndex(isActionMenuPresented ? 1000 : 0)
@@ -2286,6 +2309,7 @@ struct PostCard: View {
                 await handleAppleTranslationSession(session)
             }
     }
+
 
     // ⚡️ PERFORMANCE FIX: Removed startAuthorProfileListener()
     // Per-card Firestore listeners were causing 20+ simultaneous connections during scroll

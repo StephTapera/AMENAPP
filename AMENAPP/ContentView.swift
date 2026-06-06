@@ -57,6 +57,7 @@ struct ContentView: View {
     @State private var showBereanQuickActions = false
     @State private var showBereanAssistantFromMenu = false
     @State private var showBereanDailyFormation = false
+    @State private var showBereanConversionMenu = false
     @State private var tabBarBadges = AMENBadgeCounts()
     @AppStorage("currentUserProfileImageURL") private var currentUserProfileImageURL: String = ""
     @State private var postingBarState: PostingBarState = .hidden
@@ -755,6 +756,20 @@ struct ContentView: View {
         // Camera OS — full-screen camera capture, intent selection, and safety review flow.
         .fullScreenCover(isPresented: $showCameraOS) {
             AmenCameraOSHubView()
+        }
+        // Berean Conversion Menu — convert a Berean AI capture into a post, prayer, study, etc.
+        .sheet(isPresented: $showBereanConversionMenu) {
+            let placeholder = BereanCapture(
+                id: UUID().uuidString,
+                sourceType: .answer,
+                content: "",
+                scriptureRefs: [],
+                studyOutlinePoints: [],
+                capturedAt: Date()
+            )
+            AmenBereanConversionMenu(capture: placeholder) {
+                showBereanConversionMenu = false
+            }
         }
         // Audience-First picker — shown before the compose editor opens via the compose button.
         // After selection the picker closes itself and fires the callback below.
@@ -1471,6 +1486,24 @@ struct ContentView: View {
                                     }
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                         showBereanDailyFormation = true
+                                    }
+                                }
+                            )
+
+                            Divider()
+                                .background(Color(white: 0.2))
+
+                            BereanQuickActionButton(
+                                icon: "arrow.triangle.2.circlepath",
+                                title: "Convert Capture",
+                                delay: 0.15,
+                                action: {
+                                    HapticManager.impact(style: .light)
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
+                                        showBereanQuickActions = false
+                                    }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                        showBereanConversionMenu = true
                                     }
                                 }
                             )

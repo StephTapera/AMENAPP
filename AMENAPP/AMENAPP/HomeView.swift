@@ -49,6 +49,7 @@ struct HomeView: View {
 
     // MARK: - Context Mode (AmenContextOrchestrator)
     @State private var currentContextMode: AmenContextMode = .standard
+    @ObservedObject private var bereanMenuManager = BereanContextMenuManager.shared
 
     // MARK: - Scroll Detection for Dynamic UI (OPTIMIZED)
     @State private var scrollOffset: CGFloat = 0
@@ -300,6 +301,32 @@ struct HomeView: View {
                             .padding(.top, 50)
                             .padding(.leading, 8)
                         }
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    if let payload = bereanMenuManager.activePayload {
+                        BereanFloatingActionTray(
+                            payload: payload,
+                            actions: bereanMenuManager.actions(for: payload),
+                            onAction: { action in
+                                bereanMenuManager.activate(payload: payload, action: action)
+                            }
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(.amenSpringStandard, value: bereanMenuManager.activePayload != nil)
+                .overlay(alignment: .bottomTrailing) {
+                    if AMENFeatureFlags.shared.communityOSUniversalComposerEnabled {
+                        AmenComposerLaunchButton(
+                            source: ComposerSource.standalone,
+                            label: "Create",
+                            systemImage: "plus.circle.fill"
+                        )
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 90)  // above tab bar
                     }
                 }
         }

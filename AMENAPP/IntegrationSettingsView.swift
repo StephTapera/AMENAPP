@@ -32,6 +32,7 @@ struct IntegrationSettingsView: View {
                         systemPermissionBanner
                     }
 
+                    connectedServicesSection
                     notificationsSection
                     widgetsSection
                     liveActivitiesSection
@@ -81,6 +82,36 @@ struct IntegrationSettingsView: View {
                 .fill(Color.orange.opacity(0.12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.orange.opacity(0.3), lineWidth: 1))
         )
+    }
+
+    // MARK: - Connected Services Section
+
+    private var connectedServicesSection: some View {
+        IntegrationSection(title: "Connected Services", icon: "square.stack.3d.up.fill") {
+            NavigationLink(destination: ExternalIntegrationView()) {
+                HStack(spacing: 12) {
+                    Image(systemName: "link.circle.fill")
+                        .font(.systemScaled(18))
+                        .foregroundStyle(.indigo)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("External Integrations")
+                            .font(.systemScaled(15))
+                            .foregroundStyle(.white)
+                        Text("Maps, Calendar, Contacts, Career, Health & more")
+                            .font(.systemScaled(12))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.systemScaled(12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Notifications Section

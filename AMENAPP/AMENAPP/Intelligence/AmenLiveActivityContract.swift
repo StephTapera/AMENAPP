@@ -1,10 +1,9 @@
 // AmenLiveActivityContract.swift
 // AMENAPP — ActivityKit Live Activity contract (NATIVE PHASE — future)
 //
-// ⚠️  NATIVE PHASE ONLY — This file defines the data contract for the
+// NATIVE PHASE ONLY — This file defines the data contract for the
 //     Live Activity / Dynamic Island integration for Amen Live sessions.
 //
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // HUMAN GATE — Required before this contract can be wired to ActivityKit:
 //
 //   1. Add the ActivityKit framework to the AMENWidgetExtension target in Xcode:
@@ -31,7 +30,6 @@
 //      and implemented in AmenLiveActivityView.swift. The UI is NOT defined here.
 //      This file defines the data model only.
 //
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // NOTE: This file does NOT import ActivityKit.
 // ActivityKit is only available in the widget extension target.
 // Import it in AmenLiveActivityView.swift (AMENWidgetExtension target only).
@@ -44,7 +42,6 @@
 //   - THIS file defines a parallel contract scoped to AmenLive sessions
 //     (prayer events, sermon streams, community moments, etc.) — a distinct
 //     surface from the Intelligence brief system.
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import Foundation
 
@@ -148,7 +145,7 @@ struct AmenLiveActivityContract {
 
 /// Utilities for launching and updating an Amen Live Activity from the main app.
 ///
-/// ⚠️ All methods in this struct are stubs — they require the HUMAN GATE steps
+/// All methods in this struct are stubs — they require the HUMAN GATE steps
 /// above to be completed before they can be wired to ActivityKit.
 ///
 /// After completing the HUMAN GATE:

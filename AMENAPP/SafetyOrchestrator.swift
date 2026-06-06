@@ -108,6 +108,19 @@ final class SafetyOrchestrator: ObservableObject {
                 self?.integrateSessionSignal(signal)
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.addObserver(
+            forName: .amenOSFormationStreakActive,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            // Active spiritual engagement is a positive signal — lower urgency if scrolling distress
+            if self?.supportState == .gentleCheckIn {
+                self?.supportState = .awarenessActive
+            } else if self?.supportState == .awarenessActive {
+                self?.supportState = .normal
+            }
+        }
     }
 
     // MARK: - Pre-submission safety gate
@@ -229,6 +242,14 @@ final class SafetyOrchestrator: ObservableObject {
 
         // Derive the appropriate support surface
         pendingSupportSurface = AdaptiveSupportCoordinator.surface(for: newState)
+
+        // Emit bridge signals for cross-OS coordination
+        if let uid = FirebaseAuth.Auth.auth().currentUser?.uid {
+            AmenOSBridge.shared.supportStateChanged(uid: uid, stateRawValue: newState.rawValue)
+            if newState >= .crisisUrgent {
+                AmenOSBridge.shared.crisisDetected(uid: uid, sessionSignal: reason)
+            }
+        }
     }
 
     func clearSupportState() {

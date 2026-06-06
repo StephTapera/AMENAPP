@@ -170,10 +170,13 @@ struct MinimalAuthenticationView: View {
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .disabled(isResettingPassword)
             Button("Send Reset Link") {
-                guard !resetEmail.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                guard !resetEmail.trimmingCharacters(in: .whitespaces).isEmpty,
+                      !isResettingPassword else { return }
                 handlePasswordReset()
             }
+            .disabled(isResettingPassword)
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("Enter your email address and we'll send you a link to reset your password.")
@@ -450,13 +453,16 @@ struct MinimalAuthenticationView: View {
                                     isLogin = true; errorMessage = nil; signUpStep = 0
                                 }
                             }
+                            .accessibilityAddTraits(isLogin ? .isSelected : [])
                             modeTab(title: "Sign Up", selected: !isLogin) {
                                 withAnimation(.amenEaseQuick) {
                                     isLogin = false; errorMessage = nil; signUpStep = 0
                                 }
                             }
+                            .accessibilityAddTraits(!isLogin ? .isSelected : [])
                             Spacer()
                         }
+                        .accessibilityLabel("Authentication mode")
                         .padding(.horizontal, 32)
 
                         Rectangle()
@@ -485,10 +491,12 @@ struct MinimalAuthenticationView: View {
                                         text: $email,
                                         keyboardType: .default
                                     )
+                                    .accessibilityHint("Accepts email address or @username")
                                     Text("You can sign in with your username or email address")
                                         .font(.systemScaled(11, weight: .regular))
                                         .foregroundStyle(Color(white: 0.52))
                                         .padding(.leading, 4)
+                                        .accessibilityHidden(true)
                                 }
                                 
                                 EditorialInputField(
@@ -588,29 +596,33 @@ struct MinimalAuthenticationView: View {
 
                         Spacer().frame(height: 24)
 
-                        HStack(spacing: 12) {
-                            Rectangle().fill(Color(white: 0.84)).frame(height: 1)
-                            Text("or")
-                                .font(.systemScaled(12, weight: .regular))
-                                .foregroundStyle(Color(white: 0.56))
-                            Rectangle().fill(Color(white: 0.84)).frame(height: 1)
+                        // Only show social sign-in alternatives on step 0 or in login mode.
+                        // Steps 1+ are mid-email-flow; showing Apple/Google there silently abandons form data.
+                        if isLogin || signUpStep == 0 {
+                            HStack(spacing: 12) {
+                                Rectangle().fill(Color(white: 0.84)).frame(height: 1)
+                                Text("or")
+                                    .font(.systemScaled(12, weight: .regular))
+                                    .foregroundStyle(Color(white: 0.56))
+                                Rectangle().fill(Color(white: 0.84)).frame(height: 1)
+                            }
+                            .padding(.horizontal, 32)
+
+                            Spacer().frame(height: 20)
+
+                            VStack(spacing: 10) {
+                                EditorialSocialButton(
+                                    systemIcon: "apple.logo",
+                                    title: "Continue with Apple"
+                                ) { handleAppleSignIn() }
+
+                                EditorialSocialButton(
+                                    systemIcon: "g.circle.fill",
+                                    title: "Continue with Google"
+                                ) { handleGoogleSignIn() }
+                            }
+                            .padding(.horizontal, 32)
                         }
-                        .padding(.horizontal, 32)
-
-                        Spacer().frame(height: 20)
-
-                        VStack(spacing: 10) {
-                            EditorialSocialButton(
-                                systemIcon: "apple.logo",
-                                title: "Continue with Apple"
-                            ) { handleAppleSignIn() }
-
-                            EditorialSocialButton(
-                                systemIcon: "g.circle.fill",
-                                title: "Continue with Google"
-                            ) { handleGoogleSignIn() }
-                        }
-                        .padding(.horizontal, 32)
 
                         if !isLogin {
                             Text("By creating an account you agree to our\n**Terms of Service** and **Privacy Policy**.")
@@ -811,11 +823,17 @@ struct MinimalAuthenticationView: View {
         }
     }
 
+    private func isValidEmailFormat(_ input: String) -> Bool {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        let emailRegex = #"^[A-Z0-9a-z._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$"#
+        return trimmed.range(of: emailRegex, options: .regularExpression) != nil
+    }
+
     // Per-step validation so the CTA enables/disables per step
     private var isCurrentStepValid: Bool {
         if isLogin { return !email.isEmpty && !password.isEmpty }
         switch signUpStep {
-        case 0: return !fullName.trimmingCharacters(in: .whitespaces).isEmpty && !email.isEmpty
+        case 0: return !fullName.trimmingCharacters(in: .whitespaces).isEmpty && isValidEmailFormat(email)
         case 1: return !password.isEmpty && !confirmPassword.isEmpty && password == confirmPassword
         default: return hasPickedBirthDate
         }
@@ -834,8 +852,14 @@ struct MinimalAuthenticationView: View {
             return
         }
 
-        // Age verification collected but no blocking
-        // All ages are allowed to sign up
+        // COPPA: enforce 13+ minimum age
+        if !isLogin {
+            let age = Calendar.current.dateComponents([.year], from: birthDate, to: Date()).year ?? 0
+            if age < 13 {
+                showError("You must be 13 or older to join.")
+                return
+            }
+        }
 
         isLoading = true
         errorMessage = nil
@@ -1432,6 +1456,7 @@ private struct SignUpStepperCard: View {
                             .foregroundStyle(isActive ? .white : Color(white: 0.62))
                     }
                 }
+                .accessibilityLabel("\(steps[index].label)\(isComplete ? ", completed" : isActive ? ", current step" : ", upcoming")")
                 .animation(.spring(response: 0.28, dampingFraction: 0.76), value: step)
 
                 // Step label
@@ -1513,7 +1538,9 @@ private struct SignUpStepperCard: View {
                     label: "Confirm Password",
                     placeholder: "Re-enter password",
                     text: $confirmPassword,
-                    isSecure: !showPassword
+                    isSecure: !showPassword,
+                    showPasswordToggle: true,
+                    showPassword: $showPassword
                 )
                 // Inline password match indicator
                 if !password.isEmpty && !confirmPassword.isEmpty {
@@ -1521,12 +1548,17 @@ private struct SignUpStepperCard: View {
                         Image(systemName: password == confirmPassword ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .font(.systemScaled(12))
                             .foregroundStyle(password == confirmPassword ? Color.green : Color.red)
+                            .accessibilityHidden(true)
                         Text(password == confirmPassword ? "Passwords match" : "Passwords don't match")
                             .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(password == confirmPassword ? Color.green : Color.red)
                     }
                     .transition(.opacity)
                     .animation(.easeInOut(duration: 0.18), value: password == confirmPassword)
+                    .onChange(of: password == confirmPassword) { _, isMatch in
+                        UIAccessibility.post(notification: .announcement,
+                                             argument: isMatch ? "Passwords match" : "Passwords don't match")
+                    }
                 }
             }
         default:

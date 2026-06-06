@@ -197,6 +197,7 @@ struct AmenMinistryRoomPrayerTab: View {
     let spaceId: String
 
     @StateObject private var vm: AmenMinistryRoomPrayerViewModel
+    @State private var selectedPrayerId: String? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(spaceId: String) {
@@ -233,6 +234,14 @@ struct AmenMinistryRoomPrayerTab: View {
                 "space_id": spaceId
             ])
         }
+        // PrayerRoomView owns its own NavigationView + "Done" dismiss button,
+        // so it is presented as a sheet rather than pushed onto a nav stack.
+        .sheet(item: Binding(
+            get: { selectedPrayerId.map { IdentifiableString(value: $0) } },
+            set: { selectedPrayerId = $0?.value }
+        )) { wrapper in
+            PrayerRoomView(prayerId: wrapper.value)
+        }
     }
 
     private var loadingView: some View {
@@ -251,8 +260,22 @@ struct AmenMinistryRoomPrayerTab: View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 ForEach(vm.items) { item in
-                    MinistryRoomPrayerCard(item: item) {
-                        vm.markAnswered(item: item)
+                    if AMENFeatureFlags.shared.communityOSPrayerOSEnabled {
+                        MinistryRoomPrayerCard(item: item) {
+                            vm.markAnswered(item: item)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.amenSnappy) {
+                                selectedPrayerId = item.id
+                            }
+                        }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityHint("Opens prayer room for this request")
+                    } else {
+                        MinistryRoomPrayerCard(item: item) {
+                            vm.markAnswered(item: item)
+                        }
                     }
                 }
             }
@@ -260,5 +283,23 @@ struct AmenMinistryRoomPrayerTab: View {
             .padding(.vertical, 14)
         }
         .background(Color(hex: "070607"))
+    }
+}
+
+// MARK: - IdentifiableString (local helper for sheet(item:))
+
+/// Wraps a plain String so it can be used with `.sheet(item:)`.
+private struct IdentifiableString: Identifiable {
+    let id = UUID()
+    let value: String
+}
+
+// MARK: - Local Animation Tokens
+// .amenSnappy is not globally exported from the kit; redeclare privately
+// following the pattern in AmenActionTray.swift and AmenSimpleModeView.swift.
+
+private extension Animation {
+    static var amenSnappy: Animation {
+        .spring(response: 0.22, dampingFraction: 0.70)
     }
 }
