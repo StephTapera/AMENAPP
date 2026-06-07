@@ -335,15 +335,29 @@ struct BereanGivingCounselView: View {
                         .buttonStyle(.plain)
                     }
 
-                    Button {} label: {
-                        Text("Save for later")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(AmenTheme.Colors.textSecondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(AmenTheme.Colors.backgroundSecondary, in: Capsule())
+                    let isSaved = vm.savedRecs.contains(rec.id)
+                    Button {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.78)) {
+                            vm.saveRecommendation(rec)
+                        }
+                    } label: {
+                        Label(
+                            isSaved ? "Saved" : "Save for later",
+                            systemImage: isSaved ? "checkmark" : "bookmark"
+                        )
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(isSaved ? .green : AmenTheme.Colors.textSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            isSaved
+                                ? Color.green.opacity(0.12)
+                                : AmenTheme.Colors.backgroundSecondary,
+                            in: Capsule()
+                        )
                     }
                     .buttonStyle(.plain)
+                    .animation(.spring(response: 0.22, dampingFraction: 0.78), value: isSaved)
                 }
             }
         }

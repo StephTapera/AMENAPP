@@ -194,7 +194,7 @@ struct FollowKnowledgeView: View {
             .task { await vm.load() }
             .refreshable { await vm.load() }
             .navigationDestination(isPresented: $showTopicFeed) {
-                TopicFeedView()
+                FollowTopicFeedView()
             }
             .alert("Error", isPresented: Binding(
                 get: { vm.errorMessage != nil },
@@ -223,7 +223,7 @@ struct FollowKnowledgeView: View {
 
     private var yourTopicsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Your Topics", subtitle: "Topics you're following")
+            KnowledgeSectionHeader(title:"Your Topics", subtitle: "Topics you're following")
 
             if vm.followedTopics.isEmpty {
                 emptyFollowedState
@@ -263,7 +263,7 @@ struct FollowKnowledgeView: View {
 
     private var discoverTopicsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Discover Topics", subtitle: "Tap to follow")
+            KnowledgeSectionHeader(title:"Discover Topics", subtitle: "Tap to follow")
 
             LazyVGrid(
                 columns: [
@@ -402,7 +402,7 @@ private struct DiscoverTopicCell: View {
 
 // MARK: - Section Header
 
-private struct SectionHeader: View {
+private struct KnowledgeSectionHeader: View {
     let title: String
     let subtitle: String
 
@@ -419,19 +419,28 @@ private struct SectionHeader: View {
     }
 }
 
+// MARK: - TopicFeedUIState (local, avoids importing CatalogUIState's DocumentSnapshot dependency)
+
+private enum TopicFeedUIState {
+    case loading
+    case empty
+    case populated
+    case error(String)
+}
+
 // MARK: - TopicFeedView
 
-struct TopicFeedView: View {
+struct FollowTopicFeedView: View {
 
     @State private var works: [TopicFeedWork] = []
-    @State private var state: CatalogUIState = .loading
+    @State private var feedState: TopicFeedUIState = .loading
     @State private var followedTopicNames: [String] = []
 
     private let functions = Functions.functions()
 
     var body: some View {
         Group {
-            switch state {
+            switch feedState {
             case .loading:
                 feedLoadingView
             case .empty:
@@ -440,8 +449,6 @@ struct TopicFeedView: View {
                 feedList
             case .error(let msg):
                 feedErrorView(msg)
-            default:
-                feedLoadingView
             }
         }
         .navigationTitle("Topic Feed")
@@ -535,11 +542,11 @@ struct TopicFeedView: View {
     // MARK: - Load
 
     private func loadFeed() async {
-        state = .loading
+        feedState = .loading
         do {
             let result = try await functions.httpsCallable("getTopicFeed").call([:])
             guard let data = result.data as? [String: Any] else {
-                state = .empty
+                feedState = .empty
                 return
             }
 
@@ -564,22 +571,9 @@ struct TopicFeedView: View {
 
             followedTopicNames = data["topics"] as? [String] ?? []
             works = loaded
-
-            state = loaded.isEmpty ? .empty : .populated(loaded.map { _ in
-                // CatalogUIState.populated expects [CatalogWork] but we use our own model;
-                // use .populated with dummy placeholder to carry the state meaning.
-                CatalogWork(document: Firestore_stub())
-            }.compactMap { $0 })
-
-            // Simpler: use local state enum override
-            if loaded.isEmpty {
-                state = .empty
-            } else {
-                // Reuse .syncing as "populated" signal since we hold works in local @State
-                state = .syncing
-            }
+            feedState = loaded.isEmpty ? .empty : .populated
         } catch {
-            state = .error(error.localizedDescription)
+            feedState = .error(error.localizedDescription)
         }
     }
 }
@@ -675,10 +669,3 @@ private struct TopicFeedWorkRow: View {
     }
 }
 
-// MARK: - Stub for Firestore DocumentSnapshot (avoids real dependency in TopicFeedView.loadFeed)
-// TopicFeedView uses its own TopicFeedWork model; CatalogUIState.populated([CatalogWork])
-// is not needed here — we rely on a simplified state branch. The stub is never called.
-private final class Firestore_stub: DocumentSnapshot {
-    // Intentionally empty — TopicFeedView never calls CatalogWork(document:) at runtime.
-    // State is tracked via a separate local enum branch in loadFeed().
-}

@@ -36,6 +36,11 @@ struct ContentView: View {
     // the main screen to briefly appear between signalSignIn() and the @State update.
     @ObservedObject private var appReadyState = AppReadyStateManager.shared
     private var isShowingLoadingScreen: Bool { appReadyState.isShowingLoadingScreen }
+
+    // ── SabbathMode: Additive wiring (extends existing ShabbatModeService/RestModeGate) ──
+    // SabbathModeService drives the Sabbath gate. Does NOT replace SundayChurchFocusManager.
+    @ObservedObject private var sabbathService = SabbathModeService.shared
+    @State private var sabbathCurrentDest: SabbathNavDestination?
     private var shouldShowAccountTypeOnboarding: Bool {
         // ✅ DISABLED: All users get Personal account by default (like Instagram/Threads)
         // Church/Business accounts can be added in settings if needed later
@@ -501,88 +506,128 @@ struct ContentView: View {
     
     @ViewBuilder
     private var selectedTabView: some View {
-        // ✅ Shabbat Mode: Gate restricted features
-        if SundayChurchFocusManager.shared.shouldGateFeature() && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+        // ── SabbathMode gate (additive — takes precedence over Shabbat gate when active) ──
+        // state == .active  → show SabbathWindowView (full-screen, gate enforced)
+        // state == .steppedOut → normal nav + SabbathBanner at top
+        // state == .inactive   → fall through to existing Shabbat gate check
+        if sabbathService.currentState == .active {
+            ZStack(alignment: .top) {
+                SabbathWindowView(service: sabbathService) { surface in
+                    // Mark surface used (safety surfaces silently excluded by service)
+                    Task { await sabbathService.markSurfaceUsed(surface) }
+                    // Navigate to the surface view
+                    sabbathCurrentDest = sabbathNavDestination(for: surface)
+                }
+                .id("sabbathModeGate")
+            }
+            .fullScreenCover(item: $sabbathCurrentDest) { dest in
+                sabbathDestinationView(
+                    for: dest,
+                    selectedTab: $viewModel.selectedTab,
+                    dismiss: { sabbathCurrentDest = nil }
+                )
+            }
+        } else if sabbathService.currentState == .steppedOut {
+            // Normal navigation with persistent banner — no gate restriction.
+            // SabbathBanner persists at the top until midnight (routing contract).
+            VStack(spacing: 0) {
+                SabbathBanner(steppedOutAt: {
+                    if let ms = sabbathService.currentSession?.steppedOutAt {
+                        return Date(timeIntervalSince1970: ms / 1000)
+                    }
+                    return Date()
+                }())
+                allTabsZStack
+            }
+        } else if SundayChurchFocusManager.shared.shouldGateFeature() && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+            // ✅ Existing Shabbat Mode gate (unchanged)
             SundayChurchFocusGateView(selectedTab: $viewModel.selectedTab)
                 .id("shabbatModeGate")
                 .animation(nil, value: viewModel.selectedTab)
         } else {
-            ZStack {
-                    keepMountedTab(isActive: viewModel.selectedTab == 0) {
-                        HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu, selectedPostCategory: $selectedPostCategory)
-                            .onAppear {
-                                if viewModel.selectedTab == 0 {
-                                    NotificationAggregationService.shared.updateCurrentScreen(.home)
-                                }
-                            }
-                            .onChange(of: viewModel.selectedTab) { _, tab in
-                                if tab == 0 {
-                                    NotificationAggregationService.shared.updateCurrentScreen(.home)
-                                }
-                            }
-                    }
+            allTabsZStack
+        }
+    }
 
-                    keepMountedTab(isActive: viewModel.selectedTab == 1) {
-                        AMENDiscoveryView()
-                            .id("discovery")
-                            .task {
-                                NotificationAggregationService.shared.updateCurrentScreen(.none)
+    /// All 8 tab views — shared by normal navigation and steppedOut banner path.
+    /// Extracted to avoid duplicating the large ZStack in selectedTabView.
+    @ViewBuilder
+    private var allTabsZStack: some View {
+        ZStack {
+                keepMountedTab(isActive: viewModel.selectedTab == 0) {
+                    HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu, selectedPostCategory: $selectedPostCategory)
+                        .onAppear {
+                            if viewModel.selectedTab == 0 {
+                                NotificationAggregationService.shared.updateCurrentScreen(.home)
                             }
-                    }
-
-                    keepMountedTab(isActive: viewModel.selectedTab == 2) {
-                        SpiritualInboxView()
-                            .id("hub")
-                            .task {
-                                NotificationAggregationService.shared.updateCurrentScreen(.messages)
-                                BadgeCountManager.shared.clearMessages()
+                        }
+                        .onChange(of: viewModel.selectedTab) { _, tab in
+                            if tab == 0 {
+                                NotificationAggregationService.shared.updateCurrentScreen(.home)
                             }
-                    }
-
-                    keepMountedTab(isActive: viewModel.selectedTab == 3) {
-                        ResourcesView()
-                            .id("resources")
-                            .task {
-                                NotificationAggregationService.shared.updateCurrentScreen(.none)
-                            }
-                    }
-
-                    keepMountedTab(isActive: viewModel.selectedTab == 4) {
-                        AMENNotificationsView()
-                            .id("notifications")
-                            .task {
-                                NotificationAggregationService.shared.updateCurrentScreen(.notifications)
-                            }
-                    }
-
-                    keepMountedTab(isActive: viewModel.selectedTab == 5) {
-                        ProfileView()
-                            .environmentObject(authViewModel)
-                            .id("profile")
-                            .task {
-                                let uid = Auth.auth().currentUser?.uid ?? ""
-                                NotificationAggregationService.shared.updateCurrentScreen(.profile(userId: uid))
-                            }
-                    }
-
-                    keepMountedTab(isActive: viewModel.selectedTab == 6) {
-                        AmenConnectSpacesHubView()
-                            .id("spaces")
-                            .task {
-                                NotificationAggregationService.shared.updateCurrentScreen(.none)
-                            }
-                    }
-
-                    keepMountedTab(isActive: viewModel.selectedTab == 7) {
-                        WhatNeedsAttentionView()
-                            .id("intelligence")
-                            .task {
-                                NotificationAggregationService.shared.updateCurrentScreen(.none)
-                            }
-                    }
+                        }
                 }
-                .animation(nil, value: viewModel.selectedTab)
+
+                keepMountedTab(isActive: viewModel.selectedTab == 1) {
+                    AMENDiscoveryView()
+                        .id("discovery")
+                        .task {
+                            NotificationAggregationService.shared.updateCurrentScreen(.none)
+                        }
+                }
+
+                keepMountedTab(isActive: viewModel.selectedTab == 2) {
+                    SpiritualInboxView()
+                        .id("hub")
+                        .task {
+                            NotificationAggregationService.shared.updateCurrentScreen(.messages)
+                            BadgeCountManager.shared.clearMessages()
+                        }
+                }
+
+                keepMountedTab(isActive: viewModel.selectedTab == 3) {
+                    ResourcesView()
+                        .id("resources")
+                        .task {
+                            NotificationAggregationService.shared.updateCurrentScreen(.none)
+                        }
+                }
+
+                keepMountedTab(isActive: viewModel.selectedTab == 4) {
+                    AMENNotificationsView()
+                        .id("notifications")
+                        .task {
+                            NotificationAggregationService.shared.updateCurrentScreen(.notifications)
+                        }
+                }
+
+                keepMountedTab(isActive: viewModel.selectedTab == 5) {
+                    ProfileView()
+                        .environmentObject(authViewModel)
+                        .id("profile")
+                        .task {
+                            let uid = Auth.auth().currentUser?.uid ?? ""
+                            NotificationAggregationService.shared.updateCurrentScreen(.profile(userId: uid))
+                        }
+                }
+
+                keepMountedTab(isActive: viewModel.selectedTab == 6) {
+                    AmenConnectSpacesHubView()
+                        .id("spaces")
+                        .task {
+                            NotificationAggregationService.shared.updateCurrentScreen(.none)
+                        }
+                }
+
+                keepMountedTab(isActive: viewModel.selectedTab == 7) {
+                    WhatNeedsAttentionView()
+                        .id("intelligence")
+                        .task {
+                            NotificationAggregationService.shared.updateCurrentScreen(.none)
+                        }
+                }
             }
+            .animation(nil, value: viewModel.selectedTab)
     }
 
     @ViewBuilder

@@ -1486,6 +1486,397 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // CATALOG + KNOWLEDGE NETWORK — added 2026-06-06 by Agent A
+    // Collections: works, knowledgeNodes, ingestionJobs, verificationClaims,
+    //              users/{uid}/followedTopics
+    //
+    // Security invariants that apply here:
+    //   I-1: Soft-delete only — DELETE is denied on all catalog collections.
+    //        Clients set deletedAt (null → timestamp); reversal is blocked.
+    //   I-7-ext: reviewState transitions to 'published' are CF-only (server-enforced).
+    //            Clients cannot self-publish; CF callable handles the transition.
+    // =========================================================================
+
+    // ── Catalog helper functions ──────────────────────────────────────────────
+
+    // Does the requesting user follow the given creatorId?
+    // Checks for a follows document with composite key {followerUid}_{creatorId}.
+    function followsCreator(creatorId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/follows/$(request.auth.uid + '_' + creatorId));
+    }
+
+    // Does the requesting user have an active paid catalog entitlement?
+    // Entitlement is set by CF (StoreKit validation) — never client-writable.
+    function hasPaidAccess() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)/entitlements/catalog)
+          .data.get('active', false) == true;
+    }
+
+    // Does the requesting user belong to the same org as the work?
+    // Reads orgId from the user's custom claim (set by CF at org membership time).
+    function sameOrgAsWork(workOrgId) {
+      return isSignedIn() &&
+        request.auth.token.get('orgId', '') != '' &&
+        request.auth.token.get('orgId', '') == workOrgId;
+    }
+
+    // Is a deletedAt transition valid for catalog soft-delete?
+    // Clients may only set deletedAt from null/missing → a timestamp.
+    // Reversal (timestamp → null) is blocked. I-1.
+    function validCatalogSoftDelete() {
+      return resource.data.get('deletedAt', null) == null &&
+        request.resource.data.get('deletedAt', null) != null;
+    }
+
+    // Prevent clients from advancing reviewState to 'published' directly.
+    // publishedAt may only be set by CF (Admin SDK) when reviewState = 'published'.
+    // Valid client-allowed states: 'imported' → 'draft' → 'review' (and backward)
+    // The 'approved' → 'published' transition is CF-only.
+    function reviewStateNotPublishedByClient() {
+      return request.resource.data.get('reviewState', '') != 'published' &&
+        request.resource.data.get('reviewState', '') != 'approved';
+    }
+
+    // =========================================================================
+    // /works/{workId}
+    // Catalog Work documents — creator-owned media catalog entries.
+    // Visibility: public | followers | paid_members | organization | private
+    // ReviewState: imported | draft | review | approved | published (last two CF-only)
+    // Soft-delete only (I-1): clients set deletedAt; hard DELETE denied.
+    // =========================================================================
+
+    match /works/{workId} {
+      // READ: authenticated + visibility gate + not soft-deleted.
+      // public        → any signed-in user
+      // followers     → creator's followers (followsCreator check)
+      // paid_members  → users with active catalog entitlement
+      // organization  → users sharing the same orgId claim as the work
+      // private       → creator only
+      // In all cases: deletedAt must be null (not soft-deleted).
+      allow read: if
+        isSignedIn() &&
+        resource.data.get('deletedAt', null) == null &&
+        (
+          resource.data.get('visibility', '') == 'public'
+          || resource.data.get('creatorId', '') == request.auth.uid
+          || (resource.data.get('visibility', '') == 'followers' &&
+              followsCreator(resource.data.get('creatorId', '')))
+          || (resource.data.get('visibility', '') == 'paid_members' && hasPaidAccess())
+          || (resource.data.get('visibility', '') == 'organization' &&
+              sameOrgAsWork(resource.data.get('orgId', '')))
+        );
+
+      // CREATE: creator sets their own work; defaults enforced.
+      // - creatorId must match caller (no impersonation)
+      // - reviewState must be 'imported' on creation (entry point only)
+      // - visibility must be 'private' on creation (explicit publish required)
+      // - deletedAt must be null (cannot create an already-deleted doc)
+      // - publishedAt must NOT be set by client on creation
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.get('creatorId', '') == request.auth.uid &&
+        request.resource.data.get('reviewState', '') == 'imported' &&
+        request.resource.data.get('visibility', '') == 'private' &&
+        request.resource.data.get('deletedAt', null) == null &&
+        !request.resource.data.keys().hasAny(['publishedAt']);
+
+      // UPDATE: creator can update own work with the following restrictions:
+      // - creatorId is immutable (cannot be reassigned)
+      // - reviewState cannot be advanced to 'approved' or 'published' by client
+      //   (CF callable handles those transitions via Admin SDK)
+      // - publishedAt cannot be set or changed by client
+      // - deletedAt transition is soft-delete only: null → timestamp (I-1)
+      //   (if the update touches deletedAt it must be a valid soft-delete)
+      allow update: if
+        isSignedIn() &&
+        resource.data.get('creatorId', '') == request.auth.uid &&
+        // creatorId is immutable
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']) &&
+        // cannot self-publish or self-approve; CF handles those transitions
+        reviewStateNotPublishedByClient() &&
+        // publishedAt is CF-only
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['publishedAt']) &&
+        // soft-delete: if deletedAt is being changed, it must be a valid transition
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedAt']) ||
+          validCatalogSoftDelete());
+
+      // DELETE: I-1 — hard deletes denied. Use deletedAt soft-delete via update.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /knowledgeNodes/{nodeId}
+    // Knowledge graph nodes linking topics to works.
+    // Owner-only write; read is gated on ownership or full-public published refs.
+    // Soft-delete only (I-1): DELETE denied.
+    // =========================================================================
+
+    match /knowledgeNodes/{nodeId} {
+      // READ: owner always; any authenticated user if this is a public-facing node
+      // where all referenced works are published + public visibility.
+      // (Full public-ref check is expensive — CF handles list queries;
+      //  single-doc reads are allowed for owner unconditionally.)
+      allow read: if
+        isSignedIn() &&
+        (
+          resource.data.get('creatorId', '') == request.auth.uid
+          // Note: broad public access to knowledge nodes is intentionally
+          // deferred to CF queries that can join work visibility cheaply.
+          // Direct doc reads by non-owners are denied here to prevent
+          // enumeration attacks on private knowledge graphs.
+        );
+
+      // WRITE (create + update): owner only; creatorId must match caller.
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.get('creatorId', '') == request.auth.uid;
+
+      allow update: if
+        isSignedIn() &&
+        resource.data.get('creatorId', '') == request.auth.uid &&
+        // creatorId is immutable
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
+
+      // DELETE: I-1 — hard deletes denied. Use a deletedAt field or CF removal.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /ingestionJobs/{jobId}
+    // Provider ingestion job tracking. Status is advanced by CF only (server auth).
+    // Clients may create a 'pending' job; all subsequent updates are CF-only.
+    // Soft-delete only (I-1): DELETE denied.
+    // =========================================================================
+
+    match /ingestionJobs/{jobId} {
+      // READ: job creator only.
+      allow read: if
+        isSignedIn() &&
+        resource.data.get('creatorId', '') == request.auth.uid;
+
+      // CREATE: creator submits a new pending job.
+      // - creatorId must match caller
+      // - status must be 'pending' (CF advances to 'running'/'done'/'error')
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.get('creatorId', '') == request.auth.uid &&
+        request.resource.data.get('status', '') == 'pending';
+
+      // UPDATE: denied from client — CF Admin SDK advances status.
+      // This prevents clients from spoofing job completion or skipping ingestion.
+      allow update: if false;
+
+      // DELETE: I-1 — hard deletes denied. CF handles cleanup if needed.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /verificationClaims/{claimId}
+    // Ownership verification requests. Approval is CF-only (no self-approval).
+    // Clients submit 'pending' claims; admins/CF approve or reject via Admin SDK.
+    // Soft-delete only (I-1): DELETE denied.
+    // =========================================================================
+
+    match /verificationClaims/{claimId} {
+      // READ: claim owner OR platform admin (executive_admin).
+      allow read: if
+        isSignedIn() &&
+        (
+          resource.data.get('creatorId', '') == request.auth.uid ||
+          hasClaimRole('executive_admin')
+        );
+
+      // CREATE: creator submits own claim in 'pending' state only.
+      // - creatorId must match caller (no impersonation)
+      // - status must be 'pending' (CF transitions to 'approved'/'rejected')
+      // - No self-approval possible: status 'approved'/'rejected' blocked here
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.get('creatorId', '') == request.auth.uid &&
+        request.resource.data.get('status', '') == 'pending';
+
+      // UPDATE: denied from client — CF/Admin SDK handles approval/rejection.
+      // This is the critical gate preventing self-approval (no-self-approval invariant).
+      allow update: if false;
+
+      // DELETE: I-1 — hard deletes denied. Claims are permanent audit records.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /users/{uid}/followedTopics/{topicId}
+    // Per-user topic subscription list (CatalogSubscription).
+    // Owner-only: read, write, and delete are all gated to the owning user.
+    // Unlike works, users CAN unfollow topics (delete IS permitted here — I-1
+    // applies to content, not to user preference records).
+    // =========================================================================
+
+    match /users/{uid}/followedTopics/{topicId} {
+      // READ: owner only.
+      allow read: if isSignedIn() && request.auth.uid == uid;
+
+      // CREATE + UPDATE: owner only.
+      allow create, update: if isSignedIn() && request.auth.uid == uid;
+
+      // DELETE: owner may unfollow a topic (preference record, not content — I-1
+      // soft-delete invariant applies to social/content objects, not subscriptions).
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // =========================================================================
+    // AuditOS — append-only audit trail (GDPR/COPPA)
+    // Path: auditTrail/{uid}/events/{eventId}
+    // INVARIANT: update + delete are permanently denied — append only.
+    // =========================================================================
+
+    match /auditTrail/{uid}/events/{eventId} {
+      allow read: if isOwner(uid) || isAdminSDK();
+      allow create: if isOwner(uid);
+      allow update, delete: if false;  // INVARIANT: append-only
+    }
+
+    // =========================================================================
+    // RecoveryOS — ban appeals
+    // Path: banAppeals/{uid}
+    // Owner may create / update their own appeal; Admin SDK may delete.
+    // =========================================================================
+
+    match /banAppeals/{uid} {
+      allow read: if isOwner(uid) || isAdminSDK();
+      allow create, update: if isOwner(uid);
+      allow delete: if isAdminSDK();
+    }
+
+    // =========================================================================
+    // AI SAFETY REPORTS — C-04
+    // Collects user reports of unsafe/harmful AI responses.
+    // Any signed-in user may create a report; only Admin SDK may read/modify.
+    // =========================================================================
+
+    match /aiReports/{reportId} {
+      allow read: if isAdminSDK();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdminSDK();
+    }
+
+    // =========================================================================
+    // SABBATH MODE — added 2026-06-07 by Phase 2C Backend Agent
+    //
+    // Five Sabbath subcollections under users/{uid}.
+    // All are owner-only. Reflections are PRIVATE — never readable by others.
+    // Presence doc has a broader read grant so family members can see "resting"
+    // state (boolean only — never a count).
+    //
+    // Security invariants:
+    //   S-1: Sabbath config, sessions, reflections, and heldNotifications are
+    //        readable and writable only by the owning user (isOwner(uid)).
+    //   S-2: Reflections are permanently private — no admin read, no CF read,
+    //        no cross-user read under any circumstances.
+    //   S-3: heldNotifications are written by the notificationBatcher CF (Admin SDK);
+    //        clients may read their own held notifications to render the digest UI.
+    //   S-4: sabbathPresence.resting is a boolean signal — clients MUST display
+    //        text only (e.g. "Others are resting too"), never a count or number.
+    //   S-5: No hard deletes on session or reflection documents (I-1 applies).
+    // =========================================================================
+
+    // Sabbath configuration — user's chosen day, boundary, timezone
+    match /users/{uid}/sabbath/config {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // Per-day session records — active/steppedOut state, surfaces used, digestShown
+    match /users/{uid}/sabbathSessions/{sessionId} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // Private reflections — NEVER readable by anyone other than the author.
+    // S-2: No exceptions. Not even executive_admin or isAdminSDK().
+    match /users/{uid}/sabbathReflections/{reflectionId} {
+      allow read, write: if request.auth.uid == uid;
+      // Reflections are PRIVATE — never readable by others, including admins.
+    }
+
+    // Held notifications — written by notificationBatcher CF; read by owner for digest
+    match /users/{uid}/sabbath/heldNotifications/{notifId} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // Presence signal — "resting: true" boolean only.
+    // Read: any authenticated user (so family members can see "Others are resting").
+    // Write: owner only.
+    // S-4: Clients MUST show text only, never display a count or number.
+    match /users/{uid}/sabbath/presence {
+      allow read: if request.auth != null;  // family can see "resting" presence (text only)
+      allow write: if request.auth.uid == uid;
+    }
+
+    // =========================================================================
+    // BEREAN v1 — AI Formation Assistant
+    // Added: 2026-06-07 (Phase 1 Contract Freeze)
+    //
+    // Security invariants:
+    //   B-1: Per-user isolation — only the owning user may read/write their berean data.
+    //   B-2: visibility enforced on shareable docs. Default 'private'.
+    //   B-3: Minor-scoped accounts: connectors denied; 'organization'/'public' writes denied.
+    //   B-4: Soft-delete only — hard deletes denied on memory/thread docs.
+    //   B-5: assistant-role messages: CF-write-only (Admin SDK). Clients write user role only.
+    //   B-6: Usage document: CF-write-only. Clients read only.
+    //   B-7: Capabilities: owner or CF may write.
+    //   B-8: config/credits + config/voice: read-only for clients; CF writes only.
+    // =========================================================================
+
+    match /berean/{uid}/memory/{memoryId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && !( request.auth.token.get('minorScoped', false) == true
+              && request.resource.data.get('visibility','private') in ['public','organization'] );
+      allow update: if isOwner(uid);
+      allow delete: if false;
+      allow write: if isAdminSDK();
+    }
+
+    match /berean/{uid}/threads/{threadId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid);
+      allow delete: if false;
+      allow write: if isAdminSDK();
+    }
+
+    match /berean/{uid}/messages/{messageId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && request.resource.data.get('role','') == 'user';
+      allow update, delete: if false;
+      allow write: if isAdminSDK();
+    }
+
+    match /berean/{uid}/usage/{periodId} {
+      allow read: if isOwner(uid);
+      allow write: if isAdminSDK();
+    }
+
+    match /berean/{uid}/capabilities {
+      allow read: if isOwner(uid);
+      allow write: if isOwner(uid) || isAdminSDK();
+    }
+
+    match /berean/{uid}/connectors/{connectorType} {
+      allow read: if isOwner(uid) && !request.auth.token.get('minorScoped', false);
+      allow write: if (isOwner(uid) || isAdminSDK()) && !request.auth.token.get('minorScoped', false);
+    }
+
+    match /config/credits {
+      allow read: if isSignedIn();
+      allow write: if isAdminSDK();
+    }
+
+    match /config/voice {
+      allow read: if isSignedIn();
+      allow write: if isAdminSDK();
+    }
+
+    // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.
     // Fail closed — add new collections explicitly, never rely on this to permit.

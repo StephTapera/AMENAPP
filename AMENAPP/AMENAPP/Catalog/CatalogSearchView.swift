@@ -281,7 +281,7 @@ struct CatalogSearchView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
                             ForEach(vm.results.topics) { topic in
-                                TopicChip(topic: topic)
+                                CatalogTopicChip(topic: topic)
                             }
                         }
                         .padding(.vertical, 4)
@@ -519,7 +519,7 @@ private struct WorkTypeBadge: View {
 
 // MARK: - Topic Chip
 
-private struct TopicChip: View {
+private struct CatalogTopicChip: View {
     let topic: TopicResult
 
     var body: some View {

@@ -17,6 +17,8 @@
 //   - Private is the visual default and most prominent privacy level
 
 import SwiftUI
+import FirebaseAuth
+import UIKit
 
 // MARK: - PrayerUpdateCard (stub)
 
@@ -85,6 +87,8 @@ struct PrayerRoomView: View {
     @State private var showInviteSheet = false
     @State private var updateSheetType: PrayerType = .update
     @State private var stubUpdates: [PrayerUpdateStub] = []
+    @State private var isPraying = false
+    @State private var hasPrayed = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -316,27 +320,78 @@ struct PrayerRoomView: View {
 
     private func prayForThisButton(_ prayer: PrayerRequest) -> some View {
         Button {
-            // Wire to prayForThis callable / praysFor edge creation (CF-side per C1 §4b OQ-16)
+            Task { await prayForThis(prayer) }
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "hands.sparkles")
-                    .font(.system(size: 16, weight: .regular))
-                Text("Pray for this")
-                    .font(.callout)
-                    .fontWeight(.semibold)
+            Group {
+                if hasPrayed {
+                    HStack(spacing: 8) {
+                        Image(systemName: "hands.sparkles.fill")
+                            .font(.system(size: 16, weight: .regular))
+                        Text("Praying")
+                            .font(.callout)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundStyle(Color.accentColor)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        Capsule()
+                            .fill(Color.accentColor.opacity(0.7))
+                    )
+                } else if isPraying {
+                    ProgressView()
+                        .tint(Color.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            Capsule()
+                                .fill(Color.accentColor)
+                        )
+                } else {
+                    HStack(spacing: 8) {
+                        Image(systemName: "hands.sparkles")
+                            .font(.system(size: 16, weight: .regular))
+                        Text("Pray for this")
+                            .font(.callout)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        Capsule()
+                            .fill(Color.accentColor)
+                    )
+                }
             }
-            .foregroundStyle(Color.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(
-                Capsule()
-                    .fill(Color.accentColor)
-            )
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
-        .disabled(prayer.softDeleted || prayer.status == .closed)
-        .accessibilityLabel("Pray for this prayer request")
+        .disabled(prayer.softDeleted || prayer.status == .closed || hasPrayed || isPraying)
+        .accessibilityLabel(hasPrayed ? "You are praying for this request" : "Pray for this prayer request")
+    }
+
+    // MARK: - Pray for This Action
+
+    private func prayForThis(_ prayer: PrayerRequest) async {
+        guard !hasPrayed && !isPraying else { return }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isPraying = true
+        do {
+            try await AmenEdgeService().createEdge(
+                fromRef: "users/\(uid)",
+                fromType: .user,
+                toRef: "prayerRequests/\(prayer.id)",
+                toType: .prayer,
+                edgeType: .praysFor,
+                createdBy: uid
+            )
+        } catch {
+            // Non-fatal: edge creation failure does not block the local UI confirmation
+        }
+        hasPrayed = true
+        isPraying = false
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     // MARK: - Updates Section

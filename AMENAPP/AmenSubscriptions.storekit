@@ -254,6 +254,56 @@
           "referenceName" : "Church Pro Annual",
           "subscriptionGroupID" : "AmenPlatformSubscriptions",
           "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.00",
+          "familySharable" : false,
+          "groupNumber" : 9,
+          "internalID" : "catalog_creator_pro_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Build your catalog, enable Ask This Creator, and host up to 500 works with full monetization tools.",
+              "displayName" : "Creator Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.catalog.creatorpro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Catalog Creator Pro Monthly",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.00",
+          "familySharable" : false,
+          "groupNumber" : 10,
+          "internalID" : "catalog_creator_studio_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited works, transcript indexing, Knowledge Map, and full creator analytics for serious catalog builders.",
+              "displayName" : "Creator Studio",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.catalog.creatorstudio.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Catalog Creator Studio Monthly",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
         }
       ]
     }

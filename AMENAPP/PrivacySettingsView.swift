@@ -716,6 +716,80 @@ struct PrivacySettingsView: View {
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
 
+                // MARK: SAFETY AGENTS
+                Text("SAFETY AGENTS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    NavigationLink(destination: ChildSafetyAgentStubView()) {
+                        HStack {
+                            Image(systemName: "shield.lefthalf.filled.trianglebadge.exclamationmark")
+                                .foregroundStyle(.orange)
+                            Text("Child Safety")
+                                .font(AMENFont.semiBold(15))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Divider().padding(.leading, 52)
+
+                    NavigationLink(destination: ThreatDetectionAgentStubView()) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                            Text("Threat Detection")
+                                .font(AMENFont.semiBold(15))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Divider().padding(.leading, 52)
+
+                    NavigationLink(destination: SafeMeetupsAgentStubView()) {
+                        HStack {
+                            Image(systemName: "location.magnifyingglass")
+                                .foregroundStyle(.blue)
+                            Text("Safe Meetups")
+                                .font(AMENFont.semiBold(15))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("These features are pending vendor integration review and App Store approval.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
                 Spacer(minLength: 32)
             }
         }

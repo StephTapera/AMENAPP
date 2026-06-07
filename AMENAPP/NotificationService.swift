@@ -53,6 +53,27 @@ final class NotificationService: ObservableObject {
     private let maxRetries = 3
     private var retryCount = 0
     private var retryTask: Task<Void, Never>?
+
+    // MARK: - Bulk Notification Rate Limiter (C-10)
+    // Prevents any single recipient UID from receiving more than 100 notifications per minute.
+    private var notificationCounts: [String: (count: Int, windowStart: Date)] = [:]
+    private let rateLimitPerMinute = 100
+
+    private func checkRateLimit(for uid: String) -> Bool {
+        let now = Date()
+        if let existing = notificationCounts[uid] {
+            let elapsed = now.timeIntervalSince(existing.windowStart)
+            if elapsed < 60 {
+                if existing.count >= rateLimitPerMinute { return false }
+                notificationCounts[uid] = (existing.count + 1, existing.windowStart)
+            } else {
+                notificationCounts[uid] = (1, now)
+            }
+        } else {
+            notificationCounts[uid] = (1, now)
+        }
+        return true
+    }
     
     // MARK: - Initialization
     
@@ -693,7 +714,12 @@ final class NotificationService: ObservableObject {
         for mention in mentions {
             // Don't notify yourself
             guard mention.userId != actorId else { continue }
-            
+            // Rate limit: skip if recipient already received too many notifications this minute
+            guard checkRateLimit(for: mention.userId) else {
+                dlog("⚠️ Rate limit reached for mention notification to \(mention.userId)")
+                continue
+            }
+
             let notificationData: [String: Any] = [
                 "userId": mention.userId,
                 "type": "mention",
@@ -765,7 +791,12 @@ final class NotificationService: ObservableObject {
         for recipientId in recipientIds {
             // Don't notify yourself
             guard recipientId != sharerId else { continue }
-            
+            // Rate limit: skip if recipient already received too many notifications this minute
+            guard checkRateLimit(for: recipientId) else {
+                dlog("⚠️ Rate limit reached for church note notification to \(recipientId)")
+                continue
+            }
+
             let notificationData: [String: Any] = [
                 "userId": recipientId,
                 "type": "church_note_shared",

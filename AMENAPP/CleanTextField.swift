@@ -74,7 +74,7 @@ struct ReusableCleanTextField: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white)
+                .fill(Color(.secondarySystemBackground))
                 .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
         .overlay(
@@ -113,7 +113,7 @@ struct SimpleCleanTextField: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white)
+                .fill(Color(.secondarySystemBackground))
                 .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
         .overlay(

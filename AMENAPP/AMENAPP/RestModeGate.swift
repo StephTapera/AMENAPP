@@ -22,6 +22,8 @@ enum AmenRoute: String, CaseIterable {
     case likes
     case reposts
     case profile
+    case trustedCircle = "trusted_circle"             // TrustedCircleView (emergency family contact)
+    case childSafetyReport = "child_safety_report"    // ChildSafetyAgentStubView (stub, pending approval)
 
     var policyKey: String {
         switch self {
@@ -41,6 +43,8 @@ enum AmenRoute: String, CaseIterable {
         case .likes:            return "likes"
         case .reposts:          return "reposts"
         case .profile:          return "profile"
+        case .trustedCircle:    return "trusted_circle"
+        case .childSafetyReport: return "child_safety_report"
         }
     }
 }

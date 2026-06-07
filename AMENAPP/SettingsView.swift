@@ -96,6 +96,8 @@ struct SettingsView: View {
                             SDDivider()
                             SDNavRow(icon: "lock", label: "Privacy & Safety", subtitle: "Who can see your content", iconBg: .green) { PrivacySettingsView() }
                             SDDivider()
+                            SDNavRow(icon: "person.badge.clock", label: "Account Recovery", subtitle: "Data export, appeals, deletion", iconBg: Color(red: 0.55, green: 0.35, blue: 0.85)) { AccountRecoveryView() }
+                            SDDivider()
                             AmenGenerationalPresetSettingsRow()
                             SDDivider()
                             SDNavRow(icon: "shield", label: "Security", subtitle: "2FA, active sessions", iconBg: .yellow) { SecurityGroupView() }

@@ -21,6 +21,7 @@ struct AmenSpaceEventDetailView: View {
     @State private var calendarAddState: CalendarAddState = .idle
     @State private var localIsRSVPed: Bool
     @State private var showLiveRoomToast = false
+    @State private var showReplayPlayer = false
     @Environment(\.dismiss) private var dismiss
 
     private let calendarService = AmenCalendarInviteService()
@@ -254,6 +255,15 @@ struct AmenSpaceEventDetailView: View {
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 14)
                 .padding(.bottom, 14)
+
+            // Check against Scripture — Requires DiscernmentActionButton.swift in target (see SelahScripture/)
+            DiscernmentActionButton(
+                inputText: event.eventDescription,
+                sourceType: "space_message",
+                sourceRef: event.id
+            )
+            .padding(.horizontal, 14)
+            .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(hex: "1A1820"), in: RoundedRectangle(cornerRadius: 14))
@@ -300,7 +310,10 @@ struct AmenSpaceEventDetailView: View {
     }
 
     private var replayButton: some View {
-        Button(action: {}) {
+        Button {
+            guard event.replayRef != nil else { return }
+            withAnimation(.amenSnappy) { showReplayPlayer = true }
+        } label: {
             HStack {
                 Image(systemName: "play.rectangle.fill")
                 Text("Watch Replay")
@@ -317,6 +330,9 @@ struct AmenSpaceEventDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Watch replay")
+        .sheet(isPresented: $showReplayPlayer) {
+            ReplayPlayerSheet(replayRef: event.replayRef)
+        }
     }
 
     @ViewBuilder
@@ -375,6 +391,86 @@ struct AmenSpaceEventDetailView: View {
     }
 }
 
+// MARK: - Replay Player Sheet
+
+/// Presents the replay stored in `replayRef`.
+/// `replayRef` is treated as an absolute URL string (CDN / YouTube / Vimeo).
+/// TODO: wire actual CDN base URL once the media pipeline produces signed links.
+private struct ReplayPlayerSheet: View {
+    let replayRef: String?
+    @Environment(\.dismiss) private var dismiss
+
+    private var replayURL: URL? {
+        guard let ref = replayRef else { return nil }
+        return URL(string: ref)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: "070607").ignoresSafeArea()
+
+                if let url = replayURL {
+                    VStack(spacing: 24) {
+                        Image(systemName: "play.rectangle.fill")
+                            .font(.system(size: 56))
+                            .foregroundStyle(Color(hex: "D9A441"))
+
+                        Text("Replay Ready")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white)
+
+                        Text(url.host ?? url.absoluteString)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .padding(.horizontal, 32)
+
+                        Link(destination: url) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "play.fill")
+                                Text("Open Replay")
+                                    .font(.headline.weight(.semibold))
+                            }
+                            .foregroundStyle(Color(hex: "070607"))
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 14)
+                            .background(Color(hex: "D9A441"), in: RoundedRectangle(cornerRadius: 14))
+                        }
+                        .accessibilityLabel("Open replay in browser")
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.circle")
+                            .font(.system(size: 44))
+                            .foregroundStyle(.secondary)
+                        Text("Replay Not Available")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.white)
+                        Text("The replay link has not been published yet. Check back after the event ends.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Color(hex: "D9A441"))
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+}
+
 private extension Date {
     func formatted(as format: String) -> String {
         let f = DateFormatter()
@@ -404,6 +500,18 @@ private extension AmenSpaceEventType {
         case .prayerMeeting:       return "Prayer Meeting"
         case .studySession:        return "Study Session"
         }
+    }
+}
+
+// MARK: - Local Animation Tokens
+// .amenSnappy is not globally exported from the kit; redeclare privately
+// so this file stays self-contained (matches AmenActionTray.swift / AmenSimpleModeView.swift).
+private extension Animation {
+    static var amenSpring: Animation {
+        .spring(response: 0.42, dampingFraction: 0.78)
+    }
+    static var amenSnappy: Animation {
+        .spring(response: 0.22, dampingFraction: 0.70)
     }
 }
 

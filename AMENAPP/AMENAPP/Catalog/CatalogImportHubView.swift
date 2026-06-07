@@ -64,7 +64,7 @@ struct CatalogImportHubView: View {
         }
     }
 
-    private func sourceRow(source: ImportSource) -> some View {
+    private func sourceRow(source: CatalogImportSource) -> some View {
         let isConnected = connectedSources.contains(where: { $0.sourceId == source.id })
         let isConnecting = connectingSourceId == source.id
         return HStack(spacing: 12) {
@@ -249,21 +249,21 @@ struct CatalogImportHubView: View {
 
     // MARK: - Static Data
 
-    private var availableSources: [ImportSource] {
+    private var availableSources: [CatalogImportSource] {
         [
-            ImportSource(id: "spotify", name: "Spotify", icon: "music.note", comingSoon: false),
-            ImportSource(id: "youtube", name: "YouTube", icon: "play.rectangle", comingSoon: false),
-            ImportSource(id: "apple_music", name: "Apple Music", icon: "music.note.list", comingSoon: true),
-            ImportSource(id: "google_books", name: "Google Books", icon: "book", comingSoon: false),
-            ImportSource(id: "podcast_rss", name: "Podcast RSS", icon: "mic", comingSoon: false),
-            ImportSource(id: "substack", name: "Substack", icon: "doc.text", comingSoon: false)
+            CatalogImportSource(id:"spotify", name: "Spotify", icon: "music.note", comingSoon: false),
+            CatalogImportSource(id:"youtube", name: "YouTube", icon: "play.rectangle", comingSoon: false),
+            CatalogImportSource(id:"apple_music", name: "Apple Music", icon: "music.note.list", comingSoon: true),
+            CatalogImportSource(id:"google_books", name: "Google Books", icon: "book", comingSoon: false),
+            CatalogImportSource(id:"podcast_rss", name: "Podcast RSS", icon: "mic", comingSoon: false),
+            CatalogImportSource(id:"substack", name: "Substack", icon: "doc.text", comingSoon: false)
         ]
     }
 }
 
 // MARK: - Supporting Types
 
-private struct ImportSource: Identifiable {
+private struct CatalogImportSource: Identifiable {
     let id: String
     let name: String
     let icon: String

@@ -17,43 +17,72 @@ struct StewardshipDashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 16) {
-                    // Privacy banner
-                    privacyBanner
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        // Privacy banner
+                        privacyBanner
 
-                    // Planner card
-                    plannerCard
+                        // Planner card
+                        plannerCard
+                            .id(StewardshipViewModel.StewardshiSection.planner)
 
-                    // Allocation
-                    if let review = vm.annualReview {
-                        allocationCard(review: review)
+                        // Allocation
+                        if let review = vm.annualReview {
+                            allocationCard(review: review)
+                                .id(StewardshipViewModel.StewardshiSection.allocation)
+                        }
+
+                        // Annual review
+                        annualReviewCard
+                            .id(StewardshipViewModel.StewardshiSection.annualReview)
+
+                        // Quick actions
+                        quickActions
+
+                        // Disclaimer
+                        disclaimer
                     }
-
-                    // Annual review
-                    annualReviewCard
-
-                    // Quick actions
-                    quickActions
-
-                    // Disclaimer
-                    disclaimer
+                    .padding(16)
+                    .padding(.bottom, 40)
                 }
-                .padding(16)
-                .padding(.bottom, 40)
-            }
-            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Stewardship")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+                .navigationTitle("Stewardship")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+                .onChange(of: vm.activeSection) { _, section in
+                    guard let section else { return }
+                    switch section {
+                    case .planner, .allocation, .annualReview:
+                        withAnimation(.amenSnappy) {
+                            proxy.scrollTo(section, anchor: .top)
+                        }
+                        vm.activeSection = nil
+                    case .recurring, .taxCenter, .journal:
+                        break // handled by sheet below
+                    }
                 }
             }
         }
         .onAppear { vm.onAppear() }
         .sheet(isPresented: $vm.showIncomeInput) {
             incomeInputSheet
+        }
+        .sheet(item: $vm.activeSection) { section in
+            switch section {
+            case .taxCenter:
+                TaxCenterView(store: vm.store)
+            case .journal:
+                GivingJournalView(store: vm.store)
+            case .recurring:
+                recurringPlaceholderSheet
+            default:
+                EmptyView()
+            }
         }
     }
 
@@ -324,7 +353,9 @@ struct StewardshipDashboardView: View {
     private var quickActions: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
             ForEach(StewardshipViewModel.StewardshiSection.allCases.filter { $0 != .planner }, id: \.id) { section in
-                Button {} label: {
+                Button {
+                    vm.activeSection = section
+                } label: {
                     HStack(spacing: 10) {
                         Image(systemName: section.icon)
                             .font(.system(size: 15))
@@ -345,6 +376,37 @@ struct StewardshipDashboardView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - Recurring Placeholder Sheet
+
+    private var recurringPlaceholderSheet: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(AmenTheme.Colors.textTertiary)
+                Text("Recurring Gifts")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(AmenTheme.Colors.textPrimary)
+                Text("Manage your recurring giving commitments here.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                // TODO: Wire to recurring gifts list once AmenGiveActionHandler exposes scheduled gifts
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+            .navigationTitle("Recurring Gifts")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { vm.activeSection = nil }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 
     // MARK: - Disclaimer
@@ -437,5 +499,15 @@ struct StewardshipDashboardView: View {
         Label(title, systemImage: icon)
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(AmenTheme.Colors.textSecondary)
+    }
+}
+
+// MARK: - Local Animation Tokens
+// amenSnappy is not globally exported from the kit; redeclare privately here
+// following the pattern in AmenActionTray.swift and AmenMinistryRoomPrayerTab.swift.
+
+private extension Animation {
+    static var amenSnappy: Animation {
+        .spring(response: 0.22, dampingFraction: 0.70)
     }
 }

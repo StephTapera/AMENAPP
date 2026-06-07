@@ -397,6 +397,15 @@ final class AMENSecureMessagingService: ObservableObject {
             throw SecureMessagingError.notAuthenticated
         }
 
+        // COPPA: minors (ageTier == 'minor' or 'under_minimum' in custom claims) cannot initiate DMs
+        if let user = Auth.auth().currentUser {
+            let claims = try? await user.getIDTokenResult()
+            let ageTier = claims?.claims["ageTier"] as? String ?? ""
+            if ageTier == "under_minimum" || ageTier == "minor" {
+                throw NSError(domain: "COPPA", code: 403, userInfo: [NSLocalizedDescriptionKey: "Direct messaging is not available for your account type."])
+            }
+        }
+
         // Check trust / contact tier first
         let tier = await trust.contactTier(between: senderUID, and: recipientUID)
         guard tier != .blocked else {

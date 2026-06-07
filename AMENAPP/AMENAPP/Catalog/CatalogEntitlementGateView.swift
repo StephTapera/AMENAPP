@@ -3,7 +3,7 @@ import FirebaseFunctions
 
 struct CatalogEntitlementGateView: View {
 
-    let feature: CatalogEntitlementService.CatalogFeature
+    let feature: CatalogGateFeature
 
     @State private var isLoadingCheckout = false
     @State private var errorMessage: String? = nil
@@ -113,64 +113,62 @@ struct CatalogEntitlementGateView: View {
     }
 }
 
-// MARK: - CatalogEntitlementService
+// MARK: - CatalogGateFeature
 
-enum CatalogEntitlementService {
-    enum CatalogFeature: String {
-        case catalog
-        case knowledgeMap
-        case catalogCreate
-        case askCreator
+enum CatalogGateFeature: String {
+    case catalog
+    case knowledgeMap
+    case catalogCreate
+    case askCreator
 
-        var displayName: String {
-            switch self {
-            case .catalog:       return "Creator Catalog"
-            case .knowledgeMap:  return "Knowledge Map"
-            case .catalogCreate: return "Catalog Management"
-            case .askCreator:    return "Ask This Creator"
-            }
+    var displayName: String {
+        switch self {
+        case .catalog:       return "Creator Catalog"
+        case .knowledgeMap:  return "Knowledge Map"
+        case .catalogCreate: return "Catalog Management"
+        case .askCreator:    return "Ask This Creator"
         }
+    }
 
-        var icon: String {
-            switch self {
-            case .catalog:       return "books.vertical"
-            case .knowledgeMap:  return "network"
-            case .catalogCreate: return "arrow.up.doc"
-            case .askCreator:    return "bubble.left.and.bubble.right"
-            }
+    var icon: String {
+        switch self {
+        case .catalog:       return "books.vertical"
+        case .knowledgeMap:  return "network"
+        case .catalogCreate: return "arrow.up.doc"
+        case .askCreator:    return "bubble.left.and.bubble.right"
         }
+    }
 
-        var unlockDescription: String {
-            switch self {
-            case .catalog:
-                return "Access this creator's full catalog of books, sermons, music, courses, and more."
-            case .knowledgeMap:
-                return "Explore topics across this creator's entire body of work."
-            case .catalogCreate:
-                return "Import, organize, and publish your works to your creator catalog."
-            case .askCreator:
-                return "Ask questions and get answers grounded in this creator's published works."
-            }
+    var unlockDescription: String {
+        switch self {
+        case .catalog:
+            return "Access this creator's full catalog of books, sermons, music, courses, and more."
+        case .knowledgeMap:
+            return "Explore topics across this creator's entire body of work."
+        case .catalogCreate:
+            return "Import, organize, and publish your works to your creator catalog."
+        case .askCreator:
+            return "Ask questions and get answers grounded in this creator's published works."
         }
+    }
 
-        var planName: String {
-            switch self {
-            case .catalog, .knowledgeMap, .askCreator: return "Amen+"
-            case .catalogCreate:                       return "CreatorPro"
-            }
+    var planName: String {
+        switch self {
+        case .catalog, .knowledgeMap, .askCreator: return "Amen+"
+        case .catalogCreate:                       return "CreatorPro"
         }
+    }
 
-        var benefits: [String] {
-            switch self {
-            case .catalog:
-                return ["Browse all published works", "Filter by type", "Direct links to buy or listen"]
-            case .knowledgeMap:
-                return ["Topic clusters across all works", "Filter by subject", "Discover hidden connections"]
-            case .catalogCreate:
-                return ["Connect Spotify, YouTube, Substack", "Manual work entry", "Review and publish workflow"]
-            case .askCreator:
-                return ["AI-powered answers", "Grounded in published works", "Source citations included"]
-            }
+    var benefits: [String] {
+        switch self {
+        case .catalog:
+            return ["Browse all published works", "Filter by type", "Direct links to buy or listen"]
+        case .knowledgeMap:
+            return ["Topic clusters across all works", "Filter by subject", "Discover hidden connections"]
+        case .catalogCreate:
+            return ["Connect Spotify, YouTube, Substack", "Manual work entry", "Review and publish workflow"]
+        case .askCreator:
+            return ["AI-powered answers", "Grounded in published works", "Source citations included"]
         }
     }
 }

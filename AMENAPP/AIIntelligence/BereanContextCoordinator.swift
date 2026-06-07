@@ -39,6 +39,28 @@ struct BereanContextCoordinator {
         )
     }
 
+    /// Appends a medical guardrail system note to the payload metadata when
+    /// health/medical keywords are detected in the selected text.
+    static func addMedicalGuardrail(to payload: BereanContextPayload) -> BereanContextPayload {
+        let medicalKeywords = ["diagnosis", "medicine", "medication", "dosage", "treatment", "prescription", "symptom", "disease", "cancer", "diabetes", "mental health", "depression", "anxiety", "therapy"]
+        let text = payload.selectedText.lowercased()
+        let hasMedical = medicalKeywords.contains { text.contains($0) }
+        guard hasMedical else { return payload }
+        var meta = payload.metadata
+        meta["medicalGuardrail"] = "true"
+        meta["guardrailNote"] = "This content contains health/medical topics. Berean provides spiritual support only — not medical advice. Always consult a licensed healthcare professional."
+        return BereanContextPayload(
+            selectedText: payload.selectedText,
+            surroundingText: payload.surroundingText,
+            sourceSurface: payload.sourceSurface,
+            sourceId: payload.sourceId,
+            contentType: payload.contentType,
+            scriptureReference: payload.scriptureReference,
+            languageCode: payload.languageCode,
+            metadata: meta
+        )
+    }
+
     /// Strips prompt-injection patterns from untrusted community content (post text,
     /// captions, comments, transcripts) before embedding in Berean prompts.
     /// Wraps the sanitized value in XML delimiters so the backend can treat it as

@@ -138,7 +138,9 @@ enum RestModeRoutes {
         "daily_verse",
         "prayer_request",
         "saved_notes",
-        "emergency_support"
+        "emergency_support",
+        AmenRoute.trustedCircle.rawValue,      // TrustedCircleView — emergency family contact
+        AmenRoute.childSafetyReport.rawValue,  // ChildSafetyAgentStubView — always accessible
     ]
 
     static let restricted: [String] = [

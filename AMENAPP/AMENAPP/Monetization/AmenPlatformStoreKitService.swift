@@ -54,20 +54,34 @@ final class AmenPlatformStoreKitService: ObservableObject {
 
     static let shared = AmenPlatformStoreKitService()
 
-    // MARK: - Product ID Map
+    // MARK: - Product ID Maps
     // Enterprise is manual — omitted intentionally.
 
-    static let productIDs: [AmenAccountTier: String] = [
+    static let monthlyProductIDs: [AmenAccountTier: String] = [
         .amenPlus:   "com.amenapp.subscription.amenplus.monthly",
         .amenPro:    "com.amenapp.subscription.amenpro.monthly",
         .creatorPro: "com.amenapp.subscription.creatorpro.monthly",
         .churchPro:  "com.amenapp.subscription.churchpro.monthly",
     ]
 
+    static let annualProductIDs: [AmenAccountTier: String] = [
+        .amenPlus:   "com.amenapp.subscription.amenplus.annual",
+        .amenPro:    "com.amenapp.subscription.amenpro.annual",
+        .creatorPro: "com.amenapp.subscription.creatorpro.annual",
+        .churchPro:  "com.amenapp.subscription.churchpro.annual",
+    ]
+
+    /// Backward-compatible alias — always returns monthly IDs.
+    static var productIDs: [AmenAccountTier: String] { monthlyProductIDs }
+
     // MARK: - Published State
 
-    @Published var products: [AmenAccountTier: Product] = [:]
+    @Published var monthlyProducts: [AmenAccountTier: Product] = [:]
+    @Published var annualProducts: [AmenAccountTier: Product] = [:]
     @Published var purchaseState: PlatformPurchaseState = .idle
+
+    /// Backward-compatible — returns the monthly product map.
+    var products: [AmenAccountTier: Product] { monthlyProducts }
 
     // MARK: - Private
 
@@ -85,19 +99,25 @@ final class AmenPlatformStoreKitService: ObservableObject {
 
     // MARK: - Load Products
 
-    /// Fetches StoreKit products for all purchasable tiers and populates `products`.
+    /// Fetches StoreKit products for all purchasable tiers (both monthly and annual).
     func loadProducts() async {
-        let ids = Array(AmenPlatformStoreKitService.productIDs.values)
+        let allIDs = Array(AmenPlatformStoreKitService.monthlyProductIDs.values)
+                   + Array(AmenPlatformStoreKitService.annualProductIDs.values)
         do {
-            let fetched = try await Product.products(for: ids)
-            var map: [AmenAccountTier: Product] = [:]
+            let fetched = try await Product.products(for: allIDs)
+            var monthly: [AmenAccountTier: Product] = [:]
+            var annual: [AmenAccountTier: Product] = [:]
             for product in fetched {
-                if let tier = AmenPlatformStoreKitService.productIDs
+                if let tier = AmenPlatformStoreKitService.monthlyProductIDs
                     .first(where: { $0.value == product.id })?.key {
-                    map[tier] = product
+                    monthly[tier] = product
+                } else if let tier = AmenPlatformStoreKitService.annualProductIDs
+                    .first(where: { $0.value == product.id })?.key {
+                    annual[tier] = product
                 }
             }
-            products = map
+            monthlyProducts = monthly
+            annualProducts = annual
         } catch {
             // Non-fatal — paywall will fall back to static pricing strings.
         }
@@ -106,11 +126,13 @@ final class AmenPlatformStoreKitService: ObservableObject {
     // MARK: - Purchase
 
     /// Initiates a StoreKit 2 purchase for the given tier.
-    /// - Throws: `PlatformPurchaseError.productNotFound` if the product has not been loaded,
-    ///   `PlatformPurchaseError.verificationFailed` for JWS verification failures,
-    ///   or `PlatformPurchaseError.serverError` if the Cloud Function returns an error.
-    func purchase(_ tier: AmenAccountTier) async throws {
-        guard let product = products[tier] else {
+    /// - Parameters:
+    ///   - tier: The subscription tier to purchase.
+    ///   - annually: Pass `true` to purchase the annual product. Defaults to `false` (monthly).
+    /// - Throws: `PlatformPurchaseError.productNotFound`, `.verificationFailed`, or `.serverError`.
+    func purchase(_ tier: AmenAccountTier, annually: Bool = false) async throws {
+        let map = annually ? annualProducts : monthlyProducts
+        guard let product = map[tier] else {
             purchaseState = .failed(PlatformPurchaseError.productNotFound)
             throw PlatformPurchaseError.productNotFound
         }

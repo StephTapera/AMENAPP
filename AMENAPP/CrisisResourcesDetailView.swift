@@ -80,13 +80,11 @@ struct CrisisResourcesDetailView: View {
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 16)
 
-                // ── Berean private chat ───────────────────────────────────────
-                bereanPrivateCard
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    .opacity(appeared ? 1 : 0)
-
                 // ── Bottom safety message ─────────────────────────────────────
+                // INVARIANT: No AI chat in crisis sheet — human resources only.
+                // The bereanPrivateCard was removed from this view (C-15 fix).
+                // In a crisis context the app must surface 988, Crisis Text Line,
+                // and real human services — never route the user to an AI chatbot.
                 safetyFooter
                     .padding(.top, 24)
                     .padding(.bottom, 48)
@@ -416,58 +414,9 @@ struct CrisisResourcesDetailView: View {
         }
     }
 
-    // MARK: Berean Private Card
-
-    private var bereanPrivateCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(Color(red: 0.12, green: 0.55, blue: 0.52).opacity(0.14))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "bubble.left.and.text.bubble.right.fill")
-                        .font(.systemScaled(20, weight: .medium))
-                        .foregroundStyle(Color(red: 0.12, green: 0.55, blue: 0.52))
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Talk to Berean privately")
-                        .font(.custom("OpenSans-Bold", size: 15))
-                        .foregroundStyle(.primary)
-                    Text("No storage option · scripture-grounded support")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.systemScaled(13, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-            }
-
-            Text("Berean won't replace professional care, but can help you process, pray, and find next steps.")
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.secondary)
-                .lineSpacing(3)
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.32), Color.white.opacity(0.10)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-        )
-        .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
-    }
-
     // MARK: Footer
+    // NOTE (C-15): bereanPrivateCard was removed from this view.
+    // INVARIANT: No AI chat in crisis sheet — human resources only.
 
     private var safetyFooter: some View {
         VStack(spacing: 8) {

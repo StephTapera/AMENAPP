@@ -14,6 +14,7 @@
 // white cards, no amenGold/amenPurple/hex.
 
 import SwiftUI
+import UIKit
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -40,6 +41,7 @@ struct OpportunityHubView: View {
     @State private var showAlert = false
     @State private var applyingToPost: OpportunityPost? = nil
     @State private var showContactFlow = false
+    @State private var savedIds: Set<String> = []
 
     private let db = Firestore.firestore()
 
@@ -152,6 +154,7 @@ struct OpportunityHubView: View {
             Text(alertMessage ?? "")
         }
         .task { await loadOpportunities() }
+        .task { await loadSavedIds() }
     }
 
     // MARK: Filter Chip Row
@@ -244,9 +247,7 @@ struct OpportunityHubView: View {
                             applyingToPost = post
                             showContactFlow = true
                         },
-                        onSave: {
-                            // Save/bookmark route to user's saved opportunities collection
-                        }
+                        onSave: { Task { await toggleSave(post) } }
                     )
                 }
             }
@@ -287,6 +288,32 @@ struct OpportunityHubView: View {
         } catch {
             // Opportunities load failure is non-fatal; empty state shown
         }
+    }
+
+    private func toggleSave(_ post: OpportunityPost) async {
+        guard !currentUserId.isEmpty else { return }
+        let ref = db.collection("users").document(currentUserId)
+            .collection("savedOpportunities").document(post.id)
+        if savedIds.contains(post.id) {
+            try? await ref.delete()
+            savedIds.remove(post.id)
+        } else {
+            try? await ref.setData([
+                "opportunityId": post.id,
+                "savedAt": FieldValue.serverTimestamp(),
+                "title": post.title,
+                "orgName": post.organizationName
+            ])
+            savedIds.insert(post.id)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+    }
+
+    private func loadSavedIds() async {
+        guard !currentUserId.isEmpty else { return }
+        guard let snap = try? await db.collection("users").document(currentUserId)
+            .collection("savedOpportunities").getDocuments() else { return }
+        savedIds = Set(snap.documents.map { $0.documentID })
     }
 
     private func submitPost(_ post: OpportunityPost) async {

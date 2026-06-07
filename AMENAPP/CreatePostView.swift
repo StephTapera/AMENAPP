@@ -784,9 +784,11 @@ struct CreatePostView: View {
                 placement: .overlay
             ))
             .disabled(!canPost)
+            .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Share post")
+            .accessibilityHint(scheduledDate != nil ? "Schedules your post for later" : "Publishes your post to the community")
         }
     }
-    
+
     // MARK: - Photo Picker Modifiers
     private func applyPhotoPickerModifiers<Content: View>(_ content: Content) -> some View {
         content
@@ -1877,6 +1879,8 @@ struct CreatePostView: View {
                     .foregroundStyle(Color.primary.opacity(0.75))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Post audience: \(postVisibility.displayName)")
+                .accessibilityHint("Double-tap to change who can see your post")
 
                 Spacer()
 
@@ -2522,6 +2526,8 @@ struct CreatePostView: View {
                         .font(AMENFont.regular(17))
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
+                        .accessibilityLabel("Post content")
+                        .accessibilityHint("Type your post here")
                         .onChange(of: postText) { oldValue, newValue in
                             // Defer side effects so they don't trigger a re-render mid-paste,
                             // which would interrupt the paste operation on SwiftUI TextEditor.
@@ -3452,6 +3458,17 @@ struct CreatePostView: View {
         // ============================================================================
         // ✅ P0 GATE: Aegis Pre-Post Content Safety Review
         // ============================================================================
+        // Gated by AMENFeatureFlags.aegisPrePostReviewEnabled (Remote Config key:
+        // "aegis_pre_post_review_enabled", default true).
+        // When the flag is off the Aegis check is skipped entirely and the post
+        // flows directly to startPublishPipeline() — allowing an instant kill-switch
+        // without touching any other code path.
+        guard AMENFeatureFlags.shared.aegisPrePostReviewEnabled else {
+            dlog("[Aegis] Pre-post review flag OFF — skipping safety gate")
+            startPublishPipeline()
+            return
+        }
+
         // Run AmenContentSafetyService.checkBeforePost before entering the publish pipeline.
         // If the decision is anything other than .allow, show AmenPrePostReviewSheet.
         // The sheet's onProceed callback skips back to proceedWithPublish() directly.

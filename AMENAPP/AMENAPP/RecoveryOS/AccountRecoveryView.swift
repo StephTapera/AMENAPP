@@ -5,7 +5,7 @@ import SwiftUI
 import FirebaseAuth
 
 struct AccountRecoveryView: View {
-    @StateObject private var service = AccountRecoveryService.shared
+    @StateObject private var service = AccountManagementService.shared
     @State private var showDeleteConfirm = false
     @State private var showAppealSheet = false
     @State private var appealText = ""

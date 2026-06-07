@@ -1,0 +1,277 @@
+/*
+ * selahGlass.css — Shared Liquid Glass Design Tokens
+ *
+ * ALL values derived from GLASS_TOKENS in selah.contracts.ts.
+ * Do NOT override with hardcoded deviations.
+ *
+ * FORBIDDEN values (never appear here):
+ *   #C9A84C, #FFD97D (gold), #7B68EE (accent purple),
+ *   cosmic dark gradients, Cormorant Garamond font.
+ */
+
+/* ─── §1 Page Foundation ─────────────────────────────────────────────── */
+
+.selah-page-bg {
+  background-color: #F2F2F3;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  color: #0A0A0A;
+}
+
+/* ─── §2 Floating White Card ─────────────────────────────────────────── */
+
+.selah-card {
+  background-color: #FFFFFF;
+  border-radius: 28px;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.10),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 20px;
+  overflow: hidden;
+}
+
+@media (min-width: 390px) {
+  .selah-card {
+    padding: 24px;
+  }
+}
+
+/* ─── §3 Dark Glass Pill ─────────────────────────────────────────────── */
+
+.selah-glass-dark-pill {
+  background-color: rgba(20, 20, 20, 0.40);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border-radius: 999px;
+  padding: 14px 22px;
+  color: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ─── §4 Light Frosted Glass ─────────────────────────────────────────── */
+
+.selah-glass-light {
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+}
+
+/* Circular glass button — 44px minimum tap target per §4 */
+.selah-glass-circle {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  color: #0A0A0A;
+  font-size: 18px;
+  transition: opacity 0.15s ease;
+}
+
+.selah-glass-circle:hover {
+  opacity: 0.85;
+}
+
+.selah-glass-circle:active {
+  opacity: 0.65;
+}
+
+/* Glass pill (non-circular) — for labels and controls */
+.selah-glass-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 16px;
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  color: #0A0A0A;
+  font-size: 14px;
+  font-weight: 500;
+  transition: opacity 0.15s ease;
+}
+
+.selah-glass-pill:hover {
+  opacity: 0.85;
+}
+
+/* ─── §5 Native Segmented Control ───────────────────────────────────── */
+
+.selah-segmented-track {
+  display: inline-flex;
+  background-color: #E6E6E8;
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.selah-segmented-option {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #8A8A8E;
+  transition: all 0.18s ease;
+}
+
+.selah-segmented-selected {
+  background-color: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  color: #0A0A0A;
+}
+
+/* ─── §6 Liquid Glass Context Menu ──────────────────────────────────── */
+
+.selah-context-menu {
+  background-color: rgba(250, 250, 250, 0.80);
+  backdrop-filter: blur(30px) saturate(1.2);
+  -webkit-backdrop-filter: blur(30px) saturate(1.2);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.selah-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 15px;
+  color: #0A0A0A;
+  transition: background-color 0.12s ease;
+  min-height: 44px;
+}
+
+.selah-context-menu-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.selah-context-menu-item:active {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.selah-context-menu-divider {
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.08);
+  margin: 0;
+  border: none;
+}
+
+/* ─── §7 Citation / Discernment Result Block ────────────────────────── */
+
+.selah-citation-block {
+  background-color: #F5F5F6;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+/* ─── §8 Verse Highlight Palette ────────────────────────────────────── */
+
+/* Applied as inline background-color using GLASS_TOKENS.highlightColors values */
+/* Swatch buttons for the annotation panel */
+.selah-highlight-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.selah-highlight-swatch:hover {
+  transform: scale(1.12);
+}
+
+.selah-highlight-swatch.selected {
+  border-color: #0A0A0A;
+  transform: scale(1.12);
+}
+
+/* ─── Bottom Sheet ───────────────────────────────────────────────────── */
+
+.selah-bottom-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background-color: rgba(0, 0, 0, 0.30);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.selah-bottom-sheet {
+  width: 100%;
+  max-width: 640px;
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  padding: 12px 24px 32px;
+}
+
+.selah-bottom-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+  margin: 0 auto 20px;
+}
+
+/* ─── Typography helpers ─────────────────────────────────────────────── */
+
+.selah-text-primary {
+  color: #0A0A0A;
+}
+
+.selah-text-secondary {
+  color: #8A8A8E;
+}
+
+/* ─── Utility ────────────────────────────────────────────────────────── */
+
+.selah-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
