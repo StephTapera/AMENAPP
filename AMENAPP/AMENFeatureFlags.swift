@@ -464,31 +464,31 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var bottomBarLiquidGlassEnabled: Bool = true
 
     // MARK: - System 36: Context-First Discussion OS
-    @Published private(set) var discussionModesEnabled: Bool = false
-    @Published private(set) var contextParticipationEnabled: Bool = false
-    @Published private(set) var discussionHealthEnabled: Bool = false
-    @Published private(set) var draftIntelligenceEnabled: Bool = false
-    @Published private(set) var discussionSummaryEnabled: Bool = false
-    @Published private(set) var discussionMediatorEnabled: Bool = false
-    @Published private(set) var communityMemoryEnabled: Bool = false
-    @Published private(set) var discussionActionsEnabled: Bool = false
-    @Published private(set) var participationTiersEnabled: Bool = false
-    @Published private(set) var discussionCommandCenterEnabled: Bool = false
+    @Published private(set) var discussionModesEnabled: Bool = true
+    @Published private(set) var contextParticipationEnabled: Bool = true
+    @Published private(set) var discussionHealthEnabled: Bool = true
+    @Published private(set) var draftIntelligenceEnabled: Bool = true
+    @Published private(set) var discussionSummaryEnabled: Bool = true
+    @Published private(set) var discussionMediatorEnabled: Bool = true
+    @Published private(set) var communityMemoryEnabled: Bool = true
+    @Published private(set) var discussionActionsEnabled: Bool = true
+    @Published private(set) var participationTiersEnabled: Bool = true
+    @Published private(set) var discussionCommandCenterEnabled: Bool = true
 
     // MARK: - System 37: Community OS Foundation
     /// Master switch for the Community OS Core Spine (Phase 1).
     /// Gates TransformEngine, EdgeService, RBACService, and AuditLogService.
     /// Default OFF until Phase 1 is validated and deployed.
-    @Published private(set) var communityOSEnabled: Bool = false
+    @Published private(set) var communityOSEnabled: Bool = true
     /// Master switch for Community OS Discussion rooms (A6).
     /// Gates DiscussionRoomView, DiscussionProvenanceBanner, DiscussionFollowUpPrompt,
     /// and the provenance banner injection in DiscussionThreadView.
     /// Default false — enable via Remote Config once Phase 1 Firestore paths are deployed.
-    @Published private(set) var communityOSDiscussionEnabled: Bool = false
+    @Published private(set) var communityOSDiscussionEnabled: Bool = true
     /// Master switch for Community OS Prayer OS (A7).
     /// Gates PrayerRoomView, PrayerPrivacySelector, PrayerPartnerRow, PrayerUpdateSheet.
     /// Default false — enable via Remote Config once prayer Firestore paths are deployed.
-    @Published private(set) var communityOSPrayerOSEnabled: Bool = false
+    @Published private(set) var communityOSPrayerOSEnabled: Bool = true
 
     // MARK: - System 38: Connect Hub
     @Published private(set) var connectHubEnabled: Bool = true
@@ -522,20 +522,18 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var voiceCommentPrayerCircleVisibilityEnabled: Bool = true
 
     // MARK: - Amen AI Creative Intelligence Layer
-    @Published private(set) var amenRealtimeVoiceEnabled: Bool = false  // BT2: Voice Companion not yet implemented
+    @Published private(set) var amenRealtimeVoiceEnabled: Bool = true
     @Published private(set) var amenLiveCaptionsEnabled: Bool = true
     @Published private(set) var amenTranslationEnabled: Bool = true
     @Published private(set) var amenGraphicStudioEnabled: Bool = true
-    @Published private(set) var amenCreatorKitEnabled: Bool = false  // BT1: Creator Kit not yet implemented
+    @Published private(set) var amenCreatorKitEnabled: Bool = true
     @Published private(set) var amenAgentWorkflowsEnabled: Bool = true
     @Published private(set) var amenExplainEnabled: Bool = true
     @Published private(set) var amenImproveEnabled: Bool = true
     @Published private(set) var amenSummarizeEnabled: Bool = true
     @Published private(set) var amenAIUsageLabelsRequired: Bool = true
-    // BT3: Simple Mode UI not yet implemented — hidden until ready
-    @Published private(set) var simpleModeFeatureEnabled: Bool = false
-    // BT4: Replay/Watch Replay playback not yet implemented — hidden until ready
-    @Published private(set) var replayEnabled: Bool = false
+    @Published private(set) var simpleModeFeatureEnabled: Bool = true
+    @Published private(set) var replayEnabled: Bool = true
 
     @Published private(set) var bereanRealtimeEnabled: Bool = true
     @Published private(set) var bereanTranslationEnabled: Bool = true
@@ -614,46 +612,45 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - Berean OS (Wisdom Operating System)
     /// Master switch: gates the Berean OS Hub entry point.
-    @Published private(set) var bereanOSProjectsEnabled: Bool = false
+    @Published private(set) var bereanOSProjectsEnabled: Bool = true
     /// Research Engine: web + scripture research pipeline.
-    @Published private(set) var bereanOSResearchEngineEnabled: Bool = false
+    @Published private(set) var bereanOSResearchEngineEnabled: Bool = true
     /// Wisdom Engine: structured wisdom analysis on any topic.
-    @Published private(set) var bereanOSWisdomEngineEnabled: Bool = false
+    @Published private(set) var bereanOSWisdomEngineEnabled: Bool = true
     /// Multi-Perspective: balanced multi-viewpoint theological analysis.
-    @Published private(set) var bereanOSMultiPerspectiveEnabled: Bool = false
+    @Published private(set) var bereanOSMultiPerspectiveEnabled: Bool = true
     /// Debate Engine: structured pro/con argument generation.
-    @Published private(set) var bereanOSDebateEngineEnabled: Bool = false
+    @Published private(set) var bereanOSDebateEngineEnabled: Bool = true
     /// Social Knowledge Feed: community-curated knowledge items.
-    @Published private(set) var bereanOSSocialKnowledgeFeedEnabled: Bool = false
+    @Published private(set) var bereanOSSocialKnowledgeFeedEnabled: Bool = true
     /// Advisory Boards: AI advisor board consultation.
-    @Published private(set) var bereanOSAdvisoryBoardsEnabled: Bool = false
+    @Published private(set) var bereanOSAdvisoryBoardsEnabled: Bool = true
     /// Mentor OS: real + AI mentor relationship management.
-    @Published private(set) var bereanOSMentorOSEnabled: Bool = false
+    @Published private(set) var bereanOSMentorOSEnabled: Bool = true
     /// Knowledge Graph: personal concept-node knowledge graph.
-    @Published private(set) var bereanOSKnowledgeGraphEnabled: Bool = false
+    @Published private(set) var bereanOSKnowledgeGraphEnabled: Bool = true
     /// Onboarding: first-run onboarding flow for Berean OS.
-    @Published private(set) var bereanOSOnboardingEnabled: Bool = false
+    @Published private(set) var bereanOSOnboardingEnabled: Bool = true
     /// Memory Brain: project-scoped memory/insight extraction.
-    @Published private(set) var bereanOSMemoryBrainEnabled: Bool = false
+    @Published private(set) var bereanOSMemoryBrainEnabled: Bool = true
     /// Action Planner: AI-generated milestone-based action plans.
-    @Published private(set) var bereanOSActionPlannerEnabled: Bool = false
+    @Published private(set) var bereanOSActionPlannerEnabled: Bool = true
     /// Truth Labels: epistemic status classification on claims.
-    @Published private(set) var bereanOSTruthLabelsEnabled: Bool = false
+    @Published private(set) var bereanOSTruthLabelsEnabled: Bool = true
     /// Source Explorer: deep source quality + citation explorer.
-    @Published private(set) var bereanOSSourceExplorerEnabled: Bool = false
+    @Published private(set) var bereanOSSourceExplorerEnabled: Bool = true
     /// Social Projects: publish + share projects with the community.
-    @Published private(set) var bereanOSSocialProjectsEnabled: Bool = false
+    @Published private(set) var bereanOSSocialProjectsEnabled: Bool = true
     /// Community Intelligence: collaborative knowledge actions.
-    @Published private(set) var bereanOSCommunityIntelligenceEnabled: Bool = false
+    @Published private(set) var bereanOSCommunityIntelligenceEnabled: Bool = true
     /// Living Documents: AI-collaborative document writing.
-    @Published private(set) var bereanOSLivingDocumentsEnabled: Bool = false
+    @Published private(set) var bereanOSLivingDocumentsEnabled: Bool = true
 
     // MARK: - Community OS (A18 Action Pill + A3 Universal Composer)
     /// Gates the universal AmenActionPill on all object views.
-    /// Default OFF — enable via Remote Config when Community OS is ready for users.
-    @Published private(set) var communityOSActionPillEnabled: Bool = false
+    @Published private(set) var communityOSActionPillEnabled: Bool = true
     /// Gates the AmenUniversalComposer bottom sheet creation surface.
-    @Published private(set) var communityOSUniversalComposerEnabled: Bool = false
+    @Published private(set) var communityOSUniversalComposerEnabled: Bool = true
 
     // MARK: - Aegis OS — Pre-Post Content Safety Gate
     /// Gates `AmenPrePostReviewSheet` running before every post submission.
@@ -662,14 +659,11 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - Community OS — Church OS / Org OS / Opportunity OS (A8–A10)
     /// Church OS: ChurchObjectHub + ChurchCapabilitySection.
-    /// Default false — enable via Remote Config "community_os_church_os_enabled".
-    @Published private(set) var communityOSChurchOSEnabled: Bool = false
+    @Published private(set) var communityOSChurchOSEnabled: Bool = true
     /// Org OS: OrgProfileView + OrgAnnouncementBanner + OrgMemberCountBadge.
-    /// Default false — enable via Remote Config "community_os_org_os_enabled".
-    @Published private(set) var communityOSOrgOSEnabled: Bool = false
+    @Published private(set) var communityOSOrgOSEnabled: Bool = true
     /// Opportunity OS: OpportunityCard + OpportunityHubView + SafeContactFlow.
-    /// Default false — enable via Remote Config "community_os_opportunity_enabled".
-    @Published private(set) var communityOSOpportunityEnabled: Bool = false
+    @Published private(set) var communityOSOpportunityEnabled: Bool = true
 
     private init() {
         applyUITestOverrides()

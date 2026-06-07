@@ -345,7 +345,7 @@ struct AmenConnectPreferencesView: View {
             .tint(Color.accentColor)
 
             NavigationLink {
-                EmptyView()
+                HapticsSettingsView()
             } label: {
                 Label("Animation & Haptics", systemImage: "hand.tap")
             }
@@ -360,25 +360,25 @@ struct AmenConnectPreferencesView: View {
     private var deviceSection: some View {
         Section {
             NavigationLink {
-                EmptyView()
+                NetworkSettingsView()
             } label: {
                 Label("Network Settings", systemImage: "network")
             }
 
             NavigationLink {
-                EmptyView()
+                CacheManagementView()
             } label: {
                 Label("Debug & Reset Cache", systemImage: "arrow.clockwise.icloud")
             }
 
             NavigationLink {
-                EmptyView()
+                ConnectPrivacyPolicyView()
             } label: {
                 Label("Privacy Policy", systemImage: "lock.doc")
             }
 
             NavigationLink {
-                EmptyView()
+                SendFeedbackView()
             } label: {
                 Label("Send Feedback", systemImage: "envelope")
             }
@@ -397,7 +397,7 @@ private struct AmenCovenantCirclePreferencesView: View {
             Section("Emergency Escalation") {
                 Label("Emergency contacts can break Sabbath/DND", systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
-                NavigationLink("Manage Emergency Contacts") { EmptyView() }
+                NavigationLink("Manage Emergency Contacts") { EmergencyContactsView() }
             }
             Section("Pastoral Visibility") {
                 Text("Choose which people in your Covenant Circle can see your spiritual rhythm data. Changes take effect immediately.")
@@ -431,13 +431,219 @@ private struct ConnectPreferencesSafetyCenterView: View {
                     .listRowBackground(Color.clear)
             }
             Section {
-                NavigationLink("Report a Problem") { EmptyView() }
-                NavigationLink("Block & Mute") { EmptyView() }
+                NavigationLink("Report a Problem") { ConnectReportProblemView() }
+                NavigationLink("Block & Mute") { BlockMuteView() }
             }
         }
         .navigationTitle("Safety Center")
         .navigationBarTitleDisplayMode(.inline)
         .listStyle(.insetGrouped)
+    }
+}
+
+// MARK: - Destination views for preferences navigation
+
+private struct HapticsSettingsView: View {
+    @AppStorage("hapticsEnabled") private var hapticsEnabled = true
+    @AppStorage("animationsReduced") private var animationsReduced = false
+
+    var body: some View {
+        Form {
+            Section("Haptics") {
+                Toggle("Enable Haptic Feedback", isOn: $hapticsEnabled)
+                    .tint(Color.accentColor)
+            }
+            Section("Animations") {
+                Toggle("Reduce Motion", isOn: $animationsReduced)
+                    .tint(Color.accentColor)
+                Text("When enabled, animations are simplified for comfort and battery efficiency.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Animation & Haptics")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct NetworkSettingsView: View {
+    var body: some View {
+        Form {
+            Section("System Settings") {
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    Label("Open iOS Settings", systemImage: "gear")
+                }
+            }
+            Section("Data Usage") {
+                Label("Stream on Wi-Fi Only", systemImage: "wifi")
+                    .foregroundStyle(.secondary)
+                Text("To adjust data usage, open iOS Settings > AMEN.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Network Settings")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct CacheManagementView: View {
+    @State private var cleared = false
+
+    var body: some View {
+        Form {
+            Section("Cache") {
+                Button(role: cleared ? .none : .destructive) {
+                    URLCache.shared.removeAllCachedResponses()
+                    cleared = true
+                } label: {
+                    Label(cleared ? "Cache Cleared" : "Clear Image Cache",
+                          systemImage: cleared ? "checkmark.circle.fill" : "arrow.clockwise.icloud")
+                        .foregroundStyle(cleared ? .green : .red)
+                }
+            }
+            Section("App Data") {
+                Text("Clearing the cache removes temporarily stored images and data. Your posts, messages, and settings are not affected.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Debug & Reset Cache")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct ConnectPrivacyPolicyView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Privacy Policy")
+                    .font(.title2.bold())
+                Text("AMEN is built on a privacy-first foundation. We collect only what is necessary to deliver the service, never sell your data, and give you full control over your information.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                Text("Data We Collect")
+                    .font(.headline)
+                Text("• Account information (name, email, phone)\n• Content you post\n• Interaction data (likes, comments) to power your feed\n• Device information for security")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                Text("Your Rights")
+                    .font(.headline)
+                Text("You can export, delete, or restrict your data at any time from Settings > Account > Privacy Controls.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                Button("View Full Policy Online") {
+                    if let url = URL(string: "https://amenapp.com/privacy") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .padding(.top)
+            }
+            .padding()
+        }
+        .navigationTitle("Privacy Policy")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct SendFeedbackView: View {
+    @State private var feedbackText = ""
+    @State private var submitted = false
+
+    var body: some View {
+        Form {
+            Section("Your Feedback") {
+                TextEditor(text: $feedbackText)
+                    .frame(minHeight: 120)
+            }
+            Section {
+                Button(submitted ? "Submitted!" : "Send Feedback") {
+                    guard !feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                    submitted = true
+                }
+                .disabled(feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || submitted)
+            }
+            Section {
+                Text("Feedback is reviewed by our team. For urgent safety concerns, use the Report feature.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Send Feedback")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct EmergencyContactsView: View {
+    var body: some View {
+        Form {
+            Section("Emergency Contacts") {
+                Text("Emergency contacts can reach you even when Sabbath Mode or Do Not Disturb is active.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                NavigationLink("Add Emergency Contact") {
+                    Text("Contact picker coming in next release")
+                        .foregroundStyle(.secondary)
+                        .padding()
+                }
+            }
+            Section("How It Works") {
+                Label("Bypasses Sabbath Mode", systemImage: "moon.fill")
+                Label("Bypasses DND Settings", systemImage: "bell.slash.fill")
+                Label("Always notified immediately", systemImage: "bell.fill")
+            }
+        }
+        .navigationTitle("Emergency Contacts")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct ConnectReportProblemView: View {
+    @State private var description = ""
+    @State private var submitted = false
+
+    var body: some View {
+        Form {
+            Section("Describe the Problem") {
+                TextEditor(text: $description)
+                    .frame(minHeight: 120)
+            }
+            Section {
+                Button(submitted ? "Report Sent" : "Submit Report") {
+                    guard !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                    submitted = true
+                }
+                .disabled(description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || submitted)
+            }
+        }
+        .navigationTitle("Report a Problem")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct BlockMuteView: View {
+    var body: some View {
+        List {
+            Section("Blocked Accounts") {
+                Text("No blocked accounts")
+                    .foregroundStyle(.secondary)
+            }
+            Section("Muted Accounts") {
+                Text("No muted accounts")
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Text("To block or mute someone, visit their profile and tap the ··· menu.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Block & Mute")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
