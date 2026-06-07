@@ -21,6 +21,7 @@ struct BereanProfileSheet: View {
     @AppStorage("berean_explicit_protection") private var safeMode = true
 
     @State private var showAlignmentSettings = false
+    @State private var showUpgradeSheet = false
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -86,6 +87,11 @@ struct BereanProfileSheet: View {
         }
         .sheet(isPresented: $showAlignmentSettings) {
             BereanAlignmentSettingsView()
+        }
+        .alert("Upgrade to Amen+", isPresented: $showUpgradeSheet) {
+            Button("Learn More", role: .cancel) {}
+        } message: {
+            Text("Unlock unlimited Berean conversations and premium features.")
         }
     }
 
@@ -273,7 +279,7 @@ struct BereanProfileSheet: View {
     }
 
     private var upgradeRow: some View {
-        Button { } label: {
+        Button { showUpgradeSheet = true } label: {
             HStack(spacing: 14) {
                 iconBadge("crown", tint: Color(red: 0.85, green: 0.58, blue: 0.08))
                 Text("Upgrade to Amen+")

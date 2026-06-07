@@ -260,6 +260,7 @@ private struct BirthdayRow: View {
 
 private struct VolunteerNeedRow: View {
     let need: SpaceVolunteerNeed
+    @State private var showHelpAlert = false
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
@@ -267,7 +268,7 @@ private struct VolunteerNeedRow: View {
                 Text(need.description).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer()
-            Button {} label: {
+            Button { showHelpAlert = true } label: {
                 Text("Help")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 12)
@@ -278,6 +279,11 @@ private struct VolunteerNeedRow: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
+        .alert("Get Help", isPresented: $showHelpAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Visit amenapp.com/support for help and FAQs.")
+        }
     }
 }
 

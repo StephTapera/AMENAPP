@@ -841,8 +841,10 @@ struct GetReadyChurchNotesCard: View {
     let churchName: String
     let summary: String
 
+    @State private var showChurchNotes = false
+
     var body: some View {
-        Button {} label: {
+        Button { showChurchNotes = true } label: {
             HStack(spacing: 12) {
                 Image(systemName: "pencil.and.list.clipboard")
                     .font(.system(size: 16))
@@ -868,6 +870,9 @@ struct GetReadyChurchNotesCard: View {
             .padding(16)
         }
         .buttonStyle(.plain)
+        .sheet(isPresented: $showChurchNotes) {
+            ChurchNotesView()
+        }
     }
 }
 
