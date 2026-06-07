@@ -20,7 +20,7 @@ const BATCH_WINDOW_HOURS = 12;
 
 // ── getConnectHubFeed ────────────────────────────────────────────────────────
 
-exports.getConnectHubFeed = onCall({ enforceAppCheck: true }, async (request) => {
+exports.getConnectHubFeed = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
   const userId = request.auth?.uid;
   if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -46,13 +46,13 @@ exports.getConnectHubFeed = onCall({ enforceAppCheck: true }, async (request) =>
     const spaceName = spaceData.name ?? null;
 
     let query = db.collection("spaces").doc(spaceId).collection("messages")
-      .where("createdAt", ">=", batchCutoff)
-      .orderBy("createdAt", "desc")
-      .limit(MAX_MESSAGES_PER_SPACE);
+      .where("createdAt", ">=", batchCutoff);
 
     if (tabFilter !== "all") {
       query = query.where("kind", "==", tabFilter);
     }
+
+    query = query.orderBy("createdAt", "desc").limit(MAX_MESSAGES_PER_SPACE);
 
     const msgSnap = await query.get();
 

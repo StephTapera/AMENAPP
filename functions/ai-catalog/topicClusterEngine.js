@@ -17,6 +17,7 @@
 "use strict";
 
 const functions = require("firebase-functions");
+const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const admin     = require("firebase-admin");
 const logger    = require("firebase-functions/logger");
 
@@ -334,11 +335,10 @@ exports.updateKnowledgeNodes = functions.https.onCall(async (data, context) => {
  * Fires whenever a work document is updated. When reviewState transitions to
  * 'published', rebuild KnowledgeNodes for that creator.
  */
-exports.onWorkPublished = functions.firestore
-  .document("works/{workId}")
-  .onUpdate(async (change, context) => {
-    const before = change.before.data() || {};
-    const after  = change.after.data()  || {};
+exports.onWorkPublished = onDocumentUpdated("works/{workId}", async (event) => {
+    const before = event.data?.before.data() || {};
+    const after  = event.data?.after.data()  || {};
+    const workId = event.params.workId;
 
     // Only care about transitions to 'published'
     if (after.reviewState !== "published") return null;
@@ -346,17 +346,13 @@ exports.onWorkPublished = functions.firestore
 
     const creatorId = after.creatorId;
     if (!creatorId) {
-      logger.warn("[onWorkPublished] Work missing creatorId", { workId: context.params.workId });
+      logger.warn("[onWorkPublished] Work missing creatorId", { workId });
       return null;
     }
 
     // Extract topics for this specific work (lightweight; full rebuild also runs)
     const topics = extractTopicsFromWork(after);
-    logger.info("[onWorkPublished] Topics extracted", {
-      workId: context.params.workId,
-      creatorId,
-      topics,
-    });
+    logger.info("[onWorkPublished] Topics extracted", { workId, creatorId, topics });
 
     // Rebuild the full KnowledgeNode graph for this creator
     try {

@@ -1557,3 +1557,123 @@ exports.postAnchoredReply       = spatialMessagesFunctions.postAnchoredReply;
 const hub242 = require("./242hub");
 exports.reviewCovenantApp    = hub242.reviewCovenantApp;
 exports.matchKingdomCommerce = hub242.matchKingdomCommerce;
+
+// ============================================================================
+// CATALOG & KNOWLEDGE NETWORK — Creator catalog system
+//   Ingestion Hub:    connectSource, disconnectSource, triggerManualSync,
+//                     createCatalogWork, listConnectedSources, getIngestionStatus
+//   Review Workflow:  advanceWorkReviewState, approveWork, publishWork (HUMAN GATE),
+//                     unpublishWork, softDeleteWork, bulkAdvanceState
+//   Ingestion Engine: startIngestion, syncApprovedSources
+//   AI – Embed:       embedWork, onWorkApproved, removeWorkEmbedding
+//   AI – Topics:      updateKnowledgeNodes, onWorkPublished
+//   AI – Ask Creator: askCreatorQuery, getCatalogQueryStats (fail-closed RAG)
+//   Billing:          checkCatalogEntitlement, getCreatorCatalogSettings,
+//                     createCatalogCheckoutSession, createWorkPaymentIntent,
+//                     enrichWorkLinks, trackAffiliateLinkClick
+//   Verification:     submitVerificationClaim, checkDomainVerification,
+//                     checkSocialOAuthVerification, checkEmailDomainVerification,
+//                     confirmEmailCode, revokeBadge, getVerificationStatus
+//   Anti-Impersonation: reportImpersonation, checkCreatorProtection,
+//                       transferOrgAdmin (HUMAN GATE), getUnofficialCatalogLabel
+//   Search:           searchCatalog, searchCreators, getTopicSuggestions
+//   Follow-Knowledge: followTopic, unfollowTopic, getFollowedTopics, getTopicFeed
+//
+// Human gates: publishWork, transferOrgAdmin (require confirmed: true — never auto-execute)
+// Secrets: PINECONE_API_KEY, PINECONE_HOST, ALGOLIA_APP_ID, ALGOLIA_ADMIN_API_KEY,
+//          STRIPE_PRICE_CREATOR_PRO, STRIPE_PRICE_CREATOR_STUDIO,
+//          AMAZON_AFFILIATE_TAG, BOOKSHOP_AFFILIATE_CODE
+// Deploy: firebase deploy --only \
+//   functions:connectSource,disconnectSource,triggerManualSync,createCatalogWork,\
+//   listConnectedSources,getIngestionStatus,advanceWorkReviewState,approveWork,\
+//   publishWork,unpublishWork,softDeleteWork,bulkAdvanceState,startIngestion,\
+//   syncApprovedSources,embedWork,onWorkApproved,removeWorkEmbedding,\
+//   updateKnowledgeNodes,onWorkPublished,askCreatorQuery,getCatalogQueryStats,\
+//   checkCatalogEntitlement,getCreatorCatalogSettings,createCatalogCheckoutSession,\
+//   createWorkPaymentIntent,enrichWorkLinks,trackAffiliateLinkClick,\
+//   submitVerificationClaim,checkDomainVerification,checkSocialOAuthVerification,\
+//   checkEmailDomainVerification,confirmEmailCode,revokeBadge,getVerificationStatus,\
+//   reportImpersonation,checkCreatorProtection,transferOrgAdmin,\
+//   getUnofficialCatalogLabel,searchCatalog,searchCreators,getTopicSuggestions,\
+//   followTopic,unfollowTopic,getFollowedTopics,getTopicFeed \
+//   --project amen-5e359
+// ============================================================================
+
+// Ingestion Hub (callable)
+const importHub = require("./ingestion/importHub");
+exports.connectSource        = importHub.connectSource;
+exports.disconnectSource     = importHub.disconnectSource;
+exports.triggerManualSync    = importHub.triggerManualSync;
+exports.createCatalogWork    = importHub.createManualWork; // iOS clients call "createCatalogWork"
+exports.listConnectedSources = importHub.listConnectedSources;
+exports.getIngestionStatus   = importHub.getIngestionStatus;
+
+// Ingestion Engine (callable)
+const ingestionEngine = require("./ingestion/ingestionEngine");
+exports.startIngestion      = ingestionEngine.startIngestion;
+exports.syncApprovedSources = ingestionEngine.syncApprovedSources;
+
+// Review Workflow (callable) — publishWork is a HUMAN GATE
+const reviewWorkflow = require("./ingestion/reviewWorkflow");
+exports.advanceWorkReviewState = reviewWorkflow.advanceWorkReviewState;
+exports.approveWork            = reviewWorkflow.approveWork;
+exports.publishWork            = reviewWorkflow.publishWork;
+exports.unpublishWork          = reviewWorkflow.unpublishWork;
+exports.softDeleteWork         = reviewWorkflow.softDeleteWork;
+exports.bulkAdvanceState       = reviewWorkflow.bulkAdvanceState;
+
+// AI: Embed + Knowledge Nodes (callable + Firestore triggers)
+const embedCatalogWork = require("./ai-catalog/embedCatalogWork");
+exports.embedWork           = embedCatalogWork.embedWork;
+exports.onWorkApproved      = embedCatalogWork.onWorkApproved;
+exports.removeWorkEmbedding = embedCatalogWork.removeWorkEmbedding;
+
+const topicClusterEngine = require("./ai-catalog/topicClusterEngine");
+exports.updateKnowledgeNodes = topicClusterEngine.updateKnowledgeNodes;
+exports.onWorkPublished      = topicClusterEngine.onWorkPublished;
+
+// AI: Ask Creator (callable, fail-closed RAG)
+const askCreatorQueryModule = require("./ai-catalog/askCreatorQuery");
+exports.askCreatorQuery      = askCreatorQueryModule.askCreatorQuery;
+exports.getCatalogQueryStats = askCreatorQueryModule.getCatalogQueryStats;
+
+// Billing: Catalog entitlements (callable)
+const catalogEntitlements = require("./billing/catalogEntitlements");
+exports.checkCatalogEntitlement      = catalogEntitlements.checkCatalogEntitlement;
+exports.getCreatorCatalogSettings    = catalogEntitlements.getCreatorCatalogSettings;
+exports.createCatalogCheckoutSession = catalogEntitlements.createCatalogCheckoutSession;
+exports.createWorkPaymentIntent      = catalogEntitlements.createWorkPaymentIntent;
+
+// Billing: Affiliate link tracking (callable)
+const affiliateLinkWrapper = require("./billing/affiliateLinkWrapper");
+exports.enrichWorkLinks         = affiliateLinkWrapper.enrichWorkLinks;
+exports.trackAffiliateLinkClick = affiliateLinkWrapper.trackAffiliateLinkClick;
+
+// Verification engine (callable) — transferOrgAdmin is a HUMAN GATE
+const verificationEngine = require("./verification/verificationEngine");
+exports.submitVerificationClaim      = verificationEngine.submitVerificationClaim;
+exports.checkDomainVerification      = verificationEngine.checkDomainVerification;
+exports.checkSocialOAuthVerification = verificationEngine.checkSocialOAuthVerification;
+exports.checkEmailDomainVerification = verificationEngine.checkEmailDomainVerification;
+exports.confirmEmailCode             = verificationEngine.confirmEmailCode;
+exports.revokeBadge                  = verificationEngine.revokeBadge;
+exports.getVerificationStatus        = verificationEngine.getVerificationStatus;
+
+const antiImpersonation = require("./verification/antiImpersonation");
+exports.reportImpersonation       = antiImpersonation.reportImpersonation;
+exports.checkCreatorProtection    = antiImpersonation.checkCreatorProtection;
+exports.transferOrgAdmin          = antiImpersonation.transferOrgAdmin;
+exports.getUnofficialCatalogLabel = antiImpersonation.getUnofficialCatalogLabel;
+
+// Search (callable)
+const catalogSearchModule = require("./search/catalogSearch");
+exports.searchCatalog       = catalogSearchModule.searchCatalog;
+exports.searchCreators      = catalogSearchModule.searchCreators;
+exports.getTopicSuggestions = catalogSearchModule.getTopicSuggestions;
+
+// Follow-Knowledge (callable)
+const followKnowledge = require("./search/followKnowledge");
+exports.followTopic       = followKnowledge.followTopic;
+exports.unfollowTopic     = followKnowledge.unfollowTopic;
+exports.getFollowedTopics = followKnowledge.getFollowedTopics;
+exports.getTopicFeed      = followKnowledge.getTopicFeed;

@@ -27,6 +27,7 @@
 "use strict";
 
 const functions = require("firebase-functions");
+const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const admin     = require("firebase-admin");
 const logger    = require("firebase-functions/logger");
 
@@ -277,13 +278,11 @@ exports.embedWork = functions.https.onCall(async (data, context) => {
  * 'approved' or 'published'. Also triggers topic graph update via
  * topicClusterEngine (imported lazily to avoid circular deps).
  */
-exports.onWorkApproved = functions.firestore
-  .document("works/{workId}")
-  .onUpdate(async (change, context) => {
-    const before = change.before.data() || {};
-    const after  = change.after.data()  || {};
+exports.onWorkApproved = onDocumentUpdated("works/{workId}", async (event) => {
+    const before = event.data?.before.data() || {};
+    const after  = event.data?.after.data()  || {};
 
-    const { workId } = context.params;
+    const workId = event.params.workId;
 
     const targetStates = ["approved", "published"];
     const wasTarget    = targetStates.includes(before.reviewState);
