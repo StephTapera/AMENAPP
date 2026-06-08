@@ -240,7 +240,7 @@ struct ProfileImageSetupView: View {
 
             Text("Add an Image to your Profile")
                 .font(.largeTitle.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .minimumScaleFactor(0.75)
             Text("Your image will be visible only to friends.")
                 .font(.body)
@@ -261,7 +261,7 @@ struct ProfileImageSetupView: View {
                     .clipShape(Circle())
             }
             ProgressView("Saving Image")
-                .tint(.black)
+                .tint(.primary)
         }
         .padding(28)
         .background(liquidWhiteMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
@@ -281,12 +281,12 @@ struct LiquidWhiteAvatarPlaceholder: View {
         ZStack(alignment: .bottomTrailing) {
             ZStack {
                 Circle()
-                    .fill(reduceTransparency ? Color.white : Color.white.opacity(0.72))
-                    .overlay(Circle().stroke(.white.opacity(0.86), lineWidth: 1.2))
+                    .fill(reduceTransparency ? Color(.secondarySystemBackground) : .regularMaterial)
+                    .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1.2))
                     .shadow(color: .black.opacity(0.08), radius: 26, y: 14)
                 Circle()
                     .inset(by: 16)
-                    .fill(.white.opacity(0.42))
+                    .fill(.primary.opacity(0.04))
                     .blur(radius: 1)
                 if let image {
                     Image(uiImage: image)
@@ -297,7 +297,7 @@ struct LiquidWhiteAvatarPlaceholder: View {
                 } else {
                     Image(systemName: "person.crop.circle")
                         .font(.systemScaled(86, weight: .ultraLight))
-                        .foregroundStyle(.black.opacity(0.22))
+                        .foregroundStyle(.secondary)
                 }
             }
             .frame(width: 224, height: 224)
@@ -306,8 +306,8 @@ struct LiquidWhiteAvatarPlaceholder: View {
                 .font(.systemScaled(19, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 54, height: 54)
-                .background(reduceTransparency ? Color(.secondarySystemBackground) : Color(.secondarySystemBackground).opacity(0.74), in: Circle())
-                .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
+                .background(reduceTransparency ? Color(.secondarySystemBackground) : .ultraThinMaterial, in: Circle())
+                .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1))
                 .shadow(color: .black.opacity(0.10), radius: 14, y: 7)
                 .accessibilityHidden(true)
         }
@@ -355,7 +355,7 @@ struct LiquidWhiteBottomActionCard: View {
             }
         }
         .padding(18)
-        .background(reduceTransparency ? Color.white : Color.white.opacity(0.68), in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .background(reduceTransparency ? Color(.secondarySystemBackground) : Color(.secondarySystemBackground).opacity(0.68), in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).stroke(.white.opacity(0.78), lineWidth: 1))
         .shadow(color: .black.opacity(0.08), radius: 24, y: 12)
@@ -372,7 +372,7 @@ struct ImageSourceBottomSheet: View {
         VStack(spacing: 16) {
             Text("Choose Image Source")
                 .font(.headline)
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
             VStack(spacing: 10) {
                 PhotosPicker(selection: $pickerItem, matching: .images) {
                     sourceRow(.photoLibrary)
@@ -388,7 +388,7 @@ struct ImageSourceBottomSheet: View {
                 .padding(.top, 4)
         }
         .padding(22)
-        .background(Color(.systemBackground))
+        .background(.regularMaterial)
     }
 
     private func sourceRow(_ source: ProfileImageFlowViewModel.Source) -> some View {
@@ -401,10 +401,10 @@ struct ImageSourceBottomSheet: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
-        .foregroundStyle(.black)
+        .foregroundStyle(.primary)
         .padding(14)
-        .background(.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.black.opacity(0.06)))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.primary.opacity(0.08)))
         .accessibilityLabel(source.title)
     }
 }
@@ -480,7 +480,7 @@ struct ProfileImagePreviewView: View {
         VStack(spacing: 28) {
             Text("Preview")
                 .font(.largeTitle.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .padding(.top, 48)
             if let image = vm.displayImage {
                 Image(uiImage: image)
@@ -499,17 +499,17 @@ struct ProfileImagePreviewView: View {
                 Spacer()
             }
             .padding(16)
-            .background(.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.black.opacity(0.06)))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.primary.opacity(0.06)))
             .padding(.horizontal, 24)
             Spacer()
             Button { Task { await vm.save() } } label: {
                 Text("Save Image")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
-                    .background(.black, in: Capsule())
+                    .background(Color(.label), in: Capsule())
             }
             .padding(.horizontal, 24)
             Button("Cancel") { vm.currentStep = .select }
@@ -550,10 +550,10 @@ struct ProfileImageSuccessView: View {
             Button(action: vm.done) {
                 Text("Done")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
-                    .background(.black, in: Capsule())
+                    .background(Color(.label), in: Capsule())
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 28)
