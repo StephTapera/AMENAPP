@@ -1715,3 +1715,17 @@ exports.blockRelationshipCleanup           = overflowFunctions.blockRelationship
 exports.broadcastSpaceAnnouncement         = overflowFunctions.broadcastSpaceAnnouncement;
 exports.broadcastSpaceEvent                = overflowFunctions.broadcastSpaceEvent;
 
+// ============================================================================
+// LIVE ACTIVITIES — Prayer Request push counter + push-to-start (Phases 2 & 3)
+// Deploy by name only:
+//   firebase deploy --only functions:prayForRequest
+//   firebase deploy --only functions:onPrayingUserWritten
+//   firebase deploy --only functions:onPrayerRequestUpdated
+//   firebase deploy --only functions:onPrayerRequestCreated
+// ============================================================================
+const liveActivity = require("./liveActivityFunctions");
+exports.prayForRequest            = liveActivity.prayForRequest;
+exports.onPrayingUserWritten      = liveActivity.onPrayingUserWritten;
+exports.onPrayerRequestUpdated    = liveActivity.onPrayerRequestUpdated;
+exports.onPrayerRequestCreated    = liveActivity.onPrayerRequestCreated;
+

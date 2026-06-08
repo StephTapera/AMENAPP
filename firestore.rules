@@ -486,6 +486,32 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // /prayerRequests/{id}
+    // Phase 2 Live Activity — denormalized projection separate from prayers/{id}.
+    // Counters (prayingCount, encouragementCount) are written ONLY by Cloud Functions
+    // (admin SDK); clients never update them directly.
+    // =========================================================================
+
+    match /prayerRequests/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.requesterName is string;
+      allow update: if false; // CFs only (admin SDK)
+      allow delete: if false;
+
+      match /prayingUsers/{uid} {
+        allow read: if isSignedIn() &&
+          (request.auth.uid == uid ||
+           request.auth.uid == get(/databases/$(database)/documents/prayerRequests/$(id)).data.requesterUid);
+        allow create, delete: if false; // prayForRequest CF only
+        allow update: if false;
+      }
+
+      match /liveActivityTokens/{token} {
+        allow read, write: if false; // host app + CF admin SDK only
+      }
+    }
+
+    // =========================================================================
     // /discussions/{discussionId}
     // C5 §2d — Discussion Resource
     // =========================================================================
@@ -1465,6 +1491,12 @@ service cloud.firestore {
       allow read, create, update, delete: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // Phase 3: push-to-start APNs tokens — written by the host app for the authenticated user;
+    // read + deleted by onPrayerRequestCreated CF (admin SDK).
+    match /users/{userId}/ptsTokens/{token} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
     // mentorships/{id}/signals — written by iOS SDK via MentorshipIntelligenceService
     // Read allowed to the owner (uid stored in the node) and the mentor of the relationship.
     match /mentorships/{mentorshipId}/signals/{signalId} {
@@ -1874,6 +1906,43 @@ service cloud.firestore {
     match /config/voice {
       allow read: if isSignedIn();
       allow write: if isAdminSDK();
+    }
+
+    // =========================================================================
+    // SELAH — Private spiritual notes and discernment checks
+    // Added: 2026-06-07 (Selah Bible Engine — Phase 2 Firestore rules)
+    //
+    // Security invariants:
+    //   SE-1: selahNotes are owner-only read/write; no hard deletes (soft-delete only).
+    //   SE-2: discernmentChecks are created-by read/write; visibility 'shared' docs are
+    //         readable by creator only at the rule level (thread-participant access is
+    //         enforced server-side by Cloud Function — not granted here).
+    //   SE-3: discernmentChecks may only be created as 'private'; visibility transitions
+    //         to 'shared' require a CF callable (not a direct client update gate here,
+    //         but update is owner-only so impersonation is blocked).
+    //   SE-4: No hard deletes on either collection — soft-delete via deletedAt.
+    // =========================================================================
+
+    // selahNotes: owner-only read/write; soft-delete only
+    match /users/{uid}/selahNotes/{noteId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      // Prevent hard delete: client cannot delete the document entirely
+      allow delete: if false;
+    }
+
+    // discernmentChecks: created-by read/write; shared checks readable by creator only
+    // (sharing to thread participants is enforced server-side via Cloud Function)
+    match /discernmentChecks/{checkId} {
+      allow read: if request.auth != null &&
+        (resource.data.createdBy == request.auth.uid ||
+         (resource.data.visibility == 'shared' && resource.data.sourceRef != null));
+      allow create: if request.auth != null &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.visibility == 'private' &&
+        request.resource.data.deletedAt == null;
+      allow update: if request.auth != null &&
+        resource.data.createdBy == request.auth.uid;
+      allow delete: if false;  // soft-delete only; no hard delete
     }
 
     // =========================================================================

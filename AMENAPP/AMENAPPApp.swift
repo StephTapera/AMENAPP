@@ -422,6 +422,16 @@ struct AMENAPPApp: App {
                 // Restore any Live Activities that survived an app relaunch
                 LiveActivityManager.shared.restoreActiveActivities()
                 NotificationTapBootstrapper.shared.appDidBecomeReady()
+
+                // Cache App Check token for PrayForRequestIntent in widget extension.
+                if let token = try? await AmenAppCheckService.getToken() {
+                    UserDefaults(suiteName: "group.com.amenapp.shared")?.set(token, forKey: "cachedAppCheckToken")
+                }
+
+                // Phase 3: begin observing push-to-start tokens (iOS 17.2+).
+                if #available(iOS 17.2, *) {
+                    PrayerRequestLiveActivityManager.shared.observePushToStartTokens()
+                }
             }
             // Show supplementary interest/follow onboarding once after account creation.
             // This is separate from the username/profile OnboardingView in ContentView.
@@ -813,8 +823,24 @@ struct AMENAPPApp: App {
 
         switch host {
         case "prayer":
-            // Prayer Live Activity actions: prayed, snooze
-            PrayerLiveActivityService.shared.handleDeepLink(url: url)
+            if url.path == "/active" {
+                // iOS 16 fallback tap from PrayerSessionLiveActivity widgetURL → navigate to Prayer tab.
+                NotificationCenter.default.post(name: .navigateToTab, object: nil, userInfo: ["tab": 2])
+            } else {
+                // Existing prayer Live Activity actions: prayed, snooze
+                PrayerLiveActivityService.shared.handleDeepLink(url: url)
+            }
+
+        case "pray":
+            // Phase 2: amen://pray/<requestId> — iOS 16 fallback from PrayerRequestLiveActivity.
+            let requestId = String(url.path.dropFirst()) // drop leading "/"
+            if !requestId.isEmpty {
+                NotificationCenter.default.post(
+                    name: .navigateToTab,
+                    object: nil,
+                    userInfo: ["tab": 2, "prayRequestId": requestId]
+                )
+            }
 
         case "church":
             // Church service action: end

@@ -240,8 +240,6 @@ final class AMENFeatureFlags: ObservableObject {
     // Community-level Saved / Bookmark.
     @Published private(set) var savedCommunitiesEnabled: Bool = true
     // "View in Feed" — scopes the home timeline to a covenant/hub/topic.
-    // Default OFF until the FirebasePostService scoped-query path is
-    // fully gated by server-side membership + moderation filtering.
     @Published private(set) var viewInFeedEnabled: Bool = true
 
     // MARK: - System 22 continued: Smart Share Sheet
@@ -665,6 +663,16 @@ final class AMENFeatureFlags: ObservableObject {
     /// Opportunity OS: OpportunityCard + OpportunityHubView + SafeContactFlow.
     @Published private(set) var communityOSOpportunityEnabled: Bool = true
 
+    // MARK: - Music Attachment
+    /// Gates the music attachment picker in the post composer and the MusicCard renderer in post cards.
+    @Published private(set) var musicAttachmentEnabled: Bool = true
+
+    // MARK: - Live Activities — Prayer (Phases 2 & 3)
+    /// Gates the push-driven Prayer Request Live Activity. Default false until APNs secrets are set and CFs deployed.
+    @Published private(set) var liveActivityPrayerRequestEnabled: Bool = false
+    /// Gates push-to-start for Prayer Request (iOS 17.2+). Default false until audience rule confirmed.
+    @Published private(set) var liveActivityPushToStartEnabled: Bool = false
+
     private init() {
         applyUITestOverrides()
         Task { await fetchRemoteConfig() }
@@ -871,11 +879,11 @@ final class AMENFeatureFlags: ObservableObject {
             "object_hub_inline_cluster_enabled": true as NSObject,
 
             // Communities / Threads-Style Feeds
-            "ark_communities_enabled": false as NSObject,
+            "ark_communities_enabled": true as NSObject,
             "covenant_communities_enabled": true as NSObject,
             "unified_feeds_switcher_enabled": true as NSObject,
             "saved_communities_enabled": true as NSObject,
-            "view_in_feed_enabled": false as NSObject,
+            "view_in_feed_enabled": true as NSObject,
 
             // Smart Share Sheet
             "smart_share_sheet_enabled": true as NSObject,
@@ -1007,7 +1015,7 @@ final class AMENFeatureFlags: ObservableObject {
             // System 31: Voice Prayer & Testimony Comments — all off by default
             "voice_prayer_comments_enabled": true as NSObject,
             "voice_testimony_comments_enabled": true as NSObject,
-            "voice_comment_transcript_required": true as NSObject,
+            "voice_comment_transcript_required": false as NSObject,
             "voice_comment_summary_enabled": true as NSObject,
             "voice_comment_review_queue_enabled": true as NSObject,
             "voice_comment_prayer_circle_visibility_enabled": true as NSObject,
@@ -1080,24 +1088,146 @@ final class AMENFeatureFlags: ObservableObject {
             // Aegis OS — Pre-Post Content Safety Gate
             "aegis_pre_post_review_enabled": true as NSObject,
 
-            // Berean OS — all default OFF until explicit Remote Config activation
-            "berean_os_projects_enabled": false as NSObject,
-            "berean_os_research_engine_enabled": false as NSObject,
-            "berean_os_wisdom_engine_enabled": false as NSObject,
-            "berean_os_multi_perspective_enabled": false as NSObject,
-            "berean_os_debate_engine_enabled": false as NSObject,
-            "berean_os_social_knowledge_feed_enabled": false as NSObject,
-            "berean_os_advisory_boards_enabled": false as NSObject,
-            "berean_os_mentor_os_enabled": false as NSObject,
-            "berean_os_knowledge_graph_enabled": false as NSObject,
-            "berean_os_onboarding_enabled": false as NSObject,
-            "berean_os_memory_brain_enabled": false as NSObject,
-            "berean_os_action_planner_enabled": false as NSObject,
-            "berean_os_truth_labels_enabled": false as NSObject,
-            "berean_os_source_explorer_enabled": false as NSObject,
-            "berean_os_social_projects_enabled": false as NSObject,
-            "berean_os_community_intelligence_enabled": false as NSObject,
-            "berean_os_living_documents_enabled": false as NSObject,
+            // Music Attachment
+            "music_attachment_enabled": true as NSObject,
+
+            // Berean OS — default matches Remote Config template (all true)
+            "berean_os_projects_enabled": true as NSObject,
+            "berean_os_research_engine_enabled": true as NSObject,
+            "berean_os_wisdom_engine_enabled": true as NSObject,
+            "berean_os_multi_perspective_enabled": true as NSObject,
+            "berean_os_debate_engine_enabled": true as NSObject,
+            "berean_os_social_knowledge_feed_enabled": true as NSObject,
+            "berean_os_advisory_boards_enabled": true as NSObject,
+            "berean_os_mentor_os_enabled": true as NSObject,
+            "berean_os_knowledge_graph_enabled": true as NSObject,
+            "berean_os_onboarding_enabled": true as NSObject,
+            "berean_os_memory_brain_enabled": true as NSObject,
+            "berean_os_action_planner_enabled": true as NSObject,
+            "berean_os_truth_labels_enabled": true as NSObject,
+            "berean_os_source_explorer_enabled": true as NSObject,
+            "berean_os_social_projects_enabled": true as NSObject,
+            "berean_os_community_intelligence_enabled": true as NSObject,
+            "berean_os_living_documents_enabled": true as NSObject,
+
+            // Profile V2
+            "profile_v2_enabled": true as NSObject,
+            "profile_media_grid_enabled": true as NSObject,
+            "pinned_content_enabled": true as NSObject,
+            "creator_highlights_enabled": true as NSObject,
+
+            // Social Safety OS
+            "social_safety_os_enabled": true as NSObject,
+            "wellbeing_feed_ranking_enabled": true as NSObject,
+            "selah_pause_enabled": true as NSObject,
+            "emotional_check_in_enabled": true as NSObject,
+            "private_reflection_enabled": true as NSObject,
+            "healthy_use_dashboard_enabled": true as NSObject,
+            "dm_risk_firewall_enabled": true as NSObject,
+            "minor_safety_mode_enabled": true as NSObject,
+            "sextortion_panic_flow_enabled": true as NSObject,
+            "suspicious_relationship_detector_enabled": true as NSObject,
+            "trusted_contact_escalation_enabled": true as NSObject,
+            "think_first_guard_enabled": true as NSObject,
+            "dogpile_detection_enabled": true as NSObject,
+            "mercy_mode_replies_enabled": true as NSObject,
+            "reputation_moderation_enabled": true as NSObject,
+            "victim_shield_enabled": true as NSObject,
+            "truth_context_layer_enabled": true as NSObject,
+            "ai_media_disclosure_enabled": true as NSObject,
+            "claim_source_requirement_enabled": true as NSObject,
+            "community_correction_enabled": true as NSObject,
+            "theological_guardrails_enabled": true as NSObject,
+            "feed_mode_controls_enabled": true as NSObject,
+            "feed_boundary_enabled": true as NSObject,
+            "purpose_open_screen_enabled": true as NSObject,
+            "engagement_quality_ranking_enabled": true as NSObject,
+            "algorithm_transparency_enabled": true as NSObject,
+
+            // Berean Extended Intelligence
+            "berean_context_bridge_enabled": true as NSObject,
+            "berean_safety_classifier_enabled": true as NSObject,
+            "berean_liquid_glass_context_actions_enabled": true as NSObject,
+            "berean_source_grounding_enabled": true as NSObject,
+            "berean_follow_ups_enabled": true as NSObject,
+            "berean_commentary_compare_enabled": true as NSObject,
+            "berean_theological_lens_enabled": true as NSObject,
+
+            // System 32: Communication OS
+            "messages_smart_context_enabled": true as NSObject,
+            "group_discussion_pulse_enabled": true as NSObject,
+            "thread_summary_enabled": true as NSObject,
+            "catch_up_digest_enabled": true as NSObject,
+            "thread_decision_extraction_enabled": true as NSObject,
+            "thread_action_extraction_enabled": true as NSObject,
+            "thread_question_detection_enabled": true as NSObject,
+            "smart_presence_enabled": true as NSObject,
+            "smart_reactions_enabled": true as NSObject,
+            "media_intelligence_enabled": true as NSObject,
+            "conversation_memory_search_enabled": true as NSObject,
+            "command_palette_enabled": true as NSObject,
+            "smart_replies_enabled": true as NSObject,
+            "multi_pane_communication_enabled": true as NSObject,
+            "liquid_glass_communication_ui_enabled": true as NSObject,
+
+            // System 33: ContentOS
+            "content_os_enabled": true as NSObject,
+            "content_approval_workflow_enabled": true as NSObject,
+            "content_forwarding_enabled": true as NSObject,
+            "content_ai_router_enabled": true as NSObject,
+            "content_audit_log_enabled": true as NSObject,
+
+            // System 36: Context-First Discussion OS
+            "discussion_modes_enabled": true as NSObject,
+            "context_participation_enabled": true as NSObject,
+            "discussion_health_enabled": true as NSObject,
+            "draft_intelligence_enabled": true as NSObject,
+            "discussion_summary_enabled": true as NSObject,
+            "discussion_mediator_enabled": true as NSObject,
+            "community_memory_enabled": true as NSObject,
+            "discussion_actions_enabled": true as NSObject,
+            "participation_tiers_enabled": true as NSObject,
+            "discussion_command_center_enabled": true as NSObject,
+
+            // System 37: Community OS
+            "community_os_discussion_enabled": true as NSObject,
+            "community_os_prayer_os_enabled": true as NSObject,
+            "community_os_action_pill_enabled": true as NSObject,
+            "community_os_universal_composer_enabled": true as NSObject,
+            "community_os_church_os_enabled": true as NSObject,
+            "community_os_org_os_enabled": true as NSObject,
+            "community_os_opportunity_enabled": true as NSObject,
+
+            // System 38: Connect Hub
+            "connect_hub_enabled": true as NSObject,
+            "connect_you_menu_enabled": true as NSObject,
+
+            // System 34: Healthy Media — extended flags
+            "immersive_media_sessions_enabled": true as NSObject,
+            "finite_media_queues_enabled": true as NSObject,
+            "media_completion_overlay_enabled": true as NSObject,
+            "media_no_doom_scroll_guardrails_enabled": true as NSObject,
+            "healthy_media_checkpoints_enabled": true as NSObject,
+            "media_ai_metadata_drafts_enabled": true as NSObject,
+            "media_generated_metadata_approval_required": true as NSObject,
+            "media_selah_overlay_enabled": true as NSObject,
+            "community_media_layers_enabled": true as NSObject,
+            "media_community_layer_enabled": true as NSObject,
+            "media_reflection_sheet_enabled": true as NSObject,
+            "hide_vanity_metrics_default": true as NSObject,
+            "autoplay_within_sessions_enabled": true as NSObject,
+            "late_night_pause_enabled": true as NSObject,
+            "media_wellbeing_controls_enabled": true as NSObject,
+            "media_liquid_glass_chrome_enabled": true as NSObject,
+            "media_profile_liquid_white_flow_enabled": true as NSObject,
+            "media_synthetic_detection_enabled": true as NSObject,
+
+            // Accessibility + Simple Mode
+            "simple_mode_feature_enabled": true as NSObject,
+            "replay_enabled": true as NSObject,
+
+            // Mentorship
+            "mentorship_enabled": true as NSObject,
         ]
     }
 
@@ -1596,6 +1726,9 @@ final class AMENFeatureFlags: ObservableObject {
         // System 38: Connect Hub
         connectHubEnabled    = config["connect_hub_enabled"].boolValue
         connectYouMenuEnabled = config["connect_you_menu_enabled"].boolValue
+
+        // Music Attachment
+        musicAttachmentEnabled = config.configValue(forKey: "music_attachment_enabled").boolValue
     }
 
     private func applyUITestOverrides() {

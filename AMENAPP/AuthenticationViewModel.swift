@@ -255,9 +255,14 @@ class AuthenticationViewModel: ObservableObject {
                     self.isAuthenticated = true
                     // Cache display name and photo for AutoLoginSplashView
                     self.cacheUserCredentials(user)
+                    // Bridge uid to widget extension for PrayForRequestIntent.
+                    UserDefaults(suiteName: "group.com.amenapp.shared")?.set(user.uid, forKey: "currentUserUid")
                 } else {
                     dlog("🚦 [LAUNCH] Auth state listener fired: user logged out")
                     self.isAuthenticated = false
+                    // Clear App Group uid + App Check token on sign-out.
+                    UserDefaults(suiteName: "group.com.amenapp.shared")?.removeObject(forKey: "currentUserUid")
+                    UserDefaults(suiteName: "group.com.amenapp.shared")?.removeObject(forKey: "cachedAppCheckToken")
                     self.needsOnboarding = false
                     self.needsUsernameSelection = false
                     self.needsEmailVerification = false
@@ -2139,4 +2144,16 @@ class AuthenticationViewModel: ObservableObject {
             return error.localizedDescription
         }
     }
+
+    // MARK: - Debug Bypass
+
+#if DEBUG
+    /// Skips Firebase auth entirely. Use only for simulator testing.
+    func bypassAuthForTesting() {
+        isAuthenticated = true
+        needsOnboarding = false
+        needsUsernameSelection = false
+        needsEmailVerification = false
+    }
+#endif
 }

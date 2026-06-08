@@ -34,5 +34,9 @@ struct AMENWidgetExtensionBundle: WidgetBundle {
         if #available(iOSApplicationExtension 16.2, *) {
             AmenLiveActivityWidget()
         }
+        // Dynamic Island — Prayer Session (local timer, Phase 1)
+        PrayerSessionLiveActivity()
+        // Dynamic Island — Prayer Request (push-driven counter, Phase 2)
+        PrayerRequestLiveActivity()
     }
 }
