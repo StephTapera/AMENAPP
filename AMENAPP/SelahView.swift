@@ -922,8 +922,8 @@ struct SelahView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
-                .foregroundStyle(.white)
-                .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
+                .foregroundStyle(.primary)
+                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
@@ -1249,9 +1249,9 @@ struct SelahSectionView: View {
                     if isNumbered {
                         Text(String(index + 1))
                             .font(.systemScaled(11, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                             .frame(width: 20, height: 20)
-                            .background(Color.accentColor, in: Circle())
+                            .glassEffect(.regular, in: Circle())
                             .padding(.top, 1)
                     } else {
                         Circle()

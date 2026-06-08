@@ -3146,11 +3146,14 @@ struct DonationCampaignCard: View {
     let raised: Int
     let goal: Int
     let color: Color
-    
+    var donationURL: String? = nil
+
+    @State private var showDonateSheet = false
+
     var progress: Double {
         Double(raised) / Double(goal)
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
@@ -3208,8 +3211,12 @@ struct DonationCampaignCard: View {
             }
             
             Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                // TODO: implement donate action
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                if let urlStr = donationURL, let url = URL(string: urlStr) {
+                    UIApplication.shared.open(url)
+                } else {
+                    showDonateSheet = true
+                }
             } label: {
                 HStack {
                     Image(systemName: "heart.fill")
@@ -3240,6 +3247,36 @@ struct DonationCampaignCard: View {
                         .stroke(color.opacity(0.3), lineWidth: 1)
                 )
         )
+        .sheet(isPresented: $showDonateSheet) {
+            NavigationStack {
+                VStack(spacing: 20) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(color)
+                        .padding(.top, 32)
+
+                    Text(title)
+                        .font(.custom("OpenSans-Bold", size: 22))
+                        .multilineTextAlignment(.center)
+
+                    Text("Online giving is coming soon. Please contact your community administrator to donate to this campaign.")
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+
+                    Spacer()
+                }
+                .navigationTitle("Donate")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showDonateSheet = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
     }
 }
 
@@ -3891,6 +3928,7 @@ struct CommunityDetailView: View {
     @Namespace private var detailTabAnimation
     @State private var showCommunityInfo = false
     @State private var notificationsEnabled = false
+    @State private var showNotificationSettings = false
     
     enum DetailTab: String, CaseIterable {
         case chat = "Chat"
@@ -3934,9 +3972,69 @@ struct CommunityDetailView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showCommunityInfo) {
+                NavigationStack {
+                    List {
+                        Section("About") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(community.name)
+                                    .font(.custom("OpenSans-Bold", size: 18))
+                                Text(community.description)
+                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                            LabeledContent("Members", value: "\(community.memberCount)")
+                            LabeledContent("Type", value: community.type.rawValue)
+                        }
+                        if !community.features.isEmpty {
+                            Section("Features") {
+                                ForEach(community.features) { feature in
+                                    Label(feature.name, systemImage: feature.icon)
+                                        .foregroundStyle(feature.color)
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Community Info")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showCommunityInfo = false }
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showNotificationSettings) {
+                NavigationStack {
+                    List {
+                        Section {
+                            Toggle("All Notifications", isOn: $notificationsEnabled)
+                            Toggle("New Posts", isOn: .constant(notificationsEnabled))
+                                .disabled(!notificationsEnabled)
+                            Toggle("Events & Reminders", isOn: .constant(notificationsEnabled))
+                                .disabled(!notificationsEnabled)
+                            Toggle("Chat Messages", isOn: .constant(notificationsEnabled))
+                                .disabled(!notificationsEnabled)
+                        } header: {
+                            Text("Notification Preferences")
+                        } footer: {
+                            Text("Changes apply to this community only.")
+                        }
+                    }
+                    .navigationTitle("Notification Settings")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showNotificationSettings = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+            }
         }
     }
-    
+
     // MARK: - Header
     private var headerView: some View {
         VStack(spacing: 0) {
@@ -3983,44 +4081,12 @@ struct CommunityDetailView: View {
                     } label: {
                         Label("Community Info", systemImage: "info.circle")
                     }
-                    .sheet(isPresented: $showCommunityInfo) {
-                        NavigationStack {
-                            List {
-                                Section("About") {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(community.name)
-                                            .font(.custom("OpenSans-Bold", size: 18))
-                                        Text(community.description)
-                                            .font(.custom("OpenSans-Regular", size: 15))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .padding(.vertical, 4)
-                                    LabeledContent("Members", value: "\(community.memberCount)")
-                                }
-                                if !community.features.isEmpty {
-                                    Section("Features") {
-                                        ForEach(community.features) { feature in
-                                            Label(feature.name, systemImage: feature.icon)
-                                                .foregroundStyle(feature.color)
-                                        }
-                                    }
-                                }
-                            }
-                            .navigationTitle("Community Info")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .confirmationAction) {
-                                    Button("Done") { showCommunityInfo = false }
-                                }
-                            }
-                        }
-                    }
 
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.3)) { notificationsEnabled.toggle() }
+                        showNotificationSettings = true
                     } label: {
-                        Label("Notifications", systemImage: notificationsEnabled ? "bell.fill" : "bell")
+                        Label("Notification Settings", systemImage: "bell.badge")
                     }
                     
                     Divider()

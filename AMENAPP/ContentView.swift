@@ -128,28 +128,8 @@ struct ContentView: View {
         _assistantCoordinator = StateObject(wrappedValue: AmenAssistantBarCoordinator(userId: uid))
         _showCreatePost = State(initialValue: false)
         
-        // Make tab bar smaller and more compact
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        appearance.backgroundColor = UIColor.systemBackground
-        
-        // Reduce tab bar height by adjusting insets
-        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
-        appearance.stackedLayoutAppearance.selected.iconColor = UIColor.label
-        
-        // Remove titles to make it more compact (use minimum valid font size)
-        let emptyFont = UIFont.systemFont(ofSize: 1.0, weight: .regular)
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
-            .font: emptyFont,
-            .foregroundColor: UIColor.clear
-        ]
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .font: emptyFont,
-            .foregroundColor: UIColor.clear
-        ]
-        
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
+        // Note: No native UITabBar in use — navigation is handled by AMENTabBar (custom SwiftUI).
+        // UITabBar.appearance() setup removed to prevent any phantom system tab bar rendering.
     }
     
     var body: some View {
@@ -601,7 +581,7 @@ struct ContentView: View {
                 }
 
                 keepMountedTab(isActive: viewModel.selectedTab == 4) {
-                    AMENNotificationsView()
+                    AmenPulseView()
                         .id("notifications")
                         .task {
                             NotificationAggregationService.shared.updateCurrentScreen(.notifications)
@@ -707,7 +687,7 @@ struct ContentView: View {
                             postingBarState = .hidden
                         }
                     }
-                    .padding(.bottom, 84) // just above tab bar
+                    .padding(.bottom, 110) // just above tab bar (pill 62 + compose overflow 28 + gap 20)
                     .padding(.horizontal, 16)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(998)
@@ -728,7 +708,7 @@ struct ContentView: View {
             // Reserve space for the floating tab bar so ScrollViews don't clip content
             // Always reserve space - tab bar moves offscreen with keyboard instead of disappearing
             Color.clear
-                .frame(height: showTabBar ? 74 : 0) // capsule height (54) + bottom padding (10) + extra (10)
+                .frame(height: showTabBar ? 100 : 0) // pill (62) + bottom padding (10) + compose overflow (28)
                 .animation(.easeOut(duration: 0.25), value: showTabBar)
         }
         .overlay(alignment: .bottom) {
@@ -761,13 +741,13 @@ struct ContentView: View {
             // Audio mini player bar — shown during speech playback
             if AMENFeatureFlags.shared.audioNarrationEnabled {
                 AudioMiniPlayerBar()
-                    .padding(.bottom, showTabBar ? 80 : 8)
+                    .padding(.bottom, showTabBar ? 106 : 8)
             }
         }
         .overlay(alignment: .bottom) {
             // Spiritual OS — Berean Assistant Bar (Agent G, gated by AppStorage flag)
             AmenAssistantBarOverlay(coordinator: assistantCoordinator)
-                .padding(.bottom, showTabBar ? 88 : 12)
+                .padding(.bottom, showTabBar ? 114 : 12)
         }
         .overlay(alignment: .top) {
             // Adaptive accessibility suggestion banner

@@ -159,17 +159,19 @@ struct AmenChurchHeroCard: View {
     // MARK: Amenities — Kids / Youth / Livestream
 
     private var amenitiesRow: some View {
-        HStack(spacing: 8) {
-            if church.hasKids {
-                AmenityTag(label: "Kids Available", icon: "figure.and.child.holdinghands")
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                if church.hasKids {
+                    AmenityTag(label: "Kids", icon: "figure.and.child.holdinghands")
+                }
+                if church.hasYouth {
+                    AmenityTag(label: "Youth", icon: "person.3")
+                }
+                if church.hasLivestream {
+                    AmenityTag(label: "Livestream", icon: "dot.radiowaves.right")
+                }
             }
-            if church.hasYouth {
-                AmenityTag(label: "Youth Available", icon: "person.3")
-            }
-            if church.hasLivestream {
-                AmenityTag(label: "Livestream", icon: "dot.radiowaves.right")
-            }
-            Spacer()
+            .padding(.trailing, 4)
         }
     }
 
@@ -312,6 +314,7 @@ private struct AmenityTag: View {
         Label(label, systemImage: icon)
             .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
+            .lineLimit(1)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(Color(.tertiarySystemBackground), in: Capsule())

@@ -18,6 +18,14 @@ struct CoCreationCanvasView: View {
 
     private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
 
+    private var editorFont: Font {
+        let base = Font.systemScaled(17)
+        if isBold && isItalic { return base.bold().italic() }
+        if isBold              { return base.bold() }
+        if isItalic            { return base.italic() }
+        return base
+    }
+
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {

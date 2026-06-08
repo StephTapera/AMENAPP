@@ -84,6 +84,16 @@ final class AmenConnectProfileViewModel: ObservableObject {
     }
 
     var presenceLabel: String {
+        // A3-006: Sensitive pastoral states masked for non-intimate viewers.
+        // Firestore rules should also restrict server-side.
+        if !profile.isOwnProfile {
+            switch profile.covenantPresence {
+            case .grieving, .availableForUrgentPrayer:
+                return "🤍 In quiet reflection"
+            default:
+                break
+            }
+        }
         switch profile.covenantPresence {
         case .inTheWord:              return "📖 In the Word"
         case .inPrayer:               return "🙏 In Prayer"
@@ -472,9 +482,24 @@ struct AmenConnectProfileView: View {
         ToolbarItem(placement: .navigationBarTrailing) {
             Menu {
                 Button("Edit Profile", systemImage: "pencil") { vm.showEditProfile = true }
-                Button("Share Profile", systemImage: "square.and.arrow.up") {}
+                Button("Share Profile", systemImage: "square.and.arrow.up") {
+                    let username = vm.profile.username
+                    let userId   = vm.profile.id
+                    let text     = "Check out \(username) on AMEN – amen://user/\(userId)"
+                    let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let root  = scene.windows.first?.rootViewController {
+                        root.present(av, animated: true)
+                    }
+                }
                 Divider()
-                Button("Report", systemImage: "flag", role: .destructive) {}
+                Button("Report", systemImage: "flag", role: .destructive) {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("amenReportUser"),
+                        object: nil,
+                        userInfo: ["userId": vm.profile.id]
+                    )
+                }
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .accessibilityLabel("More options")

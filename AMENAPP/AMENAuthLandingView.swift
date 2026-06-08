@@ -32,8 +32,6 @@ struct AMENAuthLandingView: View {
     // Button press states
     @State private var applePressed = false
     @State private var googlePressed = false
-    @State private var emailBg = Color(.secondarySystemBackground)
-    @State private var phoneBg = Color(.secondarySystemBackground)
 
     // Auth flows
     @State private var showEmailSignUp = false
@@ -204,11 +202,7 @@ struct AMENAuthLandingView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color(.separator), lineWidth: 1.5)
-            )
+            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(ScaleButtonStyle())
     }
@@ -252,9 +246,9 @@ struct AMENAuthLandingView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(phoneBg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(EmailButtonStyle(bg: $phoneBg))
+        .buttonStyle(.plain)
     }
 
     // MARK: - Email button
@@ -272,15 +266,15 @@ struct AMENAuthLandingView: View {
                 Spacer()
                 Text("Sign up with email")
                     .font(.systemScaled(14, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                 Spacer()
                 Color.clear.frame(width: 52)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(emailBg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(EmailButtonStyle(bg: $emailBg))
+        .buttonStyle(.plain)
     }
 
     // MARK: - Sign-in link
@@ -495,18 +489,6 @@ private struct GoogleGLogo: View {
 
 // MARK: - Button styles
 // (ScaleButtonStyle is defined in SharedUIComponents.swift)
-
-private struct EmailButtonStyle: ButtonStyle {
-    @Binding var bg: Color
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .onChange(of: configuration.isPressed) { _, pressed in
-                withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
-                    bg = pressed ? Color(white: 0.922) : Color(white: 0.957)
-                }
-            }
-    }
-}
 
 // MARK: - Stub email views
 

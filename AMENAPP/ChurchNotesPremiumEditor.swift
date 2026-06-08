@@ -350,10 +350,15 @@ struct ChurchNotesPremiumEditor: View {
             if metadataExpanded {
                 VStack(spacing: 10) {
                     HStack {
-                        Text("SERMON DETAILS")
-                            .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                            .tracking(0.8)
+                        HStack(spacing: 5) {
+                            Image(systemName: "cross")
+                                .font(.systemScaled(10, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                            Text("SERMON DETAILS")
+                                .font(.systemScaled(11, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                                .tracking(0.8)
+                        }
 
                         Spacer()
 
@@ -733,22 +738,30 @@ struct ChurchNotesPremiumEditor: View {
     // MARK: - Bottom Action Capsule
 
     private var actionCapsule: some View {
-        ChurchNotesBottomActionCapsule(
-            actions: CapsuleAction.allCases.map { action in
-                .init(
-                    id: action.rawValue,
-                    label: action.label,
-                    icon: action.icon,
-                    handler: {
-                        handleCapsuleAction(action)
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    }
-                )
-            }
-        )
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
-        .padding(.horizontal, 24)
-        .padding(.bottom, 8)
+        VStack(spacing: 0) {
+            // Top hairline separator
+            Rectangle()
+                .fill(Color.primary.opacity(0.08))
+                .frame(height: 0.5)
+
+            ChurchNotesBottomActionCapsule(
+                actions: CapsuleAction.allCases.map { action in
+                    .init(
+                        id: action.rawValue,
+                        label: action.label,
+                        icon: action.icon,
+                        handler: {
+                            handleCapsuleAction(action)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                    )
+                }
+            )
+            .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
+        }
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Formatting Bar

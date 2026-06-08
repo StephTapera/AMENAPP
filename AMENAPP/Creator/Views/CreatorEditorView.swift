@@ -10,6 +10,8 @@ struct CreatorEditorView: View {
     @State private var trimStart: Double = 0
     @State private var trimEnd: Double = 1
     @State private var coverFrameMs: Int = 0
+    @State private var showPublishAlert: Bool = false
+    @State private var showExportSheet: Bool = false
 
     init(project: CreatorProject) {
         _viewModel = StateObject(wrappedValue: CreatorEditorViewModel(project: project))
@@ -160,8 +162,8 @@ struct CreatorEditorView: View {
             CreatorBottomRail(
                 primaryActionTitle: "Export",
                 secondaryActionTitle: "Publish",
-                primaryAction: {},
-                secondaryAction: {}
+                primaryAction: { showExportSheet = true },
+                secondaryAction: { showPublishAlert = true }
             )
         }
         .padding(.horizontal, 20)
@@ -209,5 +211,23 @@ struct CreatorEditorView: View {
             matching: .any(of: [.images, .videos])
         )
         .background(Color(.systemBackground))
+        .alert("Publish Project", isPresented: $showPublishAlert) {
+            Button("Publish Now") {
+                Task { await viewModel.autosave() }
+                NotificationCenter.default.post(name: Notification.Name("amenPublishCreatorProject"), object: viewModel.project.id)
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Your project will be published and shared with your audience.")
+        }
+        .sheet(isPresented: $showExportSheet) {
+            let title = viewModel.project.title.isEmpty ? "My Project" : viewModel.project.title
+            ShareLink(
+                item: title,
+                subject: Text("Check out my project"),
+                message: Text(title)
+            )
+            .presentationDetents([.medium])
+        }
     }
 }

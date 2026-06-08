@@ -609,17 +609,51 @@ struct FollowingFeedView: View {
     var body: some View {
         Group {
             if followingPosts.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "person.2")
-                        .font(.systemScaled(48))
-                        .foregroundStyle(.secondary.opacity(0.4))
-                    Text("Follow people to see their posts here")
-                        .font(AMENFont.regular(15))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 60)
+                    VStack(spacing: 0) {
+                        // Liquid Glass icon orb
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 26, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 72, height: 72)
+                            .glassEffect(.regular, in: Circle())
+                            .padding(.bottom, 28)
+
+                        Text("No posts from people you follow")
+                            .font(AMENFont.bold(20))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+
+                        Spacer().frame(height: 10)
+
+                        Text("Follow fellow believers to see their prayers, testimonies, and thoughts here.")
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+
+                        Spacer().frame(height: 32)
+
+                        // CTA — glass capsule
+                        Button {
+                            NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
+                        } label: {
+                            Text("Find People to Follow")
+                                .font(AMENFont.semiBold(15))
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 15)
+                                .glassEffect(.regular.interactive(), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Find people to follow")
+                        .accessibilityHint("Opens the Discover tab to find people")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 32)
+                    Spacer().frame(height: 60)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, 80)
             } else {
                 // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
                 // The parent ScrollView in ContentView handles the scrolling.
@@ -653,17 +687,51 @@ struct QuietFeedView: View {
     var body: some View {
         Group {
             if quietPosts.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "moon.stars")
-                        .font(.systemScaled(48))
-                        .foregroundStyle(.secondary.opacity(0.4))
-                    Text("Nothing here yet.\nPosts will appear as they're shared.")
-                        .font(AMENFont.regular(15))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 60)
+                    VStack(spacing: 0) {
+                        // Liquid Glass icon orb
+                        Image(systemName: "moon.stars.fill")
+                            .font(.system(size: 26, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 72, height: 72)
+                            .glassEffect(.regular, in: Circle())
+                            .padding(.bottom, 28)
+
+                        Text("All quiet for now")
+                            .font(AMENFont.bold(20))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+
+                        Spacer().frame(height: 10)
+
+                        Text("Posts will appear here as people share. Pull down to refresh.")
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+
+                        Spacer().frame(height: 32)
+
+                        // CTA — glass capsule
+                        Button {
+                            NotificationCenter.default.post(name: .openCreatePost, object: nil)
+                        } label: {
+                            Text("Share Something")
+                                .font(AMENFont.semiBold(15))
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 15)
+                                .glassEffect(.regular.interactive(), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Share something")
+                        .accessibilityHint("Opens the post composer")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 32)
+                    Spacer().frame(height: 60)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, 80)
             } else {
                 // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
                 // The parent ScrollView in ContentView handles the scrolling.
@@ -771,11 +839,11 @@ struct FeedModeDropdownMenu: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                 )
         )
         .frame(width: 200)
-        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+        .shadow(color: Color.primary.opacity(0.08), radius: 12, x: 0, y: 4)
         .transition(.asymmetric(
             insertion: .scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity),
             removal:   .scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity)
@@ -810,10 +878,10 @@ struct FeedModeIndicatorStrip: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                 )
         )
-        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
+        .shadow(color: Color.primary.opacity(0.04), radius: 6, x: 0, y: 2)
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 }

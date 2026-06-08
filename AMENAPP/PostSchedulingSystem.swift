@@ -1076,6 +1076,8 @@ struct ScheduledPostsHub: View {
 
     // Sample data — no Firebase
     @State private var entries: [ScheduledPostEntry] = ScheduledPostsHub.sampleEntries()
+    @State private var entryToReschedule: ScheduledPostEntry? = nil
+    @State private var rescheduleDate: Date = Date().addingTimeInterval(86400)
 
     private static func sampleEntries() -> [ScheduledPostEntry] {
         let cal = Calendar.current
@@ -1171,8 +1173,11 @@ struct ScheduledPostsHub: View {
                                 ForEach(upcomingEntries) { entry in
                                     ScheduledPostRow(
                                         entry: entry,
-                                        onReschedule: {},
-                                        onDuplicate: {},
+                                        onReschedule: {
+                                            rescheduleDate = entry.scheduledFor.addingTimeInterval(86400)
+                                            entryToReschedule = entry
+                                        },
+                                        onDuplicate: { duplicateEntry(entry) },
                                         onCancel: { removeEntry(id: entry.id) }
                                     )
                                 }
@@ -1184,8 +1189,11 @@ struct ScheduledPostsHub: View {
                                 ForEach(processingEntries) { entry in
                                     ScheduledPostRow(
                                         entry: entry,
-                                        onReschedule: {},
-                                        onDuplicate: {},
+                                        onReschedule: {
+                                            rescheduleDate = entry.scheduledFor.addingTimeInterval(86400)
+                                            entryToReschedule = entry
+                                        },
+                                        onDuplicate: { duplicateEntry(entry) },
                                         onCancel: { removeEntry(id: entry.id) }
                                     )
                                 }
@@ -1197,17 +1205,19 @@ struct ScheduledPostsHub: View {
                                 ForEach(failedEntries) { entry in
                                     ScheduledPostRow(
                                         entry: entry,
-                                        onReschedule: {},
-                                        onDuplicate: {},
+                                        onReschedule: {
+                                            rescheduleDate = entry.scheduledFor.addingTimeInterval(86400)
+                                            entryToReschedule = entry
+                                        },
+                                        onDuplicate: { duplicateEntry(entry) },
                                         onCancel: { removeEntry(id: entry.id) },
                                         onRetry: {
-                                            // Move entry back to upcoming so the retry is reflected in the UI
                                             if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
                                                 entries[idx].status = .upcoming
                                             }
                                         },
                                         onEdit: {
-                                            // Surface edit sheet via notification; row already posts amenEditScheduledPost
+                                            NotificationCenter.default.post(name: Notification.Name("amenEditScheduledPost"), object: entry.id)
                                         }
                                     )
                                 }
@@ -1219,8 +1229,11 @@ struct ScheduledPostsHub: View {
                                 ForEach(publishedEntries) { entry in
                                     ScheduledPostRow(
                                         entry: entry,
-                                        onReschedule: {},
-                                        onDuplicate: {},
+                                        onReschedule: {
+                                            rescheduleDate = entry.scheduledFor.addingTimeInterval(86400)
+                                            entryToReschedule = entry
+                                        },
+                                        onDuplicate: { duplicateEntry(entry) },
                                         onCancel: { removeEntry(id: entry.id) }
                                     )
                                 }
@@ -1235,6 +1248,30 @@ struct ScheduledPostsHub: View {
         }
         .navigationTitle("Scheduled Posts")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $entryToReschedule) { entry in
+            NavigationStack {
+                Form {
+                    Section("New schedule time") {
+                        DatePicker("Date & time", selection: $rescheduleDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                            .datePickerStyle(.graphical)
+                    }
+                }
+                .navigationTitle("Reschedule Post")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { entryToReschedule = nil }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            rescheduleEntry(entry, to: rescheduleDate)
+                            entryToReschedule = nil
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
     }
 
     private var tabBar: some View {
@@ -1294,6 +1331,32 @@ struct ScheduledPostsHub: View {
     private func removeEntry(id: String) {
         withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
             entries.removeAll { $0.id == id }
+        }
+    }
+
+    private func rescheduleEntry(_ entry: ScheduledPostEntry, to date: Date) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
+            if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
+                entries[idx].scheduledFor = date
+                entries[idx].status = .upcoming
+            }
+        }
+    }
+
+    private func duplicateEntry(_ entry: ScheduledPostEntry) {
+        let copy = ScheduledPostEntry(
+            id: UUID().uuidString,
+            content: entry.content,
+            scheduledFor: entry.scheduledFor.addingTimeInterval(3600),
+            status: .upcoming,
+            mediaType: entry.mediaType
+        )
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
+            if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
+                entries.insert(copy, at: entries.index(after: idx))
+            } else {
+                entries.append(copy)
+            }
         }
     }
 }

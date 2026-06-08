@@ -408,7 +408,7 @@ struct CreatePostView: View {
                             .font(.systemScaled(12, weight: .medium))
                         Text(topicTagButtonText)
                             .font(.systemScaled(13, weight: .medium))
-                        if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
+                        if selectedTopicTag.isEmpty && selectedCategory == .prayer {
                             Text("Required")
                                 .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(.secondary.opacity(0.7))
@@ -420,10 +420,11 @@ struct CreatePostView: View {
                     .foregroundStyle(selectedTopicTag.isEmpty ? Color.secondary : Color.primary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background {
+                    .background { if reduceTransparency {
                         let fillColor: Color = selectedTopicTag.isEmpty ? Color(.systemGray6) : Color.primary.opacity(0.08)
                         Capsule().fill(fillColor)
-                    }
+                    } }
+                    .amenGlassEffect(in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(selectedTopicTag.isEmpty
@@ -515,7 +516,7 @@ struct CreatePostView: View {
             }
 
             ComposerLinkPreview(controller: linkController)
-                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
+                .animation(.amenSpringStandard, value: linkController.activeURL)
 
             // Inline toolbar — simple gray icons
             threadsAttachmentBar
@@ -1771,13 +1772,17 @@ struct CreatePostView: View {
 
             Spacer()
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground).opacity(0.9)) } }
+        .amenGlassEffect(in: Capsule())
         // Floating glass attachment picker card overlaid above the + button.
         // The overlay is anchored to the top-leading corner of the bar so the
         // card's bottom sits at the bar and the card opens upward.
         .overlay(alignment: .topLeading) {
             if showingAttachmentPicker {
                 attachmentPickerCard
-                    .offset(y: -attachmentPickerCardEstimatedHeight)
+                    .offset(y: -(attachmentPickerCardEstimatedHeight + 8))
                     .transition(
                         .scale(scale: 0.88, anchor: .bottomLeading)
                         .combined(with: .opacity)
@@ -1903,9 +1908,13 @@ struct CreatePostView: View {
                     Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
                         .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color.primary.opacity(0.75))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background { if reduceTransparency { Capsule().fill(Color(.systemGray6)) } }
+                        .amenGlassEffect(in: Capsule())
                 }
                 .buttonStyle(.plain)
-                
+
                 // Audience/Visibility selector
                 Button {
                     showingAudienceSheet = true
@@ -1917,6 +1926,10 @@ struct CreatePostView: View {
                             .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(Color.primary.opacity(0.75))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background { if reduceTransparency { Capsule().fill(Color(.systemGray6)) } }
+                    .amenGlassEffect(in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Post audience: \(postVisibility.displayName)")
@@ -2301,7 +2314,7 @@ struct CreatePostView: View {
             
             Spacer()
             
-            if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
+            if selectedTopicTag.isEmpty && selectedCategory == .prayer {
                 Text("* Required")
                     .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
@@ -3449,24 +3462,15 @@ struct CreatePostView: View {
             return
         }
         
-        // Validate topic tag for #OPENTABLE and Prayer
-        if (selectedCategory == .openTable || selectedCategory == .prayer) && selectedTopicTag.isEmpty {
-            dlog("❌ Topic tag required but missing")
-            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
-            
-            // P1 FIX: Shake topic tag button and show inline error
-            withAnimation(.amenEaseQuick) {
-                shakeTopicTag = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                shakeTopicTag = false
-            }
-            
+        // Validate topic tag for Prayer only — openTable tag is optional
+        if selectedCategory == .prayer && selectedTopicTag.isEmpty {
+            dlog("❌ Prayer type required but missing")
+            inFlightPostId = nil
+            withAnimation(.amenEaseQuick) { shakeTopicTag = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { shakeTopicTag = false }
             showError(
-                title: "Topic Tag Required",
-                message: selectedCategory == .openTable ? 
-                    "Please select a topic tag for your #OPENTABLE post." :
-                    "Please select a prayer type for your prayer post."
+                title: "Prayer Type Required",
+                message: "Please select a prayer type for your prayer post."
             )
             return
         }
@@ -5851,18 +5855,118 @@ struct EnhancedToolbarButton: View {
     }
 }
 
-// Topic Tag Sheet for #OPENTABLE and Prayer Types
+// MARK: - Tag Flow Layout
+struct TagFlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    struct CacheData {}
+
+    func makeCache(subviews: Subviews) -> CacheData { CacheData() }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout CacheData) -> CGSize {
+        let rows = buildRows(width: proposal.width ?? 0, subviews: subviews)
+        let height = rows.map { $0.map(\.1.height).max() ?? 0 }.reduce(into: CGFloat(0)) { acc, h in
+            acc += h + spacing
+        }
+        return CGSize(width: proposal.width ?? 0, height: max(0, height - spacing))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout CacheData) {
+        let rows = buildRows(width: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        var idx = 0
+        for row in rows {
+            let rowHeight = row.map { $0.1.height }.max() ?? 0
+            var x = bounds.minX
+            for (_, size) in row {
+                subviews[idx].place(at: CGPoint(x: x, y: y), proposal: .unspecified)
+                x += size.width + spacing
+                idx += 1
+            }
+            y += rowHeight + spacing
+        }
+    }
+
+    private func buildRows(width: CGFloat, subviews: Subviews) -> [[(LayoutSubview, CGSize)]] {
+        var rows: [[(LayoutSubview, CGSize)]] = [[]]
+        var rowWidth: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth + size.width > width && !rows[rows.count - 1].isEmpty {
+                rows.append([])
+                rowWidth = 0
+            }
+            rows[rows.count - 1].append((subview, size))
+            rowWidth += size.width + spacing
+        }
+        return rows
+    }
+}
+
+// MARK: - Topic Tag Pill
+struct TopicTagPill: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(isSelected ? Color.white : color)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                    .lineLimit(1)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Color.white)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(isSelected ? color : (reduceTransparency ? Color(.systemGray6) : Color.white.opacity(0.80)))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .strokeBorder(
+                                isSelected ? color.opacity(0.25) : Color.black.opacity(contrast == .increased ? 0.20 : 0.08),
+                                lineWidth: contrast == .increased ? 1 : 0.75
+                            )
+                    )
+            )
+            .shadow(color: isSelected ? color.opacity(0.22) : .black.opacity(0.04), radius: isSelected ? 8 : 3, y: 2)
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.3, dampingFraction: 0.72), value: isSelected)
+        .accessibilityLabel(Text(title))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityHint(Text(isSelected ? "Selected. Tap to deselect." : "Tap to select this tag."))
+    }
+}
+
+// MARK: - Topic Tag Sheet (Liquid Glass Pill Design)
 struct TopicTagSheet: View {
     @Binding var selectedTag: String
     @Binding var isPresented: Bool
     @Binding var selectedCategory: CreatePostView.PostCategory
     @State private var searchText = ""
+    @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    
+    @Environment(\.colorSchemeContrast) private var contrast
+
     // OpenTable topic tags
     var openTableTags: [(String, String, Color)] {
         var tags: [(String, String, Color)] = []
-        // Technical topics
         tags.append(("AI & Technology", "cpu", .blue))
         tags.append(("Machine Learning", "brain", .purple))
         tags.append(("Ethics & Morality", "scale.3d", .indigo))
@@ -5879,8 +5983,6 @@ struct TopicTagSheet: View {
         tags.append(("Artificial Intelligence", "sparkles", .yellow))
         tags.append(("Quantum Computing", "atom", .cyan))
         tags.append(("Biotechnology", "cross.vial.fill", .green))
-        
-        // Business & Career topics
         tags.append(("Entrepreneurship", "briefcase.circle.fill", .blue))
         tags.append(("Business Ethics", "building.2.fill", .green))
         tags.append(("Workplace Faith", "desktopcomputer", .purple))
@@ -5888,8 +5990,6 @@ struct TopicTagSheet: View {
         tags.append(("Leadership & Management", "person.crop.circle.badge.checkmark", .indigo))
         tags.append(("Marketing & Media", "megaphone.fill", .pink))
         tags.append(("Startups & Innovation", "rocket.fill", .orange))
-        
-        // Faith & Life topics
         tags.append(("Faith & Culture", "globe.americas.fill", .blue))
         tags.append(("Relationships", "heart.circle.fill", .pink))
         tags.append(("Family Life", "house.fill", .orange))
@@ -5915,15 +6015,13 @@ struct TopicTagSheet: View {
         tags.append(("Parenting", "figure.2.and.child.holdinghands", .orange))
         return tags
     }
-    
-    // Prayer types
-    let prayerTypes = [
+
+    let prayerTypes: [(String, String, Color)] = [
         ("Prayer Request", "hands.sparkles.fill", Color(red: 0.4, green: 0.7, blue: 1.0)),
         ("Praise Report", "hands.clap.fill", Color(red: 1.0, green: 0.7, blue: 0.4)),
         ("Answered Prayer", "checkmark.seal.fill", Color(red: 0.4, green: 0.85, blue: 0.7))
     ]
 
-    // Testimony category tags — must match TestimonyCategory.title values for filtering
     let testimonyTags: [(String, String, Color)] = [
         ("Healing", "heart.fill", .pink),
         ("Career", "briefcase.fill", .green),
@@ -5932,7 +6030,7 @@ struct TopicTagSheet: View {
         ("Spiritual Growth", "sparkles", .purple),
         ("Family", "house.fill", .blue)
     ]
-    
+
     var displayTags: [(String, String, Color)] {
         switch selectedCategory {
         case .prayer: return prayerTypes
@@ -5940,181 +6038,180 @@ struct TopicTagSheet: View {
         default: return openTableTags
         }
     }
-    
+
     var filteredTags: [(String, String, Color)] {
-        if searchText.isEmpty {
-            return displayTags
-        }
-        return displayTags.filter { tag in
-            tag.0.localizedCaseInsensitiveContains(searchText)
-        }
+        guard !searchText.isEmpty else { return displayTags }
+        return displayTags.filter { $0.0.localizedCaseInsensitiveContains(searchText) }
     }
-    
+
+    private var trimmedSearch: String {
+        var t = searchText.trimmingCharacters(in: .whitespaces)
+        if t.hasPrefix("#") { t = String(t.dropFirst()) }
+        return t
+    }
+
+    private var canCreateCustomTag: Bool {
+        guard selectedCategory == .openTable else { return false }
+        let t = trimmedSearch
+        guard t.count >= 2, t.count <= 40 else { return false }
+        return !displayTags.contains(where: { $0.0.localizedCaseInsensitiveCompare(t) == .orderedSame })
+    }
+
+    private var customTagIsSafe: Bool {
+        let blocked = ["hate", "porn", "kill", "suicide", "drug", "sex", "nsfw"]
+        let lower = trimmedSearch.lowercased()
+        return !blocked.contains(where: { lower.contains($0) })
+    }
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(selectedCategory == .prayer ? "Select Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Select a Topic Tag")
-                            .font(AMENFont.bold(20))
-                        
-                        Text(selectedCategory == .prayer ?
-                             "Let others know what kind of prayer this is" :
-                             selectedCategory == .testimonies ?
-                             "Choose a category so others can find your testimony" :
-                             "Help others discover your post in #OPENTABLE")
-                            .font(AMENFont.regular(14))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    
-                    // Search box - Liquid Glass design
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.systemScaled(14, weight: .semibold))
-                            .foregroundStyle(.black.opacity(0.4))
-                        
-                        TextField("Search topics...", text: $searchText)
-                            .font(AMENFont.regular(15))
-                            .autocorrectionDisabled()
-                        
-                        if !searchText.isEmpty {
-                            Button {
-                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
-                                    searchText = ""
-                                }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.systemScaled(16))
-                                    .foregroundStyle(.black.opacity(0.3))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background { if reduceTransparency { RoundedRectangle(cornerRadius: 12).fill(Color(.systemBackground)) } }
-                    .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .padding(.horizontal)
-                    
-                    if filteredTags.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.systemScaled(40))
-                                .foregroundStyle(.secondary.opacity(0.5))
-                            Text("No topics found")
-                                .font(AMENFont.semiBold(16))
+            VStack(spacing: 0) {
+                // Search / create field
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    TextField(
+                        selectedCategory == .openTable ? "Search or create a tag…" : "Search topics…",
+                        text: $searchText
+                    )
+                    .font(.systemScaled(15))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.words)
+                    .focused($searchFocused)
+                    if !searchText.isEmpty {
+                        Button {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { searchText = "" }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.secondary)
-                            Text("Try a different search term")
-                                .font(AMENFont.regular(14))
-                                .foregroundStyle(.secondary.opacity(0.7))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 60)
                     }
-                    
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach(filteredTags, id: \.0) { tag in
-                            TopicTagCard(
-                                title: tag.0,
-                                icon: tag.1,
-                                color: tag.2,
-                                isSelected: selectedTag == tag.0
-                            ) {
-                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                    selectedTag = tag.0
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(reduceTransparency ? AnyShapeStyle(Color(.systemGray6)) : AnyShapeStyle(Color.clear))
+                .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Create custom tag option (openTable only)
+                        if canCreateCustomTag {
+                            if customTagIsSafe {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Create new tag")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 16)
+                                    Button {
+                                        selectTag(trimmedSearch)
+                                    } label: {
+                                        HStack(spacing: 7) {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.systemScaled(13, weight: .semibold))
+                                            Text("#\(trimmedSearch)")
+                                                .font(.systemScaled(14, weight: .semibold))
+                                        }
+                                        .foregroundStyle(.primary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 9)
+                                        .background(
+                                            Capsule(style: .continuous)
+                                                .fill(reduceTransparency ? Color(.systemGray5) : Color.white.opacity(0.82))
+                                                .overlay(
+                                                    Capsule(style: .continuous)
+                                                        .strokeBorder(Color.primary.opacity(contrast == .increased ? 0.28 : 0.12), lineWidth: contrast == .increased ? 1 : 0.75)
+                                                )
+                                        )
+                                        .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 16)
                                 }
-                                // Animation reset (non-critical)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    isPresented = false
+                            } else {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "exclamationmark.shield.fill")
+                                        .foregroundStyle(.orange)
+                                        .font(.subheadline)
+                                    Text("That tag doesn't meet our community guidelines.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
+                                .padding(.horizontal, 16)
                             }
                         }
+
+                        // Preset tags as pills
+                        if !filteredTags.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                if selectedCategory == .openTable {
+                                    Text(searchText.isEmpty ? "All topics" : "Matching topics")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 16)
+                                }
+                                TagFlowLayout(spacing: 8) {
+                                    ForEach(filteredTags, id: \.0) { tag in
+                                        TopicTagPill(
+                                            title: tag.0,
+                                            icon: tag.1,
+                                            color: tag.2,
+                                            isSelected: selectedTag == tag.0,
+                                            action: { selectTag(tag.0) }
+                                        )
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                            }
+                        } else if !searchText.isEmpty && !canCreateCustomTag {
+                            VStack(spacing: 8) {
+                                Text("No matching topics")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                if selectedCategory == .openTable {
+                                    Text("Keep typing to create a new tag.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary.opacity(0.8))
+                                        .multilineTextAlignment(.center)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                            .padding(.horizontal, 32)
+                        }
                     }
-                    .padding(.horizontal)
+                    .padding(.bottom, 32)
                 }
-                .padding(.vertical)
             }
             .navigationTitle(selectedCategory == .prayer ? "Prayer Type" : "Topic Tag")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        isPresented = false
+                    Button("Cancel") { isPresented = false }
+                }
+                if !selectedTag.isEmpty {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { isPresented = false }
+                            .fontWeight(.semibold)
                     }
                 }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.large, .medium])
+        .presentationDragIndicator(.visible)
     }
-}
 
-struct TopicTagCard: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let isSelected: Bool
-    let action: () -> Void
-    
-    @State private var isPressed = false
-    
-    var body: some View {
-        Button(action: {
-            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                isPressed = true
-            }
-            
-            // Button animation reset (non-critical)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                    isPressed = false
-                }
-            }
-            
-            action()
-        }) {
-            VStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [color.opacity(0.2), color.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 56, height: 56)
-                    
-                    Image(systemName: icon)
-                        .font(.systemScaled(24, weight: .semibold))
-                        .foregroundStyle(color)
-                }
-                .scaleEffect(isPressed ? 0.9 : 1.0)
-                
-                Text(title)
-                    .font(AMENFont.bold(13))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? color : Color.clear, lineWidth: 2)
-                    )
-                    .shadow(color: isSelected ? color.opacity(0.3) : .black.opacity(0.05), radius: isSelected ? 12 : 8, y: 4)
-            )
-            .scaleEffect(isPressed ? 0.95 : 1.0)
+    private func selectTag(_ tag: String) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+            selectedTag = tag
         }
-        .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            isPresented = false
+        }
     }
 }
 
@@ -8072,10 +8169,12 @@ struct PostAudienceSheet: View {
                         }
                     }
                 }
-                .background(
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                        .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 3)
                 .padding(.horizontal, 16)
 
                 Spacer()
@@ -8089,6 +8188,7 @@ struct PostAudienceSheet: View {
                 }
             }
         }
+        .presentationBackground(.thinMaterial)
     }
 }
 
@@ -8906,6 +9006,7 @@ private struct CreatorDraftAssistantSheet: View {
                 }
             }
         }
+        .presentationBackground(.thinMaterial)
         .onAppear {
             selectedType = CreatorDraftType(rawValue: initialDraftType) ?? .post
         }
@@ -8925,7 +9026,11 @@ private struct CreatorDraftAssistantSheet: View {
             }
         }
         .padding(14)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
     }
 
     private var typePickerSection: some View {
@@ -8935,19 +9040,26 @@ private struct CreatorDraftAssistantSheet: View {
                 HStack(spacing: 8) {
                     ForEach(CreatorDraftType.allCases, id: \.self) { type in
                         Button {
-                            selectedType = type
+                            withAnimation(.amenSnappy) { selectedType = type }
                         } label: {
                             Text(type.displayName)
                                 .font(.subheadline.weight(selectedType == type ? .semibold : .regular))
                                 .foregroundStyle(selectedType == type ? .primary : .secondary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 9)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedType == type ? Color.white.opacity(0.85) : Color.clear)
-                                )
+                                .background {
+                                    if selectedType == type {
+                                        Capsule()
+                                            .fill(.ultraThinMaterial)
+                                            .overlay(Capsule().fill(Color.white.opacity(0.35)))
+                                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
+                                    } else {
+                                        Capsule().fill(Color.clear)
+                                    }
+                                }
                         }
                         .buttonStyle(.plain)
+                        .animation(.amenSnappy, value: selectedType)
                     }
                 }
                 .padding(4)
@@ -8973,19 +9085,28 @@ private struct CreatorDraftAssistantSheet: View {
             HStack(spacing: 8) {
                 ForEach(tones, id: \.self) { tone in
                     Button {
-                        selectedTone = tone
+                        withAnimation(.amenSnappy) { selectedTone = tone }
                     } label: {
                         Text(tone.capitalized)
                             .font(.caption.weight(selectedTone == tone ? .semibold : .regular))
                             .foregroundStyle(selectedTone == tone ? .primary : .secondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(
-                                Capsule()
-                                    .fill(selectedTone == tone ? Color.white.opacity(0.85) : Color(.secondarySystemBackground))
-                            )
+                            .background {
+                                if selectedTone == tone {
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(Capsule().fill(Color.white.opacity(0.35)))
+                                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
+                                } else {
+                                    Capsule()
+                                        .fill(.regularMaterial)
+                                        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                                }
+                            }
                     }
                     .buttonStyle(.plain)
+                    .animation(.amenSnappy, value: selectedTone)
                 }
             }
         }
@@ -9008,6 +9129,15 @@ private struct CreatorDraftAssistantSheet: View {
             errorMessage = "Something went wrong. Please try again."
         }
         isGenerating = false
+    }
+}
+
+// MARK: - Local Animation Tokens
+// .amenSnappy is defined privately in several files; redeclare here so
+// CreatorDraftAssistantSheet chip animations compile without importing the kit.
+private extension Animation {
+    static var amenSnappy: Animation {
+        .spring(response: 0.22, dampingFraction: 0.70)
     }
 }
 

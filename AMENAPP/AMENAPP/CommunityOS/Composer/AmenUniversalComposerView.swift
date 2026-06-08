@@ -1,22 +1,27 @@
 // AmenUniversalComposerView.swift
 // AMEN App — CommunityOS / Composer
 //
-// Phase 2 — Agent A3 (Universal Composer)
-// The single unified creation sheet for ALL content intents.
+// Smart Liquid Glass Action Studio (v3 — 2026-06-08)
 //
-// Presented via .sheet(isPresented:) with .presentationDetents([.large]).
-// Design: white Liquid Glass aesthetic (C3 locked 2026-06-05).
-//   - System semantic colors only — no custom hex, no amenGold.
-//   - AmenDesignSystem tokens for radius / shadow.
-//   - Dynamic Type throughout — no fixed font sizes.
-//   - Anti-engagement: no public count display, no comparison metrics.
-//   - Provenance banner shown when seeded from an existing source object.
+// Key changes from v2:
+//   - No "What would you like to do?" — users start with a thought, not a form
+//   - Dynamic hero heading + subtitle shift with detected intent (no reload flash)
+//   - Action ribbon shows when empty (Liquid Glass capsule pills, emoji icons)
+//   - PostIntentDetector runs on every keystroke (debounced 280ms) → intent pill
+//     materialises from text when confidence > 0.55; auto-routes AmenIntent + audience
+//   - AmenSmartContextDetectionEngine runs async → context chip strip appears
+//   - Smart audience row: auto-selects based on intent; shows "Why?" explainer;
+//     user override clears the explainer and persists their choice
+//   - Contextual fields surface only when the selected intent actually needs them
+//     (study → scripture ref, pray → privacy picker, invite → event date)
+//   - All existing ViewModel submit / safety / alert / deep-link logic is UNCHANGED
 //
-// Accessibility:
-//   - All interactive controls >= 44pt touch target.
-//   - accessibilityLabel + accessibilityHint on every non-obvious element.
-//   - Reduced-motion gate on all spring animations.
-//   - Reduced-transparency fallback for glass surfaces.
+// Design (C3):
+//   - System semantic colours only (no hex). RegularMaterial / ThickMaterial for glass.
+//   - No blue outlines. Selected state = ThickMaterial + primary stroke.
+//   - Dynamic Type throughout.
+//   - Reduce-motion / reduce-transparency gated on every animation / material surface.
+//   - All touch targets >= 44pt.
 
 import SwiftUI
 
@@ -33,6 +38,14 @@ struct AmenUniversalComposerView: View {
 
     @StateObject private var vm: AmenComposerViewModel
 
+    // MARK: Detection State
+
+    @State private var detectedPostIntent: PostIntent = .general
+    @State private var detectedConfidence: Double = 0
+    @State private var contextChips: [InsightChipModel] = []
+    @State private var hasUserPickedIntent = false
+    @State private var hasUserPickedAudience = false
+
     // MARK: Environment
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -46,22 +59,30 @@ struct AmenUniversalComposerView: View {
         _vm = StateObject(wrappedValue: AmenComposerViewModel(source: source))
     }
 
-    // MARK: - Computed
+    // MARK: - Derived display helpers
 
-    private var sheetTitle: String {
-        switch vm.draft.selectedIntent {
-        case .discuss:   return "New Discussion"
-        case .pray:      return "New Prayer"
-        case .study:     return "New Study"
-        case .teach:     return "New Teaching"
-        case .share:     return "Share"
-        case .ask:       return "Ask a Question"
-        case .invite:    return "Send an Invite"
-        case .volunteer: return "Volunteer"
-        case .hire:      return "Post a Role"
-        case .mentor:    return "Request a Mentor"
-        case .announce:  return "Announcement"
+    private var heroHeading: String {
+        if detectedConfidence > 0.55 && !hasUserPickedIntent {
+            return detectedPostIntent.heroHeading
         }
+        return vm.draft.selectedIntent.heroHeading
+    }
+
+    private var heroSubtitle: String {
+        if source.existingRef != nil {
+            return "Continuing from \(source.type.displayName)"
+        }
+        if detectedConfidence > 0.55 && !hasUserPickedIntent {
+            return "Detected — tap pill to override"
+        }
+        return vm.draft.selectedIntent.heroSubtitle
+    }
+
+    private var bodyPlaceholder: String {
+        if detectedConfidence > 0.55 && !hasUserPickedIntent {
+            return detectedPostIntent.composerPlaceholder
+        }
+        return vm.draft.selectedIntent.composerPlaceholder
     }
 
     private var submitLabel: String {
@@ -80,67 +101,108 @@ struct AmenUniversalComposerView: View {
         }
     }
 
-    private var bodyPlaceholder: String {
+    // Intent-driven smart audience recommendation
+    private var smartAudienceInfo: SmartAudienceInfo {
         switch vm.draft.selectedIntent {
-        case .discuss:   return "What should the discussion focus on?"
-        case .pray:      return "Describe this prayer request..."
-        case .study:     return "What aspect would you like to study?"
-        case .teach:     return "What is the main teaching point?"
-        case .share:     return "Add a thought before sharing..."
-        case .ask:       return "What would you like to ask?"
-        case .invite:    return "Add a personal note to the invite..."
-        case .volunteer: return "What can you offer?"
-        case .hire:      return "Describe the role and opportunity..."
-        case .mentor:    return "What area of mentorship are you seeking?"
-        case .announce:  return "What would you like to announce?"
+        case .pray, .mentor:
+            return SmartAudienceInfo(
+                raw: "trusted_circle", label: "Trusted",
+                icon: "person.2.circle",
+                reason: "Recommended for personal and private content"
+            )
+        case .study, .discuss:
+            return SmartAudienceInfo(
+                raw: "church_only", label: "Church",
+                icon: "building.columns",
+                reason: "Scripture discussions are great with your church community"
+            )
+        case .announce:
+            return SmartAudienceInfo(
+                raw: "space_members", label: "My Space",
+                icon: "house",
+                reason: "Announcements work best within your space"
+            )
+        default:
+            return SmartAudienceInfo(
+                raw: "public_feed", label: "Public",
+                icon: "globe",
+                reason: "Share with the broader Amen community"
+            )
         }
     }
+
+    // Whether to show intent-specific extra fields
+    private var showStudyField:    Bool { vm.draft.selectedIntent == .study }
+    private var showPrayerPrivacy: Bool { vm.draft.selectedIntent == .pray }
+    private var showEventDate:     Bool { vm.draft.selectedIntent == .invite }
+    private var needsContextPanel: Bool { showStudyField || showPrayerPrivacy || showEventDate }
 
     // MARK: - Body
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+            VStack(spacing: 0) {
 
-                    // Provenance banner — shown when seeded from an existing source object.
-                    if let ref = source.existingRef {
-                        provenanceBanner(ref: ref, sourceType: source.type)
+                // Provenance banner (shown when seeded from an existing source object)
+                if let ref = source.existingRef {
+                    provenanceBanner(ref: ref, sourceType: source.type)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 4)
+                }
+
+                // Dynamic hero strip
+                heroSection
+                    .padding(.horizontal, 16)
+                    .padding(.top, source.existingRef != nil ? 8 : 18)
+                    .padding(.bottom, 14)
+
+                Divider()
+
+                // Scrollable compose workspace
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+
+                        // Text compose area
+                        composeTextArea
                             .padding(.horizontal, 16)
                             .padding(.top, 16)
-                            .padding(.bottom, 12)
+
+                        // Action ribbon (empty state) OR context chip strip (while typing)
+                        if vm.draft.body.isEmpty && !hasUserPickedIntent {
+                            actionRibbon
+                                .padding(.top, 16)
+                                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                        } else if !contextChips.isEmpty {
+                            contextChipRow
+                                .padding(.top, 12)
+                                .padding(.horizontal, 16)
+                                .transition(reduceMotion ? .opacity : .scale(scale: 0.95).combined(with: .opacity))
+                        }
+
+                        // Contextual fields — surface only what the intent actually needs
+                        if needsContextPanel {
+                            contextualFields
+                                .padding(.horizontal, 16)
+                                .padding(.top, 16)
+                        }
+
+                        Spacer(minLength: 32)
                     }
-
-                    // Intent selector row.
-                    intentSelectorSection
-                        .padding(.top, source.existingRef != nil ? 0 : 16)
-                        .padding(.bottom, 16)
-
-                    Divider()
-                        .padding(.horizontal, 16)
-
-                    // Main text area.
-                    textInputSection
-                        .padding(.top, 16)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
-
-                    // Context-specific fields.
-                    contextSpecificFields
-                        .padding(.horizontal, 16)
-
-                    Divider()
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-
-                    // Audience selector.
-                    audienceSection
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .padding(.bottom, 24)
                 }
+                .animation(
+                    reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82),
+                    value: vm.draft.body.isEmpty
+                )
+
+                Divider()
+
+                // Smart audience selector
+                smartAudienceRow
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(Color(uiColor: .systemBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .alert("Unable to Post", isPresented: Binding(
@@ -151,12 +213,9 @@ struct AmenUniversalComposerView: View {
             } message: {
                 Text(vm.submitError ?? "Please try again.")
             }
-            // C-1: Safety review sheet — presented when checkBeforePost returns non-allow.
             .sheet(item: $vm.pendingSafetyDecision) { decision in
                 if case .crisisIntervene = decision.action {
-                    AmenCrisisInterventionView {
-                        vm.pendingSafetyDecision = nil
-                    }
+                    AmenCrisisInterventionView { vm.pendingSafetyDecision = nil }
                 } else {
                     AmenPrePostReviewSheet(
                         decision: decision,
@@ -165,7 +224,7 @@ struct AmenUniversalComposerView: View {
                             vm.pendingSafetyDecision = nil
                             Task { await vm.submit(skipSafetyCheck: true) }
                         },
-                        onEdit: { vm.pendingSafetyDecision = nil },
+                        onEdit:   { vm.pendingSafetyDecision = nil },
                         onCancel: { vm.pendingSafetyDecision = nil }
                     )
                 }
@@ -174,6 +233,7 @@ struct AmenUniversalComposerView: View {
                 if submitted { onDismiss() }
             }
         }
+        .task(id: vm.draft.body) { await runDetection() }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(AmenRadius.card)
@@ -184,67 +244,377 @@ struct AmenUniversalComposerView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            Button {
-                onDismiss()
-            } label: {
+            Button { onDismiss() } label: {
                 Image(systemName: "xmark")
                     .font(.body.weight(.medium))
                     .foregroundStyle(Color(uiColor: .label))
                     .frame(width: 44, height: 44)
             }
-            .accessibilityLabel("Dismiss composer")
-        }
-
-        ToolbarItem(placement: .principal) {
-            Text(sheetTitle)
-                .font(.headline)
-                .foregroundStyle(Color(uiColor: .label))
+            .accessibilityLabel("Dismiss")
         }
 
         ToolbarItem(placement: .topBarTrailing) {
-            submitButton
+            Button {
+                Task { await vm.submit() }
+            } label: {
+                ZStack {
+                    if vm.isSubmitting {
+                        ProgressView().tint(.white).scaleEffect(0.8)
+                    } else {
+                        Text(submitLabel)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(vm.isValid ? Color.white : Color(uiColor: .tertiaryLabel))
+                    }
+                }
+                .padding(.horizontal, 16)
+                .frame(height: 36)
+                .background(
+                    vm.isValid ? Color.accentColor : Color(uiColor: .tertiarySystemFill),
+                    in: Capsule(style: .continuous)
+                )
+            }
+            .disabled(!vm.isValid || vm.isSubmitting)
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.24, dampingFraction: 0.84),
+                value: vm.isValid
+            )
+            .accessibilityLabel(submitLabel)
+            .accessibilityHint(vm.isValid ? "Tap to publish" : "Add content first")
         }
     }
 
-    // MARK: - Submit button (toolbar item)
+    // MARK: - Hero Section
 
-    private var submitButton: some View {
-        Button {
-            Task { await vm.submit() }
-        } label: {
-            ZStack {
-                if vm.isSubmitting {
-                    ProgressView()
-                        .tint(Color.white)
-                        .scaleEffect(0.8)
-                } else {
-                    Text(submitLabel)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(vm.isValid ? Color.white : Color(uiColor: .tertiaryLabel))
+    private var heroSection: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .center, spacing: 10) {
+                Text(heroHeading)
+                    .font(.title3.weight(.semibold))
+                    .contentTransition(.opacity)
+                    .animation(
+                        reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8),
+                        value: heroHeading
+                    )
+
+                // Auto-detected intent pill — materialises from text context
+                if detectedConfidence > 0.55 && !hasUserPickedIntent {
+                    detectedIntentPill
+                        .transition(
+                            reduceMotion ? .opacity :
+                            .scale(scale: 0.75).combined(with: .opacity)
+                        )
+                }
+            }
+
+            Text(heroSubtitle)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .contentTransition(.opacity)
+                .animation(
+                    reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8),
+                    value: heroSubtitle
+                )
+        }
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82),
+            value: detectedConfidence
+        )
+    }
+
+    private var detectedIntentPill: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "sparkles")
+                .font(.caption2.weight(.semibold))
+            Text(detectedPostIntent.intentDisplayName)
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(Color(uiColor: .label))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            reduceTransparency
+                ? AnyShapeStyle(Color(uiColor: .systemGray5))
+                : AnyShapeStyle(.regularMaterial),
+            in: Capsule(style: .continuous)
+        )
+        .overlay(Capsule(style: .continuous).stroke(.separator, lineWidth: 0.5))
+        .accessibilityLabel("Detected intent: \(detectedPostIntent.intentDisplayName). Tap an action pill to override.")
+    }
+
+    // MARK: - Compose Text Area
+
+    private var composeTextArea: some View {
+        ZStack(alignment: .topLeading) {
+            if vm.draft.body.isEmpty {
+                Text(bodyPlaceholder)
+                    .font(.body)
+                    .foregroundStyle(Color(uiColor: .placeholderText))
+                    .allowsHitTesting(false)
+                    .contentTransition(.opacity)
+                    .animation(
+                        reduceMotion ? nil : .spring(response: 0.3),
+                        value: bodyPlaceholder
+                    )
+            }
+            TextEditor(text: $vm.draft.body)
+                .font(.body)
+                .frame(minHeight: 120, alignment: .topLeading)
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+                .accessibilityLabel("Compose area")
+                .accessibilityHint(bodyPlaceholder)
+        }
+    }
+
+    // MARK: - Action Ribbon (empty state)
+
+    private var actionRibbon: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(filteredRibbonItems, id: \.intent.rawValue) { item in
+                    ribbonPill(item: item)
                 }
             }
             .padding(.horizontal, 16)
-            .frame(height: 36)
+            .padding(.vertical, 4)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Action ribbon — choose a content type or just start typing")
+    }
+
+    private func ribbonPill(item: RibbonItem) -> some View {
+        let isActive = vm.draft.selectedIntent == item.intent
+        return Button {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.75)) {
+                vm.draft.selectedIntent = item.intent
+                hasUserPickedIntent = true
+                applySmartAudienceIfNeeded(for: item.intent)
+            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            HStack(spacing: 6) {
+                Text(item.icon).font(.body)
+                Text(item.label).font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(isActive ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
             .background(
-                vm.isValid
-                    ? Color.accentColor
-                    : Color(uiColor: .tertiarySystemFill),
+                isActive
+                    ? AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray4) : .thickMaterial)
+                    : AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray6) : .regularMaterial),
                 in: Capsule(style: .continuous)
             )
+            .overlay(
+                Capsule(style: .continuous).stroke(
+                    isActive ? Color(uiColor: .label).opacity(0.15) : Color.clear,
+                    lineWidth: 1
+                )
+            )
+            .shadow(color: .black.opacity(isActive ? 0.07 : 0.02), radius: 4, y: 2)
         }
-        .disabled(!vm.isValid || vm.isSubmitting)
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.label) mode")
+    }
+
+    // MARK: - Context Chip Row
+
+    private var contextChipRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(contextChips.prefix(4), id: \.actionKey) { chip in
+                    HStack(spacing: 5) {
+                        Image(systemName: chip.icon)
+                            .font(.caption.weight(.medium))
+                        Text(chip.label)
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Color(uiColor: .label).opacity(0.75))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        reduceTransparency
+                            ? AnyShapeStyle(Color(uiColor: .systemGray5))
+                            : AnyShapeStyle(.regularMaterial),
+                        in: Capsule(style: .continuous)
+                    )
+                    .overlay(Capsule(style: .continuous).stroke(.separator, lineWidth: 0.5))
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Detected context tags")
+    }
+
+    // MARK: - Contextual Fields
+
+    @ViewBuilder
+    private var contextualFields: some View {
+        VStack(spacing: 14) {
+
+            // Scripture Reference — Study mode
+            if showStudyField {
+                glassField(label: "Scripture Reference", icon: "book.closed") {
+                    TextField("e.g. John 3:16, Romans 8:28", text: Binding(
+                        get: { vm.draft.scriptureReference ?? "" },
+                        set: { vm.draft.scriptureReference = $0.isEmpty ? nil : $0 }
+                    ))
+                    .font(.subheadline)
+                    .submitLabel(.done)
+                }
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            }
+
+            // Prayer Privacy — Pray mode
+            if showPrayerPrivacy {
+                glassField(label: "Prayer Privacy", icon: "lock") {
+                    Picker("Privacy", selection: Binding(
+                        get: { vm.draft.prayerPrivacyLevel ?? .trustedCircle },
+                        set: { vm.draft.prayerPrivacyLevel = $0 }
+                    )) {
+                        Text("Trusted").tag(PrayerPrivacyLevel.trustedCircle)
+                        Text("Church").tag(PrayerPrivacyLevel.church)
+                        Text("Public").tag(PrayerPrivacyLevel.public)
+                        Text("Anonymous").tag(PrayerPrivacyLevel.anonymous)
+                        Text("Only Me").tag(PrayerPrivacyLevel.private)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            }
+
+            // Event Date — Invite mode
+            if showEventDate {
+                glassField(label: "Event Date", icon: "calendar") {
+                    DatePicker(
+                        "Date",
+                        selection: Binding(
+                            get: { vm.draft.eventDate ?? Date() },
+                            set: { vm.draft.eventDate = $0 }
+                        ),
+                        in: Date()...,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                    .datePickerStyle(.compact)
+                    .labelsHidden()
+                }
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            }
+        }
         .animation(
-            reduceMotion
-                ? .easeOut(duration: 0.12)
-                : .spring(response: 0.24, dampingFraction: 0.84),
-            value: vm.isValid
+            reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82),
+            value: vm.draft.selectedIntent
         )
-        .accessibilityLabel(submitLabel)
-        .accessibilityHint(
-            vm.isValid
-                ? "Tap to publish"
-                : "Add content and fill required fields first"
+    }
+
+    // Reusable glass-surfaced field wrapper
+    private func glassField<Content: View>(
+        label: String,
+        icon: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(label, systemImage: icon)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+            content()
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            reduceTransparency
+                                ? AnyShapeStyle(Color(uiColor: .systemGray6))
+                                : AnyShapeStyle(.regularMaterial)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(.separator, lineWidth: 0.5)
+                        )
+                )
+        }
+    }
+
+    // MARK: - Smart Audience Row
+
+    private var smartAudienceRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(audienceOptions, id: \.raw) { option in
+                        audiencePill(option: option)
+                    }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Who can see this")
+
+            // "Why?" explainer — disappears once user manually picks
+            if !hasUserPickedAudience {
+                HStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                        .font(.caption2)
+                    Text(smartAudienceInfo.reason)
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+                .transition(
+                    reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
+                )
+            }
+        }
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82),
+            value: vm.draft.selectedIntent
         )
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.3),
+            value: hasUserPickedAudience
+        )
+    }
+
+    private func audiencePill(option: ComposerAudienceOption) -> some View {
+        let isSelected = vm.draft.audience == option.raw
+        return Button {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.25)) {
+                vm.draft.audience = option.raw
+                hasUserPickedAudience = true
+            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: option.icon)
+                    .font(.caption.weight(.medium))
+                Text(option.label)
+                    .font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(
+                isSelected
+                    ? Color(uiColor: .label)
+                    : Color(uiColor: .secondaryLabel)
+            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                isSelected
+                    ? AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray4) : .thickMaterial)
+                    : AnyShapeStyle(Color.clear),
+                in: Capsule(style: .continuous)
+            )
+            .overlay(
+                Capsule(style: .continuous).stroke(
+                    isSelected
+                        ? Color(uiColor: .label).opacity(0.15)
+                        : Color(uiColor: .separator).opacity(0.5),
+                    lineWidth: isSelected ? 1 : 0.5
+                )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(option.label) audience")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Provenance Banner
@@ -259,8 +629,7 @@ struct AmenUniversalComposerView: View {
         }()
 
         return HStack(spacing: 6) {
-            Image(systemName: "arrow.turn.up.right")
-                .font(.caption2)
+            Image(systemName: "arrow.turn.up.right").font(.caption2)
             Text("Continuing from: \(sourceType.displayName) \u{00B7} \(shortRef)")
                 .font(.caption)
                 .lineLimit(1)
@@ -269,416 +638,199 @@ struct AmenUniversalComposerView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
-            Capsule(style: .continuous)
-                .fill(Color(uiColor: .secondarySystemFill))
+            Capsule(style: .continuous).fill(Color(uiColor: .secondarySystemFill))
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Source: \(sourceType.displayName), reference \(shortRef)")
     }
 
-    // MARK: - Intent Selector
+    // MARK: - Detection pipeline
 
-    private var intentSelectorSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("What would you like to do?")
-                .font(.subheadline)
-                .foregroundStyle(Color(uiColor: .secondaryLabel))
-                .padding(.horizontal, 16)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(vm.config.allowedIntents, id: \.rawValue) { intent in
-                        intentChip(intent: intent)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
+    @MainActor
+    private func runDetection() async {
+        let text = vm.draft.body
+        guard text.count > 15 else {
+            withAnimation(.spring(response: 0.3)) {
+                detectedConfidence = 0
+                contextChips = []
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Intent selector")
+            return
         }
-    }
+        // Debounce — this task is cancelled automatically when body changes (task(id:))
+        try? await Task.sleep(for: .milliseconds(280))
+        guard !Task.isCancelled else { return }
 
-    private func intentChip(intent: AmenIntent) -> some View {
-        let isSelected = vm.draft.selectedIntent == intent
-        let meta = intentMeta(for: intent)
-
-        return Button {
-            withAnimation(
-                reduceMotion
-                    ? .easeOut(duration: 0.12)
-                    : .spring(response: 0.22, dampingFraction: 0.80)
-            ) {
-                vm.updateIntent(intent)
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: meta.systemImage)
-                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
-                Text(meta.displayName)
-                    .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
-            }
-            .foregroundStyle(
-                isSelected
-                    ? Color.accentColor
-                    : Color(uiColor: .secondaryLabel)
-            )
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(minHeight: 44)
-            .background(
-                isSelected
-                    ? Color.accentColor.opacity(0.08)
-                    : Color(uiColor: .secondarySystemFill)
-            )
-            .clipShape(Capsule(style: .continuous))
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(
-                        isSelected ? Color.accentColor : Color.clear,
-                        lineWidth: 1
-                    )
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(meta.displayName)
-        .accessibilityHint(isSelected ? "Selected" : "Tap to select \(meta.displayName)")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    // MARK: - Text Input
-
-    private var textInputSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-
-            // Title field — shown only for intents/sources that require a title.
-            if vm.config.showTitleField {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Title")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color(uiColor: .label))
-
-                    TextField("Add a title...", text: $vm.draft.title)
-                        .font(.body)
-                        .foregroundStyle(Color(uiColor: .label))
-                        .tint(Color.accentColor)
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                        )
-                        .accessibilityLabel("Title field")
-                }
-            }
-
-            // Body text editor.
-            VStack(alignment: .trailing, spacing: 6) {
-                TextField(bodyPlaceholder, text: $vm.draft.body, axis: .vertical)
-                    .font(.body)
-                    .foregroundStyle(Color(uiColor: .label))
-                    .tint(Color.accentColor)
-                    .lineLimit(5...12)
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                            .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                    )
-                    .accessibilityLabel("Content field")
-                    .accessibilityHint(bodyPlaceholder)
-
-                // Character count — bottom right of the body area.
-                characterCountView
+        // Tier 1: intent detection (instant, local heuristic)
+        let (intent, confidence) = PostIntentDetector.shared.detect(text: text)
+        withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8)) {
+            detectedPostIntent = intent
+            detectedConfidence = confidence
+            if confidence > 0.65 && !hasUserPickedIntent {
+                let amenIntent = intent.amenIntent
+                vm.draft.selectedIntent = amenIntent
+                applySmartAudienceIfNeeded(for: amenIntent)
             }
         }
-    }
 
-    private var characterCountView: some View {
-        let count     = vm.draft.body.count
-        let limit     = vm.characterLimit
-        let remaining = limit - count
-        let isOverLimit = remaining < 0
-
-        return Text("\(remaining)")
-            .font(.caption2)
-            .foregroundStyle(
-                isOverLimit
-                    ? Color.red
-                    : Color(uiColor: .tertiaryLabel)
-            )
-            .accessibilityLabel("\(remaining) characters remaining")
-    }
-
-    // MARK: - Context-Specific Fields
-
-    @ViewBuilder
-    private var contextSpecificFields: some View {
-        // Prayer: privacy picker + anonymous toggle.
-        if vm.config.showPrayerPrivacyPicker {
-            prayerPrivacySection
-                .padding(.bottom, 16)
-        }
-
-        // Job: role title + organization.
-        if vm.config.showJobFields {
-            jobFieldsSection
-                .padding(.bottom, 16)
-        }
-
-        // Event: date/time picker.
-        if vm.config.showEventFields {
-            eventDateSection
-                .padding(.bottom, 16)
-        }
-
-        // Study: scripture reference.
-        if vm.config.showStudyFields {
-            studyFieldsSection
-                .padding(.bottom, 16)
+        // Tier 2: context chips (async, actor-isolated)
+        guard !Task.isCancelled else { return }
+        let contextResult = await AmenSmartContextDetectionEngine.shared.detect(in: text)
+        guard !Task.isCancelled else { return }
+        let chips = AmenContextDetectionBridge.toInsightChips(from: contextResult)
+        withAnimation(reduceMotion ? nil : .spring(response: 0.4)) {
+            contextChips = Array(chips.prefix(4))
         }
     }
 
-    // MARK: Prayer privacy section
-
-    private var prayerPrivacySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Prayer Privacy")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color(uiColor: .label))
-
-            Picker("Prayer Privacy", selection: $vm.draft.prayerPrivacyLevel) {
-                Text("Private").tag("private")
-                Text("Trusted Circle").tag("trusted_circle")
-                Text("Members Only").tag("members_only")
-                Text("Anonymous").tag("anonymous")
-                Text("Public").tag("public")
-            }
-            .pickerStyle(.menu)
-            .tint(Color.accentColor)
-            .accessibilityLabel("Prayer privacy level selector")
-
-            Toggle(isOn: $vm.draft.isAnonymous) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Post Anonymously")
-                        .font(.subheadline)
-                        .foregroundStyle(Color(uiColor: .label))
-                    Text("Your name will not be shown")
-                        .font(.caption)
-                        .foregroundStyle(Color(uiColor: .secondaryLabel))
-                }
-            }
-            .tint(Color.accentColor)
-            .accessibilityLabel("Post anonymously")
-            .accessibilityHint("When on, your name will not be shown with this prayer")
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-        )
+    private func applySmartAudienceIfNeeded(for intent: AmenIntent) {
+        guard !hasUserPickedAudience else { return }
+        vm.draft.audience = smartAudienceInfo.raw
     }
 
-    // MARK: Job fields section
+    // MARK: - Static data
 
-    private var jobFieldsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Role Details")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color(uiColor: .label))
-
-            TextField("Job Title", text: $vm.draft.jobTitle)
-                .font(.body)
-                .foregroundStyle(Color(uiColor: .label))
-                .tint(Color.accentColor)
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                        .fill(Color(uiColor: .tertiarySystemFill))
-                )
-                .accessibilityLabel("Job title")
-
-            TextField("Organization", text: $vm.draft.jobOrganization)
-                .font(.body)
-                .foregroundStyle(Color(uiColor: .label))
-                .tint(Color.accentColor)
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                        .fill(Color(uiColor: .tertiarySystemFill))
-                )
-                .accessibilityLabel("Organization name")
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-        )
+    private var filteredRibbonItems: [RibbonItem] {
+        let allowed = Set(vm.config.allowedIntents.map(\.rawValue))
+        return allRibbonItems.filter { allowed.contains($0.intent.rawValue) }
     }
 
-    // MARK: Event date section
+    private let allRibbonItems: [RibbonItem] = [
+        RibbonItem(icon: "📖", label: "Study",    intent: .study),
+        RibbonItem(icon: "🙏", label: "Prayer",   intent: .pray),
+        RibbonItem(icon: "💬", label: "Discuss",  intent: .discuss),
+        RibbonItem(icon: "🎉", label: "Invite",   intent: .invite),
+        RibbonItem(icon: "📢", label: "Announce", intent: .announce),
+        RibbonItem(icon: "🤝", label: "Mentor",   intent: .mentor),
+        RibbonItem(icon: "🎓", label: "Teach",    intent: .teach),
+        RibbonItem(icon: "❓", label: "Ask",      intent: .ask),
+        RibbonItem(icon: "🙌", label: "Share",    intent: .share),
+    ]
 
-    private var eventDateSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Event Date & Time")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color(uiColor: .label))
+    private let audienceOptions: [ComposerAudienceOption] = [
+        ComposerAudienceOption(raw: "public_feed",    label: "Public",   icon: "globe"),
+        ComposerAudienceOption(raw: "church_only",    label: "Church",   icon: "building.columns"),
+        ComposerAudienceOption(raw: "space_members",  label: "My Space", icon: "house"),
+        ComposerAudienceOption(raw: "trusted_circle", label: "Trusted",  icon: "person.2.circle"),
+        ComposerAudienceOption(raw: "private",        label: "Only Me",  icon: "lock"),
+    ]
+}
 
-            DatePicker(
-                "Event Date",
-                selection: Binding(
-                    get: { vm.draft.eventDate ?? Date() },
-                    set: { vm.draft.eventDate = $0 }
-                ),
-                in: Date()...,
-                displayedComponents: [.date, .hourAndMinute]
-            )
-            .datePickerStyle(.compact)
-            .tint(Color.accentColor)
-            .accessibilityLabel("Event date and time picker")
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-        )
-    }
+// MARK: - Private model types
 
-    // MARK: Study fields section
+private struct RibbonItem {
+    let icon: String
+    let label: String
+    let intent: AmenIntent
+}
 
-    private var studyFieldsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Scripture Reference")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color(uiColor: .label))
+private struct ComposerAudienceOption {
+    let raw: String
+    let label: String
+    let icon: String
+}
 
-            TextField("e.g. John 3:16, Romans 8:28", text: $vm.draft.scriptureReference)
-                .font(.body)
-                .foregroundStyle(Color(uiColor: .label))
-                .tint(Color.accentColor)
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                        .fill(Color(uiColor: .tertiarySystemFill))
-                )
-                .accessibilityLabel("Scripture reference field")
-                .accessibilityHint("Enter a Bible verse or passage reference")
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: AmenRadius.input, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-        )
-    }
+private struct SmartAudienceInfo {
+    let raw: String
+    let label: String
+    let icon: String
+    let reason: String
+}
 
-    // MARK: - Audience Selector
+// MARK: - PostIntent extensions
 
-    private var audienceSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Who can see this?")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color(uiColor: .label))
-
-            Picker("Audience", selection: $vm.draft.audience) {
-                Text("Public").tag("public_feed")
-                Text("Church").tag("church_only")
-                Text("My Space").tag("space_members")
-                Text("Trusted").tag("trusted_circle")
-                Text("Only Me").tag("private")
-            }
-            .pickerStyle(.segmented)
-            .tint(Color.accentColor)
-            .accessibilityLabel("Audience selector")
-            .accessibilityHint("Choose who can see this content")
+private extension PostIntent {
+    var heroHeading: String {
+        switch self {
+        case .prayerRequest:                     return "Ask for prayer"
+        case .testimony, .gratitude:             return "Share a testimony"
+        case .teaching, .sermonClip:             return "Share a teaching"
+        case .announcement:                      return "Make an announcement"
+        case .question:                          return "Ask a question"
+        case .eventRecap, .missionUpdate:        return "Share an update"
+        case .resource:                          return "Share a resource"
+        default:                                 return "Share a thought"
         }
     }
 
-    // MARK: - Intent Meta Helper
-
-    private struct IntentMetadata {
-        let displayName: String
-        let systemImage: String
+    var intentDisplayName: String {
+        switch self {
+        case .prayerRequest:   return "Prayer Request"
+        case .testimony:       return "Testimony"
+        case .teaching:        return "Teaching"
+        case .sermonClip:      return "Sermon Clip"
+        case .announcement:    return "Announcement"
+        case .question:        return "Question"
+        case .gratitude:       return "Gratitude"
+        case .eventRecap:      return "Event"
+        case .missionUpdate:   return "Mission Update"
+        case .resource:        return "Resource"
+        case .reflection:      return "Reflection"
+        case .general:         return "Share"
+        }
     }
 
-    private func intentMeta(for intent: AmenIntent) -> IntentMetadata {
-        switch intent {
-        case .share:     return IntentMetadata(displayName: "Share",     systemImage: "square.and.arrow.up")
-        case .discuss:   return IntentMetadata(displayName: "Discuss",   systemImage: "bubble.left.and.bubble.right")
-        case .pray:      return IntentMetadata(displayName: "Pray",      systemImage: "hands.and.sparkles")
-        case .study:     return IntentMetadata(displayName: "Study",     systemImage: "book.pages")
-        case .teach:     return IntentMetadata(displayName: "Teach",     systemImage: "person.wave.2")
-        case .ask:       return IntentMetadata(displayName: "Ask",       systemImage: "questionmark.bubble")
-        case .invite:    return IntentMetadata(displayName: "Invite",    systemImage: "person.badge.plus")
-        case .volunteer: return IntentMetadata(displayName: "Volunteer", systemImage: "heart.circle")
-        case .hire:      return IntentMetadata(displayName: "Hire",      systemImage: "briefcase")
-        case .mentor:    return IntentMetadata(displayName: "Mentor",    systemImage: "person.2.circle")
-        case .announce:  return IntentMetadata(displayName: "Announce",  systemImage: "megaphone")
+    // Maps PostIntent (detection) → AmenIntent (ViewModel)
+    var amenIntent: AmenIntent {
+        switch self {
+        case .prayerRequest:            return .pray
+        case .question:                 return .ask
+        case .announcement:             return .announce
+        case .teaching, .sermonClip:    return .teach
+        case .testimony, .gratitude, .reflection, .eventRecap,
+             .missionUpdate, .resource, .general:
+            return .share
         }
     }
 }
 
-// MARK: - Preview
+// MARK: - AmenIntent extensions
 
-#Preview("Composer — from Post") {
-    struct PreviewWrapper: View {
-        @State private var shown = true
-        var body: some View {
-            Color(uiColor: .systemGroupedBackground)
-                .sheet(isPresented: $shown) {
-                    AmenUniversalComposerView(
-                        source: ComposerSource(
-                            type: .newPost,
-                            existingRef: "posts/abc123xyz",
-                            existingOwnerId: "uid_owner",
-                            prefillText: nil,
-                            prefillTitle: nil
-                        ),
-                        onDismiss: { shown = false }
-                    )
-                }
+private extension AmenIntent {
+    var heroHeading: String {
+        switch self {
+        case .discuss:   return "Start a discussion"
+        case .pray:      return "Ask for prayer"
+        case .study:     return "Explore scripture"
+        case .teach:     return "Share a teaching"
+        case .share:     return "Share a thought"
+        case .ask:       return "Ask the community"
+        case .invite:    return "Send an invitation"
+        case .volunteer: return "Volunteer"
+        case .hire:      return "Post a role"
+        case .mentor:    return "Request mentorship"
+        case .announce:  return "Make an announcement"
         }
     }
-    return PreviewWrapper()
-}
 
-#Preview("Composer — standalone prayer") {
-    struct PreviewWrapper: View {
-        @State private var shown = true
-        var body: some View {
-            Color(uiColor: .systemGroupedBackground)
-                .sheet(isPresented: $shown) {
-                    AmenUniversalComposerView(
-                        source: ComposerSource(
-                            type: .prayerRequest,
-                            existingRef: nil,
-                            existingOwnerId: nil,
-                            prefillText: nil,
-                            prefillTitle: nil
-                        ),
-                        onDismiss: { shown = false }
-                    )
-                }
+    var heroSubtitle: String {
+        switch self {
+        case .discuss:   return "Open a conversation with your community"
+        case .pray:      return "Invite others to pray alongside you"
+        case .study:     return "Dive deeper into God's word together"
+        case .teach:     return "Pass on what God has shown you"
+        case .share:     return "Start typing — we'll adapt as you go"
+        case .ask:       return "Ask a question, start a conversation"
+        case .invite:    return "Bring people together for something meaningful"
+        case .volunteer: return "Offer your time and gifts"
+        case .hire:      return "Find someone gifted for this role"
+        case .mentor:    return "Connect with someone who can guide you"
+        case .announce:  return "Share something important with your community"
         }
     }
-    return PreviewWrapper()
-}
 
-#Preview("Composer — from Church Note") {
-    struct PreviewWrapper: View {
-        @State private var shown = true
-        var body: some View {
-            Color(uiColor: .systemGroupedBackground)
-                .sheet(isPresented: $shown) {
-                    AmenUniversalComposerView(
-                        source: ComposerSource(
-                            type: .churchNote,
-                            existingRef: "users/uid1/churchNotes/note123",
-                            existingOwnerId: "uid1",
-                            prefillText: "Key insight: grace precedes works.",
-                            prefillTitle: "Sunday Sermon Notes"
-                        ),
-                        onDismiss: { shown = false }
-                    )
-                }
+    var composerPlaceholder: String {
+        switch self {
+        case .discuss:   return "What should the discussion focus on?"
+        case .pray:      return "Describe your prayer need..."
+        case .study:     return "What aspect would you like to study?"
+        case .teach:     return "What is the main teaching point?"
+        case .share:     return "Start typing — we'll adapt as you go..."
+        case .ask:       return "What would you like to ask?"
+        case .invite:    return "Add a personal note to the invite..."
+        case .volunteer: return "What can you offer?"
+        case .hire:      return "Describe the role and opportunity..."
+        case .mentor:    return "What area of mentorship are you seeking?"
+        case .announce:  return "What would you like to announce?"
         }
     }
-    return PreviewWrapper()
 }

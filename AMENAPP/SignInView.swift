@@ -457,7 +457,7 @@ struct SignInView: View {
             HStack(spacing: 12) {
                 if viewModel.isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .primary))
                     Text(isLogin && loginMethod == .phone ? "Sending code..." : "Signing in...")
                         .font(AMENFont.semiBold(15))
                 } else {
@@ -465,14 +465,10 @@ struct SignInView: View {
                         .font(AMENFont.semiBold(15))
                 }
             }
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.white)
-                    .shadow(color: .white.opacity(0.2), radius: 8, y: 4)
-            )
+            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .animation(.amenEaseQuick, value: viewModel.isLoading)
         }
         .disabled(viewModel.isLoading || !isFormValid)
@@ -1836,25 +1832,25 @@ struct PasswordResetSheet: View {
                     startCooldown()
                 } label: {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 26)
-                            .fill(canSend ? Color.black : Color.black.opacity(0.6))
-                            .frame(height: 52)
-
                         if isSending {
                             ProgressView()
-                                .tint(.white)
+                                .tint(.primary)
                         } else if cooldownRemaining > 0 {
                             Text("Resend in \(cooldownRemaining)s")
                                 .font(AMENFont.semiBold(16))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(.primary.opacity(0.7))
                         } else {
                             Text("Send Reset Link")
                                 .font(AMENFont.semiBold(16))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                         }
                     }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                 }
                 .disabled(!canSend)
+                .opacity(canSend ? 1.0 : 0.6)
                 .padding(.horizontal, 32)
                 .padding(.top, 8)
                 .animation(.easeInOut(duration: 0.2), value: canSend)
@@ -1976,13 +1972,10 @@ struct PasswordlessSignInSheet: View {
                 } label: {
                     Text("Send Magic Link")
                         .font(AMENFont.semiBold(16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(
-                            RoundedRectangle(cornerRadius: 26)
-                                .fill(.black)
-                        )
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                 }
                 .disabled(!isValidEmail)
                 .opacity(isValidEmail ? 1.0 : 0.65)
@@ -2362,19 +2355,16 @@ struct OTPVerificationView: View {
                     HStack(spacing: 12) {
                         if viewModel.isLoading {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                .progressViewStyle(CircularProgressViewStyle(tint: .primary))
                         } else {
                             Text("Verify Code")
                                 .font(AMENFont.semiBold(16))
                         }
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(
-                        RoundedRectangle(cornerRadius: 25)
-                            .fill(.white)
-                    )
+                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 25, style: .continuous))
                 }
                 .disabled(otpCode.count != 6 || viewModel.isLoading)
                 .opacity(otpCode.count == 6 && !viewModel.isLoading ? 1.0 : 0.5)

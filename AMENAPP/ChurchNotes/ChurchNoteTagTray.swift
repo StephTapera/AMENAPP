@@ -156,21 +156,16 @@ struct ChurchNoteTagTray: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.systemScaled(8, weight: .bold))
-                    .foregroundStyle(.primary.opacity(0.4))
+                    .foregroundStyle(Color.purple.opacity(0.5))
             }
             .buttonStyle(.plain)
         }
-        .foregroundStyle(.primary.opacity(0.75))
+        .foregroundStyle(Color.purple.opacity(0.85))
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(
-            Capsule()
-                .fill(Color(.systemBackground).opacity(0.85))
-        )
-        .overlay(
-            Capsule()
-                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.75)
-        )
+        .background(Color.purple.opacity(0.08))
+        .clipShape(Capsule())
+        .overlay(Capsule().strokeBorder(Color.purple.opacity(0.2), lineWidth: 0.5))
         .transition(.opacity.combined(with: .scale(scale: 0.9)))
     }
 
@@ -186,15 +181,14 @@ struct ChurchNoteTagTray: View {
                 Text(tag)
                     .font(.systemScaled(12, weight: .regular))
             }
-            .foregroundStyle(.primary.opacity(isContentMatch ? 0.55 : 0.35))
+            .foregroundStyle(Color.purple.opacity(isContentMatch ? 0.65 : 0.45))
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
-            .background(
+            .background(Color.purple.opacity(isContentMatch ? 0.06 : 0.03))
+            .clipShape(Capsule())
+            .overlay(
                 Capsule()
-                    .strokeBorder(
-                        Color.primary.opacity(isContentMatch ? 0.12 : 0.06),
-                        lineWidth: 0.75
-                    )
+                    .strokeBorder(Color.purple.opacity(isContentMatch ? 0.18 : 0.1), lineWidth: 0.75)
             )
         }
         .buttonStyle(.plain)

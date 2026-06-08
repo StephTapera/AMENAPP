@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Compatibility Entry
 
@@ -288,12 +289,65 @@ struct AmenConnectDiscoverView: View {
 
 struct AmenConnectSpaceListView: View {
     @ObservedObject var viewModel: AmenConnectViewModel
+    @State private var showCreateSpace = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             AmenConnectRoomTitle(title: "Amen Spaces", subtitle: "Workspaces for churches, colleges, nonprofits, local help, creators, teams, and personal communities.")
-            AmenConnectSpaceSection(title: "Your spaces", spaces: viewModel.spaces)
-            AmenConnectBackendContractPanel(title: "Space contracts", contracts: viewModel.backendContracts.filter { $0.functionName.contains("Space") || $0.functionName.contains("Channel") })
+
+            if viewModel.spaces.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "building.2.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(.secondary)
+                    Text("No Spaces Yet")
+                        .font(.systemScaled(20, weight: .bold))
+                        .foregroundStyle(.primary)
+                    Text("Create your first space to bring your community together.")
+                        .font(.systemScaled(14))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button {
+                        showCreateSpace = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Create Space")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(.regularMaterial, in: Capsule())
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .padding(.horizontal, 20)
+            } else {
+                AmenConnectSpaceSection(title: "Your spaces", spaces: viewModel.spaces)
+                HStack {
+                    Spacer()
+                    Button {
+                        showCreateSpace = true
+                    } label: {
+                        Label("New Space", systemImage: "plus.circle.fill")
+                            .font(.systemScaled(15, weight: .semibold))
+                    }
+                    .padding(.trailing, 20)
+                }
+            }
+        }
+        .sheet(isPresented: $showCreateSpace) {
+            AmenCreateSpaceEnhancedSheet(
+                userId: Auth.auth().currentUser?.uid ?? "",
+                onDismiss: { showCreateSpace = false },
+                onCreated: { _ in showCreateSpace = false }
+            )
         }
     }
 }
@@ -563,21 +617,81 @@ struct AmenConnectAICatchUpSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("AI-assisted catch up") {
-                    ForEach(activityItems) { item in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.title).font(.headline)
-                            Text(item.detail).font(.subheadline).foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+
+                    // Header icon
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 32, weight: .semibold))
+                            .foregroundStyle(.blue)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                    // Summary section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Recent Activity")
+                            .font(.title3.weight(.bold))
+                            .padding(.horizontal, 20)
+
+                        if activityItems.isEmpty {
+                            // Placeholder when no activity
+                            VStack(alignment: .leading, spacing: 10) {
+                                Image(systemName: "tray")
+                                    .font(.system(size: 28))
+                                    .foregroundStyle(.secondary)
+                                Text("Your AI catch-up will summarize recent activity in spaces you're part of. Join or create a space to get started.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(18)
+                            .background(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Color(.secondarySystemBackground))
+                            )
+                            .padding(.horizontal, 20)
+                        } else {
+                            ForEach(activityItems) { item in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Circle()
+                                        .fill(item.isPriority ? Color.red : Color.blue)
+                                        .frame(width: 8, height: 8)
+                                        .padding(.top, 6)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(item.title)
+                                            .font(.subheadline.weight(.semibold))
+                                        Text(item.detail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
                         }
                     }
+
+                    // Permission footnote
+                    Text("AI-assisted summaries include only content you have access to. Paid, private, confidential, youth-protected, deleted, and AI-excluded content is never included.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+                        .accessibilityLabel("AI summaries are permission aware and exclude restricted content")
                 }
-                Section("Permission rule") {
-                    Text("Amen Guide can summarize only content the current user can access. Paid, private, confidential, youth-protected, deleted, and AI-excluded content is not included unless the user has explicit access and the content permits AI use.")
-                }
+                .padding(.vertical, 8)
             }
             .navigationTitle("AI Catch Up")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
         }
     }
 }

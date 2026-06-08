@@ -579,6 +579,43 @@ struct CovenantCatchUpSummary: Codable {
     var suggestedActions: [String]
 }
 
+// MARK: - Convenience Placeholders
+
+extension Covenant {
+    static var amenPlusCovenant: Covenant {
+        Covenant(
+            creatorId: "amen",
+            name: "Amen+",
+            tagline: "Unlock the full Amen experience",
+            description: "Amen+ gives you unlimited Berean conversations, premium community features, and priority access to new tools.",
+            coverImageURL: nil,
+            avatarURL: nil,
+            tiers: [
+                CovenantTier(
+                    id: "amen_plus_monthly",
+                    name: "Monthly",
+                    price: 4.99,
+                    currency: "USD",
+                    billingPeriod: .monthly,
+                    description: "Full access, billed monthly.",
+                    perks: ["Unlimited Berean", "Premium features", "Early access"],
+                    roomAccess: [],
+                    isPopular: true,
+                    stripePriceId: nil
+                )
+            ],
+            operatingMode: .teaching,
+            trustBadges: [.verifiedCreator],
+            memberCount: 0,
+            paidMemberCount: 0,
+            isPublic: true,
+            isPaused: false,
+            createdAt: Timestamp(date: Date()),
+            updatedAt: Timestamp(date: Date())
+        )
+    }
+}
+
 // MARK: - Deep Link Route
 
 enum CovenantDeepLinkRoute: Equatable {

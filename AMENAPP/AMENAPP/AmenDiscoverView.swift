@@ -33,15 +33,15 @@ struct AmenDiscoverView: View {
                     if viewModel.isLoading {
                         AmenDiscoverSkeletonGrid()
                     } else if let error = viewModel.errorMessage {
-                        Text(error)
-                            .font(.subheadline)
-                            .foregroundStyle(.black.opacity(0.7))
-                            .padding(20)
+                        AmenDiscoverErrorState(message: error) {
+                            Task { await viewModel.loadInitial() }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 24)
                     } else if viewModel.items.isEmpty {
-                        Text("No discover items yet.")
-                            .font(.subheadline)
-                            .foregroundStyle(.black.opacity(0.7))
-                            .padding(20)
+                        AmenDiscoverEmptyState(filter: viewModel.selectedFilter)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 24)
                     } else {
                         AmenDiscoverGridView(
                             items: viewModel.items,
@@ -112,6 +112,80 @@ private struct AmenDiscoverSkeletonGrid: View {
             }
         }
         .padding(.horizontal, 16)
+    }
+}
+
+// MARK: - Empty State
+
+private struct AmenDiscoverEmptyState: View {
+    let filter: String
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "sparkle.magnifyingglass")
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(.black.opacity(0.35))
+
+            VStack(spacing: 6) {
+                Text("Discover content loading")
+                    .font(.headline)
+                    .foregroundStyle(.black.opacity(0.75))
+
+                Text("We're personalising your \(filter) feed. Check back in a moment, or try a different topic above.")
+                    .font(.subheadline)
+                    .foregroundStyle(.black.opacity(0.45))
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.vertical, 40)
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity)
+        .liquidGlass(opacity: 0.06, cornerRadius: 24)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Discover content is loading for the \(filter) topic. Try a different topic or check back soon.")
+    }
+}
+
+// MARK: - Error State
+
+private struct AmenDiscoverErrorState: View {
+    let message: String
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(.black.opacity(0.35))
+
+            VStack(spacing: 6) {
+                Text("Couldn't load Discover")
+                    .font(.headline)
+                    .foregroundStyle(.black.opacity(0.75))
+
+                Text("Pull down or tap Retry to try again.")
+                    .font(.subheadline)
+                    .foregroundStyle(.black.opacity(0.45))
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: onRetry) {
+                Text("Retry")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.black.opacity(0.75))
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 10)
+                    .liquidGlass(opacity: 0.10, cornerRadius: 20)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 40)
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity)
+        .liquidGlass(opacity: 0.06, cornerRadius: 24)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Couldn't load Discover. \(message). Double-tap to retry.")
+        .accessibilityAction(named: "Retry") { onRetry() }
     }
 }
 

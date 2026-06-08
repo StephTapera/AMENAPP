@@ -31,6 +31,7 @@ struct SmartMediaCarouselView: View {
     @State private var videoProgress: CGFloat = 0.0
     @State private var isPlayingVideo: Bool = false
     @State private var showSmartActionsMenu: Bool = false
+    @State private var savedMediaIds: Set<String> = []
 
     var body: some View {
         GeometryReader { geo in
@@ -93,12 +94,23 @@ struct SmartMediaCarouselView: View {
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         let item = items[currentIndex]
-                        let url = item.thumbnailURL ?? item.videoURL
-                        UserDefaults.standard.set(url, forKey: "saved_media_\(item.id)")
+                        if savedMediaIds.contains(item.id) {
+                            savedMediaIds.remove(item.id)
+                        } else {
+                            savedMediaIds.insert(item.id)
+                            let url = item.thumbnailURL ?? item.videoURL
+                            UserDefaults.standard.set(url, forKey: "saved_media_\(item.id)")
+                            NotificationCenter.default.post(
+                                name: .init("mediaSaved"),
+                                object: nil,
+                                userInfo: ["mediaId": item.id]
+                            )
+                        }
                         let feedback = UINotificationFeedbackGenerator()
                         feedback.notificationOccurred(.success)
                     } label: {
-                        Label("Save", systemImage: "square.and.arrow.down")
+                        let isSaved = savedMediaIds.contains(items[currentIndex].id)
+                        Label(isSaved ? "Saved" : "Save", systemImage: isSaved ? "bookmark.fill" : "bookmark")
                     }
                     ShareLink(item: items[currentIndex].contextTag ?? "Check out this media on Amen!") {
                         Label("Share Safely", systemImage: "square.and.arrow.up")

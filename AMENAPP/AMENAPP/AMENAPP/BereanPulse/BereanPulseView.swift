@@ -176,8 +176,13 @@ struct BereanPulseView: View {
             BereanPulseLoadingView()
                 .liquidGlassPanel(glassBehavior, cornerRadius: 26, elevated: false)
         case .error(let message):
-            BereanPulseErrorStateView(message: message) {
+            BereanPulseErrorStateView(message: message, isAuthError: false) {
                 Task { await viewModel.refresh() }
+            }
+            .liquidGlassPanel(glassBehavior, cornerRadius: 26, elevated: false)
+        case .notSignedIn:
+            BereanPulseErrorStateView(message: "", isAuthError: true) {
+                dismiss()
             }
             .liquidGlassPanel(glassBehavior, cornerRadius: 26, elevated: false)
         case .empty, .cardHidden:

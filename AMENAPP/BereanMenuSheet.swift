@@ -19,6 +19,7 @@ struct BereanMenuSheet: View {
     @StateObject private var sessionManager = BereanChatSessionManager.shared
     @State private var searchText = ""
     @State private var showSearchField = false
+    @State private var showAllModes = false
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -106,6 +107,13 @@ struct BereanMenuSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(reduceTransparency ? AnyShapeStyle(bgColor) : AnyShapeStyle(.ultraThinMaterial))
+        .sheet(isPresented: $showAllModes) {
+            BereanAllModesSheet(isPresented: $showAllModes, onSelect: { mode in
+                showAllModes = false
+                NotificationCenter.default.post(name: Notification.Name("amenBereanModeSelected"), object: mode)
+                triggerNewChat()
+            })
+        }
     }
 
     // MARK: - Toolbar
@@ -173,7 +181,7 @@ struct BereanMenuSheet: View {
             quickModeRow(icon: "book.pages",        label: "Scripture Study",  action: { triggerNewChat() })
             quickModeRow(icon: "hands.sparkles",    label: "Prayer",           action: { triggerNewChat() })
             quickModeRow(icon: "note.text",         label: "Church Notes",     action: { triggerNewChat() })
-            quickModeRow(icon: "ellipsis",          label: "More",             action: { })
+            quickModeRow(icon: "ellipsis",          label: "More",             action: { showAllModes = true })
         }
         .padding(.horizontal, 16)
     }
@@ -311,5 +319,47 @@ struct BereanMenuSheet: View {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .strokeBorder(Color.white.opacity(0.65), lineWidth: 0.5)
             )
+    }
+}
+
+// MARK: - BereanAllModesSheet
+
+private struct BereanAllModesSheet: View {
+    @Binding var isPresented: Bool
+    let onSelect: (String) -> Void
+
+    private let modes: [(icon: String, label: String, mode: String)] = [
+        ("book.pages",        "Scripture Study",    "scripture"),
+        ("hands.sparkles",    "Prayer",             "prayer"),
+        ("note.text",         "Church Notes",       "church_notes"),
+        ("lightbulb",         "Wisdom",             "wisdom"),
+        ("magnifyingglass",   "Research",           "research"),
+        ("chart.bar.doc.horizontal", "Debate",      "debate"),
+        ("person.2",          "Multi-Perspective",  "multi_perspective"),
+        ("brain.head.profile","Deep Study",         "deep_study"),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(modes, id: \.mode) { item in
+                    Button {
+                        onSelect(item.mode)
+                    } label: {
+                        Label(item.label, systemImage: item.icon)
+                            .font(.body)
+                    }
+                }
+            }
+            .navigationTitle("All Modes")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { isPresented = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }

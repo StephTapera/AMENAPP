@@ -369,7 +369,7 @@ private struct ContextLabelChip: View {
 
 // MARK: - Activity Notification Row
 
-private struct ActivityNotificationRow: View {
+struct ActivityNotificationRow: View {
     let item: GroupedNotification
     let index: Int
     let onTap: () -> Void

@@ -3,6 +3,8 @@
 // Live notes, prayer, polls, Q&A, and reactions panel shown during a livestream.
 
 import SwiftUI
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Live Panel Mode
 
@@ -52,6 +54,7 @@ struct LiveNotesSidebar: View {
     @State private var qaItems: [LiveQAItem] = []
     @State private var reactionCounts: [String: Int] = ["🙏": 0, "❤️": 0, "🔥": 0, "✝️": 0, "⭐": 0]
     @State private var myReaction: String? = nil
+    @State private var noteSaveToast: Bool = false
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -115,7 +118,18 @@ struct LiveNotesSidebar: View {
             Divider().opacity(0.3)
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                // TODO: implement save note to ChurchNotes
+                let db = Firestore.firestore()
+                guard let uid = Auth.auth().currentUser?.uid, !noteText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                Task {
+                    try? await db.collection("liveNotes").document(streamId)
+                        .collection("notes").addDocument(data: [
+                            "uid": uid,
+                            "text": noteText.trimmingCharacters(in: .whitespaces),
+                            "isHost": isHost,
+                            "createdAt": Timestamp(date: Date())
+                        ])
+                    await MainActor.run { noteText = "" }
+                }
             } label: {
                 Label("Save Note", systemImage: "note.text.badge.plus")
                     .font(.caption.weight(.semibold))

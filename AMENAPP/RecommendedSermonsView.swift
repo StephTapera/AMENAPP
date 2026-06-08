@@ -339,6 +339,13 @@ struct EnhancedSermonCard: View {
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
                     }
+                    if isSaved {
+                        NotificationCenter.default.post(
+                            name: .init("sermonSaved"),
+                            object: nil,
+                            userInfo: ["sermonId": sermon.id.uuidString]
+                        )
+                    }
                 } label: {
                     Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
                         .font(.systemScaled(24))
@@ -553,6 +560,11 @@ struct SermonVideoPlayerView: View {
                                 if isSaved {
                                     let key = "saved_sermon_\(sermon.youtubeID ?? sermon.title)"
                                     UserDefaults.standard.set(true, forKey: key)
+                                    NotificationCenter.default.post(
+                                        name: .init("sermonSaved"),
+                                        object: nil,
+                                        userInfo: ["sermonId": sermon.id.uuidString]
+                                    )
                                 }
                             } label: {
                                 HStack(spacing: 8) {

@@ -51,6 +51,12 @@ final class NotificationDeepLinkRouter: ObservableObject {
         case event(eventId: String)
         case studioProfile(creatorId: String)
         case intelligence(cardId: String? = nil)
+        /// Opens the Discovery / Search tab (tab 1).
+        case discovery
+        /// Opens the Profile tab where Settings is accessible (tab 5).
+        case settings
+        /// Opens the Resources tab where Find a Church lives (tab 3).
+        case church
 
         static func == (lhs: NavigationDestination, rhs: NavigationDestination) -> Bool {
             switch (lhs, rhs) {
@@ -76,6 +82,8 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 return id1 == id2
             case (.intelligence(let id1), .intelligence(let id2)):
                 return id1 == id2
+            case (.discovery, .discovery), (.settings, .settings), (.church, .church):
+                return true
             default:
                 return false
             }
@@ -494,13 +502,12 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
         // ─── Routes ported from amen:// scheme ──────────────────────────────
         case "church":
-            // amen://church/{churchId} — no dedicated NavigationDestination;
-            // fall through to notifications so the user lands somewhere useful.
-            destination = .notifications
+            // amen://church/{churchId} — open Resources tab where Find a Church lives.
+            destination = .church
 
         case "category":
-            // amen://category/{name} — open the home/feed tab (no direct mapping)
-            destination = .notifications
+            // amen://category/{name} — open the Discovery / Search tab
+            destination = .discovery
 
         case "user":
             // amen://user/{userId} — alias for "profile"
@@ -511,12 +518,12 @@ final class NotificationDeepLinkRouter: ObservableObject {
             }
 
         case "search":
-            // amen://search?q=... — no dedicated NavigationDestination; fall back to notifications
-            destination = .notifications
+            // amen://search?q=... — open Discovery / Search tab (tab 1)
+            destination = .discovery
 
         case "settings":
-            // amen://settings[/{section}] — no dedicated NavigationDestination; fall back
-            destination = .notifications
+            // amen://settings[/{section}] — open Profile tab where Settings is accessible
+            destination = .settings
 
         case "comment":
             // amen://comment?postId=...&commentId=...&prefill=...
@@ -652,6 +659,18 @@ struct NotificationNavigationHandler: ViewModifier {
 
                 case .intelligence:
                     selectedTab = 7  // Switch to Intelligence Brief tab
+                    pendingAction = nil
+
+                case .discovery:
+                    selectedTab = 1  // Discovery / Search tab
+                    pendingAction = nil
+
+                case .settings:
+                    selectedTab = 5  // Profile tab — Settings reachable from here
+                    pendingAction = nil
+
+                case .church:
+                    selectedTab = 3  // Resources tab — Find a Church lives here
                     pendingAction = nil
                 }
 

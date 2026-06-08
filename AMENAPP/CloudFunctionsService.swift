@@ -46,9 +46,9 @@ class CloudFunctionsService: ObservableObject {
             "groupName": groupName as Any
         ]
         
-        dlog("📞 Calling createConversation function...")
-        
-        let result = try await functions.httpsCallable("createConversation").call(data)
+        dlog("📞 Calling resolveOrCreateConversation function...")
+
+        let result = try await functions.httpsCallable("resolveOrCreateConversation").call(data)
         
         guard let response = result.data as? [String: Any],
               let conversationId = response["conversationId"] as? String else {

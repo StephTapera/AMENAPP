@@ -182,8 +182,13 @@ struct AmenSpaceHostOnboardingView: View {
             )
             .transition(transition)
         case .payout:
-            PayoutStep(isSubmitting: isSubmitting)
-                .transition(transition)
+            PayoutStep(
+                isSubmitting: isSubmitting,
+                onConnectBank: {
+                    Task { await connectBankAccount() }
+                }
+            )
+            .transition(transition)
         }
     }
 
@@ -205,6 +210,7 @@ struct AmenSpaceHostOnboardingView: View {
                     .font(.systemScaled(13))
                     .foregroundStyle(Color.red.opacity(0.85))
                     .multilineTextAlignment(.center)
+                    .accessibilityLabel("Error: \(error)")
             }
             HStack(spacing: 12) {
                 if currentStep != .hostType {
@@ -263,7 +269,10 @@ struct AmenSpaceHostOnboardingView: View {
         )
         .buttonStyle(.plain)
         .disabled(!canAdvanceCurrent || isSubmitting)
-        .accessibilityLabel(currentStep == .payout ? "Complete host setup" : "Continue to next step")
+        .accessibilityLabel({
+            if isSubmitting { return "Submitting, please wait" }
+            return currentStep == .payout ? "Complete host setup" : "Continue to next step"
+        }())
     }
 
     private var canAdvanceCurrent: Bool {
@@ -527,8 +536,14 @@ private struct IdentityStep: View {
 
 private struct PayoutStep: View {
     let isSubmitting: Bool
+    /// Closure that triggers the parent-owned `connectBankAccount()` async call
+    /// inside a `Task {}`. Injected so this struct has no direct async dependency.
+    let onConnectBank: () -> Void
 
-    @State private var showComingSoon: Bool = false
+    @State private var isConnectingBank: Bool = false
+
+    /// Semantic constant — avoids repeating the Stripe brand blue hex literal.
+    private let stripeBlue = Color(hex: "245B8F")
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -539,11 +554,6 @@ private struct PayoutStep: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
         }
-        .alert("Coming Soon", isPresented: $showComingSoon) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Stripe Connect bank account integration is coming soon. You can complete your host setup now and connect your payout account later from Settings > Payout.")
-        }
     }
 
     private var payoutCard: some View {
@@ -551,15 +561,15 @@ private struct PayoutStep: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(hex: "245B8F").opacity(0.20))
+                        .fill(stripeBlue.opacity(0.20))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
-                                .strokeBorder(Color(hex: "245B8F").opacity(0.50), lineWidth: 1)
+                                .strokeBorder(stripeBlue.opacity(0.50), lineWidth: 1)
                         )
                         .frame(width: 44, height: 44)
                     Image(systemName: "building.columns.fill")
                         .font(.systemScaled(18, weight: .semibold))
-                        .foregroundStyle(Color(hex: "245B8F"))
+                        .foregroundStyle(stripeBlue)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Bank account")
@@ -577,12 +587,23 @@ private struct PayoutStep: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                showComingSoon = true
+                isConnectingBank = true
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                onConnectBank()
+                // isConnectingBank is reset via parent state (isSubmitting) when the
+                // async call completes. Mirror it here so the local spinner tracks.
+                isConnectingBank = false
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "arrow.up.right.square")
-                        .font(.systemScaled(14, weight: .semibold))
+                    if isConnectingBank || isSubmitting {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(Color.white)
+                            .scaleEffect(0.85)
+                    } else {
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.systemScaled(14, weight: .semibold))
+                    }
                     Text("Connect Bank Account")
                         .font(.systemScaled(14, weight: .bold))
                 }
@@ -591,16 +612,21 @@ private struct PayoutStep: View {
                 .padding(.vertical, 13)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(hex: "245B8F").opacity(0.80))
+                        .fill(stripeBlue.opacity((isConnectingBank || isSubmitting) ? 0.50 : 0.80))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
-                                .strokeBorder(Color(hex: "245B8F"), lineWidth: 1)
+                                .strokeBorder(stripeBlue, lineWidth: 1)
                         )
                 )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Connect bank account — coming soon")
-            .accessibilityHint("Stripe Connect payout integration is not yet available. You can add it later from Settings.")
+            .disabled(isConnectingBank || isSubmitting)
+            .accessibilityLabel(
+                (isConnectingBank || isSubmitting)
+                    ? "Connecting bank account, please wait"
+                    : "Connect bank account via Stripe"
+            )
+            .accessibilityHint("Opens Stripe's secure onboarding flow to connect your bank account for payouts.")
         }
         .padding(18)
         .background(

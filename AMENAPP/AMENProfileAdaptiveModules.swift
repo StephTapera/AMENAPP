@@ -85,22 +85,30 @@ struct ProfileAdaptiveModulesView: View {
                 churchName: "Pillar Church",
                 relationshipLabel: "Attends",
                 visibility: "Public",
-                onTap: {}
+                onTap: {
+                    NotificationCenter.default.post(name: Notification.Name("amenNavigateToChurchProfile"), object: nil)
+                }
             )),
             AnyView(PersonalFaithJourneyModuleView(
                 currentSeason: "Studying the book of Romans",
                 prayerFocusItems: ["Healing", "Wisdom", "Family"],
                 verseTopics: ["Grace", "Faith"],
-                onEdit: {}
+                onEdit: {
+                    NotificationCenter.default.post(name: Notification.Name("amenEditFaithJourney"), object: nil)
+                }
             )),
             AnyView(PersonalPrayerFocusModuleView(
                 prayerFocus: "Seeking guidance for the next season",
-                onAdd: {}
+                onAdd: {
+                    NotificationCenter.default.post(name: Notification.Name("amenAddPrayerFocus"), object: nil)
+                }
             )),
             AnyView(PersonalTestimonyModuleView(
                 testimonySnippet: "God brought me through a season of loss and reminded me that His plans are higher than my own.",
                 hasMoreContent: true,
-                onView: {}
+                onView: {
+                    NotificationCenter.default.post(name: Notification.Name("amenViewFullTestimony"), object: nil)
+                }
             ))
         ]
         ForEach(Array(items.enumerated()), id: \.offset) { index, view in
@@ -112,7 +120,9 @@ struct ProfileAdaptiveModulesView: View {
     @ViewBuilder
     private var churchModules: some View {
         let items: [AnyView] = [
-            AnyView(ChurchVerificationBadgeView(isVerified: true, onVerify: {})),
+            AnyView(ChurchVerificationBadgeView(isVerified: true, onVerify: {
+                NotificationCenter.default.post(name: Notification.Name("amenStartChurchVerification"), object: nil)
+            })),
             AnyView(ChurchMutualSignalView(mutualCount: 18, areaDescription: "Atlanta, GA")),
             AnyView(ChurchServiceTimesModuleView(serviceTimes: [
                 (day: "Sunday", time: "9:00 AM", label: "Traditional"),
@@ -121,7 +131,10 @@ struct ProfileAdaptiveModulesView: View {
                 (day: "Friday", time: "6:30 PM", label: "Youth"),
                 (day: "Saturday", time: "5:00 PM", label: "Evening")
             ])),
-            AnyView(ChurchVisitCTAView(onPlanVisit: {}, onDirections: {}))
+            AnyView(ChurchVisitCTAView(
+                onPlanVisit: { NotificationCenter.default.post(name: Notification.Name("amenPlanChurchVisit"), object: nil) },
+                onDirections: { NotificationCenter.default.post(name: Notification.Name("amenGetChurchDirections"), object: nil) }
+            ))
         ]
         ForEach(Array(items.enumerated()), id: \.offset) { index, view in
             view
@@ -137,12 +150,16 @@ struct ProfileAdaptiveModulesView: View {
                 missionStatement: "Equipping believers through gospel-centered content and resources.",
                 websiteURL: "amenapp.com",
                 contactEmail: "hello@amenapp.com",
-                onVisitSite: {}
+                onVisitSite: {
+                    NotificationCenter.default.post(name: Notification.Name("amenOpenBusinessWebsite"), object: nil)
+                }
             )),
             AnyView(BusinessFeaturedOfferingModuleView(
                 offeringTitle: "Faith & Work Masterclass",
                 offeringDescription: "A 6-week journey through integrating your faith into your daily work life.",
-                onView: {}
+                onView: {
+                    NotificationCenter.default.post(name: Notification.Name("amenViewFeaturedOffering"), object: nil)
+                }
             )),
             AnyView(BusinessLinksModuleView(links: [
                 (label: "Resource Library", icon: "books.vertical.fill"),

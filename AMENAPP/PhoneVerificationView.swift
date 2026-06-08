@@ -316,4 +316,5 @@ class PhoneVerificationViewModel: ObservableObject {
 
 #Preview {
     PhoneVerificationView()
+        .environmentObject(AuthenticationViewModel())
 }

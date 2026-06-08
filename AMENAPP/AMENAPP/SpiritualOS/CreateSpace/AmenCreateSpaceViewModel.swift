@@ -62,11 +62,13 @@ final class AmenCreateSpaceViewModel: ObservableObject {
     @Published var spaceName: String = ""
     @Published var spaceDescription: String = ""
     @Published var coverImageURL: URL? = nil
+    @Published var coverImageData: Data? = nil
     @Published var isPrivate: Bool = false
     @Published var encryptedPrayerWall: Bool = false
     @Published var addBereanAsMember: Bool = false
     @Published var features: SpaceFeatureToggles = SpaceFeatureToggles()
     @Published var members: [SpaceMemberDraft] = []
+    @Published var spaceType: AmenCreatorSpaceType = .church
 
     // MARK: - Submission State
 
@@ -109,6 +111,7 @@ final class AmenCreateSpaceViewModel: ObservableObject {
         let payload: [String: Any] = [
             "name":                spaceName.trimmingCharacters(in: .whitespaces),
             "description":         spaceDescription.trimmingCharacters(in: .whitespaces),
+            "spaceType":           spaceType.rawValue,
             "isPrivate":           isPrivate,
             "creatorUid":          creatorUserId,
             "encryptedPrayerWall": encryptedPrayerWall,

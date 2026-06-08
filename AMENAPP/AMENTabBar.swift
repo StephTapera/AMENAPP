@@ -87,6 +87,19 @@ enum AMENTab: Int, CaseIterable {
         }
     }
 
+    var accessibilityHint: String {
+        switch self {
+        case .home:          return "Shows your home feed"
+        case .search:        return "Search for people, posts, and communities"
+        case .messages:      return "Opens your conversations"
+        case .library:       return "Browse resources, church notes, and more"
+        case .notifications: return "View your notifications and activity"
+        case .profile:       return "View and edit your profile"
+        case .spaces:        return "Browse and join community spaces"
+        case .intelligence:  return "View your personalized intelligence brief"
+        }
+    }
+
     /// The five tabs shown in the bottom bar. All other tabs remain
     /// navigable via deep links / programmatic selection.
     static let visibleTabs: [AMENTab] = [.home, .search, .messages, .library, .profile]
@@ -107,33 +120,34 @@ struct AMENTabBar: View {
     @Namespace private var selectionNamespace
 
     var body: some View {
-        HStack(spacing: 0) {
-            // 5 equally-spaced nav tabs — matchedGeometryEffect slides the active pill
-            ForEach(AMENTab.visibleTabs, id: \.rawValue) { tab in
-                tabItem(tab)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-            }
-
-            // Divider before compose
-            Rectangle()
-                .fill(AmenTheme.Colors.separatorSubtle)
-                .frame(width: 0.5, height: 22)
-                .padding(.horizontal, 4)
-
-            // Compose button
+        ZStack(alignment: .top) {
+            // ── Floating compose button — centered horizontally above the pill bar ──
+            // Lifted 24pt above the top edge of the pill so it clears the capsule rim.
             composeButton
-                .padding(.horizontal, 4)
+                .offset(y: -24)
+                .zIndex(10)
+
+            // ── 5-tab pill bar ──
+            HStack(spacing: 0) {
+                ForEach(AMENTab.visibleTabs, id: \.rawValue) { tab in
+                    tabItem(tab)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .background(glassBackground)
+            .clipShape(Capsule())
+            .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.70), radius: 20, x: 0, y: 8)
+            .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.38), radius: 8, x: 0, y: 3)
+            .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.20), radius: 2, x: 0, y: 1)
+            .zIndex(1)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 5)
-        .background(glassBackground)
-        .clipShape(Capsule())
-        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.70), radius: 20, x: 0, y: 8)
-        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.38), radius: 8, x: 0, y: 3)
-        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.20), radius: 2, x: 0, y: 1)
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+        // Extra top padding so the floating compose button isn't clipped by the ZStack bounds
+        .padding(.top, 28)
         .offset(y: isMinimized ? 100 : 0)
         .animation(.easeOut(duration: 0.18), value: isMinimized)
         // Drive the active-pill slide animation
@@ -226,30 +240,42 @@ struct AMENTabBar: View {
                         .matchedGeometryEffect(id: "activeTab", in: selectionNamespace)
                 }
 
-                // Icon + badge overlay
-                ZStack(alignment: .topTrailing) {
-                    if tab == .profile, let url = profilePhotoURL, !url.isEmpty {
-                        profileAvatar(url: url, isSelected: isSelected)
-                    } else {
-                        Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
-                            .font(.systemScaled(20, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(
-                                isSelected
-                                    ? AmenTheme.Colors.iconPrimary
-                                    : AmenTheme.Colors.iconSecondary
-                            )
-                            .scaleEffect(isSelected ? 1.06 : 1.0)
-                            .animation(
-                                Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.75)),
-                                value: isSelected
-                            )
+                // Icon + label + badge stack
+                VStack(spacing: 2) {
+                    ZStack(alignment: .topTrailing) {
+                        if tab == .profile, let url = profilePhotoURL, !url.isEmpty {
+                            profileAvatar(url: url, isSelected: isSelected)
+                        } else {
+                            Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
+                                .font(.systemScaled(20, weight: isSelected ? .semibold : .regular))
+                                .foregroundStyle(
+                                    isSelected
+                                        ? AmenTheme.Colors.iconPrimary
+                                        : AmenTheme.Colors.iconSecondary
+                                )
+                                .scaleEffect(isSelected ? 1.06 : 1.0)
+                                .animation(
+                                    Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.75)),
+                                    value: isSelected
+                                )
+                        }
+
+                        let count = badges.count(for: tab)
+                        if count > 0 {
+                            BadgeView(count: count)
+                                .offset(x: 9, y: -7)
+                        }
                     }
 
-                    let count = badges.count(for: tab)
-                    if count > 0 {
-                        BadgeView(count: count)
-                            .offset(x: 9, y: -7)
-                    }
+                    Text(tab.label)
+                        .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(
+                            isSelected
+                                ? AmenTheme.Colors.iconPrimary
+                                : AmenTheme.Colors.iconSecondary
+                        )
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -259,6 +285,7 @@ struct AMENTabBar: View {
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: isSelected)
         .accessibilityLabel(tab.label)
+        .accessibilityHint(tab.accessibilityHint)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
@@ -441,6 +468,7 @@ struct AMENTabBar: View {
         .frame(width: 48, height: 48)
         .contentShape(Circle())
         .accessibilityLabel("Create post")
+        .accessibilityHint("Opens the post composer")
     }
 
     // MARK: - Helpers

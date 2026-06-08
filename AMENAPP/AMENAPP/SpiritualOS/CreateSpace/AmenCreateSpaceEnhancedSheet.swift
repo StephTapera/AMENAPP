@@ -4,6 +4,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import PhotosUI
 
 // MARK: - Main Sheet
 
@@ -21,7 +22,16 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - State
     @StateObject private var viewModel = AmenCreateSpaceViewModel()
     @State private var showingImagePicker: Bool = false
+    @State private var selectedCoverImage: UIImage? = nil
     @State private var memberPresentingRolePicker: String? = nil  // member id
+
+    // MARK: - Expand/collapse state per section
+    @State private var expandedSpaceType: Bool = true
+    @State private var expandedNameDesc: Bool = true
+    @State private var expandedCoverPhoto: Bool = false
+    @State private var expandedMembers: Bool = false
+    @State private var expandedPrivacy: Bool = false
+    @State private var expandedFeatures: Bool = false
 
     // MARK: - Body
 
@@ -29,6 +39,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
         GlassSheet(title: "Create Space", tint: .accentColor, showDismissButton: true, onDismiss: onDismiss) {
             ScrollView {
                 VStack(spacing: 20) {
+                    spaceTypeSection
                     nameDescriptionSection
                     coverPhotoSection
                     membersSection
@@ -41,26 +52,136 @@ struct AmenCreateSpaceEnhancedSheet: View {
                 .padding(.bottom, 40)
             }
         }
-        .onChange(of: viewModel.isSubmitted) { submitted in
+        .onChange(of: viewModel.isSubmitted) { _, submitted in
             if submitted {
                 onCreated("")
                 onDismiss()
             }
         }
         .sheet(isPresented: $showingImagePicker) {
-            // Image picker placeholder — wired by Lead when PHPickerViewController is available
-            Text("Image Picker")
-                .font(.body)
-                .foregroundStyle(Color.amenSlate)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.amenCream)
+            CreateSpaceImagePickerRepresentable(image: $selectedCoverImage)
+                .ignoresSafeArea()
         }
+        .onChange(of: selectedCoverImage) { _, newImage in
+            viewModel.coverImageData = newImage?.jpegData(compressionQuality: 0.8)
+        }
+    }
+
+    // MARK: - Expandable section helper
+
+    @ViewBuilder
+    private func expandableSection(
+        title: String,
+        icon: String,
+        isExpanded: Binding<Bool>,
+        badge: String? = nil,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        GlassCard(tint: .accentColor) {
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        isExpanded.wrappedValue.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: icon)
+                            .font(.systemScaled(14, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 22)
+                        Text(title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.amenBlack)
+                        if let badge {
+                            Text(badge)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor, in: Capsule())
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.systemScaled(12, weight: .semibold))
+                            .foregroundStyle(Color.amenSlate)
+                            .rotationEffect(.degrees(isExpanded.wrappedValue ? 0 : -90))
+                            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isExpanded.wrappedValue)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(title) section, \(isExpanded.wrappedValue ? "expanded" : "collapsed")")
+                .accessibilityAddTraits(.isButton)
+
+                if isExpanded.wrappedValue {
+                    Divider().padding(.horizontal, 16)
+                    content()
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+        }
+    }
+
+    // MARK: - Section: Space Type
+
+    private var spaceTypeSection: some View {
+        expandableSection(title: "Space Type", icon: "square.grid.2x2", isExpanded: $expandedSpaceType) {
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                alignment: .leading,
+                spacing: 10
+            ) {
+                ForEach(AmenCreatorSpaceType.allCases) { type in
+                    spaceTypeChip(type)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+        }
+    }
+
+    @ViewBuilder
+    private func spaceTypeChip(_ type: AmenCreatorSpaceType) -> some View {
+        let isSelected = viewModel.spaceType == type
+        Button {
+            viewModel.spaceType = type
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: type.systemIcon)
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(isSelected ? .white : type.accentColor)
+                Text(type.displayName)
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? .white : Color.amenBlack)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isSelected ? type.accentColor : type.accentColor.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(
+                                isSelected ? type.accentColor : type.accentColor.opacity(0.35),
+                                lineWidth: 1.5
+                            )
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(type.displayName)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     // MARK: - Section: Name & Description
 
     private var nameDescriptionSection: some View {
-        GlassCard(tint: .accentColor) {
+        expandableSection(title: "Name & Description", icon: "pencil.line", isExpanded: $expandedNameDesc) {
             VStack(spacing: 0) {
                 TextField("Space name…", text: $viewModel.spaceName)
                     .font(.systemScaled(15))
@@ -91,6 +212,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
                         .background(Color.clear)
                         .accessibilityLabel("Space description")
                 }
+                .padding(.bottom, 4)
             }
         }
     }
@@ -98,73 +220,88 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Section: Cover Photo
 
     private var coverPhotoSection: some View {
-        GlassCard(tint: .accentColor) {
+        expandableSection(
+            title: "Cover Photo",
+            icon: "photo",
+            isExpanded: $expandedCoverPhoto,
+            badge: selectedCoverImage != nil ? "Added" : nil
+        ) {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color.amenSlate.opacity(0.08))
                         .frame(width: 60, height: 60)
-                    Image(systemName: "photo")
-                        .font(.systemScaled(22))
-                        .foregroundStyle(Color.amenSlate.opacity(0.5))
+                    if let picked = selectedCoverImage {
+                        Image(uiImage: picked)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 60, height: 60)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    } else {
+                        Image(systemName: "photo")
+                            .font(.systemScaled(22))
+                            .foregroundStyle(Color.amenSlate.opacity(0.5))
+                    }
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Cover Photo")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.amenBlack)
-                    Text("Optional space header image")
+                    Text(selectedCoverImage != nil ? "Tap to change" : "Optional space header image")
                         .font(.caption)
                         .foregroundStyle(Color.amenSlate)
                 }
                 Spacer()
                 GlassChip(
-                    label: "Add cover",
-                    icon: "plus",
+                    label: selectedCoverImage != nil ? "Change" : "Add cover",
+                    icon: selectedCoverImage != nil ? "pencil" : "plus",
                     tint: .accentColor,
                     size: .compact,
-                    isActive: false,
+                    isActive: selectedCoverImage != nil,
                     action: { showingImagePicker = true }
                 )
-                .accessibilityLabel("Add cover photo")
+                .accessibilityLabel(selectedCoverImage != nil ? "Change cover photo" : "Add cover photo")
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
     }
 
     // MARK: - Section: Members
 
     private var membersSection: some View {
-        GlassCard(tint: .accentColor) {
+        expandableSection(
+            title: "Members",
+            icon: "person.2",
+            isExpanded: $expandedMembers,
+            badge: viewModel.members.isEmpty ? nil : "\(viewModel.members.count)"
+        ) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Members")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.amenSlate)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
-
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 14) {
                         // Add-member button as first item
-                        VStack(spacing: 6) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.accentColor.opacity(0.12))
-                                    .frame(width: 44, height: 44)
-                                    .overlay(
-                                        Circle().strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1.5)
-                                    )
-                                Image(systemName: "person.badge.plus")
-                                    .font(.systemScaled(16))
-                                    .foregroundStyle(Color.accentColor)
+                        Button {
+                            // TODO: present member search sheet
+                        } label: {
+                            VStack(spacing: 6) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.accentColor.opacity(0.12))
+                                        .frame(width: 44, height: 44)
+                                        .overlay(
+                                            Circle().strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1.5)
+                                        )
+                                    Image(systemName: "person.badge.plus")
+                                        .font(.systemScaled(16))
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                                Text("Add")
+                                    .font(.systemScaled(11))
+                                    .foregroundStyle(Color.amenSlate)
+                                    .lineLimit(1)
                             }
-                            Text("Add")
-                                .font(.systemScaled(11))
-                                .foregroundStyle(Color.amenSlate)
-                                .lineLimit(1)
+                            .frame(width: 52)
                         }
-                        .frame(width: 52)
+                        .buttonStyle(.plain)
                         .accessibilityLabel("Add member")
-                        .accessibilityAddTraits(.isButton)
+                        .accessibilityHint("Opens member search to invite people to this Space")
 
                         ForEach(viewModel.members) { member in
                             memberCell(member)
@@ -243,9 +380,13 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Section: Privacy
 
     private var privacySection: some View {
-        GlassCard(tint: .accentColor) {
+        expandableSection(
+            title: "Privacy",
+            icon: "lock.fill",
+            isExpanded: $expandedPrivacy,
+            badge: viewModel.isPrivate ? "Private" : nil
+        ) {
             VStack(spacing: 0) {
-                // Private Space toggle
                 HStack(spacing: 12) {
                     Image(systemName: "lock.fill")
                         .font(.body)
@@ -270,7 +411,6 @@ struct AmenCreateSpaceEnhancedSheet: View {
                 }
                 .padding(16)
 
-                // Encrypted Prayer Wall — animates in when private is ON
                 if viewModel.isPrivate {
                     Divider()
                         .padding(.horizontal, 16)
@@ -308,14 +448,8 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Section: Features
 
     private var featuresSection: some View {
-        GlassCard(tint: .accentColor) {
+        expandableSection(title: "Features", icon: "star.fill", isExpanded: $expandedFeatures) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Features")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.amenSlate)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
-
                 // 2-column chip grid
                 LazyVGrid(
                     columns: [GridItem(.flexible()), GridItem(.flexible())],
@@ -446,6 +580,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
             .frame(height: 50)
             .background(Color.accentColor)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .disabled(!viewModel.isValid || viewModel.isSubmitting)
         .opacity(viewModel.isValid ? 1.0 : 0.4)
@@ -457,10 +592,44 @@ struct AmenCreateSpaceEnhancedSheet: View {
         if let error = viewModel.submitError {
             Text(error)
                 .font(.caption)
-                .foregroundStyle(.red)
+                .foregroundStyle(Color.amenError)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
+        }
+    }
+}
+
+// MARK: - PHPicker Representable
+private struct CreateSpaceImagePickerRepresentable: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        config.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let parent: CreateSpaceImagePickerRepresentable
+        init(_ parent: CreateSpaceImagePickerRepresentable) { self.parent = parent }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            picker.dismiss(animated: true)
+            guard let result = results.first else { return }
+            result.itemProvider.loadObject(ofClass: UIImage.self) { object, _ in
+                DispatchQueue.main.async {
+                    self.parent.image = object as? UIImage
+                }
+            }
         }
     }
 }

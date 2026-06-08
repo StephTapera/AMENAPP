@@ -1,9 +1,34 @@
 import SwiftUI
+import StoreKit
+
+// MARK: - Product ID Constants for 242 Hub Tiers
+
+private extension AMENSubscriptionTier {
+    /// App Store Connect product identifier for this tier.
+    /// Returns `nil` for `.free` and `.enterprise` (not purchasable via StoreKit).
+    /// Replace these with real IDs before App Store submission.
+    var storeKitProductID: String? {
+        switch self {
+        case .free:       return nil
+        case .grow:       return "com.amen.twofourtwohub.grow.monthly"
+        case .lead:       return "com.amen.twofourtwohub.lead.monthly"
+        case .enterprise: return nil   // Contact sales — handled via email
+        }
+    }
+}
+
+// MARK: - TwoFourTwoSubscriptionView
 
 struct TwoFourTwoSubscriptionView: View {
     @Binding var currentTier: AMENSubscriptionTier
     @Environment(\.dismiss) private var dismiss
     @State private var appeared = false
+
+    // StoreKit state
+    @State private var products: [Product] = []
+    @State private var isPurchasing: AMENSubscriptionTier? = nil
+    @State private var purchaseError: String?
+    @State private var showPurchaseError = false
 
     private let tiers: [(AMENSubscriptionTier, String, [String])] = [
         (.grow,       "For personal growth",
@@ -42,15 +67,15 @@ struct TwoFourTwoSubscriptionView: View {
                         VStack(spacing: 12) {
                             ForEach(Array(tiers.enumerated()), id: \.offset) { index, item in
                                 let (tier, subtitle, features) = item
-                                TierCard(tier: tier, subtitle: subtitle, features: features, isCurrent: currentTier == tier) {
-                                    if tier == .enterprise {
-                                        if let url = URL(string: "mailto:amenappmarketing@gmail.com?subject=Enterprise%20Inquiry") {
-                                            UIApplication.shared.open(url)
-                                        }
-                                    } else {
-                                        currentTier = tier
-                                        dismiss()
-                                    }
+                                TierCard(
+                                    tier: tier,
+                                    subtitle: subtitle,
+                                    features: features,
+                                    isCurrent: currentTier == tier,
+                                    isPurchasing: isPurchasing == tier,
+                                    livePrice: livePrice(for: tier)
+                                ) {
+                                    handleSelect(tier: tier)
                                 }
                                 .opacity(appeared ? 1 : 0)
                                 .offset(y: appeared ? 0 : 20)
@@ -63,16 +88,121 @@ struct TwoFourTwoSubscriptionView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) { appeared = true } }
+        .onAppear {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) { appeared = true }
+        }
+        .task { await loadProducts() }
+        .alert("Purchase Error", isPresented: $showPurchaseError, presenting: purchaseError) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { error in
+            Text(error)
+        }
+    }
+
+    // MARK: - Live Price Helper
+
+    private func livePrice(for tier: AMENSubscriptionTier) -> String? {
+        guard let productID = tier.storeKitProductID else { return nil }
+        return products.first(where: { $0.id == productID })?.displayPrice
+    }
+
+    // MARK: - Actions
+
+    private func handleSelect(tier: AMENSubscriptionTier) {
+        switch tier {
+        case .enterprise:
+            if let url = URL(string: "mailto:amenappmarketing@gmail.com?subject=Enterprise%20Inquiry") {
+                UIApplication.shared.open(url)
+            }
+        case .free:
+            currentTier = tier
+            dismiss()
+        case .grow, .lead:
+            guard let productID = tier.storeKitProductID else {
+                currentTier = tier
+                dismiss()
+                return
+            }
+            guard let product = products.first(where: { $0.id == productID }) else {
+                // Products not yet loaded — set tier optimistically and load in background.
+                currentTier = tier
+                dismiss()
+                return
+            }
+            purchase(product, for: tier)
+        }
+    }
+
+    private func purchase(_ product: Product, for tier: AMENSubscriptionTier) {
+        isPurchasing = tier
+        purchaseError = nil
+        Task {
+            do {
+                let result = try await product.purchase()
+                switch result {
+                case .success(let verification):
+                    switch verification {
+                    case .verified(let transaction):
+                        await transaction.finish()
+                        await MainActor.run {
+                            isPurchasing = nil
+                            currentTier = tier
+                            dismiss()
+                        }
+                    case .unverified:
+                        await MainActor.run {
+                            isPurchasing = nil
+                            purchaseError = "Purchase verification failed. Please contact support."
+                            showPurchaseError = true
+                        }
+                    }
+                case .pending:
+                    // Ask-to-Buy — dismiss sheet; entitlement granted when approved.
+                    await MainActor.run { isPurchasing = nil }
+                case .userCancelled:
+                    await MainActor.run { isPurchasing = nil }
+                @unknown default:
+                    await MainActor.run { isPurchasing = nil }
+                }
+            } catch {
+                await MainActor.run {
+                    isPurchasing = nil
+                    purchaseError = error.localizedDescription
+                    showPurchaseError = true
+                }
+            }
+        }
+    }
+
+    private func loadProducts() async {
+        let ids = AMENSubscriptionTier.allCases.compactMap(\.storeKitProductID)
+        guard !ids.isEmpty else { return }
+        do {
+            let fetched = try await Product.products(for: ids)
+            await MainActor.run {
+                products = fetched.sorted { $0.price < $1.price }
+            }
+        } catch {
+            // Non-fatal — fall back to static price strings already on the tier model.
+        }
     }
 }
+
+// MARK: - TierCard
 
 private struct TierCard: View {
     let tier: AMENSubscriptionTier
     let subtitle: String
     let features: [String]
     let isCurrent: Bool
+    let isPurchasing: Bool
+    var livePrice: String?
     let action: () -> Void
+
+    private var displayPrice: String {
+        if tier == .enterprise { return "Contact sales" }
+        return livePrice ?? tier.price
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -89,7 +219,7 @@ private struct TierCard: View {
                     Text(subtitle).font(.systemScaled(12, design: .rounded)).foregroundColor(.white.opacity(0.40))
                 }
                 Spacer()
-                Text(tier.price).font(.systemScaled(13, weight: .medium, design: .rounded)).foregroundColor(tier.badgeColor)
+                Text(displayPrice).font(.systemScaled(13, weight: .medium, design: .rounded)).foregroundColor(tier.badgeColor)
             }
             Divider().background(Color.white.opacity(0.08))
             VStack(alignment: .leading, spacing: 7) {
@@ -101,18 +231,37 @@ private struct TierCard: View {
                 }
             }
             Button(action: action) {
-                Text(tier.isContactSales ? "Contact Sales" : isCurrent ? "Current Plan" : "Unlock \(tier.displayName)")
-                    .font(.systemScaled(14, weight: .semibold, design: .rounded)).foregroundColor(isCurrent ? .white.opacity(0.40) : .white)
-                    .frame(maxWidth: .infinity).padding(.vertical, 12)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isCurrent ? Color.white.opacity(0.06) : tier.badgeColor.opacity(0.85)))
+                Group {
+                    if isPurchasing {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(isCurrent ? Color.white.opacity(0.40) : Color.white)
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text(tier.isContactSales ? "Contact Sales" : isCurrent ? "Current Plan" : "Unlock \(tier.displayName)")
+                            .font(.systemScaled(14, weight: .semibold, design: .rounded))
+                            .foregroundColor(isCurrent ? .white.opacity(0.40) : .white)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.vertical, 12)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isCurrent ? Color.white.opacity(0.06) : tier.badgeColor.opacity(0.85)))
             }
-            .disabled(isCurrent)
+            .disabled(isCurrent || isPurchasing)
         }
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(white: 1, opacity: 0.04))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(isCurrent ? tier.badgeColor.opacity(0.40) : Color.white.opacity(0.08), lineWidth: isCurrent ? 1 : 0.5))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            tier.isContactSales
+                ? "Enterprise plan — contact sales"
+                : isCurrent
+                    ? "\(tier.displayName) — current plan"
+                    : "Unlock \(tier.displayName) — \(displayPrice)"
         )
     }
 }

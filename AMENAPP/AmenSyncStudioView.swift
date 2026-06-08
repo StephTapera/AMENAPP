@@ -62,6 +62,11 @@ struct AmenSyncStudioView: View {
         .fullScreenCover(isPresented: $vm.showReviewScreen) {
             AmenSyncReviewView(vm: vm)
         }
+        .sheet(isPresented: $showPlatformPicker) {
+            SyncPlatformPickerSheet(selectedDestinations: $vm.selectedDestinations) {
+                showPlatformPicker = false
+            }
+        }
         .onDisappear { vm.cleanup() }
         .task { vm.selectedDestinations = Set(SyncPlatform.allCases.filter { $0.canAutoPublish }) }
     }
@@ -832,5 +837,68 @@ struct SyncModerationSheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Platform Picker Sheet
+
+struct SyncPlatformPickerSheet: View {
+    @Binding var selectedDestinations: Set<SyncPlatform>
+    let onDismiss: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(SyncPlatform.allCases) { platform in
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        if selectedDestinations.contains(platform) {
+                            selectedDestinations.remove(platform)
+                        } else {
+                            selectedDestinations.insert(platform)
+                            NotificationCenter.default.post(
+                                name: Notification.Name("amenSelectSyncPlatform"),
+                                object: nil,
+                                userInfo: ["platform": platform.displayName]
+                            )
+                        }
+                    } label: {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle()
+                                    .fill(platform.iconColor.opacity(0.12))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: platform.icon)
+                                    .font(.systemScaled(16))
+                                    .foregroundStyle(platform.iconColor)
+                            }
+                            Text(platform.displayName)
+                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if selectedDestinations.contains(platform) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.systemScaled(20))
+                                    .foregroundStyle(.teal)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .listStyle(.plain)
+            .navigationTitle("Select Platforms")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { onDismiss(); dismiss() }
+                        .font(.custom("OpenSans-Bold", size: 15))
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }

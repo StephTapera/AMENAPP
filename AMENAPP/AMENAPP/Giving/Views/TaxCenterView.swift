@@ -9,6 +9,8 @@ import SwiftUI
 struct TaxCenterView: View {
     @ObservedObject var store: StewardshipLocalStore
     @State private var selectedYear: Int = Calendar.current.component(.year, from: Date())
+    @State private var exportError: String?
+    @State private var showExportError = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -37,6 +39,11 @@ struct TaxCenterView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .alert("Export Failed", isPresented: $showExportError, actions: {
+                Button("OK", role: .cancel) {}
+            }, message: {
+                Text(exportError ?? "Unable to prepare the CSV file.")
+            })
         }
     }
 
@@ -63,6 +70,9 @@ struct TaxCenterView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(String(year))
+                    .accessibilityHint(selectedYear == year ? "Selected tax year" : "Tap to view \(year) receipts")
+                    .accessibilityAddTraits(selectedYear == year ? [.isSelected] : [])
                 }
             }
         }
@@ -109,7 +119,21 @@ struct TaxCenterView: View {
 
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                // TODO: implement CSV export
+                let csv = buildCSV()
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("tax_export_\(selectedYear).csv")
+                do {
+                    try csv.write(to: tempURL, atomically: true, encoding: .utf8)
+                    let ac = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
+                    UIApplication.shared.connectedScenes
+                        .compactMap { $0 as? UIWindowScene }
+                        .first?.windows.first?.rootViewController?
+                        .present(ac, animated: true)
+                } catch {
+                    dlog("❌ Tax CSV export failed: \(error.localizedDescription)")
+                    exportError = error.localizedDescription
+                    showExportError = true
+                }
             } label: {
                 Label("Export \(selectedYear) receipts", systemImage: "square.and.arrow.up")
                     .font(.systemScaled(13, weight: .semibold))
@@ -119,6 +143,7 @@ struct TaxCenterView: View {
                     .background(AmenTheme.Colors.backgroundSecondary, in: Capsule())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Export \(selectedYear) tax receipts as CSV")
         }
         .padding(16)
         .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -193,5 +218,20 @@ struct TaxCenterView: View {
         let total = receiptsForYear.reduce(0) { $0 + $1.amount }
         let dollars = Double(total) / 100.0
         return String(format: "$%.2f", dollars)
+    }
+
+    private func buildCSV() -> String {
+        var lines = ["Date,Organization,Amount,Currency,Receipt URL"]
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate]
+        for receipt in receiptsForYear {
+            let date = receipt.issuedAt.map { formatter.string(from: $0) } ?? ""
+            let org = receipt.destinationName.replacingOccurrences(of: ",", with: " ")
+            let amount = String(format: "%.2f", Double(receipt.amount) / 100.0)
+            let currency = receipt.currency.uppercased()
+            let url = receipt.receiptUrl ?? ""
+            lines.append("\(date),\(org),\(amount),\(currency),\(url)")
+        }
+        return lines.joined(separator: "\n")
     }
 }

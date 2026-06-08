@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -155,7 +156,16 @@ struct CreatorSubscriptionGateLegacyView: View {
 
     @State private var isSubscribing = false
     @State private var showConfirm   = false
+    @State private var purchaseError: String?
+    @State private var showPurchaseError = false
     @Environment(\.dismiss) private var dismiss
+
+    // Product ID for creator subscriptions.
+    // The per-creator tier price is dynamic (set by the creator), so the
+    // App Store product is a fixed monthly subscription; the actual creator
+    // split is tracked in Firestore (creatorSubscriptions collection).
+    // NOTE: Replace with the real App Store Connect product ID before submission.
+    private static let creatorSubscriptionProductID = "com.amen.creator.subscription.monthly"
 
 
     var body: some View {
@@ -299,6 +309,11 @@ struct CreatorSubscriptionGateLegacyView: View {
         } message: {
             Text("$\(String(format: "%.2f", creator.subscriptionPrice))/month. Cancel anytime.")
         }
+        .alert("Purchase Error", isPresented: $showPurchaseError, presenting: purchaseError) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { error in
+            Text(error)
+        }
     }
 
     private var maybeLaterButton: some View {
@@ -315,23 +330,84 @@ struct CreatorSubscriptionGateLegacyView: View {
 
     private func handleSubscribe() {
         isSubscribing = true
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        purchaseError = nil
         Task {
-            guard let uid = Auth.auth().currentUser?.uid else { isSubscribing = false; return }
-            lazy var db = Firestore.firestore()
-            try? await db.collection("creatorSubscriptions").addDocument(data: [
-                "subscriberId": uid,
-                "creatorId":    creator.id,
-                "price":        creator.subscriptionPrice,
-                "createdAt":    FieldValue.serverTimestamp(),
-                "status":       "active",
-            ])
-            try? await db.collection("creatorProfiles").document(creator.id)
-                .updateData(["subscriberCount": FieldValue.increment(Int64(1))])
-            await MainActor.run {
-                isSubscribing = false
-                onSubscribe?()
-                dismiss()
+            do {
+                // StoreKit 2 purchase flow.
+                // Load the product first (fast from cache after first fetch).
+                let products = try await Product.products(
+                    for: [Self.creatorSubscriptionProductID]
+                )
+                guard let product = products.first else {
+                    await MainActor.run {
+                        isSubscribing = false
+                        purchaseError = "This subscription is not currently available. Please try again later."
+                        showPurchaseError = true
+                    }
+                    return
+                }
+
+                let result = try await product.purchase()
+
+                switch result {
+                case .success(let verification):
+                    // Mandatory JWS signature check — skip unverified transactions.
+                    let transaction: StoreKit.Transaction
+                    switch verification {
+                    case .verified(let tx):   transaction = tx
+                    case .unverified:
+                        await MainActor.run {
+                            isSubscribing = false
+                            purchaseError = "Purchase verification failed. Please contact support."
+                            showPurchaseError = true
+                        }
+                        return
+                    }
+
+                    // Record the subscription server-side in Firestore.
+                    guard let uid = Auth.auth().currentUser?.uid else {
+                        await transaction.finish()
+                        await MainActor.run { isSubscribing = false }
+                        return
+                    }
+                    lazy var db = Firestore.firestore()
+                    try? await db.collection("creatorSubscriptions").addDocument(data: [
+                        "subscriberId":       uid,
+                        "creatorId":          creator.id,
+                        "price":              creator.subscriptionPrice,
+                        "storeKitProductId":  transaction.productID,
+                        "storeKitTxId":       String(transaction.id),
+                        "createdAt":          FieldValue.serverTimestamp(),
+                        "status":             "active",
+                    ])
+                    try? await db.collection("creatorProfiles").document(creator.id)
+                        .updateData(["subscriberCount": FieldValue.increment(Int64(1))])
+
+                    // Finish the transaction only after Firestore write succeeds.
+                    await transaction.finish()
+
+                    await MainActor.run {
+                        isSubscribing = false
+                        onSubscribe?()
+                        dismiss()
+                    }
+
+                case .pending:
+                    // Ask-to-Buy — no entitlement yet. UI remains as-is.
+                    await MainActor.run { isSubscribing = false }
+
+                case .userCancelled:
+                    await MainActor.run { isSubscribing = false }
+
+                @unknown default:
+                    await MainActor.run { isSubscribing = false }
+                }
+            } catch {
+                await MainActor.run {
+                    isSubscribing = false
+                    purchaseError = error.localizedDescription
+                    showPurchaseError = true
+                }
             }
         }
     }

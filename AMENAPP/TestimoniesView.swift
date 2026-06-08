@@ -26,6 +26,7 @@ struct TestimoniesView: View {
     @State private var hasPersonalized = false
     @State private var scrollViewDelegate: ScrollViewDelegateHandler?
     @State private var showHeader = true
+    @State private var showShareTestimony = false
     
     // ⚡️ PERFORMANCE FIX: Reduced initial load for faster first render
     // MARK: - Pagination State
@@ -94,6 +95,7 @@ struct TestimoniesView: View {
     }
     
     var body: some View {
+        ZStack(alignment: .bottomTrailing) {
         VStack(alignment: .leading, spacing: 20) {
                 // Header
                 if showHeader {
@@ -144,6 +146,48 @@ struct TestimoniesView: View {
                     }
                 }
 
+                // Persistent segment control — always visible regardless of load/empty state
+                HStack {
+                    Spacer()
+                    HStack(spacing: 4) {
+                        ForEach(TestimonyFilter.allCases, id: \.self) { filter in
+                            let isActive = selectedFilter == filter
+                            Button {
+                                selectedFilter = filter
+                                filterHaptic.impactOccurred()
+                            } label: {
+                                Text(filter.rawValue)
+                                    .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                                    .foregroundStyle(isActive ? Color.primary : Color.secondary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 7)
+                                    .background(
+                                        isActive
+                                            ? Color(UIColor.systemBackground).opacity(0.85)
+                                            : Color.clear,
+                                        in: Capsule()
+                                    )
+                                    .overlay(
+                                        Group {
+                                            if isActive {
+                                                Capsule()
+                                                    .strokeBorder(.white.opacity(0.25), lineWidth: 0.5)
+                                            }
+                                        }
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .animation(.easeOut(duration: fastAnimationDuration), value: selectedFilter)
+                        }
+                    }
+                    .padding(5)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+
                 // Loading state - show skeletons on initial load
                 // Snapshot once — avoids repeated filter+sort on every body re-evaluation.
                 let posts = filteredPosts
@@ -171,13 +215,82 @@ struct TestimoniesView: View {
                     .padding(.horizontal, 32)
                     .padding(.top, 48)
                 } else if !isLoadingPosts && posts.isEmpty {
-                    EmptyPostsView(category: "testimonies")
-                        .padding(.top, 40)
+                    // Liquid Glass empty state
+                    VStack(spacing: 20) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.85, green: 0.67, blue: 0.25).opacity(0.85),
+                                            Color(red: 0.95, green: 0.82, blue: 0.40).opacity(0.60)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 80, height: 80)
+                                .shadow(color: Color(red: 0.85, green: 0.67, blue: 0.25).opacity(0.35), radius: 16, y: 6)
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 32, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .symbolEffect(.bounce, options: .repeating)
+                        }
+                        VStack(spacing: 8) {
+                            Text("Be First to Testify")
+                                .font(AMENFont.bold(20))
+                                .foregroundStyle(.primary)
+                            Text("Your testimony encourages the whole community")
+                                .font(AMENFont.regular(14))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        Button {
+                            showShareTestimony = true
+                        } label: {
+                            Text("Share My Testimony")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 12)
+                                .background(.regularMaterial, in: Capsule())
+                                .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 60)
+                    .padding(.horizontal, 32)
                 } else {
                     contentView
                 }
+        } // end VStack
+
+        // Floating "Share Testimony" pill button
+        Button {
+            showShareTestimony = true
+        } label: {
+            Label("Share Testimony", systemImage: "sparkles")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         }
+        .buttonStyle(.plain)
+        .padding(.trailing, 20)
+        .padding(.bottom, 20)
+        .transition(.scale.combined(with: .opacity))
+        .accessibilityLabel("Share your testimony")
+
+        } // end ZStack
         .toast($currentToast)
+        .sheet(isPresented: $showShareTestimony) {
+            CreatePostView(initialCategory: .testimonies)
+        }
         .sheet(isPresented: $showEditSheet, onDismiss: { editingPost = nil }) {
             if let post = editingPost {
                 EditPostSheet(post: post)

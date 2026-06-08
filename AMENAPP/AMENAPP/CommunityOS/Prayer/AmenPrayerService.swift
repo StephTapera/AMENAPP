@@ -22,6 +22,7 @@
 import Foundation
 import FirebaseFirestore
 import UserNotifications
+import WidgetKit
 
 @MainActor
 final class AmenPrayerService: ObservableObject {
@@ -205,6 +206,10 @@ final class AmenPrayerService: ObservableObject {
     /// Creates a `praysFor` edge via `AmenEdgeService`.
     /// The Cloud Function listens on edge creation and increments `prayerCount`
     /// server-side. The client never increments `prayerCount` directly.
+    ///
+    /// After the edge is created, the local `prayer_count_today` counter written
+    /// to the shared App Group UserDefaults is incremented so the PrayerCount
+    /// widget reflects the new total without a network round-trip.
     func prayForRequest(_ requestId: String, userId: String) async throws {
         _ = try await edgeService.createEdge(
             fromRef:    "/users/\(userId)",
@@ -215,6 +220,44 @@ final class AmenPrayerService: ObservableObject {
             createdBy:  userId,
             visibility: "private"          // praysFor edges are private (C1 §4c)
         )
+        // Mirror today's prayer count to the App Group so the widget can display
+        // it without Firebase access. The value is not security-critical — it is
+        // a local UX counter only. The server-side prayerCount on the document is
+        // authoritative.
+        Self.incrementWidgetPrayerCount()
+    }
+
+    // MARK: - Widget prayer-count helper
+
+    /// App Group suite shared with the widget extension.
+    private static let widgetAppGroupSuite = "group.com.amenapp.shared"
+    private static let widgetPrayerCountKey = "prayer_count_today"
+
+    /// Atomically increments the shared prayer count for today and resets it
+    /// automatically after midnight so the widget always shows a per-day total.
+    ///
+    /// The reset uses a companion "prayer_count_date" key (yyyyMMdd string) to
+    /// detect day boundaries without requiring a background task.
+    static func incrementWidgetPrayerCount() {
+        guard let defaults = UserDefaults(suiteName: widgetAppGroupSuite) else { return }
+
+        let todayString = {
+            let f = DateFormatter()
+            f.dateFormat = "yyyyMMdd"
+            return f.string(from: Date())
+        }()
+
+        let storedDate = defaults.string(forKey: "prayer_count_date") ?? ""
+        let current    = storedDate == todayString
+            ? defaults.integer(forKey: widgetPrayerCountKey)
+            : 0   // new day — reset
+
+        let updated = current + 1
+        defaults.set(updated,     forKey: widgetPrayerCountKey)
+        defaults.set(todayString, forKey: "prayer_count_date")
+
+        // Reload the widget timeline so the new count surfaces immediately.
+        WidgetCenter.shared.reloadTimelines(ofKind: "PrayerCountWidget")
     }
 
     // MARK: - addFollowUp

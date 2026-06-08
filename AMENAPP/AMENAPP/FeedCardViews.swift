@@ -22,6 +22,9 @@ struct CategoryPill: View {
                 .scaleEffect(isPressed ? 0.96 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel(title)
+        .accessibilityHint(isSelected ? "Selected category" : "Tap to select \(title)")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -172,32 +175,26 @@ struct CommunityCard: View {
                 Image(systemName: icon)
                     .font(.systemScaled(20))
                     .foregroundStyle(.primary)
-                
+                    .accessibilityHidden(true)
+
                 Spacer()
-                
+
                 Text(title)
                     .font(AMENFont.bold(13))
                     .foregroundStyle(.primary)
-                
+
                 Text(subtitle)
                     .font(AMENFont.regular(11))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: 100)
             .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(.white)
-                    .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
-            )
+            .liquidGlass(cornerRadius: 14)
             .scaleEffect(isPressed ? 0.96 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel("\(title), \(subtitle)")
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -305,6 +302,8 @@ struct SmartCommunityCard: View {
             .scaleEffect(isPressed ? 0.98 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityHint("Tap to open")
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
             withAnimation(.smooth(duration: 0.2)) {
                 isPressed = pressing
@@ -332,7 +331,8 @@ struct TrendingCard: View {
                     .font(.systemScaled(24))
                     .foregroundStyle(.primary)
                     .frame(height: 40)
-                
+                    .accessibilityHidden(true)
+
                 Text(title)
                     .font(AMENFont.bold(12))
                     .foregroundStyle(.primary)
@@ -340,18 +340,12 @@ struct TrendingCard: View {
                     .lineLimit(2)
             }
             .frame(width: 100, height: 100)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.white)
-                    .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
-            )
+            .liquidGlass(cornerRadius: 16)
             .scaleEffect(isPressed ? 0.94 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel(title)
+        .accessibilityHint("Tap to explore this trending topic")
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -469,21 +463,22 @@ struct TrendingTopicDetailView: View {
                     VStack(spacing: 16) {
                         ZStack {
                             Circle()
-                                .fill(Color.black.opacity(0.05))
+                                .fill(.regularMaterial)
                                 .frame(width: 80, height: 80)
-                            
+
                             Image(systemName: icon)
                                 .font(.systemScaled(40))
                                 .foregroundStyle(.primary)
+                                .accessibilityHidden(true)
                         }
-                        
+
                         Text(title)
                             .font(AMENFont.bold(28))
                             .foregroundStyle(.primary)
-                        
+
                         Text(topicContent.description)
                             .font(AMENFont.regular(15))
-                            .foregroundStyle(.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
                     }
@@ -497,22 +492,15 @@ struct TrendingTopicDetailView: View {
                                 Text(stat.1)
                                     .font(AMENFont.bold(22))
                                     .foregroundStyle(.primary)
-                                
+
                                 Text(stat.0)
                                     .font(AMENFont.regular(12))
-                                    .foregroundStyle(.black.opacity(0.6))
+                                    .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(.white)
-                                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                            )
+                            .liquidGlass(cornerRadius: 12)
+                            .accessibilityElement(children: .combine)
                         }
                     }
                     .padding(.horizontal)
@@ -530,67 +518,57 @@ struct TrendingTopicDetailView: View {
                         } label: {
                             HStack {
                                 Image(systemName: "bubble.left.and.bubble.right.fill")
+                                    .accessibilityHidden(true)
                                 Text("Join Discussion")
                                     .font(AMENFont.bold(16))
                             }
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color(uiColor: .systemBackground))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.black)
-                            .cornerRadius(14)
+                            .background(Color(uiColor: .label), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
+                        .accessibilityLabel("Join \(title) discussion")
                         
                         HStack(spacing: 12) {
                             Button {
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                let nowFollowing = !isFollowingTopic
                                 withAnimation { isFollowingTopic.toggle() }
                                 NotificationCenter.default.post(
                                     name: Notification.Name("amenFollowTopic"),
                                     object: nil,
                                     userInfo: [
                                         "topic": title,
-                                        "isFollowing": !isFollowingTopic
+                                        "isFollowing": nowFollowing
                                     ]
                                 )
                             } label: {
                                 HStack {
                                     Image(systemName: isFollowingTopic ? "bell.slash.fill" : "bell.fill")
+                                        .accessibilityHidden(true)
                                     Text(isFollowingTopic ? "Following" : "Follow")
                                         .font(AMENFont.bold(14))
                                 }
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(.white)
-                                        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.black.opacity(0.15), lineWidth: 1)
-                                )
+                                .liquidGlass(cornerRadius: 12)
                             }
-                            
+                            .accessibilityLabel(isFollowingTopic ? "Unfollow \(title)" : "Follow \(title)")
+
                             ShareLink(item: "Check out the \(title) discussion on Amen!") {
                                 HStack {
                                     Image(systemName: "square.and.arrow.up")
+                                        .accessibilityHidden(true)
                                     Text("Share")
                                         .font(AMENFont.bold(14))
                                 }
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(.white)
-                                        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.black.opacity(0.15), lineWidth: 1)
-                                )
+                                .liquidGlass(cornerRadius: 12)
                             }
+                            .accessibilityLabel("Share \(title)")
                         }
                     }
                     .padding(.horizontal)
@@ -610,15 +588,8 @@ struct TrendingTopicDetailView: View {
                                         .foregroundStyle(.primary)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 8)
-                                        .background(
-                                            Capsule()
-                                                .fill(.white)
-                                                .shadow(color: .black.opacity(0.05), radius: 4, y: 1)
-                                        )
-                                        .overlay(
-                                            Capsule()
-                                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                                        )
+                                        .background(.regularMaterial, in: Capsule())
+                                        .accessibilityLabel(topic)
                                 }
                             }
                             .padding(.horizontal)
@@ -651,29 +622,24 @@ struct TrendingTopicDetailView: View {
                                             Text(resource.0)
                                                 .font(AMENFont.bold(14))
                                                 .foregroundStyle(.primary)
-                                            
+
                                             Text(resource.1)
                                                 .font(AMENFont.regular(12))
-                                                .foregroundStyle(.black.opacity(0.6))
+                                                .foregroundStyle(.secondary)
                                         }
-                                        
+
                                         Spacer()
-                                        
+
                                         Image(systemName: "chevron.right")
                                             .font(.systemScaled(12, weight: .semibold))
-                                            .foregroundStyle(.black.opacity(0.3))
+                                            .foregroundStyle(.tertiary)
+                                            .accessibilityHidden(true)
                                     }
                                     .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(.white)
-                                            .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                                    )
+                                    .liquidGlass(cornerRadius: 12)
                                 }
+                                .accessibilityLabel(resource.0)
+                                .accessibilityHint(resource.1)
                             }
                         }
                         .padding(.horizontal)
@@ -692,8 +658,9 @@ struct TrendingTopicDetailView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.systemScaled(28))
-                            .foregroundStyle(.black.opacity(0.3))
+                            .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Close")
                 }
             }
             .sheet(isPresented: $showJoinDiscussion) {
@@ -768,28 +735,30 @@ struct ReactionButton: View {
             HStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(isActive ? .black : .black.opacity(0.5))
-                
+                    .foregroundStyle(isActive ? .primary : .secondary)
+                    .accessibilityHidden(true)
+
                 if let count = count {
                     Text("\(count)")
                         .font(AMENFont.semiBold(11))
-                        .foregroundStyle(isActive ? .black : .black.opacity(0.5))
+                        .foregroundStyle(isActive ? .primary : .secondary)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(isActive ? Color.white : Color.black.opacity(0.05))
-                    .shadow(color: isActive ? .black.opacity(0.15) : .clear, radius: 8, y: 2)
+                    .fill(isActive ? Color(uiColor: .systemBackground) : Color(uiColor: .secondarySystemFill))
+                    .shadow(color: isActive ? Color(uiColor: .label).opacity(0.12) : .clear, radius: 8, y: 2)
             )
             .overlay(
                 Capsule()
-                    .stroke(isActive ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: isActive ? 1.5 : 1)
+                    .stroke(isActive ? Color(uiColor: .separator) : Color(uiColor: .separator).opacity(0.5), lineWidth: isActive ? 1.5 : 1)
             )
             .scaleEffect(isPressed ? 0.92 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityAddTraits(isActive ? [.isSelected] : [])
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -819,14 +788,15 @@ struct FormatButton: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.systemScaled(14, weight: .medium))
-                .foregroundStyle(isActive ? .white : .primary)
+                .foregroundStyle(isActive ? Color(uiColor: .systemBackground) : .primary)
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(isActive ? Color.blue : Color.clear)
+                        .fill(isActive ? Color.accentColor : Color.clear)
                 )
                 .contentShape(Circle())
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityAddTraits(isActive ? [.isSelected] : [])
     }
 }

@@ -103,6 +103,42 @@ final class AIUsageService: ObservableObject {
         } catch { dlog("⚠️ AIUsageService.evaluateTone: \(error)") }
         return nil
     }
+
+    // MARK: - Quota Checking
+
+    private static let monthlyLimits: [String: Int] = [
+        "free": 50,
+        "plus": 200,
+        "churchPro": Int.max,
+        "creatorPro": Int.max,
+        "amenPro": Int.max,
+        "default": 50
+    ]
+
+    /// Returns true if the user has quota remaining for the given feature.
+    /// Reads users/{uid}/aiUsage/{yyyy-MM} from Firestore.
+    /// Fails open (returns true) on Firestore error to avoid blocking users on network issues.
+    func checkQuota(featureName: String, tierRawValue: String) async -> Bool {
+        guard let uid = Auth.auth().currentUser?.uid else { return false }
+        let limit = Self.monthlyLimits[tierRawValue] ?? Self.monthlyLimits["default"]!
+        guard limit < Int.max else { return true } // unlimited tier
+
+        let monthKey = {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM"
+            return formatter.string(from: Date())
+        }()
+
+        do {
+            let doc = try await db.collection("users").document(uid)
+                .collection("aiUsage").document(monthKey).getDocument()
+            let used = (doc.data()?[featureName] as? Int) ?? 0
+            return used < limit
+        } catch {
+            dlog("⚠️ AIUsageService.checkQuota: Firestore read failed, failing open: \(error)")
+            return true
+        }
+    }
 }
 
 // MARK: - Tone Check Result

@@ -10,8 +10,9 @@ struct ChurchNotesScriptureSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Image(systemName: "book")
-                    .foregroundStyle(.tertiary)
+                Image(systemName: "cross")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.purple.opacity(0.75))
                 TextField("Add scripture", text: $inputText)
                     .onSubmit(addInput)
                 if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

@@ -1,31 +1,10 @@
 {
   "parameters": {
-    "conversation_os_enabled": {
+    "accessibility_intelligence_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Master kill switch for the Intelligent Conversation OS. Set false to disable all ConversationOS features instantly.",
-      "valueType": "BOOLEAN"
-    },
-    "conversation_summaries_enabled": {
-      "defaultValue": {
-        "value": "true"
-      },
-      "description": "Enable AI summary generation for spaces.",
-      "valueType": "BOOLEAN"
-    },
-    "catch_up_recaps_enabled": {
-      "defaultValue": {
-        "value": "true"
-      },
-      "description": "Show the catch-up recap banner and sheet when users have unread messages.",
-      "valueType": "BOOLEAN"
-    },
-    "topic_clustering_enabled": {
-      "defaultValue": {
-        "value": "true"
-      },
-      "description": "Enable semantic topic cluster extraction (Phase 3).",
+      "description": "Enable Accessibility Intelligence Layer.",
       "valueType": "BOOLEAN"
     },
     "action_extraction_enabled": {
@@ -35,18 +14,74 @@
       "description": "Enable action item and decision extraction from threads (Phase 3).",
       "valueType": "BOOLEAN"
     },
-    "organizational_memory_enabled": {
+    "action_suggestions_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Enable org-level weekly memory persistence and query (Phase 4).",
+      "description": "Enable action suggestions in threads.",
       "valueType": "BOOLEAN"
     },
-    "personalized_insights_enabled": {
+    "action_threads_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Enable role-aware personalized summaries (Phase 4).",
+      "description": "Enable Action Threads (Care Workflows).",
+      "valueType": "BOOLEAN"
+    },
+    "adaptive_accessibility_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable adaptive accessibility features.",
+      "valueType": "BOOLEAN"
+    },
+    "adaptive_translation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable adaptive translation.",
+      "valueType": "BOOLEAN"
+    },
+    "aegis_pre_post_review_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AmenPrePostReviewSheet safety gate before every post submission.",
+      "valueType": "BOOLEAN"
+    },
+    "after_service_reflection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable after-service reflection flow.",
+      "valueType": "BOOLEAN"
+    },
+    "agent_recommendations_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable agent-driven recommendations.",
+      "valueType": "BOOLEAN"
+    },
+    "ai_media_disclosure_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI media disclosure labels.",
+      "valueType": "BOOLEAN"
+    },
+    "ai_usage_label_pill_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Kill switch: false removes AI label pill from all post cards instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "algorithm_transparency_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable algorithm transparency disclosures.",
       "valueType": "BOOLEAN"
     },
     "ambient_conversation_intelligence_enabled": {
@@ -56,147 +91,441 @@
       "description": "Show the ambient top banner with catch-up / topic / action chips.",
       "valueType": "BOOLEAN"
     },
-    "conversation_os_liquid_glass_enabled": {
+    "amen_agent_workflow_kill_switch": {
       "defaultValue": {
-        "value": "true"
+        "value": "false"
       },
-      "description": "Enable Liquid Glass rendering for ConversationOS cards (Phase 5).",
+      "description": "Kill switch: true disables Amen agent workflows instantly.",
       "valueType": "BOOLEAN"
     },
-    "conversation_os_debug_telemetry_enabled": {
+    "amen_agent_workflows_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Enable verbose debug telemetry for ConversationOS (staff/QA only).",
+      "description": "Enable Amen agent workflows.",
       "valueType": "BOOLEAN"
     },
-    "conversation_os_sensitive_space_restrictions_enabled": {
+    "amen_ai_usage_labels_required": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Block AI access to prayer_room, leadership_room, and admin_channel unless explicitly opted in. MUST default true.",
+      "description": "Require AI usage labels on AI-generated content.",
       "valueType": "BOOLEAN"
     },
-    "find_a_church_enabled": {
+    "amen_creator_kit_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 1 master-run: Find a Church — MapKit map, clustering, filter chips, bottom sheet.",
+      "description": "Enable Amen creator kit.",
       "valueType": "BOOLEAN"
     },
-    "posts_liquid_glass_enabled": {
+    "amen_daily_digest_ai_reflection_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 2 master-run: Posts Liquid Glass migration — switches Posts surfaces to AmenGlassKit components.",
+      "description": "Enable AI reflection in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "why_seeing_this_enabled": {
+    "amen_daily_digest_berean_ai_action_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 3 master-run: 'Why this is in your feed' provenance disclosure sheet + agency actions.",
+      "description": "Enable Berean AI action in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "selah_stories_enabled": {
+    "amen_daily_digest_christian_calendar_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 5 master-run: Selah Stories free composer — ephemeral formation stories with private audience only.",
+      "description": "Enable Christian calendar card in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "selah_stories_premium_ai_enabled": {
+    "amen_daily_digest_church_notes_action_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 5 master-run: Selah Stories premium AI features (subscription-gated) — verse recognition, Berean reflection prompts, semantic audio matching.",
+      "description": "Enable Church Notes action in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_projects_enabled": {
+    "amen_daily_digest_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_onboarding_enabled": {
+    "amen_daily_digest_expanded_sheet_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable expanded sheet in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_memory_brain_enabled": {
+    "amen_daily_digest_find_church_action_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable Find a Church action in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_research_engine_enabled": {
+    "amen_daily_digest_holiday_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable holiday card in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_truth_labels_enabled": {
+    "amen_daily_digest_selah_action_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable Selah action in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_source_explorer_enabled": {
+    "amen_daily_digest_weather_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable weather card in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_knowledge_graph_enabled": {
+    "amen_discover_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable Amen Discover surface.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_wisdom_engine_enabled": {
+    "amen_discover_liquid_glass_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable Liquid Glass in Amen Discover.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_multi_perspective_enabled": {
+    "amen_discover_local_churches_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable local churches section in Amen Discover.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_debate_engine_enabled": {
+    "amen_discover_ranking_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable ranking in Amen Discover.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_social_projects_enabled": {
+    "amen_discover_safety_feedback_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable safety feedback in Amen Discover.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_mentor_os_enabled": {
+    "amen_discover_selah_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable Selah section in Amen Discover.",
       "valueType": "BOOLEAN"
     },
-    "berean_os_living_documents_enabled": {
+    "amen_discover_why_this_enabled": {
       "defaultValue": {
         "value": "true"
       },
+      "description": "Enable 'Why this?' disclosure in Amen Discover.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_explain_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Amen Explain AI feature.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_explain_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Amen Explain instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_graphic_generation_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Amen graphic generation instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_graphic_studio_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Amen graphic studio.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_improve_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Amen Improve AI feature.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_improve_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Amen Improve instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_live_captions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Amen live captions.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_live_captions_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Amen live captions instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_realtime_voice_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Amen realtime voice feature.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_realtime_voice_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Amen realtime voice instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_summarize_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Amen Summarize AI feature.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_summarize_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Amen Summarize instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_translation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Amen translation feature.",
+      "valueType": "BOOLEAN"
+    },
+    "amen_translation_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Amen translation instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "analytics_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable analytics collection.",
+      "valueType": "BOOLEAN"
+    },
+    "anti_doomscroll_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable anti-doomscroll feed controls.",
+      "valueType": "BOOLEAN"
+    },
+    "ark_communities_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable legacy Ark communities path. Default OFF until hardened.",
+      "valueType": "BOOLEAN"
+    },
+    "audio_narration_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable audio narration of posts.",
+      "valueType": "BOOLEAN"
+    },
+    "authority_alignment_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Authority Alignment layer.",
+      "valueType": "BOOLEAN"
+    },
+    "auto_captions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable auto-captions for video.",
+      "valueType": "BOOLEAN"
+    },
+    "autoplay_within_sessions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable autoplay within media sessions.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_adaptive_mode_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean adaptive mode.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_chat_redesign_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean chat UI redesign.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_church_notes_bridge_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Save to Church Notes bridge from Berean.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_commentary_compare_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean commentary comparison.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_context_bridge_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean context bridge.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_context_bridge_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Berean context bridge instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_conversation_memory_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean conversation memory.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_deep_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Kill switch: false disables Berean Deep mode instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_entitlement_enforcement_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Kill switch: false bypasses server entitlement enforcement for emergency rollback.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_follow_ups_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean follow-up suggestions.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_helper_external_context_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable external/public context in Berean helper (Flow 4).",
+      "valueType": "BOOLEAN"
+    },
+    "berean_helper_extract_themes_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable extract-themes pill for links in Berean helper.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_helper_link_summary_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable link summarization in Berean helper (Flow 3).",
+      "valueType": "BOOLEAN"
+    },
+    "berean_helper_model_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master kill switch for the Berean Grok/helper pipeline.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_helper_prompt_simplify_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable prompt simplification in Berean helper (Flow 2).",
+      "valueType": "BOOLEAN"
+    },
+    "berean_helper_provenance_chips_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Kill switch: false removes AI-assisted provenance chip from all Berean answers.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_helper_study_outline_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable study outline generation in Berean helper.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_liquid_glass_context_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass context actions in Berean.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_live_captions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean live captions.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_memory_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Berean memory instantly.",
       "valueType": "BOOLEAN"
     },
     "berean_os_action_planner_enabled": {
-      "defaultValue": {
-        "value": "true"
-      },
-      "valueType": "BOOLEAN"
-    },
-    "berean_os_social_knowledge_feed_enabled": {
       "defaultValue": {
         "value": "true"
       },
@@ -214,6 +543,803 @@
       },
       "valueType": "BOOLEAN"
     },
+    "berean_os_debate_engine_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_knowledge_graph_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_living_documents_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_memory_brain_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_mentor_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_multi_perspective_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_onboarding_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_projects_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_research_engine_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_social_knowledge_feed_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_social_projects_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_source_explorer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_truth_labels_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_wisdom_engine_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_persistent_memory_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable persistent study memory UI and consent flow.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_prayer_rooms_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean prayer rooms.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_pulse_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean Pulse feature.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_rag_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean RAG (retrieval-augmented generation) pipeline.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_realtime_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean realtime features.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_realtime_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables all Berean realtime features instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_research_view_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable research view / source metadata panel in Berean.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_resource_routing_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean resource routing.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_safety_classifier_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean safety classifier.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_safety_classifier_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Berean safety classifier instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_selah_bridge_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Save to Selah bridge from Berean.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_smart_notes_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean smart notes.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_smart_pills_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable mode-aware smart pills in Berean.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_source_attribution_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean source attribution display.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_source_grounding_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean source grounding.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_source_grounding_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Berean source grounding instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_spiritual_layers_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean Spiritual Intelligence Layers.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_streaming_response_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean streaming responses.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_study_threads_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable study thread continuity in Berean.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_study_threads_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true disables Berean study threads instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_theo_lens_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Kill switch: false disables all three theological lens modes instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_theological_lens_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean theological lens.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_theology_boundary_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable theology boundary / hard-block scrubber in Berean.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_translation_compare_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable translation comparison in Berean.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_translation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean translation.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_voice_assistant_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean voice assistant.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_voice_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Berean voice input/output.",
+      "valueType": "BOOLEAN"
+    },
+    "bottom_bar_liquid_glass_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass bottom bar.",
+      "valueType": "BOOLEAN"
+    },
+    "care_followups_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable care follow-ups.",
+      "valueType": "BOOLEAN"
+    },
+    "catch_up_digest_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable catch-up digest.",
+      "valueType": "BOOLEAN"
+    },
+    "catch_up_recaps_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Show the catch-up recap banner and sheet when users have unread messages.",
+      "valueType": "BOOLEAN"
+    },
+    "check_in_behavioral_signals_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable behavioral signals in check-in.",
+      "valueType": "BOOLEAN"
+    },
+    "check_in_crisis_escalation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable crisis escalation in check-in flow.",
+      "valueType": "BOOLEAN"
+    },
+    "church_explainable_recommendations_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable explainable church recommendations.",
+      "valueType": "BOOLEAN"
+    },
+    "church_first_visit_companion_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable first-visit companion for churches.",
+      "valueType": "BOOLEAN"
+    },
+    "church_interaction_tracking_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable church interaction tracking.",
+      "valueType": "BOOLEAN"
+    },
+    "church_journey_timeline_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable church journey timeline.",
+      "valueType": "BOOLEAN"
+    },
+    "church_note_care_summary_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable care summaries from church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_ai_draft_review_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI draft review in church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_audio_capture_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable audio capture in church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_collaboration_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable collaboration in church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable church notes intelligence features.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_photo_ocr_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable photo OCR in church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_prayer_prompts_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable prayer prompts from church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_processing_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Kill switch: true blocks all new church notes processing jobs instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_scripture_bridge_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Church Notes / Scripture bridge.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_semantic_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI semantic actions inside Church Notes toolbar.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_server_summary_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable server-side summaries for church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_study_guide_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable study guide generation in church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_study_guide_generation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable study guide generation from church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_translation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable translation in church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_notes_video_capture_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable video capture in church notes.",
+      "valueType": "BOOLEAN"
+    },
+    "church_photo_ocr_capture_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable church photo OCR capture.",
+      "valueType": "BOOLEAN"
+    },
+    "church_post_card_drafts_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable post-card drafts for church visits.",
+      "valueType": "BOOLEAN"
+    },
+    "church_reviews_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable church reviews.",
+      "valueType": "BOOLEAN"
+    },
+    "church_service_reminders_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable church service reminders.",
+      "valueType": "BOOLEAN"
+    },
+    "church_smart_ranking_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart ranking for church discovery.",
+      "valueType": "BOOLEAN"
+    },
+    "church_study_companion_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Church Study Companion.",
+      "valueType": "BOOLEAN"
+    },
+    "church_study_group_bridge_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable church study group bridge.",
+      "valueType": "BOOLEAN"
+    },
+    "claim_source_requirement_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable claim source requirement.",
+      "valueType": "BOOLEAN"
+    },
+    "command_palette_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable command palette.",
+      "valueType": "BOOLEAN"
+    },
+    "community_correction_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable community correction feature.",
+      "valueType": "BOOLEAN"
+    },
+    "community_hubs_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Community Hubs.",
+      "valueType": "BOOLEAN"
+    },
+    "community_media_layers_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable community media layers.",
+      "valueType": "BOOLEAN"
+    },
+    "community_memory_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "community_object_matching_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable community object matching.",
+      "valueType": "BOOLEAN"
+    },
+    "community_os_action_pill_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable universal AmenActionPill on all object views.",
+      "valueType": "BOOLEAN"
+    },
+    "community_os_church_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Community OS Church OS (A8).",
+      "valueType": "BOOLEAN"
+    },
+    "community_os_discussion_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Community OS Discussion rooms (A6).",
+      "valueType": "BOOLEAN"
+    },
+    "community_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master switch for Community OS Core Spine (Phase 1).",
+      "valueType": "BOOLEAN"
+    },
+    "community_os_opportunity_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Community OS Opportunity OS (A10).",
+      "valueType": "BOOLEAN"
+    },
+    "community_os_org_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Community OS Org OS (A9).",
+      "valueType": "BOOLEAN"
+    },
+    "community_os_prayer_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Community OS Prayer OS (A7).",
+      "valueType": "BOOLEAN"
+    },
+    "community_os_universal_composer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AmenUniversalComposer bottom sheet creation surface.",
+      "valueType": "BOOLEAN"
+    },
+    "composer_approved_audio_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable approved audio in post composer.",
+      "valueType": "BOOLEAN"
+    },
+    "composer_presence_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Pulse-driven smart action pills inside post composer.",
+      "valueType": "BOOLEAN"
+    },
+    "compound_identity_graph_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Compound Identity Graph.",
+      "valueType": "BOOLEAN"
+    },
+    "connect_hub_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Connect Hub.",
+      "valueType": "BOOLEAN"
+    },
+    "connect_you_menu_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable 'You' menu in Connect Hub.",
+      "valueType": "BOOLEAN"
+    },
+    "content_ai_router_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI router in ContentOS.",
+      "valueType": "BOOLEAN"
+    },
+    "content_approval_workflow_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable content approval workflow.",
+      "valueType": "BOOLEAN"
+    },
+    "content_audit_log_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable content audit log.",
+      "valueType": "BOOLEAN"
+    },
+    "content_credentials_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable content credentials (C2PA).",
+      "valueType": "BOOLEAN"
+    },
+    "content_difficulty_scoring": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable content difficulty scoring.",
+      "valueType": "BOOLEAN"
+    },
+    "content_forwarding_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable content forwarding.",
+      "valueType": "BOOLEAN"
+    },
+    "content_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable ContentOS.",
+      "valueType": "BOOLEAN"
+    },
+    "context_bridge_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable context bridge for accessibility.",
+      "valueType": "BOOLEAN"
+    },
+    "context_participation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable context-aware participation in discussions.",
+      "valueType": "BOOLEAN"
+    },
+    "contextual_mode_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Contextual reading mode.",
+      "valueType": "BOOLEAN"
+    },
+    "continuation_feed_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable continuation feed.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_bridge_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable conversation bridge for accessibility.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_memory_search_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable conversation memory search.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_debug_telemetry_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable verbose debug telemetry for ConversationOS (staff/QA only).",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master kill switch for the Intelligent Conversation OS. Set false to disable all ConversationOS features instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_liquid_glass_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass rendering for ConversationOS cards (Phase 5).",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_sensitive_space_restrictions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Block AI access to prayer_room, leadership_room, and admin_channel unless explicitly opted in. MUST default true.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_summaries_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI summary generation for spaces.",
+      "valueType": "BOOLEAN"
+    },
+    "covenant_communities_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Covenant tiered creator communities.",
+      "valueType": "BOOLEAN"
+    },
+    "creation_language_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable creation language selection in composer.",
+      "valueType": "BOOLEAN"
+    },
+    "creator_highlights_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable creator highlights on profile.",
+      "valueType": "BOOLEAN"
+    },
+    "creator_os_composer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Creator OS composer.",
+      "valueType": "BOOLEAN"
+    },
+    "discovery_why_shown_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable 'Why Shown' disclosure in discovery.",
+      "valueType": "BOOLEAN"
+    },
     "discussion_actions_enabled": {
       "defaultValue": {
         "value": "true"
@@ -221,12 +1347,6 @@
       "valueType": "BOOLEAN"
     },
     "discussion_command_center_enabled": {
-      "defaultValue": {
-        "value": "true"
-      },
-      "valueType": "BOOLEAN"
-    },
-    "community_memory_enabled": {
       "defaultValue": {
         "value": "true"
       },
@@ -256,11 +1376,1068 @@
       },
       "valueType": "BOOLEAN"
     },
-    "selah_personal_corpus_enabled": {
+    "dm_enhanced_scanning_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Enables SelahNote → Pinecone corpus indexing (indexSelahNote CF). Corresponds to selah.personalCorpus feature gate.",
+      "description": "Enable enhanced scanning for DMs.",
+      "valueType": "BOOLEAN"
+    },
+    "dm_risk_firewall_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable DM risk firewall.",
+      "valueType": "BOOLEAN"
+    },
+    "dogpile_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable dogpile detection.",
+      "valueType": "BOOLEAN"
+    },
+    "draft_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable draft intelligence in discussions.",
+      "valueType": "BOOLEAN"
+    },
+    "emotional_check_in_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable emotional check-in.",
+      "valueType": "BOOLEAN"
+    },
+    "engagement_quality_ranking_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable engagement quality ranking.",
+      "valueType": "BOOLEAN"
+    },
+    "enhanced_notifications_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable enhanced notifications.",
+      "valueType": "BOOLEAN"
+    },
+    "explain_video_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Explain Video feature.",
+      "valueType": "BOOLEAN"
+    },
+    "explain_video_kill_reason": {
+      "defaultValue": {
+        "value": ""
+      },
+      "description": "Non-empty string activates Explain Video kill switch with reason message.",
+      "valueType": "STRING"
+    },
+    "explain_video_min_app_version": {
+      "defaultValue": {
+        "value": "1.0.0"
+      },
+      "description": "Minimum app version required for Explain Video.",
+      "valueType": "STRING"
+    },
+    "explain_video_rollout_percent": {
+      "defaultValue": {
+        "value": "100"
+      },
+      "description": "Rollout percentage for Explain Video (0\u2013100).",
+      "valueType": "NUMBER"
+    },
+    "feed_boundary_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable feed boundary controls.",
+      "valueType": "BOOLEAN"
+    },
+    "feed_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master kill switch for Feed Intelligence OS and all feed personalization.",
+      "valueType": "BOOLEAN"
+    },
+    "feed_mode_controls_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable feed mode controls.",
+      "valueType": "BOOLEAN"
+    },
+    "feed_modes_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable feed modes (Berean, Worship, etc.) in feed settings.",
+      "valueType": "BOOLEAN"
+    },
+    "feed_quality_metrics_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable feed quality metrics collection.",
+      "valueType": "BOOLEAN"
+    },
+    "feed_ranking_v2_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable feed ranking v2 algorithm.",
+      "valueType": "BOOLEAN"
+    },
+    "feed_reflection_prompts_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable reflection prompts in feed.",
+      "valueType": "BOOLEAN"
+    },
+    "feed_session_pacing_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable feed session pacing.",
+      "valueType": "BOOLEAN"
+    },
+    "feed_view_mode_switcher_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable feed view mode switcher.",
+      "valueType": "BOOLEAN"
+    },
+    "find_a_church_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 1 master-run: Find a Church \u2014 MapKit map, clustering, filter chips, bottom sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "find_church_study_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Find-a-Church study actions.",
+      "valueType": "BOOLEAN"
+    },
+    "finite_media_queues_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable finite media queues.",
+      "valueType": "BOOLEAN"
+    },
+    "group_discussion_pulse_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable group discussion pulse.",
+      "valueType": "BOOLEAN"
+    },
+    "guide_my_feed_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Guide My Feed composer chip and sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "guided_discipleship_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Guided Discipleship.",
+      "valueType": "BOOLEAN"
+    },
+    "healthy_immersive_media_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Healthy Immersive Media session system.",
+      "valueType": "BOOLEAN"
+    },
+    "healthy_media_checkpoints_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable healthy media checkpoints.",
+      "valueType": "BOOLEAN"
+    },
+    "healthy_use_dashboard_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable healthy use dashboard.",
+      "valueType": "BOOLEAN"
+    },
+    "helping_someone_else_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable 'Helping Someone Else' care flow.",
+      "valueType": "BOOLEAN"
+    },
+    "hide_vanity_metrics_default": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Default to hiding vanity metrics on media.",
+      "valueType": "BOOLEAN"
+    },
+    "image_moderation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Vision LLM image moderation pipeline.",
+      "valueType": "BOOLEAN"
+    },
+    "immersive_feed_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable immersive feed view.",
+      "valueType": "BOOLEAN"
+    },
+    "immersive_media_chrome_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable immersive media chrome UI.",
+      "valueType": "BOOLEAN"
+    },
+    "immersive_media_sessions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable immersive media sessions.",
+      "valueType": "BOOLEAN"
+    },
+    "immersive_photo_sessions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable immersive photo sessions.",
+      "valueType": "BOOLEAN"
+    },
+    "immersive_video_sessions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable immersive video sessions.",
+      "valueType": "BOOLEAN"
+    },
+    "in_app_browser_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable in-app browser.",
+      "valueType": "BOOLEAN"
+    },
+    "inline_definition_popover_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable inline definition popover on semantic term tap.",
+      "valueType": "BOOLEAN"
+    },
+    "knowledge_graph_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Knowledge Graph.",
+      "valueType": "BOOLEAN"
+    },
+    "knowledge_graph_related_content_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable related content in Knowledge Graph.",
+      "valueType": "BOOLEAN"
+    },
+    "knowledge_graph_semantic_search_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable semantic search in Knowledge Graph.",
+      "valueType": "BOOLEAN"
+    },
+    "knowledge_threads_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable saving semantic insights as knowledge threads.",
+      "valueType": "BOOLEAN"
+    },
+    "late_night_pause_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable late-night pause reminder.",
+      "valueType": "BOOLEAN"
+    },
+    "liquid_glass_communication_ui_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass UI for Communication OS.",
+      "valueType": "BOOLEAN"
+    },
+    "liquid_glass_presence_pills_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AmenPresencePillStack contextual AI action pills.",
+      "valueType": "BOOLEAN"
+    },
+    "liquid_glass_system_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master switch for Liquid Glass Intelligence features.",
+      "valueType": "BOOLEAN"
+    },
+    "live_activity_prayer_request_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable push-driven Prayer Request Live Activity.",
+      "valueType": "BOOLEAN"
+    },
+    "live_activity_push_to_start_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable push-to-start for Prayer Request Live Activity (iOS 17.2+).",
+      "valueType": "BOOLEAN"
+    },
+    "living_scripture_graph_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Living Scripture Graph.",
+      "valueType": "BOOLEAN"
+    },
+    "lyric_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable lyric detection in posts.",
+      "valueType": "BOOLEAN"
+    },
+    "meaning_aware_translation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable meaning-aware translation.",
+      "valueType": "BOOLEAN"
+    },
+    "media_accessibility_controls_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable accessibility controls for media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_ai_draft_metadata_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI draft metadata for media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_ai_metadata_drafts_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI metadata drafts for media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_approval_flow_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media approval flow.",
+      "valueType": "BOOLEAN"
+    },
+    "media_authenticity_badges_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media authenticity badges.",
+      "valueType": "BOOLEAN"
+    },
+    "media_chrome_liquid_glass_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass chrome for media player controls.",
+      "valueType": "BOOLEAN"
+    },
+    "media_church_notes_integration_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Church Notes integration with media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_community_layer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media community layer.",
+      "valueType": "BOOLEAN"
+    },
+    "media_completion_overlay_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media completion overlay.",
+      "valueType": "BOOLEAN"
+    },
+    "media_completion_reflection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media completion reflection prompt.",
+      "valueType": "BOOLEAN"
+    },
+    "media_creation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Media Creation System.",
+      "valueType": "BOOLEAN"
+    },
+    "media_detail_view_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media detail view.",
+      "valueType": "BOOLEAN"
+    },
+    "media_doom_scroll_guard_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media doom-scroll guard.",
+      "valueType": "BOOLEAN"
+    },
+    "media_filter_pills_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media filter pills in feed.",
+      "valueType": "BOOLEAN"
+    },
+    "media_finite_sessions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable finite media sessions.",
+      "valueType": "BOOLEAN"
+    },
+    "media_generated_metadata_approval_required": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Require approval for AI-generated media metadata.",
+      "valueType": "BOOLEAN"
+    },
+    "media_hide_vanity_metrics_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable hide vanity metrics for media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media intelligence in Communication OS.",
+      "valueType": "BOOLEAN"
+    },
+    "media_key_moments_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media key moments.",
+      "valueType": "BOOLEAN"
+    },
+    "media_liquid_glass_chrome_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass chrome for media player.",
+      "valueType": "BOOLEAN"
+    },
+    "media_low_bandwidth_mode_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable low bandwidth mode for media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_no_doom_scroll_guardrails_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable no-doom-scroll guardrails for media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_prayer_queue_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media prayer queue.",
+      "valueType": "BOOLEAN"
+    },
+    "media_profile_liquid_white_flow_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass white flow for media profile.",
+      "valueType": "BOOLEAN"
+    },
+    "media_ranking_v2_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media ranking v2.",
+      "valueType": "BOOLEAN"
+    },
+    "media_reflection_queue_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media reflection queue.",
+      "valueType": "BOOLEAN"
+    },
+    "media_reflection_sheet_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media reflection sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "media_reporting_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media reporting.",
+      "valueType": "BOOLEAN"
+    },
+    "media_resume_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Smart Media Continuity / resume playback.",
+      "valueType": "BOOLEAN"
+    },
+    "media_search_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media search.",
+      "valueType": "BOOLEAN"
+    },
+    "media_selah_audio_mode_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Selah audio mode for media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_selah_overlay_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Selah overlay on media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_session_checkpoints_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media session checkpoints.",
+      "valueType": "BOOLEAN"
+    },
+    "media_synthetic_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media-level synthetic detection.",
+      "valueType": "BOOLEAN"
+    },
+    "media_timestamped_comments_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable timestamped comments on media.",
+      "valueType": "BOOLEAN"
+    },
+    "media_transcript_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media transcripts.",
+      "valueType": "BOOLEAN"
+    },
+    "media_wellbeing_controls_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media wellbeing controls.",
+      "valueType": "BOOLEAN"
+    },
+    "mentorship_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable mentorship features.",
+      "valueType": "BOOLEAN"
+    },
+    "mercy_mode_replies_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable mercy mode replies.",
+      "valueType": "BOOLEAN"
+    },
+    "message_request_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable message request intelligence.",
+      "valueType": "BOOLEAN"
+    },
+    "messages_smart_context_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart context in messages.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_approval_cards_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable approval cards in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_attachment_menu_smart_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart actions in attachment menu.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_catch_up_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable catch-up digest in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_cross_surface_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable cross-surface actions in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_floating_header_prototype_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable floating header prototype in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_liquid_glass_animations_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass micro animations in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_liquid_glass_attachment_menu_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass attachment menu in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_liquid_glass_context_menu_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass context menu in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_media_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media intelligence in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_presence_polish_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable presence polish animations in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_safety_nudges_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable safety nudges in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_smart_composer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart composer in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_smart_pills_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart pills in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_translation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable translation in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_typing_indicator_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable typing indicator in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "messaging_voice_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable voice intelligence in messaging.",
+      "valueType": "BOOLEAN"
+    },
+    "minor_safety_mode_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable minor safety mode.",
+      "valueType": "BOOLEAN"
+    },
+    "moderation_appeals_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable moderation appeals flow.",
+      "valueType": "BOOLEAN"
+    },
+    "moderation_v2_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master switch for Advanced Moderation v2.",
+      "valueType": "BOOLEAN"
+    },
+    "multi_pane_communication_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable multi-pane communication view.",
+      "valueType": "BOOLEAN"
+    },
+    "music_attachment_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable music attachment picker in composer and MusicCard renderer.",
+      "valueType": "BOOLEAN"
+    },
+    "mutual_context_row_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable mutual context row on profiles.",
+      "valueType": "BOOLEAN"
+    },
+    "natural_mode_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Natural reading mode.",
+      "valueType": "BOOLEAN"
+    },
+    "nonprofit_recommendation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable nonprofit recommendations.",
+      "valueType": "BOOLEAN"
+    },
+    "object_hub_inline_cluster_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable inline Object Hub cluster.",
+      "valueType": "BOOLEAN"
+    },
+    "object_hub_inline_pill_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable inline Object Hub pill.",
+      "valueType": "BOOLEAN"
+    },
+    "object_hub_view_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Object Hub view.",
+      "valueType": "BOOLEAN"
+    },
+    "organizational_memory_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable org-level weekly memory persistence and query (Phase 4).",
+      "valueType": "BOOLEAN"
+    },
+    "participation_tiers_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable participation tiers in discussions.",
+      "valueType": "BOOLEAN"
+    },
+    "per_language_auto_translate_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable per-language auto-translate preference.",
+      "valueType": "BOOLEAN"
+    },
+    "per_media_caption_alt_text_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable alt text field in caption composer.",
+      "valueType": "BOOLEAN"
+    },
+    "per_media_caption_education_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable one-time caption education modal.",
+      "valueType": "BOOLEAN"
+    },
+    "per_media_caption_moderation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable moderation of per-media captions before publish.",
+      "valueType": "BOOLEAN"
+    },
+    "per_media_caption_scripture_refs_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable scripture reference chips in caption composer.",
+      "valueType": "BOOLEAN"
+    },
+    "per_media_captions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable per-media caption composer and swipe-caption rendering.",
+      "valueType": "BOOLEAN"
+    },
+    "performance_telemetry_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable performance telemetry collection.",
+      "valueType": "BOOLEAN"
+    },
+    "personalized_insights_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable role-aware personalized summaries (Phase 4).",
+      "valueType": "BOOLEAN"
+    },
+    "pinned_content_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable pinned content on profile.",
+      "valueType": "BOOLEAN"
+    },
+    "post_divider_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable post divider in feed.",
+      "valueType": "BOOLEAN"
+    },
+    "posts_liquid_glass_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 2 master-run: Posts Liquid Glass migration \u2014 switches Posts surfaces to AmenGlassKit components.",
+      "valueType": "BOOLEAN"
+    },
+    "presence_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable presence intelligence features.",
+      "valueType": "BOOLEAN"
+    },
+    "private_reflection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable private reflection feature.",
+      "valueType": "BOOLEAN"
+    },
+    "profile_media_grid_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media grid on profile.",
+      "valueType": "BOOLEAN"
+    },
+    "profile_v2_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Profile V2.",
+      "valueType": "BOOLEAN"
+    },
+    "proof_of_care_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Proof of Care signals.",
+      "valueType": "BOOLEAN"
+    },
+    "proof_of_human_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Proof of Human verification.",
+      "valueType": "BOOLEAN"
+    },
+    "provenance_audit_chain_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable provenance audit chain.",
+      "valueType": "BOOLEAN"
+    },
+    "provenance_trust_panel_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable provenance trust panel.",
+      "valueType": "BOOLEAN"
+    },
+    "pulse_awareness_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Pulse awareness \u2014 UI adaptation based on interaction signals.",
+      "valueType": "BOOLEAN"
+    },
+    "purpose_open_screen_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable purpose open screen.",
+      "valueType": "BOOLEAN"
+    },
+    "readability_layer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Readability Layer.",
+      "valueType": "BOOLEAN"
+    },
+    "replay_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Replay feature.",
+      "valueType": "BOOLEAN"
+    },
+    "reputation_moderation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable reputation-based moderation.",
+      "valueType": "BOOLEAN"
+    },
+    "resources_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Resources Intelligence system.",
+      "valueType": "BOOLEAN"
+    },
+    "safety_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Safety OS.",
+      "valueType": "BOOLEAN"
+    },
+    "saved_communities_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable community-level Saved/Bookmark feature.",
+      "valueType": "BOOLEAN"
+    },
+    "scripture_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable scripture detection in posts.",
+      "valueType": "BOOLEAN"
+    },
+    "scripture_immersion_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Scripture Immersion mode.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_add_to_church_notes_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable 'Add to Church Notes' from Selah.",
       "valueType": "BOOLEAN"
     },
     "selah_discernment_enabled": {
@@ -275,6 +2452,678 @@
         "value": "true"
       },
       "description": "Enables sharing discernment checks to thread participants. Corresponds to selah.discernmentSharing feature gate.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_media_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Selah Media OS.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_media_os_kill_reason": {
+      "defaultValue": {
+        "value": ""
+      },
+      "description": "Non-empty string activates Selah Media OS kill switch with reason message.",
+      "valueType": "STRING"
+    },
+    "selah_media_os_min_app_version": {
+      "defaultValue": {
+        "value": "1.0.0"
+      },
+      "description": "Minimum app version required for Selah Media OS.",
+      "valueType": "STRING"
+    },
+    "selah_media_os_rollout_percent": {
+      "defaultValue": {
+        "value": "100"
+      },
+      "description": "Rollout percentage for Selah Media OS (0\u2013100).",
+      "valueType": "NUMBER"
+    },
+    "selah_pause_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Selah pause prompt.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_personal_corpus_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables SelahNote \u2192 Pinecone corpus indexing (indexSelahNote CF). Corresponds to selah.personalCorpus feature gate.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_scripture_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Selah Scripture Actions command bar.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_semantic_save_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable 'Save to Selah' from inline definition popover.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_stories_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 5 master-run: Selah Stories free composer \u2014 ephemeral formation stories with private audience only.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_stories_premium_ai_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 5 master-run: Selah Stories premium AI features (subscription-gated) \u2014 verse recognition, Berean reflection prompts, semantic audio matching.",
+      "valueType": "BOOLEAN"
+    },
+    "semantic_underline_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable dotted underlines on high-confidence semantic terms.",
+      "valueType": "BOOLEAN"
+    },
+    "sermon_action_extraction_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable action extraction from sermons.",
+      "valueType": "BOOLEAN"
+    },
+    "sermon_audio_capture_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable sermon audio capture.",
+      "valueType": "BOOLEAN"
+    },
+    "sermon_clip_suggestion_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable clip suggestions from sermons.",
+      "valueType": "BOOLEAN"
+    },
+    "sermon_summary_generation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable sermon summary generation.",
+      "valueType": "BOOLEAN"
+    },
+    "sermon_video_capture_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable sermon video capture.",
+      "valueType": "BOOLEAN"
+    },
+    "server_notifications_v2_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable server-driven notifications v2.",
+      "valueType": "BOOLEAN"
+    },
+    "sextortion_panic_flow_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable sextortion panic flow.",
+      "valueType": "BOOLEAN"
+    },
+    "side_by_side_translation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable side-by-side translation view.",
+      "valueType": "BOOLEAN"
+    },
+    "simple_mode_feature_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Simple Mode UI feature.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_account_resume_auto_continue_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Auto-continue after token validation, skipping the Continue button.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_account_resume_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Smart Account Resume / one-tap login.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_account_resume_offline_retry_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Show offline retry screen instead of routing to login on network failure.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_action_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable server-driven smart action detection via detectSmartActions CF.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_attachment_composer_paste_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable paste detection in smart attachments.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_attachment_expanded_sheet_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable expanded sheet for smart attachments.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_attachment_media_graph_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable media graph in smart attachments.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_attachment_music_picker_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable music picker in smart attachments.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_attachment_smart_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart actions in smart attachments.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_attachments_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart attachments in composer.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_discovery_transparency_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart discovery transparency.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_presence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart presence.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_reactions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart reactions.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_replies_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart replies.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_share_context_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable context display in Share Sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_share_preview_mode_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable preview mode in Share Sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_share_recipient_rail_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable recipient rail in Share Sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_share_sheet_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Smart Share Sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_share_smart_suggestions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart suggestions in Share Sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "smart_translation_visibility_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart translation visibility controls.",
+      "valueType": "BOOLEAN"
+    },
+    "social_safety_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master switch for Social Safety OS.",
+      "valueType": "BOOLEAN"
+    },
+    "spatial_context_rail_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable spatial context rail.",
+      "valueType": "BOOLEAN"
+    },
+    "spatial_home_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Spatial Social OS home surface.",
+      "valueType": "BOOLEAN"
+    },
+    "spiritual_check_in_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Spiritual Check-In feature.",
+      "valueType": "BOOLEAN"
+    },
+    "spiritual_state_layer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Spiritual State Layer.",
+      "valueType": "BOOLEAN"
+    },
+    "studio_ai_tagging_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI-assisted tagging in Studio.",
+      "valueType": "BOOLEAN"
+    },
+    "studio_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Studio / Creator Marketplace.",
+      "valueType": "BOOLEAN"
+    },
+    "studio_job_board_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Studio job board.",
+      "valueType": "BOOLEAN"
+    },
+    "studio_monetization_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Studio monetization features.",
+      "valueType": "BOOLEAN"
+    },
+    "suggested_follows_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Suggested Follows rail.",
+      "valueType": "BOOLEAN"
+    },
+    "suggested_rail_card_limit": {
+      "defaultValue": {
+        "value": "12"
+      },
+      "description": "Maximum number of cards shown in the Suggested rail.",
+      "valueType": "NUMBER"
+    },
+    "suggested_rail_cooldown_hours": {
+      "defaultValue": {
+        "value": "24"
+      },
+      "description": "Hours between Suggested rail re-appearances.",
+      "valueType": "NUMBER"
+    },
+    "suggested_rail_dismiss_cooldown_days": {
+      "defaultValue": {
+        "value": "7"
+      },
+      "description": "Days before Suggested rail reappears after dismiss.",
+      "valueType": "NUMBER"
+    },
+    "suggested_rail_insertion_index": {
+      "defaultValue": {
+        "value": "2"
+      },
+      "description": "Feed index at which the Suggested rail is inserted.",
+      "valueType": "NUMBER"
+    },
+    "suggested_rail_peek_sheet_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable peek sheet in Suggested rail.",
+      "valueType": "BOOLEAN"
+    },
+    "suggested_rail_prayer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Show prayer posts in Suggested rail.",
+      "valueType": "BOOLEAN"
+    },
+    "suggested_rail_server_ranking_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Use server-side ranking for Suggested rail.",
+      "valueType": "BOOLEAN"
+    },
+    "suggested_rail_testimonies_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Show testimony posts in Suggested rail.",
+      "valueType": "BOOLEAN"
+    },
+    "support_draft_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable support draft detection.",
+      "valueType": "BOOLEAN"
+    },
+    "support_followups_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable support follow-ups.",
+      "valueType": "BOOLEAN"
+    },
+    "suspicious_relationship_detector_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable suspicious relationship detector.",
+      "valueType": "BOOLEAN"
+    },
+    "synthetic_media_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable synthetic media detection.",
+      "valueType": "BOOLEAN"
+    },
+    "theological_guardrails_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable theological guardrails.",
+      "valueType": "BOOLEAN"
+    },
+    "think_first_guard_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Think First guard before posting.",
+      "valueType": "BOOLEAN"
+    },
+    "thread_action_extraction_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable thread action extraction.",
+      "valueType": "BOOLEAN"
+    },
+    "thread_decision_extraction_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable thread decision extraction.",
+      "valueType": "BOOLEAN"
+    },
+    "thread_question_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable thread question detection.",
+      "valueType": "BOOLEAN"
+    },
+    "thread_summary_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable thread summary.",
+      "valueType": "BOOLEAN"
+    },
+    "topic_clustering_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable semantic topic cluster extraction (Phase 3).",
+      "valueType": "BOOLEAN"
+    },
+    "topic_drill_down_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Topic Drill-Down feature.",
+      "valueType": "BOOLEAN"
+    },
+    "topic_enrichment_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable topic enrichment.",
+      "valueType": "BOOLEAN"
+    },
+    "translation_remember_language_preference_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Remember user language preference for translation.",
+      "valueType": "BOOLEAN"
+    },
+    "translation_smart_pill_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable smart translation pill.",
+      "valueType": "BOOLEAN"
+    },
+    "trust_explainer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable trust explainer sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "trust_scoring_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable trust scoring for users.",
+      "valueType": "BOOLEAN"
+    },
+    "trust_signals_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable trust signals display.",
+      "valueType": "BOOLEAN"
+    },
+    "trusted_contact_escalation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable trusted contact escalation.",
+      "valueType": "BOOLEAN"
+    },
+    "trusted_contacts_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Trusted Contacts feature.",
+      "valueType": "BOOLEAN"
+    },
+    "truth_context_layer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable truth context layer on posts.",
+      "valueType": "BOOLEAN"
+    },
+    "truthful_ai_labels_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable truthful AI labels on content.",
+      "valueType": "BOOLEAN"
+    },
+    "unified_feeds_switcher_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable unified Threads-style feed switcher.",
+      "valueType": "BOOLEAN"
+    },
+    "universal_content_model_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Universal Content Model.",
+      "valueType": "BOOLEAN"
+    },
+    "universal_create_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Universal Create surface.",
+      "valueType": "BOOLEAN"
+    },
+    "victim_shield_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable victim shield protection.",
+      "valueType": "BOOLEAN"
+    },
+    "video_upload_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable video upload.",
+      "valueType": "BOOLEAN"
+    },
+    "view_in_feed_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable 'View in Feed' scoped home timeline.",
+      "valueType": "BOOLEAN"
+    },
+    "voice_comment_prayer_circle_visibility_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Prayer Circle visibility option for voice comments.",
+      "valueType": "BOOLEAN"
+    },
+    "voice_comment_review_queue_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable held_for_review moderation queue for voice comments.",
+      "valueType": "BOOLEAN"
+    },
+    "voice_comment_summary_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI-generated safety summaries on voice comments.",
+      "valueType": "BOOLEAN"
+    },
+    "voice_comment_transcript_required": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Require transcript before publishing voice comment.",
+      "valueType": "BOOLEAN"
+    },
+    "voice_prayer_comments_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master kill switch: disables all voice comment UI when false.",
+      "valueType": "BOOLEAN"
+    },
+    "voice_testimony_comments_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable 'Share Testimony' voice button on testimony posts.",
+      "valueType": "BOOLEAN"
+    },
+    "voiceover_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable voiceover recording.",
+      "valueType": "BOOLEAN"
+    },
+    "wellbeing_feed_ranking_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable wellbeing-aware feed ranking.",
+      "valueType": "BOOLEAN"
+    },
+    "why_seeing_this_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 3 master-run: 'Why this is in your feed' provenance disclosure sheet + agency actions.",
+      "valueType": "BOOLEAN"
+    },
+    "why_this_post_backend_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Use backend-driven Why This Post sheet.",
       "valueType": "BOOLEAN"
     }
   }

@@ -223,7 +223,7 @@ struct AMENAccountSwitcherView: View {
                                 AccountRow(
                                     account: current,
                                     isCurrent: true,
-                                    onTap: {},
+                                    onTap: { dismiss() },
                                     onRemove: nil
                                 )
                             }

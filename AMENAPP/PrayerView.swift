@@ -15,6 +15,7 @@ import FirebaseFirestore
 struct PrayerView: View {
     @ObservedObject private var postsManager = PostsManager.shared
     @ObservedObject private var prayerAlgorithm = PrayerAlgorithm.shared
+    @StateObject private var entitlements = AmenAccountEntitlementService.shared
     @State private var selectedTab: PrayerTab = .requests
     @State private var showDailyPrayer = false
     @State private var showPrayerGroups = false
@@ -30,6 +31,12 @@ struct PrayerView: View {
     @State private var showHeader = true
     @State private var pressedTab: PrayerTab? = nil
     private let tabHaptic = UIImpactFeedbackGenerator(style: .light)
+
+    // MARK: - Session + Paywall State
+    @State private var isSessionActive = false
+    @State private var headerVisible = true
+    @State private var showPaywall = false
+    @State private var showSessionBanner = false
     
     // ⚡️ PERFORMANCE FIX: Reduced initial load for faster first render
     // MARK: - Pagination State
@@ -73,6 +80,17 @@ struct PrayerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
 
+                // Invisible scroll-offset anchor — reports this view's Y position in
+                // global coordinates so the header button can hide when scrolled down.
+                GeometryReader { geo in
+                    Color.clear
+                        .preference(
+                            key: PrayerScrollOffsetKey.self,
+                            value: geo.frame(in: .global).minY
+                        )
+                }
+                .frame(height: 0)
+
                 // MARK: Header
                 if showHeader {
                     HStack(alignment: .top) {
@@ -85,17 +103,24 @@ struct PrayerView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button {
-                            Task { await PrayerSessionManager.shared.start(title: "Personal Prayer") }
-                        } label: {
-                            Label("Start Session", systemImage: "timer")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(Capsule().fill(Color.accentColor))
+                        Button { handleStartSession() } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: isSessionActive ? "stop.circle" : "play.circle.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text(isSessionActive ? "End Session" : "Start Session")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(.regularMaterial, in: Capsule())
+                            .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
                         }
-                        .accessibilityLabel("Start a focused prayer session Live Activity")
+                        .buttonStyle(.plain)
+                        .opacity(headerVisible ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.2), value: headerVisible)
+                        .accessibilityLabel(isSessionActive ? "End prayer session" : "Start a focused prayer session")
                     }
                     .padding(.horizontal)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -212,6 +237,47 @@ struct PrayerView: View {
                 .padding(.bottom, 16)
                 .animation(.spring(response: 0.4, dampingFraction: 0.7), value: BurdenMatchService.shared.showMatchPrompt)
         }
+        // Session-started confirmation banner
+        .overlay(alignment: .top) {
+            if showSessionBanner {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Prayer session started")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.green.opacity(0.35), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .padding(.top, 8)
+            }
+        }
+        .animation(.spring(response: 0.38, dampingFraction: 0.75), value: showSessionBanner)
+        // Scroll-offset tracking for header visibility.
+        // `offset` is the view's minY in global coordinates.
+        // When the user scrolls down, minY drops below its initial value.
+        // We capture the initial value on first preference change and compare delta.
+        .onPreferenceChange(PrayerScrollOffsetKey.self) { offset in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                // Hide button when scrolled more than 60pt downward from initial position.
+                // Initial minY is positive (below nav bar); as user scrolls down it falls.
+                // Comparing to a static threshold: hide when top of view has left visible area.
+                headerVisible = offset > 60
+            }
+        }
+        // Paywall sheet
+        .sheet(isPresented: $showPaywall) {
+            AmenAccountPaywallView(
+                requiredTier: .amenPlus,
+                feature: "Prayer Session"
+            ) {
+                showPaywall = false
+            }
+        }
         .task {
             // Keep listener alive across tab switches — only start if not already active
             FirebasePostService.shared.startListening(category: .prayer)
@@ -254,6 +320,35 @@ struct PrayerView: View {
         }
     }
     
+    // MARK: - Session Handling
+
+    private func handleStartSession() {
+        guard entitlements.currentTier != .free else {
+            showPaywall = true
+            return
+        }
+        if isSessionActive {
+            // End the current session
+            isSessionActive = false
+            return
+        }
+        // Start a new session
+        isSessionActive = true
+        Task { await PrayerSessionManager.shared.start(title: "Personal Prayer") }
+        // Show brief confirmation banner — auto-dismiss after 2 s
+        withAnimation {
+            showSessionBanner = true
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            await MainActor.run {
+                withAnimation {
+                    showSessionBanner = false
+                }
+            }
+        }
+    }
+
     // MARK: - Helper Functions
 
     private func prayerRow(post: Post, index: Int, total: Int, allCount: Int) -> some View {
@@ -373,6 +468,17 @@ struct PrayerView: View {
         case .answered:
             return "Celebrate answered prayers with the community!"
         }
+    }
+}
+
+// MARK: - Scroll Offset Preference Key
+
+/// Tracks the vertical scroll offset of PrayerView so the header button
+/// can hide when the user scrolls down more than 60 pt.
+private struct PrayerScrollOffsetKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

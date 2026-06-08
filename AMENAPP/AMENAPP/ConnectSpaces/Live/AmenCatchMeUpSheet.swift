@@ -1,6 +1,5 @@
 // AmenCatchMeUpSheet.swift
 // AMEN Connect + Spaces — Late-Joiner AI Catch-Up Sheet
-// Built: 2026-06-03
 
 import SwiftUI
 import FirebaseFunctions
@@ -61,41 +60,53 @@ struct AmenCatchMeUpSheet: View {
     @State private var loadError: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
 
     private let functions = Functions.functions()
 
     var body: some View {
-        ZStack {
-            Color(hex: "070607").ignoresSafeArea()
+        VStack(spacing: 0) {
+            sheetHandle
 
-            VStack(spacing: 0) {
-                sheetHeader
-                Divider().opacity(0.2)
+            sheetHeader
+            Divider()
+                .padding(.horizontal, 20)
 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        lengthPickerSection
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    lengthPickerSection
 
-                        if isLoading {
-                            loadingSkeletonSection
-                        } else if let error = loadError {
-                            errorSection(error)
-                        } else if let result = summaryResult {
-                            summarySection(result)
-                        }
-
-                        Spacer(minLength: 24)
+                    if isLoading {
+                        loadingSkeletonSection
+                    } else if let error = loadError {
+                        errorSection(error)
+                    } else if let result = summaryResult {
+                        summarySection(result)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                }
 
-                dismissFooter
+                    Spacer(minLength: 24)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
             }
+
+            dismissFooter
         }
+        .background(.ultraThinMaterial)
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(Color(hex: "070607"))
+        .presentationDragIndicator(.hidden)
+        .presentationBackground(.ultraThinMaterial)
+    }
+
+    // MARK: - Handle
+
+    private var sheetHandle: some View {
+        RoundedRectangle(cornerRadius: 3, style: .continuous)
+            .fill(Color.primary.opacity(0.18))
+            .frame(width: 36, height: 5)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
     }
 
     // MARK: - Header
@@ -104,7 +115,7 @@ struct AmenCatchMeUpSheet: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(streamTitle)
                 .font(.systemScaled(17, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             Text("Started \(minutesElapsed) minute\(minutesElapsed == 1 ? "" : "s") ago")
                 .font(.systemScaled(13))
@@ -112,7 +123,8 @@ struct AmenCatchMeUpSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.vertical, 14)
+        .background(.ultraThinMaterial.opacity(0.5))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(streamTitle), started \(minutesElapsed) minute\(minutesElapsed == 1 ? "" : "s") ago")
     }
@@ -131,7 +143,9 @@ struct AmenCatchMeUpSheet: View {
                     LengthCard(
                         length: length,
                         isSelected: selectedLength == length,
-                        reduceMotion: reduceMotion
+                        reduceMotion: reduceMotion,
+                        reduceTransparency: reduceTransparency,
+                        contrast: contrast
                     ) {
                         selectLength(length)
                     }
@@ -146,6 +160,7 @@ struct AmenCatchMeUpSheet: View {
         VStack(spacing: 12) {
             SkeletonBar(width: nil, height: 14)
             SkeletonBar(width: nil, height: 14)
+            SkeletonBar(width: 200, height: 14)
         }
         .padding(.top, 8)
         .accessibilityLabel("Loading summary")
@@ -158,16 +173,14 @@ struct AmenCatchMeUpSheet: View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.systemScaled(28))
-                .foregroundStyle(Color.red.opacity(0.7))
+                .foregroundStyle(.orange)
                 .accessibilityHidden(true)
             Text(message)
                 .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button {
-                if let length = selectedLength {
-                    fetchSummary(length: length)
-                }
+                if let length = selectedLength { fetchSummary(length: length) }
             } label: {
                 Text("Try Again")
                     .font(.systemScaled(14, weight: .semibold))
@@ -184,7 +197,7 @@ struct AmenCatchMeUpSheet: View {
     @ViewBuilder
     private func summarySection(_ result: CatchUpResult) -> some View {
         VStack(alignment: .leading, spacing: 20) {
-            // Main summary — matte content area (no glass-on-glass)
+            // Main summary card
             VStack(alignment: .leading, spacing: 8) {
                 Text("Summary")
                     .font(.systemScaled(12, weight: .semibold))
@@ -198,14 +211,15 @@ struct AmenCatchMeUpSheet: View {
                     scriptureRefs: result.scriptureRefs
                 )
                 .padding(14)
-                .background {
+                .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.07))
-                        .overlay {
+                        .fill(reduceTransparency ? Color(.systemGray6) : Color(.secondarySystemBackground).opacity(0.85))
+                        .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
-                        }
-                }
+                                .strokeBorder(Color.black.opacity(contrast == .increased ? 0.18 : 0.07), lineWidth: contrast == .increased ? 1 : 0.75)
+                        )
+                )
+                .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
             }
 
             // Key Topics chips
@@ -217,17 +231,17 @@ struct AmenCatchMeUpSheet: View {
                 )
             }
 
-            // Prayer Requests list
+            // Prayer Requests
             if !result.prayerRequests.isEmpty {
                 bulletListSection(
-                    title: "Prayer Requests So Far",
+                    title: "Prayer Requests",
                     icon: "hands.sparkles.fill",
                     items: result.prayerRequests,
                     accentColor: Color(hex: "6E4BB5")
                 )
             }
 
-            // Action Items list
+            // Action Items
             if !result.actionItems.isEmpty {
                 bulletListSection(
                     title: "Action Items",
@@ -258,14 +272,15 @@ struct AmenCatchMeUpSheet: View {
                             .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(chipColor)
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background {
-                                Capsule()
-                                    .fill(chipColor.opacity(0.14))
-                                    .overlay {
-                                        Capsule().strokeBorder(chipColor.opacity(0.35), lineWidth: 1)
-                                    }
-                            }
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(chipColor.opacity(0.10))
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .strokeBorder(chipColor.opacity(0.30), lineWidth: 1)
+                                    )
+                            )
                             .accessibilityLabel(item)
                     }
                 }
@@ -303,21 +318,21 @@ struct AmenCatchMeUpSheet: View {
                             .accessibilityHidden(true)
                         Text(item)
                             .font(.systemScaled(14))
-                            .foregroundStyle(.white.opacity(0.85))
+                            .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .accessibilityLabel(item)
                 }
             }
             .padding(14)
-            .background {
+            .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.white.opacity(0.05))
-                    .overlay {
+                    .fill(reduceTransparency ? Color(.systemGray6) : Color(.secondarySystemBackground).opacity(0.85))
+                    .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(accentColor.opacity(0.18), lineWidth: 1)
-                    }
-            }
+                            .strokeBorder(accentColor.opacity(contrast == .increased ? 0.25 : 0.12), lineWidth: contrast == .increased ? 1 : 0.75)
+                    )
+            )
         }
     }
 
@@ -325,36 +340,31 @@ struct AmenCatchMeUpSheet: View {
 
     private var dismissFooter: some View {
         VStack(spacing: 0) {
-            Divider().opacity(0.2)
+            Divider()
             Button(action: onDismiss) {
                 Text("Got it, take me in")
                     .font(.systemScaled(17, weight: .bold))
-                    .foregroundStyle(Color(hex: "070607"))
+                    .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .padding(.vertical, 16)
+                    .background(
+                        Capsule(style: .continuous)
                             .fill(Color(hex: "D9A441"))
-                    }
+                    )
             }
+            .buttonStyle(.plain)
             .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .ignoresSafeArea(edges: .bottom)
-            }
+            .padding(.vertical, 14)
             .accessibilityLabel("Got it, join the stream")
         }
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Actions
 
     private func selectLength(_ length: SummaryLength) {
         let anim: Animation? = reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)
-        withAnimation(anim) {
-            selectedLength = length
-        }
+        withAnimation(anim) { selectedLength = length }
         fetchSummary(length: length)
     }
 
@@ -362,7 +372,6 @@ struct AmenCatchMeUpSheet: View {
         isLoading = true
         summaryResult = nil
         loadError = nil
-
         Task { @MainActor in
             defer { isLoading = false }
             do {
@@ -375,18 +384,12 @@ struct AmenCatchMeUpSheet: View {
                     loadError = "Unexpected response format. Please try again."
                     return
                 }
-                let summary = data["summary"] as? String ?? ""
-                let topics = data["topics"] as? [String] ?? []
-                let prayerRequests = data["prayerRequests"] as? [String] ?? []
-                let actionItems = data["actionItems"] as? [String] ?? []
-                let scriptureRefs = data["scriptureRefs"] as? [String] ?? []
-
                 summaryResult = CatchUpResult(
-                    summary: summary,
-                    topics: topics,
-                    prayerRequests: prayerRequests,
-                    actionItems: actionItems,
-                    scriptureRefs: scriptureRefs
+                    summary: data["summary"] as? String ?? "",
+                    topics: data["topics"] as? [String] ?? [],
+                    prayerRequests: data["prayerRequests"] as? [String] ?? [],
+                    actionItems: data["actionItems"] as? [String] ?? [],
+                    scriptureRefs: data["scriptureRefs"] as? [String] ?? []
                 )
             } catch {
                 loadError = error.localizedDescription
@@ -395,89 +398,90 @@ struct AmenCatchMeUpSheet: View {
     }
 }
 
-// MARK: - Length Card
+// MARK: - Length Card (white Liquid Glass)
 
 private struct LengthCard: View {
     let length: SummaryLength
     let isSelected: Bool
     let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let contrast: ColorSchemeContrast
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 14) {
-                Image(systemName: "clock.fill")
-                    .font(.systemScaled(18))
-                    .foregroundStyle(isSelected ? Color(hex: "070607") : Color(hex: "D9A441"))
-                    .frame(width: 24)
-                    .accessibilityHidden(true)
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? Color(hex: "D9A441").opacity(0.15) : Color.primary.opacity(0.06))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "clock.fill")
+                        .font(.systemScaled(15))
+                        .foregroundStyle(isSelected ? Color(hex: "D9A441") : .secondary)
+                }
+                .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(length.title)
                         .font(.systemScaled(15, weight: .semibold))
-                        .foregroundStyle(isSelected ? Color(hex: "070607") : .white)
+                        .foregroundStyle(.primary)
                     Text("Best for: \(length.bestFor)")
                         .font(.systemScaled(12))
-                        .foregroundStyle(isSelected ? Color(hex: "070607").opacity(0.7) : .secondary)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color(hex: "070607").opacity(0.6) : Color.white.opacity(0.35))
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "chevron.right")
+                    .font(.systemScaled(isSelected ? 16 : 12, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color(hex: "D9A441") : Color.secondary.opacity(0.5))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .background {
+            .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isSelected ? Color(hex: "D9A441") : Color.white.opacity(0.08))
-                    .overlay {
+                    .fill(reduceTransparency
+                          ? AnyShapeStyle(Color(.systemGray6))
+                          : AnyShapeStyle(isSelected ? .thinMaterial : .ultraThinMaterial))
+                    .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(
-                                isSelected ? Color.clear : Color.white.opacity(0.12),
-                                lineWidth: 1
+                                isSelected ? Color(hex: "D9A441").opacity(0.5) : Color.black.opacity(contrast == .increased ? 0.18 : 0.07),
+                                lineWidth: contrast == .increased ? 1 : 0.75
                             )
-                    }
-            }
+                    )
+            )
+            .shadow(color: isSelected ? Color(hex: "D9A441").opacity(0.12) : .black.opacity(0.04), radius: isSelected ? 10 : 4, y: 2)
         }
         .buttonStyle(.plain)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isSelected)
         .accessibilityLabel("\(length.title). Best for: \(length.bestFor)")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 
-// MARK: - Attributed Summary Text (highlights scripture refs in gold)
+// MARK: - Attributed Summary Text
 
 private struct AttributedSummaryText: View {
     let summary: String
     let scriptureRefs: [String]
 
     var body: some View {
-        // Build a Text with inline gold-highlighted scripture references.
-        // Falls back gracefully if no refs are present.
-        let built = buildText()
-        built
+        buildText()
             .font(.systemScaled(14))
-            .foregroundStyle(.white.opacity(0.88))
+            .foregroundStyle(.primary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private func buildText() -> Text {
-        guard !scriptureRefs.isEmpty else {
-            return Text(summary)
-        }
-
+        guard !scriptureRefs.isEmpty else { return Text(summary) }
         var remaining = summary
         var result = Text("")
         var didHighlight = false
-
         for ref in scriptureRefs {
             if let range = remaining.range(of: ref) {
                 let before = String(remaining[remaining.startIndex..<range.lowerBound])
-                if !before.isEmpty {
-                    result = result + Text(before)
-                }
+                if !before.isEmpty { result = result + Text(before) }
                 result = result + Text(ref)
                     .foregroundStyle(Color(hex: "D9A441"))
                     .fontWeight(.semibold)
@@ -485,11 +489,7 @@ private struct AttributedSummaryText: View {
                 didHighlight = true
             }
         }
-
-        if !remaining.isEmpty {
-            result = result + Text(remaining)
-        }
-
+        if !remaining.isEmpty { result = result + Text(remaining) }
         return didHighlight ? result : Text(summary)
     }
 }
@@ -499,17 +499,15 @@ private struct AttributedSummaryText: View {
 private struct SkeletonBar: View {
     let width: CGFloat?
     let height: CGFloat
-    @State private var opacity: Double = 0.3
+    @State private var opacity: Double = 0.12
 
     var body: some View {
         RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(Color.white.opacity(opacity))
+            .fill(Color.primary.opacity(opacity))
             .frame(maxWidth: width, minHeight: height, maxHeight: height)
             .onAppear {
-                withAnimation(
-                    .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
-                ) {
-                    opacity = 0.08
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    opacity = 0.04
                 }
             }
     }
@@ -517,20 +515,14 @@ private struct SkeletonBar: View {
 
 // MARK: - Preview
 
-#Preview("Length Selection") {
-    Color(hex: "070607").ignoresSafeArea()
+#Preview {
+    Color(.systemBackground).ignoresSafeArea()
         .sheet(isPresented: .constant(true)) {
             AmenCatchMeUpSheet(
                 streamId: "stream-001",
-                streamTitle: "Sunday Morning Teaching: Grace and Redemption",
+                streamTitle: "Men's Bible Study: Romans 8",
                 minutesElapsed: 24,
                 onDismiss: {}
             )
         }
-        .preferredColorScheme(.dark)
-}
-
-#Preview("With Result") {
-    Color(hex: "070607").ignoresSafeArea()
-        .preferredColorScheme(.dark)
 }

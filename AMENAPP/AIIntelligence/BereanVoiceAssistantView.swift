@@ -15,6 +15,7 @@ struct BereanVoiceAssistantView: View {
     @State private var lastTranscript = ""
     @State private var lastResponse = ""
     @State private var errorMessage: String?
+    @State private var showTextFallbackAlert = false
     @State private var pulseScale: CGFloat = 1.0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -70,6 +71,12 @@ struct BereanVoiceAssistantView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .onDisappear { stopSession() }
+        .alert("Voice Not Available", isPresented: $showTextFallbackAlert) {
+            Button("Use Text Chat") { /* user can navigate to BereanChatView manually */ }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Real-time voice is unavailable right now. You can continue with text chat instead.")
+        }
     }
 
     // MARK: - Mic orb
@@ -202,6 +209,7 @@ struct BereanVoiceAssistantView: View {
                 isListening = true
             } catch {
                 errorMessage = error.localizedDescription
+                showTextFallbackAlert = true
             }
         }
     }

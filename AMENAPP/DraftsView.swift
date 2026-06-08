@@ -18,7 +18,7 @@ struct DraftsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemGroupedBackground)
+                Color.clear
                     .ignoresSafeArea()
 
                 if draftsManager.drafts.isEmpty {
@@ -111,6 +111,7 @@ struct DraftsView: View {
                 Text("This cannot be undone.")
             }
         }
+        .presentationBackground(.regularMaterial)
     }
 
     // MARK: - Empty State
@@ -140,12 +141,19 @@ struct DraftsView: View {
             }
         }
         .padding(40)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
-        .shadow(color: .black.opacity(0.04), radius: 12, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 6)
         .padding(.horizontal, 16)
     }
 

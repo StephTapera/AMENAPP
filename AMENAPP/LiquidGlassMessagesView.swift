@@ -270,14 +270,14 @@ struct LiquidGlassMessagesView: View {
 
     private func handleAttachment(_ type: MessageAttachmentType) {
         switch type {
-        case .photo:
+        case .photoLibrary, .camera:
             showPhotoPicker = true
-        case .prayer:
+        case .prayerRequest:
             pendingMessageType = .prayer
         case .scripture:
             pendingMessageType = .scripture
-        case .testimony:
-            pendingMessageType = .testimony
+        default:
+            break
         }
     }
 
@@ -910,10 +910,9 @@ struct LiquidGlassInputBar: View {
             .padding(.vertical, 16)
         }
         .confirmationDialog("Add to Message", isPresented: $showAttachmentOptions, titleVisibility: .visible) {
-            Button("📸 Photo or Video") { onAttachmentRequested(.photo) }
-            Button("🙏 Mark as Prayer Request") { onAttachmentRequested(.prayer) }
+            Button("📸 Photo or Video") { onAttachmentRequested(.photoLibrary) }
+            Button("🙏 Mark as Prayer Request") { onAttachmentRequested(.prayerRequest) }
             Button("✝️ Mark as Scripture") { onAttachmentRequested(.scripture) }
-            Button("✨ Mark as Testimony") { onAttachmentRequested(.testimony) }
             Button("Cancel", role: .cancel) {}
         }
     }

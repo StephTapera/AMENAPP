@@ -412,6 +412,7 @@ enum BereanPulseFeedState: Equatable {
     case limitedPermissions
     case offlineCached
     case error(String)
+    case notSignedIn
     case refreshing
     case cardHidden
     case permissionRequired(BereanPulsePermissionSource)

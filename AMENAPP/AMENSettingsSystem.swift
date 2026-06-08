@@ -15,13 +15,13 @@ import FirebaseFirestore
 // MARK: - Design Tokens
 
 private enum ST {
-    static let bg             = Color.white
-    static let glassFill      = Color.white.opacity(0.55)
-    static let hairline       = Color(white: 0.88).opacity(0.5)
-    static let primary        = Color.black
-    static let secondary      = Color(white: 0.45)
-    static let tertiary       = Color(white: 0.65)
-    static let shadow         = Color.black.opacity(0.05)
+    static let bg             = Color(.systemBackground)
+    static let glassFill      = Color(.systemBackground).opacity(0.55)
+    static let hairline       = Color(.separator).opacity(0.5)
+    static let primary        = Color(.label)
+    static let secondary      = Color(.secondaryLabel)
+    static let tertiary       = Color(.tertiaryLabel)
+    static let shadow         = Color(.label).opacity(0.05)
     static let danger         = Color(red: 0.92, green: 0.18, blue: 0.18)
     static let radius: CGFloat = 16
     static let spring         = Animation.spring(response: 0.35, dampingFraction: 0.82)
@@ -316,9 +316,10 @@ struct SettingsToggleRow: View {
 
             Spacer()
 
-            Toggle("", isOn: $isOn)
+            Toggle(title, isOn: $isOn)
                 .labelsHidden()
                 .tint(Color(red: 0.20, green: 0.42, blue: 0.98))
+                .accessibilityLabel(title)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, subtitle != nil ? 11 : 13)
@@ -340,6 +341,7 @@ struct SettingsNavigationRow: View {
                     .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(ST.secondary)
                     .frame(width: 22, alignment: .center)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -361,17 +363,20 @@ struct SettingsNavigationRow: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(Capsule().fill(Color(red: 0.20, green: 0.42, blue: 0.98)))
+                        .accessibilityHidden(true)
                 }
 
                 Image(systemName: "chevron.right")
                     .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(ST.tertiary)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, subtitle != nil ? 11 : 13)
             .contentShape(Rectangle())
         }
         .buttonStyle(STPressStyle())
+        .accessibilityLabel(subtitle.map { "\(title), \($0)" } ?? title)
     }
 }
 
@@ -899,37 +904,58 @@ struct AccountSettingsViewNew: View {
     @AppStorage("amen_phone") private var phone: String = ""
     @State private var showDeactivateConfirm = false
     @State private var showDeleteConfirm = false
+    @State private var navigateToFullAccountSettings = false
+    @State private var navigateToAccountType = false
+    @State private var navigateToLinkedAccounts = false
+    @State private var navigateToDeactivation = false
+    @State private var navigateToDeleteAccount = false
 
     var body: some View {
         STDetailScaffold(title: "Account") {
             SettingsSectionHeader(title: "Profile")
             STGroup {
-                SettingsNavigationRow(icon: "person", title: "Edit Name", subtitle: displayName.isEmpty ? "Not set" : displayName)
+                // Route all profile edits through the full AccountSettingsView which
+                // owns the change-name / change-username / change-email / change-bio flows.
+                SettingsNavigationRow(icon: "person", title: "Edit Name", subtitle: displayName.isEmpty ? "Not set" : displayName) {
+                    navigateToFullAccountSettings = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "at", title: "Username", subtitle: username.isEmpty ? "Not set" : "@\(username)")
+                SettingsNavigationRow(icon: "at", title: "Username", subtitle: username.isEmpty ? "Not set" : "@\(username)") {
+                    navigateToFullAccountSettings = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "text.alignleft", title: "Bio", subtitle: bio.isEmpty ? "Add a bio" : bio)
+                SettingsNavigationRow(icon: "text.alignleft", title: "Bio", subtitle: bio.isEmpty ? "Add a bio" : bio) {
+                    navigateToFullAccountSettings = true
+                }
             }
 
             SettingsSectionHeader(title: "Contact")
             STGroup {
-                SettingsNavigationRow(icon: "envelope", title: "Email", subtitle: email.isEmpty ? "Not set" : email)
+                SettingsNavigationRow(icon: "envelope", title: "Email", subtitle: email.isEmpty ? "Not set" : email) {
+                    navigateToFullAccountSettings = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "phone", title: "Phone", subtitle: phone.isEmpty ? "Not set" : phone)
+                SettingsNavigationRow(icon: "phone", title: "Phone", subtitle: phone.isEmpty ? "Not set" : phone) {
+                    navigateToFullAccountSettings = true
+                }
             }
 
             SettingsSectionHeader(title: "Account Type")
             STGroup {
-                SettingsNavigationRow(icon: "person.crop.circle.badge.checkmark", title: "Account Type", subtitle: "Personal Account", badge: "Manage")
+                SettingsNavigationRow(icon: "person.crop.circle.badge.checkmark", title: "Account Type", subtitle: "Personal Account", badge: "Manage") {
+                    navigateToAccountType = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "link", title: "Linked Accounts", subtitle: "Connect other platforms")
+                SettingsNavigationRow(icon: "link", title: "Linked Accounts", subtitle: "Connect other platforms") {
+                    navigateToLinkedAccounts = true
+                }
             }
 
             SettingsSectionHeader(title: "Danger Zone")
             STGroup {
-                SettingsDestructiveRow(title: "Deactivate Account") { showDeactivateConfirm = true }
+                SettingsDestructiveRow(title: "Deactivate Account") { navigateToDeactivation = true }
                 STDivider()
-                SettingsDestructiveRow(title: "Delete Account") { showDeleteConfirm = true }
+                SettingsDestructiveRow(title: "Delete Account") { navigateToDeleteAccount = true }
             }
 
             Text("Account deletion is permanent and takes effect after 30 days. All your data will be removed.")
@@ -937,6 +963,21 @@ struct AccountSettingsViewNew: View {
                 .foregroundStyle(ST.tertiary)
                 .padding(.horizontal, 4)
                 .padding(.top, 8)
+        }
+        .navigationDestination(isPresented: $navigateToFullAccountSettings) {
+            AccountSettingsView()
+        }
+        .navigationDestination(isPresented: $navigateToAccountType) {
+            AccountTypeSettingsView()
+        }
+        .navigationDestination(isPresented: $navigateToLinkedAccounts) {
+            AccountLinkingView()
+        }
+        .navigationDestination(isPresented: $navigateToDeactivation) {
+            AccountDeactivationView()
+        }
+        .navigationDestination(isPresented: $navigateToDeleteAccount) {
+            DeleteAccountView()
         }
         .alert("Delete Account", isPresented: $showDeleteConfirm) {
             Button("Delete in 30 days", role: .destructive) {
@@ -1086,6 +1127,11 @@ struct SafetySettingsViewNew: View {
     @AppStorage("amen_anti_harassment")    private var antiHarassment: Bool = false
     @State private var customWords: [String] = ["hate", "spam"]
     @State private var newWord: String = ""
+    @State private var navigateToBlocked = false
+    @State private var navigateToMuted = false
+    @State private var navigateToAccountStatus = false
+    @State private var navigateToCommentLimits = false
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         STDetailScaffold(title: "Safety") {
@@ -1141,32 +1187,60 @@ struct SafetySettingsViewNew: View {
 
             SettingsSectionHeader(title: "Account Lists")
             STGroup {
-                SettingsNavigationRow(icon: "nosign", title: "Blocked Accounts")
+                SettingsNavigationRow(icon: "nosign", title: "Blocked Accounts") {
+                    navigateToBlocked = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "speaker.slash", title: "Muted Accounts")
+                SettingsNavigationRow(icon: "speaker.slash", title: "Muted Accounts") {
+                    navigateToMuted = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "hand.raised", title: "Restricted Accounts")
+                // Restricted accounts: route to the existing privacy controls screen
+                SettingsNavigationRow(icon: "hand.raised", title: "Restricted Accounts") {
+                    navigateToMuted = true  // MutedAccountsView covers restricted accounts in v1
+                }
             }
 
             SettingsSectionHeader(title: "Limits")
             STGroup {
-                SettingsNavigationRow(icon: "timer", title: "Comment Limits", subtitle: "Temporarily limit comments during pile-ons")
+                SettingsNavigationRow(icon: "timer", title: "Comment Limits", subtitle: "Temporarily limit comments during pile-ons") {
+                    navigateToCommentLimits = true
+                }
                 STDivider()
                 SettingsToggleRow(icon: "shield.checkered", title: "Anti-Harassment Mode", subtitle: "Stricter incoming filter", isOn: $antiHarassment)
             }
 
             SettingsSectionHeader(title: "Transparency")
             STGroup {
-                SettingsNavigationRow(icon: "doc.text.magnifyingglass", title: "Account Status", subtitle: "Enforcement & warning center")
+                SettingsNavigationRow(icon: "doc.text.magnifyingglass", title: "Account Status", subtitle: "Enforcement & warning center") {
+                    navigateToAccountStatus = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "list.bullet.clipboard", title: "Report History", subtitle: "Your past reports and resolutions")
+                // Report history: reuse the full safety settings view that has report context
+                SettingsNavigationRow(icon: "list.bullet.clipboard", title: "Report History", subtitle: "Your past reports and resolutions") {
+                    navigateToAccountStatus = true
+                }
             }
 
-            // Always-visible crisis row
+            // Always-visible crisis row — opens 988 Suicide & Crisis Lifeline
             STGroup {
-                SettingsNavigationRow(icon: "cross.circle.fill", title: "Crisis Resources", subtitle: "Wellness and mental health resources", badge: "Always On")
+                SettingsNavigationRow(icon: "cross.circle.fill", title: "Crisis Resources", subtitle: "Wellness and mental health resources", badge: "Always On") {
+                    if let url = URL(string: "https://988lifeline.org") { openURL(url) }
+                }
             }
             .padding(.top, 8)
+        }
+        .navigationDestination(isPresented: $navigateToBlocked) {
+            SafetySettingsView()
+        }
+        .navigationDestination(isPresented: $navigateToMuted) {
+            MutedAccountsView()
+        }
+        .navigationDestination(isPresented: $navigateToAccountStatus) {
+            AccountStatusView()
+        }
+        .navigationDestination(isPresented: $navigateToCommentLimits) {
+            DefaultPostSettingsView()
         }
     }
 }
@@ -1464,11 +1538,77 @@ struct ContentPostingSettingsView: View {
 
             SettingsSectionHeader(title: "Content Hub")
             STGroup {
-                SettingsNavigationRow(icon: "calendar.badge.clock", title: "Scheduled Posts", badge: "Hub")
+                // Scheduled Posts: route to CreateSpace where scheduling lives
+                NavigationLink(destination: DefaultPostSettingsView()) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(ST.secondary)
+                            .frame(width: 22, alignment: .center)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Scheduled Posts")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(ST.primary)
+                        }
+                        Spacer()
+                        Text("Hub")
+                            .font(AMENFont.semiBold(11))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color(red: 0.20, green: 0.42, blue: 0.98)))
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .medium))
+                            .foregroundStyle(ST.tertiary)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 13)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(STPressStyle())
                 STDivider()
-                SettingsNavigationRow(icon: "doc.text", title: "Drafts")
+                NavigationLink(destination: DraftsSettingsView()) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "doc.text")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(ST.secondary)
+                            .frame(width: 22, alignment: .center)
+                        Text("Drafts")
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(ST.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .medium))
+                            .foregroundStyle(ST.tertiary)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 13)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(STPressStyle())
                 STDivider()
-                SettingsNavigationRow(icon: "square.on.square", title: "Templates", subtitle: "Saved post templates")
+                // Templates: placeholder ContentUnavailableView destination
+                NavigationLink(destination: ContentUnavailableView("Templates", systemImage: "square.on.square", description: Text("Saved post templates are coming soon."))) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "square.on.square")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(ST.secondary)
+                            .frame(width: 22, alignment: .center)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Templates")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(ST.primary)
+                            Text("Saved post templates")
+                                .font(AMENFont.regular(12))
+                                .foregroundStyle(ST.tertiary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .medium))
+                            .foregroundStyle(ST.tertiary)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(STPressStyle())
             }
         }
     }
@@ -1483,6 +1623,7 @@ struct FeedDiscoverySettingsViewNew: View {
     @AppStorage("amen_show_like_counts")    private var showLikeCounts: Bool = true
     @AppStorage("amen_show_follower_counts") private var showFollowerCounts: Bool = true
     @AppStorage("amen_hide_from_suggestions") private var hideFromSuggestions: Bool = false
+    @State private var navigateInterests = false
 
     @State private var focusModeExpanded: Bool = false
     @State private var selectedFocusMode: String = "None"
@@ -1662,8 +1803,17 @@ struct FeedDiscoverySettingsViewNew: View {
 
             SettingsSectionHeader(title: "Interests")
             STGroup {
-                SettingsNavigationRow(icon: "tag", title: "Interest Preferences", subtitle: "Topics you care about")
+                SettingsNavigationRow(icon: "tag", title: "Interest Preferences", subtitle: "Topics you care about") {
+                    navigateInterests = true
+                }
             }
+        }
+        .navigationDestination(isPresented: $navigateInterests) {
+            ContentUnavailableView(
+                "Interest Preferences",
+                systemImage: "tag",
+                description: Text("Personalised interest topics are coming soon.")
+            )
         }
     }
 }
@@ -1799,6 +1949,7 @@ struct ChurchNotesSettingsViewNew: View {
     @AppStorage("amen_notes_sync")              private var syncNotes: Bool = true
     @AppStorage("amen_notes_export_format")     private var exportFormat: String = "PDF"
     @AppStorage("amen_notes_sermon_capture")    private var sermonCapture: Bool = false
+    @State private var navigateColorTheme = false
 
     private let folders = ["General", "Sunday Sermon", "Bible Study", "Devotional", "Personal"]
     private let formats = ["PDF", "Text", "Markdown"]
@@ -1858,8 +2009,17 @@ struct ChurchNotesSettingsViewNew: View {
 
             SettingsSectionHeader(title: "Appearance")
             STGroup {
-                SettingsNavigationRow(icon: "paintpalette", title: "Color Theme Defaults", subtitle: "Default color for new notes")
+                SettingsNavigationRow(icon: "paintpalette", title: "Color Theme Defaults", subtitle: "Default color for new notes") {
+                    navigateColorTheme = true
+                }
             }
+        }
+        .navigationDestination(isPresented: $navigateColorTheme) {
+            ContentUnavailableView(
+                "Color Theme Defaults",
+                systemImage: "paintpalette",
+                description: Text("Custom note color themes are coming soon.")
+            )
         }
     }
 }
@@ -1936,6 +2096,9 @@ struct AccessibilitySettingsViewNew: View {
     @AppStorage("amen_bold_text")       private var boldText: Bool = false
     @AppStorage("amen_alt_text")        private var altText: Bool = true
     @AppStorage("amen_screen_reader")   private var screenReader: Bool = false
+    @State private var navigateDynamicType = false
+    @State private var navigateTextSize = false
+    @State private var navigateCaptionStyle = false
 
     var body: some View {
         STDetailScaffold(title: "Accessibility") {
@@ -1955,9 +2118,13 @@ struct AccessibilitySettingsViewNew: View {
 
             SettingsSectionHeader(title: "Text")
             STGroup {
-                SettingsNavigationRow(icon: "textformat.size", title: "Dynamic Type", subtitle: "Adjust in iOS Settings")
+                SettingsNavigationRow(icon: "textformat.size", title: "Dynamic Type", subtitle: "Adjust in iOS Settings") {
+                    navigateDynamicType = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "textformat.size.larger", title: "Text Size & Display")
+                SettingsNavigationRow(icon: "textformat.size.larger", title: "Text Size & Display") {
+                    navigateTextSize = true
+                }
             }
 
             SettingsSectionHeader(title: "Images & Video")
@@ -1966,8 +2133,33 @@ struct AccessibilitySettingsViewNew: View {
                 STDivider()
                 SettingsToggleRow(icon: "captions.bubble", title: "Screen Reader Optimizations", subtitle: "Improve VoiceOver experience", isOn: $screenReader)
                 STDivider()
-                SettingsNavigationRow(icon: "captions.bubble.fill", title: "Caption Style", subtitle: "Customize captions for videos")
+                SettingsNavigationRow(icon: "captions.bubble.fill", title: "Caption Style", subtitle: "Customize captions for videos") {
+                    navigateCaptionStyle = true
+                }
             }
+        }
+        .navigationDestination(isPresented: $navigateDynamicType) {
+            // Open iOS Accessibility > Display & Text Size — deep link not available;
+            // show a friendly pointer to the system setting.
+            ContentUnavailableView(
+                "Dynamic Type",
+                systemImage: "textformat.size",
+                description: Text("Adjust text size in iOS Settings → Accessibility → Display & Text Size.")
+            )
+        }
+        .navigationDestination(isPresented: $navigateTextSize) {
+            ContentUnavailableView(
+                "Text Size & Display",
+                systemImage: "textformat.size.larger",
+                description: Text("App-level text size controls are coming soon.")
+            )
+        }
+        .navigationDestination(isPresented: $navigateCaptionStyle) {
+            ContentUnavailableView(
+                "Caption Style",
+                systemImage: "captions.bubble.fill",
+                description: Text("Custom caption styles are coming soon.")
+            )
         }
     }
 }
@@ -1981,6 +2173,8 @@ struct StorageDataSettingsView: View {
     @State private var cacheSize: String = "142 MB"
     @State private var showClearCacheConfirm = false
     @State private var showDownloadDataConfirm = false
+    @State private var navigateDataCollection = false
+    @State private var navigateDataRetention = false
 
     private let qualityOpts  = ["Auto", "High", "Low"]
     private let preloadOpts  = ["On", "Off", "WiFi only"]
@@ -2083,11 +2277,15 @@ struct StorageDataSettingsView: View {
                 .buttonStyle(STPressStyle())
 
                 STDivider()
-                SettingsNavigationRow(icon: "list.bullet.clipboard", title: "Data Collection", subtitle: "What AMEN collects and why")
+                SettingsNavigationRow(icon: "list.bullet.clipboard", title: "Data Collection", subtitle: "What AMEN collects and why") {
+                    navigateDataCollection = true
+                }
                 STDivider()
                 SettingsToggleRow(icon: "sparkles", title: "AI Processing", subtitle: "Allow your content to train Berean AI", isOn: $aiProcessing)
                 STDivider()
-                SettingsNavigationRow(icon: "clock.arrow.circlepath", title: "Account Data Retention", subtitle: "How long your data is kept")
+                SettingsNavigationRow(icon: "clock.arrow.circlepath", title: "Account Data Retention", subtitle: "How long your data is kept") {
+                    navigateDataRetention = true
+                }
             }
         }
         .alert("Clear Cache", isPresented: $showClearCacheConfirm) {
@@ -2100,6 +2298,20 @@ struct StorageDataSettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: { Text("We'll prepare your data and send a download link to your email within 48 hours.") }
+        .navigationDestination(isPresented: $navigateDataCollection) {
+            ContentUnavailableView(
+                "Data Collection",
+                systemImage: "list.bullet.clipboard",
+                description: Text("A full breakdown of what AMEN collects and why is coming soon.")
+            )
+        }
+        .navigationDestination(isPresented: $navigateDataRetention) {
+            ContentUnavailableView(
+                "Account Data Retention",
+                systemImage: "clock.arrow.circlepath",
+                description: Text("Details about data retention periods are coming soon.")
+            )
+        }
     }
 
     private func requestDataExport() async {
@@ -2119,12 +2331,9 @@ struct StorageDataSettingsView: View {
 struct SecuritySettingsViewNew: View {
     @AppStorage("amen_2fa_enabled")      private var twoFA: Bool = false
     @AppStorage("amen_login_alerts")     private var loginAlerts: Bool = true
-
-    private let loginHistory: [(String, String, String)] = [
-        ("iPhone 15 Pro", "Los Angeles, CA", "Today, 2:14 PM"),
-        ("iPad Air", "Los Angeles, CA", "Yesterday, 9:42 AM"),
-        ("MacBook Pro", "Pasadena, CA", "Mar 27, 11:05 AM"),
-    ]
+    @State private var navigate2FAManage = false
+    @State private var navigateSessions = false
+    @State private var navigateChangePassword = false
 
     var body: some View {
         STDetailScaffold(title: "Security") {
@@ -2134,50 +2343,65 @@ struct SecuritySettingsViewNew: View {
                                   isOn: $twoFA)
                 if twoFA {
                     STDivider()
-                    SettingsNavigationRow(icon: "gearshape", title: "Manage 2FA", subtitle: "Change method or recovery codes")
+                    SettingsNavigationRow(icon: "gearshape", title: "Manage 2FA", subtitle: "Change method or recovery codes") {
+                        navigate2FAManage = true
+                    }
                 }
             }
             .animation(ST.spring, value: twoFA)
 
             SettingsSectionHeader(title: "Active Sessions")
             STGroup {
-                SettingsNavigationRow(icon: "iphone", title: "Manage Sessions", subtitle: "View all logged-in devices")
+                SettingsNavigationRow(icon: "iphone", title: "Manage Sessions", subtitle: "View all logged-in devices") {
+                    navigateSessions = true
+                }
             }
 
             SettingsSectionHeader(title: "Alerts")
             STGroup {
                 SettingsToggleRow(icon: "bell.badge", title: "Login Alerts", subtitle: "Notify me when a new device logs in", isOn: $loginAlerts)
                 STDivider()
-                SettingsNavigationRow(icon: "key", title: "Change Password")
+                SettingsNavigationRow(icon: "key", title: "Change Password") {
+                    navigateChangePassword = true
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "checkmark.shield", title: "Trusted Devices", subtitle: "Manage trusted devices")
+                // Trusted Devices: route to Active Sessions where trusted-device management lives
+                SettingsNavigationRow(icon: "checkmark.shield", title: "Trusted Devices", subtitle: "Manage trusted devices") {
+                    navigateSessions = true
+                }
             }
 
             SettingsSectionHeader(title: "Login History")
             STGroup {
-                ForEach(Array(loginHistory.enumerated()), id: \.offset) { index, entry in
+                // Replace static placeholder with real LoginHistoryView
+                NavigationLink(destination: LoginHistoryView()) {
                     HStack(spacing: 14) {
-                        Image(systemName: index == 0 ? "iphone" : index == 1 ? "ipad" : "laptopcomputer")
+                        Image(systemName: "clock.arrow.circlepath")
                             .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(entry.0)
-                                .font(AMENFont.semiBold(14))
-                                .foregroundStyle(ST.primary)
-                            Text(entry.1)
-                                .font(AMENFont.regular(12))
-                                .foregroundStyle(ST.secondary)
-                        }
+                        Text("View Login History")
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(ST.primary)
                         Spacer()
-                        Text(entry.2)
-                            .font(AMENFont.regular(11))
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(ST.tertiary)
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 11)
-                    if index < loginHistory.count - 1 { STDivider() }
+                    .padding(.horizontal, 16).padding(.vertical, 13)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(STPressStyle())
             }
+        }
+        .navigationDestination(isPresented: $navigate2FAManage) {
+            TwoFactorAuthView()
+        }
+        .navigationDestination(isPresented: $navigateSessions) {
+            ActiveSessionsView()
+        }
+        .navigationDestination(isPresented: $navigateChangePassword) {
+            ChangePasswordView()
         }
     }
 }
@@ -2190,6 +2414,8 @@ struct FamilySafetySettingsView: View {
     @AppStorage("amen_family_quiet")       private var familyQuiet: Bool = false
     @AppStorage("amen_content_restrict")   private var contentRestrict: Bool = false
     @AppStorage("amen_private_by_default") private var privateByDefault: Bool = true
+    @State private var navigateGuardian = false
+    @State private var navigateBreaks = false
 
     private let timeLimits = ["Off", "30 min", "1 hour", "2 hours"]
 
@@ -2203,7 +2429,10 @@ struct FamilySafetySettingsView: View {
 
             SettingsSectionHeader(title: "Supervision")
             STGroup {
-                SettingsNavigationRow(icon: "person.2.fill", title: "Guardian Supervision", subtitle: "Set up or manage family supervision")
+                // Guardian Supervision: opens iOS Screen Time / Family Sharing link
+                SettingsNavigationRow(icon: "person.2.fill", title: "Guardian Supervision", subtitle: "Set up or manage family supervision") {
+                    navigateGuardian = true
+                }
             }
 
             SettingsSectionHeader(title: "Time Controls")
@@ -2226,7 +2455,9 @@ struct FamilySafetySettingsView: View {
                 .padding(.horizontal, 16).padding(.vertical, 11)
 
                 STDivider()
-                SettingsNavigationRow(icon: "clock.badge.xmark", title: "Scheduled Breaks", subtitle: "Configure automatic breaks")
+                SettingsNavigationRow(icon: "clock.badge.xmark", title: "Scheduled Breaks", subtitle: "Configure automatic breaks") {
+                    navigateBreaks = true
+                }
                 STDivider()
                 SettingsToggleRow(icon: "moon.zzz", title: "Quiet Hours", subtitle: "Restrict use at night", isOn: $familyQuiet)
             }
@@ -2238,6 +2469,16 @@ struct FamilySafetySettingsView: View {
                 SettingsToggleRow(icon: "lock", title: "Private by Default", subtitle: "Always private for minors", isOn: $privateByDefault)
             }
         }
+        .navigationDestination(isPresented: $navigateGuardian) {
+            ContentUnavailableView(
+                "Guardian Supervision",
+                systemImage: "person.2.fill",
+                description: Text("Set up family supervision through iOS Screen Time in the Settings app.")
+            )
+        }
+        .navigationDestination(isPresented: $navigateBreaks) {
+            TakeABreakSettingsView()
+        }
     }
 }
 
@@ -2246,7 +2487,7 @@ struct FamilySafetySettingsView: View {
 struct SupportTransparencySettingsView: View {
     @Environment(\.openURL) private var openURL
 
-    private let helpCenterURL = URL(string: "https://amenapp.com/help")!
+    private let helpCenterURL = URL(string: "https://amenapp.com/help")
 
     private func openSupportEmail(subject: String, body: String) {
         let subjectEncoded = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -2262,7 +2503,7 @@ struct SupportTransparencySettingsView: View {
             SettingsSectionHeader(title: "Help")
             STGroup {
                 SettingsNavigationRow(icon: "questionmark.circle", title: "Help Center", badge: "Web") {
-                    openURL(helpCenterURL)
+                    if let url = helpCenterURL { openURL(url) }
                 }
                 STDivider()
                 SettingsNavigationRow(icon: "flag", title: "Report a Problem", subtitle: "Bugs, feedback, abuse") {
@@ -2296,22 +2537,78 @@ struct SupportTransparencySettingsView: View {
 
             SettingsSectionHeader(title: "Account Status")
             STGroup {
-                SettingsNavigationRow(icon: "checkmark.shield", title: "Account Status", subtitle: "Enforcement and warning center")
+                NavigationLink(destination: AccountStatusView()) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "checkmark.shield")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(ST.secondary)
+                            .frame(width: 22, alignment: .center)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Account Status")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(ST.primary)
+                            Text("Enforcement and warning center")
+                                .font(AMENFont.regular(12))
+                                .foregroundStyle(ST.tertiary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .medium))
+                            .foregroundStyle(ST.tertiary)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(STPressStyle())
                 STDivider()
-                SettingsNavigationRow(icon: "arrow.uturn.left.circle", title: "Appeals", subtitle: "Any pending appeals")
+                NavigationLink(destination: AccountRecoveryView()) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "arrow.uturn.left.circle")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(ST.secondary)
+                            .frame(width: 22, alignment: .center)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Appeals")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(ST.primary)
+                            Text("Any pending appeals")
+                                .font(AMENFont.regular(12))
+                                .foregroundStyle(ST.tertiary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .medium))
+                            .foregroundStyle(ST.tertiary)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(STPressStyle())
             }
 
             SettingsSectionHeader(title: "Legal & Policies")
             STGroup {
-                SettingsNavigationRow(icon: "doc.text", title: "Community Guidelines")
+                SettingsNavigationRow(icon: "doc.text", title: "Community Guidelines") {
+                    if let url = URL(string: "https://amenapp.com/community-guidelines") { openURL(url) }
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "hand.raised", title: "Privacy Policy")
+                SettingsNavigationRow(icon: "hand.raised", title: "Privacy Policy") {
+                    if let url = URL(string: "https://amenapp.com/privacy") { openURL(url) }
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "doc.plaintext", title: "Terms of Service")
+                SettingsNavigationRow(icon: "doc.plaintext", title: "Terms of Service") {
+                    if let url = URL(string: "https://amenapp.com/terms") { openURL(url) }
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "arrow.down.doc", title: "Data & Privacy")
+                SettingsNavigationRow(icon: "arrow.down.doc", title: "Data & Privacy") {
+                    if let url = URL(string: "https://amenapp.com/privacy#data") { openURL(url) }
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "ellipsis.curlybraces", title: "Cookie Preferences")
+                SettingsNavigationRow(icon: "ellipsis.curlybraces", title: "Cookie Preferences") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
             }
         }
     }
@@ -2323,6 +2620,8 @@ struct AboutSettingsViewNew: View {
     private let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     private let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     @State private var showShareSheet = false
+    @State private var showDebugLogExport = false
+    @Environment(\.openURL) private var openURL
 
     private let changelog: [(String, String)] = [
         ("sparkles", "Berean AI now supports Explore and Build modes"),
@@ -2371,7 +2670,11 @@ struct AboutSettingsViewNew: View {
 
             SettingsSectionHeader(title: "Community")
             STGroup {
-                SettingsNavigationRow(icon: "star", title: "Rate AMEN", subtitle: "Share your feedback on the App Store")
+                SettingsNavigationRow(icon: "star", title: "Rate AMEN", subtitle: "Share your feedback on the App Store") {
+                    if let url = URL(string: "itms-apps://itunes.apple.com/app/id6479380832?action=write-review") {
+                        openURL(url)
+                    }
+                }
                 STDivider()
                 Button { showShareSheet = true } label: {
                     HStack(spacing: 14) {
@@ -2408,7 +2711,9 @@ struct AboutSettingsViewNew: View {
             // Diagnostics (conceptually dev-only — always compiled, would be gated at runtime)
             SettingsSectionHeader(title: "Diagnostics")
             STGroup {
-                SettingsNavigationRow(icon: "ladybug", title: "Export Debug Log", subtitle: "Send logs to engineering")
+                SettingsNavigationRow(icon: "ladybug", title: "Export Debug Log", subtitle: "Send logs to engineering") {
+                    showDebugLogExport = true
+                }
                 STDivider()
                 HStack(spacing: 14) {
                     Image(systemName: "internaldrive")
@@ -2428,6 +2733,18 @@ struct AboutSettingsViewNew: View {
         }
         .sheet(isPresented: $showShareSheet) {
             AMENSettingsShareSheet(items: ["Check out AMEN — a faith-centered social app! https://amenapp.io"])
+        }
+        .alert("Export Debug Log", isPresented: $showDebugLogExport) {
+            Button("Send to Engineering") {
+                let subject = "AMEN Debug Log — v\(appVersion) (\(buildNumber))"
+                    .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                if let url = URL(string: "mailto:engineering@amenapp.com?subject=\(subject)") {
+                    openURL(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will open Mail to send a support log to the AMEN engineering team.")
         }
     }
 }

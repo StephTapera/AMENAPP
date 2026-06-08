@@ -13,6 +13,56 @@ import SwiftUI
 import Combine
 
 // MARK: ─────────────────────────────────────────────────────────────────────
+// MARK: YouTubeThumbnailResolver
+// Extracts a YouTube video ID from standard youtube.com and youtu.be URLs
+// and returns the high-quality CDN thumbnail URL.
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct YouTubeThumbnailResolver {
+
+    /// Extract the video ID from a YouTube URL.
+    /// Supports:
+    ///   https://www.youtube.com/watch?v=dQw4w9WgXcQ
+    ///   https://youtu.be/dQw4w9WgXcQ
+    ///   https://www.youtube.com/embed/dQw4w9WgXcQ
+    ///   https://www.youtube.com/shorts/dQw4w9WgXcQ
+    static func videoID(from url: URL) -> String? {
+        let host = url.host?.lowercased() ?? ""
+        guard host.contains("youtube.com") || host.contains("youtu.be") else { return nil }
+
+        // youtu.be/<id>
+        if host.contains("youtu.be") {
+            let id = url.pathComponents.dropFirst().first
+            return id?.isEmpty == false ? id : nil
+        }
+
+        // youtube.com/watch?v=<id>
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let v = components.queryItems?.first(where: { $0.name == "v" })?.value,
+           !v.isEmpty {
+            return v
+        }
+
+        // youtube.com/embed/<id>  or  youtube.com/shorts/<id>
+        let path = url.pathComponents
+        if let idx = path.firstIndex(where: { $0 == "embed" || $0 == "shorts" }),
+           idx + 1 < path.count {
+            let id = path[idx + 1]
+            return id.isEmpty ? nil : id
+        }
+
+        return nil
+    }
+
+    /// Returns the medium-quality CDN thumbnail URL for a YouTube video ID.
+    /// mqdefault.jpg = 320 × 180, no letterbox.
+    static func thumbnailURL(from url: URL) -> URL? {
+        guard let id = videoID(from: url) else { return nil }
+        return URL(string: "https://img.youtube.com/vi/\(id)/mqdefault.jpg")
+    }
+}
+
+// MARK: ─────────────────────────────────────────────────────────────────────
 // MARK: ComposerLinkPreviewController
 // Drives the preview shown while the user is composing.
 // Usage:  @StateObject private var linkController = ComposerLinkPreviewController()
@@ -152,6 +202,7 @@ struct RichLinkPreviewCard: View {
     let isLoading: Bool
     let onRemove: (() -> Void)?
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var linkSafetySheet: AnyView?
     @State private var showLinkSafety = false
 
@@ -195,6 +246,25 @@ struct RichLinkPreviewCard: View {
                 if isLoading {
                     skeletonText
                 } else {
+                    // Category badge for video / podcast
+                    let cat = category
+                    if cat == .video || cat == .podcast {
+                        HStack(spacing: 4) {
+                            Image(systemName: cat.icon)
+                                .font(.systemScaled(9, weight: .bold))
+                            Text(cat == .video ? "Video" : "Podcast")
+                                .font(.systemScaled(10, weight: .semibold))
+                        }
+                        .foregroundStyle(cat == .video ? Color.red : Color.purple)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(cat == .video ? Color.red.opacity(0.10) : Color.purple.opacity(0.10))
+                        )
+                        .animation(.amenSpringStandard, value: cat.rawValue)
+                    }
+
                     // Domain label
                     if let host = metadata?.siteName ?? url.host {
                         Text(host.lowercased())
@@ -232,6 +302,15 @@ struct RichLinkPreviewCard: View {
 
     // MARK: Thumbnail
 
+    /// Effective thumbnail URL: prefer metadata image, then YouTube CDN, else nil.
+    private var effectiveThumbnailURL: URL? {
+        if let img = metadata?.imageURL { return img }
+        return YouTubeThumbnailResolver.thumbnailURL(from: url)
+    }
+
+    /// The category for this URL, used to pick fallback icon and tint.
+    private var category: LinkCategory { SmartLinkClassifier.classify(url) }
+
     @ViewBuilder
     private var thumbnailView: some View {
         if isLoading {
@@ -243,26 +322,26 @@ struct RichLinkPreviewCard: View {
                         .tint(.secondary)
                 )
                 .shimmering()
-        } else if let imageURL = metadata?.imageURL {
+        } else if let imageURL = effectiveThumbnailURL {
             AsyncImage(url: imageURL) { phase in
                 switch phase {
                 case .success(let img):
                     img.resizable().scaledToFill()
                 case .failure, .empty:
-                    linkIconFallback
+                    categoryIconFallback
                 @unknown default:
-                    linkIconFallback
+                    categoryIconFallback
                 }
             }
         } else {
-            linkIconFallback
+            categoryIconFallback
         }
     }
 
-    private var linkIconFallback: some View {
+    private var categoryIconFallback: some View {
         ZStack {
             Color(.systemGray6)
-            Image(systemName: "link")
+            Image(systemName: category.icon)
                 .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(.secondary)
         }
@@ -289,12 +368,25 @@ struct RichLinkPreviewCard: View {
         }
     }
 
-    // MARK: Glass background
+    // MARK: Glass background (Liquid Glass — ultraThinMaterial + top highlight)
 
     private var glassBackground: some View {
         ZStack {
-            Color(.systemBackground)
-            Color(.secondarySystemBackground).opacity(0.6)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(LiquidGlassTokens.blurThin)
+            // Top-edge highlight mirrors LiquidGlassMaterial — brighter in dark mode
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.18 : 0.55),
+                            Color.white.opacity(0.04)
+                        ],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                )
+                .blendMode(.screen)
         }
     }
 
@@ -331,6 +423,7 @@ struct VersePreviewCard: View {
     let metadata: LinkPreviewMetadata
     let onRemove: (() -> Void)?
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var linkSafetySheet: AnyView?
     @State private var showLinkSafety = false
 
@@ -417,8 +510,24 @@ struct VersePreviewCard: View {
 
     private var verseCardBackground: some View {
         ZStack {
-            Color(.systemBackground)
-            Color.accentColor.opacity(0.04)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(LiquidGlassTokens.blurThin)
+            // Accent tint overlay for scripture identity
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.accentColor.opacity(0.06))
+            // Top highlight mirrors LiquidGlassMaterial kit
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.18 : 0.50),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                )
+                .blendMode(.screen)
         }
     }
 

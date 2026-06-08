@@ -83,12 +83,25 @@ struct LiveCoCreationView: View {
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem)
         .sheet(isPresented: $showEmojiPicker) {
             NavigationStack {
-                VStack(spacing: 16) {
-                    Text("Emoji picker coming soon")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 32)
-                    Spacer()
+                ScrollView {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), spacing: 12) {
+                        ForEach(["🙏", "✝️", "❤️", "🔥", "✨", "💯", "🙌", "😊", "🕊️",
+                                 "🌟", "💪", "🌈", "🫶", "💙", "🌿", "📖", "🎶", "🌸",
+                                 "🤲", "💫", "🕯️", "🌻", "🫂", "🦋", "☀️", "🌙", "⭐", "🎵"],
+                                id: \.self) { emoji in
+                            Button {
+                                vm.onCanvasChange(vm.canvasText + emoji)
+                                showEmojiPicker = false
+                            } label: {
+                                Text(emoji)
+                                    .font(.system(size: 28))
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
                 }
                 .navigationTitle("Emoji")
                 .navigationBarTitleDisplayMode(.inline)

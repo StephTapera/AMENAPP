@@ -238,11 +238,10 @@ struct BereanPrayerBriefingView: View {
             Text("Pray Now")
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundStyle(Color(.systemBackground))
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(Color.accentColor)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .accessibilityLabel("Pray now")
         .accessibilityHint("Logs your prayer session")
@@ -320,11 +319,10 @@ struct BereanPrayerBriefingView: View {
                         .fontWeight(.semibold)
                 }
                 .font(.subheadline)
-                .foregroundStyle(Color(.systemBackground))
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(Color.accentColor)
-                .clipShape(Capsule())
+                .glassEffect(.regular.interactive(), in: Capsule())
             }
             .accessibilityLabel("Add prayer request")
         }

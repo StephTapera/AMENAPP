@@ -187,16 +187,16 @@ struct BereanPulseCurateSheet: View {
     }
 
     private func modeGrid(_ modes: [BereanPulseMode], selected: [BereanPulseMode], onChange: @escaping (BereanPulseMode, Bool) -> Void) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 10)], spacing: 10) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 10) {
             ForEach(modes, id: \.self) { mode in
                 Toggle(isOn: Binding(
                     get: { selected.contains(mode) },
                     set: { onChange(mode, $0) }
                 )) {
                     Label(String(localized: mode.titleKey), systemImage: mode.systemImage)
-                        .font(.subheadline.weight(.medium))
+                        .font(.footnote.weight(.medium))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.82)
+                        .minimumScaleFactor(0.75)
                 }
                 .toggleStyle(.button)
                 .buttonStyle(.bordered)
@@ -226,7 +226,7 @@ struct BereanPulseCurateSheet: View {
         }
         .tint(.primary)
         .padding(12)
-        .background(Color.white.opacity(0.62), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.75))
         .accessibilityHint(Text(source.requiresSystemPrompt ? "May require an iOS permission prompt when Berean needs this source." : "Controls whether Berean can use this app context source."))
     }
@@ -241,6 +241,6 @@ struct BereanPulseCurateSheet: View {
     }
 
     private var surfaceBackground: AnyShapeStyle {
-        reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(.regularMaterial)
+        reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(.ultraThinMaterial)
     }
 }

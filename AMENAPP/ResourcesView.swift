@@ -31,6 +31,7 @@ struct ResourcesView: View {
     // P1 FIX: Store AI search task so it can be cancelled on disappear.
     @State private var aiSearchTask: Task<Void, Never>?
     @State private var supportAnalysisTask: Task<Void, Never>?
+    @State private var isSearchExpanded: Bool = false
     // Scroll-collapse — same pattern as MessagesView
     @State private var scrollOffset: CGFloat = 0
     @State private var showHeader: Bool = true
@@ -91,6 +92,11 @@ struct ResourcesView: View {
                         }
                         .frame(height: 0)
 
+                        // Header scrolls WITH content (like OpenTable / Messages)
+                        headerView
+                            .opacity(max(0.0, min(1.0, 1.0 + (scrollOffset / 80.0))))
+                            .offset(y: min(0, scrollOffset / 4.0))
+
                         // Spiritual OS — Life Planner (Agent C, gated by AppStorage flag)
                         AmenLifePlannerSectionView(
                             viewModel: plannerViewModel,
@@ -105,11 +111,6 @@ struct ResourcesView: View {
                             scrollOffset: max(0, -scrollOffset),
                             hasVerseReady: DailyVerseGenkitService.shared.todayVerse != nil
                         )
-
-                        // Header scrolls WITH content (like OpenTable / Messages)
-                        headerView
-                            .opacity(max(0.0, min(1.0, 1.0 + (scrollOffset / 80.0))))
-                            .offset(y: min(0, scrollOffset / 4.0))
 
                         // Main content
                         contentView
@@ -158,6 +159,13 @@ struct ResourcesView: View {
             .onChange(of: searchText) { _, query in
                 handleSupportSearchChange(query)
             }
+            .onChange(of: isSearchFocused) { _, focused in
+                if focused {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isSearchExpanded = true
+                    }
+                }
+            }
         }
     }
 
@@ -203,6 +211,15 @@ struct ResourcesView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // ── Full-width greeting line (topmost element) ────────────────
+            Text(greetingService.currentGreeting.text)
+                .font(.systemScaled(15, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
+
             // ── Hero header row ───────────────────────────────────────────
             HStack(alignment: .top, spacing: 0) {
                 // Left: large date number (same reference-image style)
@@ -216,28 +233,42 @@ struct ResourcesView: View {
 
                 Spacer()
 
-                // Right: personalized greeting + "Resources" heading + red dot
+                // Right: "Resources" heading + red dot + search toggle
                 VStack(alignment: .trailing, spacing: 2) {
-                    // Personalized greeting — small, warm
-                    Text(greetingService.currentGreeting.text)
-                        .font(AMENFont.regular(14))
-                        .foregroundStyle(.secondary)
-
                     // Main heading with premium red dot accent
-                    HStack(alignment: .top, spacing: 0) {
-                        Text("Resources")
-                            .font(AMENFont.bold(28))
-                            .foregroundStyle(.primary)
+                    HStack(alignment: .top, spacing: 8) {
+                        HStack(alignment: .top, spacing: 0) {
+                            Text("Resources")
+                                .font(AMENFont.bold(28))
+                                .foregroundStyle(.primary)
 
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 7, height: 7)
-                            .offset(x: 3, y: 3)
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 7, height: 7)
+                                .offset(x: 3, y: 3)
+                        }
+
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isSearchExpanded.toggle()
+                                if !isSearchExpanded {
+                                    isSearchFocused = false
+                                }
+                            }
+                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                            haptic.impactOccurred()
+                        } label: {
+                            Image(systemName: isSearchExpanded ? "xmark.circle.fill" : "magnifyingglass")
+                                .font(.systemScaled(20, weight: .semibold))
+                                .foregroundStyle(isSearchExpanded ? Color(.tertiaryLabel) : .primary)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 6)
                     }
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 12)
+            .padding(.top, 0)
             .padding(.bottom, 16)
 
             // Subtle divider
@@ -247,21 +278,26 @@ struct ResourcesView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 14)
             
-            searchBarView
-            
-            // Active filter badge (shown only when filtered)
-            if selectedCategory != .all || !searchText.isEmpty {
-                activeFiltersBadge
-                    .padding(.horizontal, 20)
-                    .padding(.top, 4)
+            if isSearchExpanded || !searchText.isEmpty {
+                VStack(spacing: 0) {
+                    searchBarView
+
+                    // Active filter badge (shown only when filtered)
+                    if selectedCategory != .all || !searchText.isEmpty {
+                        activeFiltersBadge
+                            .padding(.horizontal, 20)
+                            .padding(.top, 4)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSearchExpanded)
             }
-            
+
             categoryPillsView
                 .padding(.bottom, 8)
                 .opacity(1.0 - pillsCompression)
                 .scaleEffect(y: 1.0 - pillsCompression * 0.15, anchor: .top)
                 .frame(height: max(0, (1.0 - pillsCompression) * 52), alignment: .top)
-                .clipped()
                 .animation(Motion.adaptive(.interactiveSpring(response: 0.22, dampingFraction: 0.78)), value: pillsCompression)
         }
         .background(Color(.systemBackground))
@@ -330,8 +366,12 @@ struct ResourcesView: View {
                 .focused($isSearchFocused)
                 .submitLabel(.search)
                 .onSubmit {
-                    // Dismiss keyboard when user taps search
+                    // Trigger search and dismiss keyboard
                     isSearchFocused = false
+                    if !searchText.isEmpty {
+                        handleSupportSearchChange(searchText)
+                        performAISearch()
+                    }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                 }
@@ -347,16 +387,11 @@ struct ResourcesView: View {
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.systemScaled(11, weight: .bold))
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.systemScaled(18))
+                        .foregroundStyle(Color(.tertiaryLabel))
                 }
-                .buttonStyle(.amenGlass(
-                    role: .dismiss,
-                    size: .icon,
-                    shape: .circle,
-                    background: .balanced,
-                    placement: .inline
-                ))
+                .buttonStyle(.plain)
                 .transition(.scale.combined(with: .opacity).animation(.easeOut(duration: 0.15)))
             }
         }
@@ -2057,6 +2092,8 @@ struct LiquidGlassSegmentedControl: View {
             Text(category.rawValue)
                 .font(.custom(isSelected ? "OpenSans-Bold" : "OpenSans-Regular", size: 14))
                 .foregroundStyle(isSelected ? .white : Color(.label).opacity(0.65))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(

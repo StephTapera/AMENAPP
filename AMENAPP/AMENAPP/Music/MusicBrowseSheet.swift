@@ -23,8 +23,8 @@ struct MusicBrowseSheet: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // Sheet background
-            AmenTheme.Colors.backgroundPrimary
+            // Sheet background — glass material so the compose area bleeds through
+            Color.clear
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -39,6 +39,7 @@ struct MusicBrowseSheet: View {
                 contentArea
             }
         }
+        .presentationBackground(.thinMaterial)
         .task {
             await service.loadTrending()
         }

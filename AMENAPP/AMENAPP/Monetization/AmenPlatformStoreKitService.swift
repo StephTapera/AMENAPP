@@ -56,19 +56,21 @@ final class AmenPlatformStoreKitService: ObservableObject {
 
     // MARK: - Product ID Maps
     // Enterprise is manual — omitted intentionally.
+    // Canonical product IDs are defined in AmenStoreKitManager; these maps
+    // bridge from AmenAccountTier for backwards-compatible call sites.
 
     static let monthlyProductIDs: [AmenAccountTier: String] = [
-        .amenPlus:   "com.amenapp.subscription.amenplus.monthly",
-        .amenPro:    "com.amenapp.subscription.amenpro.monthly",
-        .creatorPro: "com.amenapp.subscription.creatorpro.monthly",
-        .churchPro:  "com.amenapp.subscription.churchpro.monthly",
+        .amenPlus:   AmenStoreKitManager.amenPlusMonthly,
+        .amenPro:    AmenStoreKitManager.amenProMonthly,
+        .creatorPro: AmenStoreKitManager.creatorProMonthly,
+        .churchPro:  AmenStoreKitManager.churchProMonthly,
     ]
 
     static let annualProductIDs: [AmenAccountTier: String] = [
-        .amenPlus:   "com.amenapp.subscription.amenplus.annual",
-        .amenPro:    "com.amenapp.subscription.amenpro.annual",
-        .creatorPro: "com.amenapp.subscription.creatorpro.annual",
-        .churchPro:  "com.amenapp.subscription.churchpro.annual",
+        .amenPlus:   AmenStoreKitManager.amenPlusAnnual,
+        .amenPro:    AmenStoreKitManager.amenProAnnual,
+        .creatorPro: AmenStoreKitManager.creatorProAnnual,
+        .churchPro:  AmenStoreKitManager.churchProAnnual,
     ]
 
     /// Backward-compatible alias — always returns monthly IDs.

@@ -15,7 +15,7 @@ protocol BereanPulseProviding {
     func trackEvent(userId: String, event: BereanPulseEvent) async throws
 }
 
-enum BereanPulseServiceError: LocalizedError {
+enum BereanPulseServiceError: LocalizedError, Equatable {
     case missingUser
 
     var errorDescription: String? {

@@ -13,6 +13,7 @@ import FirebaseAuth
 import FirebaseStorage
 import Combine
 import UIKit
+import WidgetKit
 
 // MARK: - Type Alias to avoid ambiguity
 
@@ -537,6 +538,9 @@ public class FirebaseMessagingService: ObservableObject {
                 self.conversations = conversationsDict.values.sorted { $0.timestamp > $1.timestamp }
                 self.conversationsLastLoadedAt = Date()  // OFFLINE FIX: stamp successful load
 
+                // Propagate pending-reply count and top conversation to the home-screen widget.
+                self.updateReplyAssistWidget(conversations: self.conversations)
+
                 self.isLoading = false
 
                 #if DEBUG
@@ -574,8 +578,32 @@ public class FirebaseMessagingService: ObservableObject {
         messagesListeners.removeAll()
         typingListeners.values.forEach { $0.remove() }
         typingListeners.removeAll()
+
+        // Clear the widget badge when the user signs out / stops listening.
+        updateReplyAssistWidget(conversations: [])
     }
-    
+
+    // MARK: - Widget Bridge
+
+    /// Writes the pending-reply count and the top (most-recent) conversation
+    /// name to the shared App Group UserDefaults, then signals WidgetKit to
+    /// refresh the ReplyAssistWidget timeline.
+    ///
+    /// Must be called on the main actor (the same queue that owns `conversations`).
+    private func updateReplyAssistWidget(conversations: [ChatConversation]) {
+        let pendingCount = conversations.reduce(0) { $0 + max($1.unreadCount, 0) }
+        let topName = conversations.first(where: { $0.unreadCount > 0 })?.name ?? ""
+
+        let defaults = UserDefaults(suiteName: "group.com.amenapp.shared")
+        defaults?.set(pendingCount, forKey: "widget_pending_replies")
+        defaults?.set(topName,      forKey: "widget_top_conversation")
+
+        // Only reload when the count actually changed to avoid unnecessary
+        // background wakeups.  WidgetCenter calls are lightweight but should
+        // still be throttled when possible.
+        WidgetCenter.shared.reloadTimelines(ofKind: "ReplyAssistWidget")
+    }
+
     /// Start listening to archived conversations for the current user
     func startListeningToArchivedConversations() {
         guard isAuthenticated else {

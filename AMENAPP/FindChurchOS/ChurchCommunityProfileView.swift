@@ -4,6 +4,7 @@
 
 import SwiftUI
 import MapKit
+import EventKit
 
 // MARK: - Church Profile Model
 
@@ -60,6 +61,8 @@ struct ChurchCommunityProfileView: View {
 
     @State private var selectedSection: ProfileSection = .overview
     @State private var showJoinFlow = false
+    @State private var showCalendarConfirmation = false
+    @State private var showJoinConfirmation = false
     @State private var position: MapCameraPosition
 
     enum ProfileSection: String, CaseIterable {
@@ -120,6 +123,24 @@ struct ChurchCommunityProfileView: View {
             ChurchJoinFlowView(church: church, onDismiss: { showJoinFlow = false })
                 .presentationDetents([.large])
         }
+        .overlay(alignment: .top) {
+            if showCalendarConfirmation {
+                Text("Added to calendar")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .glassEffect(.regular, in: Capsule())
+                    .padding(.top, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation { showCalendarConfirmation = false }
+                        }
+                    }
+            }
+        }
+        .animation(.spring(response: 0.35), value: showCalendarConfirmation)
     }
 
     // MARK: - Header
@@ -223,8 +244,40 @@ struct ChurchCommunityProfileView: View {
                     }
                     Spacer()
                     Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        // TODO: implement add to calendar action
+                        let store = EKEventStore()
+                        let requestAccess: (@escaping (Bool, Error?) -> Void) -> Void = { handler in
+                            if #available(iOS 17.0, *) {
+                                store.requestWriteOnlyAccessToEvents(completion: handler)
+                            } else {
+                                store.requestAccess(to: .event, completion: handler)
+                            }
+                        }
+                        requestAccess { granted, _ in
+                            guard granted else {
+                                DispatchQueue.main.async {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    showCalendarConfirmation = true
+                                }
+                                return
+                            }
+                            let event = EKEvent(eventStore: store)
+                            event.title = "\(church.name) — \(service.name)"
+                            event.location = church.address
+                            event.calendar = store.defaultCalendarForNewEvents
+                            let comps = Calendar.current.dateComponents([.weekday, .hour, .minute], from: Date())
+                            event.startDate = Calendar.current.nextDate(
+                                after: Date(),
+                                matching: DateComponents(hour: 9, minute: 0),
+                                matchingPolicy: .nextTime
+                            ) ?? Date()
+                            event.endDate = event.startDate.addingTimeInterval(3600)
+                            event.notes = service.day + " " + service.time
+                            try? store.save(event, span: .thisEvent)
+                            DispatchQueue.main.async {
+                                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                showCalendarConfirmation = true
+                            }
+                        }
                     } label: {
                         Label("Add", systemImage: "calendar.badge.plus")
                             .font(.caption.weight(.semibold))
@@ -289,6 +342,31 @@ struct ChurchCommunityProfileView: View {
                 }
             }
             .padding(.horizontal, 16)
+
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showJoinConfirmation = true
+            } label: {
+                Label("Join Group", systemImage: "person.badge.plus")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .alert("Join \(church.name)?", isPresented: $showJoinConfirmation) {
+                Button("Join") {
+                    NotificationCenter.default.post(
+                        name: .init("joinChurchGroup"),
+                        object: nil,
+                        userInfo: ["churchId": church.id]
+                    )
+                }
+                Button("Cancel", role: .cancel) {}
+            }
         }
         .padding(.top, 16)
     }
@@ -319,6 +397,7 @@ private struct SpacePlaceholderRow: View {
     let index: Int
     private let names = ["Women's Morning Bible Study", "Youth & Young Adults", "Prayer Warriors Group"]
     private let counts = [23, 47, 18]
+    @State private var hasJoined = false
 
     var body: some View {
         HStack {
@@ -328,15 +407,21 @@ private struct SpacePlaceholderRow: View {
             }
             Spacer()
             Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                // TODO: implement join group action
+                guard !hasJoined else { return }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                NotificationCenter.default.post(
+                    name: Notification.Name("amenJoinGroup"),
+                    object: nil,
+                    userInfo: ["groupName": names[index]]
+                )
+                withAnimation(.spring(response: 0.3)) { hasJoined = true }
             } label: {
-                Text("Join")
+                Text(hasJoined ? "Joined ✓" : "Join")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .frame(height: 30)
-                    .background(Color.accentColor, in: Capsule())
+                    .glassEffect(.regular.interactive(), in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -376,9 +461,9 @@ struct ChurchJoinFlowView: View {
                     HStack(spacing: 14) {
                         Text("\(index + 1)")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                             .frame(width: 26, height: 26)
-                            .background(Color.accentColor, in: Circle())
+                            .glassEffect(.regular, in: Circle())
                         Text(step)
                             .font(.subheadline)
                     }
@@ -392,10 +477,10 @@ struct ChurchJoinFlowView: View {
                 } label: {
                     Text("Get Started")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal)

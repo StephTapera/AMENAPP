@@ -22,23 +22,49 @@ import Foundation
 extension AmenStoreKitManager {
     /// App Store Connect product identifiers.
     /// Replace the placeholder values with real IDs before App Store submission.
-    static let amenPlusMonthly    = "com.amen.subscription.plus.monthly"
-    static let amenProMonthly     = "com.amen.subscription.pro.monthly"
-    static let creatorProMonthly  = "com.amen.subscription.creatorpro.monthly"
-    static let churchProMonthly   = "com.amen.subscription.churchpro.monthly"
-
-    // Annual variants
-    static let amenPlusAnnual     = "com.amen.subscription.plus.annual"
-    static let amenProAnnual      = "com.amen.subscription.pro.annual"
-    static let creatorProAnnual   = "com.amen.subscription.creatorpro.annual"
-    static let churchProAnnual    = "com.amen.subscription.churchpro.annual"
+    /// These must match the product IDs configured in App Store Connect and
+    /// in the AmenProducts.storekit configuration file used for Simulator testing.
+    static let amenPlusMonthly    = "com.amen.amenplus.monthly"
+    static let amenPlusAnnual     = "com.amen.amenplus.annual"
+    static let amenProMonthly     = "com.amen.amenpro.monthly"
+    static let amenProAnnual      = "com.amen.amenpro.annual"
+    static let creatorProMonthly  = "com.amen.creatorpro.monthly"
+    static let creatorProAnnual   = "com.amen.creatorpro.annual"
+    static let churchProMonthly   = "com.amen.churchpro.monthly"
+    static let churchProAnnual    = "com.amen.churchpro.annual"
 
     /// All purchasable product IDs. Used by `loadProducts()`.
     static var allProductIDs: [String] {
         [
-            amenPlusMonthly, amenProMonthly, creatorProMonthly, churchProMonthly,
-            amenPlusAnnual,  amenProAnnual,  creatorProAnnual,  churchProAnnual,
+            amenPlusMonthly,   amenPlusAnnual,
+            amenProMonthly,    amenProAnnual,
+            creatorProMonthly, creatorProAnnual,
+            churchProMonthly,  churchProAnnual,
         ]
+    }
+
+    /// Maps an `AmenAccountTier` to its monthly product ID.
+    /// Returns `nil` for tiers that are not purchasable via StoreKit
+    /// (`.free` and `.enterprise`).
+    static func monthlyProductID(for tier: AmenAccountTier) -> String? {
+        switch tier {
+        case .amenPlus:    return amenPlusMonthly
+        case .amenPro:     return amenProMonthly
+        case .creatorPro:  return creatorProMonthly
+        case .churchPro:   return churchProMonthly
+        case .free, .enterprise: return nil
+        }
+    }
+
+    /// Maps an `AmenAccountTier` to its annual product ID.
+    static func annualProductID(for tier: AmenAccountTier) -> String? {
+        switch tier {
+        case .amenPlus:    return amenPlusAnnual
+        case .amenPro:     return amenProAnnual
+        case .creatorPro:  return creatorProAnnual
+        case .churchPro:   return churchProAnnual
+        case .free, .enterprise: return nil
+        }
     }
 }
 

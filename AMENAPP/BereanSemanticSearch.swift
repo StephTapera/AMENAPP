@@ -60,7 +60,7 @@ final class BereanSemanticSearchService: ObservableObject {
         // Get embeddings for all notes (fetch from cache or Firestore, generate if missing)
         var scored: [(note: ChurchNote, score: Double)] = []
         for note in notes {
-            guard let noteId = note.id else { continue }
+            guard note.id != nil else { continue }
             let noteEmbed = await noteEmbedding(for: note)
             let sim = cosine(queryEmbedding, noteEmbed)
             scored.append((note, sim))
@@ -175,6 +175,14 @@ struct BereanSemanticSearchView: View {
     @FocusState private var focused: Bool
     @State private var debounceTask: Task<Void, Never>?
 
+    private let suggestionChips = [
+        "Grace & Forgiveness",
+        "Prayer & Fasting",
+        "Faith",
+        "Recent",
+        "Scriptures"
+    ]
+
     var body: some View {
         VStack(spacing: 0) {
             // Search bar
@@ -215,8 +223,11 @@ struct BereanSemanticSearchView: View {
                 .padding(.bottom, 8)
             }
 
-            // Results
-            if !service.results.isEmpty {
+            // Empty state when query is blank
+            if query.isEmpty {
+                semanticSearchEmptyState
+            } else if !service.results.isEmpty {
+                // Results
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(service.results) { result in
@@ -225,7 +236,7 @@ struct BereanSemanticSearchView: View {
                         }
                     }
                 }
-            } else if !query.isEmpty && !service.isSearching {
+            } else if !service.isSearching {
                 Text("No notes matched \"\(query)\"")
                     .font(.systemScaled(14))
                     .foregroundStyle(Color(.tertiaryLabel))
@@ -236,6 +247,62 @@ struct BereanSemanticSearchView: View {
         }
         .task { await service.indexIfNeeded(notes: notes) }
         .onAppear { focused = true }
+    }
+
+    // MARK: - Empty State
+
+    private var semanticSearchEmptyState: some View {
+        VStack(spacing: 20) {
+            Spacer().frame(height: 24)
+
+            // Large sparkle/magnifier icon
+            Image(systemName: "sparkle.magnifyingglass")
+                .font(.system(size: 52, weight: .light))
+                .foregroundStyle(Color.purple.opacity(0.75))
+                .symbolRenderingMode(.hierarchical)
+
+            // Headline + body
+            VStack(spacing: 8) {
+                Text("Semantic Search")
+                    .font(.systemScaled(20, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text("Search by topic, theme, scripture, or feeling. Try \"sermons about grace\" or \"notes from last month\".")
+                    .font(.systemScaled(14))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 28)
+            }
+
+            // Suggestion chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(suggestionChips, id: \.self) { chip in
+                        Button {
+                            query = chip
+                            scheduleSearch(chip)
+                        } label: {
+                            Text(chip)
+                                .font(.systemScaled(13, weight: .medium))
+                                .foregroundStyle(Color.purple)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .background(
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(Capsule().fill(Color.purple.opacity(0.07)))
+                                        .overlay(Capsule().strokeBorder(Color.purple.opacity(0.22), lineWidth: 0.75))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+
+            Spacer()
+        }
     }
 
     private func scheduleSearch(_ text: String) {

@@ -18,6 +18,7 @@
 //
 
 import Foundation
+import WidgetKit
 
 /// The compact, render-ready payload for one lock-screen widget slot.
 struct SelahLockScreenWidgetPayload: Codable, Equatable {
@@ -46,9 +47,9 @@ struct SelahLockScreenWidgetPayload: Codable, Equatable {
 @MainActor
 enum SelahLockScreenWidgetPublisher {
 
-    /// Update once when the App Group has been configured; default behavior
-    /// no-ops cleanly so this is safe to call from the host today.
-    static let appGroupSuite: String? = nil   // Set to e.g. "group.app.amen.selah" when configured.
+    /// App Group suite used for both the host app and the widget extension.
+    /// Both targets must have `group.com.amenapp.shared` in their entitlements.
+    static let appGroupSuite: String? = "group.com.amenapp.shared"
 
     static let payloadKey = "selah.lockScreen.payload.v1"
 
@@ -104,11 +105,20 @@ enum SelahLockScreenWidgetPublisher {
         )
     }
 
-    /// Persist the payload. No-op when no App Group is configured yet.
+    /// Persist the payload and tell WidgetKit to reload the Selah verse timeline.
+    ///
+    /// The `JSONEncoder` uses `.secondsSince1970` so the widget extension can
+    /// decode `updatedAt` with the matching `JSONDecoder.dateDecodingStrategy`.
     static func publish(_ payload: SelahLockScreenWidgetPayload) {
         guard let suite = appGroupSuite,
-              let defaults = UserDefaults(suiteName: suite),
-              let data = try? JSONEncoder().encode(payload) else { return }
+              let defaults = UserDefaults(suiteName: suite) else { return }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        guard let data = try? encoder.encode(payload) else { return }
         defaults.set(data, forKey: payloadKey)
+        // Tell WidgetKit to refresh the timeline so the new verse appears
+        // on the home and lock screens without waiting for the next scheduled
+        // refresh window.
+        WidgetCenter.shared.reloadTimelines(ofKind: "SelahVerseWidget")
     }
 }

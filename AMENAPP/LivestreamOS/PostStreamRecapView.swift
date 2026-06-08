@@ -360,10 +360,9 @@ struct PostStreamRecapView: View {
                 HStack(alignment: .top, spacing: 12) {
                     Text("\(index + 1)")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .frame(width: 22, height: 22)
-                        .background(Color.accentColor)
-                        .clipShape(Circle())
+                        .glassEffect(.regular, in: Circle())
                     Text(item)
                         .font(.body)
                 }
@@ -562,9 +561,8 @@ private struct HighlightRow: View {
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 5)
-                            .background(Color.accentColor)
-                            .foregroundStyle(.white)
-                            .clipShape(Capsule())
+                            .foregroundStyle(.primary)
+                            .glassEffect(.regular.interactive(), in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }

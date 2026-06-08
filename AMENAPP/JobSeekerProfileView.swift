@@ -117,10 +117,10 @@ struct JobSeekerProfileView: View {
                 } label: {
                     Label("I'm Open to Work", systemImage: "hand.raised.fill")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
 
                 Button {
@@ -660,8 +660,8 @@ struct JobSeekerProfileView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .foregroundStyle(.white)
-                .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .foregroundStyle(.primary)
+                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .disabled(isSaving)
 
@@ -1051,11 +1051,8 @@ struct PostLookingForWorkView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .foregroundStyle(.white)
-                        .background(
-                            canProceed ? Color.accentColor : Color.secondary.opacity(0.4),
-                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        )
+                        .foregroundStyle(.primary)
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .disabled(!canProceed || isSubmitting)
                 }

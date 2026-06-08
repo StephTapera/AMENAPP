@@ -267,7 +267,12 @@ struct AmenSubscriptionPaywall: View {
                 )
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(requiredTier.displayName) — \(requiredTier.monthlyPrice)")
+        .accessibilityLabel({
+            let price = storeKit.products
+                .first(where: { $0.id == productIDForTier(requiredTier) })
+                .map(\.displayPrice) ?? requiredTier.monthlyPrice
+            return "\(requiredTier.displayName) — \(price) per month"
+        }())
     }
 
     // MARK: - CTA
@@ -311,11 +316,13 @@ struct AmenSubscriptionPaywall: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isPurchasing)
-                .accessibilityLabel(
-                    isPurchasing
-                        ? "Processing purchase…"
-                        : "Upgrade to \(requiredTier.displayName), \(requiredTier.monthlyPrice)"
-                )
+                .accessibilityLabel({
+                    if isPurchasing { return "Processing purchase…" }
+                    let price = storeKit.products
+                        .first(where: { $0.id == productIDForTier(requiredTier) })
+                        .map(\.displayPrice) ?? requiredTier.monthlyPrice
+                    return "Upgrade to \(requiredTier.displayName) for \(price) per month"
+                }())
             }
 
             if let err = purchaseError {
@@ -356,6 +363,7 @@ struct AmenSubscriptionPaywall: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Dismiss paywall — maybe later")
+            .accessibilityHint("Returns you to the previous screen without upgrading")
         }
     }
 
@@ -420,13 +428,7 @@ struct AmenSubscriptionPaywall: View {
     // MARK: - Helpers
 
     private func productIDForTier(_ tier: AmenAccountTier) -> String {
-        switch tier {
-        case .amenPlus:    return AmenStoreKitManager.amenPlusMonthly
-        case .amenPro:     return AmenStoreKitManager.amenProMonthly
-        case .creatorPro:  return AmenStoreKitManager.creatorProMonthly
-        case .churchPro:   return AmenStoreKitManager.churchProMonthly
-        case .free, .enterprise: return ""
-        }
+        AmenStoreKitManager.monthlyProductID(for: tier) ?? ""
     }
 }
 

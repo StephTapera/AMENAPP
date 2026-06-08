@@ -511,7 +511,7 @@ final class AMENFeatureFlags: ObservableObject {
     /// Gates the "Share Testimony" voice button on testimony posts.
     @Published private(set) var voiceTestimonyCommentsEnabled: Bool = true
     /// When true, a transcript must exist before a voice comment can publish.
-    @Published private(set) var voiceCommentTranscriptRequired: Bool = false
+    @Published private(set) var voiceCommentTranscriptRequired: Bool = true
     /// Enables AI-generated safety summaries on published voice comments.
     @Published private(set) var voiceCommentSummaryEnabled: Bool = true
     /// Enables the held_for_review moderation queue for voice comments.
@@ -1059,7 +1059,7 @@ final class AMENFeatureFlags: ObservableObject {
             // System 31: Voice Prayer & Testimony Comments — all off by default
             "voice_prayer_comments_enabled": true as NSObject,
             "voice_testimony_comments_enabled": true as NSObject,
-            "voice_comment_transcript_required": false as NSObject,
+            "voice_comment_transcript_required": true as NSObject,
             "voice_comment_summary_enabled": true as NSObject,
             "voice_comment_review_queue_enabled": true as NSObject,
             "voice_comment_prayer_circle_visibility_enabled": true as NSObject,

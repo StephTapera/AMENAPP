@@ -30,10 +30,10 @@ struct DrivingModeBanner: View {
             } label: {
                 Text("Berean Voice")
                     .font(.systemScaled(13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Color.accentColor, in: Capsule())
+                    .glassEffect(.regular.interactive(), in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -81,10 +81,10 @@ struct SundayModeCalloutBanner: View {
             } label: {
                 Text("Church Mode")
                     .font(.systemScaled(13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Color.accentColor, in: Capsule())
+                    .glassEffect(.regular.interactive(), in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -140,10 +140,10 @@ struct EventCheckInBanner: View {
                 } label: {
                     Text("Check In")
                         .font(.systemScaled(13, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
-                        .background(Color.accentColor, in: Capsule())
+                        .glassEffect(.regular.interactive(), in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
@@ -205,10 +205,10 @@ struct TravelModeBanner: View {
             } label: {
                 Text("Find Churches")
                     .font(.systemScaled(13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Color.accentColor, in: Capsule())
+                    .glassEffect(.regular.interactive(), in: Capsule())
             }
             .buttonStyle(.plain)
         }

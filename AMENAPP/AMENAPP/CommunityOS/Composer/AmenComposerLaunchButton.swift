@@ -39,9 +39,20 @@ struct AmenComposerLaunchButton: View {
         Button {
             isPresenting = true
         } label: {
-            Label(label, systemImage: systemImage)
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .bold))
+                Text(label)
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         }
-        .tint(Color.accentColor)
+        .buttonStyle(.plain)
         .accessibilityLabel(label)
         .accessibilityHint("Opens the composer to \(label.lowercased())")
         .sheet(isPresented: $isPresenting) {
@@ -58,11 +69,9 @@ struct AmenComposerLaunchButton: View {
 extension AmenComposerLaunchButton {
 
     /// A filled pill variant suitable for use in action rows or empty-state CTAs.
+    /// Inherits the Liquid Glass style applied in body — no extra styling needed.
     func filledPillStyle() -> some View {
         self
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .controlSize(.regular)
     }
 }
 

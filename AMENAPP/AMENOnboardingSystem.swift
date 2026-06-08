@@ -211,7 +211,7 @@ struct ONBPrimaryButton: View {
         }) {
             ZStack {
                 if isLoading {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(.primary)
                 } else {
                     HStack(spacing: 8) {
                         Text(title)
@@ -221,17 +221,18 @@ struct ONBPrimaryButton: View {
                                 .font(.systemScaled(13, weight: .semibold))
                         }
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                 }
             }
             .frame(maxWidth: .infinity)
             // HIGH FIX: minHeight so button grows with Dynamic Type at AX sizes
             .frame(minHeight: 56)
-            .background(
-                RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
-                    .fill(isEnabled ? ONB.inkPrimary : ONB.inkTertiary)
-                    .animation(.easeInOut(duration: 0.2), value: isEnabled)
+            .glassEffect(
+                .regular.interactive(),
+                in: RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
             )
+            .opacity(isEnabled ? 1.0 : 0.45)
+            .animation(.easeInOut(duration: 0.2), value: isEnabled)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled || isLoading)

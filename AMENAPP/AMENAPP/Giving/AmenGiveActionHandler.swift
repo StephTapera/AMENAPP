@@ -68,10 +68,27 @@ final class AmenGiveActionHandler: ObservableObject {
                         self.isPendingGive = false
                     }
 
-                    // Commit: open donation page + write intent to Firestore.
+                    // Commit: show fee disclosure, then open donation page.
                     if let url = donationUrl {
                         await MainActor.run {
-                            UIApplication.shared.open(url)
+                            let alert = UIAlertController(
+                                title: "Leaving AMEN",
+                                message: "Giving is handled by \(ministryName)'s external page. Payment processing fees may apply.",
+                                preferredStyle: .alert
+                            )
+                            alert.addAction(UIAlertAction(title: "Continue to Give", style: .default) { _ in
+                                UIApplication.shared.open(url)
+                            })
+                            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+                            guard let scene = UIApplication.shared.connectedScenes
+                                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                                  let rootVC = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+                                UIApplication.shared.open(url)
+                                return
+                            }
+                            var topVC = rootVC
+                            while let presented = topVC.presentedViewController { topVC = presented }
+                            topVC.present(alert, animated: true)
                         }
                     }
 

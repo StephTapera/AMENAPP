@@ -71,7 +71,11 @@ struct Arrow: Shape {
     }
 }
 
-// MARK: - Compact Tab Bar (Smaller with Glassmorphic Design)
+// MARK: - Compact Tab Bar (DEPRECATED — superseded by AMENTabBar in AMENTabBar.swift)
+// This component is no longer instantiated anywhere. AMENTabBar renders the canonical
+// 5-tab (home/search/messages/library/profile) pill bar with a floating compose button.
+// Do NOT add this back to ContentView or any other view — use AMENTabBar instead.
+@available(*, deprecated, renamed: "AMENTabBar", message: "Use AMENTabBar which renders exactly 5 tabs via AMENTab.visibleTabs")
 struct CompactTabBar: View {
     @Binding var selectedTab: Int
     @Binding var showCreatePost: Bool
@@ -211,12 +215,11 @@ struct CompactTabBar: View {
         }
     }
 
-    // MARK: - Glassmorphic Background
+    // MARK: - Glassmorphic Background (adaptive — ultraThinMaterial auto-adjusts for dark/light)
 
     private var glassmorphicBackground: some View {
         Capsule()
-            .fill(Color(white: 0.92))
-            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+            .fill(.ultraThinMaterial)
     }
 
     // MARK: - Tab Button (Smaller Icon-Only Pill Style)
@@ -289,10 +292,10 @@ struct CompactTabBar: View {
                 // ── Sliding active pill — matchedGeometryEffect moves it between tabs ──
                 if isSelected {
                     Capsule()
-                        .fill(Color(white: 0.24, opacity: 0.95))
+                        .fill(.regularMaterial)
                         .overlay(
                             Capsule()
-                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
                         )
                         .matchedGeometryEffect(id: "activePill", in: pillNS)
                 }
@@ -300,9 +303,9 @@ struct CompactTabBar: View {
                 // Icon + badge stack
                 VStack(spacing: 2) {
                     ZStack(alignment: .topTrailing) {
-                        // Selection circle background
+                        // Selection circle background (adaptive tint — visible in both light & dark)
                         Circle()
-                            .fill(Color.white.opacity(isSelected ? 0.4 : 0))
+                            .fill(Color.primary.opacity(isSelected ? 0.08 : 0))
                             .frame(width: 44, height: 44)
                             .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isSelected)
 
@@ -348,9 +351,9 @@ struct CompactTabBar: View {
                     .offset(y: isSelected ? -2 : 0)
                     .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isSelected)
 
-                    // Gold active dot
+                    // Active dot — uses brand accent (AmenTheme.Colors.amenGold)
                     Circle()
-                        .fill(Color(red: 0.788, green: 0.659, blue: 0.298))
+                        .fill(AmenTheme.Colors.amenGold)
                         .frame(width: 4, height: 4)
                         .scaleEffect(isSelected ? 1.0 : 0.01)
                         .opacity(isSelected ? 1.0 : 0)
@@ -454,8 +457,10 @@ struct CompactTabBar: View {
     private var createButton: some View {
         ZStack {
             Circle()
-                .fill(Color(white: 0.92))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(.regularMaterial)
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.18), radius: 12, x: 0, y: 4)
+                .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
                 .frame(width: 54, height: 54)
 
             Image(systemName: "plus")

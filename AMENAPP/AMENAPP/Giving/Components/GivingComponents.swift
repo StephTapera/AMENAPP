@@ -822,6 +822,7 @@ struct TaxReceiptRow: View {
                     Button("View", action: onView)
                         .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color.accentColor)
+                        .accessibilityLabel("View receipt for \(receipt.destinationName)")
                 }
             }
         }

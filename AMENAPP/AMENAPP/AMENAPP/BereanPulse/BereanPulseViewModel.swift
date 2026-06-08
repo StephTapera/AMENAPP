@@ -66,6 +66,8 @@ final class BereanPulseViewModel: ObservableObject {
             if cards.isEmpty {
                 Task { try? await service.triggerOnDemandRefresh() }
             }
+        } catch let serviceError as BereanPulseServiceError where serviceError == .missingUser {
+            feedState = .notSignedIn
         } catch {
             lastErrorMessage = error.localizedDescription
             feedState = .error(error.localizedDescription)

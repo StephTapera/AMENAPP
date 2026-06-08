@@ -48,6 +48,9 @@ struct BereanCommunicationHubView: View {
     @AppStorage("bereanActiveSessionId") private var activeSessionId: String = UUID().uuidString
     @State private var isResumingSession = false
 
+    // MARK: - Catch Up sheet
+    @State private var showCatchUp = false
+
     private var filteredThreads: [CommunicationThreadItem] {
         viewModel.threads.filter { thread in
             (selectedScope == .all || thread.scope == selectedScope) &&
@@ -200,6 +203,9 @@ struct BereanCommunicationHubView: View {
                     }
                 }
                 .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showCatchUp) {
+                BereanCatchUpSheet()
             }
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -727,12 +733,19 @@ struct BereanCommunicationHubView: View {
     }
 
     private func digestAction(_ title: String, emphasized: Bool = true) -> some View {
-        Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(emphasized ? Color.primary : Color.secondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(emphasized ? Color.white.opacity(0.78) : Color.clear, in: Capsule())
+        Button {
+            if title == "Catch up" {
+                showCatchUp = true
+            }
+        } label: {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(emphasized ? Color.primary : Color.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(emphasized ? Color.white.opacity(0.78) : Color.clear, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func commandRow(icon: String, title: String, subtitle: String) -> some View {
@@ -778,6 +791,69 @@ struct BereanCommunicationHubView: View {
 
     private var animation: Animation {
         reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.32, dampingFraction: 0.82)
+    }
+}
+
+// MARK: - Catch Up Sheet
+
+private struct BereanCatchUpSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 32, weight: .semibold))
+                            .foregroundStyle(.blue)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Recent Activity")
+                            .font(.title3.weight(.bold))
+                            .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Image(systemName: "tray")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.secondary)
+                            Text("Your AI catch-up will summarize recent activity in spaces you're part of. Join or create a space to get started.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color(.secondarySystemBackground))
+                        )
+                        .padding(.horizontal, 20)
+                    }
+
+                    Text("AI-assisted summaries include only content you have access to. Paid, private, confidential, youth-protected, deleted, and AI-excluded content is never included.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+                        .accessibilityLabel("AI summaries are permission aware and exclude restricted content")
+                }
+                .padding(.vertical, 8)
+            }
+            .navigationTitle("AI Catch Up")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
     }
 }
 

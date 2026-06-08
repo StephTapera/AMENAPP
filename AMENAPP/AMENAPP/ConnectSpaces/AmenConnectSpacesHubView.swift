@@ -10,41 +10,18 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseAnalytics
+import FirebaseFirestore
 
-// MARK: - Preview stub data
+// MARK: - Live space model (My Spaces tab)
 
-private let previewSpaces: [AmenConnectSpacesSpace] = [
-    AmenConnectSpacesSpace(
-        id: "space-1",
-        name: "Small Group — Psalm 119",
-        type: .smallGroup,
-        memberIds: ["u1", "u2", "u3"],
-        careSensitivity: false,
-        createdBy: "u1",
-        createdAt: Date(),
-        updatedAt: Date()
-    ),
-    AmenConnectSpacesSpace(
-        id: "space-2",
-        name: "Sunday Worship Team",
-        type: .worship,
-        memberIds: ["u1", "u4", "u5"],
-        careSensitivity: false,
-        createdBy: "u1",
-        createdAt: Date(),
-        updatedAt: Date()
-    ),
-    AmenConnectSpacesSpace(
-        id: "space-3",
-        name: "Prayer Team",
-        type: .prayer,
-        memberIds: ["u1", "u6"],
-        careSensitivity: true,
-        createdBy: "u1",
-        createdAt: Date(),
-        updatedAt: Date()
-    )
-]
+private struct ConnectSpace: Identifiable {
+    let id: String
+    let name: String
+    let description: String
+    let spaceType: String
+    let memberCount: Int
+    let isPrivate: Bool
+}
 
 private let previewVideos: [AmenConnectSpacesConnectVideo] = [
     AmenConnectSpacesConnectVideo(
@@ -117,6 +94,11 @@ struct AmenConnectSpacesHubView: View {
     @State private var showYouMenu: Bool = false
     @State private var showPresencePicker: Bool = false
 
+    // My Spaces — live Firestore state
+    @State private var mySpaces: [ConnectSpace] = []
+    @State private var isLoadingSpaces: Bool = false
+    @State private var spacesLoadError: String? = nil
+
     private var currentUserId: String {
         Auth.auth().currentUser?.uid ?? ""
     }
@@ -175,7 +157,7 @@ struct AmenConnectSpacesHubView: View {
                     .accessibilityLabel("Create a new Space")
                 }
             }
-            .sheet(isPresented: $showCreateSpace) {
+            .sheet(isPresented: $showCreateSpace, onDismiss: { Task { await loadMySpaces() } }) {
                 AmenCreateSpaceEnhancedSheet(
                     userId: currentUserId,
                     onDismiss: { showCreateSpace = false },
@@ -190,6 +172,7 @@ struct AmenConnectSpacesHubView: View {
             }
             .onAppear {
                 Analytics.logEvent("spaces_hub_viewed", parameters: [:])
+                Task { await loadMySpaces() }
             }
         }
     }
@@ -225,7 +208,7 @@ struct AmenConnectSpacesHubView: View {
         }
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(.ultraThinMaterial)
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(Color(.separator).opacity(0.25), lineWidth: 0.5)
@@ -261,7 +244,7 @@ struct AmenConnectSpacesHubView: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: selectedTab)
     }
 
-    // MARK: - Tab 0: My Spaces (existing content preserved exactly)
+    // MARK: - Tab 0: My Spaces
 
     private var mySpacesTab: some View {
         ScrollView {
@@ -273,16 +256,60 @@ struct AmenConnectSpacesHubView: View {
                     foreground: Color(hex: "D9A441")
                 )
 
-                VStack(spacing: 12) {
-                    ForEach(previewSpaces) { space in
-                        NavigationLink(destination: AmenMinistryRoomShellView(space: space)) {
-                            SpaceCardRow(space: space)
+                if isLoadingSpaces {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .padding(.vertical, 32)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                } else if let error = spacesLoadError {
+                    Text(error)
+                        .font(.systemScaled(13))
+                        .foregroundStyle(Color.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 24)
+                } else if mySpaces.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "person.3")
+                            .font(.system(size: 40, weight: .light))
+                            .foregroundStyle(Color(hex: "D9A441").opacity(0.60))
+                        Text("No spaces yet")
+                            .font(.systemScaled(15, weight: .semibold))
+                            .foregroundStyle(Color.primary)
+                        Text("Create your first space to gather your community.")
+                            .font(.systemScaled(13))
+                            .foregroundStyle(Color.secondary)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            showCreateSpace = true
+                        } label: {
+                            Text("Create your first space")
+                                .font(.systemScaled(14, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background {
+                                    Capsule(style: .continuous)
+                                        .fill(Color(hex: "D9A441"))
+                                }
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("\(space.name), \(space.memberIds.count) members")
+                        .accessibilityLabel("Create your first space")
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 24)
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(mySpaces) { space in
+                            LiveSpaceCardRow(space: space)
+                        }
+                    }
+                    .padding(.horizontal, 16)
                 }
-                .padding(.horizontal, 16)
 
                 // MARK: Connect Teaching section
                 sectionHeader(
@@ -328,9 +355,122 @@ struct AmenConnectSpacesHubView: View {
             }
             .padding(.horizontal, 16)
     }
+
+    // MARK: - Firestore loader — My Spaces
+
+    @MainActor
+    private func loadMySpaces() async {
+        guard !currentUserId.isEmpty else { return }
+        isLoadingSpaces = true
+        spacesLoadError = nil
+        do {
+            let snapshot = try await Firestore.firestore()
+                .collection("spaces")
+                .whereField("creatorUid", isEqualTo: currentUserId)
+                .order(by: "createdAt", descending: true)
+                .getDocuments()
+            mySpaces = snapshot.documents.compactMap { doc in
+                let data = doc.data()
+                guard let name = data["name"] as? String else { return nil }
+                return ConnectSpace(
+                    id: doc.documentID,
+                    name: name,
+                    description: data["description"] as? String ?? "",
+                    spaceType: data["spaceType"] as? String ?? "",
+                    memberCount: data["memberCount"] as? Int ?? 0,
+                    isPrivate: data["isPrivate"] as? Bool ?? false
+                )
+            }
+        } catch {
+            spacesLoadError = "Couldn't load your spaces. Pull down to retry."
+        }
+        isLoadingSpaces = false
+    }
 }
 
-// MARK: - Space card row
+// MARK: - Live space card row (real Firestore data)
+
+private func liveSpaceTypeIcon(_ spaceType: String) -> String {
+    switch spaceType {
+    case "smallGroup":       return "person.3"
+    case "prayer", "bibleStudy": return "hands.sparkles"
+    case "worship":          return "music.note"
+    case "church":           return "building.columns"
+    case "campusMinistry":   return "graduationcap"
+    case "missions":         return "globe.americas"
+    case "podcast":          return "mic"
+    case "bookClub":         return "books.vertical"
+    case "mensMinistry", "mensMinistrry": return "figure.strengthtraining.traditional"
+    case "womensMinistry":   return "figure.mind.and.body"
+    default:                 return "person.3"
+    }
+}
+
+private struct LiveSpaceCardRow: View {
+    let space: ConnectSpace
+
+    var body: some View {
+        HStack(spacing: 14) {
+
+            // Space type icon in a glass circle
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Circle()
+                            .strokeBorder(Color(hex: "D9A441").opacity(0.30), lineWidth: 0.5)
+                    }
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: liveSpaceTypeIcon(space.spaceType))
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(Color(hex: "D9A441"))
+            }
+
+            // Name + member count
+            VStack(alignment: .leading, spacing: 4) {
+                Text(space.name)
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundStyle(Color.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "person.2")
+                        .font(.systemScaled(11, weight: .regular))
+                        .foregroundStyle(Color.secondary)
+                    Text("\(space.memberCount) member\(space.memberCount == 1 ? "" : "s")")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(Color.secondary)
+
+                    if space.isPrivate {
+                        Image(systemName: "lock.fill")
+                            .font(.systemScaled(10))
+                            .foregroundStyle(Color(hex: "D9A441").opacity(0.70))
+                    }
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(Color(.tertiaryLabel))
+        }
+        .padding(14)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color(.separator).opacity(0.30), lineWidth: 0.5)
+                }
+        }
+        .accessibilityLabel("\(space.name), \(space.memberCount) member\(space.memberCount == 1 ? "" : "s")\(space.isPrivate ? ", private" : "")")
+    }
+}
+
+// MARK: - Space card row (used by AmenMinistryRoomShellView navigation links)
 
 private struct SpaceCardRow: View {
     let space: AmenConnectSpacesSpace
@@ -387,12 +527,13 @@ private struct SpaceCardRow: View {
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(.ultraThinMaterial)
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .strokeBorder(Color(.separator).opacity(0.30), lineWidth: 0.5)
                 }
         }
+        .accessibilityLabel("\(space.name), \(space.memberIds.count) member\(space.memberIds.count == 1 ? "" : "s")\(space.careSensitivity ? ", private" : "")")
     }
 }
 
@@ -441,7 +582,7 @@ private struct VideoCardRow: View {
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(.ultraThinMaterial)
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .strokeBorder(Color(.separator).opacity(0.30), lineWidth: 0.5)

@@ -16,7 +16,9 @@ struct AMENWidgetExtensionBundle: WidgetBundle {
         // Dynamic Island / Live Activity widget for Reply Assist
         ReplyAssistWidget()
         // Home screen widgets
+        ReplyAssistHomeWidget()
         DailyVerseWidget()
+        SelahVerseWidget()
         PrayerCountWidget()
         QuickActionsWidget()
         AMENStatsWidget()

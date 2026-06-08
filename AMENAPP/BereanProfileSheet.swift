@@ -96,7 +96,7 @@ struct BereanProfileSheet: View {
             Text("Unlock unlimited Berean conversations and premium features.")
         }
         .sheet(isPresented: $showPaywall) {
-            AmenCovenantPaywallView()
+            AmenCovenantPaywallView(covenant: .amenPlusCovenant, context: .general)
         }
     }
 

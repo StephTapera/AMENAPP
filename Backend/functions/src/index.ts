@@ -612,3 +612,12 @@ export { onSabbathNotificationWrite } from "./sabbath/notificationBatcher";
 // Secrets required: LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_SERVER_URL
 // Built: 2026-06-07
 export { generateLiveKitToken, getLivekitToken } from "./generateLiveKitToken";
+
+// Space Events — RSVP callable for Spaces event attendance
+export * from "./spaces/spaceEvents";
+
+// Covenant Membership Verification — server-authoritative active-membership check
+export * from "./covenant/verifyCovenantMembership";
+
+// Prayer Recap — weekly prayer summary generation for the calling user
+export * from "./prayer/generatePrayerRecap";
