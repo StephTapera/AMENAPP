@@ -1729,3 +1729,9 @@ exports.onPrayingUserWritten      = liveActivity.onPrayingUserWritten;
 exports.onPrayerRequestUpdated    = liveActivity.onPrayerRequestUpdated;
 exports.onPrayerRequestCreated    = liveActivity.onPrayerRequestCreated;
 
+
+// ============================================================================
+// REPORT UNSAFE AI — user-facing pipeline for reporting unsafe AI responses (C-04)
+// ============================================================================
+const reportAI = require("./reportAIFunctions");
+exports.reportUnsafeAIResponse = reportAI.reportUnsafeAIResponse;
