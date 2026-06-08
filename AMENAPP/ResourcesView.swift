@@ -1428,7 +1428,6 @@ struct LiquidGlassConnectCard: View {
     
     @State private var isPressed = false
     @State private var isExpanded = false
-    @State private var showOnboarding = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1494,7 +1493,6 @@ struct LiquidGlassConnectCard: View {
                         }
                         
                         Button {
-                            showOnboarding = true
                         } label: {
                             HStack {
                                 Spacer()
@@ -1539,23 +1537,6 @@ struct LiquidGlassConnectCard: View {
                         }
                     }
             )
-            .sheet(isPresented: $showOnboarding) {
-                if title == "Christian Dating" {
-                    ResourceComingSoonPlaceholder(
-                        title: "Christian Dating",
-                        icon: "heart.text.square.fill",
-                        iconColor: .pink,
-                        description: "Meet fellow believers looking for meaningful relationships built on shared faith and values. Our Christian dating feature will help you find your match in Christ."
-                    )
-                } else if title == "Find Friends" {
-                    ResourceComingSoonPlaceholder(
-                        title: "Find Friends",
-                        icon: "person.2.fill",
-                        iconColor: .blue,
-                        description: "Connect with fellow believers in your area. Build authentic friendships rooted in faith through shared interests, Bible studies, and community activities."
-                    )
-                }
-            }
     }
     
     // Helper views to reduce complexity
@@ -1881,11 +1862,11 @@ struct PlaceholderResourceView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Coming Soon")
+                    Text("More Resources Coming")
                         .font(AMENFont.bold(20))
                         .foregroundStyle(.primary)
-                    
-                    Text("This feature is currently under development. Check back soon for updates!")
+
+                    Text("Additional study tools, commentaries, and devotionals are being reviewed for biblical accuracy before release.")
                         .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                         .lineSpacing(4)
@@ -2003,123 +1984,6 @@ let allResources: [ResourceItem] = [
     )
 ]
 
-// MARK: - Compact Connect Banner (Smaller, Streamlined)
-
-struct CompactConnectBanner: View {
-    let icon: String
-    let iconColor: Color
-    let title: String
-    let subtitle: String
-    let badge: String?
-    let gradientColors: [Color]
-    
-    @State private var shimmerPhase: CGFloat = 0
-    
-    var body: some View {
-        HStack(spacing: 14) {
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 50, height: 50)
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [iconColor.opacity(0.6), iconColor.opacity(0.2)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 2
-                            )
-                    )
-                
-                Image(systemName: icon)
-                    .font(.systemScaled(22, weight: .semibold))
-                    .foregroundStyle(iconColor)
-            }
-            
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .font(AMENFont.bold(17))
-                        .foregroundStyle(.white)
-                    
-                    if let badge = badge {
-                        Text(badge)
-                            .font(AMENFont.bold(9))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white.opacity(0.3))
-                            )
-                    }
-                }
-                
-                Text(subtitle)
-                    .font(AMENFont.semiBold(13))
-                    .foregroundStyle(.white.opacity(0.85))
-            }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .font(.systemScaled(13, weight: .bold))
-                .foregroundStyle(.white.opacity(0.7))
-        }
-        .padding(16)
-        .background(
-            ZStack {
-                // Base gradient
-                LinearGradient(
-                    colors: gradientColors,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                
-                // Glass overlay
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .opacity(0.25)
-                
-                // Shimmer effect
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0),
-                        Color.white.opacity(0.15),
-                        Color.white.opacity(0)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .offset(x: shimmerPhase)
-                .blur(radius: 20)
-            }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(
-                    LinearGradient(
-                        colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: gradientColors[0].opacity(0.25), radius: 12, x: 0, y: 6)
-        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
-        .padding(.horizontal)
-        .onAppear {
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                shimmerPhase = 400
-            }
-        }
-    }
-}
 
 // MARK: - Liquid Glass Segmented Control with Morph + Slide
 
@@ -2203,65 +2067,6 @@ struct ResourcesSegmentButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Christian Dating Banner Button (Coming Soon)
-
-struct ChristianDatingBannerButton: View {
-    @State private var showComingSoon = false
-    
-    var body: some View {
-        Button {
-            showComingSoon = true
-        } label: {
-            CompactConnectBanner(
-                icon: "heart.text.square.fill",
-                iconColor: .pink,
-                title: "Christian Dating",
-                subtitle: "Find your match in faith",
-                badge: "Coming Soon",
-                gradientColors: [Color.pink, Color.red]
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showComingSoon) {
-            ResourceComingSoonPlaceholder(
-                title: "Christian Dating",
-                icon: "heart.text.square.fill",
-                iconColor: .pink,
-                description: "Meet fellow believers looking for meaningful relationships built on shared faith and values. Our Christian dating feature will help you find your match in Christ."
-            )
-        }
-    }
-}
-
-// MARK: - Find Friends Banner Button (Coming Soon)
-
-struct FindFriendsBannerButton: View {
-    @State private var showComingSoon = false
-    
-    var body: some View {
-        Button {
-            showComingSoon = true
-        } label: {
-            CompactConnectBanner(
-                icon: "person.2.fill",
-                iconColor: .blue,
-                title: "Find Friends",
-                subtitle: "Build meaningful connections",
-                badge: "Coming Soon",
-                gradientColors: [Color.blue, Color.cyan]
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showComingSoon) {
-            ResourceComingSoonPlaceholder(
-                title: "Find Friends",
-                icon: "person.2.fill",
-                iconColor: .blue,
-                description: "Connect with fellow believers in your area. Build authentic friendships rooted in faith through shared interests, Bible studies, and community activities."
-            )
-        }
-    }
-}
 
 // MARK: - Featured Community Banner
 struct FeaturedCommunityBanner: View {
