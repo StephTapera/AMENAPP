@@ -669,9 +669,9 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - Live Activities — Prayer (Phases 2 & 3)
     /// Gates the push-driven Prayer Request Live Activity. Default false until APNs secrets are set and CFs deployed.
-    @Published private(set) var liveActivityPrayerRequestEnabled: Bool = false
-    /// Gates push-to-start for Prayer Request (iOS 17.2+). Default false until audience rule confirmed.
-    @Published private(set) var liveActivityPushToStartEnabled: Bool = false
+    @Published private(set) var liveActivityPrayerRequestEnabled: Bool = true
+    /// Gates push-to-start for Prayer Request (iOS 17.2+).
+    @Published private(set) var liveActivityPushToStartEnabled: Bool = true
 
     private init() {
         applyUITestOverrides()
