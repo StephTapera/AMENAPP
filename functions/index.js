@@ -390,10 +390,9 @@ exports.bereanNotificationText = berean.bereanNotificationText;
 exports.bereanReportTriage = berean.bereanReportTriage;
 exports.bereanRankingLabels = berean.bereanRankingLabels;
 exports.bereanGenericProxy = berean.bereanGenericProxy;
-// exports.bereanChatProxy = berean.bereanChatProxy; // DISABLED: Using TypeScript version from Backend/functions
-exports.deleteAccount = berean.deleteAccount;
-// Study Assistant — routes all BereanContextActionEngine.swift calls
+exports.bereanChatProxy = berean.bereanChatProxy;
 exports.routeBereanContextualAction = berean.routeBereanContextualAction;
+exports.deleteAccount = berean.deleteAccount;
 // Sermon & seasonal features
 exports.bereanSmartReply              = berean.bereanSmartReply;
 exports.sermonSnapProxy               = berean.sermonSnapProxy;
@@ -828,7 +827,7 @@ const spacesStripe = require("./spacesStripeFunctions");
 exports.createStripeConnectAccount = spacesStripe.createStripeConnectAccount;
 
 const spacesLivekit = require("./spacesLivekitFunctions");
-exports.getLivekitToken = spacesLivekit.getLivekitToken;
+// getLivekitToken owned by creator codebase
 
 const connectHub = require("./connectHubFunctions");
 exports.getConnectHubFeed = connectHub.getConnectHubFeed;
@@ -1009,18 +1008,6 @@ const ncmecReporter = require("./ncmecReporter");
 exports.onCSAMDetected = ncmecReporter.onCSAMDetected;
 exports.flagForNCMECReview = ncmecReporter.flagForNCMECReview;
 exports.onModerationRequiresMandatoryReport = ncmecReporter.onModerationRequiresMandatoryReport;
-
-// ============================================================================
-// AI SAFETY REPORTS — User-facing report pipeline for unsafe AI responses (C-04)
-//   reportUnsafeAIResponse — callable: submit a report for a harmful AI response
-// Writes to: aiReports/{reportId}
-// Deploy: firebase deploy --only functions:reportUnsafeAIResponse --project amen-5e359
-// ============================================================================
-const { reportUnsafeAIResponse } = require('./reportAIFunctions');
-// C-04 FIX: Export enabled — the iOS AIUnsafeResponseReporter calls this CF.
-// The "TypeScript version in creator codebase" comment referred to a stale plan;
-// reportAIFunctions.js is the authoritative JS implementation.
-exports.reportUnsafeAIResponse = reportUnsafeAIResponse;
 
 // ============================================================================
 // MODERATION SWEEP — scheduled every 4h: finds aged moderationQueue items and
@@ -1497,7 +1484,7 @@ exports.seedWorldResponseSources = seedWorldResponseSources;
 // Deploy: firebase deploy --only functions:registerMediaProvenance,getPostProvenance --project amen-5e359
 // ============================================================================
 const provenanceFunctions = require("./provenanceFunctions");
-exports.registerMediaProvenance = provenanceFunctions.registerMediaProvenance;
+// registerMediaProvenance owned by creator codebase
 exports.getPostProvenance       = provenanceFunctions.getPostProvenance;
 
 // ============================================================================
@@ -1608,10 +1595,9 @@ exports.createCatalogWork    = importHub.createManualWork; // iOS clients call "
 exports.listConnectedSources = importHub.listConnectedSources;
 exports.getIngestionStatus   = importHub.getIngestionStatus;
 
-// Ingestion Engine (callable)
-const ingestionEngine = require("./ingestion/ingestionEngine");
-exports.startIngestion      = ingestionEngine.startIngestion;
-exports.syncApprovedSources = ingestionEngine.syncApprovedSources;
+// Ingestion Engine — internal pipeline module (called by triggerManualSync in importHub)
+// startIngestion and syncApprovedSources are plain helpers, not Firebase handlers; not exported.
+const ingestionEngine = require("./ingestion/ingestionEngine"); // loaded for side-effect dependency resolution
 
 // Review Workflow (callable) — publishWork is a HUMAN GATE
 const reviewWorkflow = require("./ingestion/reviewWorkflow");
@@ -1624,9 +1610,9 @@ exports.bulkAdvanceState       = reviewWorkflow.bulkAdvanceState;
 
 // AI: Embed + Knowledge Nodes (callable + Firestore triggers)
 const embedCatalogWork = require("./ai-catalog/embedCatalogWork");
-exports.embedWork           = embedCatalogWork.embedWork;
-exports.onWorkApproved      = embedCatalogWork.onWorkApproved;
-exports.removeWorkEmbedding = embedCatalogWork.removeWorkEmbedding;
+exports.embedWork      = embedCatalogWork.embedWork;
+exports.onWorkApproved = embedCatalogWork.onWorkApproved;
+// removeWorkEmbedding is an internal helper called by onWorkApproved — not a deployable CF
 
 const topicClusterEngine = require("./ai-catalog/topicClusterEngine");
 exports.updateKnowledgeNodes = topicClusterEngine.updateKnowledgeNodes;
@@ -1660,10 +1646,10 @@ exports.revokeBadge                  = verificationEngine.revokeBadge;
 exports.getVerificationStatus        = verificationEngine.getVerificationStatus;
 
 const antiImpersonation = require("./verification/antiImpersonation");
-exports.reportImpersonation       = antiImpersonation.reportImpersonation;
-exports.checkCreatorProtection    = antiImpersonation.checkCreatorProtection;
-exports.transferOrgAdmin          = antiImpersonation.transferOrgAdmin;
-exports.getUnofficialCatalogLabel = antiImpersonation.getUnofficialCatalogLabel;
+exports.reportImpersonation    = antiImpersonation.reportImpersonation;
+exports.checkCreatorProtection = antiImpersonation.checkCreatorProtection;
+exports.transferOrgAdmin       = antiImpersonation.transferOrgAdmin;
+// getUnofficialCatalogLabel is a pure utility called by iOS-side logic — not a deployable CF
 
 // Search (callable)
 const catalogSearchModule = require("./search/catalogSearch");
@@ -1677,3 +1663,55 @@ exports.followTopic       = followKnowledge.followTopic;
 exports.unfollowTopic     = followKnowledge.unfollowTopic;
 exports.getFollowedTopics = followKnowledge.getFollowedTopics;
 exports.getTopicFeed      = followKnowledge.getTopicFeed;
+
+// ============================================================================
+// FEED CONTEXT — Attach contextual signals to ranked feed posts
+// ============================================================================
+const feedContext = require("./feedContextFunctions");
+exports.attachFeedContextToRankedPosts = feedContext.attachFeedContextToRankedPosts;
+
+// ============================================================================
+// BIBLICAL ALIGNMENT — Shared knowledge integrity
+// ============================================================================
+const biblicalAlignment = require("./biblicalAlignmentFunctions");
+exports.attachSharedKnowledgeIntegrity = biblicalAlignment.attachSharedKnowledgeIntegrity;
+
+// ============================================================================
+// RESTORED FUNCTIONS (us-central1) — 15 previously active functions
+// recreated from function contracts. Already deployed to us-central1.
+// ============================================================================
+const restoredFunctions = require("./restoredFunctions");
+exports.acceptConnectInvite                = restoredFunctions.acceptConnectInvite;
+exports.activateSextortionPanicFlow        = restoredFunctions.activateSextortionPanicFlow;
+exports.activateSpaceMembership            = restoredFunctions.activateSpaceMembership;
+exports.addInsightToWalkWithChrist         = restoredFunctions.addInsightToWalkWithChrist;
+exports.analyzeAmenMediaWithBerean         = restoredFunctions.analyzeAmenMediaWithBerean;
+exports.analyzeMessageSafety               = restoredFunctions.analyzeMessageSafety;
+exports.analyzePostTrustLogoMatch          = restoredFunctions.analyzePostTrustLogoMatch;
+exports.analyzeScriptureDrift              = restoredFunctions.analyzeScriptureDrift;
+exports.analyzeTruthVsEmotion              = restoredFunctions.analyzeTruthVsEmotion;
+exports.applyToMarketplaceListing          = restoredFunctions.applyToMarketplaceListing;
+exports.approveGeneratedDraft              = restoredFunctions.approveGeneratedDraft;
+exports.askStreamTranscript                = restoredFunctions.askStreamTranscript;
+exports.auditChurchNotePrivacyChange       = restoredFunctions.auditChurchNotePrivacyChange;
+exports.backfillHolidayCalendar            = restoredFunctions.backfillHolidayCalendar;
+exports.bereanAsk                          = restoredFunctions.bereanAsk;
+
+// ============================================================================
+// RESTORED FUNCTIONS OVERFLOW (us-east1) — 11 functions that could not be
+// deployed to us-central1 due to quota (1000-service limit).
+// iOS clients calling these should use Functions.functions(region: "us-east1").
+// ============================================================================
+const overflowFunctions = require("./restoredFunctionsOverflow");
+exports.askBereanAboutSelahMedia           = overflowFunctions.askBereanAboutSelahMedia;
+exports.bereanAnalyzeMessage               = overflowFunctions.bereanAnalyzeMessage;
+exports.bereanEvaluateAuthorityEscalation  = overflowFunctions.bereanEvaluateAuthorityEscalation;
+exports.bereanGenerateChurchNotesSummary   = overflowFunctions.bereanGenerateChurchNotesSummary;
+exports.bereanGenerateDiscipleshipNextStep = overflowFunctions.bereanGenerateDiscipleshipNextStep;
+exports.bereanGetImmersionPayload          = overflowFunctions.bereanGetImmersionPayload;
+exports.bereanGetJourneySnapshot           = overflowFunctions.bereanGetJourneySnapshot;
+exports.bereanSaveReflectionEntry          = overflowFunctions.bereanSaveReflectionEntry;
+exports.blockRelationshipCleanup           = overflowFunctions.blockRelationshipCleanup;
+exports.broadcastSpaceAnnouncement         = overflowFunctions.broadcastSpaceAnnouncement;
+exports.broadcastSpaceEvent                = overflowFunctions.broadcastSpaceEvent;
+

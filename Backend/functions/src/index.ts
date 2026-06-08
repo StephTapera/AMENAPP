@@ -173,6 +173,15 @@ export * from "./notifications/counts";
 export * from "./notifications/maintenance";
 export * from "./notifications/invalidation";
 
+// sendNotification callable — rate-limited (100/min per sender), auth-gated,
+// block-checked direct push for 1:1 sends. Bulk fan-out uses the Firestore
+// trigger pipeline in onSocialEvent.ts; this callable is for explicit
+// client-initiated pushes (e.g. DM nudge, ministry alert to a single user).
+// Rate-limit docs land in _rateLimits/{notif_{uid}_{minuteBucket}} with a
+// `ttl` field. Configure a TTL policy on that collection group in the
+// Firebase console (field: ttl) to auto-delete stale counter docs.
+export { sendNotification } from "./notifications/sendNotificationCallable";
+
 // 5.4 FIX — Prayer answered fan-out: processes ≤100 supporter batches per
 // invocation, eliminating the timeout risk of sequential single-function fan-out.
 export * from "./notifications/prayerAnsweredBatch";
@@ -270,7 +279,9 @@ export * from "./mediaGeneration/mediaMetadataPipeline";
 // Callables: checkBiblicalAlignment, suggestBiblicalRewrite, saveAICorrection,
 //   getDiscernmentPrompt, attachSharedKnowledgeIntegrity, voteKnowledgeIntegrity,
 //   getWeeklyAlignmentSummary, updateAlignmentProfile.
-export * from "./biblicalAlignmentFunctions";
+// checkBiblicalAlignment, suggestBiblicalRewrite, saveAICorrection, getDiscernmentPrompt
+// are owned by the default codebase (functions/index.js). Export only creator-exclusive functions.
+export { attachSharedKnowledgeIntegrity, voteKnowledgeIntegrity, getWeeklyAlignmentSummary, updateAlignmentProfile } from "./biblicalAlignmentFunctions";
 
 // Holiday Calendar Generator — pre-generates annual observances in Firestore
 // holiday_calendar/{year}/days/{yyyy-MM-dd}/observances/{holidayId}
@@ -516,9 +527,9 @@ export * from "./churchNotes/churchNotesExtendedCallables";
 export * from "./churchNotes/churchNotesPrivacyAudit";
 
 // Social OS — Media Provenance and Authenticity
-// createMediaSession, completeMediaSession, saveToMediaQueue, updateMediaProgress,
-// reportMedia, and getMediaTrustContext are owned by the default codebase (healthyImmersiveMedia.js).
-export { registerMediaProvenance } from "./media/registerMediaProvenance";
+// registerMediaProvenance, createMediaSession, completeMediaSession, saveToMediaQueue,
+// updateMediaProgress, reportMedia, and getMediaTrustContext are all owned by the
+// default codebase (functions/index.js). No re-exports here.
 
 // In-App Giving — server-side Stripe charge (Apple Pay + card tokenization)
 export * from "./giving/processGivingCharge";
@@ -534,6 +545,9 @@ export * from "./spaces/monetizationExt";
 export * from "./spaces/discoveryAndLegal";
 export * from "./spaces/mentorship";
 export * from "./spaces/discussionAI";
+// Space lifecycle — deleteSpace callable (host-only hard delete + subcollection cascade)
+// Cleans up spaces/{spaceId}/members, events, announcements on space deletion.
+export * from "./spaces/spaceLifecycle";
 
 // Living Intelligence — GLOBAL Tier (Agent 5: World Events as Christian Response)
 // Callables: getGlobalIntelligenceCards, submitWorldEvent
@@ -581,3 +595,20 @@ export {
   classifyPostNeed,
   matchNeedsToVolunteers,
 } from "./intelligence/needDetector";
+
+// Sabbath Mode — mandatory weekly rest; formation over engagement
+// Callables: evaluateSabbathMode, setSabbathPreference, syncFamilySabbathPresence
+// Trigger:   onSabbathNotificationWrite (holds non-essential pushes during active Sabbath)
+// Collections: users/{uid}/sabbath/config, sabbathSessions/{date}, sabbathReflections/{id}
+// Minor gate enforced: any minor account path returns MINOR_GATE_REQUIRED
+// Built: 2026-06-07
+export { evaluateSabbathMode } from "./sabbath/evaluateSabbathMode";
+export { setSabbathPreference } from "./sabbath/setSabbathPreference";
+export { syncFamilySabbathPresence } from "./sabbath/familySabbathSync";
+export { onSabbathNotificationWrite } from "./sabbath/notificationBatcher";
+
+// LiveKit Video — short-lived JWT token generator for live A/V rooms.
+// Callables: generateLiveKitToken (primary), getLivekitToken (alias for iOS client)
+// Secrets required: LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_SERVER_URL
+// Built: 2026-06-07
+export { generateLiveKitToken, getLivekitToken } from "./generateLiveKitToken";
