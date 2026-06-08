@@ -51,9 +51,9 @@ struct AmenConnectProfileSetupView: View {
                                         .clipShape(Circle())
                                         .overlay(
                                             Circle()
-                                                .stroke(
+                                                .strokeBorder(
                                                     LinearGradient(
-                                                        colors: [.pink, .purple],
+                                                        colors: [Color.white.opacity(0.85), Color.white.opacity(0.30)],
                                                         startPoint: .topLeading,
                                                         endPoint: .bottomTrailing
                                                     ),

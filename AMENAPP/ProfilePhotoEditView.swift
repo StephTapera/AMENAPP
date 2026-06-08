@@ -14,6 +14,160 @@ import Photos
 import AVFoundation
 import Vision
 
+// MARK: - Supporting Types
+
+enum FaceDetectionState: Equatable {
+    case idle, running, faceFound, noFace
+}
+
+enum PhotoQualityWarning: Hashable {
+    case lowResolution, largeFile
+}
+
+// MARK: - Zoomable Circle View
+
+struct ZoomableCircleView: View {
+    let image: UIImage
+    let diameter: CGFloat
+    @Binding var zoomScale: CGFloat
+    @Binding var panOffset: CGSize
+
+    var body: some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: diameter * zoomScale, height: diameter * zoomScale)
+            .offset(panOffset)
+            .frame(width: diameter, height: diameter)
+            .clipShape(Circle())
+            .contentShape(Circle())
+            .gesture(
+                SimultaneousGesture(
+                    MagnificationGesture()
+                        .onChanged { value in
+                            zoomScale = max(1.0, min(3.0, value))
+                        },
+                    DragGesture()
+                        .onChanged { value in
+                            let maxOffset = max(0, (diameter * zoomScale - diameter) / 2)
+                            panOffset = CGSize(
+                                width:  max(-maxOffset, min(maxOffset, value.translation.width)),
+                                height: max(-maxOffset, min(maxOffset, value.translation.height))
+                            )
+                        }
+                )
+            )
+    }
+}
+
+// MARK: - Recent Photo Thumbnail
+
+struct RecentPhotoThumbnail: View {
+    let asset: PHAsset
+    let isSelected: Bool
+    let onSelect: (UIImage) -> Void
+
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        Button {
+            guard let thumb = thumbnail else { return }
+            onSelect(thumb)
+        } label: {
+            Group {
+                if let thumb = thumbnail {
+                    Image(uiImage: thumb)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Circle()
+                        .fill(Color(.systemGray5))
+                        .overlay(ProgressView().scaleEffect(0.55))
+                }
+            }
+            .frame(width: 60, height: 60)
+            .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .strokeBorder(
+                        isSelected ? Color.accentColor : Color.white.opacity(0.35),
+                        lineWidth: isSelected ? 3 : 1.5
+                    )
+            )
+            .scaleEffect(isSelected ? 1.1 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.65), value: isSelected)
+        }
+        .buttonStyle(.plain)
+        .task {
+            thumbnail = await fetchThumbnail()
+        }
+    }
+
+    private func fetchThumbnail() async -> UIImage? {
+        await withCheckedContinuation { cont in
+            let opts = PHImageRequestOptions()
+            // Use .fastFormat so the handler is called exactly once (no multi-call risk)
+            opts.deliveryMode = .fastFormat
+            opts.resizeMode = .fast
+            opts.isNetworkAccessAllowed = true
+            opts.isSynchronous = false
+            var resumed = false
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: CGSize(width: 120, height: 120),
+                contentMode: .aspectFill,
+                options: opts
+            ) { img, info in
+                // Guard against the double-call that .opportunistic can produce
+                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+                guard !isDegraded, !resumed else { return }
+                resumed = true
+                cont.resume(returning: img)
+            }
+        }
+    }
+}
+
+// MARK: - Glass Badge
+
+struct GlassBadge: View {
+    let icon: String
+    let text: String
+    let iconColor: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(iconColor)
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(.regularMaterial)
+                .overlay(
+                    Capsule()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.75
+                        )
+                )
+        )
+        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+    }
+}
+
+// MARK: - Main View
+
 struct ProfilePhotoEditView: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var socialService = SocialService.shared

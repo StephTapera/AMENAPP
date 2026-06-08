@@ -1642,20 +1642,27 @@ struct ProfileView: View {
     // Extract complex avatar view to help compiler
     @ViewBuilder
     private var profileAvatarView: some View {
-        if let profileImageURL = profileData.profileImageURL, 
+        if let profileImageURL = profileData.profileImageURL,
            !profileImageURL.isEmpty,
            let url = URL(string: profileImageURL) {
             // P0 FIX: Use CachedAsyncImage for better performance
-            CachedAsyncImage(url: url) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 80, height: 80)
-                    .clipShape(Circle())
-            } placeholder: {
-                avatarPlaceholder(showProgress: true)
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
+                } placeholder: {
+                    avatarPlaceholder(showProgress: true)
+                }
+                .frame(width: 80, height: 80)
+
+                // Camera badge — visible on own profile so user knows the avatar is tappable
+                if isViewingOwnProfile {
+                    cameraBadge
+                }
             }
-            .frame(width: 80, height: 80)
         } else {
             avatarInitials
         }
@@ -1680,17 +1687,24 @@ struct ProfileView: View {
                     }
                 )
 
-            // Camera badge — signals the avatar is tappable to add a photo
-            Circle()
-                .fill(Color.white)
-                .frame(width: 22, height: 22)
-                .overlay(
-                    Image(systemName: "camera.fill")
-                        .font(.systemScaled(10, weight: .semibold))
-                        .foregroundStyle(.primary)
-                )
-                .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
+            // Camera badge — signals the avatar is tappable to add a photo (own profile only)
+            if isViewingOwnProfile {
+                cameraBadge
+            }
         }
+    }
+
+    private var cameraBadge: some View {
+        Circle()
+            .fill(.ultraThinMaterial)
+            .frame(width: 22, height: 22)
+            .overlay(
+                Image(systemName: "camera.fill")
+                    .font(.systemScaled(10, weight: .semibold))
+                    .foregroundStyle(.primary)
+            )
+            .overlay(Circle().stroke(.primary.opacity(0.10), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
     }
     
     private func avatarPlaceholder(showProgress: Bool) -> some View {
