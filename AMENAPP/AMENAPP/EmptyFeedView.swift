@@ -1,17 +1,18 @@
 import SwiftUI
+
 // MARK: - Empty Feed State
 
 /// Shown when the OpenTable feed has no posts.
-/// If the user has zero follows, surfaces a "Discover People" CTA to guide them.
+/// Redesigned with iOS 26 Liquid Glass — avatar cluster merges via GlassEffectContainer,
+/// CTAs use full-width interactive glass capsules.
 struct EmptyFeedView: View {
     @ObservedObject private var followService = FollowService.shared
 
-    // Which variant to show
     private var isNewUser: Bool { followService.following.isEmpty }
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer().frame(height: 48)
+            Spacer().frame(height: 60)
 
             if isNewUser {
                 newUserState
@@ -19,118 +20,160 @@ struct EmptyFeedView: View {
                 followingButEmptyState
             }
 
-            Spacer().frame(height: 48)
+            Spacer().frame(height: 60)
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 28)
+        .padding(.horizontal, 32)
     }
 
-    // ── New user: hasn't followed anyone yet ──────────────────────────────
+    // MARK: - New user: hasn't followed anyone yet
+
     private var newUserState: some View {
         VStack(spacing: 0) {
-            // Icon cluster
-            ZStack {
-                Circle()
-                    .fill(Color(.secondarySystemBackground))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "person.2.fill")
-                    .font(.systemScaled(32, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
 
-            Spacer().frame(height: 20)
+            avatarCluster
+                .padding(.bottom, 32)
 
             Text("Follow people to see their posts")
-                .font(AMENFont.bold(20))
+                .font(AMENFont.bold(22))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
 
-            Spacer().frame(height: 8)
+            Spacer().frame(height: 10)
 
             Text("When you follow fellow believers, their prayers, testimonies, and thoughts will appear here.")
                 .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .lineSpacing(3)
+                .lineSpacing(4)
 
-            Spacer().frame(height: 28)
+            Spacer().frame(height: 36)
 
-            // Primary CTA — find people
+            // Primary CTA — full-width interactive glass capsule
             Button {
                 NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
             } label: {
                 Text("Find People to Follow")
-                    .font(AMENFont.semiBold(15))
-                    .foregroundStyle(.white)
+                    .font(AMENFont.semiBold(16))
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(Color.primary, in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.vertical, 16)
+                    .glassEffect(.regular.interactive(), in: Capsule())
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.plain)
         }
     }
 
-    // ── Following people but their feed is empty ──────────────────────────
+    // MARK: - Following people but their feed is empty
+
     private var followingButEmptyState: some View {
         VStack(spacing: 0) {
-            // Icon cluster showing "all caught up / nothing new"
-            ZStack {
-                Circle()
-                    .fill(Color(.secondarySystemBackground))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "sparkles")
-                    .font(.systemScaled(32, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
 
-            Spacer().frame(height: 20)
+            // Single large glass icon orb
+            Image(systemName: "sparkles")
+                .font(.system(size: 30, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 80, height: 80)
+                .glassEffect(.regular, in: Circle())
+                .padding(.bottom, 32)
 
             Text("Nothing here yet")
-                .font(AMENFont.bold(20))
+                .font(AMENFont.bold(22))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
 
-            Spacer().frame(height: 8)
+            Spacer().frame(height: 10)
 
             Text("The people you follow haven't posted recently. Be the first to share something — a prayer, a testimony, or what's on your heart.")
                 .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .lineSpacing(3)
+                .lineSpacing(4)
 
-            Spacer().frame(height: 28)
+            Spacer().frame(height: 36)
 
-            // Primary CTA — create a post
+            // Primary CTA
             Button {
                 NotificationCenter.default.post(name: .openCreatePost, object: nil)
             } label: {
                 Text("Share Something")
-                    .font(AMENFont.semiBold(15))
-                    .foregroundStyle(.white)
+                    .font(AMENFont.semiBold(16))
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(Color.primary, in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.vertical, 16)
+                    .glassEffect(.regular.interactive(), in: Capsule())
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.plain)
 
-            Spacer().frame(height: 12)
+            Spacer().frame(height: 14)
 
-            // Secondary — find more people
+            // Secondary CTA — smaller glass pill
             Button {
                 NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
             } label: {
                 Text("Find more people to follow")
                     .font(AMENFont.semiBold(14))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 11)
+                    .glassEffect(.regular.interactive(), in: Capsule())
             }
             .buttonStyle(.plain)
         }
     }
+
+    // MARK: - Liquid Glass Avatar Cluster
+
+    /// Three overlapping glass circles that merge via GlassEffectContainer.
+    /// The centre orb is larger and raised, flanked by two smaller orbs — their
+    /// glass surfaces blend together at the overlap producing a single liquid shape.
+    private var avatarCluster: some View {
+        GlassEffectContainer(spacing: 12) {
+            ZStack(alignment: .center) {
+
+                // Left orb
+                Image(systemName: "person.fill")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Color(.tertiaryLabel))
+                    .frame(width: 50, height: 50)
+                    .glassEffect(.regular, in: Circle())
+                    .offset(x: -36, y: 8)
+
+                // Right orb
+                Image(systemName: "person.fill")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Color(.tertiaryLabel))
+                    .frame(width: 50, height: 50)
+                    .glassEffect(.regular, in: Circle())
+                    .offset(x: 36, y: 8)
+
+                // Centre orb — larger, elevated
+                Image(systemName: "person.fill")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .frame(width: 64, height: 64)
+                    .glassEffect(.regular, in: Circle())
+                    .zIndex(1)
+            }
+            .frame(width: 140, height: 80)
+        }
+    }
 }
+
+// MARK: - Notification names
 
 extension Notification.Name {
     static let switchToDiscoverTab = Notification.Name("switchToDiscoverTab")
-    static let feedDidRefresh = Notification.Name("feedDidRefresh")
+    static let feedDidRefresh      = Notification.Name("feedDidRefresh")
+}
+
+// MARK: - Previews
+
+#Preview("New user — Liquid Glass") {
+    ZStack {
+        Color(.systemGroupedBackground).ignoresSafeArea()
+        EmptyFeedView()
+    }
 }
 
 #Preview("Posting Bar - Posting") {
